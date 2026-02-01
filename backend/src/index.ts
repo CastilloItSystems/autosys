@@ -4,7 +4,7 @@ import apiRoutes from './routes/api.routes.js'
 import prisma from './services/prisma.service.js'
 
 const app = express()
-const port = process.env.PORT || 3000
+const port = process.env.PORT || 4000
 
 // Middlewares
 app.use(express.json())
