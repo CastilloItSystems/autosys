@@ -1,12 +1,26 @@
 import 'dotenv/config'
 import express, { Request, Response } from 'express'
 import cors from 'cors'
+import { createServer } from 'http'
+import { Server as SocketIOServer } from 'socket.io'
 import apiRoutes from './routes/api.routes.js'
 import prisma from './services/prisma.service.js'
 import { corsConfig } from './config/cors.config.js'
 
 const app = express()
 const port = process.env.PORT || 4000
+
+// Create HTTP server
+const server = createServer(app)
+
+// Initialize Socket.IO
+const io = new SocketIOServer(server, {
+  cors: {
+    origin: corsConfig.origin,
+    methods: ['GET', 'POST'],
+    credentials: true,
+  },
+})
 
 // Apply CORS middleware
 app.use(cors(corsConfig))
@@ -49,8 +63,31 @@ const startServer = async () => {
     await prisma.$connect()
     console.log('🚀 Conexión con la base de datos exitosa.')
 
-    app.listen(port, () => {
+    // Socket.IO connection handling
+    io.on('connection', (socket) => {
+      console.log('🔌 Usuario conectado:', socket.id)
+
+      // Handle disconnection
+      socket.on('disconnect', () => {
+        console.log('🔌 Usuario desconectado:', socket.id)
+      })
+
+      // Join room
+      socket.on('join-room', (roomId: string) => {
+        socket.join(roomId)
+        console.log(`📍 Usuario ${socket.id} se unió a la sala: ${roomId}`)
+      })
+
+      // Leave room
+      socket.on('leave-room', (roomId: string) => {
+        socket.leave(roomId)
+        console.log(`📍 Usuario ${socket.id} salió de la sala: ${roomId}`)
+      })
+    })
+
+    server.listen(port, () => {
       console.log(`✅ Servidor corriendo en el puerto ${port}`)
+      console.log(`🔌 WebSockets habilitados en el puerto ${port}`)
     })
   } catch (error) {
     console.error('❌ No se pudo conectar a la base de datos.')
@@ -58,5 +95,8 @@ const startServer = async () => {
     process.exit(1)
   }
 }
+
+// Export io for use in other modules
+export { io }
 
 startServer()

@@ -18,8 +18,8 @@ interface UseSocketReturn {
 }
 
 export const useSocket = (): UseSocketReturn => {
-  //const serverPath = "http://localhost:8080";
-  const serverPath = "https://api-maroil-refinery-2500582bacd8.herokuapp.com";
+  const serverPath = "http://localhost:4000";
+  //const serverPath = "https://api-maroil-refinery-2500582bacd8.herokuapp.com";
   const [online, setOnline] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [recepcionModificado, setRecepcionModificado] =
