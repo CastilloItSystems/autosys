@@ -2,28 +2,28 @@ import apiClient from "./apiClient";
 
 export const getUser = async (id: string) => {
   console.log(`Fetching user with ID: ${id}`);
-  const response = await apiClient.get(`/user/${id}`);
+  const response = await apiClient.get(`/users/${id}`);
   console.log(`User data fetched:`, response.data);
   return response.data;
 };
 
 export const getUsers = async () => {
-  const response = await apiClient.get("/user");
+  const response = await apiClient.get("/users");
   return response.data;
 };
 
 export const createUser = async (data: any) => {
-  const response = await apiClient.post("/user", data);
+  const response = await apiClient.post("/users", data);
   return response.data;
 };
 
 export const updateUser = async (id: string, data: any) => {
-  const response = await apiClient.put(`/user/${id}`, data);
+  const response = await apiClient.put(`/users/${id}`, data);
   return response.data;
 };
 
 export const deleteUser = async (id: string) => {
-  const response = await apiClient.delete(`/user/${id}`);
+  const response = await apiClient.delete(`/users/${id}`);
   return response.data;
 };
 

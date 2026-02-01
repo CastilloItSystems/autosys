@@ -38,7 +38,10 @@ const handler = NextAuth({
             // Optionally, this is also the place you could do a user registration
             throw new Error("Datos invalidos.");
           }
-          return user;
+          // Return only the user object, not the full response
+          // Add the token to the user object so it's available in callbacks
+          (user.user as any).token = user.token;
+          return user.user;
         } catch (error) {
           // console.log("errordeauth", error.response.data);
           return null;
@@ -58,7 +61,11 @@ const handler = NextAuth({
   },
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
-      if (user) token.user = user;
+      if (user) {
+        token.user = user;
+        // Save the backend JWT token
+        token.backendToken = (user as any).token;
+      }
       // Actualización desde el cliente (update())
       if (trigger === "update" && session?.updatedUsuario) {
         token.user = {
@@ -132,6 +139,12 @@ const handler = NextAuth({
       if (token.access_token && typeof token.access_token === "string") {
         session.user.access_token = token.access_token; // Expón el access_token en la sesión
       }
+
+      // Add backend token to session
+      if (token.backendToken) {
+        (session.user as any).token = token.backendToken;
+      }
+
       return session;
     },
     // async session({ session, token }) {

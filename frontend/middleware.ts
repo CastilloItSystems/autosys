@@ -42,58 +42,58 @@ const apiAuthPrefix = "/api/auth";
 const protectedRoutes = [
   {
     path: "/todas-refinerias",
-    roles: ["superAdmin"],
-    departamento: ["Gerencia"],
+    roles: ["superAdmin", "admin"],
+    departamento: ["Gerencia", "admin"],
   },
   {
     path: "/partidas",
-    roles: ["superAdmin"],
-    departamento: ["Gerencia"],
+    roles: ["superAdmin", "admin"],
+    departamento: ["Gerencia", "admin"],
   },
   {
     path: "/users",
-    roles: ["superAdmin"],
-    departamento: ["Gerencia"],
+    roles: ["superAdmin", "admin"],
+    departamento: ["Gerencia", "admin"],
   },
   {
     path: "/dashboard-sales",
-    roles: ["superAdmin"],
-    departamento: ["Gerencia"],
+    roles: ["superAdmin", "admin"],
+    departamento: ["Gerencia", "admin"],
   },
   {
     path: "/refineria/configuracion",
     roles: ["superAdmin", "admin"],
-    departamento: ["Operaciones", "Gerencia"],
+    departamento: ["Operaciones", "Gerencia", "admin"],
   },
   {
     path: "/refineria/finanzas",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Finanzas", "Gerencia"],
+    departamento: ["Finanzas", "Gerencia", "admin"],
   },
   {
     path: "/refineria/logistica",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Logistica", "Gerencia"],
+    departamento: ["Logistica", "Gerencia", "admin"],
   },
   {
     path: "/refineria/operaciones",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Operaciones", "Gerencia"],
+    departamento: ["Operaciones", "Gerencia", "admin"],
   },
   {
     path: "/refineria/laboratorio",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Laboratorio", "Gerencia"],
+    departamento: ["Laboratorio", "Gerencia", "admin"],
   },
   {
     path: "/refineria/reportes-graficas",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Operaciones", "Gerencia"],
+    departamento: ["Operaciones", "Gerencia", "admin"],
   },
   {
     path: "/refineria/dashboard-sales",
     roles: ["superAdmin", "admin", "operador", "user", "lectura"],
-    departamento: ["Administracion", "Finanzas", "Gerencia"],
+    departamento: ["Administracion", "Finanzas", "Gerencia", "admin"],
   },
 ];
 
@@ -112,11 +112,11 @@ export async function middleware(req: NextRequest) {
 
   interface CustomToken {
     user?: {
-      usuario?: {
-        rol?: string;
-        departamento?: string;
-        acceso?: string[];
-      };
+      // usuario?: {
+      rol?: string;
+      departamento?: string;
+      acceso?: string[];
+      // };
     };
     [key: string]: any;
   }
@@ -126,7 +126,7 @@ export async function middleware(req: NextRequest) {
     secret: process.env.AUTH_SECRET,
   })) as CustomToken;
   // // Más registros de depuración
-  // console.log("Token:", token);
+  // console.log("Token completo:", JSON.stringify(token, null, 2));
   // console.log("Request:", req);
 
   const { nextUrl } = req;
@@ -160,12 +160,15 @@ export async function middleware(req: NextRequest) {
 
   // Verificar roles, departamento y acceso para rutas protegidas
   const route = protectedRoutes.find((route) =>
-    nextUrl.pathname.startsWith(route.path)
+    nextUrl.pathname.startsWith(route.path),
   );
-  const user = token?.user?.usuario;
+  const user = token?.user;
+  // console.log("user es aqui?", user);
   if (route) {
     // Validación de rol
+    // console.log("entro aqui?");
     const userRole = user?.rol as string;
+    // console.log("userRole", userRole);
     const isSuperAdmin = userRole === "superAdmin";
     const hasRole = route.roles.includes(userRole);
 

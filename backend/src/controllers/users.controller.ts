@@ -9,7 +9,11 @@ export const getAllUsers = async (req: Request, res: Response) => {
         eliminado: false,
       },
     })
-    res.json(users)
+
+    res.json({
+      total: users.length,
+      users,
+    })
   } catch (error) {
     res.status(500).json({ error: 'Hubo un error al obtener los usuarios.' })
   }
