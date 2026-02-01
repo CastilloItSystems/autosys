@@ -1,0 +1,883 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Card } from "primereact/card";
+import { Button } from "primereact/button";
+import { Badge } from "primereact/badge";
+import { ProgressBar } from "primereact/progressbar";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { TabView, TabPanel } from "primereact/tabview";
+import { Chart } from "primereact/chart";
+import { Dialog } from "primereact/dialog";
+import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
+import { Calendar } from "primereact/calendar";
+import { Toast } from "primereact/toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRef } from "react";
+
+// Store y servicios
+import { useOperationsStore } from "@/store/operationsStore";
+import { useInventoryStore } from "@/store/inventoryStore";
+import { initializeMockData, getOperationsData } from "@/api/operationsService";
+
+// Interfaces importadas
+import {
+  WorkOrder,
+  WorkOrderStatus,
+  Invoice,
+  Payment,
+  Service,
+  ServiceBay,
+  ServiceCategory
+} from "@/libs/interfaces/workshop";
+
+import {
+  Item,
+  Movement,
+  PurchaseOrder,
+  SalesOrder,
+  Supplier,
+  Warehouse
+} from "@/libs/interfaces/inventory";
+
+const OperationsDashboard = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(null);
+  const [workOrderDialog, setWorkOrderDialog] = useState(false);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceDialog, setInvoiceDialog] = useState(false);
+  const toast = useRef<Toast>(null);
+
+  // Usar el store
+  const {
+    workOrders,
+    invoices,
+    payments,
+    services,
+    serviceBays,
+    stockAlerts,
+    rotationMetrics,
+    obtenerEstadisticas,
+    seleccionarWorkOrder,
+    seleccionarInvoice
+  } = useOperationsStore();
+
+  // Usar el inventory store
+  const {
+    items,
+    movements,
+    purchaseOrders,
+    salesOrders,
+    suppliers,
+    warehouses,
+    seleccionarItem,
+    seleccionarPurchaseOrder,
+    seleccionarSalesOrder
+  } = useInventoryStore();
+
+  // Inicializar datos mock al cargar el componente
+  useEffect(() => {
+    initializeMockData();
+  }, []);
+
+  // Obtener estadísticas
+  const stats = obtenerEstadisticas();
+
+  // Datos para gráficos
+  const workOrderStatusChart = {
+    labels: ['Pendiente', 'En Progreso', 'Completada', 'Cancelada'],
+    datasets: [{
+      data: [1, 1, 1, 0],
+      backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#6b7280'],
+      hoverBackgroundColor: ['#dc2626', '#d97706', '#16a34a', '#4b5563']
+    }]
+  };
+
+  const revenueChart = {
+    labels: ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun'],
+    datasets: [{
+      label: 'Ingresos',
+      data: [12500, 15200, 18300, 16800, 22100, 19800],
+      borderColor: '#3b82f6',
+      backgroundColor: 'rgba(59, 130, 246, 0.1)',
+      tension: 0.4
+    }]
+  };
+
+  const stockChart = {
+    labels: ['Crítico', 'Bajo', 'Normal', 'Alto'],
+    datasets: [{
+      data: [1, 2, 15, 8],
+      backgroundColor: ['#ef4444', '#f59e0b', '#22c55e', '#3b82f6']
+    }]
+  };
+
+  // Formatear precio
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  // Formatear fecha
+  const formatDate = (date: string | Date) => {
+    if (!date) return "Sin fecha";
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return "Fecha inválida";
+      return new Intl.DateTimeFormat("es-MX", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(dateObj);
+    } catch (error) {
+      return "Fecha inválida";
+    }
+  };
+
+  // Template para estado de orden de trabajo
+  const workOrderStatusTemplate = (rowData: WorkOrder) => {
+    const status = (rowData as any).estado || (rowData as any).status;
+    if (!status || !status.nombre) {
+      return <Badge value="SIN ESTADO" severity="secondary" />;
+    }
+    return (
+      <Badge
+        value={status.nombre}
+        style={{ backgroundColor: status.color }}
+      />
+    );
+  };
+
+  // Template para prioridad
+  const priorityTemplate = (rowData: WorkOrder) => {
+    const colors: Record<string, "success" | "info" | "warning" | "danger"> = {
+      baja: 'success',
+      normal: 'info',
+      alta: 'warning',
+      urgente: 'danger'
+    };
+
+    // Verificar que prioridad existe y es un string
+    const prioridad = (rowData as any).prioridad || (rowData as any).priority || 'normal';
+    const prioridadUpper = typeof prioridad === 'string' ? prioridad.toUpperCase() : 'NORMAL';
+
+    return (
+      <Badge
+        value={prioridadUpper}
+        severity={colors[prioridad] || 'info'}
+      />
+    );
+  };
+
+  // Template para acciones de orden de trabajo
+  const workOrderActionsTemplate = (rowData: WorkOrder) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-eye"
+          className="p-button-rounded p-button-info p-button-sm"
+          tooltip="Ver detalles"
+          onClick={() => {
+            seleccionarWorkOrder(rowData);
+            setSelectedWorkOrder(rowData);
+            setWorkOrderDialog(true);
+          }}
+        />
+        <Button
+          icon="pi pi-pencil"
+          className="p-button-rounded p-button-warning p-button-sm"
+          tooltip="Editar"
+        />
+      </div>
+    );
+  };
+
+  // Template para estado de factura
+  const invoiceStatusTemplate = (rowData: Invoice) => {
+    const colors: Record<string, "success" | "info" | "warning" | "danger" | "secondary"> = {
+      borrador: 'secondary',
+      emitida: 'info',
+      pagada_parcial: 'warning',
+      pagada_total: 'success',
+      vencida: 'danger',
+      cancelada: 'danger'
+    };
+    return (
+      <Badge
+        value={rowData.status.toUpperCase().replace('_', ' ')}
+        severity={colors[rowData.status]}
+      />
+    );
+  };
+
+  // Template para acciones de factura
+  const invoiceActionsTemplate = (rowData: Invoice) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-eye"
+          className="p-button-rounded p-button-info p-button-sm"
+          tooltip="Ver detalles"
+          onClick={() => {
+            seleccionarInvoice(rowData);
+            setSelectedInvoice(rowData);
+            setInvoiceDialog(true);
+          }}
+        />
+        <Button
+          icon="pi pi-dollar"
+          className="p-button-rounded p-button-success p-button-sm"
+          tooltip="Registrar pago"
+        />
+      </div>
+    );
+  };
+
+  // Template para estado de bahía
+  const bayStatusTemplate = (rowData: ServiceBay) => {
+    const colors: Record<string, "success" | "info" | "warning" | "danger"> = {
+      disponible: 'success',
+      ocupado: 'warning',
+      mantenimiento: 'info',
+      fuera_servicio: 'danger'
+    };
+    const labels = {
+      disponible: 'Disponible',
+      ocupado: 'Ocupado',
+      mantenimiento: 'Mantenimiento',
+      fuera_servicio: 'Fuera de Servicio'
+    };
+    return (
+      <Badge
+        value={labels[rowData.status as keyof typeof labels]}
+        severity={colors[rowData.status]}
+      />
+    );
+  };
+
+  // Template para alerta de stock
+  const stockAlertTemplate = (rowData: any) => {
+    const colors: Record<string, "success" | "info" | "warning" | "danger"> = {
+      critical: 'danger',
+      warning: 'warning',
+      low: 'info'
+    };
+    const icons = {
+      critical: 'pi-exclamation-triangle',
+      warning: 'pi-exclamation-circle',
+      low: 'pi-info-circle'
+    };
+    return (
+      <div className="flex align-items-center gap-2">
+        <i className={`pi ${icons[rowData.status as keyof typeof icons]} text-${colors[rowData.status]}-500`}></i>
+        <Badge
+          value={rowData.status.toUpperCase()}
+          severity={colors[rowData.status]}
+        />
+      </div>
+    );
+  };
+
+  return (
+    <div className="operations-dashboard bg-gradient-to-br from-slate-50 to-blue-50 min-h-screen p-4">
+      <Toast ref={toast} />
+
+      {/* Header */}
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="mb-4"
+      >
+        <div className="flex justify-content-between align-items-center mb-3">
+          <div>
+            <h1 className="text-4xl font-bold text-900 mb-2 flex align-items-center gap-3">
+              <i className="pi pi-chart-line text-blue-600"></i>
+              Dashboard de Operaciones
+            </h1>
+            <p className="text-600 text-lg">Vista completa del estado operativo del taller</p>
+          </div>
+          <div className="text-right">
+            <div className="text-sm text-600">Última actualización</div>
+            <div className="text-xs text-500">{new Date().toLocaleTimeString()}</div>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Métricas principales */}
+      <div className="grid mb-4">
+        <div className="col-12 md:col-6 lg:col-3">
+          <Card className="shadow-2 border-round-xl hover:shadow-4 transition-shadow duration-300">
+            <div className="text-center">
+              <i className="pi pi-wrench text-4xl mb-2 text-blue-600"></i>
+              <div className="text-2xl font-bold text-900">{stats.totalWorkOrders}</div>
+              <div className="text-sm text-600">Órdenes Activas</div>
+              <div className="text-xs text-500 mt-1">
+                <i className="pi pi-clock mr-1"></i>
+                {stats.workOrdersActivas} en progreso
+              </div>
+            </div>
+          </Card>
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <Card className="shadow-2 border-round-xl hover:shadow-4 transition-shadow duration-300">
+            <div className="text-center">
+              <i className="pi pi-dollar text-4xl mb-2 text-green-600"></i>
+              <div className="text-2xl font-bold text-900">{formatPrice(stats.ingresosMesActual)}</div>
+              <div className="text-sm text-600">Ingresos del Mes</div>
+              <div className="text-xs text-500 mt-1">
+                <i className="pi pi-trending-up mr-1"></i>
+                +12% vs mes anterior
+              </div>
+            </div>
+          </Card>
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <Card className="shadow-2 border-round-xl hover:shadow-4 transition-shadow duration-300">
+            <div className="text-center">
+              <i className="pi pi-exclamation-triangle text-4xl mb-2 text-red-600"></i>
+              <div className="text-2xl font-bold text-900">{stats.alertasCriticas}</div>
+              <div className="text-sm text-600">Alertas Críticas</div>
+              <div className="text-xs text-500 mt-1">
+                <i className="pi pi-bell mr-1"></i>
+                Requieren atención inmediata
+              </div>
+            </div>
+          </Card>
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <Card className="shadow-2 border-round-xl hover:shadow-4 transition-shadow duration-300">
+            <div className="text-center">
+              <i className="pi pi-car text-4xl mb-2 text-purple-600"></i>
+              <div className="text-2xl font-bold text-900">{stats.bahiasOcupadas}</div>
+              <div className="text-sm text-600">Bahías Ocupadas</div>
+              <div className="text-xs text-500 mt-1">
+                <i className="pi pi-cog mr-1"></i>
+                {stats.bahiasDisponibles} disponibles
+              </div>
+            </div>
+          </Card>
+        </div>
+      </div>
+
+      {/* Tabs principales */}
+      <TabView activeIndex={activeTab} onTabChange={(e) => setActiveTab(e.index)} className="shadow-2 border-round-xl">
+        <TabPanel header="Vista General" leftIcon="pi pi-home">
+          <div className="grid">
+            {/* Gráficos */}
+            <div className="col-12 lg:col-8">
+              <Card className="shadow-2 border-round-lg mb-4">
+                <h3 className="text-lg font-bold mb-3 text-900">📊 Ingresos Mensuales</h3>
+                <Chart type="line" data={revenueChart} options={{ responsive: true, maintainAspectRatio: false }} style={{ height: '300px' }} />
+              </Card>
+            </div>
+            <div className="col-12 lg:col-4">
+              <Card className="shadow-2 border-round-lg mb-4">
+                <h3 className="text-lg font-bold mb-3 text-900">📈 Estado de Órdenes</h3>
+                <Chart type="doughnut" data={workOrderStatusChart} options={{ responsive: true, maintainAspectRatio: false }} style={{ height: '300px' }} />
+              </Card>
+            </div>
+
+            {/* Alertas de stock críticas */}
+            <div className="col-12">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">🚨 Alertas de Stock Críticas</h3>
+                <DataTable
+                  value={stockAlerts.filter((alert: any) => alert.status === 'critical')}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay alertas críticas"
+                >
+                  <Column field="code" header="Código" sortable />
+                  <Column field="item" header="Producto" sortable />
+                  <Column field="currentStock" header="Stock Actual" sortable />
+                  <Column field="minStock" header="Stock Mínimo" sortable />
+                  <Column header="Estado" body={stockAlertTemplate} />
+                  <Column
+                    header="Acciones"
+                    body={() => (
+                      <Button
+                        label="Reabastecer"
+                        icon="pi pi-plus"
+                        className="p-button-sm p-button-danger"
+                      />
+                    )}
+                  />
+                </DataTable>
+              </Card>
+            </div>
+          </div>
+        </TabPanel>
+
+        <TabPanel header="Órdenes de Trabajo" leftIcon="pi pi-wrench">
+          <Card className="shadow-2 border-round-lg">
+            <div className="flex justify-content-between align-items-center mb-3">
+              <h3 className="text-lg font-bold text-900 m-0">📋 Órdenes de Trabajo</h3>
+              <Button
+                label="Nueva Orden"
+                icon="pi pi-plus"
+                className="p-button-primary"
+              />
+            </div>
+            <DataTable
+              value={workOrders}
+              paginator
+              rows={10}
+              className="p-datatable-sm"
+              emptyMessage="No hay órdenes de trabajo"
+            >
+              <Column field="numeroOrden" header="Número" sortable />
+              <Column field="customer.nombre" header="Cliente" sortable />
+              <Column field="vehicle.placa" header="Vehículo" sortable />
+              <Column header="Estado" body={workOrderStatusTemplate} sortable />
+              <Column header="Prioridad" body={priorityTemplate} sortable />
+              <Column field="fechaApertura" header="Fecha" body={(rowData) => formatDate(rowData.fechaApertura)} sortable />
+              <Column field="costoTotal" header="Total" body={(rowData) => formatPrice(rowData.costoTotal)} sortable />
+              <Column header="Acciones" body={workOrderActionsTemplate} style={{ width: '120px' }} />
+            </DataTable>
+          </Card>
+        </TabPanel>
+
+        <TabPanel header="Bahías de Servicio" leftIcon="pi pi-car">
+          <Card className="shadow-2 border-round-lg">
+            <div className="flex justify-content-between align-items-center mb-3">
+              <h3 className="text-lg font-bold text-900 m-0">🏭 Bahías de Servicio</h3>
+              <Button
+                label="Nueva Bahía"
+                icon="pi pi-plus"
+                className="p-button-info"
+              />
+            </div>
+            <DataTable
+              value={serviceBays}
+              className="p-datatable-sm"
+              emptyMessage="No hay bahías configuradas"
+            >
+              <Column field="name" header="Nombre" sortable />
+              <Column field="code" header="Código" sortable />
+              <Column field="area" header="Área" sortable />
+              <Column header="Estado" body={bayStatusTemplate} sortable />
+              <Column field="capacity" header="Capacidad" sortable />
+              <Column field="maxTechnicians" header="Máx Técnicos" sortable />
+              <Column
+                header="Técnicos Actuales"
+                body={(rowData) => rowData.currentTechnicians.length > 0 ? rowData.currentTechnicians[0].technician : 'Sin asignar'}
+              />
+            </DataTable>
+          </Card>
+        </TabPanel>
+
+        <TabPanel header="Inventario" leftIcon="pi pi-box">
+          <TabView className="w-full">
+            <TabPanel header="Vista General" leftIcon="pi pi-chart-line">
+              <div className="grid">
+                <div className="col-12 lg:col-4">
+                  <Card className="shadow-2 border-round-lg mb-4 text-center">
+                    <div className="text-4xl font-bold text-blue-600 mb-2">{items.length}</div>
+                    <div className="text-sm text-600">Artículos Totales</div>
+                  </Card>
+                </div>
+                <div className="col-12 lg:col-4">
+                  <Card className="shadow-2 border-round-lg mb-4 text-center">
+                    <div className="text-4xl font-bold text-green-600 mb-2">{movements.filter(m => m.tipo === 'entrada').length}</div>
+                    <div className="text-sm text-600">Entradas Recientes</div>
+                  </Card>
+                </div>
+                <div className="col-12 lg:col-4">
+                  <Card className="shadow-2 border-round-lg mb-4 text-center">
+                    <div className="text-4xl font-bold text-orange-600 mb-2">{movements.filter(m => m.tipo === 'salida').length}</div>
+                    <div className="text-sm text-600">Salidas Recientes</div>
+                  </Card>
+                </div>
+                <div className="col-12 lg:col-6">
+                  <Card className="shadow-2 border-round-lg mb-4">
+                    <h3 className="text-lg font-bold mb-3 text-900">📦 Alertas de Stock</h3>
+                    <DataTable
+                      value={stockAlerts}
+                      className="p-datatable-sm"
+                      emptyMessage="No hay alertas de stock"
+                    >
+                      <Column field="code" header="Código" sortable />
+                      <Column field="item" header="Producto" sortable />
+                      <Column field="currentStock" header="Stock Actual" sortable />
+                      <Column field="minStock" header="Stock Mínimo" sortable />
+                      <Column header="Estado" body={stockAlertTemplate} />
+                    </DataTable>
+                  </Card>
+                </div>
+                <div className="col-12 lg:col-6">
+                  <Card className="shadow-2 border-round-lg mb-4">
+                    <h3 className="text-lg font-bold mb-3 text-900">🔄 Rotación de Inventario</h3>
+                    <DataTable
+                      value={rotationMetrics}
+                      className="p-datatable-sm"
+                      emptyMessage="No hay datos de rotación"
+                    >
+                      <Column field="item" header="Producto" sortable />
+                      <Column field="monthlyUsage" header="Uso Mensual" sortable />
+                      <Column field="averageStock" header="Stock Promedio" sortable />
+                      <Column
+                        field="rotationRate"
+                        header="Tasa de Rotación"
+                        body={(rowData) => `${(rowData.rotationRate * 100).toFixed(1)}%`}
+                        sortable
+                      />
+                      <Column
+                        header="Estado"
+                        body={(rowData) => (
+                          <Badge
+                            value={rowData.status === 'good' ? 'BUENA' : 'LENTA'}
+                            severity={rowData.status === 'good' ? 'success' : 'warning'}
+                          />
+                        )}
+                      />
+                    </DataTable>
+                  </Card>
+                </div>
+              </div>
+            </TabPanel>
+
+            <TabPanel header="Movimientos" leftIcon="pi pi-exchange">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">🔄 Movimientos de Inventario</h3>
+                <DataTable
+                  value={movements}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay movimientos"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="tipo" header="Tipo" sortable />
+                  <Column field="referencia" header="Referencia" sortable />
+                  <Column field="item" header="Artículo" sortable />
+                  <Column field="cantidad" header="Cantidad" sortable />
+                  <Column
+                    header="Costo Unitario"
+                    body={(rowData) => formatPrice(rowData.costoUnitario || 0)}
+                    sortable
+                  />
+                  <Column field="warehouseFrom" header="Origen" sortable />
+                  <Column field="warehouseTo" header="Destino" sortable />
+                  <Column
+                    field="createdAt"
+                    header="Fecha"
+                    body={(rowData) => formatDate(rowData.createdAt)}
+                    sortable
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+
+            <TabPanel header="Artículos" leftIcon="pi pi-list">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">📦 Catálogo de Artículos</h3>
+                <DataTable
+                  value={items}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay artículos"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="codigo" header="Código" sortable />
+                  <Column field="nombre" header="Nombre" sortable />
+                  <Column field="categoria" header="Categoría" sortable />
+                  <Column field="marca" header="Marca" sortable />
+                  <Column
+                    header="Precio Venta"
+                    body={(rowData) => formatPrice(rowData.precioVenta || 0)}
+                    sortable
+                  />
+                  <Column
+                    header="Estado"
+                    body={(rowData) => (
+                      <Badge
+                        value={rowData.estado === 'activo' ? 'ACTIVO' : 'INACTIVO'}
+                        severity={rowData.estado === 'activo' ? 'success' : 'secondary'}
+                      />
+                    )}
+                  />
+                  <Column
+                    header="Acciones"
+                    body={(rowData) => (
+                      <Button
+                        icon="pi pi-eye"
+                        className="p-button-rounded p-button-text"
+                        onClick={() => seleccionarItem(rowData)}
+                      />
+                    )}
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+          </TabView>
+        </TabPanel>
+
+            <TabPanel header="Órdenes de Compra (Egresos)" leftIcon="pi pi-shopping-cart">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">� Órdenes de Compra</h3>
+                <DataTable
+                  value={purchaseOrders}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay órdenes de compra"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="numero" header="Número" sortable />
+                  <Column field="proveedor" header="Proveedor" sortable />
+                  <Column field="fecha" header="Fecha" body={(rowData) => formatDate(rowData.fecha)} sortable />
+                  <Column
+                    header="Estado"
+                    body={(rowData) => (
+                      <Badge
+                        value={rowData.estado?.toUpperCase() || 'PENDIENTE'}
+                        severity={
+                          rowData.estado === 'recibido' ? 'success' :
+                          rowData.estado === 'parcial' ? 'warning' :
+                          rowData.estado === 'cancelado' ? 'danger' : 'info'
+                        }
+                      />
+                    )}
+                  />
+                  <Column
+                    header="Total"
+                    body={(rowData) => formatPrice(
+                      rowData.items?.reduce((total: number, item: any) => total + (item.cantidad * item.precioUnitario), 0) || 0
+                    )}
+                    sortable
+                  />
+                  <Column
+                    header="Acciones"
+                    body={(rowData) => (
+                      <Button
+                        icon="pi pi-eye"
+                        className="p-button-rounded p-button-text"
+                        onClick={() => seleccionarPurchaseOrder(rowData)}
+                      />
+                    )}
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+
+            <TabPanel header="Órdenes de Venta (Ingresos)" leftIcon="pi pi-shopping-bag">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">🛍️ Órdenes de Venta</h3>
+                <DataTable
+                  value={salesOrders}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay órdenes de venta"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="numero" header="Número" sortable />
+                  <Column field="cliente" header="Cliente" sortable />
+                  <Column field="fecha" header="Fecha" body={(rowData) => formatDate(rowData.fecha)} sortable />
+                  <Column
+                    header="Estado"
+                    body={(rowData) => (
+                      <Badge
+                        value={rowData.estado?.toUpperCase() || 'PENDIENTE'}
+                        severity={
+                          rowData.estado === 'despachada' ? 'success' :
+                          rowData.estado === 'parcial' ? 'warning' :
+                          rowData.estado === 'cancelada' ? 'danger' : 'info'
+                        }
+                      />
+                    )}
+                  />
+                  <Column
+                    header="Total"
+                    body={(rowData) => formatPrice(
+                      rowData.items?.reduce((total: number, item: any) => total + (item.cantidad * item.precioUnitario), 0) || 0
+                    )}
+                    sortable
+                  />
+                  <Column
+                    header="Acciones"
+                    body={(rowData) => (
+                      <Button
+                        icon="pi pi-eye"
+                        className="p-button-rounded p-button-text"
+                        onClick={() => seleccionarSalesOrder(rowData)}
+                      />
+                    )}
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+
+            <TabPanel header="Movimientos" leftIcon="pi pi-exchange">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">🔄 Movimientos de Inventario</h3>
+                <DataTable
+                  value={movements}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay movimientos"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="tipo" header="Tipo" sortable />
+                  <Column field="referencia" header="Referencia" sortable />
+                  <Column field="item" header="Artículo" sortable />
+                  <Column field="cantidad" header="Cantidad" sortable />
+                  <Column
+                    header="Costo Unitario"
+                    body={(rowData) => formatPrice(rowData.costoUnitario || 0)}
+                    sortable
+                  />
+                  <Column field="warehouseFrom" header="Origen" sortable />
+                  <Column field="warehouseTo" header="Destino" sortable />
+                  <Column
+                    field="createdAt"
+                    header="Fecha"
+                    body={(rowData) => formatDate(rowData.createdAt)}
+                    sortable
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+
+            <TabPanel header="Artículos" leftIcon="pi pi-list">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">📦 Catálogo de Artículos</h3>
+                <DataTable
+                  value={items}
+                  className="p-datatable-sm"
+                  emptyMessage="No hay artículos"
+                  paginator
+                  rows={10}
+                >
+                  <Column field="codigo" header="Código" sortable />
+                  <Column field="nombre" header="Nombre" sortable />
+                  <Column field="categoria" header="Categoría" sortable />
+                  <Column field="marca" header="Marca" sortable />
+                  <Column
+                    header="Precio Venta"
+                    body={(rowData) => formatPrice(rowData.precioVenta || 0)}
+                    sortable
+                  />
+                  <Column
+                    header="Estado"
+                    body={(rowData) => (
+                      <Badge
+                        value={rowData.estado === 'activo' ? 'ACTIVO' : 'INACTIVO'}
+                        severity={rowData.estado === 'activo' ? 'success' : 'secondary'}
+                      />
+                    )}
+                  />
+                  <Column
+                    header="Acciones"
+                    body={(rowData) => (
+                      <Button
+                        icon="pi pi-eye"
+                        className="p-button-rounded p-button-text"
+                        onClick={() => seleccionarItem(rowData)}
+                      />
+                    )}
+                  />
+                </DataTable>
+              </Card>
+            </TabPanel>
+          </TabView>
+        </TabPanel>
+      </TabView>
+
+      {/* Diálogo de detalles de orden de trabajo */}
+      <Dialog
+        visible={workOrderDialog}
+        onHide={() => setWorkOrderDialog(false)}
+        header="Detalles de Orden de Trabajo"
+        style={{ width: "90vw", maxWidth: "800px" }}
+        maximizable
+      >
+        {selectedWorkOrder && (
+          <TabView>
+            <TabPanel header="Información General">
+              <div className="grid">
+                <div className="col-12 md:col-6">
+                  <Card className="shadow-2 border-round-lg">
+                    <h3 className="text-lg font-bold mb-3 text-900">👤 Información del Cliente</h3>
+                    <div className="space-y-2">
+                      <div><strong>Cliente:</strong> {(selectedWorkOrder.customer as any).nombre}</div>
+                      <div><strong>Teléfono:</strong> {(selectedWorkOrder.customer as any).telefono}</div>
+                      <div><strong>Vehículo:</strong> {(selectedWorkOrder.vehicle as any).placa}</div>
+                    </div>
+                  </Card>
+                </div>
+                <div className="col-12 md:col-6">
+                  <Card className="shadow-2 border-round-lg">
+                    <h3 className="text-lg font-bold mb-3 text-900">📋 Detalles de la Orden</h3>
+                    <div className="space-y-2">
+                      <div><strong>Número:</strong> {selectedWorkOrder.numeroOrden}</div>
+                      <div><strong>Estado:</strong> <Badge value={(selectedWorkOrder.estado as any).nombre} style={{ backgroundColor: (selectedWorkOrder.estado as any).color }} /></div>
+                      <div><strong>Prioridad:</strong> <Badge value={selectedWorkOrder.prioridad.toUpperCase()} severity="warning" /></div>
+                      <div><strong>Fecha:</strong> {formatDate(selectedWorkOrder.fechaApertura)}</div>
+                      <div><strong>Días transcurridos:</strong> {selectedWorkOrder.diasTranscurridos}</div>
+                    </div>
+                  </Card>
+                </div>
+              </div>
+            </TabPanel>
+            <TabPanel header="Items y Servicios">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">🔧 Servicios Solicitados</h3>
+                <p className="text-600">Funcionalidad de items pendiente de implementar</p>
+              </Card>
+            </TabPanel>
+          </TabView>
+        )}
+      </Dialog>
+
+      {/* Diálogo de detalles de factura */}
+      <Dialog
+        visible={invoiceDialog}
+        onHide={() => setInvoiceDialog(false)}
+        header="Detalles de Factura"
+        style={{ width: "90vw", maxWidth: "800px" }}
+        maximizable
+      >
+        {selectedInvoice && (
+          <div className="grid">
+            <div className="col-12 md:col-6">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">📄 Información de Factura</h3>
+                <div className="space-y-2">
+                  <div><strong>Número:</strong> {selectedInvoice.invoiceNumber}</div>
+                  <div><strong>Cliente:</strong> {(selectedInvoice.customer as any).nombre}</div>
+                  <div><strong>Estado:</strong> <Badge value={selectedInvoice.status.toUpperCase().replace('_', ' ')} severity="info" /></div>
+                  <div><strong>Fecha de emisión:</strong> {formatDate(selectedInvoice.issueDate)}</div>
+                  <div><strong>Fecha de vencimiento:</strong> {formatDate(selectedInvoice.dueDate)}</div>
+                </div>
+              </Card>
+            </div>
+            <div className="col-12 md:col-6">
+              <Card className="shadow-2 border-round-lg">
+                <h3 className="text-lg font-bold mb-3 text-900">💰 Resumen Financiero</h3>
+                <div className="space-y-2">
+                  <div><strong>Total:</strong> {formatPrice(selectedInvoice.total)}</div>
+                  <div><strong>Pagado:</strong> {formatPrice(selectedInvoice.paidAmount)}</div>
+                  <div><strong>Saldo pendiente:</strong> {formatPrice(selectedInvoice.balance)}</div>
+                  <div className="mt-3">
+                    <ProgressBar
+                      value={(selectedInvoice.paidAmount / selectedInvoice.total) * 100}
+                      showValue={false}
+                      style={{ height: '8px' }}
+                    />
+                    <div className="text-xs text-600 mt-1 text-center">
+                      {((selectedInvoice.paidAmount / selectedInvoice.total) * 100).toFixed(1)}% pagado
+                    </div>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          </div>
+        )}
+      </Dialog>
+    </div>
+  );
+};
+
+export default OperationsDashboard;

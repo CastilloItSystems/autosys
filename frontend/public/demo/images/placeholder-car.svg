@@ -1,0 +1,12 @@
+<svg width="400" height="300" viewBox="0 0 400 300" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="400" height="300" fill="#f8f9fa"/>
+  <rect x="50" y="100" width="300" height="150" rx="10" fill="#e9ecef" stroke="#dee2e6" stroke-width="2"/>
+  <circle cx="100" cy="200" r="20" fill="#6c757d"/>
+  <circle cx="300" cy="200" r="20" fill="#6c757d"/>
+  <rect x="120" y="130" width="160" height="40" rx="5" fill="#007bff"/>
+  <rect x="140" y="145" width="30" height="10" rx="2" fill="#ffffff"/>
+  <rect x="180" y="145" width="30" height="10" rx="2" fill="#ffffff"/>
+  <rect x="220" y="145" width="30" height="10" rx="2" fill="#ffffff"/>
+  <text x="200" y="50" text-anchor="middle" font-family="Arial, sans-serif" font-size="24" font-weight="bold" fill="#495057">Vehículo</text>
+  <text x="200" y="280" text-anchor="middle" font-family="Arial, sans-serif" font-size="16" fill="#6c757d">Imagen no disponible</text>
+</svg>

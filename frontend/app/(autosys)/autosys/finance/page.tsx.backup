@@ -1,0 +1,1037 @@
+"use client";
+
+import React, { useState, useEffect } from "react";
+import { Card } from "primereact/card";
+import { Button } from "primereact/button";
+import { Badge } from "primereact/badge";
+import { ProgressBar } from "primereact/progressbar";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { TabView, TabPanel } from "primereact/tabview";
+import { Chart } from "primereact/chart";
+import { Dialog } from "primereact/dialog";
+import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
+import { Calendar } from "primereact/calendar";
+import { Toast } from "primereact/toast";
+import { motion, AnimatePresence } from "framer-motion";
+import { useRef } from "react";
+
+// Store y servicios
+import { useOperationsStore } from "@/store/operationsStore";
+import { useInventoryStore } from "@/store/inventoryStore";
+import { initializeMockData, getOperationsData } from "@/api/operationsService";
+
+// Interfaces importadas
+"use client";
+
+import React, { useState, useEffect, useRef } from "react";
+
+// PrimeReact Components
+import { Card } from "primereact/card";
+import { Button } from "primereact/button";
+import { Badge } from "primereact/badge";
+import { ProgressBar } from "primereact/progressbar";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { TabView, TabPanel } from "primereact/tabview";
+import { Chart } from "primereact/chart";
+import { Dialog } from "primereact/dialog";
+import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
+import { Calendar } from "primereact/calendar";
+import { Toast } from "primereact/toast";
+
+// Animation
+import { motion, AnimatePresence } from "framer-motion";
+
+// Stores & Services
+import { useOperationsStore } from "@/store/operationsStore";
+import { useInventoryStore } from "@/store/inventoryStore";
+import { initializeMockData } from "@/api/operationsService";
+
+// Interfaces
+import { Invoice, Payment } from "@/libs/interfaces/workshop";
+import { PurchaseOrder, SalesOrder } from "@/libs/interfaces/inventory";
+
+// Utility Functions
+const formatPrice = (price: number): string => {
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+  }).format(price);
+};
+
+const formatDate = (date: string | Date | undefined): string => {
+  if (!date) return "Sin fecha";
+  try {
+    const dateObj = new Date(date);
+    if (isNaN(dateObj.getTime())) return "Fecha inválida";
+    return new Intl.DateTimeFormat("es-MX", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    }).format(dateObj);
+  } catch (error) {
+    return "Fecha inválida";
+  }
+};
+
+// Template Components
+const InvoiceStatusTemplate = ({ status }: { status: string }) => {
+  const statusValue = status || "borrador";
+  return (
+    <Badge
+      value={statusValue.toUpperCase()}
+      severity={
+        statusValue === "pagada_total"
+          ? "success"
+          : statusValue === "pagada_parcial"
+          ? "warning"
+          : statusValue === "vencida"
+          ? "danger"
+          : "info"
+      }
+    />
+  );
+};
+
+const PurchaseOrderStatusTemplate = ({ status }: { status: string }) => {
+  const statusValue = status || "pendiente";
+  return (
+    <Badge
+      value={statusValue.toUpperCase()}
+      severity={
+        statusValue === "recibido"
+          ? "success"
+          : statusValue === "parcial"
+          ? "warning"
+          : statusValue === "pendiente"
+          ? "info"
+          : "danger"
+      }
+    />
+  );
+};
+
+const SalesOrderStatusTemplate = ({ status }: { status: string }) => {
+  const statusValue = status || "pendiente";
+  return (
+    <Badge
+      value={statusValue.toUpperCase()}
+      severity={
+        statusValue === "entregado"
+          ? "success"
+          : statusValue === "parcial"
+          ? "warning"
+          : statusValue === "pendiente"
+          ? "info"
+          : "danger"
+      }
+    />
+  );
+};
+
+// Main Component
+const FinanceDashboard = () => {
+  // State Management
+  const [activeTab, setActiveTab] = useState<number>(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceDialog, setInvoiceDialog] = useState<boolean>(false);
+  const [selectedPurchaseOrder, setSelectedPurchaseOrder] = useState<PurchaseOrder | null>(null);
+  const [purchaseOrderDialog, setPurchaseOrderDialog] = useState<boolean>(false);
+  const [selectedSalesOrder, setSelectedSalesOrder] = useState<SalesOrder | null>(null);
+  const [salesOrderDialog, setSalesOrderDialog] = useState<boolean>(false);
+
+  // Refs
+  const toast = useRef<Toast>(null);
+
+  // Store Hooks
+  const { invoices, payments, obtenerEstadisticas, seleccionarInvoice } = useOperationsStore();
+  const { purchaseOrders, salesOrders, seleccionarPurchaseOrder, seleccionarSalesOrder } = useInventoryStore();
+
+  // Effects
+  useEffect(() => {
+    initializeMockData();
+  }, []);
+
+  // Financial Calculations
+  const calculateFinancialStats = () => {
+    const totalIngresos = invoices.reduce((sum, inv) => sum + inv.total, 0);
+    const totalPagado = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const totalPendiente = totalIngresos - totalPagado;
+
+    const totalEgresos = purchaseOrders.reduce(
+      (sum, po) =>
+        sum +
+        (po.items?.reduce(
+          (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
+          0
+        ) || 0),
+      0
+    );
+
+    const totalVentas = salesOrders.reduce(
+      (sum, so) =>
+        sum +
+        (so.items?.reduce(
+          (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
+          0
+        ) || 0),
+      0
+    );
+
+    const margenGanancia = totalVentas > 0 ? ((totalVentas - totalEgresos) / totalVentas) * 100 : 0;
+
+    return {
+      totalIngresos,
+      totalPagado,
+      totalPendiente,
+      totalEgresos,
+      totalVentas,
+      margenGanancia,
+      flujoCaja: totalIngresos - totalEgresos,
+    };
+  };
+
+  const stats = calculateFinancialStats();
+
+import { PurchaseOrder, SalesOrder } from "@/libs/interfaces/inventory";
+
+const FinanceDashboard = () => {
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
+  const [invoiceDialog, setInvoiceDialog] = useState(false);
+  const [selectedPurchaseOrder, setSelectedPurchaseOrder] =
+    useState<PurchaseOrder | null>(null);
+  const [purchaseOrderDialog, setPurchaseOrderDialog] = useState(false);
+  const [selectedSalesOrder, setSelectedSalesOrder] =
+    useState<SalesOrder | null>(null);
+  const [salesOrderDialog, setSalesOrderDialog] = useState(false);
+  const toast = useRef<Toast>(null);
+
+  // Usar los stores
+  const { invoices, payments, obtenerEstadisticas, seleccionarInvoice } =
+    useOperationsStore();
+
+  const {
+    purchaseOrders,
+    salesOrders,
+    seleccionarPurchaseOrder,
+    seleccionarSalesOrder,
+  } = useInventoryStore();
+
+  // Inicializar datos mock al cargar el componente
+  useEffect(() => {
+    initializeMockData();
+  }, []);
+
+  // Calcular estadísticas financieras
+  const calculateFinancialStats = () => {
+    const totalIngresos = invoices.reduce((sum, inv) => sum + inv.total, 0);
+    const totalPagado = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const totalPendiente = totalIngresos - totalPagado;
+
+    const totalEgresos = purchaseOrders.reduce(
+      (sum, po) =>
+        sum +
+        (po.items?.reduce(
+          (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
+          0
+        ) || 0),
+      0
+    );
+
+    const totalVentas = salesOrders.reduce(
+      (sum, so) =>
+        sum +
+        (so.items?.reduce(
+          (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
+          0
+        ) || 0),
+      0
+    );
+
+    const margenGanancia =
+      totalVentas > 0 ? ((totalVentas - totalEgresos) / totalVentas) * 100 : 0;
+
+    return {
+      totalIngresos,
+      totalPagado,
+      totalPendiente,
+      totalEgresos,
+      totalVentas,
+      margenGanancia,
+      flujoCaja: totalIngresos - totalEgresos,
+    };
+  };
+
+  const stats = calculateFinancialStats();
+
+  // Formatear precio
+  const formatPrice = (price: number) => {
+    return new Intl.NumberFormat("es-MX", {
+      style: "currency",
+      currency: "MXN",
+    }).format(price);
+  };
+
+  // Formatear fecha
+  const formatDate = (date: string | Date | undefined) => {
+    if (!date) return "Sin fecha";
+    try {
+      const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) return "Fecha inválida";
+      return new Intl.DateTimeFormat("es-MX", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }).format(dateObj);
+    } catch (error) {
+      return "Fecha inválida";
+    }
+  };
+
+  // Template para estado de facturas
+  const invoiceStatusTemplate = (rowData: Invoice) => {
+    const status = rowData.status || "borrador";
+    return (
+      <Badge
+        value={status.toUpperCase()}
+        severity={
+          status === "pagada_total"
+            ? "success"
+            : status === "pagada_parcial"
+            ? "warning"
+            : status === "vencida"
+            ? "danger"
+            : "info"
+        }
+      />
+    );
+  };
+
+  // Template para estado de órdenes de compra
+  const purchaseOrderStatusTemplate = (rowData: PurchaseOrder) => {
+    const status = rowData.estado || "pendiente";
+    return (
+      <Badge
+        value={status.toUpperCase()}
+        severity={
+          status === "recibido"
+            ? "success"
+            : status === "parcial"
+            ? "warning"
+            : status === "cancelado"
+            ? "danger"
+            : "info"
+        }
+      />
+    );
+  };
+
+  // Template para estado de órdenes de venta
+  const salesOrderStatusTemplate = (rowData: SalesOrder) => {
+    const status = rowData.estado || "borrador";
+    return (
+      <Badge
+        value={status.toUpperCase()}
+        severity={
+          status === "despachada"
+            ? "success"
+            : status === "confirmada"
+            ? "info"
+            : status === "parcial"
+            ? "warning"
+            : status === "cancelada"
+            ? "danger"
+            : "secondary"
+        }
+      />
+    );
+  };
+
+  // Datos para gráficos
+  const cashFlowChart = {
+    labels: ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio"],
+    datasets: [
+      {
+        label: "Ingresos",
+        data: [45000, 52000, 48000, 61000, 55000, 67000],
+        borderColor: "#22c55e",
+        backgroundColor: "rgba(34, 197, 94, 0.1)",
+        tension: 0.4,
+        fill: true,
+      },
+      {
+        label: "Egresos",
+        data: [35000, 42000, 38000, 45000, 41000, 48000],
+        borderColor: "#ef4444",
+        backgroundColor: "rgba(239, 68, 68, 0.1)",
+        tension: 0.4,
+        fill: true,
+      },
+    ],
+  };
+
+  const revenueChart = {
+    labels: ["Servicios", "Refacciones", "Lubricantes", "Otros"],
+    datasets: [
+      {
+        data: [45, 25, 20, 10],
+        backgroundColor: ["#3b82f6", "#22c55e", "#f59e0b", "#8b5cf6"],
+        hoverBackgroundColor: ["#2563eb", "#16a34a", "#d97706", "#7c3aed"],
+      },
+    ],
+  };
+
+  const chartOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: "bottom" as const,
+      },
+    },
+  };
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className="p-6 bg-gradient-to-br from-blue-50 to-indigo-100 min-h-screen"
+    >
+      <Toast ref={toast} />
+
+      {/* Header */}
+      <div className="flex justify-between items-center mb-8">
+        <div>
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
+            💰 Dashboard Financiero
+          </h1>
+          <p className="text-gray-600 text-lg">
+            Gestión completa de ingresos, egresos y flujo de caja
+          </p>
+        </div>
+        <div className="flex gap-3">
+          <Button
+            label="Exportar Reporte"
+            icon="pi pi-download"
+            className="p-button-outlined p-button-primary"
+          />
+          <Button
+            label="Nuevo Ingreso"
+            icon="pi pi-plus"
+            className="p-button-primary"
+          />
+        </div>
+      </div>
+
+      {/* KPIs Principales */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.1 }}
+        >
+          <Card className="bg-gradient-to-r from-green-500 to-green-600 text-white shadow-xl border-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-green-100 text-sm font-medium">
+                  Total Ingresos
+                </p>
+                <p className="text-3xl font-bold">
+                  {formatPrice(stats.totalIngresos)}
+                </p>
+                <p className="text-green-200 text-xs mt-1">
+                  +12.5% vs mes anterior
+                </p>
+              </div>
+              <div className="text-4xl opacity-80">📈</div>
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="bg-gradient-to-r from-red-500 to-red-600 text-white shadow-xl border-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-red-100 text-sm font-medium">
+                  Total Egresos
+                </p>
+                <p className="text-3xl font-bold">
+                  {formatPrice(stats.totalEgresos)}
+                </p>
+                <p className="text-red-200 text-xs mt-1">
+                  -8.2% vs mes anterior
+                </p>
+              </div>
+              <div className="text-4xl opacity-80">📉</div>
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.3 }}
+        >
+          <Card className="bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-xl border-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-blue-100 text-sm font-medium">
+                  Flujo de Caja
+                </p>
+                <p className="text-3xl font-bold">
+                  {formatPrice(stats.flujoCaja)}
+                </p>
+                <p className="text-blue-200 text-xs mt-1">Saldo neto mensual</p>
+              </div>
+              <div className="text-4xl opacity-80">💰</div>
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ delay: 0.4 }}
+        >
+          <Card className="bg-gradient-to-r from-purple-500 to-purple-600 text-white shadow-xl border-0">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-100 text-sm font-medium">
+                  Margen de Ganancia
+                </p>
+                <p className="text-3xl font-bold">
+                  {stats.margenGanancia.toFixed(1)}%
+                </p>
+                <p className="text-purple-200 text-xs mt-1">
+                  Sobre ventas totales
+                </p>
+              </div>
+              <div className="text-4xl opacity-80">📊</div>
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.5 }}
+        >
+          <Card className="shadow-xl border-0 bg-white">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="text-2xl">📊</span>
+              Flujo de Caja Mensual
+            </h3>
+            <div className="h-80">
+              <Chart type="line" data={cashFlowChart} options={chartOptions} />
+            </div>
+          </Card>
+        </motion.div>
+
+        <motion.div
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ delay: 0.6 }}
+        >
+          <Card className="shadow-xl border-0 bg-white">
+            <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
+              <span className="text-2xl">🥧</span>
+              Distribución de Ingresos
+            </h3>
+            <div className="h-80 flex items-center justify-center">
+              <Chart
+                type="doughnut"
+                data={revenueChart}
+                options={chartOptions}
+              />
+            </div>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* Tabs de Información Detallada */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.7 }}
+      >
+        <TabView
+          activeIndex={activeTab}
+          onTabChange={(e) => setActiveTab(e.index)}
+          className="shadow-xl"
+        >
+          <TabPanel header="📄 Facturación" leftIcon="pi pi-file-pdf">
+            <Card className="border-0 shadow-inner">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Facturas y Cobranza
+                </h3>
+                <Button
+                  label="Nueva Factura"
+                  icon="pi pi-plus"
+                  className="p-button-primary"
+                />
+              </div>
+              <DataTable
+                value={invoices}
+                className="p-datatable-sm shadow-sm"
+                emptyMessage="No hay facturas registradas"
+                paginator
+                rows={10}
+                stripedRows
+              >
+                <Column
+                  field="invoiceNumber"
+                  header="Factura"
+                  sortable
+                  style={{ fontWeight: "bold" }}
+                />
+                <Column
+                  field="customer"
+                  header="Cliente"
+                  body={(rowData) =>
+                    typeof rowData.customer === "string"
+                      ? rowData.customer
+                      : rowData.customer?.nombre
+                  }
+                  sortable
+                />
+                <Column
+                  field="issueDate"
+                  header="Emisión"
+                  body={(rowData) => formatDate(rowData.issueDate)}
+                  sortable
+                />
+                <Column
+                  field="dueDate"
+                  header="Vencimiento"
+                  body={(rowData) => formatDate(rowData.dueDate)}
+                  sortable
+                />
+                <Column
+                  field="total"
+                  header="Total"
+                  body={(rowData) => formatPrice(rowData.total)}
+                  sortable
+                />
+                <Column
+                  field="paidAmount"
+                  header="Pagado"
+                  body={(rowData) => formatPrice(rowData.paidAmount)}
+                  sortable
+                />
+                <Column
+                  field="balance"
+                  header="Saldo"
+                  body={(rowData) => formatPrice(rowData.balance)}
+                  sortable
+                />
+                <Column header="Estado" body={invoiceStatusTemplate} />
+                <Column
+                  header="Acciones"
+                  body={(rowData) => (
+                    <div className="flex gap-2">
+                      <Button
+                        icon="pi pi-eye"
+                        className="p-button-rounded p-button-text p-button-info"
+                        onClick={() => {
+                          setSelectedInvoice(rowData);
+                          setInvoiceDialog(true);
+                        }}
+                      />
+                      <Button
+                        icon="pi pi-dollar"
+                        className="p-button-rounded p-button-text p-button-success"
+                        tooltip="Registrar Pago"
+                      />
+                    </div>
+                  )}
+                />
+              </DataTable>
+            </Card>
+          </TabPanel>
+
+          <TabPanel
+            header="🛒 Egresos (Compras)"
+            leftIcon="pi pi-shopping-cart"
+          >
+            <Card className="border-0 shadow-inner">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Órdenes de Compra
+                </h3>
+                <Button
+                  label="Nueva Orden de Compra"
+                  icon="pi pi-plus"
+                  className="p-button-primary"
+                />
+              </div>
+              <DataTable
+                value={purchaseOrders}
+                className="p-datatable-sm shadow-sm"
+                emptyMessage="No hay órdenes de compra"
+                paginator
+                rows={10}
+                stripedRows
+              >
+                <Column
+                  field="numero"
+                  header="Orden"
+                  sortable
+                  style={{ fontWeight: "bold" }}
+                />
+                <Column
+                  field="proveedor"
+                  header="Proveedor"
+                  body={(rowData) =>
+                    typeof rowData.proveedor === "string"
+                      ? rowData.proveedor
+                      : rowData.proveedor?.nombre
+                  }
+                  sortable
+                />
+                <Column
+                  field="fecha"
+                  header="Fecha"
+                  body={(rowData) => formatDate(rowData.fecha)}
+                  sortable
+                />
+                <Column
+                  header="Total"
+                  body={(rowData) =>
+                    formatPrice(
+                      rowData.items?.reduce(
+                        (total: number, item: any) =>
+                          total + item.cantidad * item.precioUnitario,
+                        0
+                      ) || 0
+                    )
+                  }
+                  sortable
+                />
+                <Column header="Estado" body={purchaseOrderStatusTemplate} />
+                <Column
+                  header="Acciones"
+                  body={(rowData) => (
+                    <Button
+                      icon="pi pi-eye"
+                      className="p-button-rounded p-button-text p-button-info"
+                      onClick={() => {
+                        setSelectedPurchaseOrder(rowData);
+                        setPurchaseOrderDialog(true);
+                      }}
+                    />
+                  )}
+                />
+              </DataTable>
+            </Card>
+          </TabPanel>
+
+          <TabPanel header="🛍️ Ingresos (Ventas)" leftIcon="pi pi-shopping-bag">
+            <Card className="border-0 shadow-inner">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Órdenes de Venta
+                </h3>
+                <Button
+                  label="Nueva Orden de Venta"
+                  icon="pi pi-plus"
+                  className="p-button-primary"
+                />
+              </div>
+              <DataTable
+                value={salesOrders}
+                className="p-datatable-sm shadow-sm"
+                emptyMessage="No hay órdenes de venta"
+                paginator
+                rows={10}
+                stripedRows
+              >
+                <Column
+                  field="numero"
+                  header="Orden"
+                  sortable
+                  style={{ fontWeight: "bold" }}
+                />
+                <Column
+                  field="cliente"
+                  header="Cliente"
+                  body={(rowData) =>
+                    typeof rowData.cliente === "string"
+                      ? rowData.cliente
+                      : rowData.cliente?.nombre
+                  }
+                  sortable
+                />
+                <Column
+                  field="fecha"
+                  header="Fecha"
+                  body={(rowData) => formatDate(rowData.fecha)}
+                  sortable
+                />
+                <Column
+                  header="Total"
+                  body={(rowData) =>
+                    formatPrice(
+                      rowData.items?.reduce(
+                        (total: number, item: any) =>
+                          total + item.cantidad * item.precioUnitario,
+                        0
+                      ) || 0
+                    )
+                  }
+                  sortable
+                />
+                <Column header="Estado" body={salesOrderStatusTemplate} />
+                <Column
+                  header="Acciones"
+                  body={(rowData) => (
+                    <Button
+                      icon="pi pi-eye"
+                      className="p-button-rounded p-button-text p-button-info"
+                      onClick={() => {
+                        setSelectedSalesOrder(rowData);
+                        setSalesOrderDialog(true);
+                      }}
+                    />
+                  )}
+                />
+              </DataTable>
+            </Card>
+          </TabPanel>
+
+          <TabPanel header="💳 Pagos" leftIcon="pi pi-credit-card">
+            <Card className="border-0 shadow-inner">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-2xl font-bold text-gray-900">
+                  Registro de Pagos
+                </h3>
+                <Button
+                  label="Registrar Pago"
+                  icon="pi pi-plus"
+                  className="p-button-primary"
+                />
+              </div>
+              <DataTable
+                value={payments}
+                className="p-datatable-sm shadow-sm"
+                emptyMessage="No hay pagos registrados"
+                paginator
+                rows={10}
+                stripedRows
+              >
+                <Column field="reference" header="Referencia" sortable />
+                <Column
+                  field="amount"
+                  header="Monto"
+                  body={(rowData) => formatPrice(rowData.amount)}
+                  sortable
+                />
+                <Column field="method" header="Método" sortable />
+                <Column
+                  field="date"
+                  header="Fecha"
+                  body={(rowData) => formatDate(rowData.date)}
+                  sortable
+                />
+                <Column
+                  header="Estado"
+                  body={(rowData) => (
+                    <Badge
+                      value={rowData.status?.toUpperCase() || "PENDIENTE"}
+                      severity={
+                        rowData.status === "completado"
+                          ? "success"
+                          : rowData.status === "procesando"
+                          ? "warning"
+                          : "info"
+                      }
+                    />
+                  )}
+                />
+              </DataTable>
+            </Card>
+          </TabPanel>
+        </TabView>
+      </motion.div>
+
+      {/* Dialogs */}
+      <Dialog
+        header="Detalle de Factura"
+        visible={invoiceDialog}
+        onHide={() => setInvoiceDialog(false)}
+        className="w-11/12 max-w-4xl"
+        modal
+      >
+        {selectedInvoice && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <strong>Factura:</strong> {selectedInvoice.invoiceNumber}
+              </div>
+              <div>
+                <strong>Cliente:</strong>{" "}
+                {typeof selectedInvoice.customer === "string"
+                  ? selectedInvoice.customer
+                  : selectedInvoice.customer.nombre}
+              </div>
+              <div>
+                <strong>Fecha de emisión:</strong>{" "}
+                {formatDate(selectedInvoice.issueDate)}
+              </div>
+              <div>
+                <strong>Fecha de vencimiento:</strong>{" "}
+                {formatDate(selectedInvoice.dueDate)}
+              </div>
+              <div>
+                <strong>Total:</strong> {formatPrice(selectedInvoice.total)}
+              </div>
+              <div>
+                <strong>Pagado:</strong>{" "}
+                {formatPrice(selectedInvoice.paidAmount)}
+              </div>
+            </div>
+            <div className="mt-6">
+              <h4 className="text-lg font-semibold mb-2">Items</h4>
+              <DataTable
+                value={selectedInvoice.items || []}
+                className="p-datatable-sm"
+              >
+                <Column field="description" header="Descripción" />
+                <Column field="quantity" header="Cantidad" />
+                <Column
+                  field="unitPrice"
+                  header="Precio Unit."
+                  body={(rowData) => formatPrice(rowData.unitPrice)}
+                />
+                <Column
+                  field="total"
+                  header="Total"
+                  body={(rowData) => formatPrice(rowData.total)}
+                />
+              </DataTable>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        header="Detalle de Orden de Compra"
+        visible={purchaseOrderDialog}
+        onHide={() => setPurchaseOrderDialog(false)}
+        className="w-11/12 max-w-4xl"
+        modal
+      >
+        {selectedPurchaseOrder && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <strong>Orden:</strong> {selectedPurchaseOrder.numero}
+              </div>
+              <div>
+                <strong>Proveedor:</strong> {selectedPurchaseOrder.proveedor}
+              </div>
+              <div>
+                <strong>Fecha:</strong>{" "}
+                {formatDate(selectedPurchaseOrder.fecha)}
+              </div>
+              <div>
+                <strong>Estado:</strong> {selectedPurchaseOrder.estado}
+              </div>
+            </div>
+            <div className="mt-6">
+              <h4 className="text-lg font-semibold mb-2">Items</h4>
+              <DataTable
+                value={selectedPurchaseOrder.items || []}
+                className="p-datatable-sm"
+              >
+                <Column field="item" header="Artículo" />
+                <Column field="cantidad" header="Cantidad" />
+                <Column
+                  field="precioUnitario"
+                  header="Precio Unit."
+                  body={(rowData) => formatPrice(rowData.precioUnitario)}
+                />
+                <Column
+                  header="Total"
+                  body={(rowData) =>
+                    formatPrice(
+                      (rowData as any).cantidad *
+                        (rowData as any).precioUnitario
+                    )
+                  }
+                />
+                <Column field="recibido" header="Recibido" />
+              </DataTable>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Dialog
+        header="Detalle de Orden de Venta"
+        visible={salesOrderDialog}
+        onHide={() => setSalesOrderDialog(false)}
+        className="w-11/12 max-w-4xl"
+        modal
+      >
+        {selectedSalesOrder && (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <strong>Orden:</strong> {selectedSalesOrder.numero}
+              </div>
+              <div>
+                <strong>Cliente:</strong> {selectedSalesOrder.cliente}
+              </div>
+              <div>
+                <strong>Fecha:</strong> {formatDate(selectedSalesOrder.fecha)}
+              </div>
+              <div>
+                <strong>Estado:</strong> {selectedSalesOrder.estado}
+              </div>
+            </div>
+            <div className="mt-6">
+              <h4 className="text-lg font-semibold mb-2">Items</h4>
+              <DataTable
+                value={selectedSalesOrder.items || []}
+                className="p-datatable-sm"
+              >
+                <Column field="item" header="Artículo" />
+                <Column field="cantidad" header="Cantidad" />
+                <Column
+                  field="precioUnitario"
+                  header="Precio Unit."
+                  body={(rowData) => formatPrice(rowData.precioUnitario)}
+                />
+                <Column
+                  header="Total"
+                  body={(rowData) =>
+                    formatPrice(
+                      (rowData as any).cantidad *
+                        (rowData as any).precioUnitario
+                    )
+                  }
+                />
+                <Column field="entregado" header="Entregado" />
+              </DataTable>
+            </div>
+          </div>
+        )}
+      </Dialog>
+    </motion.div>
+  );
+};
+
+export default FinanceDashboard;

@@ -1,0 +1,285 @@
+[
+  {
+    "id": "1",
+    "marca": "Toyota",
+    "modelo": "Corolla",
+    "anio": 2023,
+    "precio": 185000,
+    "kilometraje": 0,
+    "color": "Blanco",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Toyota Corolla 2023 en excelente estado, cero kilómetros. Equipado con motor 1.8L, transmisión automática CVT, sistema de navegación, cámara de reversa y más.",
+    "caracteristicas": [
+      "Motor 1.8L",
+      "Transmisión CVT",
+      "Sistema de navegación",
+      "Cámara de reversa",
+      "Sensores de estacionamiento",
+      "Aire acondicionado",
+      "Bluetooth",
+      "Controles en volante"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sede Principal"
+  },
+  {
+    "id": "2",
+    "marca": "Honda",
+    "modelo": "Civic",
+    "anio": 2023,
+    "precio": 195000,
+    "kilometraje": 0,
+    "color": "Negro",
+    "combustible": "Gasolina",
+    "transmision": "Manual",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Honda Civic 2023 edición especial. Motor 2.0L turbo, transmisión manual de 6 velocidades, interior deportivo y tecnología avanzada.",
+    "caracteristicas": [
+      "Motor 2.0L Turbo",
+      "Transmisión Manual 6 vel.",
+      "Interior deportivo",
+      "Pantalla táctil 8\"",
+      "Apple CarPlay/Android Auto",
+      "Techo solar",
+      "Rines de aleación 17\"",
+      "Sistema de sonido premium"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sede Principal"
+  },
+  {
+    "id": "3",
+    "marca": "Nissan",
+    "modelo": "Sentra",
+    "anio": 2022,
+    "precio": 165000,
+    "kilometraje": 15000,
+    "color": "Gris",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Nissan Sentra 2022 seminuevo con bajo kilometraje. Excelente mantenimiento, garantía incluida.",
+    "caracteristicas": [
+      "Motor 2.0L",
+      "Transmisión CVT",
+      "15,000 km",
+      "Garantía incluida",
+      "Aire acondicionado",
+      "Bluetooth",
+      "Cámara de reversa",
+      "Sensores de lluvia"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sucursal Norte"
+  },
+  {
+    "id": "4",
+    "marca": "Mazda",
+    "modelo": "Mazda3",
+    "anio": 2023,
+    "precio": 220000,
+    "kilometraje": 0,
+    "color": "Rojo",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Mazda3 2023 con diseño Kodo y tecnología SkyActiv. Experiencia de conducción premium.",
+    "caracteristicas": [
+      "Motor SkyActiv 2.0L",
+      "Transmisión automática",
+      "Diseño Kodo",
+      "Tecnología SkyActiv",
+      "Pantalla táctil 8.8\"",
+      "Apple CarPlay/Android Auto",
+      "Asientos de cuero",
+      "Sistema de sonido Bose"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sede Principal"
+  },
+  {
+    "id": "5",
+    "marca": "Hyundai",
+    "modelo": "Elantra",
+    "anio": 2023,
+    "precio": 175000,
+    "kilometraje": 0,
+    "color": "Azul",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Hyundai Elantra 2023 con diseño elegante y tecnología avanzada. Confort y seguridad garantizados.",
+    "caracteristicas": [
+      "Motor 2.0L",
+      "Transmisión automática",
+      "Diseño elegante",
+      "Pantalla táctil 10.25\"",
+      "Apple CarPlay/Android Auto",
+      "Cámara 360°",
+      "Asistente de estacionamiento",
+      "7 años de garantía"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sucursal Sur"
+  },
+  {
+    "id": "6",
+    "marca": "Kia",
+    "modelo": "Forte",
+    "anio": 2022,
+    "precio": 155000,
+    "kilometraje": 25000,
+    "color": "Plata",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Kia Forte 2022 seminuevo en excelente condición. Mantenimiento al día y garantía extendida disponible.",
+    "caracteristicas": [
+      "Motor 2.0L",
+      "Transmisión automática",
+      "25,000 km",
+      "Mantenimiento al día",
+      "Aire acondicionado",
+      "Bluetooth",
+      "Cámara de reversa",
+      "Garantía extendida disponible"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sucursal Norte"
+  },
+  {
+    "id": "7",
+    "marca": "Volkswagen",
+    "modelo": "Jetta",
+    "anio": 2024,
+    "precio": 210000,
+    "kilometraje": 0,
+    "color": "Blanco",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Volkswagen Jetta 2024 - PRÓXIMA LLEGADA. Modelo 2024 con motor turbo y tecnología de vanguardia. Elegancia alemana con confort moderno. Llegada estimada: 15 días.",
+    "caracteristicas": [
+      "Motor 1.4L Turbo",
+      "Transmisión automática",
+      "Tecnología VW 2024",
+      "Pantalla táctil 8\"",
+      "Apple CarPlay/Android Auto",
+      "Asientos calefactables",
+      "Control de clima automático",
+      "Sistema de navegación",
+      "Llegada en 15 días"
+    ],
+    "estado": "Próxima Llegada",
+    "ubicacion": "Sede Principal"
+  },
+  {
+    "id": "8",
+    "marca": "Chevrolet",
+    "modelo": "Cruze",
+    "anio": 2022,
+    "precio": 145000,
+    "kilometraje": 35000,
+    "color": "Negro",
+    "combustible": "Gasolina",
+    "transmision": "Manual",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Chevrolet Cruze 2022 con excelente rendimiento y bajo consumo de combustible. Ideal para ciudad.",
+    "caracteristicas": [
+      "Motor 1.4L Turbo",
+      "Transmisión manual",
+      "35,000 km",
+      "Bajo consumo",
+      "Aire acondicionado",
+      "Bluetooth",
+      "Cámara de reversa",
+      "Garantía Chevrolet"
+    ],
+    "estado": "Disponible",
+    "ubicacion": "Sucursal Sur"
+  },
+  {
+    "id": "9",
+    "marca": "BMW",
+    "modelo": "X3",
+    "anio": 2024,
+    "precio": 450000,
+    "kilometraje": 0,
+    "color": "Azul Marino",
+    "combustible": "Diésel",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "BMW X3 2024 BAJO PEDIDO. SUV premium con motor diésel eficiente y equipamiento completo. Personalización disponible según preferencias del cliente.",
+    "caracteristicas": [
+      "Motor 2.0L Diésel",
+      "Transmisión automática 8 vel.",
+      "Tracción integral xDrive",
+      "Interior premium",
+      "Pantalla táctil 12.3\"",
+      "Asistente de conducción",
+      "Techo panorámico",
+      "Personalización disponible",
+      "Entrega en 30-45 días"
+    ],
+    "estado": "Bajo Pedido",
+    "ubicacion": "Sede Principal"
+  },
+  {
+    "id": "10",
+    "marca": "Mercedes-Benz",
+    "modelo": "Clase C",
+    "anio": 2024,
+    "precio": 520000,
+    "kilometraje": 0,
+    "color": "Gris Plata",
+    "combustible": "Gasolina",
+    "transmision": "Automática",
+    "imagenes": [
+      "/demo/images/placeholder-car.svg",
+      "/demo/images/placeholder-car.svg"
+    ],
+    "descripcion": "Mercedes-Benz Clase C 2024 PRÓXIMA LLEGADA. Elegancia y lujo alemán con tecnología de vanguardia. Configuración personalizada disponible.",
+    "caracteristicas": [
+      "Motor 2.0L Turbo",
+      "Transmisión automática 9G-Tronic",
+      "Suspensión inteligente",
+      "Interior MB-Tex",
+      "Pantalla MBUX 11.9\"",
+      "Asistente de voz",
+      "Faros LED Multibeam",
+      "Sistema de sonido Burmester",
+      "Llegada en 20 días"
+    ],
+    "estado": "Próxima Llegada",
+    "ubicacion": "Sede Principal"
+  }
+]
