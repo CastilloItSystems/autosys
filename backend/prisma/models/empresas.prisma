@@ -1,11 +1,3 @@
-generator client {
-  provider = "prisma-client"
-  output   = "../src/generated/prisma"
-}
-
-datasource db {
-  provider = "postgresql"
-}
 model Empresa {
   id_empresa    String   @id @default(cuid())
   nombre        String
@@ -37,35 +29,4 @@ model Empresa {
   eliminado     Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}model User {
-  id           String    @id @default(cuid())
-  img          String?
-  nombre       String
-  correo       String    @unique
-  telefono     String?
-  password     String
-  rol          Role      @default(lectura)
-  departamento String[]
-  acceso       Access    @default(ninguno)
-  estado       Boolean   @default(true)
-  eliminado    Boolean   @default(false)
-  online       Boolean   @default(false)
-  fcmTokens    String[]
-  google       Boolean   @default(false)
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-
-enum Role {
-  superAdmin
-  admin
-  operador
-  user
-  lectura
-}
-
-enum Access {
-  limitado
-  completo
-  ninguno
 }

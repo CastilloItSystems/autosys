@@ -18,15 +18,16 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     const session = await getSession();
+    console.log(session);
     const token = (session?.user as ExtendedUser)?.token;
     if (token) {
-      config.headers["x-token"] = token;
+      config.headers["Authorization"] = `Bearer ${token}`;
     }
     return config;
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // guard to prevent multiple logout alerts
@@ -58,7 +59,7 @@ apiClient.interceptors.response.use(
       if (!logoutAlertShown) {
         logoutAlertShown = true;
         window.alert(
-          "Sesión expirada. Por favor inicie sesión nuevamente este? ."
+          "Sesión expirada. Por favor inicie sesión nuevamente este? .",
         );
       }
       signOut({ callbackUrl: "/auth/login" });
@@ -73,7 +74,7 @@ apiClient.interceptors.response.use(
         if (!logoutAlertShown) {
           logoutAlertShown = true;
           window.alert(
-            "Su sesión ha finalizado. Por favor inicie sesión nuevamente."
+            "Su sesión ha finalizado. Por favor inicie sesión nuevamente.",
           );
         }
         // use signOut without redirect and manual navigation
@@ -83,7 +84,7 @@ apiClient.interceptors.response.use(
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

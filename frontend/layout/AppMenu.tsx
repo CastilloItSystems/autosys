@@ -64,6 +64,23 @@ const AppMenu = () => {
         },
       ],
     },
+
+    {
+      label: "Gestión de Empresas",
+      icon: "pi pi-fw pi-user",
+      items: [
+        {
+          label: "Lista",
+          icon: "pi pi-fw pi-list",
+          to: "/empresas/list",
+        },
+        {
+          label: "Crear",
+          icon: "pi pi-fw pi-plus",
+          to: "/empresas/create",
+        },
+      ],
+    },
   ];
 
   return <AppSubMenu model={model} />;
