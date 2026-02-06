@@ -5,8 +5,7 @@ import { Usuario } from "@/libs/interfaces";
 import GoogleProvider from "next-auth/providers/google";
 declare module "next-auth" {
   interface Session {
-    user: {
-      usuario?: Usuario;
+    user: Usuario & {
       token?: string;
       access_token?: string; // Agregado para manejar el token de Google
     } & DefaultSession["user"];

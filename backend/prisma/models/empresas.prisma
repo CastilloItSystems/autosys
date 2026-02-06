@@ -27,6 +27,7 @@ model Empresa {
   dprefijosrv   String?
   dprefijousr   String?
   eliminado     Boolean  @default(false)
+  users         User[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

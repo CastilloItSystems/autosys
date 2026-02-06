@@ -8,13 +8,21 @@ model User {
   rol          Role      @default(lectura)
   departamento String[]
   acceso       Access    @default(ninguno)
-  estado       Boolean   @default(true)
+  empresas     Empresa[]
+  estado       UserStatus @default(activo)
   eliminado    Boolean   @default(false)
   online       Boolean   @default(false)
   fcmTokens    String[]
   google       Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  auditLogs    AuditLog[]
+}
+
+enum UserStatus {
+  pendiente
+  activo
+  suspendido
 }
 
 enum Role {

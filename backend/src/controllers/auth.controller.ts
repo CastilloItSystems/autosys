@@ -16,6 +16,9 @@ export const login = async (req: Request, res: Response) => {
     // Buscar usuario por correo
     const user = await prisma.user.findUnique({
       where: { correo },
+      include: {
+        empresas: true,
+      },
     })
 
     if (!user) {

@@ -11,7 +11,11 @@ export const getAllEmpresas = async (req: Request, res: Response) => {
         createdAt: 'desc',
       },
     })
-    res.json(empresas)
+
+    res.json({
+      total: empresas.length,
+      empresas,
+    })
   } catch (error) {
     console.error('Error obteniendo empresas:', error)
     res.status(500).json({ error: 'Error interno del servidor' })
@@ -21,17 +25,38 @@ export const getAllEmpresas = async (req: Request, res: Response) => {
 export const createEmpresa = async (req: Request, res: Response) => {
   try {
     const empresaData = req.body
+    const currentUserId =
+      (req as any).user?.userId || (req as any).user?.id || null
 
-    // Si es predeterminada, quitar predeterminado de otras empresas
-    if (empresaData.predeter) {
-      await prisma.empresa.updateMany({
-        where: { predeter: true },
-        data: { predeter: false },
+    // Ejecutar creación y auditoría en transacción
+    const newEmpresa = await prisma.$transaction(async (tx) => {
+      // Si es predeterminada, quitar predeterminado de otras empresas
+      if (empresaData.predeter) {
+        await tx.empresa.updateMany({
+          where: { predeter: true },
+          data: { predeter: false },
+        })
+      }
+
+      const empresa = await tx.empresa.create({
+        data: empresaData,
       })
-    }
 
-    const newEmpresa = await prisma.empresa.create({
-      data: empresaData,
+      // Crear registro de auditoría
+      await tx.auditLog.create({
+        data: {
+          entity: 'Empresa',
+          entityId: empresa.id_empresa,
+          action: 'CREATE',
+          userId: currentUserId,
+          changes: {
+            before: {},
+            after: empresa,
+          },
+        },
+      })
+
+      return empresa
     })
 
     res.status(201).json(newEmpresa)
@@ -43,7 +68,7 @@ export const createEmpresa = async (req: Request, res: Response) => {
 
 export const getEmpresaById = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
 
     const empresa = await prisma.empresa.findUnique({
       where: { id_empresa: id },
@@ -52,7 +77,6 @@ export const getEmpresaById = async (req: Request, res: Response) => {
     if (!empresa || empresa.eliminado) {
       return res.status(404).json({ error: 'Empresa no encontrada' })
     }
-
     res.json(empresa)
   } catch (error) {
     console.error('Error obteniendo empresa:', error)
@@ -62,8 +86,10 @@ export const getEmpresaById = async (req: Request, res: Response) => {
 
 export const updateEmpresa = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
     const updateData = req.body
+    const currentUserId =
+      (req as any).user?.userId || (req as any).user?.id || null
 
     // Verificar que la empresa existe
     const existingEmpresa = await prisma.empresa.findUnique({
@@ -74,20 +100,39 @@ export const updateEmpresa = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Empresa no encontrada' })
     }
 
-    // Si se está marcando como predeterminada, quitar predeterminado de otras
-    if (updateData.predeter) {
-      await prisma.empresa.updateMany({
-        where: {
-          predeter: true,
-          id_empresa: { not: id },
-        },
-        data: { predeter: false },
-      })
-    }
+    // Ejecutar actualización y auditoría en transacción
+    const updatedEmpresa = await prisma.$transaction(async (tx) => {
+      // Si se está marcando como predeterminada, quitar predeterminado de otras
+      if (updateData.predeter) {
+        await tx.empresa.updateMany({
+          where: {
+            predeter: true,
+            id_empresa: { not: id },
+          },
+          data: { predeter: false },
+        })
+      }
 
-    const updatedEmpresa = await prisma.empresa.update({
-      where: { id_empresa: id },
-      data: updateData,
+      const empresa = await tx.empresa.update({
+        where: { id_empresa: id },
+        data: updateData,
+      })
+
+      // Crear registro de auditoría
+      await tx.auditLog.create({
+        data: {
+          entity: 'Empresa',
+          entityId: id,
+          action: 'UPDATE',
+          userId: currentUserId,
+          changes: {
+            before: existingEmpresa,
+            after: empresa,
+          },
+        },
+      })
+
+      return empresa
     })
 
     res.json(updatedEmpresa)
@@ -99,7 +144,9 @@ export const updateEmpresa = async (req: Request, res: Response) => {
 
 export const deleteEmpresa = async (req: Request, res: Response) => {
   try {
-    const { id } = req.params
+    const id = req.params.id as string
+    const currentUserId =
+      (req as any).user?.userId || (req as any).user?.id || null
 
     // Verificar que la empresa existe
     const existingEmpresa = await prisma.empresa.findUnique({
@@ -110,16 +157,67 @@ export const deleteEmpresa = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Empresa no encontrada' })
     }
 
-    // Soft delete
-    const deletedEmpresa = await prisma.empresa.update({
-      where: { id_empresa: id },
-      data: { eliminado: true },
+    // Ejecutar soft delete y auditoría en transacción
+    await prisma.$transaction(async (tx) => {
+      await tx.empresa.update({
+        where: { id_empresa: id },
+        data: { eliminado: true },
+      })
+
+      // Crear registro de auditoría
+      await tx.auditLog.create({
+        data: {
+          entity: 'Empresa',
+          entityId: id,
+          action: 'DELETE',
+          userId: currentUserId,
+          changes: {
+            before: existingEmpresa,
+            after: { eliminado: true },
+          },
+        },
+      })
     })
 
     res.json({ message: 'Empresa eliminada exitosamente' })
   } catch (error) {
     console.error('Error eliminando empresa:', error)
     res.status(500).json({ error: 'Error interno del servidor' })
+  }
+}
+
+export const getAuditLogsForEmpresa = async (req: Request, res: Response) => {
+  const { id } = req.params
+  try {
+    const auditLogs = await prisma.auditLog.findMany({
+      where: {
+        entity: 'Empresa',
+        entityId: String(id),
+      },
+      include: {
+        user: {
+          select: {
+            id: true,
+            nombre: true,
+            correo: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: 'desc',
+      },
+    })
+
+    res.json({
+      total: auditLogs.length,
+      auditLogs,
+    })
+  } catch (error) {
+    console.error('Error obteniendo logs de auditoría:', error)
+    res.status(500).json({
+      error: 'Hubo un error al obtener los logs de auditoría.',
+      details: error instanceof Error ? error.message : 'Error desconocido',
+    })
   }
 }
 

@@ -5,6 +5,7 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  getAuditLogsForUser,
 } from '../controllers/users.controller.js'
 import {
   authenticateToken,
@@ -24,5 +25,12 @@ router.delete('/:id', requireRole(['admin', 'superAdmin']), deleteUser)
 
 // Obtener usuario por ID (cualquier usuario autenticado puede ver su propio perfil)
 router.get('/:id', getUserById)
+
+// Obtener logs de auditoría de un usuario
+router.get(
+  '/:id/audit-logs',
+  requireRole(['admin', 'superAdmin']),
+  getAuditLogsForUser
+)
 
 export default router

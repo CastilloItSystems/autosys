@@ -8,7 +8,7 @@ const AppMenu = () => {
       icon: "pi pi-home",
       items: [
         {
-          label: "Operaciones",
+          label: "Empresas",
           icon: "pi pi-fw pi-home",
           to: "/",
         },
@@ -21,63 +21,18 @@ const AppMenu = () => {
     },
 
     {
-      label: "Gestión de Usuarios",
-      icon: "pi pi-fw pi-user",
+      label: "Gestión",
+      icon: "pi pi-fw pi-cog",
       items: [
         {
-          label: "Lista",
-          icon: "pi pi-fw pi-list",
-          to: "/users/list",
+          label: "Empresas",
+          icon: "pi pi-fw pi-building",
+          to: "/empresas",
         },
         {
-          label: "Crear",
-          icon: "pi pi-fw pi-plus",
-          to: "/users/create",
-        },
-      ],
-    },
-    {
-      label: "Gestión de Gastos",
-      icon: "pi pi-fw pi-user",
-      items: [
-        {
-          label: "Partidas",
-          icon: "pi pi-fw pi-truck",
-          to: "/partidas",
-        },
-      ],
-    },
-
-    {
-      label: "Gestión de AutoSysList",
-      icon: "pi pi-fw pi-user",
-      items: [
-        {
-          label: "Lista",
-          icon: "pi pi-fw pi-list",
-          to: "/all-autosys/list",
-        },
-        {
-          label: "Crear",
-          icon: "pi pi-fw pi-plus",
-          to: "/all-autosys/create",
-        },
-      ],
-    },
-
-    {
-      label: "Gestión de Empresas",
-      icon: "pi pi-fw pi-user",
-      items: [
-        {
-          label: "Lista",
-          icon: "pi pi-fw pi-list",
-          to: "/empresas/list",
-        },
-        {
-          label: "Crear",
-          icon: "pi pi-fw pi-plus",
-          to: "/empresas/create",
+          label: "Usuarios",
+          icon: "pi pi-fw pi-users",
+          to: "/users",
         },
       ],
     },

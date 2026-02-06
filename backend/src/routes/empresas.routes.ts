@@ -6,6 +6,7 @@ import {
   updateEmpresa,
   deleteEmpresa,
   getEmpresaPredeterminada,
+  getAuditLogsForEmpresa,
 } from '../controllers/empresas.controller.js'
 import {
   authenticateToken,
@@ -22,6 +23,11 @@ router.get('/', requireRole(['admin', 'superAdmin']), getAllEmpresas)
 router.post('/', requireRole(['admin', 'superAdmin']), createEmpresa)
 router.put('/:id', requireRole(['admin', 'superAdmin']), updateEmpresa)
 router.delete('/:id', requireRole(['admin', 'superAdmin']), deleteEmpresa)
+router.get(
+  '/:id/audit-logs',
+  requireRole(['admin', 'superAdmin']),
+  getAuditLogsForEmpresa
+)
 
 // Rutas accesibles para usuarios autenticados
 router.get('/predeterminada', getEmpresaPredeterminada)

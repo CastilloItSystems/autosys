@@ -4,6 +4,7 @@ import {
   Refineria,
   UserReference,
 } from "./configRefineriaInterface";
+import { Empresa } from "./empresaInterface";
 import { Workshop } from "./workshopInterface";
 
 export interface AuthContextProps {
@@ -36,8 +37,10 @@ export interface Usuario {
   idWorkshop?: Workshop[];
   idRefineria?: Refineria[];
   idAutoSys?: AutoSys[];
+  empresas?: Empresa[];
 
   departamento?: string[];
+
   img?: string;
   telefono: string;
 }

@@ -27,6 +27,11 @@ export const deleteUser = async (id: string) => {
   return response.data;
 };
 
+export const getAuditLogsForUser = async (id: string) => {
+  const response = await apiClient.get(`/users/${id}/audit-logs`);
+  return response.data;
+};
+
 export const loginUser = async (data: any) => {
   const response = await apiClient.post("/auth/login", data);
   return response.data;

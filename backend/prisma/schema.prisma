@@ -6,6 +6,23 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String   // Nombre de la tabla (Ej: "User", "Empresa")
+  entityId  String   // ID del registro afectado
+  action    String   // "CREATE", "UPDATE", "DELETE", etc.
+  
+  userId    String?  // Usuario que realizó la acción
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  changes   Json     // Guardará el estado anterior y nuevo: { before: {...}, after: {...} }
+  metadata  Json?    // Para guardar IP, navegador, etc.
+  
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId]) // Búsqueda rápida por registro
+  @@index([userId])           // Búsqueda rápida por usuario
+}
 model Empresa {
   id_empresa    String   @id @default(cuid())
   nombre        String
@@ -35,6 +52,7 @@ model Empresa {
   dprefijosrv   String?
   dprefijousr   String?
   eliminado     Boolean  @default(false)
+  users         User[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }model User {
@@ -47,13 +65,21 @@ model Empresa {
   rol          Role      @default(lectura)
   departamento String[]
   acceso       Access    @default(ninguno)
-  estado       Boolean   @default(true)
+  empresas     Empresa[]
+  estado       UserStatus @default(activo)
   eliminado    Boolean   @default(false)
   online       Boolean   @default(false)
   fcmTokens    String[]
   google       Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
+  auditLogs    AuditLog[]
+}
+
+enum UserStatus {
+  pendiente
+  activo
+  suspendido
 }
 
 enum Role {

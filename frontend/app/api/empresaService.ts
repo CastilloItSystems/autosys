@@ -29,3 +29,8 @@ export const deleteEmpresa = async (id: string) => {
   const response = await apiClient.delete(`/empresas/${id}`);
   return response.data;
 };
+
+export const getAuditLogsForEmpresa = async (id: string) => {
+  const response = await apiClient.get(`/empresas/${id}/audit-logs`);
+  return response.data;
+};

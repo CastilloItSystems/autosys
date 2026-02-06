@@ -1,48 +1,44 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useRouter } from "next/navigation";
-import { useRefineriaStore } from "@/store/refineriaStore";
 import { useSession } from "next-auth/react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
-import GraficaRecepcionesPorRefineria from "./GraficaRecepcionesPorRefineria";
-import FiltrosDashboard from "./FiltrosDashboard";
-import GraficaDespachoPorRefineria from "./GraficaDespachoPorRefineria";
-import { useRefineryDataFull } from "@/hooks/useRefineryDataFull";
-import { useAutoSysDataFull } from "@/hooks/useAutoSysDataFull";
 import useSWR from "swr";
-import { useAutoSysStore } from "@/store/autoSysStore";
+import { useEmpresaDataFull } from "@/hooks/useEmpresasDataFull";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 const DashboardMain = () => {
   const { data: session, status } = useSession();
   const user = session?.user;
+  const { empresas = [], loading } = useEmpresaDataFull();
 
-  const { autoSyss = [], loading } = useAutoSysDataFull();
-  console.log("autoSys", autoSyss);
   // Para refrescar datos globales con SWR
-  const { mutate } = useSWR("autoSys-data-global");
-  const { setActiveAutoSys } = useAutoSysStore();
+  const { mutate } = useSWR("empresa-data-global");
+  const { setActiveEmpresa } = useEmpresasStore();
 
-  const router = useRouter();
+  // Filtrar empresas según el acceso del usuario
+  const empresasFilter = React.useMemo(() => {
+    if (!Array.isArray(empresas)) return [];
 
-  // Filtrar refinerías según el acceso del usuario
-  const autoSysFilter = React.useMemo(() => {
-    if (!Array.isArray(autoSyss)) return [];
-    if (user?.usuario?.acceso === "completo") {
-      return autoSyss;
-    } else if (
-      user?.usuario?.acceso === "limitado" &&
-      Array.isArray(user?.usuario?.idAutoSys)
-    ) {
-      return autoSyss.filter((w: { id: string | undefined }) =>
-        user?.usuario?.idAutoSys?.some((idObj) => idObj.id === w.id)
+    // Ajuste: Accedemos directamente a las propiedades del objeto user, ya que no tiene una propiedad 'usuario' anidada según tu log.
+    const acceso = user?.acceso;
+    const userEmpresas = user?.empresas;
+
+    if (acceso === "completo") {
+      return empresas;
+    } else if (acceso === "limitado" && Array.isArray(userEmpresas)) {
+      return empresas.filter((w: any) =>
+        userEmpresas.some(
+          (userEmpresa: any) => userEmpresa.id_empresa === w.id_empresa,
+        ),
       );
     } else {
       return [];
     }
-  }, [user, autoSyss]);
-
+  }, [user, empresas]);
+  console.log(empresas);
   // Evitar problemas de hidratación: solo renderizar cuando la sesión esté lista
   if (status === "loading" || loading) {
     return (
@@ -55,8 +51,8 @@ const DashboardMain = () => {
     );
   }
 
-  const handleDivClick = (autoSys: any) => {
-    setActiveAutoSys(autoSys);
+  const handleDivClick = (empresa: any) => {
+    setActiveEmpresa(empresa);
     router.push("/autosys/");
   };
 
@@ -73,7 +69,7 @@ const DashboardMain = () => {
   }
 
   // empty state if no autoSyss
-  if (!loading && autoSyss.length === 0) {
+  if (!loading && empresas.length === 0) {
     return (
       <div
         className="flex flex-column align-items-center justify-content-center"
@@ -84,7 +80,7 @@ const DashboardMain = () => {
           alt="Sin datos"
           width={120}
         />
-        <h3 className="mt-3">No tienes autoSyss</h3>
+        <h3 className="mt-3">No tienes Empresa</h3>
         <p className="text-500">
           Contacta al administrador para solicitar acceso.
         </p>
@@ -100,13 +96,13 @@ const DashboardMain = () => {
   return (
     <>
       <div className="grid">
-        {Array.isArray(autoSysFilter) &&
-          autoSysFilter.length > 0 &&
-          autoSysFilter.map((autoSys, idx) => (
+        {Array.isArray(empresasFilter) &&
+          empresasFilter.length > 0 &&
+          empresasFilter.map((empresa, idx) => (
             <motion.div
-              key={autoSys.id}
+              key={empresa.id_empresa}
               className="col-12 md:col-6 lg:col-4 xl:col-3 p-2 clickable"
-              onClick={() => handleDivClick(autoSys)}
+              onClick={() => handleDivClick(empresa)}
               initial={{ opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" }}
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
               transition={{
@@ -124,8 +120,8 @@ const DashboardMain = () => {
               <div className="card h-full flex flex-column surface-card hover:surface-hover transition-colors transition-duration-300">
                 <div className="flex flex-column md:flex-row align-items-center ">
                   <img
-                    src={autoSys.img}
-                    alt={autoSys.nombre}
+                    src="/demo/images/nature/nature1.jpg"
+                    alt={empresa.nombre}
                     width={100}
                     height={100}
                     className="rounded-lg shadow-4 object-cover mb-3 md:mb-0 md:mr-3 card p-0"
@@ -133,13 +129,13 @@ const DashboardMain = () => {
                   />
                   <div className="ml-3">
                     <span className="text-primary block white-space-nowrap text-xs font-medium opacity-80">
-                      {autoSys.ubicacion}
+                      {empresa.direccion}
                     </span>
                     <span className="text-primary block text-2xl md:text-3xl font-bold mb-1">
-                      {autoSys.nombre}
+                      {empresa.nombre}
                     </span>
                     <span className="text-primary block white-space-nowrap text-xs opacity-70">
-                      {autoSys.rif}
+                      {empresa.numerorif}
                     </span>
                   </div>
                 </div>

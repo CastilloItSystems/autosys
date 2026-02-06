@@ -21,10 +21,9 @@ export const usuarioSchema = object({
   telefono: string()
     .nonempty("El teléfono es obligatorio")
     .min(8, "El teléfono debe tener al menos 8 dígitos")
-    .max(15, "El teléfono no puede exceder los 15 dígitos")
-    .regex(/^\+[1-9]\d+$/, {
-      message:
-        "Formato inválido. Use: +[código país][número]. Ej: +584248286102",
+    .max(20, "El teléfono no puede exceder los 20 dígitos")
+    .regex(/^[\d\+\-\s]+$/, {
+      message: "El teléfono solo puede contener números, guiones y el signo +",
     }),
   password: string()
     .optional()
@@ -35,7 +34,7 @@ export const usuarioSchema = object({
   rol: string().min(1, "Debes seleccionar un rol"),
   estado: string().min(1, "Debes seleccionar un estado"),
   acceso: string().min(1, "Debes seleccionar un acceso"),
-  idRefineria: string().array().optional(),
+  idEmpresas: string().array().optional(),
   departamento: string()
     .array()
     .min(1, "Debes seleccionar al menos un departamento"),
@@ -46,10 +45,9 @@ export const profileSchema = object({
   telefono: string()
     .nonempty("El teléfono es obligatorio")
     .min(8, "El teléfono debe tener al menos 8 dígitos")
-    .max(15, "El teléfono no puede exceder los 15 dígitos")
-    .regex(/^\+[1-9]\d+$/, {
-      message:
-        "Formato inválido. Use: +[código país][número]. Ej: +584248286102",
+    .max(20, "El teléfono no puede exceder los 20 dígitos")
+    .regex(/^[\d\+\-\s]+$/, {
+      message: "El teléfono solo puede contener números, guiones y el signo +",
     }),
 
   idRefineria: string().array().optional(),

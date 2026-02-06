@@ -1,9 +1,9 @@
 "use client";
 import UsuarioList from "@/components/usuarioComponents/UsuarioList";
-import { Page } from "../../../../types/layout";
+import { Page } from "@/types";
 
-const Login: Page = () => {
+const UsersListPage: Page = () => {
   return <UsuarioList />;
 };
 
-export default Login;
+export default UsersListPage;

@@ -7,14 +7,16 @@ import { classNames } from "primereact/utils";
 interface RifInputProps {
   value?: string;
   onChange?: (value: string) => void;
-  error?: boolean;
+  error?: any;
   placeholder?: string;
+  id?: string;
+  className?: string;
 }
 
 // Tipos de RIF venezolano
 const RIF_TYPES = [
-  { label: "V", value: "V", description: "Venezolano" },
   { label: "J", value: "J", description: "Jurídico" },
+  { label: "V", value: "V", description: "Venezolano" },
   { label: "G", value: "G", description: "Gubernamental" },
   { label: "E", value: "E", description: "Extranjero" },
   { label: "P", value: "P", description: "Pasaporte" },
@@ -24,103 +26,100 @@ const RIF_TYPES = [
 const RifInput: React.FC<RifInputProps> = ({
   value = "",
   onChange,
-  error = false,
-  placeholder = "12345678",
+  error,
+  placeholder = "12345678-9",
+  id,
+  className,
 }) => {
-  const [rifType, setRifType] = useState<string>("V");
+  const [rifType, setRifType] = useState<string>("J");
   const [rifNumber, setRifNumber] = useState<string>("");
 
   // Parse existing value
   useEffect(() => {
-    if (value && value.length > 0) {
-      const firstChar = value.charAt(0).toUpperCase();
-      const numbers = value.substring(1);
+    if (value) {
+      // Formatos esperados: "J-12345678-9", "J123456789", "J-123456789"
+      const cleanValue = value.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
-      // Validar que el primer carácter sea una letra válida
-      if (RIF_TYPES.some((t) => t.value === firstChar)) {
-        setRifType(firstChar);
-        setRifNumber(numbers);
-      } else {
-        // Si no es válido, resetear a valores por defecto
-        setRifType("V");
-        setRifNumber("");
+      if (cleanValue.length > 1) {
+        const firstChar = cleanValue.charAt(0);
+        const numbers = cleanValue.substring(1);
+
+        if (RIF_TYPES.some((t) => t.value === firstChar)) {
+          setRifType(firstChar);
+          setRifNumber(formatRifNumber(numbers));
+        }
       }
     }
   }, [value]);
 
-  // Handle number change
+  const formatRifNumber = (nums: string) => {
+    const clean = nums.replace(/\D/g, "");
+    if (clean.length > 8) {
+      const mainPart = clean.slice(0, clean.length - 1);
+      const verifier = clean.slice(clean.length - 1);
+      return `${mainPart}-${verifier}`;
+    }
+    return clean;
+  };
+
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const inputValue = e.target.value;
-    // Solo permitir números
-    const cleanNumber = inputValue.replace(/\D/g, "");
-    // Limitar a 9 dígitos (formato estándar de RIF)
-    const limitedNumber = cleanNumber.substring(0, 9);
 
-    setRifNumber(limitedNumber);
+    if (!inputValue) {
+      setRifNumber("");
+      if (onChange) onChange(`${rifType}-`);
+      return;
+    }
 
-    // Construir el RIF completo
-    const fullRif = `${rifType}${limitedNumber}`;
+    const rawNums = inputValue.replace(/[^0-9]/g, "");
+    const limitedNums = rawNums.slice(0, 10);
+
+    let formatted = limitedNums;
+    if (limitedNums.length > 8) {
+      const main = limitedNums.slice(0, limitedNums.length - 1);
+      const last = limitedNums.slice(limitedNums.length - 1);
+      formatted = `${main}-${last}`;
+    }
+
+    setRifNumber(formatted);
+    const fullRif = `${rifType}-${formatted}`;
+
     if (onChange) {
       onChange(fullRif);
     }
   };
 
-  // Handle type change
   const handleTypeChange = (e: { value: string }) => {
-    setRifType(e.value);
-
-    // Construir el RIF completo
-    const fullRif = `${e.value}${rifNumber}`;
+    const newType = e.value;
+    setRifType(newType);
+    const fullRif = `${newType}-${rifNumber}`;
     if (onChange) {
       onChange(fullRif);
     }
-  };
-
-  // Template para mostrar la descripción del tipo
-  const rifTypeTemplate = (option: any) => {
-    if (!option) return null;
-    return (
-      <div className="flex align-items-center gap-2">
-        <span className="font-bold">{option.label}</span>
-        <span className="text-sm text-500">({option.description})</span>
-      </div>
-    );
-  };
-
-  // Template para el valor seleccionado
-  const selectedRifTypeTemplate = (option: any) => {
-    if (!option) return null;
-    return <span className="font-bold">{option.label}</span>;
   };
 
   return (
-    <div className="flex gap-2 align-items-center">
-      {/* Dropdown para tipo de RIF */}
+    <div className={classNames("flex gap-2", className)}>
       <Dropdown
         value={rifType}
         options={RIF_TYPES}
         onChange={handleTypeChange}
         optionLabel="label"
         optionValue="value"
-        itemTemplate={rifTypeTemplate}
-        valueTemplate={selectedRifTypeTemplate}
-        className={classNames({ "p-invalid": error })}
-        style={{ width: "80px" }}
+        className={classNames("w-5rem", { "p-invalid": error })}
+        pt={{
+          input: { className: "text-center font-bold" },
+        }}
       />
-
-      {/* Input para número de RIF con contador interno */}
-      <div className="flex-1 p-inputgroup">
-        <InputText
-          value={rifNumber}
-          onChange={handleNumberChange}
-          placeholder={placeholder}
-          className={classNames({ "p-invalid": error })}
-          maxLength={9}
-        />
-        <span className="p-inputgroup-addon" style={{ minWidth: "50px" }}>
-          <small className="text-500">{rifNumber.length}/9</small>
-        </span>
-      </div>
+      <InputText
+        id={id}
+        value={rifNumber}
+        onChange={handleNumberChange}
+        placeholder={placeholder}
+        className={classNames("w-full", { "p-invalid": error })}
+        maxLength={11}
+        keyfilter={/[0-9-]/}
+      />
     </div>
   );
 };

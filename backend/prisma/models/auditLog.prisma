@@ -1,0 +1,17 @@
+model AuditLog {
+  id        String   @id @default(cuid())
+  entity    String   // Nombre de la tabla (Ej: "User", "Empresa")
+  entityId  String   // ID del registro afectado
+  action    String   // "CREATE", "UPDATE", "DELETE", etc.
+  
+  userId    String?  // Usuario que realizó la acción
+  user      User?    @relation(fields: [userId], references: [id])
+  
+  changes   Json     // Guardará el estado anterior y nuevo: { before: {...}, after: {...} }
+  metadata  Json?    // Para guardar IP, navegador, etc.
+  
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId]) // Búsqueda rápida por registro
+  @@index([userId])           // Búsqueda rápida por usuario
+}
