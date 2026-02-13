@@ -1,0 +1,32 @@
+// backend/prisma/models/inventory/batch.prisma
+
+model Batch {
+  id                String     @id @default(uuid())
+  batchNumber       String     @unique
+  
+  itemId            String
+  item              Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  manufacturingDate DateTime?
+  expiryDate        DateTime?
+  
+  initialQuantity   Int
+  currentQuantity   Int
+  
+  isActive          Boolean    @default(true)
+  notes             String?    @db.Text
+  
+  // Relaciones
+  movements         Movement[]
+  preInvoiceItems   PreInvoiceItem[]
+  exitNoteItems     ExitNoteItem[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@map("batches")
+  @@index([batchNumber])
+  @@index([itemId])
+  @@index([expiryDate])
+  @@index([isActive])
+}

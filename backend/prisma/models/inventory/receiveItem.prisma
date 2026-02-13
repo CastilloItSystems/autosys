@@ -1,0 +1,23 @@
+// backend/prisma/models/inventory/receiveItem.prisma
+
+model ReceiveItem {
+  id               String   @id @default(uuid())
+  
+  receiveId        String
+  receive          Receive  @relation(fields: [receiveId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  quantityReceived Int
+  
+  unitCost         Decimal  @db.Decimal(12, 2)
+  
+  // Para lotes
+  batchNumber      String?
+  expiryDate       DateTime?
+  
+  createdAt        DateTime @default(now())
+
+  @@map("receive_items")
+  @@index([receiveId])
+  @@index([itemId])
+}

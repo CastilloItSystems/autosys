@@ -1,3 +1,5 @@
+//******** AUTO GENERATED FILE, DO NOT EDIT.  *********
+
 generator client {
   provider = "prisma-client"
   output   = "../src/generated/prisma"
@@ -6,6 +8,8 @@ generator client {
 datasource db {
   provider = "postgresql"
 }
+
+
 model AuditLog {
   id        String   @id @default(cuid())
   entity    String   // Nombre de la tabla (Ej: "User", "Empresa")
@@ -23,6 +27,8 @@ model AuditLog {
   @@index([entity, entityId]) // Búsqueda rápida por registro
   @@index([userId])           // Búsqueda rápida por usuario
 }
+
+
 model Empresa {
   id_empresa    String   @id @default(cuid())
   nombre        String
@@ -55,14 +61,1312 @@ model Empresa {
   users         User[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
-}model User {
+}
+
+// backend/prisma/models/inventory/batch.prisma
+
+model Batch {
+  id                String     @id @default(uuid())
+  batchNumber       String     @unique
+  
+  itemId            String
+  item              Item       @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  manufacturingDate DateTime?
+  expiryDate        DateTime?
+  
+  initialQuantity   Int
+  currentQuantity   Int
+  
+  isActive          Boolean    @default(true)
+  notes             String?    @db.Text
+  
+  // Relaciones
+  movements         Movement[]
+  preInvoiceItems   PreInvoiceItem[]
+  exitNoteItems     ExitNoteItem[]
+  
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+
+  @@map("batches")
+  @@index([batchNumber])
+  @@index([itemId])
+  @@index([expiryDate])
+  @@index([isActive])
+}
+
+// backend/prisma/models/inventory/brand.prisma
+
+enum BrandType {
+  VEHICLE       // Marca de vehículo
+  PART          // Marca de producto/repuesto
+  BOTH          // Ambas
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  description String?
+  type        BrandType @default(PART)
+  isActive    Boolean   @default(true)
+  
+  // Relaciones
+  items       Item[]
+  models      Model[]
+  
+  // Auditoría
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("brands")
+  @@index([code])
+  @@index([name])
+  @@index([type])
+  @@index([isActive])
+}
+
+// backend/prisma/models/inventory/bulkOperation.prisma
+
+enum BulkOperationType {
+  IMPORT
+  EXPORT
+  UPDATE
+  DELETE
+}
+
+enum BulkOperationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model BulkOperation {
+  id                String                @id @default(uuid())
+  
+  operationType     BulkOperationType
+  status            BulkOperationStatus  @default(PENDING)
+  
+  fileName          String?
+  fileUrl           String?               // URL del archivo en storage
+  
+  totalRecords      Int
+  processedRecords  Int                  @default(0)
+  errorRecords      Int                  @default(0)
+  errorDetails      String?              @db.Text
+  
+  startDate         DateTime             @default(now())
+  endDate           DateTime?
+  
+  createdBy         String               // ID del usuario que inició la operación
+  metadata          Json?                // Información adicional (filtros aplicados, etc.)
+  
+  isActive          Boolean              @default(true)
+  
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@map("bulk_operations")
+  @@index([createdBy])
+  @@index([status])
+  @@index([operationType])
+  @@index([createdAt])
+}
+
+
+// backend/prisma/models/inventory/category.prisma
+
+model Category {
+  id            String     @id @default(uuid())
+  code          String     @unique
+  name          String
+  description   String?
+  
+  // Jerarquía
+  parentId      String?
+  parent        Category?  @relation("CategoryTree", fields: [parentId], references: [id], onDelete: Restrict)
+  children      Category[] @relation("CategoryTree")
+  
+  // Configuración de márgenes
+  defaultMargin Decimal?   @db.Decimal(5, 2)
+  
+  isActive      Boolean    @default(true)
+  
+  // Relaciones
+  items         Item[]
+  
+  // Auditoría
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  @@map("categories")
+  @@index([code])
+  @@index([parentId])
+  @@index([isActive])
+}
+
+// backend/prisma/models/inventory/exitNote.prisma
+
+enum ExitNoteStatus {
+  PENDING      // Pendiente de preparación
+  IN_PROGRESS  // En preparación
+  READY        // Listo para entrega
+  DELIVERED    // Entregado
+  CANCELLED    // Cancelado
+}
+
+enum ExitType {
+  SALE            // Venta normal (vinculada a Pre-factura)
+  WARRANTY        // Garantía
+  LOAN            // Préstamo
+  INTERNAL_USE    // Consumo interno
+  SAMPLE          // Muestra
+  DONATION        // Donación
+  OWNER_PICKUP    // Retiro del dueño
+  DEMO            // Demostración
+  TRANSFER        // Traslado
+  OTHER           // Otro
+  LOAN_RETURN     // Devolución de préstamo
+}
+
+model ExitNote {
+  id              String         @id @default(uuid())
+  exitNoteNumber  String         @unique
+  type            ExitType       @default(SALE)
+  status          ExitNoteStatus @default(PENDING)
+  
+  // Relación OPCIONAL con Pre-factura
+  preInvoiceId    String?        @unique
+  preInvoice      PreInvoice?    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  warehouse       Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Para salidas sin factura
+  recipientName   String?
+  recipientId     String?        // Cédula/RIF
+  recipientPhone  String?
+  
+  reason          String?        @db.Text
+  reference       String?        // Número de orden externa, ticket, etc.
+  
+  // Para préstamos
+  expectedReturnDate DateTime?
+  returnedAt         DateTime?
+  
+  // Relaciones
+  items           ExitNoteItem[]
+  reservations    Reservation[]
+  loan            Loan?
+  
+  notes           String?        @db.Text
+  
+  // Fechas
+  reservedAt      DateTime?
+  preparedAt      DateTime?
+  deliveredAt     DateTime?
+  
+  // Auditoría
+  preparedBy      String?
+  deliveredBy     String?
+  authorizedBy    String?        // Quien autorizó salida sin factura
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("exit_notes")
+  @@index([exitNoteNumber])
+  @@index([type])
+  @@index([status])
+  @@index([preInvoiceId])
+}
+
+// backend/prisma/models/inventory/exitNoteItem.prisma
+
+model ExitNoteItem {
+  id              String     @id @default(uuid())
+  
+  exitNoteId      String
+  exitNote        ExitNote   @relation(fields: [exitNoteId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  
+  // Ubicación física de donde se tomó
+  pickedFromLocation String?
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?     @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId  String?
+  serialNumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  notes           String?    @db.Text
+  
+  createdAt       DateTime   @default(now())
+
+  @@map("exit_note_items")
+  @@index([exitNoteId])
+  @@index([itemId])
+}
+
+// backend/prisma/models/inventory/item.prisma
+
+model Item {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  barcode     String?  @unique
+  name        String
+  description String?  @db.Text
+  
+  // Relaciones de catálogo
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  
+  modelId     String?
+  model       Model?   @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  
+  unitId      String
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  
+  // Ubicación física en almacén
+  location    String?  // "M1-R01-D03"
+  
+  // Precios
+  costPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  salePrice      Decimal  @default(0) @db.Decimal(12, 2)
+  wholesalePrice Decimal? @db.Decimal(12, 2)
+  
+  // Control de inventario
+  minStock       Int      @default(5)
+  maxStock       Int?     @default(100)
+  reorderPoint   Int      @default(10)
+  
+  // Configuración de control
+  isActive           Boolean  @default(true)
+  isSerialized       Boolean  @default(false)  // Maneja números de serie
+  hasBatch           Boolean  @default(false)  // Maneja lotes
+  hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
+  allowNegativeStock Boolean  @default(false)
+  
+  // Información adicional (flexible)
+  technicalSpecs Json?    // Especificaciones técnicas
+  tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
+  
+  // Relaciones
+  stocks         Stock[]
+  movements      Movement[]
+  reservations   Reservation[]
+  purchaseOrderItems PurchaseOrderItem[]
+  orderItems     OrderItem[]
+  preInvoiceItems PreInvoiceItem[]
+  exitNoteItems  ExitNoteItem[]
+  invoiceItems   InvoiceItem[]
+  batches        Batch[]
+  serialNumbers  SerialNumber[]
+  images         ItemImage[]
+  pricing        Pricing?
+  
+  // Auditoría con historial de cambios
+  historial      Json?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("items")
+  @@index([sku])
+  @@index([barcode])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([modelId])
+  @@index([isActive])
+  @@index([tags])
+}
+
+// backend/prisma/models/inventory/itemImage.prisma
+
+model ItemImage {
+  id        String   @id @default(uuid())
+  
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  url       String
+  isPrimary Boolean  @default(false)
+  order     Int      @default(0)
+  
+  createdAt DateTime @default(now())
+
+  @@map("item_images")
+  @@index([itemId])
+}
+
+// backend/prisma/models/inventory/loan.prisma
+
+enum LoanStatus {
+  ACTIVE    // Activo
+  RETURNED  // Devuelto
+  OVERDUE   // Vencido
+  LOST      // Perdido
+}
+
+model Loan {
+  id                 String      @id @default(uuid())
+  loanNumber         String      @unique
+  
+  exitNoteId         String      @unique
+  exitNote           ExitNote    @relation(fields: [exitNoteId], references: [id], onDelete: Restrict)
+  
+  status             LoanStatus  @default(ACTIVE)
+  
+  borrowerName       String
+  borrowerId         String?     // Cédula
+  borrowerPhone      String?
+  
+  expectedReturnDate DateTime
+  actualReturnDate   DateTime?
+  
+  returnExitNoteId   String?     @unique // ID de nota de entrada de devolución
+  
+  notes              String?     @db.Text
+  
+  // Auditoría
+  createdBy          String?
+  
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@map("loans")
+  @@index([loanNumber])
+  @@index([status])
+  @@index([expectedReturnDate])
+}
+
+// backend/prisma/models/inventory/model.prisma
+
+enum ModelType {
+  VEHICLE       // Modelo de vehículo (Hilux 2020)
+  PART          // Modelo de producto (PH3614, Lysol 500ml)
+  GENERIC       // Genérico
+}
+
+model Model {
+  id          String    @id @default(uuid())
+  
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  
+  code        String?   // Código del modelo
+  name        String    // Nombre del modelo
+  year        Int?      // Año (principalmente para vehículos)
+  
+  type        ModelType @default(PART)
+  description String?
+  
+  // Especificaciones técnicas (JSON flexible)
+  specifications Json?   // Ej: { "viscosity": "10W-40", "capacity": "500ml" }
+  
+  isActive    Boolean   @default(true)
+  
+  // Compatibilidad (para productos que aplique)
+  compatibleVehicles ModelCompatibility[] @relation("PartModel")
+  compatibleParts    ModelCompatibility[] @relation("VehicleModel")
+  
+  // Relaciones
+  items       Item[]
+  
+  // Auditoría
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([brandId, code, name, year, type])
+  @@map("models")
+  @@index([brandId])
+  @@index([code])
+  @@index([type])
+  @@index([isActive])
+}
+
+// backend/prisma/models/inventory/modelCompatibility.prisma
+
+model ModelCompatibility {
+  id              String   @id @default(uuid())
+  
+  // Modelo del producto (repuesto, aceite, etc)
+  partModelId     String
+  partModel       Model    @relation("PartModel", fields: [partModelId], references: [id], onDelete: Cascade)
+  
+  // Modelo del vehículo compatible
+  vehicleModelId  String
+  vehicleModel    Model    @relation("VehicleModel", fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  
+  notes           String?
+  isVerified      Boolean  @default(false)  // Si fue verificado por un técnico
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([partModelId, vehicleModelId])
+  @@map("model_compatibility")
+  @@index([partModelId])
+  @@index([vehicleModelId])
+}
+
+// backend/prisma/models/inventory/movement.prisma
+
+enum MovementType {
+  PURCHASE           // Entrada por compra
+  SALE               // Salida por venta/consumo
+  ADJUSTMENT_IN      // Ajuste entrada
+  ADJUSTMENT_OUT     // Ajuste salida
+  TRANSFER           // Transferencia entre almacenes
+  SUPPLIER_RETURN    // Devolución a proveedor
+  WORKSHOP_RETURN    // Devolución de taller
+  RESERVATION_RELEASE // Liberación de reserva
+}
+
+model Movement {
+  id              String       @id @default(uuid())
+  movementNumber  String       @unique
+  type            MovementType
+  
+  itemId          String
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  // Almacenes origen/destino
+  warehouseFromId String?
+  warehouseFrom   Warehouse?   @relation("WarehouseFrom", fields: [warehouseFromId], references: [id], onDelete: Restrict)
+  
+  warehouseToId   String?
+  warehouseTo     Warehouse?   @relation("WarehouseTo", fields: [warehouseToId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  
+  // Costos
+  unitCost        Decimal?     @db.Decimal(12, 2)
+  totalCost       Decimal?     @db.Decimal(12, 2)
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  // Referencias cruzadas
+  reference       String?
+  purchaseOrderId String?
+  workOrderId     String?      // Para vincular con módulo de taller
+  reservationId   String?
+  exitNoteId      String?
+  invoiceId       String?
+  
+  // Para salidas especiales sin factura
+  exitType        String?      // "WARRANTY", "LOAN", etc.
+  
+  notes           String?      @db.Text
+  
+  // Auditoría
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  movementDate    DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("movements")
+  @@index([itemId])
+  @@index([type])
+  @@index([movementDate])
+  @@index([reference])
+  @@index([warehouseFromId])
+  @@index([warehouseToId])
+}
+
+// backend/prisma/models/inventory/pricing.prisma
+
+model Pricing {
+  id                String   @id @default(uuid())
+  
+  itemId            String
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  costPrice         Decimal  @db.Decimal(12, 2)
+  salePrice         Decimal  @db.Decimal(12, 2)
+  wholesalePrice    Decimal? @db.Decimal(12, 2)
+  
+  minMargin         Int      // Porcentaje de margen mínimo
+  maxMargin         Int      // Porcentaje de margen máximo
+  discountPercentage Int?    // Descuento aplicable en porcentaje
+  
+  notes             String?  @db.Text
+  isActive          Boolean  @default(true)
+  
+  // Relaciones
+  tiers             PricingTier[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([itemId])
+  @@map("pricings")
+  @@index([itemId])
+  @@index([isActive])
+}
+
+model PricingTier {
+  id                String   @id @default(uuid())
+  
+  pricingId         String
+  pricing           Pricing  @relation(fields: [pricingId], references: [id], onDelete: Cascade)
+  
+  minQuantity       Int
+  maxQuantity       Int?     // null si es sin límite
+  tierPrice         Decimal  @db.Decimal(12, 2)
+  discountPercentage Int?    // Descuento en este tier
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("pricing_tiers")
+  @@index([pricingId])
+  @@index([minQuantity])
+}
+
+
+// backend/prisma/models/inventory/purchaseOrder.prisma
+
+enum PurchaseOrderStatus {
+  DRAFT       // Borrador
+  SENT        // Enviada al proveedor
+  PARTIAL     // Recepción parcial
+  COMPLETED   // Completada
+  CANCELLED   // Cancelada
+}
+
+model PurchaseOrder {
+  id            String              @id @default(uuid())
+  orderNumber   String              @unique
+  
+  supplierId    String
+  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  
+  warehouseId   String
+  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  status        PurchaseOrderStatus @default(DRAFT)
+  
+  // Totales
+  subtotal      Decimal             @default(0) @db.Decimal(12, 2)
+  tax           Decimal             @default(0) @db.Decimal(12, 2)
+  total         Decimal             @default(0) @db.Decimal(12, 2)
+  
+  notes         String?             @db.Text
+  
+  // Relaciones
+  items         PurchaseOrderItem[]
+  receives      Receive[]
+  
+  // Fechas
+  orderDate     DateTime            @default(now())
+  expectedDate  DateTime?
+  
+  // Auditoría
+  createdBy     String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("purchase_orders")
+  @@index([orderNumber])
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+// backend/prisma/models/inventory/purchaseOrderItem.prisma
+
+model PurchaseOrderItem {
+  id                String        @id @default(uuid())
+  
+  purchaseOrderId   String
+  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+  
+  itemId            String
+  item              Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityOrdered   Int
+  quantityReceived  Int           @default(0)
+  quantityPending   Int           // Calculado: ordered - received
+  
+  unitCost          Decimal       @db.Decimal(12, 2)
+  subtotal          Decimal       @db.Decimal(12, 2)
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("purchase_order_items")
+  @@index([purchaseOrderId])
+  @@index([itemId])
+}
+
+// backend/prisma/models/inventory/receive.prisma
+
+model Receive {
+  id              String        @id @default(uuid())
+  receiveNumber   String        @unique
+  
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  
+  // Relaciones
+  items           ReceiveItem[]
+  
+  notes           String?       @db.Text
+  
+  // Auditoría
+  receivedBy      String?
+  receivedAt      DateTime      @default(now())
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("receives")
+  @@index([receiveNumber])
+  @@index([purchaseOrderId])
+  @@index([receivedAt])
+}
+
+// backend/prisma/models/inventory/receiveItem.prisma
+
+model ReceiveItem {
+  id               String   @id @default(uuid())
+  
+  receiveId        String
+  receive          Receive  @relation(fields: [receiveId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  quantityReceived Int
+  
+  unitCost         Decimal  @db.Decimal(12, 2)
+  
+  // Para lotes
+  batchNumber      String?
+  expiryDate       DateTime?
+  
+  createdAt        DateTime @default(now())
+
+  @@map("receive_items")
+  @@index([receiveId])
+  @@index([itemId])
+}
+
+// backend/prisma/models/inventory/reservation.prisma
+
+enum ReservationStatus {
+  ACTIVE
+  PENDING_PICKUP
+  CONSUMED
+  RELEASED
+}
+
+model Reservation {
+  id                String            @id @default(uuid())
+  reservationNumber String            @unique
+  
+  itemId            String
+  item              Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  warehouseId       String
+  
+  quantity          Int
+  status            ReservationStatus @default(ACTIVE)
+  
+  // Vinculación
+  workOrderId       String?
+  saleOrderId       String?
+  exitNoteId        String?
+  exitNote          ExitNote?         @relation(fields: [exitNoteId], references: [id], onDelete: SetNull)
+  reference         String?
+  
+  notes             String?           @db.Text
+  
+  // Fechas
+  reservedAt        DateTime          @default(now())
+  expiresAt         DateTime?
+  deliveredAt       DateTime?
+  releasedAt        DateTime?
+  
+  // Auditoría
+  createdBy         String?
+  deliveredBy       String?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("reservations")
+  @@index([itemId])
+  @@index([workOrderId])
+  @@index([exitNoteId])
+  @@index([status])
+  @@index([reservedAt])
+}
+
+// backend/prisma/models/inventory/serialNumber.prisma
+
+enum SerialStatus {
+  IN_STOCK    // En stock
+  SOLD        // Vendido
+  DEFECTIVE   // Defectuoso
+  WARRANTY    // En garantía
+  LOANED      // Prestado
+}
+
+model SerialNumber {
+  id            String       @id @default(uuid())
+  serialNumber  String       @unique
+  
+  itemId        String
+  item          Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  warehouseId   String?
+  status        SerialStatus @default(IN_STOCK)
+  
+  soldAt        DateTime?
+  workOrderId   String?
+  
+  notes         String?      @db.Text
+  
+  // Relaciones
+  preInvoiceItems PreInvoiceItem[]
+  exitNoteItems   ExitNoteItem[]
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("serial_numbers")
+  @@index([serialNumber])
+  @@index([itemId])
+  @@index([status])
+}
+
+// backend/prisma/models/inventory/stock.prisma
+
+model Stock {
+  id                String    @id @default(uuid())
+  
+  itemId            String
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  warehouseId       String
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  
+  // Cantidades
+  quantityReal      Int       @default(0)      // Stock físico real
+  quantityReserved  Int       @default(0)      // Stock reservado
+  quantityAvailable Int       @default(0)      // Real - Reservado
+  
+  // Valorización
+  averageCost       Decimal   @default(0) @db.Decimal(12, 2)
+  
+  lastMovementAt    DateTime?
+  
+  // Auditoría
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([itemId, warehouseId])
+  @@map("stocks")
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([quantityAvailable])
+}
+
+// backend/prisma/models/inventory/stockAlert.prisma
+
+enum AlertType {
+  LOW_STOCK      // Stock bajo
+  OUT_OF_STOCK   // Sin stock
+  EXPIRING_SOON  // Próximo a vencer
+  EXPIRED        // Vencido
+  OVERSTOCK      // Exceso de stock
+}
+
+model StockAlert {
+  id          String    @id @default(uuid())
+  
+  itemId      String
+  warehouseId String
+  
+  type        AlertType
+  message     String
+  severity    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  
+  isRead      Boolean   @default(false)
+  readBy      String?
+  readAt      DateTime?
+  
+  createdAt   DateTime  @default(now())
+
+  @@map("stock_alerts")
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+// backend/prisma/models/inventory/supplier.prisma
+
+model Supplier {
+  id              String          @id @default(uuid())
+  code            String          @unique
+  name            String
+  contactName     String?
+  email           String?
+  phone           String?
+  address         String?
+  taxId           String?         // RIF en Venezuela
+  isActive        Boolean         @default(true)
+  
+  // Relaciones
+  purchaseOrders  PurchaseOrder[]
+  
+  // Auditoría
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@map("suppliers")
+  @@index([code])
+  @@index([isActive])
+}
+
+// backend/prisma/models/inventory/unit.prisma
+
+enum UnitType {
+  COUNTABLE  // Unidades contables
+  WEIGHT     // Peso
+  VOLUME     // Volumen
+  LENGTH     // Longitud
+}
+
+model Unit {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  abbreviation String   @unique
+  type         UnitType
+  isActive     Boolean  @default(true)
+  
+  // Relaciones
+  items        Item[]
+  
+  // Auditoría
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("units")
+  @@index([code])
+  @@index([type])
+}
+
+// backend/prisma/models/inventory/warehouse.prisma
+
+enum WarehouseType {
+  PRINCIPAL  // Almacén principal
+  SUCURSAL   // Sucursal/Tienda
+  TRANSITO   // Almacén de tránsito
+}
+
+model Warehouse {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  name        String
+  type        WarehouseType @default(PRINCIPAL)
+  address     String?
+  isActive    Boolean       @default(true)
+  
+  // Relaciones
+  stocks          Stock[]
+  movementsFrom   Movement[]    @relation("WarehouseFrom")
+  movementsTo     Movement[]    @relation("WarehouseTo")
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  exitNotes       ExitNote[]
+  purchaseOrders  PurchaseOrder[]
+  
+  // Auditoría
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("warehouses")
+  @@index([code])
+  @@index([type])
+  @@index([isActive])
+}
+
+// backend/prisma/models/sales/customer.prisma
+
+enum CustomerType {
+  INDIVIDUAL  // Persona natural
+  COMPANY     // Empresa
+}
+
+model Customer {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  taxId       String?      @unique // RIF/Cédula
+  name        String
+  email       String?
+  phone       String?
+  address     String?      @db.Text
+  type        CustomerType @default(INDIVIDUAL)
+  
+  isActive    Boolean      @default(true)
+  
+  // Relaciones
+  orders      Order[]
+  preInvoices PreInvoice[]
+  payments    Payment[]
+  invoices    Invoice[]
+  
+  // Auditoría
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("customers")
+  @@index([code])
+  @@index([taxId])
+  @@index([isActive])
+}
+
+// backend/prisma/models/sales/invoice.prisma
+
+enum InvoiceStatus {
+  ACTIVE     // Activa
+  CANCELLED  // Anulada
+  CREDITED   // Con nota de crédito
+}
+
+model Invoice {
+  id                 String        @id @default(uuid())
+  invoiceNumber      String        @unique
+  fiscalNumber       String?       @unique // Número de control fiscal
+  status             InvoiceStatus @default(ACTIVE)
+  
+  // Relación 1 a 1 con Pre-factura
+  preInvoiceId       String        @unique
+  preInvoice         PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
+  
+  // Relación 1 a 1 con Pago
+  paymentId          String        @unique
+  payment            Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  
+  customerId         String
+  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  // Relaciones
+  items              InvoiceItem[]
+  
+  // Totales
+  subtotal           Decimal       @default(0) @db.Decimal(12, 2)
+  discount           Decimal       @default(0) @db.Decimal(12, 2)
+  tax                Decimal       @default(0) @db.Decimal(12, 2)
+  total              Decimal       @default(0) @db.Decimal(12, 2)
+  
+  notes              String?       @db.Text
+  
+  // Fiscal
+  invoiceDate        DateTime      @default(now())
+  
+  // Auditoría
+  issuedBy           String?
+  
+  // Anulación
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancellationReason String?       @db.Text
+  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@map("invoices")
+  @@index([invoiceNumber])
+  @@index([fiscalNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([invoiceDate])
+}
+
+// backend/prisma/models/sales/invoiceItem.prisma
+
+model InvoiceItem {
+  id        String   @id @default(uuid())
+  
+  invoiceId String
+  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(12, 2)
+  discount  Decimal  @default(0) @db.Decimal(12, 2)
+  tax       Decimal  @default(0) @db.Decimal(12, 2)
+  subtotal  Decimal  @db.Decimal(12, 2)
+  
+  // Trazabilidad
+  batchId        String?
+  serialNumberId String?
+  
+  createdAt DateTime @default(now())
+
+  @@map("invoice_items")
+  @@index([invoiceId])
+  @@index([itemId])
+}
+
+// backend/prisma/models/sales/order.prisma
+
+enum OrderStatus {
+  DRAFT              // Borrador
+  PENDING_APPROVAL   // Pendiente de aprobación
+  APPROVED           // Aprobado
+  CANCELLED          // Cancelado
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(DRAFT)
+  
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  warehouse       Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Relaciones
+  items           OrderItem[]
+  
+  // Totales
+  subtotal        Decimal     @default(0) @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  tax             Decimal     @default(0) @db.Decimal(12, 2)
+  total           Decimal     @default(0) @db.Decimal(12, 2)
+  
+  notes           String?     @db.Text
+  
+  // Fechas
+  orderDate       DateTime    @default(now())
+  approvedAt      DateTime?
+  
+  // Auditoría
+  createdBy       String?
+  approvedBy      String?
+  
+  // Relación 1 a 1 con Pre-factura
+  preInvoice      PreInvoice?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("orders")
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([orderDate])
+}
+
+// backend/prisma/models/sales/orderItem.prisma
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(12, 2)
+  discount  Decimal  @default(0) @db.Decimal(12, 2)
+  subtotal  Decimal  @db.Decimal(12, 2)
+  
+  notes     String?  @db.Text
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("order_items")
+  @@index([orderId])
+  @@index([itemId])
+}
+
+// backend/prisma/models/sales/payment.prisma
+
+enum PaymentMethod {
+  CASH            // Efectivo
+  TRANSFER        // Transferencia
+  CARD            // Tarjeta
+  MOBILE_PAYMENT  // Pago móvil
+  CHECK           // Cheque
+  CREDIT          // Crédito
+  MIXED           // Mixto
+}
+
+enum PaymentStatus {
+  PENDING    // Pendiente
+  COMPLETED  // Completado
+  CANCELLED  // Cancelado
+  REFUNDED   // Reembolsado
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentNumber     String        @unique
+  status            PaymentStatus @default(PENDING)
+  
+  preInvoiceId      String
+  
+  customerId        String
+  customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  // Detalles del pago
+  method            PaymentMethod
+  amount            Decimal       @db.Decimal(12, 2)
+  
+  // Para pagos mixtos
+  details           Json?         // [{ method: "CASH", amount: 100 }, ...]
+  
+  reference         String?       // Número de referencia
+  notes             String?       @db.Text
+  
+  // Auditoría
+  processedBy       String?
+  processedAt       DateTime      @default(now())
+  
+  // Relación 1 a 1 con Factura
+  invoice           Invoice?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("payments")
+  @@index([paymentNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([processedAt])
+}
+
+// backend/prisma/models/sales/preInvoice.prisma
+
+enum PreInvoiceStatus {
+  PENDING_PREPARATION  // Pendiente de preparación
+  IN_PREPARATION       // En preparación
+  READY_FOR_PAYMENT    // Listo para pago
+  PAID                 // Pagado
+  CANCELLED            // Cancelado
+}
+
+model PreInvoice {
+  id                  String            @id @default(uuid())
+  preInvoiceNumber    String            @unique
+  status              PreInvoiceStatus  @default(PENDING_PREPARATION)
+  
+  // Relación 1 a 1 con Order
+  orderId             String            @unique
+  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  
+  customerId          String
+  customer            Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  warehouseId         String
+  warehouse           Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Relaciones
+  items               PreInvoiceItem[]
+  
+  // Totales
+  subtotal            Decimal           @default(0) @db.Decimal(12, 2)
+  discount            Decimal           @default(0) @db.Decimal(12, 2)
+  tax                 Decimal           @default(0) @db.Decimal(12, 2)
+  total               Decimal           @default(0) @db.Decimal(12, 2)
+  
+  notes               String?           @db.Text
+  
+  // Control de flujo
+  preparedAt          DateTime?
+  paidAt              DateTime?
+  
+  preparedBy          String?
+  
+  // Relaciones 1 a 1
+  exitNote            ExitNote?
+  invoice             Invoice?
+  
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@map("pre_invoices")
+  @@index([preInvoiceNumber])
+  @@index([customerId])
+  @@index([status])
+}
+
+// backend/prisma/models/sales/preInvoiceItem.prisma
+
+model PreInvoiceItem {
+  id              String      @id @default(uuid())
+  
+  preInvoiceId    String
+  preInvoice      PreInvoice  @relation(fields: [preInvoiceId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  unitPrice       Decimal     @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  subtotal        Decimal     @db.Decimal(12, 2)
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?      @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId  String?
+  serialNumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  notes           String?     @db.Text
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("pre_invoice_items")
+  @@index([preInvoiceId])
+  @@index([itemId])
+}
+
+model User {
   id           String    @id @default(cuid())
   img          String?
   nombre       String
   correo       String    @unique
   telefono     String?
   password     String
-  rol          Role      @default(lectura)
+  rol          Role      @default(VIEWER)
   departamento String[]
   acceso       Access    @default(ninguno)
   empresas     Empresa[]
@@ -83,11 +1387,16 @@ enum UserStatus {
 }
 
 enum Role {
-  superAdmin
-  admin
-  operador
-  user
-  lectura
+  SUPER_ADMIN
+  ADMIN
+  GERENTE
+  VENDEDOR
+  ALMACENISTA
+  MECANICO
+  CAJERO
+  CONTADOR
+  ASESOR
+  VIEWER
 }
 
 enum Access {

@@ -1,0 +1,28 @@
+// backend/prisma/models/inventory/receive.prisma
+
+model Receive {
+  id              String        @id @default(uuid())
+  receiveNumber   String        @unique
+  
+  purchaseOrderId String
+  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  
+  // Relaciones
+  items           ReceiveItem[]
+  
+  notes           String?       @db.Text
+  
+  // Auditoría
+  receivedBy      String?
+  receivedAt      DateTime      @default(now())
+  
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("receives")
+  @@index([receiveNumber])
+  @@index([purchaseOrderId])
+  @@index([receivedAt])
+}

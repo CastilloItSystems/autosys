@@ -1,0 +1,51 @@
+// backend/src/features/sales/shared/constants/messages.ts
+
+export const SALES_MESSAGES = {
+  customer: {
+    created: 'Cliente creado exitosamente',
+    updated: 'Cliente actualizado exitosamente',
+    deleted: 'Cliente eliminado exitosamente',
+    notFound: 'Cliente no encontrado',
+    codeExists: 'El código de cliente ya existe',
+    taxIdExists: 'El RIF/Cédula ya está registrado',
+    hasOrders: 'No se puede eliminar un cliente con órdenes',
+  },
+  order: {
+    created: 'Pedido creado exitosamente',
+    updated: 'Pedido actualizado exitosamente',
+    approved: 'Pedido aprobado',
+    cancelled: 'Pedido cancelado',
+    notFound: 'Pedido no encontrado',
+    cannotEdit: 'No se puede editar un pedido aprobado',
+    cannotApprove: 'No se puede aprobar este pedido',
+    cannotCancel: 'No se puede cancelar un pedido con pre-factura',
+  },
+  preInvoice: {
+    created: 'Pre-factura creada exitosamente',
+    updated: 'Pre-factura actualizada',
+    readyForPayment: 'Pre-factura lista para pago',
+    paid: 'Pre-factura pagada',
+    cancelled: 'Pre-factura cancelada',
+    notFound: 'Pre-factura no encontrada',
+    cannotEdit: 'No se puede editar una pre-factura pagada',
+    cannotPay: 'La pre-factura no está lista para pago',
+  },
+  payment: {
+    created: 'Pago procesado exitosamente',
+    cancelled: 'Pago cancelado',
+    refunded: 'Pago reembolsado',
+    notFound: 'Pago no encontrado',
+    insufficientAmount: 'El monto es insuficiente',
+    excessAmount: 'El monto excede el total de la pre-factura',
+    alreadyPaid: 'La pre-factura ya fue pagada',
+    cannotCancel: 'No se puede cancelar un pago con factura emitida',
+  },
+  invoice: {
+    created: 'Factura fiscal generada exitosamente',
+    cancelled: 'Factura anulada',
+    notFound: 'Factura no encontrada',
+    cannotCancel: 'No se puede anular esta factura',
+    alreadyCancelled: 'La factura ya fue anulada',
+    fiscalError: 'Error al generar número fiscal',
+  },
+} as const

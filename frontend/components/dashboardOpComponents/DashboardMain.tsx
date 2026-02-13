@@ -53,7 +53,7 @@ const DashboardMain = () => {
 
   const handleDivClick = (empresa: any) => {
     setActiveEmpresa(empresa);
-    router.push("/autosys/");
+    router.push("/empresa/");
   };
 
   // show spinner while loading

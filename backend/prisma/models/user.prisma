@@ -5,7 +5,7 @@ model User {
   correo       String    @unique
   telefono     String?
   password     String
-  rol          Role      @default(lectura)
+  rol          Role      @default(VIEWER)
   departamento String[]
   acceso       Access    @default(ninguno)
   empresas     Empresa[]
@@ -26,11 +26,16 @@ enum UserStatus {
 }
 
 enum Role {
-  superAdmin
-  admin
-  operador
-  user
-  lectura
+  SUPER_ADMIN
+  ADMIN
+  GERENTE
+  VENDEDOR
+  ALMACENISTA
+  MECANICO
+  CAJERO
+  CONTADOR
+  ASESOR
+  VIEWER
 }
 
 enum Access {

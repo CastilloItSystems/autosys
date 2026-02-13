@@ -1,0 +1,34 @@
+// backend/prisma/models/inventory/warehouse.prisma
+
+enum WarehouseType {
+  PRINCIPAL  // Almacén principal
+  SUCURSAL   // Sucursal/Tienda
+  TRANSITO   // Almacén de tránsito
+}
+
+model Warehouse {
+  id          String        @id @default(uuid())
+  code        String        @unique
+  name        String
+  type        WarehouseType @default(PRINCIPAL)
+  address     String?
+  isActive    Boolean       @default(true)
+  
+  // Relaciones
+  stocks          Stock[]
+  movementsFrom   Movement[]    @relation("WarehouseFrom")
+  movementsTo     Movement[]    @relation("WarehouseTo")
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  exitNotes       ExitNote[]
+  purchaseOrders  PurchaseOrder[]
+  
+  // Auditoría
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("warehouses")
+  @@index([code])
+  @@index([type])
+  @@index([isActive])
+}

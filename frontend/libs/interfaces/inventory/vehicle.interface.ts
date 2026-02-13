@@ -12,7 +12,7 @@ export interface VehicleBrand {
   updatedAt?: string;
 }
 
-export interface VehicleModel {
+export interface Model {
   id: string;
   _id: string;
   brand: VehicleBrand | string;
@@ -51,7 +51,7 @@ export interface Vehicle {
   id: string;
   _id: string;
   customer: VehicleCustomer | string;
-  model: VehicleModel | string;
+  model: Model | string;
   year: number;
   placa: string;
   vin?: string;

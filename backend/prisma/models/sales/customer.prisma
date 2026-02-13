@@ -1,0 +1,34 @@
+// backend/prisma/models/sales/customer.prisma
+
+enum CustomerType {
+  INDIVIDUAL  // Persona natural
+  COMPANY     // Empresa
+}
+
+model Customer {
+  id          String       @id @default(uuid())
+  code        String       @unique
+  taxId       String?      @unique // RIF/Cédula
+  name        String
+  email       String?
+  phone       String?
+  address     String?      @db.Text
+  type        CustomerType @default(INDIVIDUAL)
+  
+  isActive    Boolean      @default(true)
+  
+  // Relaciones
+  orders      Order[]
+  preInvoices PreInvoice[]
+  payments    Payment[]
+  invoices    Invoice[]
+  
+  // Auditoría
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("customers")
+  @@index([code])
+  @@index([taxId])
+  @@index([isActive])
+}

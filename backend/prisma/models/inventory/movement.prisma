@@ -1,0 +1,68 @@
+// backend/prisma/models/inventory/movement.prisma
+
+enum MovementType {
+  PURCHASE           // Entrada por compra
+  SALE               // Salida por venta/consumo
+  ADJUSTMENT_IN      // Ajuste entrada
+  ADJUSTMENT_OUT     // Ajuste salida
+  TRANSFER           // Transferencia entre almacenes
+  SUPPLIER_RETURN    // Devolución a proveedor
+  WORKSHOP_RETURN    // Devolución de taller
+  RESERVATION_RELEASE // Liberación de reserva
+}
+
+model Movement {
+  id              String       @id @default(uuid())
+  movementNumber  String       @unique
+  type            MovementType
+  
+  itemId          String
+  item            Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  // Almacenes origen/destino
+  warehouseFromId String?
+  warehouseFrom   Warehouse?   @relation("WarehouseFrom", fields: [warehouseFromId], references: [id], onDelete: Restrict)
+  
+  warehouseToId   String?
+  warehouseTo     Warehouse?   @relation("WarehouseTo", fields: [warehouseToId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  
+  // Costos
+  unitCost        Decimal?     @db.Decimal(12, 2)
+  totalCost       Decimal?     @db.Decimal(12, 2)
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?       @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  // Referencias cruzadas
+  reference       String?
+  purchaseOrderId String?
+  workOrderId     String?      // Para vincular con módulo de taller
+  reservationId   String?
+  exitNoteId      String?
+  invoiceId       String?
+  
+  // Para salidas especiales sin factura
+  exitType        String?      // "WARRANTY", "LOAN", etc.
+  
+  notes           String?      @db.Text
+  
+  // Auditoría
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+  
+  movementDate    DateTime     @default(now())
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
+
+  @@map("movements")
+  @@index([itemId])
+  @@index([type])
+  @@index([movementDate])
+  @@index([reference])
+  @@index([warehouseFromId])
+  @@index([warehouseToId])
+}

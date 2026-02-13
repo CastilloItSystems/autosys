@@ -1,0 +1,31 @@
+// backend/prisma/models/inventory/exitNoteItem.prisma
+
+model ExitNoteItem {
+  id              String     @id @default(uuid())
+  
+  exitNoteId      String
+  exitNote        ExitNote   @relation(fields: [exitNoteId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  
+  // Ubicación física de donde se tomó
+  pickedFromLocation String?
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?     @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId  String?
+  serialNumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  notes           String?    @db.Text
+  
+  createdAt       DateTime   @default(now())
+
+  @@map("exit_note_items")
+  @@index([exitNoteId])
+  @@index([itemId])
+}

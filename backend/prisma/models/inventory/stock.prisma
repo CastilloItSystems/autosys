@@ -1,0 +1,31 @@
+// backend/prisma/models/inventory/stock.prisma
+
+model Stock {
+  id                String    @id @default(uuid())
+  
+  itemId            String
+  item              Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  warehouseId       String
+  warehouse         Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
+  
+  // Cantidades
+  quantityReal      Int       @default(0)      // Stock físico real
+  quantityReserved  Int       @default(0)      // Stock reservado
+  quantityAvailable Int       @default(0)      // Real - Reservado
+  
+  // Valorización
+  averageCost       Decimal   @default(0) @db.Decimal(12, 2)
+  
+  lastMovementAt    DateTime?
+  
+  // Auditoría
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@unique([itemId, warehouseId])
+  @@map("stocks")
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([quantityAvailable])
+}

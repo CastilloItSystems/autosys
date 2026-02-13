@@ -1,4 +1,4 @@
-import { VehicleBrand, VehicleModel, Vehicle } from "./vehicle.interface";
+import { VehicleBrand, Model, Vehicle } from "./vehicle.interface";
 
 export interface Customer {
   id: string;

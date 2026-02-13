@@ -1,0 +1,33 @@
+// backend/prisma/models/inventory/stockAlert.prisma
+
+enum AlertType {
+  LOW_STOCK      // Stock bajo
+  OUT_OF_STOCK   // Sin stock
+  EXPIRING_SOON  // Próximo a vencer
+  EXPIRED        // Vencido
+  OVERSTOCK      // Exceso de stock
+}
+
+model StockAlert {
+  id          String    @id @default(uuid())
+  
+  itemId      String
+  warehouseId String
+  
+  type        AlertType
+  message     String
+  severity    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
+  
+  isRead      Boolean   @default(false)
+  readBy      String?
+  readAt      DateTime?
+  
+  createdAt   DateTime  @default(now())
+
+  @@map("stock_alerts")
+  @@index([itemId])
+  @@index([warehouseId])
+  @@index([type])
+  @@index([isRead])
+  @@index([createdAt])
+}

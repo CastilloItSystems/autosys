@@ -1,0 +1,48 @@
+// backend/prisma/models/inventory/bulkOperation.prisma
+
+enum BulkOperationType {
+  IMPORT
+  EXPORT
+  UPDATE
+  DELETE
+}
+
+enum BulkOperationStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model BulkOperation {
+  id                String                @id @default(uuid())
+  
+  operationType     BulkOperationType
+  status            BulkOperationStatus  @default(PENDING)
+  
+  fileName          String?
+  fileUrl           String?               // URL del archivo en storage
+  
+  totalRecords      Int
+  processedRecords  Int                  @default(0)
+  errorRecords      Int                  @default(0)
+  errorDetails      String?              @db.Text
+  
+  startDate         DateTime             @default(now())
+  endDate           DateTime?
+  
+  createdBy         String               // ID del usuario que inició la operación
+  metadata          Json?                // Información adicional (filtros aplicados, etc.)
+  
+  isActive          Boolean              @default(true)
+  
+  createdAt         DateTime             @default(now())
+  updatedAt         DateTime             @updatedAt
+
+  @@map("bulk_operations")
+  @@index([createdBy])
+  @@index([status])
+  @@index([operationType])
+  @@index([createdAt])
+}

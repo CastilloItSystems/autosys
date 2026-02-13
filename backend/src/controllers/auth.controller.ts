@@ -5,7 +5,7 @@ import { generateToken } from '../services/jwt.service.js'
 
 export const login = async (req: Request, res: Response) => {
   try {
-    const { correo, password } = req.body
+    const { correo, password } = req.validatedBody || req.body
 
     if (!correo || !password) {
       return res
@@ -61,7 +61,7 @@ export const login = async (req: Request, res: Response) => {
 export const register = async (req: Request, res: Response) => {
   try {
     const { nombre, correo, password, telefono, departamento, rol, acceso } =
-      req.body
+      req.validatedBody || req.body
 
     if (!nombre || !correo || !password || !departamento) {
       return res.status(400).json({

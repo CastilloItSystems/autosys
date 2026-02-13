@@ -1,0 +1,37 @@
+// backend/prisma/models/inventory/serialNumber.prisma
+
+enum SerialStatus {
+  IN_STOCK    // En stock
+  SOLD        // Vendido
+  DEFECTIVE   // Defectuoso
+  WARRANTY    // En garantía
+  LOANED      // Prestado
+}
+
+model SerialNumber {
+  id            String       @id @default(uuid())
+  serialNumber  String       @unique
+  
+  itemId        String
+  item          Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  warehouseId   String?
+  status        SerialStatus @default(IN_STOCK)
+  
+  soldAt        DateTime?
+  workOrderId   String?
+  
+  notes         String?      @db.Text
+  
+  // Relaciones
+  preInvoiceItems PreInvoiceItem[]
+  exitNoteItems   ExitNoteItem[]
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  @@map("serial_numbers")
+  @@index([serialNumber])
+  @@index([itemId])
+  @@index([status])
+}

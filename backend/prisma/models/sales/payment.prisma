@@ -1,0 +1,55 @@
+// backend/prisma/models/sales/payment.prisma
+
+enum PaymentMethod {
+  CASH            // Efectivo
+  TRANSFER        // Transferencia
+  CARD            // Tarjeta
+  MOBILE_PAYMENT  // Pago móvil
+  CHECK           // Cheque
+  CREDIT          // Crédito
+  MIXED           // Mixto
+}
+
+enum PaymentStatus {
+  PENDING    // Pendiente
+  COMPLETED  // Completado
+  CANCELLED  // Cancelado
+  REFUNDED   // Reembolsado
+}
+
+model Payment {
+  id                String        @id @default(uuid())
+  paymentNumber     String        @unique
+  status            PaymentStatus @default(PENDING)
+  
+  preInvoiceId      String
+  
+  customerId        String
+  customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  // Detalles del pago
+  method            PaymentMethod
+  amount            Decimal       @db.Decimal(12, 2)
+  
+  // Para pagos mixtos
+  details           Json?         // [{ method: "CASH", amount: 100 }, ...]
+  
+  reference         String?       // Número de referencia
+  notes             String?       @db.Text
+  
+  // Auditoría
+  processedBy       String?
+  processedAt       DateTime      @default(now())
+  
+  // Relación 1 a 1 con Factura
+  invoice           Invoice?
+  
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+
+  @@map("payments")
+  @@index([paymentNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([processedAt])
+}

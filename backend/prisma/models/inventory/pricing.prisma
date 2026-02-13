@@ -1,0 +1,49 @@
+// backend/prisma/models/inventory/pricing.prisma
+
+model Pricing {
+  id                String   @id @default(uuid())
+  
+  itemId            String
+  item              Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  
+  costPrice         Decimal  @db.Decimal(12, 2)
+  salePrice         Decimal  @db.Decimal(12, 2)
+  wholesalePrice    Decimal? @db.Decimal(12, 2)
+  
+  minMargin         Int      // Porcentaje de margen mínimo
+  maxMargin         Int      // Porcentaje de margen máximo
+  discountPercentage Int?    // Descuento aplicable en porcentaje
+  
+  notes             String?  @db.Text
+  isActive          Boolean  @default(true)
+  
+  // Relaciones
+  tiers             PricingTier[]
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@unique([itemId])
+  @@map("pricings")
+  @@index([itemId])
+  @@index([isActive])
+}
+
+model PricingTier {
+  id                String   @id @default(uuid())
+  
+  pricingId         String
+  pricing           Pricing  @relation(fields: [pricingId], references: [id], onDelete: Cascade)
+  
+  minQuantity       Int
+  maxQuantity       Int?     // null si es sin límite
+  tierPrice         Decimal  @db.Decimal(12, 2)
+  discountPercentage Int?    // Descuento en este tier
+  
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@map("pricing_tiers")
+  @@index([pricingId])
+  @@index([minQuantity])
+}

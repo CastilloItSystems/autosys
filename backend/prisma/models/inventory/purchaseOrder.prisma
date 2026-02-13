@@ -1,0 +1,51 @@
+// backend/prisma/models/inventory/purchaseOrder.prisma
+
+enum PurchaseOrderStatus {
+  DRAFT       // Borrador
+  SENT        // Enviada al proveedor
+  PARTIAL     // Recepción parcial
+  COMPLETED   // Completada
+  CANCELLED   // Cancelada
+}
+
+model PurchaseOrder {
+  id            String              @id @default(uuid())
+  orderNumber   String              @unique
+  
+  supplierId    String
+  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  
+  warehouseId   String
+  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  status        PurchaseOrderStatus @default(DRAFT)
+  
+  // Totales
+  subtotal      Decimal             @default(0) @db.Decimal(12, 2)
+  tax           Decimal             @default(0) @db.Decimal(12, 2)
+  total         Decimal             @default(0) @db.Decimal(12, 2)
+  
+  notes         String?             @db.Text
+  
+  // Relaciones
+  items         PurchaseOrderItem[]
+  receives      Receive[]
+  
+  // Fechas
+  orderDate     DateTime            @default(now())
+  expectedDate  DateTime?
+  
+  // Auditoría
+  createdBy     String?
+  approvedBy    String?
+  approvedAt    DateTime?
+  
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("purchase_orders")
+  @@index([orderNumber])
+  @@index([supplierId])
+  @@index([status])
+  @@index([orderDate])
+}

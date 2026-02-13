@@ -1,0 +1,24 @@
+// backend/prisma/models/inventory/modelCompatibility.prisma
+
+model ModelCompatibility {
+  id              String   @id @default(uuid())
+  
+  // Modelo del producto (repuesto, aceite, etc)
+  partModelId     String
+  partModel       Model    @relation("PartModel", fields: [partModelId], references: [id], onDelete: Cascade)
+  
+  // Modelo del vehículo compatible
+  vehicleModelId  String
+  vehicleModel    Model    @relation("VehicleModel", fields: [vehicleModelId], references: [id], onDelete: Cascade)
+  
+  notes           String?
+  isVerified      Boolean  @default(false)  // Si fue verificado por un técnico
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([partModelId, vehicleModelId])
+  @@map("model_compatibility")
+  @@index([partModelId])
+  @@index([vehicleModelId])
+}

@@ -1,0 +1,57 @@
+// backend/prisma/models/sales/invoice.prisma
+
+enum InvoiceStatus {
+  ACTIVE     // Activa
+  CANCELLED  // Anulada
+  CREDITED   // Con nota de crédito
+}
+
+model Invoice {
+  id                 String        @id @default(uuid())
+  invoiceNumber      String        @unique
+  fiscalNumber       String?       @unique // Número de control fiscal
+  status             InvoiceStatus @default(ACTIVE)
+  
+  // Relación 1 a 1 con Pre-factura
+  preInvoiceId       String        @unique
+  preInvoice         PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
+  
+  // Relación 1 a 1 con Pago
+  paymentId          String        @unique
+  payment            Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  
+  customerId         String
+  customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  // Relaciones
+  items              InvoiceItem[]
+  
+  // Totales
+  subtotal           Decimal       @default(0) @db.Decimal(12, 2)
+  discount           Decimal       @default(0) @db.Decimal(12, 2)
+  tax                Decimal       @default(0) @db.Decimal(12, 2)
+  total              Decimal       @default(0) @db.Decimal(12, 2)
+  
+  notes              String?       @db.Text
+  
+  // Fiscal
+  invoiceDate        DateTime      @default(now())
+  
+  // Auditoría
+  issuedBy           String?
+  
+  // Anulación
+  cancelledAt        DateTime?
+  cancelledBy        String?
+  cancellationReason String?       @db.Text
+  
+  createdAt          DateTime      @default(now())
+  updatedAt          DateTime      @updatedAt
+
+  @@map("invoices")
+  @@index([invoiceNumber])
+  @@index([fiscalNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([invoiceDate])
+}

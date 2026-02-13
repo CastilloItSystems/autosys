@@ -1,0 +1,28 @@
+// backend/prisma/models/inventory/unit.prisma
+
+enum UnitType {
+  COUNTABLE  // Unidades contables
+  WEIGHT     // Peso
+  VOLUME     // Volumen
+  LENGTH     // Longitud
+}
+
+model Unit {
+  id           String   @id @default(uuid())
+  code         String   @unique
+  name         String
+  abbreviation String   @unique
+  type         UnitType
+  isActive     Boolean  @default(true)
+  
+  // Relaciones
+  items        Item[]
+  
+  // Auditoría
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("units")
+  @@index([code])
+  @@index([type])
+}

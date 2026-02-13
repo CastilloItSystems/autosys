@@ -1,41 +1,42 @@
 import apiClient from "../apiClient";
-import { VehicleModel } from "@/libs/interfaces/inventory";
-import { VehicleModelFormData } from "@/libs/zods/inventory/vehicleZod";
+import { Model } from "@/libs/interfaces/inventory";
+import { ModelFormData } from "@/libs/zods/inventory/vehicleZod";
 
-interface VehicleModelResponse {
+interface ModelResponse {
   msg: string;
-  vehicleModel: VehicleModel;
+  model: Model;
 }
 
 const BASE_URL = "/vehicles/models";
 
-export const getVehicleModel = async (id: string): Promise<VehicleModel> => {
+export const getModel = async (id: string): Promise<Model> => {
   const response = await apiClient.get(`${BASE_URL}/${id}`);
   return response.data;
 };
 
-export const getVehicleModels = async (): Promise<{
-  vehicleModels: VehicleModel[];
+export const getModels = async (): Promise<{
+  msg: string;
+  models: Model[];
 }> => {
   const response = await apiClient.get(BASE_URL);
   return response.data;
 };
 
-export const createVehicleModel = async (
-  data: VehicleModelFormData
-): Promise<VehicleModelResponse> => {
+export const createModel = async (
+  data: ModelFormData,
+): Promise<ModelResponse> => {
   const response = await apiClient.post(BASE_URL, data);
   return response.data;
 };
 
-export const updateVehicleModel = async (
+export const updateModel = async (
   id: string,
-  data: VehicleModelFormData
-): Promise<VehicleModelResponse> => {
+  data: ModelFormData,
+): Promise<ModelResponse> => {
   const response = await apiClient.put(`${BASE_URL}/${id}`, data);
   return response.data;
 };
 
-export const deleteVehicleModel = async (id: string): Promise<void> => {
+export const deleteModel = async (id: string): Promise<void> => {
   await apiClient.delete(`${BASE_URL}/${id}`);
 };

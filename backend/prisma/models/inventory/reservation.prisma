@@ -1,0 +1,50 @@
+// backend/prisma/models/inventory/reservation.prisma
+
+enum ReservationStatus {
+  ACTIVE
+  PENDING_PICKUP
+  CONSUMED
+  RELEASED
+}
+
+model Reservation {
+  id                String            @id @default(uuid())
+  reservationNumber String            @unique
+  
+  itemId            String
+  item              Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  warehouseId       String
+  
+  quantity          Int
+  status            ReservationStatus @default(ACTIVE)
+  
+  // Vinculación
+  workOrderId       String?
+  saleOrderId       String?
+  exitNoteId        String?
+  exitNote          ExitNote?         @relation(fields: [exitNoteId], references: [id], onDelete: SetNull)
+  reference         String?
+  
+  notes             String?           @db.Text
+  
+  // Fechas
+  reservedAt        DateTime          @default(now())
+  expiresAt         DateTime?
+  deliveredAt       DateTime?
+  releasedAt        DateTime?
+  
+  // Auditoría
+  createdBy         String?
+  deliveredBy       String?
+  
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  @@map("reservations")
+  @@index([itemId])
+  @@index([workOrderId])
+  @@index([exitNoteId])
+  @@index([status])
+  @@index([reservedAt])
+}

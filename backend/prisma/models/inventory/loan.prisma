@@ -1,0 +1,40 @@
+// backend/prisma/models/inventory/loan.prisma
+
+enum LoanStatus {
+  ACTIVE    // Activo
+  RETURNED  // Devuelto
+  OVERDUE   // Vencido
+  LOST      // Perdido
+}
+
+model Loan {
+  id                 String      @id @default(uuid())
+  loanNumber         String      @unique
+  
+  exitNoteId         String      @unique
+  exitNote           ExitNote    @relation(fields: [exitNoteId], references: [id], onDelete: Restrict)
+  
+  status             LoanStatus  @default(ACTIVE)
+  
+  borrowerName       String
+  borrowerId         String?     // Cédula
+  borrowerPhone      String?
+  
+  expectedReturnDate DateTime
+  actualReturnDate   DateTime?
+  
+  returnExitNoteId   String?     @unique // ID de nota de entrada de devolución
+  
+  notes              String?     @db.Text
+  
+  // Auditoría
+  createdBy          String?
+  
+  createdAt          DateTime    @default(now())
+  updatedAt          DateTime    @updatedAt
+
+  @@map("loans")
+  @@index([loanNumber])
+  @@index([status])
+  @@index([expectedReturnDate])
+}

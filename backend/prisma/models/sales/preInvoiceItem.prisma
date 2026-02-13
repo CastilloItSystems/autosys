@@ -1,0 +1,32 @@
+// backend/prisma/models/sales/preInvoiceItem.prisma
+
+model PreInvoiceItem {
+  id              String      @id @default(uuid())
+  
+  preInvoiceId    String
+  preInvoice      PreInvoice  @relation(fields: [preInvoiceId], references: [id], onDelete: Cascade)
+  
+  itemId          String
+  item            Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity        Int
+  unitPrice       Decimal     @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  subtotal        Decimal     @db.Decimal(12, 2)
+  
+  // Trazabilidad
+  batchId         String?
+  batch           Batch?      @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId  String?
+  serialNumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  notes           String?     @db.Text
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("pre_invoice_items")
+  @@index([preInvoiceId])
+  @@index([itemId])
+}

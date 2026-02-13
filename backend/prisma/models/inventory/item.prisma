@@ -1,0 +1,75 @@
+// backend/prisma/models/inventory/item.prisma
+
+model Item {
+  id          String   @id @default(uuid())
+  sku         String   @unique
+  barcode     String?  @unique
+  name        String
+  description String?  @db.Text
+  
+  // Relaciones de catálogo
+  brandId     String
+  brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  
+  modelId     String?
+  model       Model?   @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  
+  unitId      String
+  unit        Unit     @relation(fields: [unitId], references: [id], onDelete: Restrict)
+  
+  // Ubicación física en almacén
+  location    String?  // "M1-R01-D03"
+  
+  // Precios
+  costPrice      Decimal  @default(0) @db.Decimal(12, 2)
+  salePrice      Decimal  @default(0) @db.Decimal(12, 2)
+  wholesalePrice Decimal? @db.Decimal(12, 2)
+  
+  // Control de inventario
+  minStock       Int      @default(5)
+  maxStock       Int?     @default(100)
+  reorderPoint   Int      @default(10)
+  
+  // Configuración de control
+  isActive           Boolean  @default(true)
+  isSerialized       Boolean  @default(false)  // Maneja números de serie
+  hasBatch           Boolean  @default(false)  // Maneja lotes
+  hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
+  allowNegativeStock Boolean  @default(false)
+  
+  // Información adicional (flexible)
+  technicalSpecs Json?    // Especificaciones técnicas
+  tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
+  
+  // Relaciones
+  stocks         Stock[]
+  movements      Movement[]
+  reservations   Reservation[]
+  purchaseOrderItems PurchaseOrderItem[]
+  orderItems     OrderItem[]
+  preInvoiceItems PreInvoiceItem[]
+  exitNoteItems  ExitNoteItem[]
+  invoiceItems   InvoiceItem[]
+  batches        Batch[]
+  serialNumbers  SerialNumber[]
+  images         ItemImage[]
+  pricing        Pricing?
+  
+  // Auditoría con historial de cambios
+  historial      Json?
+  
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@map("items")
+  @@index([sku])
+  @@index([barcode])
+  @@index([brandId])
+  @@index([categoryId])
+  @@index([modelId])
+  @@index([isActive])
+  @@index([tags])
+}

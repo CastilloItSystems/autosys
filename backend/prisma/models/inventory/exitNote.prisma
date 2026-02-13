@@ -1,0 +1,75 @@
+// backend/prisma/models/inventory/exitNote.prisma
+
+enum ExitNoteStatus {
+  PENDING      // Pendiente de preparación
+  IN_PROGRESS  // En preparación
+  READY        // Listo para entrega
+  DELIVERED    // Entregado
+  CANCELLED    // Cancelado
+}
+
+enum ExitType {
+  SALE            // Venta normal (vinculada a Pre-factura)
+  WARRANTY        // Garantía
+  LOAN            // Préstamo
+  INTERNAL_USE    // Consumo interno
+  SAMPLE          // Muestra
+  DONATION        // Donación
+  OWNER_PICKUP    // Retiro del dueño
+  DEMO            // Demostración
+  TRANSFER        // Traslado
+  OTHER           // Otro
+  LOAN_RETURN     // Devolución de préstamo
+}
+
+model ExitNote {
+  id              String         @id @default(uuid())
+  exitNoteNumber  String         @unique
+  type            ExitType       @default(SALE)
+  status          ExitNoteStatus @default(PENDING)
+  
+  // Relación OPCIONAL con Pre-factura
+  preInvoiceId    String?        @unique
+  preInvoice      PreInvoice?    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  warehouse       Warehouse      @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Para salidas sin factura
+  recipientName   String?
+  recipientId     String?        // Cédula/RIF
+  recipientPhone  String?
+  
+  reason          String?        @db.Text
+  reference       String?        // Número de orden externa, ticket, etc.
+  
+  // Para préstamos
+  expectedReturnDate DateTime?
+  returnedAt         DateTime?
+  
+  // Relaciones
+  items           ExitNoteItem[]
+  reservations    Reservation[]
+  loan            Loan?
+  
+  notes           String?        @db.Text
+  
+  // Fechas
+  reservedAt      DateTime?
+  preparedAt      DateTime?
+  deliveredAt     DateTime?
+  
+  // Auditoría
+  preparedBy      String?
+  deliveredBy     String?
+  authorizedBy    String?        // Quien autorizó salida sin factura
+  
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+
+  @@map("exit_notes")
+  @@index([exitNoteNumber])
+  @@index([type])
+  @@index([status])
+  @@index([preInvoiceId])
+}

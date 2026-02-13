@@ -6,4 +6,5 @@ export default defineConfig({
   datasource: {
     url: env('DIRECT_URL'),
   },
+  seed: 'prisma/seeds/index.ts',
 })

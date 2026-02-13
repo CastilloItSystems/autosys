@@ -1,0 +1,51 @@
+// backend/prisma/models/sales/order.prisma
+
+enum OrderStatus {
+  DRAFT              // Borrador
+  PENDING_APPROVAL   // Pendiente de aprobación
+  APPROVED           // Aprobado
+  CANCELLED          // Cancelado
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderNumber     String      @unique
+  status          OrderStatus @default(DRAFT)
+  
+  customerId      String
+  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  
+  warehouseId     String
+  warehouse       Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Relaciones
+  items           OrderItem[]
+  
+  // Totales
+  subtotal        Decimal     @default(0) @db.Decimal(12, 2)
+  discount        Decimal     @default(0) @db.Decimal(12, 2)
+  tax             Decimal     @default(0) @db.Decimal(12, 2)
+  total           Decimal     @default(0) @db.Decimal(12, 2)
+  
+  notes           String?     @db.Text
+  
+  // Fechas
+  orderDate       DateTime    @default(now())
+  approvedAt      DateTime?
+  
+  // Auditoría
+  createdBy       String?
+  approvedBy      String?
+  
+  // Relación 1 a 1 con Pre-factura
+  preInvoice      PreInvoice?
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("orders")
+  @@index([orderNumber])
+  @@index([customerId])
+  @@index([status])
+  @@index([orderDate])
+}

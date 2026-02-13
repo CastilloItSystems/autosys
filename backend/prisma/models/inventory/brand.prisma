@@ -1,0 +1,30 @@
+// backend/prisma/models/inventory/brand.prisma
+
+enum BrandType {
+  VEHICLE       // Marca de vehículo
+  PART          // Marca de producto/repuesto
+  BOTH          // Ambas
+}
+
+model Brand {
+  id          String    @id @default(uuid())
+  code        String    @unique
+  name        String
+  description String?
+  type        BrandType @default(PART)
+  isActive    Boolean   @default(true)
+  
+  // Relaciones
+  items       Item[]
+  models      Model[]
+  
+  // Auditoría
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@map("brands")
+  @@index([code])
+  @@index([name])
+  @@index([type])
+  @@index([isActive])
+}

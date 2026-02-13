@@ -1,0 +1,25 @@
+// backend/prisma/models/sales/orderItem.prisma
+
+model OrderItem {
+  id        String   @id @default(uuid())
+  
+  orderId   String
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity  Int
+  unitPrice Decimal  @db.Decimal(12, 2)
+  discount  Decimal  @default(0) @db.Decimal(12, 2)
+  subtotal  Decimal  @db.Decimal(12, 2)
+  
+  notes     String?  @db.Text
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("order_items")
+  @@index([orderId])
+  @@index([itemId])
+}

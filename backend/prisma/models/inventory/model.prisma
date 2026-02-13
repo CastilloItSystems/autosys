@@ -1,0 +1,44 @@
+// backend/prisma/models/inventory/model.prisma
+
+enum ModelType {
+  VEHICLE       // Modelo de vehículo (Hilux 2020)
+  PART          // Modelo de producto (PH3614, Lysol 500ml)
+  GENERIC       // Genérico
+}
+
+model Model {
+  id          String    @id @default(uuid())
+  
+  brandId     String
+  brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
+  
+  code        String?   // Código del modelo
+  name        String    // Nombre del modelo
+  year        Int?      // Año (principalmente para vehículos)
+  
+  type        ModelType @default(PART)
+  description String?
+  
+  // Especificaciones técnicas (JSON flexible)
+  specifications Json?   // Ej: { "viscosity": "10W-40", "capacity": "500ml" }
+  
+  isActive    Boolean   @default(true)
+  
+  // Compatibilidad (para productos que aplique)
+  compatibleVehicles ModelCompatibility[] @relation("PartModel")
+  compatibleParts    ModelCompatibility[] @relation("VehicleModel")
+  
+  // Relaciones
+  items       Item[]
+  
+  // Auditoría
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([brandId, code, name, year, type])
+  @@map("models")
+  @@index([brandId])
+  @@index([code])
+  @@index([type])
+  @@index([isActive])
+}
