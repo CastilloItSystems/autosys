@@ -1,249 +1,234 @@
 // backend/src/features/inventory/items/catalogs/brands/brands.controller.ts
 
-import { Request, Response, NextFunction } from 'express'
+import { Request, Response } from 'express'
 import { BrandService } from './brands.service'
-import {
-  CreateBrandDTO,
-  UpdateBrandDTO,
-  BrandResponseDTO,
-  BrandListResponseDTO,
-  BrandGroupedResponseDTO,
-  BrandSimpleDTO,
-} from './brands.dto'
+import { CreateBrandDTO, UpdateBrandDTO, BrandResponseDTO } from './brands.dto'
 import { IBrandFilters, BrandType } from './brands.interface'
+import { ApiResponse } from '../../../../../shared/utils/ApiResponse'
+import { asyncHandler } from '../../../../../shared/middleware/asyncHandler.middleware'
+import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
+
+const brandService = new BrandService()
 
 export class BrandController {
-  private service: BrandService
+  /**
+   * GET /api/inventory/catalogs/brands
+   * Obtener todas las marcas con filtros y paginación
+   */
+  getAll = asyncHandler(async (req: Request, res: Response) => {
+    const { page, limit, search, type, isActive } = req.query
 
-  constructor() {
-    this.service = new BrandService()
-  }
+    const filters: IBrandFilters = {}
+    if (search) filters.search = search as string
+    if (type) filters.type = type as BrandType
+    if (isActive === 'true') filters.isActive = true
+    if (isActive === 'false') filters.isActive = false
 
-  // ============================================
-  // CREATE
-  // ============================================
-  createBrand = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const dto = new CreateBrandDTO(req.body)
-      const brand = await this.service.createBrand(dto)
-      const response = new BrandResponseDTO(brand)
+    filters.page = Number(page) || 1
+    filters.limit = Number(limit) || 10
 
-      res.status(201).json({
-        success: true,
-        message: 'Marca creada exitosamente',
-        data: response,
-      })
-    } catch (error) {
-      next(error)
+    const result = await brandService.getBrands(
+      filters,
+      req.prisma || undefined
+    )
+    const brands = result.brands.map((brand) => new BrandResponseDTO(brand))
+
+    return ApiResponse.paginated(
+      res,
+      brands,
+      result.page,
+      result.limit,
+      result.total,
+      'Marcas obtenidas exitosamente'
+    )
+  })
+
+  /**
+   * GET /api/inventory/catalogs/brands/grouped
+   * Obtener marcas agrupadas por tipo
+   */
+  getGrouped = asyncHandler(async (req: Request, res: Response) => {
+    const { search, isActive } = req.query
+
+    const filters: { search?: string; isActive?: boolean } = {}
+    if (search) filters.search = search as string
+    if (isActive === 'true') filters.isActive = true
+    if (isActive === 'false') filters.isActive = false
+
+    const groups = await brandService.getBrandsGroupedByType(
+      filters,
+      req.prisma || undefined
+    )
+
+    return ApiResponse.success(
+      res,
+      { groups },
+      'Marcas agrupadas obtenidas exitosamente'
+    )
+  })
+
+  /**
+   * GET /api/inventory/catalogs/brands/active
+   * Obtener solo marcas activas (para selects)
+   */
+  getActive = asyncHandler(async (req: Request, res: Response) => {
+    const type = req.query.type as BrandType | undefined
+
+    const brands = await brandService.getActiveBrands(
+      type,
+      req.prisma || undefined
+    )
+    const response = brands.map((brand) => new BrandResponseDTO(brand))
+
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Marcas activas obtenidas exitosamente'
+    )
+  })
+
+  /**
+   * GET /api/inventory/catalogs/brands/search
+   * Buscar marcas
+   */
+  search = asyncHandler(async (req: Request, res: Response) => {
+    const { q: query, type } = req.query
+
+    if (!query) {
+      return ApiResponse.badRequest(res, 'El término de búsqueda es requerido')
     }
-  }
 
-  // ============================================
-  // GET BY ID
-  // ============================================
-  getBrandById = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id } = req.params as { id: string }
-      const brand = await this.service.getBrandById(id)
-      const response = new BrandResponseDTO(brand)
-
-      res.json({
-        success: true,
-        data: response,
-      })
-    } catch (error) {
-      next(error)
+    if ((query as string).length < 2) {
+      return ApiResponse.paginated(res, [], 1, 0, 0, 'Búsqueda completada')
     }
-  }
 
-  // ============================================
-  // GET ALL CON FILTROS
-  // ============================================
-  getBrands = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const filters: IBrandFilters = {}
+    const brands = await brandService.searchBrands(
+      query as string,
+      type as BrandType | undefined,
+      req.prisma || undefined
+    )
+    const response = brands.map((brand) => new BrandResponseDTO(brand))
 
-      if (req.query.search) filters.search = req.query.search as string
-      if (req.query.type) filters.type = req.query.type as BrandType
-      if (req.query.isActive === 'true') filters.isActive = true
-      if (req.query.isActive === 'false') filters.isActive = false
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Búsqueda completada'
+    )
+  })
 
-      filters.page = parseInt(req.query.page as string) || 1
-      filters.limit = parseInt(req.query.limit as string) || 10
+  /**
+   * GET /api/inventory/catalogs/brands/:id
+   * Obtener marca por ID
+   */
+  getById = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
 
-      const result = await this.service.getBrands(filters)
-      const response = new BrandListResponseDTO(result)
+    const brand = await brandService.getBrandById(id)
+    const response = new BrandResponseDTO(brand)
 
-      res.json({
-        success: true,
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+    return ApiResponse.success(res, response, 'Marca obtenida exitosamente')
+  })
 
-  // ============================================
-  // GET AGRUPADO POR TIPO
-  // ============================================
-  getBrandsGrouped = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const filters: { search?: string; isActive?: boolean } = {}
-      if (req.query.search) filters.search = req.query.search as string
-      if (req.query.isActive === 'true') filters.isActive = true
-      if (req.query.isActive === 'false') filters.isActive = false
+  /**
+   * GET /api/inventory/catalogs/brands/:id/stats
+   * Obtener estadísticas de una marca
+   */
+  getStats = asyncHandler(async (req: Request, res: Response) => {
+    const stats = await brandService.getBrandStats()
 
-      const groups = await this.service.getBrandsGroupedByType(filters)
-      const response = new BrandGroupedResponseDTO({ groups })
+    return ApiResponse.success(
+      res,
+      stats,
+      'Estadísticas obtenidas exitosamente'
+    )
+  })
 
-      res.json({
-        success: true,
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+  /**
+   * POST /api/inventory/catalogs/brands
+   * Crear nueva marca
+   */
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const dto = new CreateBrandDTO(req.body)
 
-  // ============================================
-  // GET ACTIVAS (PARA SELECTS)
-  // ============================================
-  getActiveBrands = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const type = req.query.type as BrandType | undefined
-      const brands = await this.service.getActiveBrands(type)
-      const response = brands.map((brand) => new BrandSimpleDTO(brand))
+    const brand = await brandService.createBrand(dto)
+    const response = new BrandResponseDTO(brand)
 
-      res.json({
-        success: true,
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+    return ApiResponse.created(res, response, INVENTORY_MESSAGES.brand.created)
+  })
 
-  // ============================================
-  // SEARCH
-  // ============================================
-  searchBrands = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const query = req.query.q as string
-      const type = req.query.type as BrandType | undefined
+  /**
+   * PUT /api/inventory/catalogs/brands/:id
+   * Actualizar marca
+   */
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
+    const dto = new UpdateBrandDTO(req.body)
 
-      if (!query || query.length < 2) {
-        return res.json({
-          success: true,
-          data: [],
-        })
-      }
+    const brand = await brandService.updateBrand(id, dto)
+    const response = new BrandResponseDTO(brand)
 
-      const brands = await this.service.searchBrands(query, type)
-      const response = brands.map((brand) => new BrandResponseDTO(brand))
+    return ApiResponse.success(res, response, INVENTORY_MESSAGES.brand.updated)
+  })
 
-      res.json({
-        success: true,
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+  /**
+   * PATCH /api/inventory/catalogs/brands/:id/toggle
+   * Activar/Desactivar marca
+   */
+  toggleActive = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
 
-  // ============================================
-  // UPDATE
-  // ============================================
-  updateBrand = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id } = req.params as { id: string }
-      const dto = new UpdateBrandDTO(req.body)
-      const brand = await this.service.updateBrand(id, dto)
-      const response = new BrandResponseDTO(brand)
+    const brand = await brandService.toggleBrand(id)
+    const response = new BrandResponseDTO(brand)
 
-      res.json({
-        success: true,
-        message: 'Marca actualizada exitosamente',
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+    const message = brand.isActive
+      ? 'Marca activada exitosamente'
+      : 'Marca desactivada exitosamente'
 
-  // ============================================
-  // DELETE (SOFT)
-  // ============================================
-  deleteBrand = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id } = req.params as { id: string }
-      await this.service.deleteBrand(id)
+    return ApiResponse.success(res, response, message)
+  })
 
-      res.json({
-        success: true,
-        message: 'Marca desactivada exitosamente',
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+  /**
+   * PATCH /api/inventory/catalogs/brands/:id/reactivate
+   * Reactivar marca (solo activa, no desactiva)
+   */
+  reactivate = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
 
-  // ============================================
-  // DELETE (HARD)
-  // ============================================
-  deleteBrandPermanently = async (
-    req: Request,
-    res: Response,
-    next: NextFunction
-  ) => {
-    try {
-      const { id } = req.params as { id: string }
-      await this.service.deleteBrandPermanently(id)
+    const brand = await brandService.reactivateBrand(id)
+    const response = new BrandResponseDTO(brand)
 
-      res.json({
-        success: true,
-        message: 'Marca eliminada permanentemente',
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+    return ApiResponse.success(res, response, 'Marca reactivada exitosamente')
+  })
 
-  // ============================================
-  // REACTIVAR
-  // ============================================
-  reactivateBrand = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const { id } = req.params as { id: string }
-      const brand = await this.service.reactivateBrand(id)
-      const response = new BrandResponseDTO(brand)
+  /**
+   * DELETE /api/inventory/catalogs/brands/:id
+   * Eliminar marca (soft delete)
+   */
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
 
-      res.json({
-        success: true,
-        message: 'Marca reactivada exitosamente',
-        data: response,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+    await brandService.deleteBrand(id)
 
-  // ============================================
-  // ESTADÍSTICAS
-  // ============================================
-  getBrandStats = async (req: Request, res: Response, next: NextFunction) => {
-    try {
-      const stats = await this.service.getBrandStats()
+    return ApiResponse.success(res, null, INVENTORY_MESSAGES.brand.deleted)
+  })
 
-      res.json({
-        success: true,
-        data: stats,
-      })
-    } catch (error) {
-      next(error)
-    }
-  }
+  /**
+   * DELETE /api/inventory/catalogs/brands/:id/hard
+   * Eliminar marca permanentemente (hard delete)
+   */
+  hardDelete = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
+
+    await brandService.deleteBrandPermanently(id)
+
+    return ApiResponse.success(res, null, 'Marca eliminada permanentemente')
+  })
 }
+
+export default new BrandController()

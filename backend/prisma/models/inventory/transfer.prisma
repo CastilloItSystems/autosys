@@ -1,0 +1,65 @@
+// backend/prisma/models/inventory/transfer.prisma
+
+enum TransferStatus {
+  DRAFT
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+model Transfer {
+  id               String         @id @default(uuid())
+  transferNumber   String         @unique
+  code             String?        // Código alternativo para búsquedas
+
+  fromWarehouseId  String
+  fromWarehouse    Warehouse      @relation("TransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+
+  toWarehouseId    String
+  toWarehouse      Warehouse      @relation("TransferTo", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+
+  status           TransferStatus @default(DRAFT)
+  quantity         Int            @default(0)
+
+  notes            String?        @db.Text
+
+  sentAt           DateTime?
+  receivedAt       DateTime?
+  sentBy           String?
+  receivedBy       String?
+
+  createdBy        String
+
+  items            TransferItem[]
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("transfers")
+  @@index([transferNumber])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([status])
+}
+
+model TransferItem {
+  id           String    @id @default(uuid())
+
+  transferId   String
+  transfer     Transfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  itemId       String
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  quantity     Int
+  unitCost     Decimal?  @db.Decimal(12, 2)
+
+  notes        String?   @db.Text
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("transfer_items")
+  @@index([transferId])
+  @@index([itemId])
+}

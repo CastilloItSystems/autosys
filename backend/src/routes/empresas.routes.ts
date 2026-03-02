@@ -8,29 +8,61 @@ import {
   getEmpresaPredeterminada,
   getAuditLogsForEmpresa,
 } from '../controllers/empresas.controller.js'
-import {
-  authenticateToken,
-  requireRole,
-} from '../middleware/auth.middleware.js'
+import { authenticate } from '../shared/middleware/authenticate.middleware'
+import { authorize } from '../shared/middleware/authorize.middleware'
+import { PERMISSIONS } from '../shared/constants/permissions'
 
 const router = Router()
 
-// Todas las rutas requieren autenticación
-router.use(authenticateToken)
-
-// Rutas que requieren rol admin o superior
-router.get('/', requireRole(['admin', 'superAdmin']), getAllEmpresas)
-router.post('/', requireRole(['admin', 'superAdmin']), createEmpresa)
-router.put('/:id', requireRole(['admin', 'superAdmin']), updateEmpresa)
-router.delete('/:id', requireRole(['admin', 'superAdmin']), deleteEmpresa)
+// GET /api/empresas
 router.get(
-  '/:id/audit-logs',
-  requireRole(['admin', 'superAdmin']),
-  getAuditLogsForEmpresa
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_VIEW),
+  getAllEmpresas
 )
 
-// Rutas accesibles para usuarios autenticados
-router.get('/predeterminada', getEmpresaPredeterminada)
-router.get('/:id', getEmpresaById)
+// POST /api/empresas
+router.post(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_CREATE),
+  createEmpresa
+)
+
+// GET /api/empresas/predeterminada
+router.get('/predeterminada', authenticate, getEmpresaPredeterminada)
+
+// GET /api/empresas/:id
+router.get(
+  '/:id',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_VIEW),
+  getEmpresaById
+)
+
+// PUT /api/empresas/:id
+router.put(
+  '/:id',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_UPDATE),
+  updateEmpresa
+)
+
+// DELETE /api/empresas/:id
+router.delete(
+  '/:id',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_DELETE),
+  deleteEmpresa
+)
+
+// GET /api/empresas/:id/audit-logs
+router.get(
+  '/:id/audit-logs',
+  authenticate,
+  authorize(PERMISSIONS.EMPRESA_VIEW),
+  getAuditLogsForEmpresa
+)
 
 export default router

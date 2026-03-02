@@ -1,179 +1,333 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
-import { InputText } from "primereact/inputtext";
+import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import {
-  deleteMovement,
-  getMovements,
-} from "@/app/api/inventory/movementService";
-import MovementForm from "./MovementForm";
-import { Movement, Item, Warehouse } from "@/libs/interfaces/inventory";
-import { getItems } from "@/app/api/inventory/itemService";
-import { getWarehouses } from "@/app/api/inventory/warehouseService";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
+import { Dropdown, DropdownChangeEvent } from "primereact/dropdown";
+import { Calendar } from "primereact/calendar";
+import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
-import CreateButton from "@/components/common/CreateButton";
-import { handleFormError } from "@/utils/errorHandlers";
+import { Skeleton } from "primereact/skeleton";
+import {
+  getMovements,
+  getMovement,
+  MOVEMENT_TYPE_LABELS,
+  MOVEMENT_TYPE_SEVERITY,
+  Movement,
+  MovementType,
+} from "@/app/api/inventory/movementService";
+import {
+  getActiveWarehouses,
+  Warehouse,
+} from "@/app/api/inventory/warehouseService";
+import { getActiveItems, Item } from "@/app/api/inventory/itemService";
+import MovementDetailForm from "./MovementDetailForm";
+
+const MOVEMENT_TYPES: { label: string; value: MovementType | null }[] = [
+  { label: "Todos", value: null },
+  { label: "Compra", value: "PURCHASE" },
+  { label: "Venta", value: "SALE" },
+  { label: "Ajuste Entrada", value: "ADJUSTMENT_IN" },
+  { label: "Ajuste Salida", value: "ADJUSTMENT_OUT" },
+  { label: "Transferencia", value: "TRANSFER" },
+  { label: "Retorno a Proveedor", value: "SUPPLIER_RETURN" },
+  { label: "Retorno de Taller", value: "WORKSHOP_RETURN" },
+  { label: "Liberación de Reserva", value: "RESERVATION_RELEASE" },
+  { label: "Préstamo Salida", value: "LOAN_OUT" },
+  { label: "Préstamo Devolución", value: "LOAN_RETURN" },
+];
 
 const MovementList = () => {
+  // State
   const [movements, setMovements] = useState<Movement[]>([]);
-  const [movement, setMovement] = useState<Movement | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
+  const [items, setItems] = useState<Item[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [deleteDialog, setDeleteDialog] = useState(false);
-  const [formDialog, setFormDialog] = useState(false);
-  const router = useRouter();
-  const dt = useRef(null);
+
+  // Detail modal
+  const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
+    null,
+  );
+  const [detailDialog, setDetailDialog] = useState(false);
+  const [detailLoading, setDetailLoading] = useState(false);
+
+  // Pagination
+  const [page, setPage] = useState(1);
+  const [limit, setLimit] = useState(20);
+  const [totalRecords, setTotalRecords] = useState(0);
+
+  // Filters
+  const [filterType, setFilterType] = useState<MovementType | null>(null);
+  const [filterWarehouse, setFilterWarehouse] = useState<string | null>(null);
+  const [filterItemId, setFilterItemId] = useState<string | null>(null);
+  const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
+  const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
+
   const toast = useRef<Toast | null>(null);
 
+  // Fetch data on mount and when filters/pagination change
   useEffect(() => {
-    fetchData();
-  }, []);
+    fetchMovements();
+  }, [
+    page,
+    limit,
+    filterType,
+    filterWarehouse,
+    filterItemId,
+    filterDateFrom,
+    filterDateTo,
+  ]);
 
-  const fetchData = async () => {
+  const fetchMovements = async () => {
     try {
-      const [movementsDB, itemsDB, warehousesDB] = await Promise.all([
-        getMovements(),
-        getItems(),
-        getWarehouses(),
-      ]);
+      setLoading(true);
+      const response = await getMovements(page, limit, {
+        type: filterType || undefined,
+        warehouseToId: filterWarehouse || undefined,
+        warehouseFromId: filterWarehouse || undefined,
+        itemId: filterItemId || undefined,
+        dateFrom: filterDateFrom
+          ? filterDateFrom.toISOString().split("T")[0]
+          : undefined,
+        dateTo: filterDateTo
+          ? filterDateTo.toISOString().split("T")[0]
+          : undefined,
+      });
 
-      if (movementsDB && Array.isArray(movementsDB.movements)) {
-        setMovements(movementsDB.movements);
-      }
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
-      }
-      if (warehousesDB && Array.isArray(warehousesDB.warehouses)) {
-        setWarehouses(warehousesDB.warehouses);
-      }
+      setMovements(response.data);
+      setTotalRecords(response.meta.total);
     } catch (error) {
-      console.error("Error al obtener los datos:", error);
+      console.error("Error fetching movements:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los movimientos",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const openFormDialog = () => {
-    setMovement(null);
-    setFormDialog(true);
-  };
+  // Fetch warehouses on mount
+  useEffect(() => {
+    fetchWarehouses();
+    fetchItems();
+  }, []);
 
-  const hideDeleteDialog = () => setDeleteDialog(false);
-  const hideFormDialog = () => {
-    setMovement(null);
-    setFormDialog(false);
-  };
-
-  const handleDelete = async () => {
+  const fetchWarehouses = async () => {
     try {
-      if (movement?.id) {
-        await deleteMovement(movement.id);
-        setMovements(movements.filter((val) => val.id !== movement.id));
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Movimiento Eliminado",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar el movimiento",
-          life: 3000,
-        });
-      }
+      const response = await getActiveWarehouses();
+      setWarehouses(response.data);
     } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setMovement(null);
-      setDeleteDialog(false);
+      console.error("Error fetching warehouses:", error);
     }
   };
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
+  const fetchItems = async () => {
+    try {
+      const response = await getActiveItems();
+      setItems(response.data);
+    } catch (error) {
+      console.error("Error fetching items:", error);
+    }
   };
 
-  const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
-        />
-      </span>
-      <CreateButton onClick={openFormDialog} />
-    </div>
-  );
+  // Handlers
+  const handlePageChange = (event: DataTablePageEvent) => {
+    setPage((event.first ?? 0) / (event.rows ?? 20) + 1);
+    setLimit(event.rows ?? 20);
+  };
 
-  const actionBodyTemplate = (rowData: Movement) => (
-    <CustomActionButtons
-      rowData={rowData}
-      onEdit={(data) => {
-        setMovement(rowData);
-        setFormDialog(true);
-      }}
-      onDelete={(data) => {
-        setMovement(rowData);
-        setDeleteDialog(true);
-      }}
-    />
-  );
+  // Template functions
+  const typeBodyTemplate = (rowData: Movement) => {
+    const severity = MOVEMENT_TYPE_SEVERITY[rowData.type];
+    const label = MOVEMENT_TYPE_LABELS[rowData.type];
+    return <Tag value={label} severity={severity} />;
+  };
 
-  const tipoBodyTemplate = (rowData: Movement) => {
-    const tipoColors: Record<string, string> = {
-      entrada: "bg-blue-100 text-blue-900",
-      salida: "bg-orange-100 text-orange-900",
-      transferencia: "bg-purple-100 text-purple-900",
-      ajuste: "bg-gray-100 text-gray-900",
-    };
-
+  const itemBodyTemplate = (rowData: Movement) => {
+    if (!rowData.item) return <Skeleton width="80px" />;
     return (
-      <span
-        className={`px-2 py-1 border-round text-sm font-semibold ${
-          tipoColors[rowData.tipo] || "bg-gray-100 text-gray-900"
-        }`}
-      >
-        {rowData.tipo}
-      </span>
+      <div className="flex flex-column">
+        <span className="font-semibold">{rowData.item.name}</span>
+        <span className="text-sm text-gray-500">{rowData.item.sku}</span>
+      </div>
     );
   };
 
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
+  const quantityBodyTemplate = (rowData: Movement) => {
+    return (
+      <span className="font-semibold">{rowData.quantity.toLocaleString()}</span>
+    );
   };
 
-  const deleteDialogFooter = (
-    <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
-    </>
+  const priceBodyTemplate = (value: number | null | undefined) => {
+    if (value === null || value === undefined) return "-";
+    return new Intl.NumberFormat("es-CL", {
+      style: "currency",
+      currency: "CLP",
+    }).format(value);
+  };
+
+  const warehouseBodyTemplate = (rowData: Movement, field: "from" | "to") => {
+    const warehouse =
+      field === "from" ? rowData.warehouseFrom : rowData.warehouseTo;
+    if (!warehouse) return "-";
+    return (
+      <div className="flex flex-column">
+        <span className="font-semibold">{warehouse.name}</span>
+        <span className="text-sm text-gray-500">{warehouse.code}</span>
+      </div>
+    );
+  };
+
+  const dateBodyTemplate = (rowData: Movement) => {
+    if (!rowData.movementDate) return "-";
+    return new Date(rowData.movementDate).toLocaleDateString("es-CL", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const actionBodyTemplate = (rowData: Movement) => (
+    <Button
+      icon="pi pi-eye"
+      rounded
+      text
+      severity="info"
+      onClick={() => openDetail(rowData.id)}
+    />
   );
 
-  if (loading) {
+  // Detail modal handlers
+  const openDetail = async (id: string) => {
+    setDetailLoading(true);
+    setDetailDialog(true);
+    try {
+      const res = await getMovement(id);
+      setSelectedMovement(res.data);
+    } catch {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo cargar el movimiento",
+        life: 3000,
+      });
+      setDetailDialog(false);
+    } finally {
+      setDetailLoading(false);
+    }
+  };
+
+  const closeDetail = () => {
+    setDetailDialog(false);
+    setSelectedMovement(null);
+  };
+
+  const handleDetailSave = (updatedMovement: Movement) => {
+    setSelectedMovement(updatedMovement);
+    closeDetail();
+    fetchMovements();
+  };
+
+  const renderFilters = () => (
+    <div className="grid gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 align-items-end">
+        <div className="flex-grow-1" style={{ minWidth: "200px" }}>
+          <label className="block text-sm font-semibold mb-2">
+            Tipo de Movimiento
+          </label>
+          <Dropdown
+            value={filterType}
+            onChange={(e: DropdownChangeEvent) => {
+              setFilterType(e.value);
+              setPage(1);
+            }}
+            options={MOVEMENT_TYPES}
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Seleccionar tipo"
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex-grow-1" style={{ minWidth: "200px" }}>
+          <label className="block text-sm font-semibold mb-2">Almacén</label>
+          <Dropdown
+            value={filterWarehouse}
+            onChange={(e: DropdownChangeEvent) => {
+              setFilterWarehouse(e.value);
+              setPage(1);
+            }}
+            options={warehouses}
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Seleccionar almacén"
+            className="w-full"
+            showClear
+          />
+        </div>
+
+        <div className="flex-grow-1" style={{ minWidth: "200px" }}>
+          <label className="block text-sm font-semibold mb-2">Artículo</label>
+          <Dropdown
+            value={filterItemId}
+            onChange={(e: DropdownChangeEvent) => {
+              setFilterItemId(e.value);
+              setPage(1);
+            }}
+            options={items}
+            optionLabel="name"
+            optionValue="id"
+            placeholder="Seleccionar artículo"
+            filter
+            showClear
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex-grow-1" style={{ minWidth: "180px" }}>
+          <label className="block text-sm font-semibold mb-2">Desde</label>
+          <Calendar
+            value={filterDateFrom}
+            onChange={(e) => {
+              setFilterDateFrom(e.value || null);
+              setPage(1);
+            }}
+            dateFormat="dd/mm/yy"
+            showIcon
+            className="w-full"
+          />
+        </div>
+
+        <div className="flex-grow-1" style={{ minWidth: "180px" }}>
+          <label className="block text-sm font-semibold mb-2">Hasta</label>
+          <Calendar
+            value={filterDateTo}
+            onChange={(e) => {
+              setFilterDateTo(e.value || null);
+              setPage(1);
+            }}
+            dateFormat="dd/mm/yy"
+            showIcon
+            className="w-full"
+          />
+        </div>
+      </div>
+    </div>
+  );
+
+  if (loading && movements.length === 0) {
     return (
-      <div className="flex justify-content-center align-items-center h-screen">
+      <div
+        className="flex justify-content-center align-items-center"
+        style={{ height: "400px" }}
+      >
         <ProgressSpinner />
       </div>
     );
@@ -193,79 +347,132 @@ const MovementList = () => {
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="card"
       >
+        {renderFilters()}
+
         <DataTable
-          ref={dt}
           value={movements}
-          header={renderHeader()}
           paginator
-          rows={10}
-          responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          lazy
+          first={(page - 1) * limit}
+          rows={limit}
+          totalRecords={totalRecords}
+          onPage={handlePageChange}
           loading={loading}
+          responsiveLayout="scroll"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} movimientos"
+          rowsPerPageOptions={[10, 20, 50]}
           emptyMessage="No hay movimientos disponibles"
-          rowClassName={() => "animated-row"}
           size="small"
+          rowClassName={() => "animated-row"}
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="tipo" header="Tipo" body={tipoBodyTemplate} sortable />
-          <Column field="referencia" header="Referencia" sortable />
-          <Column field="item.nombre" header="Artículo" sortable />
-          <Column field="cantidad" header="Cantidad" sortable />
-          <Column field="costoUnitario" header="Costo Unit." sortable />
           <Column
-            field="warehouseFrom.nombre"
+            field="movementNumber"
+            header="# Movimiento"
+            sortable
+            style={{ width: "100px" }}
+          />
+          <Column
+            header="Tipo"
+            body={typeBodyTemplate}
+            style={{ width: "120px" }}
+          />
+          <Column
+            header="Artículo"
+            body={itemBodyTemplate}
+            style={{ width: "150px" }}
+          />
+          <Column
+            field="quantity"
+            header="Cantidad"
+            body={quantityBodyTemplate}
+            sortable
+            style={{ width: "100px" }}
+          />
+          <Column
+            field="unitCost"
+            header="Costo Unit."
+            body={(rowData) => priceBodyTemplate(rowData.unitCost)}
+            sortable
+            style={{ width: "120px" }}
+          />
+          <Column
+            field="totalCost"
+            header="Costo Total"
+            body={(rowData) => priceBodyTemplate(rowData.totalCost)}
+            sortable
+            style={{ width: "120px" }}
+          />
+          <Column
             header="Almacén Origen"
-            sortable
+            body={(rowData) => warehouseBodyTemplate(rowData, "from")}
+            style={{ width: "130px" }}
           />
           <Column
-            field="warehouseTo.nombre"
             header="Almacén Destino"
-            sortable
+            body={(rowData) => warehouseBodyTemplate(rowData, "to")}
+            style={{ width: "130px" }}
           />
-          <Column field="lote" header="Lote" sortable />
+          <Column
+            field="reference"
+            header="Referencia"
+            sortable
+            style={{ width: "120px" }}
+          />
+          <Column
+            field="movementDate"
+            header="Fecha"
+            body={dateBodyTemplate}
+            sortable
+            style={{ width: "100px" }}
+          />
+          <Column
+            field="notes"
+            header="Notas"
+            body={(rowData) => (
+              <span className="text-truncate" title={rowData.notes}>
+                {rowData.notes || "-"}
+              </span>
+            )}
+            style={{ width: "150px" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            style={{ width: "60px" }}
+            exportable={false}
+            frozen
+            alignFrozen="right"
+          />
         </DataTable>
 
+        {/* ── Detail Modal ──────────────────────────────────── */}
         <Dialog
-          visible={deleteDialog}
-          style={{ width: "450px" }}
-          header="Confirmar"
-          modal
-          footer={deleteDialogFooter}
-          onHide={hideDeleteDialog}
-        >
-          <div className="flex align-items-center justify-content-center">
-            <i
-              className="pi pi-exclamation-triangle mr-3"
-              style={{ fontSize: "2rem" }}
-            />
-            {movement && (
-              <span>¿Estás seguro de que deseas eliminar este movimiento?</span>
-            )}
-          </div>
-        </Dialog>
-
-        <Dialog
-          visible={formDialog}
-          style={{ width: "850px" }}
-          header={movement ? "Editar Movimiento" : "Crear Movimiento"}
-          modal
-          onHide={hideFormDialog}
-          content={
-            <MovementForm
-              movement={movement}
-              hideFormDialog={hideFormDialog}
-              movements={movements}
-              setMovements={setMovements}
-              setMovement={setMovement}
-              showToast={showToast}
-              toast={toast}
-              items={items}
-              warehouses={warehouses}
-            />
+          visible={detailDialog}
+          style={{ width: "720px" }}
+          header={
+            selectedMovement ? (
+              <div className="flex align-items-center gap-2">
+                <span>Movimiento #{selectedMovement.movementNumber}</span>
+                <Tag
+                  value={MOVEMENT_TYPE_LABELS[selectedMovement.type]}
+                  severity={MOVEMENT_TYPE_SEVERITY[selectedMovement.type]}
+                  className="text-xs"
+                />
+              </div>
+            ) : (
+              "Detalle de Movimiento"
+            )
           }
-        ></Dialog>
+          modal
+          onHide={closeDetail}
+        >
+          <MovementDetailForm
+            movement={selectedMovement}
+            isLoading={detailLoading}
+            onCancel={closeDetail}
+            onSave={handleDetailSave}
+            toast={toast}
+          />
+        </Dialog>
       </motion.div>
     </>
   );

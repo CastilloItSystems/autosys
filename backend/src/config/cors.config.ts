@@ -47,6 +47,7 @@ export const corsConfig: CorsOptions = {
     'X-New-Token',
     'x-refresh-token',
     'X-Refresh-Token',
+    'X-Empresa-Id',
   ],
   exposedHeaders: [
     'X-Total-Count',

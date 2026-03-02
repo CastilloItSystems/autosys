@@ -45,42 +45,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - code
- *               - name
- *               - type
- *             properties:
- *               code:
- *                 type: string
- *                 minLength: 2
- *                 maxLength: 20
- *                 pattern: '^[A-Z0-9-]+$'
- *                 example: "NK"
- *                 description: Código de la marca (mayúsculas, números y guiones)
- *               name:
- *                 type: string
- *                 minLength: 2
- *                 maxLength: 100
- *                 example: "Nike"
- *                 description: Nombre de la marca
- *               type:
- *                 type: string
- *                 enum: [VEHICLE, PART, BOTH]
- *                 example: "BOTH"
- *                 description: Tipo de marca - VEHICLE (vehículos), PART (repuestos) o BOTH (ambos)
- *               description:
- *                 type: string
- *                 maxLength: 500
- *                 example: "Marca de ropa deportiva"
- *                 description: Descripción de la marca (opcional)
- *               isActive:
- *                 type: boolean
- *                 default: true
- *                 description: Estado activo de la marca
+ *             $ref: '#/components/schemas/BrandCreateRequest'
  *     responses:
  *       201:
  *         description: Marca creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BrandResponse'
  *       400:
  *         description: Datos inválidos - Verifique que code, name y type sean válidos
  *       409:
@@ -121,31 +93,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               code:
- *                 type: string
- *                 minLength: 2
- *                 maxLength: 20
- *                 pattern: '^[A-Z0-9-]+$'
- *                 example: "NK"
- *               name:
- *                 type: string
- *                 minLength: 2
- *                 maxLength: 100
- *                 example: "Nike"
- *               type:
- *                 type: string
- *                 enum: [VEHICLE, PART, BOTH]
- *                 example: "BOTH"
- *               description:
- *                 type: string
- *                 maxLength: 500
- *               isActive:
- *                 type: boolean
+ *             $ref: '#/components/schemas/BrandUpdateRequest'
  *     responses:
  *       200:
  *         description: Marca actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/BrandResponse'
  *       400:
  *         description: Datos inválidos
  *       404:
@@ -270,17 +225,17 @@ const brandController = new BrandController()
  */
 
 // GET /api/inventory/catalogs/brands/active
-router.get('/active', authenticate, brandController.getActiveBrands)
+router.get('/active', authenticate, brandController.getActive)
 
 // GET /api/inventory/catalogs/brands/search
-router.get('/search', authenticate, brandController.searchBrands)
+router.get('/search', authenticate, brandController.search)
 
 // GET /api/inventory/catalogs/brands/grouped
 router.get(
   '/grouped',
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  brandController.getBrandsGrouped
+  brandController.getGrouped
 )
 
 /**
@@ -293,7 +248,7 @@ router.get(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   validateQuery(getBrandsQuerySchema),
-  brandController.getBrands
+  brandController.getAll
 )
 
 // GET /api/inventory/catalogs/brands/:id
@@ -302,7 +257,7 @@ router.get(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   validateParams(brandIdSchema),
-  brandController.getBrandById
+  brandController.getById
 )
 
 // GET /api/inventory/catalogs/brands/:id/stats
@@ -311,7 +266,7 @@ router.get(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   validateParams(brandIdSchema),
-  brandController.getBrandStats
+  brandController.getStats
 )
 
 // POST /api/inventory/catalogs/brands
@@ -320,7 +275,7 @@ router.post(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(createBrandSchema),
-  brandController.createBrand
+  brandController.create
 )
 
 // PUT /api/inventory/catalogs/brands/:id
@@ -330,7 +285,16 @@ router.put(
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateParams(brandIdSchema),
   validateBody(updateBrandSchema),
-  brandController.updateBrand
+  brandController.update
+)
+
+// PATCH /api/inventory/catalogs/brands/:id/toggle
+router.patch(
+  '/:id/toggle',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(brandIdSchema),
+  brandController.toggleActive
 )
 
 // PATCH /api/inventory/catalogs/brands/:id/reactivate
@@ -339,7 +303,16 @@ router.patch(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateParams(brandIdSchema),
-  brandController.reactivateBrand
+  brandController.reactivate
+)
+
+// DELETE /api/inventory/catalogs/brands/:id/hard (DEBE IR ANTES DE /:id DELETE)
+router.delete(
+  '/:id/hard',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_DELETE),
+  validateParams(brandIdSchema),
+  brandController.hardDelete
 )
 
 // DELETE /api/inventory/catalogs/brands/:id (soft delete)
@@ -348,16 +321,7 @@ router.delete(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
   validateParams(brandIdSchema),
-  brandController.deleteBrand
-)
-
-// DELETE /api/inventory/catalogs/brands/:id/hard (hard delete)
-router.delete(
-  '/:id/hard',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(brandIdSchema),
-  brandController.deleteBrandPermanently
+  brandController.delete
 )
 
 export default router

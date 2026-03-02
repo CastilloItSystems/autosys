@@ -4,9 +4,8 @@ import { Request, Response, NextFunction } from 'express'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
 import { BadRequestError } from '../../../../shared/utils/ApiError'
 import { StockCalculator } from '../utils/stockCalculator'
-import { PrismaClient } from '../../../../generated/prisma'
+import prisma from '../../../../services/prisma.service'
 
-const prisma = new PrismaClient()
 
 interface StockCheckItem {
   itemId: string

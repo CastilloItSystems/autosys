@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -11,13 +10,22 @@ import { Dialog } from "primereact/dialog";
 import {
   deletePurchaseOrder,
   getPurchaseOrders,
+  approvePurchaseOrder,
+  cancelPurchaseOrder,
 } from "@/app/api/inventory/purchaseOrderService";
 import PurchaseOrderForm from "./PurchaseOrderForm";
+import PurchaseOrderStepper from "./PurchaseOrderStepper";
 import ReceiveOrderDialog from "./ReceiveOrderDialog";
-import { PurchaseOrder, Item, Supplier } from "@/libs/interfaces/inventory";
-import { getItems } from "@/app/api/inventory/itemService";
-import { getSuppliers } from "@/app/api/inventory/supplierService";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
+import { PurchaseOrder, PO_STATUS_CONFIG } from "@/libs/interfaces/inventory";
+import { getActiveItems, type Item } from "@/app/api/inventory/itemService";
+import {
+  getActiveSuppliers,
+  type Supplier,
+} from "@/app/api/inventory/supplierService";
+import {
+  getActiveWarehouses,
+  type Warehouse,
+} from "@/app/api/inventory/warehouseService";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
 import CreateButton from "@/components/common/CreateButton";
@@ -27,10 +35,11 @@ import { Tag } from "primereact/tag";
 const PurchaseOrderList = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(
-    null
+    null,
   );
   const [items, setItems] = useState<Item[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
@@ -39,7 +48,7 @@ const PurchaseOrderList = () => {
   const [receiveDialog, setReceiveDialog] = useState(false);
   const [selectedOrderToReceive, setSelectedOrderToReceive] =
     useState<PurchaseOrder | null>(null);
-  const router = useRouter();
+  const [expandedRows, setExpandedRows] = useState<any>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
 
@@ -49,21 +58,28 @@ const PurchaseOrderList = () => {
 
   const fetchData = async () => {
     try {
-      const [purchaseOrdersDB, itemsDB, suppliersDB] = await Promise.all([
+      const [poRes, itemsRes, suppliersRes, warehousesRes] = await Promise.all([
         getPurchaseOrders(),
-        getItems(),
-        getSuppliers(),
+        getActiveItems(),
+        getActiveSuppliers(),
+        getActiveWarehouses(),
       ]);
 
-      if (purchaseOrdersDB && Array.isArray(purchaseOrdersDB.purchaseOrders)) {
-        setPurchaseOrders(purchaseOrdersDB.purchaseOrders);
-      }
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
-      }
-      if (suppliersDB && Array.isArray(suppliersDB.suppliers)) {
-        setSuppliers(suppliersDB.suppliers);
-      }
+      // getPurchaseOrders → { data: PurchaseOrder[], meta: {...} }
+      const poList = poRes?.data ?? poRes?.purchaseOrders ?? [];
+      setPurchaseOrders(Array.isArray(poList) ? poList : []);
+
+      // getActiveItems → { data: Item[] }
+      const itemList = itemsRes?.data ?? [];
+      setItems(Array.isArray(itemList) ? itemList : []);
+
+      // getActiveSuppliers → { data: Supplier[] }
+      const supplierList = suppliersRes?.data ?? [];
+      setSuppliers(Array.isArray(supplierList) ? supplierList : []);
+
+      // getActiveWarehouses → { data: Warehouse[] }
+      const warehouseList = warehousesRes?.data ?? [];
+      setWarehouses(Array.isArray(warehouseList) ? warehouseList : []);
     } catch (error) {
       console.error("Error al obtener los datos:", error);
     } finally {
@@ -93,9 +109,8 @@ const PurchaseOrderList = () => {
   };
 
   const handleReceiveSuccess = (updatedOrder: any) => {
-    // Actualizar la orden en la lista
     setPurchaseOrders((prev) =>
-      prev.map((po) => (po.id === updatedOrder.id ? updatedOrder : po))
+      prev.map((po) => (po.id === updatedOrder.id ? updatedOrder : po)),
     );
     hideReceiveDialog();
   };
@@ -105,19 +120,12 @@ const PurchaseOrderList = () => {
       if (purchaseOrder?.id) {
         await deletePurchaseOrder(purchaseOrder.id);
         setPurchaseOrders(
-          purchaseOrders.filter((val) => val.id !== purchaseOrder.id)
+          purchaseOrders.filter((val) => val.id !== purchaseOrder.id),
         );
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
           detail: "Orden de Compra Eliminada",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar la orden de compra",
           life: 3000,
         });
       }
@@ -126,6 +134,42 @@ const PurchaseOrderList = () => {
     } finally {
       setPurchaseOrder(null);
       setDeleteDialog(false);
+    }
+  };
+
+  const handleApprove = async (po: PurchaseOrder) => {
+    try {
+      const result = await approvePurchaseOrder(po.id);
+      const updated = result.data || result;
+      setPurchaseOrders((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p)),
+      );
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Orden ${po.orderNumber} enviada`,
+        life: 3000,
+      });
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
+  const handleCancel = async (po: PurchaseOrder) => {
+    try {
+      const result = await cancelPurchaseOrder(po.id);
+      const updated = result.data || result;
+      setPurchaseOrders((prev) =>
+        prev.map((p) => (p.id === updated.id ? updated : p)),
+      );
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Orden ${po.orderNumber} cancelada`,
+        life: 3000,
+      });
+    } catch (error) {
+      handleFormError(error, toast);
     }
   };
 
@@ -150,63 +194,168 @@ const PurchaseOrderList = () => {
     </div>
   );
 
+  /* ── Action buttons based on status ── */
   const actionBodyTemplate = (rowData: PurchaseOrder) => {
-    const canReceive =
-      rowData.estado !== "recibido" && rowData.estado !== "cancelado";
+    const { status } = rowData;
 
     return (
-      <div className="flex gap-2">
-        {canReceive && (
+      <div className="flex gap-1 flex-nowrap">
+        {/* DRAFT → Enviar / Editar / Eliminar */}
+        {status === "DRAFT" && (
+          <>
+            <Button
+              icon="pi pi-send"
+              className="p-button-rounded p-button-info p-button-sm"
+              tooltip="Enviar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleApprove(rowData)}
+            />
+            <Button
+              icon="pi pi-pencil"
+              className="p-button-rounded p-button-warning p-button-sm"
+              tooltip="Editar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => {
+                setPurchaseOrder(rowData);
+                setFormDialog(true);
+              }}
+            />
+            <Button
+              icon="pi pi-trash"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Eliminar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => {
+                setPurchaseOrder(rowData);
+                setDeleteDialog(true);
+              }}
+            />
+          </>
+        )}
+
+        {/* SENT / PARTIAL → Recepcionar / Cancelar */}
+        {(status === "SENT" || status === "PARTIAL") && (
+          <>
+            <Button
+              icon="pi pi-inbox"
+              className="p-button-rounded p-button-success p-button-sm"
+              tooltip="Recepcionar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => openReceiveDialog(rowData)}
+            />
+            <Button
+              icon="pi pi-times"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Cancelar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleCancel(rowData)}
+            />
+          </>
+        )}
+
+        {/* COMPLETED / CANCELLED → Solo ver */}
+        {(status === "COMPLETED" || status === "CANCELLED") && (
           <Button
-            icon="pi pi-inbox"
-            className="p-button-rounded p-button-success p-button-sm"
-            tooltip="Recepcionar"
+            icon="pi pi-eye"
+            className="p-button-rounded p-button-secondary p-button-sm"
+            tooltip="Ver detalle"
             tooltipOptions={{ position: "top" }}
-            onClick={() => openReceiveDialog(rowData)}
+            onClick={() => {
+              setPurchaseOrder(rowData);
+              setFormDialog(true);
+            }}
           />
         )}
-        <CustomActionButtons
-          rowData={rowData}
-          onEdit={(data) => {
-            setPurchaseOrder(rowData);
-            setFormDialog(true);
-          }}
-          onDelete={(data) => {
-            setPurchaseOrder(rowData);
-            setDeleteDialog(true);
-          }}
-        />
       </div>
     );
   };
 
-  const estadoBodyTemplate = (rowData: PurchaseOrder) => {
-    const estadoConfig: Record<
-      string,
-      { severity: "warning" | "info" | "success" | "danger"; label: string }
-    > = {
-      pendiente: { severity: "warning", label: "Pendiente" },
-      parcial: { severity: "info", label: "Parcial" },
-      recibido: { severity: "success", label: "Recibido" },
-      cancelado: { severity: "danger", label: "Cancelado" },
+  /* ── Status tag ── */
+  const statusBodyTemplate = (rowData: PurchaseOrder) => {
+    const config = PO_STATUS_CONFIG[rowData.status] || {
+      label: rowData.status,
+      severity: "secondary" as const,
     };
-
-    const config = estadoConfig[rowData.estado || "pendiente"] || {
-      severity: "warning" as const,
-      label: rowData.estado || "Pendiente",
-    };
-
     return <Tag value={config.label} severity={config.severity} />;
   };
 
+  /* ── Total formatted ── */
+  const totalBodyTemplate = (rowData: PurchaseOrder) => {
+    return `$${Number(rowData.total || 0).toFixed(2)}`;
+  };
+
+  /* ── Items count ── */
   const itemsCountBodyTemplate = (rowData: PurchaseOrder) => {
-    return rowData.items.length;
+    return rowData.items?.length || 0;
+  };
+
+  /* ── Date format ── */
+  const dateBodyTemplate = (rowData: PurchaseOrder) => {
+    if (!rowData.expectedDate) return "—";
+    return new Date(rowData.expectedDate).toLocaleDateString("es-VE");
+  };
+
+  /* ── Row expansion with stepper ── */
+  const rowExpansionTemplate = (data: PurchaseOrder) => {
+    return (
+      <div className="p-3">
+        <PurchaseOrderStepper currentStatus={data.status} />
+        {data.items && data.items.length > 0 && (
+          <div className="mt-3">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-bottom-1 surface-border">
+                  <th className="text-left py-2">Artículo</th>
+                  <th className="text-center py-2">Ordenado</th>
+                  <th className="text-center py-2">Recibido</th>
+                  <th className="text-center py-2">Pendiente</th>
+                  <th className="text-right py-2">Costo Unit.</th>
+                  <th className="text-right py-2">Subtotal</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.items.map((line) => (
+                  <tr key={line.id} className="border-bottom-1 surface-border">
+                    <td className="py-2">
+                      {line.item
+                        ? `${line.item.sku} — ${line.item.name}`
+                        : line.itemId}
+                    </td>
+                    <td className="text-center py-2">{line.quantityOrdered}</td>
+                    <td className="text-center py-2">
+                      {line.quantityReceived}
+                    </td>
+                    <td className="text-center py-2">
+                      <span
+                        className={
+                          line.quantityPending > 0
+                            ? "text-orange-500 font-bold"
+                            : "text-green-600"
+                        }
+                      >
+                        {line.quantityPending}
+                      </span>
+                    </td>
+                    <td className="text-right py-2">
+                      ${Number(line.unitCost || 0).toFixed(2)}
+                    </td>
+                    <td className="text-right py-2">
+                      ${Number(line.subtotal || 0).toFixed(2)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    );
   };
 
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };
@@ -254,25 +403,54 @@ const PurchaseOrderList = () => {
           emptyMessage="No hay órdenes de compra disponibles"
           rowClassName={() => "animated-row"}
           size="small"
+          expandedRows={expandedRows}
+          onRowToggle={(e) => setExpandedRows(e.data)}
+          rowExpansionTemplate={rowExpansionTemplate}
+          dataKey="id"
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="numero" header="Número" sortable />
-          <Column field="proveedor.nombre" header="Proveedor" sortable />
-          <Column field="fecha" header="Fecha" sortable />
+          <Column expander style={{ width: "3rem" }} />
+          <Column body={actionBodyTemplate} style={{ width: "10rem" }} />
+          <Column field="orderNumber" header="Número" sortable />
           <Column
-            field="items"
-            header="Artículos"
-            body={itemsCountBodyTemplate}
+            field="supplier.name"
+            header="Proveedor"
             sortable
+            body={(rowData: PurchaseOrder) => rowData.supplier?.name || "—"}
           />
           <Column
-            field="estado"
-            header="Estado"
-            body={estadoBodyTemplate}
+            field="warehouse.name"
+            header="Almacén"
             sortable
+            body={(rowData: PurchaseOrder) => rowData.warehouse?.name || "—"}
+          />
+          <Column
+            header="F. Esperada"
+            body={dateBodyTemplate}
+            sortable
+            sortField="expectedDate"
+          />
+          <Column
+            header="Artículos"
+            body={itemsCountBodyTemplate}
+            style={{ width: "6rem" }}
+          />
+          <Column
+            header="Total"
+            body={totalBodyTemplate}
+            sortable
+            sortField="total"
+            style={{ width: "8rem" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ width: "8rem" }}
           />
         </DataTable>
 
+        {/* Delete confirmation */}
         <Dialog
           visible={deleteDialog}
           style={{ width: "450px" }}
@@ -289,12 +467,13 @@ const PurchaseOrderList = () => {
             {purchaseOrder && (
               <span>
                 ¿Estás seguro de que deseas eliminar la orden{" "}
-                <b>{purchaseOrder.numero}</b>?
+                <b>{purchaseOrder.orderNumber}</b>?
               </span>
             )}
           </div>
         </Dialog>
 
+        {/* Form dialog */}
         <Dialog
           visible={formDialog}
           style={{ width: "950px" }}
@@ -309,15 +488,16 @@ const PurchaseOrderList = () => {
               hideFormDialog={hideFormDialog}
               purchaseOrders={purchaseOrders}
               setPurchaseOrders={setPurchaseOrders}
-              setPurchaseOrder={setPurchaseOrder}
               showToast={showToast}
               toast={toast}
               items={items}
               suppliers={suppliers}
+              warehouses={warehouses}
             />
           }
         ></Dialog>
 
+        {/* Receive dialog */}
         <ReceiveOrderDialog
           visible={receiveDialog}
           order={selectedOrderToReceive}

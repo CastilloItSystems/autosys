@@ -7,6 +7,9 @@ export * from "./stockService";
 // Movement Service
 export * from "./movementService";
 
+// Adjustment Service
+export * from "./adjustmentService";
+
 // Purchase Order Service
 export * from "./purchaseOrderService";
 

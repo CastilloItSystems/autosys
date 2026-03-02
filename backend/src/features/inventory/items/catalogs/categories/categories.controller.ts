@@ -24,20 +24,17 @@ export class CategoryController {
 
     const filters: any = {}
     if (search) filters.search = search as string
-    if (isActive !== undefined) {
-      filters.isActive =
-        isActive === 'true' ? true : isActive === 'false' ? false : undefined
-    }
+    if (isActive === 'true') filters.isActive = true
+    if (isActive === 'false') filters.isActive = false
     if (parentId) filters.parentId = parentId as string
-    if (hasParent !== undefined) {
-      filters.hasParent =
-        hasParent === 'true' ? true : hasParent === 'false' ? false : undefined
-    }
+    if (hasParent === 'true') filters.hasParent = true
+    if (hasParent === 'false') filters.hasParent = false
 
     const result = await categoryService.findAll(
       filters,
       Number(page) || 1,
-      Number(limit) || 10
+      Number(limit) || 10,
+      req.prisma || undefined
     )
 
     const categories = result.categories.map(
@@ -62,9 +59,12 @@ export class CategoryController {
     const tree = await categoryService.getTree()
     const response = tree.map((cat) => new CategoryTreeResponseDTO(cat))
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Árbol de categorías obtenido exitosamente'
     )
   })
@@ -79,9 +79,12 @@ export class CategoryController {
       (cat) => new CategoryResponseDTO(cat, { includeRelations: true })
     )
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Categorías raíz obtenidas exitosamente'
     )
   })
@@ -91,14 +94,17 @@ export class CategoryController {
    * Obtener categorías activas
    */
   getActive = asyncHandler(async (req: Request, res: Response) => {
-    const categories = await categoryService.findActive()
+    const categories = await categoryService.findActive(req.prisma || undefined)
     const response = categories.map(
       (cat) => new CategoryResponseDTO(cat, { includeRelations: false })
     )
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Categorías activas obtenidas exitosamente'
     )
   })
@@ -116,13 +122,21 @@ export class CategoryController {
 
     const categories = await categoryService.search(
       term as string,
-      Number(limit) || 10
+      Number(limit) || 10,
+      req.prisma || undefined
     )
     const response = categories.map(
       (cat) => new CategoryResponseDTO(cat, { includeRelations: true })
     )
 
-    return ApiResponse.success(res, response, 'Búsqueda completada')
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Búsqueda completada'
+    )
   })
 
   /**

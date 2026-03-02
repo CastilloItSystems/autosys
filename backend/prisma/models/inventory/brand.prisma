@@ -8,11 +8,15 @@ enum BrandType {
 
 model Brand {
   id          String    @id @default(uuid())
-  code        String    @unique
+  code        String
   name        String
   description String?
   type        BrandType @default(PART)
   isActive    Boolean   @default(true)
+  
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   items       Item[]
@@ -22,9 +26,11 @@ model Brand {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@unique([empresaId, code])
   @@map("brands")
   @@index([code])
   @@index([name])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }

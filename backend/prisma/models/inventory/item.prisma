@@ -7,6 +7,10 @@ model Item {
   name        String
   description String?  @db.Text
   
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones de catálogo
   brandId     String
   brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
@@ -45,9 +49,12 @@ model Item {
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
   
   // Relaciones
-  stocks         Stock[]
-  movements      Movement[]
-  reservations   Reservation[]
+  stocks              Stock[]
+  movements           Movement[]
+  reservations        Reservation[]
+  adjustmentItems     AdjustmentItem[]  @relation("AdjustmentItems")
+  cycleCountItems     CycleCountItem[]  @relation("CycleCountItems")
+  reconciliationItems ReconciliationItem[] @relation("ReconciliationItems")
   purchaseOrderItems PurchaseOrderItem[]
   orderItems     OrderItem[]
   preInvoiceItems PreInvoiceItem[]
@@ -57,6 +64,9 @@ model Item {
   serialNumbers  SerialNumber[]
   images         ItemImage[]
   pricing        Pricing?
+  loanItems      LoanItem[]
+  returnOrderItems ReturnOrderItem[]
+  transferItems    TransferItem[]
   
   // Auditoría con historial de cambios
   historial      Json?
@@ -72,4 +82,5 @@ model Item {
   @@index([modelId])
   @@index([isActive])
   @@index([tags])
+  @@index([empresaId])
 }

@@ -2,9 +2,13 @@
 
 model Category {
   id            String     @id @default(uuid())
-  code          String     @unique
+  code          String
   name          String
   description   String?
+  
+  // Multi-tenancy
+  empresaId     String
+  empresa       Empresa    @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Jerarquía
   parentId      String?
@@ -23,8 +27,10 @@ model Category {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  @@unique([empresaId, code])
   @@map("categories")
   @@index([code])
   @@index([parentId])
   @@index([isActive])
+  @@index([empresaId])
 }

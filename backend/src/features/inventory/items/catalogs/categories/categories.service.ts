@@ -98,9 +98,11 @@ export class CategoryService {
   async findAll(
     filters: ICategoryFilters,
     page: number = 1,
-    limit: number = 10
+    limit: number = 10,
+    prismaClient?: any
   ) {
     try {
+      const db = prismaClient || prisma
       const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
       // Construir filtros
@@ -127,7 +129,7 @@ export class CategoryService {
 
       // Ejecutar consultas en paralelo
       const [categories, total] = await Promise.all([
-        prisma.category.findMany({
+        db.category.findMany({
           where,
           skip,
           take,
@@ -143,7 +145,7 @@ export class CategoryService {
             },
           },
         }),
-        prisma.category.count({ where }),
+        db.category.count({ where }),
       ])
 
       const meta = PaginationHelper.getMeta(page, limit, total)
@@ -648,9 +650,10 @@ export class CategoryService {
   /**
    * Obtener categorías activas (para selects)
    */
-  async findActive(): Promise<ICategoryWithRelations[]> {
+  async findActive(prismaClient?: any): Promise<ICategoryWithRelations[]> {
     try {
-      const categories = await prisma.category.findMany({
+      const db = prismaClient || prisma
+      const categories = await db.category.findMany({
         where: { isActive: true },
         include: {
           parent: true,
@@ -676,10 +679,12 @@ export class CategoryService {
    */
   async search(
     term: string,
-    limit: number = 10
+    limit: number = 10,
+    prismaClient?: any
   ): Promise<ICategoryWithRelations[]> {
     try {
-      const categories = await prisma.category.findMany({
+      const db = prismaClient || prisma
+      const categories = await db.category.findMany({
         where: {
           OR: [
             { code: { contains: term, mode: 'insensitive' } },

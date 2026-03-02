@@ -1,0 +1,53 @@
+// backend/prisma/models/inventory/reconciliation.prisma
+
+enum ReconciliationStatus {
+  DRAFT
+  IN_PROGRESS
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+
+  @@map("reconciliation_status")
+}
+
+enum ReconciliationSource {
+  CYCLE_COUNT
+  PHYSICAL_INVENTORY
+  SYSTEM_ERROR
+  ADJUSTMENT
+  OTHER
+
+  @@map("reconciliation_source")
+}
+
+model Reconciliation {
+  id                    String                   @id @default(uuid())
+  reconciliationNumber  String                   @unique
+  warehouseId           String
+  warehouse             Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  status                ReconciliationStatus     @default(DRAFT)
+  source                ReconciliationSource
+  startedBy             String?
+  startedAt             DateTime?
+  completedBy           String?
+  completedAt           DateTime?
+  approvedBy            String?
+  approvedAt            DateTime?
+  appliedBy             String?
+  appliedAt             DateTime?
+  reason                String                   @db.VarChar(500)
+  notes                 String?                  @db.Text
+  remarks               String?                  @db.Text
+  items                 ReconciliationItem[]
+  createdBy             String
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([reconciliationNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@map("reconciliations")
+}

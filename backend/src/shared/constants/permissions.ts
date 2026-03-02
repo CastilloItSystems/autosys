@@ -13,6 +13,18 @@ export const PERMISSIONS = {
   ITEMS_UPDATE: 'items:update',
   ITEMS_DELETE: 'items:delete',
 
+  // Warehouses
+  WAREHOUSES_VIEW: 'warehouses:view',
+  WAREHOUSES_CREATE: 'warehouses:create',
+  WAREHOUSES_UPDATE: 'warehouses:update',
+  WAREHOUSES_DELETE: 'warehouses:delete',
+
+  // Movements
+  MOVEMENTS_VIEW: 'movements:view',
+  MOVEMENTS_CREATE: 'movements:create',
+  MOVEMENTS_UPDATE: 'movements:update',
+  MOVEMENTS_DELETE: 'movements:delete',
+
   // Stock
   STOCK_VIEW: 'stock:view',
   STOCK_ADJUST: 'stock:adjust',
@@ -47,6 +59,14 @@ export const PERMISSIONS = {
   INVOICE_CREATE: 'invoices:create',
   INVOICE_CANCEL: 'invoices:cancel',
 
+  // Loans
+  LOAN_VIEW: 'loans:view',
+  LOAN_CREATE: 'loans:create',
+  LOAN_APPROVE: 'loans:approve',
+  LOAN_ACTIVATE: 'loans:activate',
+  LOAN_RETURN: 'loans:return',
+  LOAN_CANCEL: 'loans:cancel',
+
   // Reports
   REPORTS_VIEW: 'reports:view',
   REPORTS_EXPORT: 'reports:export',
@@ -56,6 +76,12 @@ export const PERMISSIONS = {
   USERS_CREATE: 'users:create',
   USERS_UPDATE: 'users:update',
   USERS_DELETE: 'users:delete',
+
+  // Empresas
+  EMPRESA_VIEW: 'empresa:view',
+  EMPRESA_CREATE: 'empresa:create',
+  EMPRESA_UPDATE: 'empresa:update',
+  EMPRESA_DELETE: 'empresa:delete',
 
   // Settings
   SETTINGS_VIEW: 'settings:view',
@@ -100,6 +126,10 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.USERS_VIEW,
     PERMISSIONS.USERS_CREATE,
     PERMISSIONS.USERS_UPDATE,
+    PERMISSIONS.EMPRESA_VIEW,
+    PERMISSIONS.EMPRESA_CREATE,
+    PERMISSIONS.EMPRESA_UPDATE,
+    PERMISSIONS.EMPRESA_DELETE,
   ],
 
   GERENTE: [

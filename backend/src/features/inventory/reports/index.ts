@@ -7,6 +7,7 @@ import deadStockRoutes from './deadStock/deadStock.routes'
 import stockValueRoutes from './stockValue/stockValue.routes'
 import movementsRoutes from './movements/movements.routes'
 import exitsWithoutInvoiceRoutes from './exitsWithoutInvoice/exitsWithoutInvoice.routes'
+import exportRoutes from './exports/export.routes'
 import kardexRoutes from '../movements/reports/kardex.routes'
 import rotationRoutes from '../movements/reports/rotation.routes'
 import valuationRoutes from '../movements/reports/valuation.routes'
@@ -17,6 +18,10 @@ const router = Router()
  * Rutas de Reportes
  * Base: /api/inventory/reports
  */
+
+// Exports
+// /api/inventory/reports/export/:reportType?format=csv|excel|pdf
+router.use('/export', exportRoutes)
 
 // Dashboard
 // /api/inventory/reports/dashboard

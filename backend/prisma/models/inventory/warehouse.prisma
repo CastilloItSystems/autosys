@@ -14,6 +14,10 @@ model Warehouse {
   address     String?
   isActive    Boolean       @default(true)
   
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones
   stocks          Stock[]
   movementsFrom   Movement[]    @relation("WarehouseFrom")
@@ -22,6 +26,14 @@ model Warehouse {
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
   purchaseOrders  PurchaseOrder[]
+  adjustments     Adjustment[]
+  cycleCounts     CycleCount[]
+  reconciliations Reconciliation[]
+  loans           Loan[]
+  returnOrders    ReturnOrder[]
+  serialNumbers   SerialNumber[]
+  transfersFrom   Transfer[]     @relation("TransferFrom")
+  transfersTo     Transfer[]     @relation("TransferTo")
   
   // Auditoría
   createdAt   DateTime      @default(now())
@@ -31,4 +43,5 @@ model Warehouse {
   @@index([code])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }

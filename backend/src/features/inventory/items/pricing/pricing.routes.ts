@@ -51,33 +51,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - itemId
- *               - cost
- *               - salePrice
- *             properties:
- *               itemId:
- *                 type: string
- *                 format: uuid
- *                 example: "550e8400-e29b-41d4-a716-446655440000"
- *               cost:
- *                 type: number
- *                 example: 50
- *               salePrice:
- *                 type: number
- *                 example: 100
- *               currency:
- *                 type: string
- *                 default: USD
- *               minPrice:
- *                 type: number
- *               isActive:
- *                 type: boolean
- *                 default: true
+ *             $ref: '#/components/schemas/PricingCreateRequest'
  *     responses:
  *       201:
  *         description: Información de precios creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PricingResponse'
  *       400:
  *         description: Datos inválidos
  *       409:
@@ -126,19 +107,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               cost:
- *                 type: number
- *               salePrice:
- *                 type: number
- *               minPrice:
- *                 type: number
- *               isActive:
- *                 type: boolean
+ *             $ref: '#/components/schemas/PricingUpdateRequest'
  *     responses:
  *       200:
  *         description: Información de precios actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PricingResponse'
  *       404:
  *         description: Información de precios no encontrada
  *       401:
@@ -230,24 +206,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - pricingId
- *               - minQty
- *               - price
- *             properties:
- *               pricingId:
- *                 type: string
- *                 format: uuid
- *               minQty:
- *                 type: integer
- *                 example: 10
- *               price:
- *                 type: number
- *                 example: 95
- *               discount:
- *                 type: number
- *                 example: 5
+ *             $ref: '#/components/schemas/PricingTierCreateRequest'
  *     responses:
  *       201:
  *         description: Tier de precio creado exitosamente

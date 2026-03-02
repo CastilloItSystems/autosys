@@ -1,40 +1,72 @@
-// backend/prisma/models/inventory/loan.prisma
+/**
+ * Loan Model - Temporary loans of items with due date
+ */
 
 enum LoanStatus {
-  ACTIVE    // Activo
-  RETURNED  // Devuelto
-  OVERDUE   // Vencido
-  LOST      // Perdido
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  RETURNED
+  OVERDUE
+  CANCELLED
 }
 
 model Loan {
-  id                 String      @id @default(uuid())
-  loanNumber         String      @unique
+  id                  String @id @default(uuid())
+  loanNumber          String @unique @db.VarChar(50)
+  borrowerName        String @db.VarChar(255)
+  borrowerId          String? @db.VarChar(36)
+  status              LoanStatus @default(DRAFT)
   
-  exitNoteId         String      @unique
-  exitNote           ExitNote    @relation(fields: [exitNoteId], references: [id], onDelete: Restrict)
+  // Relationships
+  warehouseId         String
+  warehouse           Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
-  status             LoanStatus  @default(ACTIVE)
+  items               LoanItem[]
+  exitNote            ExitNote?
   
-  borrowerName       String
-  borrowerId         String?     // Cédula
-  borrowerPhone      String?
+  // Dates
+  startDate           DateTime @default(now())
+  dueDate             DateTime
+  returnedAt          DateTime?
+  approvedAt          DateTime?
+  approvedBy          String? @db.VarChar(36)
   
-  expectedReturnDate DateTime
-  actualReturnDate   DateTime?
+  // Metadata
+  purpose             String? @db.VarChar(255)
+  notes               String? @db.Text
+  createdBy           String @db.VarChar(36)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
   
-  returnExitNoteId   String?     @unique // ID de nota de entrada de devolución
-  
-  notes              String?     @db.Text
-  
-  // Auditoría
-  createdBy          String?
-  
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-
-  @@map("loans")
+  // Indices
   @@index([loanNumber])
   @@index([status])
-  @@index([expectedReturnDate])
+  @@index([borrowerId])
+  @@index([warehouseId])
+  @@index([dueDate])
+  @@index([createdAt])
+  @@map("loans")
+}
+
+model LoanItem {
+  id                  String @id @default(uuid())
+  loanId              String
+  loan                Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  itemId              String
+  item                Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityLoaned      Int
+  quantityReturned    Int @default(0)
+  unitCost            Decimal @default(0)
+  
+  notes               String? @db.Text
+  createdAt           DateTime @default(now())
+  
+  @@unique([loanId, itemId])
+  @@index([loanId])
+  @@index([itemId])
+  @@map("loan_items")
 }

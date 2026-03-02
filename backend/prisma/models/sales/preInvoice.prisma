@@ -13,6 +13,9 @@ model PreInvoice {
   preInvoiceNumber    String            @unique
   status              PreInvoiceStatus  @default(PENDING_PREPARATION)
   
+  empresaId           String
+  empresa             Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relación 1 a 1 con Order
   orderId             String            @unique
   order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -51,4 +54,5 @@ model PreInvoice {
   @@index([preInvoiceNumber])
   @@index([customerId])
   @@index([status])
+  @@index([empresaId])
 }

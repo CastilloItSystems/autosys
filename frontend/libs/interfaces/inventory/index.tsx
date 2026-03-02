@@ -10,6 +10,12 @@ export * from "./movement.interface";
 // Purchase Order
 export * from "./purchaseOrder.interface";
 
+// Exit Note
+export * from "./exitNote.interface";
+
+// Receive
+export * from "./receive.interface";
+
 // Sales Order
 export * from "./salesOrder.interface";
 
@@ -27,3 +33,14 @@ export * from "./customer.interface";
 
 // Vehicle
 export * from "./vehicle.interface";
+// Adjustment
+export * from "./adjustment.interface";
+
+// Transfer
+export * from "./transfer.interface";
+
+// Cycle Count
+export * from "./cycleCount.interface";
+
+// Reconciliation
+export * from "./reconciliation.interface";

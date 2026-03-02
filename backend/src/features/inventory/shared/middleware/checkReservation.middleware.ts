@@ -6,9 +6,8 @@ import {
   BadRequestError,
   NotFoundError,
 } from '../../../../shared/utils/ApiError'
-import { PrismaClient } from '../../../../generated/prisma'
+import prisma from '../../../../services/prisma.service'
 
-const prisma = new PrismaClient()
 
 /**
  * Middleware para validar que la reserva existe y está activa

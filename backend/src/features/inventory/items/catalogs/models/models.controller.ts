@@ -33,7 +33,8 @@ export class ModelController {
     const result = await modelService.findAll(
       filters,
       Number(page) || 1,
-      Number(limit) || 10
+      Number(limit) || 10,
+      req.prisma || undefined
     )
 
     const models = result.models.map(
@@ -55,7 +56,7 @@ export class ModelController {
    * Obtener modelos activos
    */
   getActive = asyncHandler(async (req: Request, res: Response) => {
-    const models = await modelService.findActive()
+    const models = await modelService.findActive(req.prisma || undefined)
     const response = models.map(
       (model) => new ModelResponseDTO(model, { includeBrand: true })
     )
@@ -109,7 +110,8 @@ export class ModelController {
 
     const models = await modelService.search(
       term as string,
-      Number(limit) || 10
+      Number(limit) || 10,
+      req.prisma || undefined
     )
     const response = models.map(
       (model) => new ModelResponseDTO(model, { includeBrand: true })

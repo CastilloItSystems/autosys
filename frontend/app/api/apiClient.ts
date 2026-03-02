@@ -1,5 +1,6 @@
 import axios from "axios";
 import { getSession, signIn, signOut } from "next-auth/react";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 interface ExtendedUser {
   token: string;
@@ -23,6 +24,13 @@ apiClient.interceptors.request.use(
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
     }
+
+    // Inyectar empresaId si está disponible en el store (Zustand)
+    const activeEmpresa = useEmpresasStore.getState().activeEmpresa;
+    if (activeEmpresa?.id_empresa) {
+      config.headers["X-Empresa-Id"] = activeEmpresa.id_empresa;
+    }
+
     return config;
   },
   (error) => {

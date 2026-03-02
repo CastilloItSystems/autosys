@@ -1,243 +1,453 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { FilterMatchMode } from "primereact/api";
-import { Button } from "primereact/button";
+import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
-import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import { deleteStock, getStocks } from "@/app/api/inventory/stockService";
-import StockForm from "./StockForm";
-import { Stock, Item, Warehouse } from "@/libs/interfaces/inventory";
-import { getItems } from "@/app/api/inventory/itemService";
-import { getWarehouses } from "@/app/api/inventory/warehouseService";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { Toast } from "primereact/toast";
+import { Tag } from "primereact/tag";
+import { Dropdown } from "primereact/dropdown";
 import { motion } from "framer-motion";
+import {
+  getStocks,
+  getLowStock,
+  getOutOfStock,
+  Stock,
+} from "@/app/api/inventory/stockService";
+import {
+  getActiveWarehouses,
+  Warehouse,
+} from "@/app/api/inventory/warehouseService";
+import StockForm from "./StockForm";
+import StockAdjustDialog from "./StockAdjustDialog";
 import CreateButton from "@/components/common/CreateButton";
-import { handleFormError } from "@/utils/errorHandlers";
 
-const StockList = () => {
-  const [stocks, setStocks] = useState<Stock[]>([]);
-  const [stock, setStock] = useState<Stock | null>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [deleteDialog, setDeleteDialog] = useState(false);
-  const [formDialog, setFormDialog] = useState(false);
+type StockFilter = "all" | "lowStock" | "outOfStock";
+
+export default function StockList() {
   const router = useRouter();
-  const dt = useRef(null);
-  const toast = useRef<Toast | null>(null);
 
+  // Datos
+  const [stocks, setStocks] = useState<Stock[]>([]);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [selectedStock, setSelectedStock] = useState<Stock | null>(null);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+
+  // Filtros y paginación
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+  const [stockFilter, setStockFilter] = useState<StockFilter>("all");
+  const [warehouseFilter, setWarehouseFilter] = useState<string | null>(null);
+
+  // UI
+  const [loading, setLoading] = useState<boolean>(true);
+  const [formDialog, setFormDialog] = useState<boolean>(false);
+  const [adjustDialog, setAdjustDialog] = useState<boolean>(false);
+  const toast = useRef<Toast>(null);
+
+  // Cargar almacenes para el filtro
   useEffect(() => {
-    fetchData();
+    loadWarehouses();
   }, []);
 
-  const fetchData = async () => {
-    try {
-      const [stocksDB, itemsDB, warehousesDB] = await Promise.all([
-        getStocks(),
-        getItems(),
-        getWarehouses(),
-      ]);
+  // Cargar stocks cuando cambien los filtros
+  useEffect(() => {
+    loadStocks();
+  }, [page, rows, stockFilter, warehouseFilter]);
 
-      if (stocksDB && Array.isArray(stocksDB.stocks)) {
-        setStocks(stocksDB.stocks);
-      }
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
-      }
-      if (warehousesDB && Array.isArray(warehousesDB.warehouses)) {
-        setWarehouses(warehousesDB.warehouses);
-      }
+  const loadWarehouses = async () => {
+    try {
+      const response = await getActiveWarehouses();
+      const data = response.data || [];
+      setWarehouses(Array.isArray(data) ? data : []);
     } catch (error) {
-      console.error("Error al obtener los datos:", error);
+      console.error("Error loading warehouses:", error);
+    }
+  };
+
+  const loadStocks = async () => {
+    try {
+      setLoading(true);
+
+      let response;
+      if (stockFilter === "lowStock") {
+        response = await getLowStock(
+          warehouseFilter || undefined,
+          page + 1,
+          rows,
+        );
+      } else if (stockFilter === "outOfStock") {
+        response = await getOutOfStock(
+          warehouseFilter || undefined,
+          page + 1,
+          rows,
+        );
+      } else {
+        response = await getStocks(page + 1, rows, {
+          warehouseId: warehouseFilter || undefined,
+        });
+      }
+
+      const stocksData = response.data || [];
+      const total = response.meta?.total || 0;
+
+      setStocks(Array.isArray(stocksData) ? stocksData : []);
+      setTotalRecords(total);
+    } catch (error) {
+      console.error("Error loading stocks:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar el stock",
+        life: 3000,
+      });
+      setStocks([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const openFormDialog = () => {
-    setStock(null);
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
+
+  const openNew = () => {
+    setSelectedStock(null);
     setFormDialog(true);
   };
 
-  const hideDeleteDialog = () => setDeleteDialog(false);
-  const hideFormDialog = () => {
-    setStock(null);
+  const editStock = (stock: Stock) => {
+    setSelectedStock({ ...stock });
+    setFormDialog(true);
+  };
+
+  const openAdjust = (stock: Stock) => {
+    setSelectedStock({ ...stock });
+    setAdjustDialog(true);
+  };
+
+  const handleSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selectedStock?.id
+        ? "Stock actualizado correctamente"
+        : "Stock creado correctamente",
+      life: 3000,
+    });
+    loadStocks();
     setFormDialog(false);
   };
 
-  const handleDelete = async () => {
-    try {
-      if (stock?.id) {
-        await deleteStock(stock.id);
-        setStocks(stocks.filter((val) => val.id !== stock.id));
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Stock Eliminado",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar el stock",
-          life: 3000,
-        });
-      }
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setStock(null);
-      setDeleteDialog(false);
-    }
+  const handleAdjustSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Ajuste de stock realizado correctamente",
+      life: 3000,
+    });
+    loadStocks();
+    setAdjustDialog(false);
   };
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
-  };
+  // ── Templates ──────────────────────────────────────────────────────────
 
-  const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+  const actionBodyTemplate = (rowData: Stock) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-eye"
+          rounded
+          severity="success"
+          text
+          onClick={() =>
+            router.push(`/empresa/inventario/stock/item/${rowData.itemId}`)
+          }
+          tooltip="Ver stock por almacén"
         />
+        <Button
+          icon="pi pi-pencil"
+          rounded
+          severity="info"
+          text
+          onClick={() => editStock(rowData)}
+          tooltip="Editar"
+        />
+        <Button
+          icon="pi pi-sliders-h"
+          rounded
+          severity="warning"
+          text
+          onClick={() => openAdjust(rowData)}
+          tooltip="Ajustar Stock"
+        />
+      </div>
+    );
+  };
+
+  const quantityBodyTemplate = (rowData: Stock) => {
+    const { quantityAvailable, quantityReal } = rowData;
+    // Obtener minStock del item si está disponible
+    const minStock = rowData.item?.minStock ?? 5;
+    let severity: "success" | "warning" | "danger" = "success";
+    if (quantityAvailable <= 0) severity = "danger";
+    else if (quantityAvailable <= minStock) severity = "warning";
+
+    return (
+      <Tag
+        value={String(quantityReal)}
+        severity={severity}
+        rounded
+        className="text-sm"
+      />
+    );
+  };
+
+  const availableBodyTemplate = (rowData: Stock) => {
+    const { quantityAvailable } = rowData;
+    const minStock = rowData.item?.minStock ?? 5;
+    let severity: "success" | "warning" | "danger" = "success";
+    if (quantityAvailable <= 0) severity = "danger";
+    else if (quantityAvailable <= minStock) severity = "warning";
+
+    return (
+      <Tag
+        value={String(quantityAvailable)}
+        severity={severity}
+        rounded
+        className="text-sm"
+      />
+    );
+  };
+
+  const costBodyTemplate = (rowData: Stock) => {
+    return (
+      <span>
+        {new Intl.NumberFormat("en-US", {
+          style: "currency",
+          currency: "USD",
+        }).format(rowData.averageCost)}
       </span>
-      <CreateButton onClick={openFormDialog} />
+    );
+  };
+
+  const lastMovementBodyTemplate = (rowData: Stock) => {
+    if (!rowData.lastMovementAt) return <span className="text-400">—</span>;
+    return (
+      <span className="text-sm">
+        {new Date(rowData.lastMovementAt).toLocaleDateString("es-ES", {
+          day: "2-digit",
+          month: "short",
+          year: "numeric",
+        })}
+      </span>
+    );
+  };
+
+  const itemBodyTemplate = (rowData: Stock) => {
+    return (
+      <div className="flex flex-column">
+        <span className="font-semibold">
+          {rowData.item?.name || rowData.itemId}
+        </span>
+        {rowData.item?.sku && (
+          <span className="text-sm text-500">{rowData.item.sku}</span>
+        )}
+      </div>
+    );
+  };
+
+  const warehouseBodyTemplate = (rowData: Stock) => {
+    return <span>{rowData.warehouse?.name || rowData.warehouseId}</span>;
+  };
+
+  // Opciones del dropdown de almacén
+  const warehouseOptions = [
+    { label: "Todos los almacenes", value: null },
+    ...warehouses.map((w) => ({ label: w.name, value: w.id })),
+  ];
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Stock</h4>
+        <span className="text-600 text-sm">({totalRecords} registros)</span>
+      </div>
+      <div className="flex flex-wrap gap-2 align-items-center">
+        {/* Filtro por estado de stock */}
+        <div className="flex gap-1">
+          <Button
+            label="Todos"
+            size="small"
+            severity={stockFilter === "all" ? undefined : "secondary"}
+            outlined={stockFilter !== "all"}
+            onClick={() => {
+              setStockFilter("all");
+              setPage(0);
+            }}
+          />
+          <Button
+            label="Stock Bajo"
+            size="small"
+            severity={stockFilter === "lowStock" ? "warning" : "secondary"}
+            outlined={stockFilter !== "lowStock"}
+            icon="pi pi-exclamation-triangle"
+            onClick={() => {
+              setStockFilter("lowStock");
+              setPage(0);
+            }}
+          />
+          <Button
+            label="Agotado"
+            size="small"
+            severity={stockFilter === "outOfStock" ? "danger" : "secondary"}
+            outlined={stockFilter !== "outOfStock"}
+            icon="pi pi-times-circle"
+            onClick={() => {
+              setStockFilter("outOfStock");
+              setPage(0);
+            }}
+          />
+        </div>
+
+        {/* Filtro por almacén */}
+        <Dropdown
+          value={warehouseFilter}
+          options={warehouseOptions}
+          onChange={(e) => {
+            setWarehouseFilter(e.value);
+            setPage(0);
+          }}
+          placeholder="Almacén"
+          className="w-12rem"
+        />
+
+        <CreateButton label="Nuevo Stock" onClick={openNew} />
+      </div>
     </div>
   );
 
-  const actionBodyTemplate = (rowData: Stock) => (
-    <CustomActionButtons
-      rowData={rowData}
-      onEdit={(data) => {
-        setStock(rowData);
-        setFormDialog(true);
-      }}
-      onDelete={(data) => {
-        setStock(rowData);
-        setDeleteDialog(true);
-      }}
-    />
-  );
-
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
-  };
-
-  const deleteDialogFooter = (
-    <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
-    </>
-  );
-
-  if (loading) {
-    return (
-      <div className="flex justify-content-center align-items-center h-screen">
-        <ProgressSpinner />
-      </div>
-    );
-  }
-
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
-      <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
-        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="card"
-      >
+      <div className="card">
         <DataTable
-          ref={dt}
           value={stocks}
-          header={renderHeader()}
           paginator
-          rows={10}
-          responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          onPage={onPageChange}
+          dataKey="id"
           loading={loading}
-          emptyMessage="No hay stock disponible"
-          rowClassName={() => "animated-row"}
-          size="small"
+          header={header}
+          emptyMessage="No hay registros de stock"
+          sortMode="multiple"
+          lazy
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="item.nombre" header="Artículo" sortable />
-          <Column field="warehouse.nombre" header="Almacén" sortable />
-          <Column field="cantidad" header="Cantidad" sortable />
-          <Column field="costoPromedio" header="Costo Promedio" sortable />
-          <Column field="lote" header="Lote" sortable />
-          <Column field="ubicacionZona" header="Ubicación/Zona" sortable />
-          <Column field="reservado" header="Reservado" sortable />
+          <Column
+            header="Artículo"
+            body={itemBodyTemplate}
+            sortable
+            sortField="item.name"
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            header="Almacén"
+            body={warehouseBodyTemplate}
+            sortable
+            sortField="warehouse.name"
+            style={{ minWidth: "150px" }}
+          />
+          <Column
+            field="quantityReal"
+            header="Cantidad Real"
+            body={quantityBodyTemplate}
+            sortable
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="quantityAvailable"
+            header="Disponible"
+            body={availableBodyTemplate}
+            sortable
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="quantityReserved"
+            header="Reservado"
+            sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="averageCost"
+            header="Costo Promedio"
+            body={costBodyTemplate}
+            sortable
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            field="lastMovementAt"
+            header="Último Mov."
+            body={lastMovementBodyTemplate}
+            sortable
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            exportable={false}
+            style={{ minWidth: "100px" }}
+          />
         </DataTable>
+      </div>
 
-        <Dialog
-          visible={deleteDialog}
-          style={{ width: "450px" }}
-          header="Confirmar"
-          modal
-          footer={deleteDialogFooter}
-          onHide={hideDeleteDialog}
-        >
-          <div className="flex align-items-center justify-content-center">
-            <i
-              className="pi pi-exclamation-triangle mr-3"
-              style={{ fontSize: "2rem" }}
-            />
-            {stock && (
-              <span>¿Estás seguro de que deseas eliminar este stock?</span>
-            )}
+      {/* Form Dialog */}
+      <Dialog
+        visible={formDialog}
+        style={{ width: "600px" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-chart-bar mr-3 text-primary text-3xl"></i>
+                {selectedStock?.id ? "Modificar Stock" : "Crear Stock"}
+              </h2>
+            </div>
           </div>
-        </Dialog>
+        }
+        modal
+        className="p-fluid"
+        onHide={() => setFormDialog(false)}
+      >
+        <StockForm
+          stock={selectedStock}
+          onSave={handleSave}
+          onCancel={() => setFormDialog(false)}
+          toast={toast}
+        />
+      </Dialog>
 
-        <Dialog
-          visible={formDialog}
-          style={{ width: "850px" }}
-          header={stock ? "Editar Stock" : "Crear Stock"}
-          modal
-          onHide={hideFormDialog}
-          content={
-            <StockForm
-              stock={stock}
-              hideFormDialog={hideFormDialog}
-              stocks={stocks}
-              setStocks={setStocks}
-              setStock={setStock}
-              showToast={showToast}
-              toast={toast}
-              items={items}
-              warehouses={warehouses}
-            />
-          }
-        ></Dialog>
-      </motion.div>
-    </>
+      {/* Adjust Dialog */}
+      <StockAdjustDialog
+        visible={adjustDialog}
+        stock={selectedStock}
+        onSave={handleAdjustSave}
+        onCancel={() => setAdjustDialog(false)}
+        toast={toast}
+      />
+    </motion.div>
   );
-};
-
-export default StockList;
+}

@@ -1,6 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import React, { useEffect, useRef, useState, useMemo } from "react";
 import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -8,169 +7,410 @@ import { DataTable, DataTableFilterMeta } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import {
-  deleteReservation,
-  getReservations,
-} from "@/app/api/inventory/reservationService";
-import ReservationForm from "./ReservationForm";
-import { Reservation, Item, Warehouse } from "@/libs/interfaces/inventory";
-import { getItems } from "@/app/api/inventory/itemService";
-import { getWarehouses } from "@/app/api/inventory/warehouseService";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
+import { Tag } from "primereact/tag";
+import { Dropdown } from "primereact/dropdown";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
+
+import {
+  getReservations,
+  deleteReservation,
+  consumeReservation,
+  markAsPendingPickup,
+  releaseReservation,
+} from "@/app/api/inventory/reservationService";
+import { getActiveItems, Item } from "@/app/api/inventory/itemService";
+import {
+  getActiveWarehouses,
+  Warehouse,
+} from "@/app/api/inventory/warehouseService";
+import {
+  Reservation,
+  ReservationStatus,
+  RESERVATION_STATUS_CONFIG,
+} from "@/libs/interfaces/inventory/reservation.interface";
+import ReservationForm from "./ReservationForm";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const ReservationList = () => {
   const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [reservation, setReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] =
+    useState<Reservation | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [selectedStatus, setSelectedStatus] = useState<
+    ReservationStatus | undefined
+  >(undefined);
+  const [filters, setFilters] = useState<DataTableFilterMeta>({});
+
+  // Dialogs
   const [formDialog, setFormDialog] = useState(false);
-  const router = useRouter();
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [consumeDialog, setConsumeDialog] = useState(false);
+  const [releaseDialog, setReleaseDialog] = useState(false);
+  const [consumeQuantity, setConsumeQuantity] = useState<number>(1);
+  const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
+  const toast = useRef<Toast>(null);
   const dt = useRef(null);
-  const toast = useRef<Toast | null>(null);
 
   useEffect(() => {
     fetchData();
   }, []);
 
+  useEffect(() => {
+    filterReservations();
+  }, [reservations, globalFilterValue, selectedStatus]);
+
   const fetchData = async () => {
     try {
-      const [reservationsDB, itemsDB, warehousesDB] = await Promise.all([
-        getReservations(),
-        getItems(),
-        getWarehouses(),
+      const [resRes, itemRes, whRes] = await Promise.all([
+        getReservations(1, 100),
+        getActiveItems(),
+        getActiveWarehouses(),
       ]);
 
-      if (reservationsDB && Array.isArray(reservationsDB.reservations)) {
-        setReservations(reservationsDB.reservations);
-      }
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
-      }
-      if (warehousesDB && Array.isArray(warehousesDB.warehouses)) {
-        setWarehouses(warehousesDB.warehouses);
-      }
+      setReservations(Array.isArray(resRes.data) ? resRes.data : []);
+      setItems(Array.isArray(itemRes.data) ? itemRes.data : []);
+      setWarehouses(Array.isArray(whRes.data) ? whRes.data : []);
     } catch (error) {
-      console.error("Error al obtener los datos:", error);
+      console.error("Error fetching data:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar datos",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
   };
 
+  const filterReservations = () => {
+    const filtered = reservations.filter((res) => {
+      const matchesSearch =
+        !globalFilterValue ||
+        res.id.toLowerCase().includes(globalFilterValue.toLowerCase()) ||
+        res.itemId.toLowerCase().includes(globalFilterValue.toLowerCase());
+
+      const matchesStatus = !selectedStatus || res.status === selectedStatus;
+
+      return matchesSearch && matchesStatus;
+    });
+
+    setFilters({
+      global: { value: globalFilterValue, matchMode: FilterMatchMode.CONTAINS },
+    });
+  };
+
+  const getItemName = (itemId: string) => {
+    const item = items.find((i) => i.id === itemId);
+    return item
+      ? item.sku
+        ? `${item.sku} - ${item.name}`
+        : item.name
+      : itemId;
+  };
+
+  const getWarehouseName = (warehouseId: string) => {
+    const wh = warehouses.find((w) => w.id === warehouseId);
+    return wh ? wh.name : warehouseId;
+  };
+
+  const isExpired = (expiresAt?: string | null) => {
+    if (!expiresAt) return false;
+    return new Date(expiresAt) < new Date();
+  };
+
   const openFormDialog = () => {
-    setReservation(null);
+    setSelectedReservation(null);
     setFormDialog(true);
   };
 
-  const hideDeleteDialog = () => setDeleteDialog(false);
   const hideFormDialog = () => {
-    setReservation(null);
+    setSelectedReservation(null);
     setFormDialog(false);
-  };
-
-  const handleDelete = async () => {
-    try {
-      if (reservation?.id) {
-        await deleteReservation(reservation.id);
-        setReservations(
-          reservations.filter((val) => val.id !== reservation.id)
-        );
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Reserva Eliminada",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar la reserva",
-          life: 3000,
-        });
-      }
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setReservation(null);
-      setDeleteDialog(false);
-    }
-  };
-
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
-  };
-
-  const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
-        />
-      </span>
-      <CreateButton onClick={openFormDialog} />
-    </div>
-  );
-
-  const actionBodyTemplate = (rowData: Reservation) => (
-    <CustomActionButtons
-      rowData={rowData}
-      onEdit={(data) => {
-        setReservation(rowData);
-        setFormDialog(true);
-      }}
-      onDelete={(data) => {
-        setReservation(rowData);
-        setDeleteDialog(true);
-      }}
-    />
-  );
-
-  const estadoBodyTemplate = (rowData: Reservation) => {
-    const estadoColors: Record<string, string> = {
-      activo: "bg-green-100 text-green-900",
-      liberado: "bg-blue-100 text-blue-900",
-      consumido: "bg-orange-100 text-orange-900",
-      cancelado: "bg-red-100 text-red-900",
-    };
-
-    return (
-      <span
-        className={`px-2 py-1 border-round text-sm font-semibold ${
-          estadoColors[rowData.estado || "activo"] ||
-          "bg-gray-100 text-gray-900"
-        }`}
-      >
-        {rowData.estado}
-      </span>
-    );
   };
 
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };
 
+  const handleConsumeClick = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    setConsumeQuantity(reservation.quantity);
+    setConsumeDialog(true);
+  };
+
+  const handleConsume = async () => {
+    if (!selectedReservation) return;
+    try {
+      setActionInProgress(selectedReservation.id);
+      const result = await consumeReservation(
+        selectedReservation.id,
+        consumeQuantity,
+      );
+      const updated = result.data || result;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      showToast("success", "Éxito", "Reserva consumida");
+      setConsumeDialog(false);
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleReleaseClick = (reservation: Reservation) => {
+    setSelectedReservation(reservation);
+    setReleaseDialog(true);
+  };
+
+  const handleRelease = async () => {
+    if (!selectedReservation) return;
+    try {
+      setActionInProgress(selectedReservation.id);
+      const result = await releaseReservation(selectedReservation.id);
+      const updated = result.data || result;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      showToast("success", "Éxito", "Reserva liberada");
+      setReleaseDialog(false);
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handlePendingPickup = async (reservation: Reservation) => {
+    try {
+      setActionInProgress(reservation.id);
+      const result = await markAsPendingPickup(reservation.id);
+      const updated = result.data || result;
+      setReservations((prev) =>
+        prev.map((r) => (r.id === updated.id ? updated : r)),
+      );
+      showToast("success", "Éxito", "Marcado como pendiente de recolección");
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selectedReservation) return;
+    try {
+      await deleteReservation(selectedReservation.id);
+      setReservations(
+        reservations.filter((r) => r.id !== selectedReservation.id),
+      );
+      showToast("success", "Éxito", "Reserva eliminada");
+      setDeleteDialog(false);
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
+  // Templates
+  const statusBodyTemplate = (rowData: Reservation) => {
+    const config = RESERVATION_STATUS_CONFIG[rowData.status];
+    const expired =
+      isExpired(rowData.expiresAt) &&
+      rowData.status === ReservationStatus.ACTIVE;
+
+    return (
+      <div className="flex flex-column gap-2">
+        <Tag value={config.label} severity={config.severity} />
+        {expired && <Tag value="VENCIDA" severity="danger" />}
+      </div>
+    );
+  };
+
+  const itemBodyTemplate = (rowData: Reservation) => (
+    <span>{getItemName(rowData.itemId)}</span>
+  );
+
+  const warehouseBodyTemplate = (rowData: Reservation) => (
+    <span>{getWarehouseName(rowData.warehouseId)}</span>
+  );
+
+  const expiresAtBodyTemplate = (rowData: Reservation) => {
+    if (!rowData.expiresAt) return "-";
+    const date = new Date(rowData.expiresAt);
+    return date.toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const actionBodyTemplate = (rowData: Reservation) => {
+    const isLoading = actionInProgress === rowData.id;
+
+    return (
+      <div className="flex gap-1 flex-nowrap">
+        {/* ACTIVE → Consumir / Pendiente Recolección / Liberar */}
+        {rowData.status === ReservationStatus.ACTIVE && (
+          <>
+            <Button
+              icon="pi pi-check"
+              className="p-button-rounded p-button-success p-button-sm"
+              tooltip="Consumir"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleConsumeClick(rowData)}
+              loading={isLoading}
+              disabled={isLoading}
+            />
+            <Button
+              icon="pi pi-clock"
+              className="p-button-rounded p-button-warning p-button-sm"
+              tooltip="Pdte. Recolección"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handlePendingPickup(rowData)}
+              loading={isLoading}
+              disabled={isLoading}
+            />
+            <Button
+              icon="pi pi-times"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Liberar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleReleaseClick(rowData)}
+            />
+          </>
+        )}
+
+        {/* PENDING_PICKUP → Consumir / Liberar */}
+        {rowData.status === ReservationStatus.PENDING_PICKUP && (
+          <>
+            <Button
+              icon="pi pi-check"
+              className="p-button-rounded p-button-success p-button-sm"
+              tooltip="Consumir"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleConsumeClick(rowData)}
+              loading={isLoading}
+              disabled={isLoading}
+            />
+            <Button
+              icon="pi pi-times"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Liberar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => handleReleaseClick(rowData)}
+            />
+          </>
+        )}
+
+        {/* CONSUMED / RELEASED → Solo vista */}
+        {(rowData.status === ReservationStatus.CONSUMED ||
+          rowData.status === ReservationStatus.RELEASED) && (
+          <span className="text-600 text-sm">Solo lectura</span>
+        )}
+      </div>
+    );
+  };
+
+  const statusOptions = Object.values(ReservationStatus).map((s) => ({
+    label: RESERVATION_STATUS_CONFIG[s].label,
+    value: s,
+  }));
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex gap-2 align-items-center">
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            value={globalFilterValue}
+            onChange={(e) => setGlobalFilterValue(e.target.value)}
+            placeholder="Buscar..."
+            className="w-full sm:w-20rem"
+          />
+        </span>
+
+        <Dropdown
+          value={selectedStatus}
+          options={statusOptions}
+          optionLabel="label"
+          optionValue="value"
+          onChange={(e) => setSelectedStatus(e.value)}
+          placeholder="Estado"
+          showClear
+          className="w-10rem"
+        />
+      </div>
+
+      <CreateButton onClick={openFormDialog} label="Nueva Reserva" />
+    </div>
+  );
+
   const deleteDialogFooter = (
     <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
+      <Button
+        label="Cancelar"
+        icon="pi pi-times"
+        text
+        onClick={() => setDeleteDialog(false)}
+      />
+      <Button
+        label="Eliminar"
+        icon="pi pi-check"
+        text
+        severity="danger"
+        onClick={handleDelete}
+        loading={actionInProgress === selectedReservation?.id}
+      />
+    </>
+  );
+
+  const consumeDialogFooter = (
+    <>
+      <Button
+        label="Cancelar"
+        icon="pi pi-times"
+        text
+        onClick={() => setConsumeDialog(false)}
+      />
+      <Button
+        label="Consumir"
+        icon="pi pi-check"
+        text
+        severity="success"
+        onClick={handleConsume}
+        loading={actionInProgress === selectedReservation?.id}
+      />
+    </>
+  );
+
+  const releaseDialogFooter = (
+    <>
+      <Button
+        label="Cancelar"
+        icon="pi pi-times"
+        text
+        onClick={() => setReleaseDialog(false)}
+      />
+      <Button
+        label="Liberar"
+        icon="pi pi-check"
+        text
+        severity="warning"
+        onClick={handleRelease}
+        loading={actionInProgress === selectedReservation?.id}
+      />
     </>
   );
 
@@ -182,88 +422,161 @@ const ReservationList = () => {
     );
   }
 
+  const filteredReservations = reservations.filter((res) => {
+    const matchesSearch =
+      !globalFilterValue ||
+      res.id.toLowerCase().includes(globalFilterValue.toLowerCase()) ||
+      res.itemId.toLowerCase().includes(globalFilterValue.toLowerCase()) ||
+      getItemName(res.itemId)
+        .toLowerCase()
+        .includes(globalFilterValue.toLowerCase());
+
+    const matchesStatus = !selectedStatus || res.status === selectedStatus;
+
+    return matchesSearch && matchesStatus;
+  });
+
   return (
     <>
       <Toast ref={toast} />
       <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
-        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
         className="card"
       >
         <DataTable
           ref={dt}
-          value={reservations}
-          header={renderHeader()}
+          value={filteredReservations}
+          header={header}
           paginator
           rows={10}
-          responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           filters={filters}
-          loading={loading}
           emptyMessage="No hay reservas disponibles"
-          rowClassName={() => "animated-row"}
+          stripedRows
           size="small"
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="item.nombre" header="Artículo" sortable />
-          <Column field="warehouse.nombre" header="Almacén" sortable />
-          <Column field="cantidad" header="Cantidad" sortable />
-          <Column field="reservadoPor" header="Reservado Por" sortable />
-          <Column field="motivo" header="Motivo" sortable />
+          <Column field="id" header="ID" sortable style={{ width: "12%" }} />
           <Column
-            field="estado"
-            header="Estado"
-            body={estadoBodyTemplate}
+            header="Producto"
+            body={itemBodyTemplate}
             sortable
+            style={{ width: "20%" }}
+          />
+          <Column
+            header="Almacén"
+            body={warehouseBodyTemplate}
+            sortable
+            style={{ width: "15%" }}
+          />
+          <Column
+            field="quantity"
+            header="Cantidad"
+            sortable
+            align="center"
+            style={{ width: "10%" }}
+          />
+          <Column
+            header="Vencimiento"
+            body={expiresAtBodyTemplate}
+            sortable
+            style={{ width: "15%" }}
+          />
+          <Column
+            header="Estado"
+            body={statusBodyTemplate}
+            align="center"
+            style={{ width: "15%" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            align="center"
+            style={{ width: "13%" }}
+            exportable={false}
           />
         </DataTable>
 
+        {/* Form Dialog */}
+        <Dialog
+          visible={formDialog}
+          style={{ width: "850px" }}
+          header={selectedReservation ? "Editar Reserva" : "Crear Reserva"}
+          modal
+          onHide={hideFormDialog}
+        >
+          <ReservationForm
+            reservation={selectedReservation}
+            hideFormDialog={hideFormDialog}
+            reservations={reservations}
+            setReservations={setReservations}
+            showToast={showToast}
+            toast={toast}
+            items={items}
+            warehouses={warehouses}
+          />
+        </Dialog>
+
+        {/* Delete Dialog */}
         <Dialog
           visible={deleteDialog}
           style={{ width: "450px" }}
-          header="Confirmar"
+          header="Confirmar Eliminación"
           modal
           footer={deleteDialogFooter}
-          onHide={hideDeleteDialog}
+          onHide={() => setDeleteDialog(false)}
         >
           <div className="flex align-items-center justify-content-center">
             <i
               className="pi pi-exclamation-triangle mr-3"
               style={{ fontSize: "2rem" }}
             />
-            {reservation && (
-              <span>¿Estás seguro de que deseas eliminar esta reserva?</span>
-            )}
+            <span>¿Estás seguro de que deseas eliminar esta reserva?</span>
           </div>
         </Dialog>
 
+        {/* Consume Dialog */}
         <Dialog
-          visible={formDialog}
-          style={{ width: "850px" }}
-          header={reservation ? "Editar Reserva" : "Crear Reserva"}
+          visible={consumeDialog}
+          style={{ width: "450px" }}
+          header="Consumir Reserva"
           modal
-          onHide={hideFormDialog}
-          content={
-            <ReservationForm
-              reservation={reservation}
-              hideFormDialog={hideFormDialog}
-              reservations={reservations}
-              setReservations={setReservations}
-              setReservation={setReservation}
-              showToast={showToast}
-              toast={toast}
-              items={items}
-              warehouses={warehouses}
+          footer={consumeDialogFooter}
+          onHide={() => setConsumeDialog(false)}
+        >
+          <div className="grid p-fluid">
+            <div className="col-12">
+              <label className="font-bold">Cantidad a Consumir</label>
+              <InputText
+                type="number"
+                value={consumeQuantity.toString()}
+                onChange={(e) =>
+                  setConsumeQuantity(parseInt(e.target.value) || 1)
+                }
+                min={1}
+                max={selectedReservation?.quantity || 1}
+              />
+            </div>
+          </div>
+        </Dialog>
+
+        {/* Release Dialog */}
+        <Dialog
+          visible={releaseDialog}
+          style={{ width: "450px" }}
+          header="Liberar Reserva"
+          modal
+          footer={releaseDialogFooter}
+          onHide={() => setReleaseDialog(false)}
+        >
+          <div className="flex align-items-center justify-content-center">
+            <i
+              className="pi pi-exclamation-triangle mr-3"
+              style={{ fontSize: "2rem" }}
             />
-          }
-        ></Dialog>
+            <span>¿Estás seguro de que deseas liberar esta reserva?</span>
+          </div>
+        </Dialog>
       </motion.div>
     </>
   );

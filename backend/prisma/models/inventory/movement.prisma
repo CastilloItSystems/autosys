@@ -9,6 +9,8 @@ enum MovementType {
   SUPPLIER_RETURN    // Devolución a proveedor
   WORKSHOP_RETURN    // Devolución de taller
   RESERVATION_RELEASE // Liberación de reserva
+  LOAN_OUT           // Salida por préstamo
+  LOAN_RETURN        // Entrada por devolución de préstamo
 }
 
 model Movement {

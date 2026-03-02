@@ -1,9 +1,8 @@
 // backend/src/features/inventory/shared/utils/batchHelper.ts
 
-import { PrismaClient } from '../../../../generated/prisma'
+import prisma from '../../../../services/prisma.service'
 import { DateHelper } from '../../../../shared/utils/dateHelper'
 
-const prisma = new PrismaClient()
 
 export interface BatchInfo {
   id: string

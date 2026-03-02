@@ -1,252 +1,388 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FilterMatchMode } from "primereact/api";
-import { Button } from "primereact/button";
+import React, { useState, useEffect, useRef } from "react";
+import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
-import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import { useRefineriaStore } from "@/store/refineriaStore";
+import { Toast } from "primereact/toast";
+import { Tag } from "primereact/tag";
+import { motion } from "framer-motion";
 import {
-  deleteWarehouse,
   getWarehouses,
+  deleteWarehouse,
+  activateWarehouse,
+  deactivateWarehouse,
+  getActiveWarehouses,
+  Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import WarehouseForm from "./WarehouseForm";
-import { Warehouse } from "@/libs/interfaces/inventory";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
-import { ProgressSpinner } from "primereact/progressspinner";
-import { motion } from "framer-motion";
 import CreateButton from "@/components/common/CreateButton";
-import { handleFormError } from "@/utils/errorHandlers";
 
-const WarehouseList = () => {
-  const { activeRefineria } = useRefineriaStore();
+export default function WarehouseList() {
+  // Datos
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [warehouse, setWarehouse] = useState<Warehouse | null>(null);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [deleteDialog, setDeleteDialog] = useState(false);
-  const [formDialog, setFormDialog] = useState(false);
-  const router = useRouter();
-  const dt = useRef(null);
-  const toast = useRef<Toast | null>(null);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(
+    null,
+  );
 
+  // Filtros y paginación
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [page, setPage] = useState<number>(0); // PrimeReact usa 0-indexed
+  const [rows, setRows] = useState<number>(10);
+  const [showActive, setShowActive] = useState<boolean>(true); // Mostrar activas por defecto
+
+  // UI
+  const [loading, setLoading] = useState<boolean>(true);
+  const [formDialog, setFormDialog] = useState<boolean>(false);
+  const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const toast = useRef<Toast>(null);
+
+  // Cargar almacenes cuando cambien los filtros
   useEffect(() => {
-    fetchWarehouses();
-  }, [activeRefineria]);
+    loadWarehouses();
+  }, [page, rows, searchQuery, showActive]);
 
-  const fetchWarehouses = async () => {
+  const loadWarehouses = async () => {
     try {
-      const warehousesDB = await getWarehouses();
-      if (warehousesDB && Array.isArray(warehousesDB.warehouses)) {
-        setWarehouses(warehousesDB.warehouses);
+      setLoading(true);
+      let response: any;
+
+      if (showActive) {
+        response = await getActiveWarehouses();
+      } else {
+        response = await getWarehouses(
+          page + 1,
+          rows,
+          searchQuery || undefined,
+        );
       }
+
+      // Estructura consistente en todos los endpoints
+      const warehousesData = response.data || [];
+      const total = response.pagination?.total || 0;
+
+      setWarehouses(Array.isArray(warehousesData) ? warehousesData : []);
+      setTotalRecords(total);
     } catch (error) {
-      console.error("Error al obtener los almacenes:", error);
+      console.error("Error loading warehouses:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar almacenes",
+        life: 3000,
+      });
+      setWarehouses([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const openFormDialog = () => {
-    setWarehouse(null);
+  const onPageChange = (event: any) => {
+    // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
+    // Sin lazy=true, event tiene: { page, rows, first... }
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(0);
+  };
+
+  const openNew = () => {
+    setSelectedWarehouse(null);
     setFormDialog(true);
   };
 
-  const hideDeleteDialog = () => setDeleteDialog(false);
-  const hideFormDialog = () => {
-    setWarehouse(null);
-    setFormDialog(false);
+  const editWarehouse = (warehouse: Warehouse) => {
+    setSelectedWarehouse({ ...warehouse });
+    setFormDialog(true);
+  };
+
+  const confirmDeleteWarehouse = (warehouse: Warehouse) => {
+    setSelectedWarehouse(warehouse);
+    setDeleteDialog(true);
   };
 
   const handleDelete = async () => {
+    if (!selectedWarehouse?.id) return;
+
     try {
-      if (warehouse?.id) {
-        await deleteWarehouse(warehouse.id);
-        setWarehouses(warehouses.filter((val) => val.id !== warehouse.id));
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Almacén Eliminado",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar el almacén",
-          life: 3000,
-        });
-      }
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setWarehouse(null);
+      await deleteWarehouse(selectedWarehouse.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Almacén eliminado correctamente",
+        life: 3000,
+      });
+      loadWarehouses();
       setDeleteDialog(false);
+    } catch (error) {
+      console.error("Error deleting warehouse:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al eliminar el almacén",
+        life: 3000,
+      });
     }
   };
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
+  const handleToggleWarehouse = async (warehouse: Warehouse) => {
+    try {
+      if (warehouse.isActive) {
+        await deactivateWarehouse(warehouse.id);
+      } else {
+        await activateWarehouse(warehouse.id);
+      }
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Almacén ${
+          warehouse.isActive ? "desactivado" : "activado"
+        } correctamente`,
+        life: 3000,
+      });
+      loadWarehouses();
+    } catch (error) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cambiar estado del almacén",
+        life: 3000,
+      });
+    }
   };
 
-  const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+  const handleSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selectedWarehouse?.id
+        ? "Almacén actualizado correctamente"
+        : "Almacén creado correctamente",
+      life: 3000,
+    });
+    loadWarehouses();
+    setFormDialog(false);
+  };
+
+  // Templates
+  const actionBodyTemplate = (rowData: Warehouse) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-pencil"
+          rounded
+          severity="info"
+          text
+          onClick={() => editWarehouse(rowData)}
+          tooltip="Editar"
         />
+        <Button
+          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
+          rounded
+          severity={rowData.isActive ? "warning" : "success"}
+          text
+          onClick={() => handleToggleWarehouse(rowData)}
+          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
+        />
+        <Button
+          icon="pi pi-trash"
+          rounded
+          severity="danger"
+          text
+          onClick={() => confirmDeleteWarehouse(rowData)}
+          tooltip="Eliminar"
+        />
+      </div>
+    );
+  };
+
+  const statusBodyTemplate = (rowData: Warehouse) => {
+    return (
+      <Tag
+        value={rowData.isActive ? "Activo" : "Inactivo"}
+        severity={rowData.isActive ? "success" : "secondary"}
+        rounded
+      />
+    );
+  };
+
+  const codeBodyTemplate = (rowData: Warehouse) => {
+    return <span className="font-bold text-primary">{rowData.code}</span>;
+  };
+
+  const typeBodyTemplate = (rowData: Warehouse) => {
+    return (
+      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded">
+        {rowData.type}
       </span>
-      <CreateButton onClick={openFormDialog} />
+    );
+  };
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Almacenes</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          label={showActive ? "Todos los almacenes" : "Solo activos"}
+          icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
+          outlined
+          size="small"
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </span>
+        <CreateButton label="Nuevo Almacén" onClick={openNew} />
+      </div>
     </div>
   );
 
-  const actionBodyTemplate = (rowData: Warehouse) => (
-    <CustomActionButtons
-      rowData={rowData}
-      onEdit={(data) => {
-        setWarehouse(rowData);
-        setFormDialog(true);
-      }}
-      onDelete={(data) => {
-        setWarehouse(rowData);
-        setDeleteDialog(true);
-      }}
-    />
-  );
-
-  const estadoBodyTemplate = (rowData: Warehouse) => (
-    <span
-      className={`px-2 py-1 border-round text-sm font-semibold ${
-        rowData.estado === "activo"
-          ? "bg-green-100 text-green-900"
-          : "bg-red-100 text-red-900"
-      }`}
-    >
-      {rowData.estado}
-    </span>
-  );
-
-  const tipoBodyTemplate = (rowData: Warehouse) => (
-    <span className="capitalize">{rowData.tipo}</span>
-  );
-
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
-  };
-
   const deleteDialogFooter = (
     <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
+      <Button
+        label="No"
+        icon="pi pi-times"
+        outlined
+        onClick={() => setDeleteDialog(false)}
+      />
+      <Button
+        label="Sí"
+        icon="pi pi-check"
+        severity="danger"
+        onClick={handleDelete}
+      />
     </>
   );
-
-  if (loading) {
-    return (
-      <div className="flex justify-content-center align-items-center h-screen">
-        <ProgressSpinner />
-      </div>
-    );
-  }
 
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
-      <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
-        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="card"
-      >
+      <div className="card">
         <DataTable
-          ref={dt}
           value={warehouses}
-          header={renderHeader()}
           paginator
-          rows={10}
-          responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          onPage={onPageChange}
+          dataKey="id"
           loading={loading}
-          emptyMessage="No hay almacenes disponibles"
-          rowClassName={() => "animated-row"}
-          size="small"
+          header={header}
+          emptyMessage="No se encontraron almacenes"
+          sortMode="multiple"
+          lazy
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="nombre" header="Nombre" sortable />
-          <Column field="ubicacion" header="Ubicación" sortable />
-          <Column field="tipo" header="Tipo" body={tipoBodyTemplate} sortable />
-          <Column field="capacidad" header="Capacidad" sortable />
           <Column
-            field="estado"
-            header="Estado"
-            body={estadoBodyTemplate}
+            field="code"
+            header="Código"
             sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            field="type"
+            header="Tipo"
+            body={typeBodyTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="address"
+            header="Dirección"
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            exportable={false}
+            style={{ minWidth: "140px" }}
           />
         </DataTable>
+      </div>
 
-        <Dialog
-          visible={deleteDialog}
-          style={{ width: "450px" }}
-          header="Confirmar"
-          modal
-          footer={deleteDialogFooter}
-          onHide={hideDeleteDialog}
-        >
-          <div className="flex align-items-center justify-content-center">
-            <i
-              className="pi pi-exclamation-triangle mr-3"
-              style={{ fontSize: "2rem" }}
-            />
-            {warehouse && (
-              <span>
-                ¿Estás seguro de que deseas eliminar <b>{warehouse.nombre}</b>?
-              </span>
-            )}
+      <Dialog
+        visible={formDialog}
+        style={{ width: "450px" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-building mr-3 text-primary text-3xl"></i>
+                {selectedWarehouse?.id ? "Modificar Almacén" : "Crear Almacén"}
+              </h2>
+            </div>
           </div>
-        </Dialog>
+        }
+        modal
+        className="p-fluid"
+        onHide={() => setFormDialog(false)}
+      >
+        <WarehouseForm
+          warehouse={selectedWarehouse}
+          onSave={handleSave}
+          onCancel={() => setFormDialog(false)}
+          toast={toast}
+        />
+      </Dialog>
 
-        <Dialog
-          visible={formDialog}
-          style={{ width: "850px" }}
-          header={warehouse ? "Editar Almacén" : "Crear Almacén"}
-          modal
-          onHide={hideFormDialog}
-          content={
-            <WarehouseForm
-              warehouse={warehouse}
-              hideFormDialog={hideFormDialog}
-              warehouses={warehouses}
-              setWarehouses={setWarehouses}
-              setWarehouse={setWarehouse}
-              showToast={showToast}
-              toast={toast}
-            />
-          }
-        ></Dialog>
-      </motion.div>
-    </>
+      <Dialog
+        visible={deleteDialog}
+        style={{ width: "450px" }}
+        header="Confirmar eliminación"
+        modal
+        footer={deleteDialogFooter}
+        onHide={() => setDeleteDialog(false)}
+      >
+        <div className="confirmation-content flex align-items-center gap-3">
+          <i
+            className="pi pi-exclamation-triangle"
+            style={{ fontSize: "2rem", color: "var(--red-500)" }}
+          />
+          {selectedWarehouse && (
+            <span>
+              ¿Está seguro de eliminar el almacén{" "}
+              <b>{selectedWarehouse.name}</b>?
+            </span>
+          )}
+        </div>
+      </Dialog>
+    </motion.div>
   );
-};
-
-export default WarehouseList;
+}

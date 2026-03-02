@@ -81,8 +81,14 @@ export class UnitService {
   /**
    * Obtener todas las unidades con paginación y filtros
    */
-  async findAll(filters: IUnitFilters, page: number = 1, limit: number = 10) {
+  async findAll(
+    filters: IUnitFilters,
+    page: number = 1,
+    limit: number = 10,
+    prismaClient?: any
+  ) {
     try {
+      const db = prismaClient || prisma
       const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
       // Construir filtros
@@ -106,7 +112,7 @@ export class UnitService {
 
       // Ejecutar consultas en paralelo
       const [units, total] = await Promise.all([
-        prisma.unit.findMany({
+        db.unit.findMany({
           where,
           skip,
           take,
@@ -119,7 +125,7 @@ export class UnitService {
             },
           },
         }),
-        prisma.unit.count({ where }),
+        db.unit.count({ where }),
       ])
 
       const meta = PaginationHelper.getMeta(page, limit, total)
@@ -382,9 +388,10 @@ export class UnitService {
   /**
    * Obtener unidades activas
    */
-  async findActive(): Promise<IUnitWithRelations[]> {
+  async findActive(prismaClient?: any): Promise<IUnitWithRelations[]> {
     try {
-      const units = await prisma.unit.findMany({
+      const db = prismaClient || prisma
+      const units = await db.unit.findMany({
         where: { isActive: true },
         orderBy: [{ type: 'asc' }, { name: 'asc' }],
         include: {
@@ -408,10 +415,12 @@ export class UnitService {
    */
   async search(
     term: string,
-    limit: number = 10
+    limit: number = 10,
+    prismaClient?: any
   ): Promise<IUnitWithRelations[]> {
     try {
-      const units = await prisma.unit.findMany({
+      const db = prismaClient || prisma
+      const units = await db.unit.findMany({
         where: {
           OR: [
             { code: { contains: term, mode: 'insensitive' } },

@@ -59,9 +59,95 @@ model Empresa {
   dprefijousr   String?
   eliminado     Boolean  @default(false)
   users         User[]
+  
+  warehouses    Warehouse[]
+  items         Item[]
+  customers     Customer[]
+  suppliers     Supplier[]
+  orders        Order[]
+  preInvoices   PreInvoice[]
+  invoices      Invoice[]
+  brands        Brand[]
+  categories    Category[]
+  units         Unit[]
+  models        Model[]
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
+
+// backend/prisma/models/inventory/adjustment.prisma
+
+enum AdjustmentStatus {
+  DRAFT
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+}
+
+model Adjustment {
+  id                String             @id @default(uuid())
+  adjustmentNumber  String             @unique
+  
+  warehouseId       String
+  warehouse         Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  status            AdjustmentStatus   @default(DRAFT)
+  reason            String             @db.VarChar(255)
+  notes             String?            @db.Text
+  
+  // Aprobación
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  // Aplicación
+  appliedBy         String?
+  appliedAt         DateTime?
+  
+  // Relaciones
+  items             AdjustmentItem[]
+  
+  // Auditoría
+  createdBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@map("adjustments")
+  @@index([adjustmentNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+
+// backend/prisma/models/inventory/adjustmentItem.prisma
+
+model AdjustmentItem {
+  id               String      @id @default(uuid())
+  
+  adjustmentId     String
+  adjustment       Adjustment  @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  item             Item        @relation("AdjustmentItems", fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityChange   Int         // Puede ser positivo o negativo
+  currentQuantity  Int?        // Cantidad antes del ajuste
+  newQuantity      Int?        // Cantidad después del ajuste
+  
+  unitCost         Decimal?    @db.Decimal(12, 2)
+  notes            String?     @db.Text
+  
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([adjustmentId, itemId]) // No duplicar items en mismo ajuste
+  @@map("adjustment_items")
+  @@index([adjustmentId])
+  @@index([itemId])
+}
+
 
 // backend/prisma/models/inventory/batch.prisma
 
@@ -106,11 +192,15 @@ enum BrandType {
 
 model Brand {
   id          String    @id @default(uuid())
-  code        String    @unique
+  code        String
   name        String
   description String?
   type        BrandType @default(PART)
   isActive    Boolean   @default(true)
+  
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   items       Item[]
@@ -120,11 +210,13 @@ model Brand {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
+  @@unique([empresaId, code])
   @@map("brands")
   @@index([code])
   @@index([name])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/inventory/bulkOperation.prisma
@@ -181,9 +273,13 @@ model BulkOperation {
 
 model Category {
   id            String     @id @default(uuid())
-  code          String     @unique
+  code          String
   name          String
   description   String?
+  
+  // Multi-tenancy
+  empresaId     String
+  empresa       Empresa    @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Jerarquía
   parentId      String?
@@ -202,11 +298,184 @@ model Category {
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
+  @@unique([empresaId, code])
   @@map("categories")
   @@index([code])
   @@index([parentId])
   @@index([isActive])
+  @@index([empresaId])
 }
+
+// backend/prisma/models/inventory/cycleCount.prisma
+
+enum CycleCountStatus {
+  DRAFT
+  IN_PROGRESS
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+
+  @@map("cycle_count_status")
+}
+
+model CycleCount {
+  id                String             @id @default(uuid())
+  cycleCountNumber  String             @unique
+  warehouseId       String
+  warehouse         Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  status            CycleCountStatus   @default(DRAFT)
+  startedBy         String?
+  startedAt         DateTime?
+  completedBy       String?
+  completedAt       DateTime?
+  approvedBy        String?
+  approvedAt        DateTime?
+  appliedBy         String?
+  appliedAt         DateTime?
+  notes             String?            @db.Text
+  remarks           String?            @db.Text
+  items             CycleCountItem[]
+  createdBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([cycleCountNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("cycle_counts")
+}
+
+
+// backend/prisma/models/inventory/cycleCountItem.prisma
+
+model CycleCountItem {
+  id                String      @id @default(uuid())
+  cycleCountId      String
+  cycleCount        CycleCount  @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              Item        @relation("CycleCountItems", fields: [itemId], references: [id], onDelete: Restrict)
+  expectedQuantity  Int
+  countedQuantity   Int?
+  variance          Int?
+  location          String?     @db.VarChar(255)
+  notes             String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([cycleCountId, itemId])
+  @@index([cycleCountId])
+  @@index([itemId])
+  @@map("cycle_count_items")
+}
+
+
+/**
+ * Event Model - Audit trail for all inventory events
+ */
+
+enum EventTypeEnum {
+  // Stock Events
+  STOCK_CREATED
+  STOCK_UPDATED
+  STOCK_RESERVED
+  STOCK_UNRESERVED
+  STOCK_MOVEMENT_CREATED
+  STOCK_LOW
+  
+  // Adjustment Events
+  ADJUSTMENT_CREATED
+  ADJUSTMENT_APPROVED
+  ADJUSTMENT_APPLIED
+  ADJUSTMENT_REJECTED
+  ADJUSTMENT_CANCELLED
+  
+  // Cycle Count Events
+  CYCLE_COUNT_CREATED
+  CYCLE_COUNT_APPROVED
+  CYCLE_COUNT_APPLIED
+  CYCLE_COUNT_REJECTED
+  CYCLE_COUNT_COMPLETED
+  
+  // Reconciliation Events
+  RECONCILIATION_CREATED
+  RECONCILIATION_APPROVED
+  RECONCILIATION_APPLIED
+  RECONCILIATION_REJECTED
+  
+  // Loan Events
+  LOAN_CREATED
+  LOAN_APPROVED
+  LOAN_ACTIVE
+  LOAN_RETURNED
+  LOAN_OVERDUE
+  
+  // External Repair Events
+  EXTERNAL_REPAIR_CREATED
+  EXTERNAL_REPAIR_SENT
+  EXTERNAL_REPAIR_RECEIVED
+  EXTERNAL_REPAIR_QUALITY_CHECK
+  EXTERNAL_REPAIR_REJECTED
+  
+  // Return Events
+  RETURN_CREATED
+  RETURN_APPROVED
+  RETURN_PROCESSED
+  RETURN_REJECTED
+  
+  // Transfer Events
+  TRANSFER_CREATED
+  TRANSFER_SENT
+  TRANSFER_RECEIVED
+  
+  // Serial Number Events
+  SERIAL_CREATED
+  SERIAL_ASSIGNED_LOCATION
+  SERIAL_STATUS_CHANGED
+  
+  // Item Events
+  ITEM_CREATED
+  ITEM_UPDATED
+  ITEM_DELETED
+  
+  // Batch Events
+  BATCH_CREATED
+  BATCH_EXPIRING_SOON
+  BATCH_EXPIRED
+  
+  // System Events
+  SYSTEM_ALERT
+  SYSTEM_WARNING
+  SYSTEM_ERROR
+}
+
+enum EventPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Event {
+  id           String @id @default(uuid())
+  type         EventTypeEnum
+  entityId     String @db.VarChar(36)
+  entityType   String @db.VarChar(50)
+  userId       String @db.VarChar(36)
+  eventData    Json @db.JsonB
+  priority     EventPriorityEnum @default(MEDIUM)
+  
+  createdAt    DateTime @default(now())
+  
+  // Indices for queries
+  @@index([entityId])
+  @@index([entityType])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}
+
 
 // backend/prisma/models/inventory/exitNote.prisma
 
@@ -260,7 +529,8 @@ model ExitNote {
   // Relaciones
   items           ExitNoteItem[]
   reservations    Reservation[]
-  loan            Loan?
+  loanId          String? @unique
+  loan            Loan? @relation(fields: [loanId], references: [id], onDelete: Restrict)
   
   notes           String?        @db.Text
   
@@ -325,6 +595,10 @@ model Item {
   name        String
   description String?  @db.Text
   
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones de catálogo
   brandId     String
   brand       Brand    @relation(fields: [brandId], references: [id], onDelete: Restrict)
@@ -363,9 +637,12 @@ model Item {
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
   
   // Relaciones
-  stocks         Stock[]
-  movements      Movement[]
-  reservations   Reservation[]
+  stocks              Stock[]
+  movements           Movement[]
+  reservations        Reservation[]
+  adjustmentItems     AdjustmentItem[]  @relation("AdjustmentItems")
+  cycleCountItems     CycleCountItem[]  @relation("CycleCountItems")
+  reconciliationItems ReconciliationItem[] @relation("ReconciliationItems")
   purchaseOrderItems PurchaseOrderItem[]
   orderItems     OrderItem[]
   preInvoiceItems PreInvoiceItem[]
@@ -375,6 +652,9 @@ model Item {
   serialNumbers  SerialNumber[]
   images         ItemImage[]
   pricing        Pricing?
+  loanItems      LoanItem[]
+  returnOrderItems ReturnOrderItem[]
+  transferItems    TransferItem[]
   
   // Auditoría con historial de cambios
   historial      Json?
@@ -390,6 +670,7 @@ model Item {
   @@index([modelId])
   @@index([isActive])
   @@index([tags])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/inventory/itemImage.prisma
@@ -410,45 +691,77 @@ model ItemImage {
   @@index([itemId])
 }
 
-// backend/prisma/models/inventory/loan.prisma
+/**
+ * Loan Model - Temporary loans of items with due date
+ */
 
 enum LoanStatus {
-  ACTIVE    // Activo
-  RETURNED  // Devuelto
-  OVERDUE   // Vencido
-  LOST      // Perdido
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  ACTIVE
+  RETURNED
+  OVERDUE
+  CANCELLED
 }
 
 model Loan {
-  id                 String      @id @default(uuid())
-  loanNumber         String      @unique
+  id                  String @id @default(uuid())
+  loanNumber          String @unique @db.VarChar(50)
+  borrowerName        String @db.VarChar(255)
+  borrowerId          String? @db.VarChar(36)
+  status              LoanStatus @default(DRAFT)
   
-  exitNoteId         String      @unique
-  exitNote           ExitNote    @relation(fields: [exitNoteId], references: [id], onDelete: Restrict)
+  // Relationships
+  warehouseId         String
+  warehouse           Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
-  status             LoanStatus  @default(ACTIVE)
+  items               LoanItem[]
+  exitNote            ExitNote?
   
-  borrowerName       String
-  borrowerId         String?     // Cédula
-  borrowerPhone      String?
+  // Dates
+  startDate           DateTime @default(now())
+  dueDate             DateTime
+  returnedAt          DateTime?
+  approvedAt          DateTime?
+  approvedBy          String? @db.VarChar(36)
   
-  expectedReturnDate DateTime
-  actualReturnDate   DateTime?
+  // Metadata
+  purpose             String? @db.VarChar(255)
+  notes               String? @db.Text
+  createdBy           String @db.VarChar(36)
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
   
-  returnExitNoteId   String?     @unique // ID de nota de entrada de devolución
-  
-  notes              String?     @db.Text
-  
-  // Auditoría
-  createdBy          String?
-  
-  createdAt          DateTime    @default(now())
-  updatedAt          DateTime    @updatedAt
-
-  @@map("loans")
+  // Indices
   @@index([loanNumber])
   @@index([status])
-  @@index([expectedReturnDate])
+  @@index([borrowerId])
+  @@index([warehouseId])
+  @@index([dueDate])
+  @@index([createdAt])
+  @@map("loans")
+}
+
+model LoanItem {
+  id                  String @id @default(uuid())
+  loanId              String
+  loan                Loan @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  
+  itemId              String
+  item                Item @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityLoaned      Int
+  quantityReturned    Int @default(0)
+  unitCost            Decimal @default(0)
+  
+  notes               String? @db.Text
+  createdAt           DateTime @default(now())
+  
+  @@unique([loanId, itemId])
+  @@index([loanId])
+  @@index([itemId])
+  @@map("loan_items")
 }
 
 // backend/prisma/models/inventory/model.prisma
@@ -461,6 +774,9 @@ enum ModelType {
 
 model Model {
   id          String    @id @default(uuid())
+  
+  empresaId   String
+  empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   brandId     String
   brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
@@ -488,12 +804,13 @@ model Model {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@unique([brandId, code, name, year, type])
+  @@unique([empresaId, brandId, code, name, year, type])
   @@map("models")
   @@index([brandId])
   @@index([code])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/inventory/modelCompatibility.prisma
@@ -532,6 +849,8 @@ enum MovementType {
   SUPPLIER_RETURN    // Devolución a proveedor
   WORKSHOP_RETURN    // Devolución de taller
   RESERVATION_RELEASE // Liberación de reserva
+  LOAN_OUT           // Salida por préstamo
+  LOAN_RETURN        // Entrada por devolución de préstamo
 }
 
 model Movement {
@@ -772,6 +1091,83 @@ model ReceiveItem {
   @@index([itemId])
 }
 
+// backend/prisma/models/inventory/reconciliation.prisma
+
+enum ReconciliationStatus {
+  DRAFT
+  IN_PROGRESS
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+
+  @@map("reconciliation_status")
+}
+
+enum ReconciliationSource {
+  CYCLE_COUNT
+  PHYSICAL_INVENTORY
+  SYSTEM_ERROR
+  ADJUSTMENT
+  OTHER
+
+  @@map("reconciliation_source")
+}
+
+model Reconciliation {
+  id                    String                   @id @default(uuid())
+  reconciliationNumber  String                   @unique
+  warehouseId           String
+  warehouse             Warehouse                @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  status                ReconciliationStatus     @default(DRAFT)
+  source                ReconciliationSource
+  startedBy             String?
+  startedAt             DateTime?
+  completedBy           String?
+  completedAt           DateTime?
+  approvedBy            String?
+  approvedAt            DateTime?
+  appliedBy             String?
+  appliedAt             DateTime?
+  reason                String                   @db.VarChar(500)
+  notes                 String?                  @db.Text
+  remarks               String?                  @db.Text
+  items                 ReconciliationItem[]
+  createdBy             String
+  createdAt             DateTime                 @default(now())
+  updatedAt             DateTime                 @updatedAt
+
+  @@index([reconciliationNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([source])
+  @@index([createdAt])
+  @@map("reconciliations")
+}
+
+
+// backend/prisma/models/inventory/reconciliationItem.prisma
+
+model ReconciliationItem {
+  id                  String            @id @default(uuid())
+  reconciliationId    String
+  reconciliation      Reconciliation    @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  itemId              String
+  item                Item              @relation("ReconciliationItems", fields: [itemId], references: [id], onDelete: Restrict)
+  systemQuantity      Int
+  expectedQuantity    Int
+  difference          Int
+  notes               String?           @db.Text
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([reconciliationId, itemId])
+  @@index([reconciliationId])
+  @@index([itemId])
+  @@map("reconciliation_items")
+}
+
+
 // backend/prisma/models/inventory/reservation.prisma
 
 enum ReservationStatus {
@@ -823,6 +1219,76 @@ model Reservation {
   @@index([reservedAt])
 }
 
+// backend/prisma/models/inventory/return.prisma
+
+enum ReturnStatus {
+  DRAFT
+  PENDING_APPROVAL
+  APPROVED
+  PROCESSED
+  REJECTED
+  CANCELLED
+}
+
+enum ReturnType {
+  SUPPLIER_RETURN
+  WORKSHOP_RETURN
+  CUSTOMER_RETURN
+}
+
+model ReturnOrder {
+  id            String       @id @default(uuid())
+  returnNumber  String       @unique
+  type          ReturnType
+  status        ReturnStatus @default(DRAFT)
+  
+  warehouseId   String
+  warehouse     Warehouse    @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  reason        String       @db.VarChar(500)
+  notes         String?      @db.Text
+  
+  approvedBy    String?
+  approvedAt    DateTime?
+  processedBy   String?
+  processedAt   DateTime?
+  
+  createdBy     String
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  items         ReturnOrderItem[]
+
+  @@map("returns")
+  @@index([returnNumber])
+  @@index([type])
+  @@index([status])
+  @@index([warehouseId])
+  @@index([createdAt])
+}
+
+model ReturnOrderItem {
+  id            String       @id @default(uuid())
+  
+  returnOrderId String
+  returnOrder   ReturnOrder  @relation(fields: [returnOrderId], references: [id], onDelete: Cascade)
+  
+  itemId        String
+  item          Item         @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantity      Int
+  unitPrice     Decimal?     @db.Decimal(12, 2)
+  notes         String?      @db.Text
+  
+  createdAt     DateTime     @default(now())
+
+  @@map("return_items")
+  @@index([returnOrderId])
+  @@index([itemId])
+  @@unique([returnOrderId, itemId])
+}
+
+
 // backend/prisma/models/inventory/serialNumber.prisma
 
 enum SerialStatus {
@@ -841,6 +1307,7 @@ model SerialNumber {
   item          Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
   
   warehouseId   String?
+  warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   status        SerialStatus @default(IN_STOCK)
   
   soldAt        DateTime?
@@ -875,6 +1342,7 @@ model Stock {
   // Cantidades
   quantityReal      Int       @default(0)      // Stock físico real
   quantityReserved  Int       @default(0)      // Stock reservado
+  quantityConsumed  Int       @default(0)      // Stock consumido/entregado
   quantityAvailable Int       @default(0)      // Real - Reservado
   
   // Valorización
@@ -940,6 +1408,10 @@ model Supplier {
   taxId           String?         // RIF en Venezuela
   isActive        Boolean         @default(true)
   
+  // Multi-tenancy
+  empresaId       String
+  empresa         Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones
   purchaseOrders  PurchaseOrder[]
   
@@ -950,7 +1422,75 @@ model Supplier {
   @@map("suppliers")
   @@index([code])
   @@index([isActive])
+  @@index([empresaId])
 }
+
+// backend/prisma/models/inventory/transfer.prisma
+
+enum TransferStatus {
+  DRAFT
+  IN_TRANSIT
+  RECEIVED
+  CANCELLED
+}
+
+model Transfer {
+  id               String         @id @default(uuid())
+  transferNumber   String         @unique
+  code             String?        // Código alternativo para búsquedas
+
+  fromWarehouseId  String
+  fromWarehouse    Warehouse      @relation("TransferFrom", fields: [fromWarehouseId], references: [id], onDelete: Restrict)
+
+  toWarehouseId    String
+  toWarehouse      Warehouse      @relation("TransferTo", fields: [toWarehouseId], references: [id], onDelete: Restrict)
+
+  status           TransferStatus @default(DRAFT)
+  quantity         Int            @default(0)
+
+  notes            String?        @db.Text
+
+  sentAt           DateTime?
+  receivedAt       DateTime?
+  sentBy           String?
+  receivedBy       String?
+
+  createdBy        String
+
+  items            TransferItem[]
+
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@map("transfers")
+  @@index([transferNumber])
+  @@index([fromWarehouseId])
+  @@index([toWarehouseId])
+  @@index([status])
+}
+
+model TransferItem {
+  id           String    @id @default(uuid())
+
+  transferId   String
+  transfer     Transfer  @relation(fields: [transferId], references: [id], onDelete: Cascade)
+
+  itemId       String
+  item         Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  quantity     Int
+  unitCost     Decimal?  @db.Decimal(12, 2)
+
+  notes        String?   @db.Text
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@map("transfer_items")
+  @@index([transferId])
+  @@index([itemId])
+}
+
 
 // backend/prisma/models/inventory/unit.prisma
 
@@ -963,11 +1503,15 @@ enum UnitType {
 
 model Unit {
   id           String   @id @default(uuid())
-  code         String   @unique
+  code         String
   name         String
-  abbreviation String   @unique
+  abbreviation String
   type         UnitType
   isActive     Boolean  @default(true)
+  
+  // Multi-tenancy
+  empresaId    String
+  empresa      Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   items        Item[]
@@ -976,9 +1520,12 @@ model Unit {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@unique([empresaId, code])
+  @@unique([empresaId, abbreviation])
   @@map("units")
   @@index([code])
   @@index([type])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/inventory/warehouse.prisma
@@ -997,6 +1544,10 @@ model Warehouse {
   address     String?
   isActive    Boolean       @default(true)
   
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones
   stocks          Stock[]
   movementsFrom   Movement[]    @relation("WarehouseFrom")
@@ -1005,6 +1556,14 @@ model Warehouse {
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
   purchaseOrders  PurchaseOrder[]
+  adjustments     Adjustment[]
+  cycleCounts     CycleCount[]
+  reconciliations Reconciliation[]
+  loans           Loan[]
+  returnOrders    ReturnOrder[]
+  serialNumbers   SerialNumber[]
+  transfersFrom   Transfer[]     @relation("TransferFrom")
+  transfersTo     Transfer[]     @relation("TransferTo")
   
   // Auditoría
   createdAt   DateTime      @default(now())
@@ -1014,6 +1573,7 @@ model Warehouse {
   @@index([code])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/sales/customer.prisma
@@ -1025,8 +1585,8 @@ enum CustomerType {
 
 model Customer {
   id          String       @id @default(uuid())
-  code        String       @unique
-  taxId       String?      @unique // RIF/Cédula
+  code        String
+  taxId       String?      // RIF/Cédula
   name        String
   email       String?
   phone       String?
@@ -1034,6 +1594,10 @@ model Customer {
   type        CustomerType @default(INDIVIDUAL)
   
   isActive    Boolean      @default(true)
+  
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   orders      Order[]
@@ -1045,10 +1609,13 @@ model Customer {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
   @@map("customers")
   @@index([code])
   @@index([taxId])
   @@index([isActive])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/sales/invoice.prisma
@@ -1064,6 +1631,9 @@ model Invoice {
   invoiceNumber      String        @unique
   fiscalNumber       String?       @unique // Número de control fiscal
   status             InvoiceStatus @default(ACTIVE)
+  
+  empresaId          String
+  empresa            Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relación 1 a 1 con Pre-factura
   preInvoiceId       String        @unique
@@ -1107,6 +1677,7 @@ model Invoice {
   @@index([customerId])
   @@index([status])
   @@index([invoiceDate])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/sales/invoiceItem.prisma
@@ -1151,6 +1722,9 @@ model Order {
   orderNumber     String      @unique
   status          OrderStatus @default(DRAFT)
   
+  empresaId       String
+  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   customerId      String
   customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
   
@@ -1187,6 +1761,7 @@ model Order {
   @@index([customerId])
   @@index([status])
   @@index([orderDate])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/sales/orderItem.prisma
@@ -1286,6 +1861,9 @@ model PreInvoice {
   preInvoiceNumber    String            @unique
   status              PreInvoiceStatus  @default(PENDING_PREPARATION)
   
+  empresaId           String
+  empresa             Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relación 1 a 1 con Order
   orderId             String            @unique
   order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -1324,6 +1902,7 @@ model PreInvoice {
   @@index([preInvoiceNumber])
   @@index([customerId])
   @@index([status])
+  @@index([empresaId])
 }
 
 // backend/prisma/models/sales/preInvoiceItem.prisma

@@ -10,6 +10,7 @@ import { useEmpresaDataFull } from "@/hooks/useEmpresasDataFull";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 const DashboardMain = () => {
+  const router = useRouter();
   const { data: session, status } = useSession();
   const user = session?.user;
   const { empresas = [], loading } = useEmpresaDataFull();

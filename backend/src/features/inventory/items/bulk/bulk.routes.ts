@@ -17,18 +17,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - items
- *             properties:
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                 example: [{ "sku": "ITEM001", "name": "Product 1", "price": 100 }]
- *               updateIfExists:
- *                 type: boolean
- *                 default: false
+ *             $ref: '#/components/schemas/BulkImportRequest'
  *     responses:
  *       201:
  *         description: Importación completada exitosamente
@@ -50,20 +39,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               format:
- *                 type: string
- *                 enum: [csv, json, excel]
- *                 default: csv
- *               filters:
- *                 type: object
- *                 example: { "category": "shoes", "isActive": true }
- *               fields:
- *                 type: array
- *                 items:
- *                   type: string
- *                 example: ["sku", "name", "price", "category"]
+ *             $ref: '#/components/schemas/BulkExportRequest'
  *     responses:
  *       200:
  *         description: Exportación completada exitosamente
@@ -87,17 +63,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - filters
- *               - updates
- *             properties:
- *               filters:
- *                 type: object
- *                 example: { "category": "shoes" }
- *               updates:
- *                 type: object
- *                 example: { "price": 150, "isActive": true }
+ *             $ref: '#/components/schemas/BulkUpdateRequest'
  *     responses:
  *       200:
  *         description: Actualización en lote completada exitosamente

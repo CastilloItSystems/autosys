@@ -9,11 +9,15 @@ enum UnitType {
 
 model Unit {
   id           String   @id @default(uuid())
-  code         String   @unique
+  code         String
   name         String
-  abbreviation String   @unique
+  abbreviation String
   type         UnitType
   isActive     Boolean  @default(true)
+  
+  // Multi-tenancy
+  empresaId    String
+  empresa      Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   items        Item[]
@@ -22,7 +26,10 @@ model Unit {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  @@unique([empresaId, code])
+  @@unique([empresaId, abbreviation])
   @@map("units")
   @@index([code])
   @@index([type])
+  @@index([empresaId])
 }

@@ -214,9 +214,13 @@ export class ItemService {
     page: number = 1,
     limit: number = 10,
     sortBy: string = 'name',
-    sortOrder: 'asc' | 'desc' = 'asc'
+    sortOrder: 'asc' | 'desc' = 'asc',
+    prismaClient?: any // Parámetro opcional para Prisma client extendido con contexto de empresa
   ) {
     try {
+      // Usar el Prisma client extendido si se proporciona, sino usar el global
+      const db = prismaClient || prisma
+
       const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
       // Construir filtros
@@ -296,7 +300,7 @@ export class ItemService {
 
       // Ejecutar consultas en paralelo
       const [items, total] = await Promise.all([
-        prisma.item.findMany({
+        db.item.findMany({
           where,
           skip,
           take,
@@ -355,7 +359,7 @@ export class ItemService {
             },
           },
         }),
-        prisma.item.count({ where }),
+        db.item.count({ where }),
       ])
 
       const meta = PaginationHelper.getMeta(page, limit, total)

@@ -25,6 +25,8 @@ import {
 } from './shared/middleware/errorHandler.middleware'
 import { requestLogger } from './shared/middleware/requestLogger.middleware'
 import { generalLimiter } from './shared/middleware/rateLimiter.middleware'
+import { authenticate } from './shared/middleware/authenticate.middleware'
+import { extractEmpresa } from './shared/middleware/empresa.middleware'
 
 // Utils
 import { logger } from './shared/utils/logger'
@@ -149,13 +151,17 @@ app.get('/', (req: Request, res: Response) => {
 // Rutas existentes (auth, users, empresas, etc.)
 app.use('/api', apiRoutes)
 
-// Nuevo: Módulo de Inventario
+// Nuevo: Módulo de Inventario con middleware de empresa
 // Base: /api/inventory
-app.use('/api/inventory', inventoryRoutes)
+// Requiere: autenticación + validación de empresa
+// Orden: authenticate (set req.user) → extractEmpresa (validate & set req.prisma) → routes
+app.use('/api/inventory', authenticate, extractEmpresa, inventoryRoutes)
 
-// Nuevo: Módulo de Ventas
+// Nuevo: Módulo de Ventas con middleware de empresa
 // Base: /api/sales
-app.use('/api/sales', salesRoutes)
+// Requiere: autenticación + validación de empresa
+// Orden: authenticate (set req.user) → extractEmpresa (validate & set req.prisma) → routes
+app.use('/api/sales', authenticate, extractEmpresa, salesRoutes)
 
 // ============================================
 // ERROR HANDLERS

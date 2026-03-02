@@ -2,112 +2,114 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
+import { InputText } from "primereact/inputtext";
+import { InputNumber } from "primereact/inputnumber";
+import { Dropdown } from "primereact/dropdown";
+import { Toast } from "primereact/toast";
+import { ProgressSpinner } from "primereact/progressspinner";
 import { classNames } from "primereact/utils";
-import { movementSchema } from "@/libs/zods/inventory";
+import { LayoutContext } from "@/layout/context/layoutcontext";
 import {
   createMovement,
-  updateMovement,
+  MOVEMENT_TYPE_LABELS,
+  MovementType,
 } from "@/app/api/inventory/movementService";
-import { Toast } from "primereact/toast";
-import { Dropdown } from "primereact/dropdown";
-import { InputNumber } from "primereact/inputnumber";
-import { handleFormError } from "@/utils/errorHandlers";
-import { LayoutContext } from "@/layout/context/layoutcontext";
+import { createMovementSchema } from "@/libs/zods/inventory";
+import { getActiveItems } from "@/app/api/inventory/itemService";
+import { getActiveWarehouses } from "@/app/api/inventory/warehouseService";
 import { Item, Warehouse } from "@/libs/interfaces/inventory";
+import { handleFormError } from "@/utils/errorHandlers";
+import { z } from "zod";
 
-type FormData = z.infer<typeof movementSchema>;
+type FormData = z.infer<typeof createMovementSchema>;
 
 interface MovementFormProps {
-  movement: any;
-  hideFormDialog: () => void;
-  movements: any[];
-  setMovements: (movements: any[]) => void;
-  setMovement: (movement: any) => void;
-  showToast: (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => void;
+  onSave: () => void;
+  onCancel: () => void;
   toast: React.RefObject<Toast> | null;
-  items: Item[];
-  warehouses: Warehouse[];
 }
 
-const tipoOptions = [
-  { label: "Entrada", value: "entrada" },
-  { label: "Salida", value: "salida" },
-  { label: "Transferencia", value: "transferencia" },
-  { label: "Ajuste", value: "ajuste" },
+const MOVEMENT_TYPE_OPTIONS = [
+  { label: "Compra", value: "PURCHASE" as MovementType },
+  { label: "Venta", value: "SALE" as MovementType },
+  { label: "Ajuste Entrada", value: "ADJUSTMENT_IN" as MovementType },
+  { label: "Ajuste Salida", value: "ADJUSTMENT_OUT" as MovementType },
+  { label: "Transferencia", value: "TRANSFER" as MovementType },
+  { label: "Retorno a Proveedor", value: "SUPPLIER_RETURN" as MovementType },
+  { label: "Retorno de Taller", value: "WORKSHOP_RETURN" as MovementType },
+  {
+    label: "Liberación de Reserva",
+    value: "RESERVATION_RELEASE" as MovementType,
+  },
+  { label: "Préstamo Salida", value: "LOAN_OUT" as MovementType },
+  { label: "Préstamo Devolución", value: "LOAN_RETURN" as MovementType },
 ];
 
-const MovementForm = ({
-  movement,
-  toast,
-  hideFormDialog,
-  movements,
-  setMovements,
-  showToast,
-  items,
-  warehouses,
-}: MovementFormProps) => {
+const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
   const { layoutConfig } = useContext(LayoutContext);
   const filledInput = layoutConfig.inputStyle === "filled";
 
+  // State
+  const [items, setItems] = useState<Item[]>([]);
+  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [submitting, setSubmitting] = useState(false);
-  const [selectedTipo, setSelectedTipo] = useState<string | undefined>(
-    movement?.tipo
-  );
+  const [loading, setLoading] = useState(true);
 
+  // Form
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors },
-    setValue,
-    control,
     watch,
   } = useForm<FormData>({
-    resolver: zodResolver(movementSchema),
+    resolver: zodResolver(createMovementSchema),
     defaultValues: {
-      tipo: "entrada",
-      cantidad: 1,
-      costoUnitario: 0,
+      type: "PURCHASE",
+      quantity: 1,
     },
   });
 
-  const tipo = watch("tipo");
+  const selectedType = watch("type");
 
+  // Load data on mount
   useEffect(() => {
-    setSelectedTipo(tipo);
-  }, [tipo]);
+    loadData();
+  }, []);
 
-  useEffect(() => {
-    if (movement) {
-      Object.keys(movement).forEach((key) =>
-        setValue(key as keyof FormData, movement[key])
-      );
-      setSelectedTipo(movement.tipo);
+  const loadData = async () => {
+    try {
+      setLoading(true);
+      const [itemsResponse, warehousesResponse] = await Promise.all([
+        getActiveItems(),
+        getActiveWarehouses(),
+      ]);
+      setItems(itemsResponse.data);
+      setWarehouses(warehousesResponse.data);
+    } catch (error) {
+      console.error("Error loading data:", error);
+      toast?.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los datos",
+        life: 3000,
+      });
+    } finally {
+      setLoading(false);
     }
-  }, [movement, setValue]);
+  };
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      if (movement) {
-        const updatedMovement = await updateMovement(movement.id, data);
-        const updatedMovements = movements.map((t) =>
-          t.id === updatedMovement.id ? updatedMovement : t
-        );
-        setMovements(updatedMovements);
-        showToast("success", "Éxito", "Movimiento actualizado");
-      } else {
-        const newMovement = await createMovement(data);
-        setMovements([...movements, newMovement]);
-        showToast("success", "Éxito", "Movimiento creado");
-      }
-      hideFormDialog();
+      await createMovement(data);
+      toast?.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Movimiento creado exitosamente",
+        life: 3000,
+      });
+      onSave();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -115,262 +117,298 @@ const MovementForm = ({
     }
   };
 
+  // Determine which warehouse fields to show based on movement type
+  const showWarehouseFrom = ["SALE", "SUPPLIER_RETURN", "LOAN_OUT"].includes(
+    selectedType,
+  );
+  const showWarehouseTo = [
+    "PURCHASE",
+    "ADJUSTMENT_IN",
+    "ADJUSTMENT_OUT",
+    "TRANSFER",
+    "WORKSHOP_RETURN",
+    "RESERVATION_RELEASE",
+    "LOAN_RETURN",
+  ].includes(selectedType);
+  const showBoth = selectedType === "TRANSFER";
+
   const itemOptions = items.map((item) => ({
-    label: item.nombre,
+    label: `${item.name} (${item.sku})`,
     value: item.id,
   }));
 
   const warehouseOptions = warehouses.map((warehouse) => ({
-    label: warehouse.nombre,
+    label: warehouse.name,
     value: warehouse.id,
   }));
 
-  const showWarehouseFrom =
-    selectedTipo === "salida" || selectedTipo === "transferencia";
-  const showWarehouseTo =
-    selectedTipo === "entrada" || selectedTipo === "transferencia";
+  if (loading) {
+    return (
+      <div className="flex justify-content-center align-items-center p-6">
+        <ProgressSpinner strokeWidth="4" />
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="card p-fluid surface-50 p-3 border-round shadow-2">
-          {/* Header del Formulario */}
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-arrow-right-arrow-left mr-3 text-primary text-3xl"></i>
-                {movement ? "Modificar Movimiento" : "Crear Movimiento"}
-              </h2>
-            </div>
-          </div>
-
-          {/* Cuerpo del Formulario */}
-          <div className="grid formgrid row-gap-2">
-            {/* Tipo */}
-            <div className="field col-12 md:col-6">
-              <label htmlFor="tipo" className="font-medium text-900">
-                Tipo <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="tipo"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="tipo"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.value)}
-                    options={tipoOptions}
-                    placeholder="Seleccione un tipo"
-                    className={classNames("w-full", {
-                      "p-invalid": errors.tipo,
-                    })}
-                  />
-                )}
-              />
-              {errors.tipo && (
-                <small className="p-error">{errors.tipo.message}</small>
-              )}
-            </div>
-
-            {/* Referencia */}
-            <div className="field col-12 md:col-6">
-              <label htmlFor="referencia" className="font-medium text-900">
-                Referencia
-              </label>
-              <InputText
-                id="referencia"
-                type="text"
+    <form onSubmit={handleSubmit(onSubmit)}>
+      <div className="grid formgrid p-3">
+        {/* Type */}
+        <div className="field col-12 md:col-6">
+          <label htmlFor="type" className="font-semibold text-900">
+            Tipo de Movimiento <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="type"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id="type"
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={MOVEMENT_TYPE_OPTIONS}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccionar tipo"
                 className={classNames("w-full", {
+                  "p-invalid": errors.type,
                   "p-filled": filledInput,
                 })}
-                {...register("referencia")}
               />
-              {errors.referencia && (
-                <small className="p-error">{errors.referencia.message}</small>
-              )}
-            </div>
-
-            {/* Artículo */}
-            <div className="field col-12 md:col-6">
-              <label htmlFor="item" className="font-medium text-900">
-                Artículo <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="item"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    id="item"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.value)}
-                    options={itemOptions}
-                    placeholder="Seleccione un artículo"
-                    filter
-                    className={classNames("w-full", {
-                      "p-invalid": errors.item,
-                    })}
-                  />
-                )}
-              />
-              {errors.item && (
-                <small className="p-error">{errors.item.message}</small>
-              )}
-            </div>
-
-            {/* Cantidad */}
-            <div className="field col-12 md:col-3">
-              <label htmlFor="cantidad" className="font-medium text-900">
-                Cantidad <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="cantidad"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    id="cantidad"
-                    value={field.value}
-                    onValueChange={(e) => field.onChange(e.value)}
-                    min={1}
-                    className={classNames("w-full", {
-                      "p-invalid": errors.cantidad,
-                    })}
-                  />
-                )}
-              />
-              {errors.cantidad && (
-                <small className="p-error">{errors.cantidad.message}</small>
-              )}
-            </div>
-
-            {/* Costo Unitario */}
-            <div className="field col-12 md:col-3">
-              <label htmlFor="costoUnitario" className="font-medium text-900">
-                Costo Unitario
-              </label>
-              <Controller
-                name="costoUnitario"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    id="costoUnitario"
-                    value={field.value}
-                    onValueChange={(e) => field.onChange(e.value)}
-                    mode="currency"
-                    currency="USD"
-                    locale="en-US"
-                    className={classNames("w-full", {
-                      "p-invalid": errors.costoUnitario,
-                    })}
-                  />
-                )}
-              />
-              {errors.costoUnitario && (
-                <small className="p-error">
-                  {errors.costoUnitario.message}
-                </small>
-              )}
-            </div>
-
-            {/* Almacén Origen */}
-            {showWarehouseFrom && (
-              <div className="field col-12 md:col-6">
-                <label htmlFor="warehouseFrom" className="font-medium text-900">
-                  Almacén Origen{" "}
-                  {selectedTipo === "transferencia" && (
-                    <span className="text-red-500">*</span>
-                  )}
-                </label>
-                <Controller
-                  name="warehouseFrom"
-                  control={control}
-                  render={({ field }) => (
-                    <Dropdown
-                      id="warehouseFrom"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.value)}
-                      options={warehouseOptions}
-                      placeholder="Seleccione un almacén"
-                      filter
-                      className={classNames("w-full", {
-                        "p-invalid": errors.warehouseFrom,
-                      })}
-                    />
-                  )}
-                />
-                {errors.warehouseFrom && (
-                  <small className="p-error">
-                    {errors.warehouseFrom.message}
-                  </small>
-                )}
-              </div>
             )}
-
-            {/* Almacén Destino */}
-            {showWarehouseTo && (
-              <div className="field col-12 md:col-6">
-                <label htmlFor="warehouseTo" className="font-medium text-900">
-                  Almacén Destino{" "}
-                  {selectedTipo === "transferencia" && (
-                    <span className="text-red-500">*</span>
-                  )}
-                </label>
-                <Controller
-                  name="warehouseTo"
-                  control={control}
-                  render={({ field }) => (
-                    <Dropdown
-                      id="warehouseTo"
-                      value={field.value}
-                      onChange={(e) => field.onChange(e.value)}
-                      options={warehouseOptions}
-                      placeholder="Seleccione un almacén"
-                      filter
-                      className={classNames("w-full", {
-                        "p-invalid": errors.warehouseTo,
-                      })}
-                    />
-                  )}
-                />
-                {errors.warehouseTo && (
-                  <small className="p-error">
-                    {errors.warehouseTo.message}
-                  </small>
-                )}
-              </div>
-            )}
-
-            {/* Lote */}
-            <div className="field col-12">
-              <label htmlFor="lote" className="font-medium text-900">
-                Lote
-              </label>
-              <InputText
-                id="lote"
-                type="text"
-                className={classNames("w-full", {
-                  "p-filled": filledInput,
-                })}
-                {...register("lote")}
-              />
-              {errors.lote && (
-                <small className="p-error">{errors.lote.message}</small>
-              )}
-            </div>
-
-            {/* Botón de Envío */}
-            <div className="field col-12 text-right">
-              <Button
-                type="submit"
-                label={movement ? "Actualizar" : "Crear"}
-                icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
-                className="p-button-success"
-                disabled={submitting}
-              />
-            </div>
-          </div>
+          />
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
         </div>
-      </form>
-    </div>
+
+        {/* Item */}
+        <div className="field col-12 md:col-6">
+          <label htmlFor="itemId" className="font-semibold text-900">
+            Artículo <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="itemId"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id="itemId"
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={itemOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccionar artículo"
+                filter
+                className={classNames("w-full", {
+                  "p-invalid": errors.itemId,
+                  "p-filled": filledInput,
+                })}
+              />
+            )}
+          />
+          {errors.itemId && (
+            <small className="p-error">{errors.itemId.message}</small>
+          )}
+        </div>
+
+        {/* Quantity */}
+        <div className="field col-12 md:col-4">
+          <label htmlFor="quantity" className="font-semibold text-900">
+            Cantidad <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="quantity"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                id="quantity"
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={1}
+                className={classNames("w-full", {
+                  "p-invalid": errors.quantity,
+                  "p-filled": filledInput,
+                })}
+              />
+            )}
+          />
+          {errors.quantity && (
+            <small className="p-error">{errors.quantity.message}</small>
+          )}
+        </div>
+
+        {/* Unit Cost */}
+        <div className="field col-12 md:col-4">
+          <label htmlFor="unitCost" className="font-semibold text-900">
+            Costo Unitario
+          </label>
+          <Controller
+            name="unitCost"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                id="unitCost"
+                value={field.value || 0}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={0}
+                mode="currency"
+                currency="CLP"
+                locale="es-CL"
+                className={classNames("w-full", {
+                  "p-invalid": errors.unitCost,
+                  "p-filled": filledInput,
+                })}
+              />
+            )}
+          />
+          {errors.unitCost && (
+            <small className="p-error">{errors.unitCost.message}</small>
+          )}
+        </div>
+
+        {/* Reference */}
+        <div className="field col-12 md:col-4">
+          <label htmlFor="reference" className="font-semibold text-900">
+            Referencia
+          </label>
+          <Controller
+            name="reference"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="reference"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                placeholder="Ej: PO-12345"
+                className={classNames("w-full", {
+                  "p-filled": filledInput,
+                })}
+              />
+            )}
+          />
+        </div>
+
+        {/* Warehouse From */}
+        {showWarehouseFrom && (
+          <div
+            className={classNames("field", {
+              "col-12 md:col-6": showBoth,
+              "col-12": !showBoth,
+            })}
+          >
+            <label htmlFor="warehouseFromId" className="font-semibold text-900">
+              Almacén Origen{" "}
+              {showBoth && <span className="text-red-500">*</span>}
+            </label>
+            <Controller
+              name="warehouseFromId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="warehouseFromId"
+                  value={field.value || null}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={warehouseOptions}
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar almacén"
+                  filter
+                  showClear
+                  className={classNames("w-full", {
+                    "p-invalid": errors.warehouseFromId,
+                    "p-filled": filledInput,
+                  })}
+                />
+              )}
+            />
+            {errors.warehouseFromId && (
+              <small className="p-error">
+                {errors.warehouseFromId.message}
+              </small>
+            )}
+          </div>
+        )}
+
+        {/* Warehouse To */}
+        {showWarehouseTo && (
+          <div
+            className={classNames("field", {
+              "col-12 md:col-6": showBoth,
+              "col-12": !showBoth,
+            })}
+          >
+            <label htmlFor="warehouseToId" className="font-semibold text-900">
+              Almacén Destino{" "}
+              {showBoth && <span className="text-red-500">*</span>}
+            </label>
+            <Controller
+              name="warehouseToId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="warehouseToId"
+                  value={field.value || null}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={warehouseOptions}
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Seleccionar almacén"
+                  filter
+                  showClear
+                  className={classNames("w-full", {
+                    "p-invalid": errors.warehouseToId,
+                    "p-filled": filledInput,
+                  })}
+                />
+              )}
+            />
+            {errors.warehouseToId && (
+              <small className="p-error">{errors.warehouseToId.message}</small>
+            )}
+          </div>
+        )}
+
+        {/* Notes */}
+        <div className="field col-12">
+          <label htmlFor="notes" className="font-semibold text-900">
+            Notas
+          </label>
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="notes"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                placeholder="Añadir notas adicionales..."
+                className={classNames("w-full", {
+                  "p-filled": filledInput,
+                })}
+              />
+            )}
+          />
+        </div>
+
+        {/* Buttons */}
+        <div className="field col-12 flex gap-2 justify-content-end pt-3">
+          <Button
+            label="Cancelar"
+            icon="pi pi-times"
+            onClick={onCancel}
+            className="p-button-outlined"
+            disabled={submitting}
+          />
+          <Button
+            label="Crear Movimiento"
+            icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
+            onClick={handleSubmit(onSubmit)}
+            disabled={submitting}
+          />
+        </div>
+      </div>
+    </form>
   );
 };
 

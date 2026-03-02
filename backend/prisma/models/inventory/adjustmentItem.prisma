@@ -1,0 +1,26 @@
+// backend/prisma/models/inventory/adjustmentItem.prisma
+
+model AdjustmentItem {
+  id               String      @id @default(uuid())
+  
+  adjustmentId     String
+  adjustment       Adjustment  @relation(fields: [adjustmentId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  item             Item        @relation("AdjustmentItems", fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityChange   Int         // Puede ser positivo o negativo
+  currentQuantity  Int?        // Cantidad antes del ajuste
+  newQuantity      Int?        // Cantidad después del ajuste
+  
+  unitCost         Decimal?    @db.Decimal(12, 2)
+  notes            String?     @db.Text
+  
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  @@unique([adjustmentId, itemId]) // No duplicar items en mismo ajuste
+  @@map("adjustment_items")
+  @@index([adjustmentId])
+  @@index([itemId])
+}

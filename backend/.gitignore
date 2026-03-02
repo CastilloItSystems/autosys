@@ -3,3 +3,15 @@ node_modules
 .env
 
 /src/generated/prisma
+
+# Compiled files (auto-generated)
+**/*.js
+**/*.d.ts
+**/*.map
+!dist/**
+# Exceptions for specific files if needed can be added with !path/file.js
+
+# Prisma seeds - only track .ts files
+prisma/seeds/**/*.js
+prisma/seeds/**/*.d.ts
+prisma/seeds/**/*.map

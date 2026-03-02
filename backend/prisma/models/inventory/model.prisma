@@ -9,6 +9,9 @@ enum ModelType {
 model Model {
   id          String    @id @default(uuid())
   
+  empresaId   String
+  empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   brandId     String
   brand       Brand     @relation(fields: [brandId], references: [id], onDelete: Restrict)
   
@@ -35,10 +38,11 @@ model Model {
   createdAt   DateTime  @default(now())
   updatedAt   DateTime  @updatedAt
 
-  @@unique([brandId, code, name, year, type])
+  @@unique([empresaId, brandId, code, name, year, type])
   @@map("models")
   @@index([brandId])
   @@index([code])
   @@index([type])
   @@index([isActive])
+  @@index([empresaId])
 }

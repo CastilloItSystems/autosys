@@ -1,268 +1,360 @@
 "use client";
-import React, { useContext, useEffect, useState } from "react";
-import { Controller, useForm } from "react-hook-form";
+import React, { useEffect, useState } from "react";
+
+// Form libraries
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
+
+// PrimeReact components
 import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
 import { Button } from "primereact/button";
-import { classNames } from "primereact/utils";
-import { supplierSchema } from "@/libs/zods/inventory";
+import { ProgressSpinner } from "primereact/progressspinner";
+
+// API functions
 import {
   createSupplier,
   updateSupplier,
+  Supplier,
 } from "@/app/api/inventory/supplierService";
-import { Toast } from "primereact/toast";
-import { Dropdown } from "primereact/dropdown";
-import { InputTextarea } from "primereact/inputtextarea";
-import { handleFormError } from "@/utils/errorHandlers";
-import { LayoutContext } from "@/layout/context/layoutcontext";
 
-type FormData = z.infer<typeof supplierSchema>;
+// Schema de validación
+import {
+  createSupplierSchema,
+  updateSupplierSchema,
+  CreateSupplier,
+} from "@/libs/zods/inventory/supplierZod";
 
 interface SupplierFormProps {
-  supplier: any;
-  hideFormDialog: () => void;
-  suppliers: any[];
-  setSuppliers: (suppliers: any[]) => void;
-  setSupplier: (supplier: any) => void;
-  showToast: (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => void;
-  toast: React.RefObject<Toast> | null;
+  supplier: Supplier | null;
+  onSave: () => void;
+  onCancel: () => void;
+  toast: React.RefObject<any>;
 }
 
-const estadoOptions = [
-  { label: "Activo", value: "activo" },
-  { label: "Inactivo", value: "inactivo" },
-];
-
-const SupplierForm = ({
+export default function SupplierForm({
   supplier,
+  onSave,
+  onCancel,
   toast,
-  hideFormDialog,
-  suppliers,
-  setSuppliers,
-  showToast,
-}: SupplierFormProps) => {
-  const { layoutConfig } = useContext(LayoutContext);
-  const filledInput = layoutConfig.inputStyle === "filled";
+}: SupplierFormProps) {
+  const [isLoading, setIsLoading] = useState(true);
 
-  const [submitting, setSubmitting] = useState(false);
   const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
     control,
-  } = useForm<FormData>({
-    resolver: zodResolver(supplierSchema),
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm<CreateSupplier>({
+    resolver: zodResolver(
+      supplier ? updateSupplierSchema : createSupplierSchema,
+    ),
     defaultValues: {
-      estado: "activo",
+      code: "",
+      name: "",
+      contactName: "",
+      email: "",
+      phone: "",
+      address: "",
+      taxId: "",
     },
   });
 
+  // Simular loading inicial para consistencia visual
   useEffect(() => {
-    if (supplier) {
-      Object.keys(supplier).forEach((key) =>
-        setValue(key as keyof FormData, supplier[key])
-      );
-    }
-  }, [supplier, setValue]);
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, []);
 
-  const onSubmit = async (data: FormData) => {
-    setSubmitting(true);
+  // Cargar datos del proveedor si está en modo edición
+  useEffect(() => {
+    if (supplier && !isLoading) {
+      reset({
+        code: supplier.code || "",
+        name: supplier.name || "",
+        contactName: supplier.contactName || "",
+        email: supplier.email || "",
+        phone: supplier.phone || "",
+        address: supplier.address || "",
+        taxId: supplier.taxId || "",
+      });
+    } else if (!supplier && !isLoading) {
+      reset({
+        code: "",
+        name: "",
+        contactName: "",
+        email: "",
+        phone: "",
+        address: "",
+        taxId: "",
+      });
+    }
+  }, [supplier, reset, isLoading]);
+
+  /**
+   * Maneja el envío del formulario
+   */
+  const onSubmit = async (data: CreateSupplier) => {
     try {
-      if (supplier) {
-        const updatedSupplier = await updateSupplier(supplier.id, data);
-        const updatedSuppliers = suppliers.map((t) =>
-          t.id === updatedSupplier.id ? updatedSupplier : t
-        );
-        setSuppliers(updatedSuppliers);
-        showToast("success", "Éxito", "Proveedor actualizado");
+      // Normalize empty strings to undefined
+      const submitData = {
+        ...data,
+        contactName: data.contactName || undefined,
+        email: data.email || undefined,
+        phone: data.phone || undefined,
+        address: data.address || undefined,
+        taxId: data.taxId || undefined,
+      };
+
+      if (supplier?.id) {
+        await updateSupplier(supplier.id, submitData);
       } else {
-        const newSupplier = await createSupplier(data);
-        setSuppliers([...suppliers, newSupplier]);
-        showToast("success", "Éxito", "Proveedor creado");
+        await createSupplier(submitData);
       }
-      hideFormDialog();
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setSubmitting(false);
+      onSave();
+    } catch (error: any) {
+      console.error("Error saving supplier:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          error.response?.data?.message || "Error al guardar el proveedor",
+        life: 3000,
+      });
     }
   };
 
   return (
-    <div>
-      <form onSubmit={handleSubmit(onSubmit)}>
-        <div className="card p-fluid surface-50 p-3 border-round shadow-2">
-          {/* Header del Formulario */}
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-users mr-3 text-primary text-3xl"></i>
-                {supplier ? "Modificar Proveedor" : "Crear Proveedor"}
-              </h2>
-            </div>
-          </div>
-
-          {/* Cuerpo del Formulario */}
-          <div className="grid formgrid row-gap-2">
-            {/* Nombre */}
-            <div className="field col-12 md:col-6">
-              <label htmlFor="nombre" className="font-medium text-900">
-                Nombre <span className="text-red-500">*</span>
-              </label>
-              <InputText
-                id="nombre"
-                type="text"
-                className={classNames("w-full", {
-                  "p-invalid": errors.nombre,
-                  "p-filled": filledInput,
-                })}
-                {...register("nombre")}
-              />
-              {errors.nombre && (
-                <small className="p-error">{errors.nombre.message}</small>
-              )}
-            </div>
-
-            {/* Contacto */}
-            <div className="field col-12 md:col-6">
-              <label htmlFor="contacto" className="font-medium text-900">
-                Contacto
-              </label>
-              <InputText
-                id="contacto"
-                type="text"
-                className={classNames("w-full", {
-                  "p-filled": filledInput,
-                })}
-                {...register("contacto")}
-              />
-              {errors.contacto && (
-                <small className="p-error">{errors.contacto.message}</small>
-              )}
-            </div>
-
-            {/* Teléfono */}
-            <div className="field col-12 md:col-4">
-              <label htmlFor="telefono" className="font-medium text-900">
-                Teléfono
-              </label>
-              <InputText
-                id="telefono"
-                type="text"
-                className={classNames("w-full", {
-                  "p-filled": filledInput,
-                })}
-                {...register("telefono")}
-              />
-              {errors.telefono && (
-                <small className="p-error">{errors.telefono.message}</small>
-              )}
-            </div>
-
-            {/* Correo */}
-            <div className="field col-12 md:col-4">
-              <label htmlFor="correo" className="font-medium text-900">
-                Correo
-              </label>
-              <InputText
-                id="correo"
-                type="email"
-                className={classNames("w-full", {
-                  "p-invalid": errors.correo,
-                  "p-filled": filledInput,
-                })}
-                {...register("correo")}
-              />
-              {errors.correo && (
-                <small className="p-error">{errors.correo.message}</small>
-              )}
-            </div>
-
-            {/* Estado */}
-            <div className="field col-12 md:col-4">
-              <label htmlFor="estado" className="font-medium text-900">
-                Estado
+    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      {isLoading ? (
+        <div className="flex flex-column align-items-center justify-content-center p-4">
+          <ProgressSpinner
+            style={{ width: "40px", height: "40px" }}
+            strokeWidth="4"
+            fill="var(--surface-ground)"
+            animationDuration=".5s"
+          />
+          <p className="mt-3 text-600 font-medium">Preparando formulario...</p>
+        </div>
+      ) : (
+        <>
+          <div className="grid">
+            {/* Código */}
+            <div className="col-12 md:col-6">
+              <label htmlFor="code" className="block text-900 font-medium mb-2">
+                Código <span className="text-red-500">*</span>
               </label>
               <Controller
-                name="estado"
+                name="code"
                 control={control}
                 render={({ field }) => (
-                  <Dropdown
-                    id="estado"
-                    value={field.value}
-                    onChange={(e) => field.onChange(e.value)}
-                    options={estadoOptions}
-                    placeholder="Seleccione un estado"
-                    className={classNames("w-full", {
-                      "p-invalid": errors.estado,
-                    })}
+                  <InputText
+                    id="code"
+                    {...field}
+                    placeholder="Ej: PROV-001"
+                    className={errors.code ? "p-invalid" : ""}
+                    autoFocus
+                    disabled={!!supplier?.id}
+                    title={
+                      supplier?.id ? "El código no puede ser modificado" : ""
+                    }
                   />
                 )}
               />
-              {errors.estado && (
-                <small className="p-error">{errors.estado.message}</small>
-              )}
-            </div>
-
-            {/* Dirección */}
-            <div className="field col-12">
-              <label htmlFor="direccion" className="font-medium text-900">
-                Dirección
-              </label>
-              <InputTextarea
-                id="direccion"
-                rows={2}
-                className={classNames("w-full", {
-                  "p-filled": filledInput,
-                })}
-                {...register("direccion")}
-              />
-              {errors.direccion && (
-                <small className="p-error">{errors.direccion.message}</small>
-              )}
-            </div>
-
-            {/* Condiciones de Pago */}
-            <div className="field col-12">
-              <label htmlFor="condicionesPago" className="font-medium text-900">
-                Condiciones de Pago
-              </label>
-              <InputTextarea
-                id="condicionesPago"
-                rows={2}
-                className={classNames("w-full", {
-                  "p-filled": filledInput,
-                })}
-                {...register("condicionesPago")}
-              />
-              {errors.condicionesPago && (
-                <small className="p-error">
-                  {errors.condicionesPago.message}
+              {errors.code && (
+                <small className="p-error block mt-1">
+                  {errors.code.message}
                 </small>
               )}
             </div>
 
-            {/* Botón de Envío */}
-            <div className="field col-12 text-right">
-              <Button
-                type="submit"
-                label={supplier ? "Actualizar" : "Crear"}
-                icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
-                className="p-button-success"
-                disabled={submitting}
+            {/* Nombre */}
+            <div className="col-12 md:col-6">
+              <label htmlFor="name" className="block text-900 font-medium mb-2">
+                Nombre <span className="text-red-500">*</span>
+              </label>
+              <Controller
+                name="name"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="name"
+                    {...field}
+                    placeholder="Nombre del proveedor"
+                    className={errors.name ? "p-invalid" : ""}
+                  />
+                )}
               />
+              {errors.name && (
+                <small className="p-error block mt-1">
+                  {errors.name.message}
+                </small>
+              )}
+            </div>
+
+            {/* Contacto */}
+            <div className="col-12 md:col-6">
+              <label
+                htmlFor="contactName"
+                className="block text-900 font-medium mb-2"
+              >
+                Contacto
+              </label>
+              <Controller
+                name="contactName"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="contactName"
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="Nombre del contacto"
+                    className={errors.contactName ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.contactName && (
+                <small className="p-error block mt-1">
+                  {errors.contactName.message}
+                </small>
+              )}
+            </div>
+
+            {/* Correo */}
+            <div className="col-12 md:col-6">
+              <label
+                htmlFor="email"
+                className="block text-900 font-medium mb-2"
+              >
+                Correo
+              </label>
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="email"
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="correo@ejemplo.com"
+                    className={errors.email ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.email && (
+                <small className="p-error block mt-1">
+                  {errors.email.message}
+                </small>
+              )}
+            </div>
+
+            {/* Teléfono */}
+            <div className="col-12 md:col-6">
+              <label
+                htmlFor="phone"
+                className="block text-900 font-medium mb-2"
+              >
+                Teléfono
+              </label>
+              <Controller
+                name="phone"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="phone"
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="Teléfono de contacto"
+                    className={errors.phone ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.phone && (
+                <small className="p-error block mt-1">
+                  {errors.phone.message}
+                </small>
+              )}
+            </div>
+
+            {/* RIF/NIT */}
+            <div className="col-12 md:col-6">
+              <label
+                htmlFor="taxId"
+                className="block text-900 font-medium mb-2"
+              >
+                RIF/NIT
+              </label>
+              <Controller
+                name="taxId"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="taxId"
+                    {...field}
+                    value={field.value || ""}
+                    placeholder="Ej: J-12345678-9"
+                    className={errors.taxId ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.taxId && (
+                <small className="p-error block mt-1">
+                  {errors.taxId.message}
+                </small>
+              )}
+            </div>
+
+            {/* Dirección */}
+            <div className="col-12">
+              <label
+                htmlFor="address"
+                className="block text-900 font-medium mb-2"
+              >
+                Dirección
+              </label>
+              <Controller
+                name="address"
+                control={control}
+                render={({ field }) => (
+                  <InputTextarea
+                    id="address"
+                    {...field}
+                    value={field.value || ""}
+                    rows={2}
+                    placeholder="Dirección del proveedor"
+                    className={errors.address ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.address && (
+                <small className="p-error block mt-1">
+                  {errors.address.message}
+                </small>
+              )}
             </div>
           </div>
-        </div>
-      </form>
-    </div>
-  );
-};
 
-export default SupplierForm;
+          {/* Action Buttons */}
+          <div className="flex justify-content-end gap-2 mt-4">
+            <Button
+              label="Cancelar"
+              icon="pi pi-times"
+              severity="secondary"
+              onClick={onCancel}
+              type="button"
+              disabled={isSubmitting}
+            />
+            <Button
+              label={supplier?.id ? "Actualizar" : "Crear"}
+              icon="pi pi-check"
+              type="submit"
+              loading={isSubmitting}
+            />
+          </div>
+        </>
+      )}
+    </form>
+  );
+}

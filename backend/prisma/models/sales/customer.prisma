@@ -7,8 +7,8 @@ enum CustomerType {
 
 model Customer {
   id          String       @id @default(uuid())
-  code        String       @unique
-  taxId       String?      @unique // RIF/Cédula
+  code        String
+  taxId       String?      // RIF/Cédula
   name        String
   email       String?
   phone       String?
@@ -16,6 +16,10 @@ model Customer {
   type        CustomerType @default(INDIVIDUAL)
   
   isActive    Boolean      @default(true)
+  
+  // Multi-tenancy
+  empresaId   String
+  empresa     Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
   orders      Order[]
@@ -27,8 +31,11 @@ model Customer {
   createdAt   DateTime     @default(now())
   updatedAt   DateTime     @updatedAt
 
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
   @@map("customers")
   @@index([code])
   @@index([taxId])
   @@index([isActive])
+  @@index([empresaId])
 }

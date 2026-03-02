@@ -25,14 +25,14 @@ export class UnitController {
     const filters: any = {}
     if (search) filters.search = search as string
     if (type) filters.type = type as any
-    if (isActive !== undefined)
-      filters.isActive =
-        isActive === 'true' ? true : isActive === 'false' ? false : undefined
+    if (isActive === 'true') filters.isActive = true
+    if (isActive === 'false') filters.isActive = false
 
     const result = await unitService.findAll(
       filters,
       Number(page) || 1,
-      Number(limit) || 10
+      Number(limit) || 10,
+      req.prisma || undefined
     )
 
     const units = result.units.map((unit) => new UnitResponseDTO(unit))
@@ -52,12 +52,15 @@ export class UnitController {
    * Obtener unidades activas
    */
   getActive = asyncHandler(async (req: Request, res: Response) => {
-    const units = await unitService.findActive()
+    const units = await unitService.findActive(req.prisma || undefined)
     const response = units.map((unit) => new UnitResponseDTO(unit))
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Unidades activas obtenidas exitosamente'
     )
   })
@@ -88,10 +91,21 @@ export class UnitController {
       return ApiResponse.badRequest(res, 'El término de búsqueda es requerido')
     }
 
-    const units = await unitService.search(term as string, Number(limit) || 10)
+    const units = await unitService.search(
+      term as string,
+      Number(limit) || 10,
+      req.prisma || undefined
+    )
     const response = units.map((unit) => new UnitResponseDTO(unit))
 
-    return ApiResponse.success(res, response, 'Búsqueda completada')
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Búsqueda completada'
+    )
   })
 
   /**

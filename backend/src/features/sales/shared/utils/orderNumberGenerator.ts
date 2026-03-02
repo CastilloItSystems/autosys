@@ -1,8 +1,7 @@
 // backend/src/features/sales/shared/utils/orderNumberGenerator.ts
 
-import { PrismaClient } from '../../../../generated/prisma'
+import prisma from '../../../../services/prisma.service'
 
-const prisma = new PrismaClient()
 
 export class OrderNumberGenerator {
   /**

@@ -278,7 +278,7 @@ import { PERMISSIONS } from '../../../../../shared/constants/permissions'
 const router = Router()
 
 /**
- * Rutas públicas (o con autenticación básica)
+ * GET Specific routes (must be before generic /:id routes)
  */
 
 // GET /api/inventory/catalogs/units/active
@@ -294,7 +294,28 @@ router.get('/search', authenticate, unitController.search)
 router.get('/type/:type', authenticate, unitController.getByType)
 
 /**
- * Rutas protegidas - Requieren autenticación y permisos
+ * POST routes
+ */
+
+// POST /api/inventory/catalogs/units
+router.post(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  validateBody(createUnitSchema),
+  unitController.create
+)
+
+// POST /api/inventory/catalogs/units/bulk
+router.post(
+  '/bulk',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  unitController.bulkCreate
+)
+
+/**
+ * Generic routes (/:id and derivatives)
  */
 
 // GET /api/inventory/catalogs/units
@@ -313,23 +334,6 @@ router.get(
   authorize(PERMISSIONS.INVENTORY_VIEW),
   validateParams(unitIdSchema),
   unitController.getById
-)
-
-// POST /api/inventory/catalogs/units
-router.post(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createUnitSchema),
-  unitController.create
-)
-
-// POST /api/inventory/catalogs/units/bulk
-router.post(
-  '/bulk',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_CREATE),
-  unitController.bulkCreate
 )
 
 // PUT /api/inventory/catalogs/units/:id
@@ -351,6 +355,15 @@ router.patch(
   unitController.toggleActive
 )
 
+// DELETE /api/inventory/catalogs/units/:id/hard (hard delete - must be before soft delete)
+router.delete(
+  '/:id/hard',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_DELETE),
+  validateParams(unitIdSchema),
+  unitController.hardDelete
+)
+
 // DELETE /api/inventory/catalogs/units/:id (soft delete)
 router.delete(
   '/:id',
@@ -358,15 +371,6 @@ router.delete(
   authorize(PERMISSIONS.INVENTORY_DELETE),
   validateParams(unitIdSchema),
   unitController.delete
-)
-
-// DELETE /api/inventory/catalogs/units/:id/hard (hard delete)
-router.delete(
-  '/:id/hard',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(unitIdSchema),
-  unitController.hardDelete
 )
 
 export default router

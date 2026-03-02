@@ -1,0 +1,6 @@
+sku,name,costPrice,salePrice,description,categoryId,unitId,brandId,wholesalePrice,minStock,barcode
+SKU001,Aceite Motor Premium 5W30,12.50,28.99,Aceite mineral de alta calidad para motores,,,,,25.99,10,8901234567890
+SKU002,Filtro Aire Mann,8.00,18.50,Filtro de aire para motor diésel,,,,,16.99,15,8901234567891
+SKU003,Pastillas Freno Bosch,35.00,89.90,Juego de pastillas de freno delanteras,,,,,79.99,5,8901234567892
+SKU004,Batería 12V 60Ah,75.00,189.00,Batería de arranque para vehículos livianos,,,,,169.00,8,8901234567893
+SKU005,Llantas Michelin 205-55R16,120.00,299.90,Neumático para sedanes compactos,,,,,279.90,4,8901234567894

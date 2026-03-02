@@ -1,72 +1,116 @@
 import apiClient from "../apiClient";
+import type { PurchaseOrderStatus } from "@/libs/interfaces/inventory";
+
+// ===== CRUD =====
+
+export const getPurchaseOrders = async (params?: {
+  page?: number;
+  limit?: number;
+  status?: PurchaseOrderStatus;
+  supplierId?: string;
+  warehouseId?: string;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
+}) => {
+  const response = await apiClient.get("/inventory/purchase-orders", {
+    params,
+  });
+  return response.data;
+};
 
 export const getPurchaseOrder = async (id: string) => {
-  const response = await apiClient.get(`/inventory/purchaseOrders/${id}`);
+  const response = await apiClient.get(`/inventory/purchase-orders/${id}`);
   return response.data;
 };
 
-export const getPurchaseOrders = async () => {
-  const response = await apiClient.get("/inventory/purchaseOrders");
+export const createPurchaseOrder = async (data: {
+  supplierId: string;
+  warehouseId: string;
+  notes?: string;
+  expectedDate?: string;
+  items?: { itemId: string; quantityOrdered: number; unitCost: number }[];
+}) => {
+  const response = await apiClient.post("/inventory/purchase-orders", data);
   return response.data;
 };
 
-export const createPurchaseOrder = async (data: any) => {
-  const response = await apiClient.post("/inventory/purchaseOrders", data);
-  return response.data;
-};
-
-export const updatePurchaseOrder = async (id: string, data: any) => {
-  const response = await apiClient.put(`/inventory/purchaseOrders/${id}`, data);
+export const updatePurchaseOrder = async (
+  id: string,
+  data: {
+    status?: PurchaseOrderStatus;
+    notes?: string | null;
+    expectedDate?: string | null;
+  },
+) => {
+  const response = await apiClient.put(
+    `/inventory/purchase-orders/${id}`,
+    data,
+  );
   return response.data;
 };
 
 export const deletePurchaseOrder = async (id: string) => {
-  const response = await apiClient.delete(`/inventory/purchaseOrders/${id}`);
+  const response = await apiClient.delete(`/inventory/purchase-orders/${id}`);
   return response.data;
 };
 
-// Obtener órdenes por estado
-export const getPurchaseOrdersByStatus = async (
-  estado: "pendiente" | "parcial" | "recibido" | "cancelado"
-) => {
-  const response = await apiClient.get(
-    `/inventory/purchaseOrders/status/${estado}`
+// ===== Acciones de flujo =====
+
+export const approvePurchaseOrder = async (id: string, approvedBy?: string) => {
+  const response = await apiClient.patch(
+    `/inventory/purchase-orders/${id}/approve`,
+    { approvedBy },
   );
   return response.data;
 };
 
-// Obtener órdenes por proveedor
-export const getPurchaseOrdersBySupplier = async (supplierId: string) => {
-  const response = await apiClient.get(
-    `/inventory/purchaseOrders/supplier/${supplierId}`
-  );
-  return response.data;
-};
-
-// Recibir orden de compra (parcial o total)
-export const receivePurchaseOrder = async (
-  id: string,
-  warehouse: string,
-  items: { item: string; cantidad: number; costoUnitario?: number }[],
-  idempotencyKey?: string
-) => {
-  const response = await apiClient.post(
-    `/inventory/purchaseOrders/${id}/receive`,
-    { warehouse, items, idempotencyKey }
-  );
-  return response.data;
-};
-
-// Cancelar orden de compra
 export const cancelPurchaseOrder = async (id: string) => {
-  const response = await apiClient.post(
-    `/inventory/purchaseOrders/${id}/cancel`
+  const response = await apiClient.patch(
+    `/inventory/purchase-orders/${id}/cancel`,
   );
   return response.data;
 };
 
-// Obtener órdenes pendientes
-export const getPendingPurchaseOrders = async () => {
-  const response = await apiClient.get("/inventory/purchaseOrders/pending");
+// ===== Items =====
+
+export const addPurchaseOrderItem = async (
+  poId: string,
+  data: { itemId: string; quantityOrdered: number; unitCost: number },
+) => {
+  const response = await apiClient.post(
+    `/inventory/purchase-orders/${poId}/items`,
+    data,
+  );
+  return response.data;
+};
+
+export const getPurchaseOrderItems = async (poId: string) => {
+  const response = await apiClient.get(
+    `/inventory/purchase-orders/${poId}/items`,
+  );
+  return response.data;
+};
+
+// ===== Recepción =====
+
+export const receivePurchaseOrder = async (
+  poId: string,
+  data: {
+    warehouseId?: string;
+    notes?: string;
+    receivedBy?: string;
+    items: {
+      itemId: string;
+      quantityReceived: number;
+      unitCost: number;
+      batchNumber?: string | null;
+      expiryDate?: string | null;
+    }[];
+  },
+) => {
+  const response = await apiClient.post(
+    `/inventory/purchase-orders/${poId}/receive`,
+    data,
+  );
   return response.data;
 };

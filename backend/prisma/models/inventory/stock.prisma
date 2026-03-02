@@ -12,6 +12,7 @@ model Stock {
   // Cantidades
   quantityReal      Int       @default(0)      // Stock físico real
   quantityReserved  Int       @default(0)      // Stock reservado
+  quantityConsumed  Int       @default(0)      // Stock consumido/entregado
   quantityAvailable Int       @default(0)      // Real - Reservado
   
   // Valorización

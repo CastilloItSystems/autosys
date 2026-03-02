@@ -21,32 +21,46 @@ export const validateRequest = (
   schema: Joi.ObjectSchema,
   source: ValidationSource = 'body'
 ) => {
-  return (req: Request, res: Response, next: NextFunction): void => {
-    const { error, value } = schema.validate(req[source], {
-      abortEarly: false,
-      stripUnknown: true,
-    })
+  return async (
+    req: Request,
+    res: Response,
+    next: NextFunction
+  ): Promise<void> => {
+    try {
+      const value = await schema.validateAsync(req[source], {
+        abortEarly: false,
+        stripUnknown: true,
+      })
 
-    if (error) {
-      const errors = error.details.map((detail) => ({
-        field: detail.path.join('.'),
-        message: detail.message,
-      }))
+      // Almacenar valores validados sin reasignar las propiedades de solo lectura
+      if (source === 'body') {
+        req.validatedBody = value
+      } else if (source === 'query') {
+        req.validatedQuery = value
+      } else if (source === 'params') {
+        req.validatedParams = value
+      }
 
-      ApiResponse.validationError(res, errors)
-      return
+      next()
+    } catch (err) {
+      if (Joi.isError(err)) {
+        const errors = err.details.map((detail) => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+        }))
+
+        ApiResponse.validationError(res, errors)
+        return
+      }
+      // Handle errors thrown by .external() validators
+      if (err instanceof Error) {
+        ApiResponse.validationError(res, [
+          { field: 'value', message: err.message },
+        ])
+        return
+      }
+      next(err)
     }
-
-    // Almacenar valores validados sin reasignar las propiedades de solo lectura
-    if (source === 'body') {
-      req.validatedBody = value
-    } else if (source === 'query') {
-      req.validatedQuery = value
-    } else if (source === 'params') {
-      req.validatedParams = value
-    }
-
-    next()
   }
 }
 

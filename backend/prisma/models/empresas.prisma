@@ -28,6 +28,19 @@ model Empresa {
   dprefijousr   String?
   eliminado     Boolean  @default(false)
   users         User[]
+  
+  warehouses    Warehouse[]
+  items         Item[]
+  customers     Customer[]
+  suppliers     Supplier[]
+  orders        Order[]
+  preInvoices   PreInvoice[]
+  invoices      Invoice[]
+  brands        Brand[]
+  categories    Category[]
+  units         Unit[]
+  models        Model[]
+  
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }

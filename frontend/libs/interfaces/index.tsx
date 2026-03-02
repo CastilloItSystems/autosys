@@ -14,3 +14,4 @@ export * from "./chequeosInterfaceBK";
 export * from "./facturaInterface";
 export * from "./balanceInterface";
 export * from "./workshopInterface";
+export * from "./inventory";

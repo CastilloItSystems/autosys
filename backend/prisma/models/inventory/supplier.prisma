@@ -11,6 +11,10 @@ model Supplier {
   taxId           String?         // RIF en Venezuela
   isActive        Boolean         @default(true)
   
+  // Multi-tenancy
+  empresaId       String
+  empresa         Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relaciones
   purchaseOrders  PurchaseOrder[]
   
@@ -21,4 +25,5 @@ model Supplier {
   @@map("suppliers")
   @@index([code])
   @@index([isActive])
+  @@index([empresaId])
 }

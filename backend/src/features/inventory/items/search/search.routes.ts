@@ -17,22 +17,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - query
- *             properties:
- *               query:
- *                 type: string
- *                 example: "Nike"
- *               filters:
- *                 type: object
- *                 example: { "category": "shoes" }
- *               page:
- *                 type: integer
- *                 default: 1
- *               limit:
- *                 type: integer
- *                 default: 20
+ *             $ref: '#/components/schemas/SearchRequest'
  *     responses:
  *       200:
  *         description: Búsqueda completada exitosamente
@@ -54,34 +39,7 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - filters
- *             properties:
- *               query:
- *                 type: string
- *                 example: "Nike shoes"
- *               filters:
- *                 type: object
- *                 properties:
- *                   category:
- *                     type: string
- *                   brand:
- *                     type: string
- *                   priceMin:
- *                     type: number
- *                   priceMax:
- *                     type: number
- *               sortBy:
- *                 type: string
- *                 enum: ["name", "price", "relevance", "newest"]
- *                 default: "relevance"
- *               page:
- *                 type: integer
- *                 default: 1
- *               limit:
- *                 type: integer
- *                 default: 20
+ *             $ref: '#/components/schemas/AdvancedSearchRequest'
  *     responses:
  *       200:
  *         description: Búsqueda avanzada completada
@@ -406,4 +364,3 @@ router.post(
 )
 
 export default router
-

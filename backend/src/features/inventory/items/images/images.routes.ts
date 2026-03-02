@@ -56,31 +56,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             required:
- *               - itemId
- *               - url
- *             properties:
- *               itemId:
- *                 type: string
- *                 format: uuid
- *                 example: "550e8400-e29b-41d4-a716-446655440000"
- *               url:
- *                 type: string
- *                 format: uri
- *                 example: "https://cdn.example.com/images/product1.jpg"
- *               altText:
- *                 type: string
- *                 example: "Nike Air Max shoes"
- *               isPrimary:
- *                 type: boolean
- *                 default: false
- *               displayOrder:
- *                 type: integer
- *                 default: 0
+ *             $ref: '#/components/schemas/ImageCreateRequest'
  *     responses:
  *       201:
  *         description: Imagen creada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ImageResponse'
  *       400:
  *         description: Datos inválidos
  *       404:
@@ -129,18 +112,14 @@
  *       content:
  *         application/json:
  *           schema:
- *             type: object
- *             properties:
- *               url:
- *                 type: string
- *                 format: uri
- *               altText:
- *                 type: string
- *               displayOrder:
- *                 type: integer
+ *             $ref: '#/components/schemas/ImageUpdateRequest'
  *     responses:
  *       200:
  *         description: Imagen actualizada exitosamente
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ImageResponse'
  *       404:
  *         description: Imagen no encontrada
  *       401:
@@ -225,6 +204,7 @@ import {
 } from '../../../../shared/middleware/validateRequest.middleware'
 import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
 import { authorize } from '../../../../shared/middleware/authorize.middleware'
+import { FileUploadHelper } from '../../../../shared/utils/fileUpload'
 import {
   createImageSchema,
   updateImageSchema,
@@ -303,6 +283,15 @@ router.patch(
   authorize(PERMISSIONS.ITEMS_UPDATE),
   validateParams(imageIdSchema),
   controller.setPrimary
+)
+
+// POST /api/inventory/items/images/upload (file upload)
+router.post(
+  '/upload',
+  authenticate,
+  authorize(PERMISSIONS.ITEMS_CREATE),
+  FileUploadHelper.createImageUploader('images', 10),
+  controller.upload
 )
 
 export default router

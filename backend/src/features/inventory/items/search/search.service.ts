@@ -139,24 +139,49 @@ export class SearchService {
       ]
     }
 
-    // Obtener categorías
-    const categories = await prisma.item.groupBy({
+    // Obtener categorías con nombres
+    const categoriesAgg = await prisma.item.groupBy({
       by: ['categoryId'],
       where,
       _count: true,
     })
 
-    // Obtener brands (si está disponible en el modelo)
-    // NOTE: Brand aggregation requires a proper brand field in item model
-    // const brandAgg = await prisma.item.groupBy({
-    //   by: [],
-    //   where,
-    //   _count: {
-    //     id: true,
-    //   },
-    // })
+    const categoriesData = await Promise.all(
+      categoriesAgg.map(async (cat: any) => {
+        const categoryInfo = await prisma.category.findUnique({
+          where: { id: cat.categoryId },
+          select: { name: true },
+        })
+        return {
+          name: categoryInfo?.name || 'Unknown',
+          count: cat._count,
+          value: cat.categoryId,
+        }
+      })
+    )
 
-    // Obtener rangos de precios
+    // Obtener brands con nombres
+    const brandsAgg = await prisma.item.groupBy({
+      by: ['brandId'],
+      where,
+      _count: true,
+    })
+
+    const brandsData = await Promise.all(
+      brandsAgg.map(async (brand: any) => {
+        const brandInfo = await prisma.brand.findUnique({
+          where: { id: brand.brandId },
+          select: { name: true },
+        })
+        return {
+          name: brandInfo?.name || 'Unknown',
+          count: brand._count,
+          value: brand.brandId,
+        }
+      })
+    )
+
+    // Obtener rangos de precios con conteos reales
     const priceAgg = await prisma.item.aggregate({
       where,
       _min: {
@@ -167,36 +192,61 @@ export class SearchService {
       },
     })
 
+    // Definir rangos de precios y contar items en cada rango
+    const priceRanges = [
+      { min: 0, max: 50, name: 'Bajo (0-50)', value: '0-50' },
+      { min: 50, max: 100, name: 'Medio (50-100)', value: '50-100' },
+      { min: 100, max: 500, name: 'Alto (100-500)', value: '100-500' },
+      { min: 500, max: 10000, name: 'Premium (500+)', value: '500-10000' },
+    ]
+
+    const priceRangesData = await Promise.all(
+      priceRanges.map(async (range) => {
+        const count = await prisma.item.count({
+          where: {
+            ...where,
+            salePrice: {
+              gte: range.min,
+              lt: range.max,
+            },
+          },
+        })
+        return {
+          name: range.name,
+          count,
+          value: range.value,
+        }
+      })
+    )
+
+    // Obtener tags únicos si existen
+    const allItems = await prisma.item.findMany({
+      where,
+      select: { tags: true },
+    })
+
+    const tagsMap = new Map<string, number>()
+    allItems.forEach((item: any) => {
+      if (item.tags && Array.isArray(item.tags)) {
+        item.tags.forEach((tag: string) => {
+          tagsMap.set(tag, (tagsMap.get(tag) || 0) + 1)
+        })
+      }
+    })
+
+    const tagsData = Array.from(tagsMap.entries())
+      .map(([name, count]) => ({
+        name,
+        count,
+        value: name.toLowerCase(),
+      }))
+      .sort((a, b) => b.count - a.count)
+
     return {
-      categories: categories.map((cat: any) => ({
-        name: cat.categoryId,
-        count: cat._count,
-        value: cat.categoryId,
-      })),
-      brands: [],
-      priceRanges: [
-        {
-          name: 'Bajo',
-          count: 0,
-          value: '0-50',
-        },
-        {
-          name: 'Medio',
-          count: 0,
-          value: '50-100',
-        },
-        {
-          name: 'Alto',
-          count: 0,
-          value: '100-500',
-        },
-        {
-          name: 'Premium',
-          count: 0,
-          value: '500-10000',
-        },
-      ],
-      tags: [],
+      categories: categoriesData,
+      brands: brandsData,
+      priceRanges: priceRangesData,
+      tags: tagsData,
     }
   }
 

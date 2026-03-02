@@ -1,267 +1,428 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
-import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import { deleteItem, getItems } from "@/app/api/inventory/itemService";
-import ItemForm from "./ItemForm";
-import { Item } from "@/libs/interfaces/inventory";
-import CustomActionButtons from "@/components/common/CustomActionButtons";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
+import itemService, { Item } from "@/app/api/inventory/itemService";
+import ItemForm from "./ItemForm";
 import CreateButton from "@/components/common/CreateButton";
-import { handleFormError } from "@/utils/errorHandlers";
 
 const ItemList = () => {
+  // Datos
   const [items, setItems] = useState<Item[]>([]);
-  const [item, setItem] = useState<Item | null>(null);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
-  const [deleteDialog, setDeleteDialog] = useState(false);
-  const [formDialog, setFormDialog] = useState(false);
-  const router = useRouter();
-  const dt = useRef(null);
-  const toast = useRef<Toast | null>(null);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
 
+  // Filtros y paginación
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+  const [showActive, setShowActive] = useState<boolean>(true);
+
+  // UI
+  const [loading, setLoading] = useState<boolean>(true);
+  const [formDialog, setFormDialog] = useState<boolean>(false);
+  const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const toast = useRef<Toast>(null);
+
+  // Cargar items cuando cambien los filtros
   useEffect(() => {
-    fetchItems();
-  }, []);
+    loadItems();
+  }, [page, rows, searchQuery, showActive]);
 
-  const fetchItems = async () => {
+  const loadItems = async () => {
     try {
-      const itemsDB = await getItems();
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
-      }
+      setLoading(true);
+      const response = await itemService.getAll(
+        page + 1,
+        rows,
+        searchQuery || undefined,
+        undefined,
+        undefined,
+        showActive,
+      );
+
+      const itemsData = response.data || [];
+      const total = response.meta?.total || 0;
+
+      setItems(Array.isArray(itemsData) ? itemsData : []);
+      setTotalRecords(total);
     } catch (error) {
-      console.error("Error al obtener los artículos:", error);
+      console.error("Error loading items:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar artículos",
+        life: 3000,
+      });
+      setItems([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const openFormDialog = () => {
-    setItem(null);
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(0);
+  };
+
+  const openNew = () => {
+    setSelectedItem(null);
     setFormDialog(true);
   };
 
-  const hideDeleteDialog = () => setDeleteDialog(false);
-  const hideFormDialog = () => {
-    setItem(null);
-    setFormDialog(false);
+  const editItem = (item: Item) => {
+    setSelectedItem({ ...item });
+    setFormDialog(true);
+  };
+
+  const confirmDeleteItem = (item: Item) => {
+    setSelectedItem(item);
+    setDeleteDialog(true);
+  };
+
+  const handleToggleItem = async (item: Item) => {
+    try {
+      await itemService.toggleActive(item.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Artículo ${item.isActive ? "desactivado" : "activado"}`,
+        life: 3000,
+      });
+      loadItems();
+    } catch (error) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cambiar estado del artículo",
+        life: 3000,
+      });
+    }
   };
 
   const handleDelete = async () => {
     try {
-      if (item?.id) {
-        await deleteItem(item.id);
-        setItems(items.filter((val) => val.id !== item.id));
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Artículo Eliminado",
-          life: 3000,
-        });
-      } else {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar el artículo",
-          life: 3000,
-        });
-      }
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setItem(null);
+      await itemService.delete(selectedItem!.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Artículo eliminado correctamente",
+        life: 3000,
+      });
+      loadItems();
       setDeleteDialog(false);
+    } catch (error) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al eliminar artículo",
+        life: 3000,
+      });
     }
   };
 
-  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
+  const handleSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selectedItem?.id
+        ? "Artículo actualizado correctamente"
+        : "Artículo creado correctamente",
+      life: 3000,
+    });
+    loadItems();
+    setFormDialog(false);
   };
 
-  const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+  // Templates
+  const actionBodyTemplate = (rowData: Item) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-pencil"
+          rounded
+          severity="info"
+          text
+          onClick={() => editItem(rowData)}
+          tooltip="Editar"
         />
-      </span>
-      <CreateButton onClick={openFormDialog} />
+        <Button
+          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
+          rounded
+          severity={rowData.isActive ? "warning" : "success"}
+          text
+          onClick={() => handleToggleItem(rowData)}
+          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
+        />
+        <Button
+          icon="pi pi-trash"
+          rounded
+          severity="danger"
+          text
+          onClick={() => confirmDeleteItem(rowData)}
+          tooltip="Eliminar"
+        />
+      </div>
+    );
+  };
+
+  const statusBodyTemplate = (rowData: Item) => {
+    return (
+      <Tag
+        value={rowData.isActive ? "Activo" : "Inactivo"}
+        severity={rowData.isActive ? "success" : "secondary"}
+        rounded
+      />
+    );
+  };
+
+  const codeBodyTemplate = (rowData: Item) => {
+    return <span className="font-bold text-primary">{rowData.code}</span>;
+  };
+
+  const quantityBodyTemplate = (rowData: Item) => {
+    const amount = rowData.quantity || 0;
+    const minStock = rowData.minStock || 0;
+    const severity =
+      amount === 0 ? "danger" : amount <= minStock ? "warning" : "success";
+    return <Tag value={amount.toString()} severity={severity} rounded />;
+  };
+
+  const priceBodyTemplate = (rowData: Item) => {
+    if (!rowData.salePrice) return "-";
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(rowData.salePrice);
+  };
+
+  const marginBodyTemplate = (rowData: Item) => {
+    if (!rowData.costPrice || !rowData.salePrice) return "-";
+    const margin =
+      ((rowData.salePrice - rowData.costPrice) / rowData.costPrice) * 100;
+    const severity =
+      margin < 10 ? "danger" : margin < 20 ? "warning" : "success";
+    return <Tag value={`${margin.toFixed(0)}%`} severity={severity} rounded />;
+  };
+
+  const imagesBodyTemplate = (rowData: Item) => {
+    const count = rowData.images?.length || 0;
+    if (count === 0) return <Tag value="0" severity="info" rounded />;
+    return <Tag value={`📷 ${count}`} severity="success" rounded />;
+  };
+
+  const tagsBodyTemplate = (rowData: Item) => {
+    if (!rowData.tags || rowData.tags.length === 0) return "-";
+    return rowData.tags
+      .slice(0, 2)
+      .map((tag, idx) => (
+        <Tag
+          key={idx}
+          value={tag}
+          style={{ marginRight: "4px" }}
+          severity="info"
+        />
+      ));
+  };
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Artículos</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex gap-2">
+        <Button
+          label={showActive ? "Todos" : "Solo activos"}
+          icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
+          outlined
+          size="small"
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </span>
+        <CreateButton label="Nuevo Artículo" onClick={openNew} />
+      </div>
     </div>
   );
 
-  const actionBodyTemplate = (rowData: Item) => (
-    <CustomActionButtons
-      rowData={rowData}
-      onEdit={(data) => {
-        setItem(rowData);
-        setFormDialog(true);
-      }}
-      onDelete={(data) => {
-        setItem(rowData);
-        setDeleteDialog(true);
-      }}
-    />
-  );
-
-  const estadoBodyTemplate = (rowData: Item) => (
-    <span
-      className={`px-2 py-1 border-round text-sm font-semibold ${
-        rowData.estado === "activo"
-          ? "bg-green-100 text-green-900"
-          : "bg-red-100 text-red-900"
-      }`}
-    >
-      {rowData.estado}
-    </span>
-  );
-
-  const priceBodyTemplate = (
-    rowData: Item,
-    field: "precioCosto" | "precioVenta"
-  ) => {
-    const value = rowData[field];
-    return value ? `$${value.toFixed(2)}` : "-";
-  };
-
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
-  };
-
   const deleteDialogFooter = (
     <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
+      <Button
+        label="No"
+        icon="pi pi-times"
+        outlined
+        onClick={() => setDeleteDialog(false)}
+      />
+      <Button
+        label="Sí"
+        icon="pi pi-check"
+        severity="danger"
+        onClick={handleDelete}
+      />
     </>
   );
 
-  if (loading) {
-    return (
-      <div className="flex justify-content-center align-items-center h-screen">
-        <ProgressSpinner />
-      </div>
-    );
-  }
-
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
-      <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
-        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-        className="card"
-      >
+      <div className="card">
         <DataTable
-          ref={dt}
           value={items}
-          header={renderHeader()}
           paginator
-          rows={10}
-          responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          onPage={onPageChange}
+          dataKey="id"
           loading={loading}
-          emptyMessage="No hay artículos disponibles"
-          rowClassName={() => "animated-row"}
-          size="small"
+          header={header}
+          emptyMessage="No se encontraron artículos"
+          sortMode="multiple"
+          lazy
         >
-          <Column body={actionBodyTemplate} />
-          <Column field="sku" header="SKU" sortable />
-          <Column field="codigo" header="Código" sortable />
-          <Column field="nombre" header="Nombre" sortable />
-          <Column field="marca.nombre" header="Marca" sortable />
-          <Column field="modelo.nombre" header="Modelo" sortable />
-          <Column field="categoria.nombre" header="Categoría" sortable />
-          <Column field="unidad.nombre" header="Unidad" sortable />
           <Column
-            field="precioCosto"
-            header="Precio Costo"
-            body={(rowData) => priceBodyTemplate(rowData, "precioCosto")}
+            field="code"
+            header="Código"
             sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "80px" }}
           />
           <Column
-            field="precioVenta"
-            header="Precio Venta"
-            body={(rowData) => priceBodyTemplate(rowData, "precioVenta")}
+            field="name"
+            header="Nombre"
             sortable
+            style={{ minWidth: "250px" }}
           />
-          <Column field="stockMinimo" header="Stock Mín" sortable />
-          <Column field="stockMaximo" header="Stock Máx" sortable />
           <Column
-            field="estado"
+            field="brand.name"
+            header="Marca"
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="category.name"
+            header="Categoría"
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="salePrice"
+            header="Precio"
+            body={priceBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            header="Margen"
+            body={marginBodyTemplate}
+            style={{ minWidth: "90px" }}
+          />
+          <Column
+            field="quantity"
+            header="Stock"
+            body={quantityBodyTemplate}
+            style={{ minWidth: "80px" }}
+          />
+          <Column
+            header="Imágenes"
+            body={imagesBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            header="Tags"
+            body={tagsBodyTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="isActive"
             header="Estado"
-            body={estadoBodyTemplate}
+            body={statusBodyTemplate}
             sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            exportable={false}
+            style={{ minWidth: "140px" }}
           />
         </DataTable>
+      </div>
 
-        <Dialog
-          visible={deleteDialog}
-          style={{ width: "450px" }}
-          header="Confirmar"
-          modal
-          footer={deleteDialogFooter}
-          onHide={hideDeleteDialog}
-        >
-          <div className="flex align-items-center justify-content-center">
-            <i
-              className="pi pi-exclamation-triangle mr-3"
-              style={{ fontSize: "2rem" }}
-            />
-            {item && (
-              <span>
-                ¿Estás seguro de que deseas eliminar <b>{item.nombre}</b>?
-              </span>
-            )}
+      <Dialog
+        visible={formDialog}
+        style={{ width: "80vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-box mr-3 text-primary text-3xl"></i>
+                {selectedItem?.id ? "Modificar Artículo" : "Crear Artículo"}
+              </h2>
+            </div>
           </div>
-        </Dialog>
+        }
+        modal
+        className="p-fluid"
+        onHide={() => setFormDialog(false)}
+      >
+        <ItemForm
+          item={selectedItem}
+          onSave={handleSave}
+          onCancel={() => setFormDialog(false)}
+          toast={toast}
+        />
+      </Dialog>
 
-        <Dialog
-          visible={formDialog}
-          style={{ width: "850px" }}
-          header={item ? "Editar Artículo" : "Crear Artículo"}
-          modal
-          onHide={hideFormDialog}
-          content={
-            <ItemForm
-              item={item}
-              hideFormDialog={hideFormDialog}
-              items={items}
-              setItems={setItems}
-              setItem={setItem}
-              showToast={showToast}
-              toast={toast}
-            />
-          }
-        ></Dialog>
-      </motion.div>
-    </>
+      <Dialog
+        visible={deleteDialog}
+        style={{ width: "450px" }}
+        header="Confirmar eliminación"
+        modal
+        footer={deleteDialogFooter}
+        onHide={() => setDeleteDialog(false)}
+      >
+        <div className="confirmation-content flex align-items-center gap-3">
+          <i
+            className="pi pi-exclamation-triangle"
+            style={{ fontSize: "2rem", color: "var(--red-500)" }}
+          />
+          {selectedItem && (
+            <span>
+              ¿Está seguro de eliminar el artículo <b>{selectedItem.name}</b>?
+            </span>
+          )}
+        </div>
+      </Dialog>
+    </motion.div>
   );
 };
 

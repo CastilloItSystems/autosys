@@ -12,6 +12,9 @@ model Invoice {
   fiscalNumber       String?       @unique // Número de control fiscal
   status             InvoiceStatus @default(ACTIVE)
   
+  empresaId          String
+  empresa            Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   // Relación 1 a 1 con Pre-factura
   preInvoiceId       String        @unique
   preInvoice         PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
@@ -54,4 +57,5 @@ model Invoice {
   @@index([customerId])
   @@index([status])
   @@index([invoiceDate])
+  @@index([empresaId])
 }

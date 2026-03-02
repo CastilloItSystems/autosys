@@ -78,7 +78,11 @@ export class BrandService {
   // ============================================
   // GET ALL CON FILTROS Y PAGINACIÓN
   // ============================================
-  async getBrands(filters: IBrandFilters): Promise<IBrandListResult> {
+  async getBrands(
+    filters: IBrandFilters,
+    prismaClient?: any
+  ): Promise<IBrandListResult> {
+    const db = prismaClient || prisma
     const { search, type, isActive, page = 1, limit = 10 } = filters
 
     const where: any = {}
@@ -110,7 +114,7 @@ export class BrandService {
     } = PaginationHelper.validateAndParse({ page, limit })
 
     const [brands, total] = await Promise.all([
-      prisma.brand.findMany({
+      db.brand.findMany({
         where,
         include: {
           _count: {
@@ -124,7 +128,7 @@ export class BrandService {
         skip,
         take,
       }),
-      prisma.brand.count({ where }),
+      db.brand.count({ where }),
     ])
 
     const meta = PaginationHelper.getMeta(validPage, validLimit, total)
@@ -138,10 +142,14 @@ export class BrandService {
   // ============================================
   // GET ALL AGRUPADO POR TIPO
   // ============================================
-  async getBrandsGroupedByType(filters?: {
-    search?: string
-    isActive?: boolean
-  }): Promise<IBrandGroupedByType[]> {
+  async getBrandsGroupedByType(
+    filters?: {
+      search?: string
+      isActive?: boolean
+    },
+    prismaClient?: any
+  ): Promise<IBrandGroupedByType[]> {
+    const db = prismaClient || prisma
     const where: any = {}
 
     if (filters?.search) {
@@ -155,7 +163,7 @@ export class BrandService {
       where.isActive = filters.isActive
     }
 
-    const brands = await prisma.brand.findMany({
+    const brands = await db.brand.findMany({
       where,
       include: {
         _count: {
@@ -239,6 +247,36 @@ export class BrandService {
     logger.info('Brand updated', { brandId: id })
 
     return updatedBrand
+  }
+
+  // ============================================
+  // TOGGLE - Activar/Desactivar
+  // ============================================
+  async toggleBrand(id: string): Promise<IBrandWithStats> {
+    const brand = await prisma.brand.findUnique({
+      where: { id },
+    })
+
+    if (!brand) {
+      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
+    }
+
+    const toggled = await prisma.brand.update({
+      where: { id },
+      data: { isActive: !brand.isActive },
+      include: {
+        _count: {
+          select: {
+            items: true,
+            models: true,
+          },
+        },
+      },
+    })
+
+    logger.info('Brand toggled', { brandId: id, isActive: toggled.isActive })
+
+    return toggled
   }
 
   // ============================================
@@ -363,14 +401,18 @@ export class BrandService {
   // ============================================
   // BUSCAR MARCAS ACTIVAS (PARA SELECTS)
   // ============================================
-  async getActiveBrands(type?: BrandType): Promise<IBrandWithStats[]> {
+  async getActiveBrands(
+    type?: BrandType,
+    prismaClient?: any
+  ): Promise<IBrandWithStats[]> {
+    const db = prismaClient || prisma
     const where: any = { isActive: true }
 
     if (type) {
       where.type = type
     }
 
-    const brands = await prisma.brand.findMany({
+    const brands = await db.brand.findMany({
       where,
       include: {
         _count: {
@@ -405,8 +447,10 @@ export class BrandService {
   // ============================================
   async searchBrands(
     query: string,
-    type?: BrandType
+    type?: BrandType,
+    prismaClient?: any
   ): Promise<IBrandWithStats[]> {
+    const db = prismaClient || prisma
     const where: any = {
       isActive: true,
       OR: [
@@ -419,7 +463,7 @@ export class BrandService {
       where.type = type
     }
 
-    const brands = await prisma.brand.findMany({
+    const brands = await db.brand.findMany({
       where,
       include: {
         _count: {

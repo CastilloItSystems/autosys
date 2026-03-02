@@ -13,6 +13,7 @@ import {
 import { PaginationHelper } from '../../../../shared/utils/pagination'
 import { INVENTORY_MESSAGES } from '../../shared/constants/messages'
 import { logger } from '../../../../shared/utils/logger'
+import { FileUploadHelper } from '../../../../shared/utils/fileUpload'
 import prisma from '../../../../services/prisma.service'
 
 export class ImageService {
@@ -242,5 +243,58 @@ export class ImageService {
     logger.info('Image set as primary', { imageId: id, itemId: image.itemId })
 
     return updated as IItemImageWithItem
+  }
+
+  async uploadFiles(
+    itemId: string,
+    files: Express.Multer.File[]
+  ): Promise<IItemImageWithItem[]> {
+    // Validar que el artículo existe
+    const item = await prisma.item.findUnique({
+      where: { id: itemId },
+    })
+
+    if (!item) {
+      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+    }
+
+    if (!files || files.length === 0) {
+      throw new BadRequestError('No files provided')
+    }
+
+    const createdImages: IItemImageWithItem[] = []
+
+    for (const file of files) {
+      // Generar URL del archivo
+      const fileUrl = FileUploadHelper.getFileUrl(file.filename, 'images')
+
+      const image = await prisma.itemImage.create({
+        data: {
+          itemId,
+          url: fileUrl,
+          isPrimary: createdImages.length === 0, // Primera imagen como primaria
+        },
+        include: {
+          item: {
+            select: {
+              id: true,
+              sku: true,
+              name: true,
+            },
+          },
+        },
+      })
+
+      createdImages.push(image as IItemImageWithItem)
+
+      logger.info('Image uploaded', {
+        imageId: image.id,
+        itemId,
+        filename: file.filename,
+        originalname: file.originalname,
+      })
+    }
+
+    return createdImages
   }
 }

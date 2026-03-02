@@ -1,0 +1,43 @@
+// backend/prisma/models/inventory/adjustment.prisma
+
+enum AdjustmentStatus {
+  DRAFT
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+}
+
+model Adjustment {
+  id                String             @id @default(uuid())
+  adjustmentNumber  String             @unique
+  
+  warehouseId       String
+  warehouse         Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  status            AdjustmentStatus   @default(DRAFT)
+  reason            String             @db.VarChar(255)
+  notes             String?            @db.Text
+  
+  // Aprobación
+  approvedBy        String?
+  approvedAt        DateTime?
+  
+  // Aplicación
+  appliedBy         String?
+  appliedAt         DateTime?
+  
+  // Relaciones
+  items             AdjustmentItem[]
+  
+  // Auditoría
+  createdBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@map("adjustments")
+  @@index([adjustmentNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+}

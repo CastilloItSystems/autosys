@@ -71,4 +71,17 @@ export class ImageController {
       )
     }
   )
+
+  upload = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { itemId } = req.body as { itemId: string }
+    const files = req.files as Express.Multer.File[]
+
+    if (!files || files.length === 0) {
+      ApiResponse.error(res, 'No files uploaded', 400)
+      return
+    }
+
+    const images = await imageService.uploadFiles(itemId, files)
+    ApiResponse.success(res, images, 'Imágenes subidas correctamente', 201)
+  })
 }

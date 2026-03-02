@@ -1,0 +1,104 @@
+/**
+ * Event Model - Audit trail for all inventory events
+ */
+
+enum EventTypeEnum {
+  // Stock Events
+  STOCK_CREATED
+  STOCK_UPDATED
+  STOCK_RESERVED
+  STOCK_UNRESERVED
+  STOCK_MOVEMENT_CREATED
+  STOCK_LOW
+  
+  // Adjustment Events
+  ADJUSTMENT_CREATED
+  ADJUSTMENT_APPROVED
+  ADJUSTMENT_APPLIED
+  ADJUSTMENT_REJECTED
+  ADJUSTMENT_CANCELLED
+  
+  // Cycle Count Events
+  CYCLE_COUNT_CREATED
+  CYCLE_COUNT_APPROVED
+  CYCLE_COUNT_APPLIED
+  CYCLE_COUNT_REJECTED
+  CYCLE_COUNT_COMPLETED
+  
+  // Reconciliation Events
+  RECONCILIATION_CREATED
+  RECONCILIATION_APPROVED
+  RECONCILIATION_APPLIED
+  RECONCILIATION_REJECTED
+  
+  // Loan Events
+  LOAN_CREATED
+  LOAN_APPROVED
+  LOAN_ACTIVE
+  LOAN_RETURNED
+  LOAN_OVERDUE
+  
+  // External Repair Events
+  EXTERNAL_REPAIR_CREATED
+  EXTERNAL_REPAIR_SENT
+  EXTERNAL_REPAIR_RECEIVED
+  EXTERNAL_REPAIR_QUALITY_CHECK
+  EXTERNAL_REPAIR_REJECTED
+  
+  // Return Events
+  RETURN_CREATED
+  RETURN_APPROVED
+  RETURN_PROCESSED
+  RETURN_REJECTED
+  
+  // Transfer Events
+  TRANSFER_CREATED
+  TRANSFER_SENT
+  TRANSFER_RECEIVED
+  
+  // Serial Number Events
+  SERIAL_CREATED
+  SERIAL_ASSIGNED_LOCATION
+  SERIAL_STATUS_CHANGED
+  
+  // Item Events
+  ITEM_CREATED
+  ITEM_UPDATED
+  ITEM_DELETED
+  
+  // Batch Events
+  BATCH_CREATED
+  BATCH_EXPIRING_SOON
+  BATCH_EXPIRED
+  
+  // System Events
+  SYSTEM_ALERT
+  SYSTEM_WARNING
+  SYSTEM_ERROR
+}
+
+enum EventPriorityEnum {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Event {
+  id           String @id @default(uuid())
+  type         EventTypeEnum
+  entityId     String @db.VarChar(36)
+  entityType   String @db.VarChar(50)
+  userId       String @db.VarChar(36)
+  eventData    Json @db.JsonB
+  priority     EventPriorityEnum @default(MEDIUM)
+  
+  createdAt    DateTime @default(now())
+  
+  // Indices for queries
+  @@index([entityId])
+  @@index([entityType])
+  @@index([userId])
+  @@index([type])
+  @@index([createdAt])
+}

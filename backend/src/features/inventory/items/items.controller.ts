@@ -46,12 +46,14 @@ export class ItemController {
     if (inStock === 'true') filters.inStock = true
     if (lowStock === 'true') filters.lowStock = true
 
+    // Pasar req.prisma al service para que use el Prisma client extendido con contexto de empresa
     const result = await itemService.findAll(
       filters,
       Number(page) || 1,
       Number(limit) || 10,
       (sortBy as string) || 'name',
-      (sortOrder as 'asc' | 'desc') || 'asc'
+      (sortOrder as 'asc' | 'desc') || 'asc',
+      req.prisma || undefined // Pasar Prisma client extendido si está disponible
     )
 
     const items = result.items.map(
@@ -88,9 +90,12 @@ export class ItemController {
         })
     )
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Artículos activos obtenidos exitosamente'
     )
   })
@@ -115,7 +120,14 @@ export class ItemController {
         })
     )
 
-    return ApiResponse.success(res, response, 'Búsqueda completada')
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Búsqueda completada'
+    )
   })
 
   /**

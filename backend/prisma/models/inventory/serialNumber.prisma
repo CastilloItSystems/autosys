@@ -16,6 +16,7 @@ model SerialNumber {
   item          Item         @relation(fields: [itemId], references: [id], onDelete: Cascade)
   
   warehouseId   String?
+  warehouse     Warehouse?   @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
   status        SerialStatus @default(IN_STOCK)
   
   soldAt        DateTime?

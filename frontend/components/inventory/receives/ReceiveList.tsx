@@ -1,0 +1,521 @@
+"use client";
+import React, { useEffect, useRef, useState } from "react";
+import { FilterMatchMode } from "primereact/api";
+import { Column } from "primereact/column";
+import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { InputText } from "primereact/inputtext";
+import { Toast } from "primereact/toast";
+import { Dialog } from "primereact/dialog";
+import { Button } from "primereact/button";
+import { Tag } from "primereact/tag";
+import { Divider } from "primereact/divider";
+import { getReceives, deleteReceive } from "@/app/api/inventory/receiveService";
+import type { Receive, ReceiveItem } from "@/libs/interfaces/inventory";
+import { ProgressSpinner } from "primereact/progressspinner";
+import { motion } from "framer-motion";
+import { handleFormError } from "@/utils/errorHandlers";
+
+const ReceiveList = () => {
+  const [receives, setReceives] = useState<Receive[]>([]);
+  const [selectedReceive, setSelectedReceive] = useState<Receive | null>(null);
+  const [filters, setFilters] = useState<DataTableFilterMeta>({});
+  const [loading, setLoading] = useState(true);
+  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [detailDialog, setDetailDialog] = useState(false);
+  const dt = useRef(null);
+  const toast = useRef<Toast | null>(null);
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      const res = await getReceives();
+      const list = res?.data ?? res?.receives ?? [];
+      setReceives(Array.isArray(list) ? list : []);
+    } catch (error) {
+      console.error("Error al obtener recepciones:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const hideDeleteDialog = () => {
+    setSelectedReceive(null);
+    setDeleteDialog(false);
+  };
+
+  const handleDelete = async () => {
+    try {
+      if (selectedReceive?.id) {
+        await deleteReceive(selectedReceive.id);
+        setReceives(receives.filter((r) => r.id !== selectedReceive.id));
+        toast.current?.show({
+          severity: "success",
+          summary: "Éxito",
+          detail: "Recepción eliminada",
+          life: 3000,
+        });
+      }
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      hideDeleteDialog();
+    }
+  };
+
+  const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.target;
+    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
+    setGlobalFilterValue(value);
+  };
+
+  /* ── Helper: format currency ── */
+  const formatCurrency = (value: number | string) => {
+    return `$${Number(value || 0).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+  };
+
+  /* ── Helper: format date ── */
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  /* ── Table header ── */
+  const renderHeader = () => (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <span className="p-input-icon-left w-full sm:w-20rem">
+        <i className="pi pi-search"></i>
+        <InputText
+          value={globalFilterValue}
+          onChange={onGlobalFilterChange}
+          placeholder="Búsqueda Global"
+          className="w-full"
+        />
+      </span>
+    </div>
+  );
+
+  /* ── Column templates ── */
+  const actionBodyTemplate = (rowData: Receive) => (
+    <div className="flex gap-1">
+      <Button
+        icon="pi pi-eye"
+        className="p-button-rounded p-button-info p-button-sm"
+        tooltip="Ver detalle"
+        tooltipOptions={{ position: "top" }}
+        onClick={() => {
+          setSelectedReceive(rowData);
+          setDetailDialog(true);
+        }}
+      />
+      <Button
+        icon="pi pi-trash"
+        className="p-button-rounded p-button-danger p-button-sm"
+        tooltip="Eliminar"
+        tooltipOptions={{ position: "top" }}
+        onClick={() => {
+          setSelectedReceive(rowData);
+          setDeleteDialog(true);
+        }}
+      />
+    </div>
+  );
+
+  const dateBodyTemplate = (rowData: Receive) => formatDate(rowData.receivedAt);
+
+  const itemsCountBodyTemplate = (rowData: Receive) => {
+    const count = rowData.items?.length || 0;
+    return (
+      <Tag
+        value={`${count} ${count === 1 ? "artículo" : "artículos"}`}
+        severity={count > 0 ? "info" : "warning"}
+        className="text-xs"
+      />
+    );
+  };
+
+  const supplierBodyTemplate = (rowData: Receive) =>
+    rowData.purchaseOrder?.supplier?.name || "—";
+
+  const warehouseBodyTemplate = (rowData: Receive) =>
+    rowData.warehouse?.name || "—";
+
+  const receivedByBodyTemplate = (rowData: Receive) =>
+    (rowData as any).receivedByName || rowData.receivedBy || "—";
+
+  const totalBodyTemplate = (rowData: Receive) => {
+    const total = (rowData.items || []).reduce(
+      (sum, it) => sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
+      0,
+    );
+    return <span className="font-semibold">{formatCurrency(total)}</span>;
+  };
+
+  /* ── Delete dialog footer ── */
+  const deleteDialogFooter = (
+    <>
+      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
+      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
+    </>
+  );
+
+  /* ── Detail dialog content ── */
+  const renderDetailContent = () => {
+    if (!selectedReceive) return null;
+    const items = selectedReceive.items || [];
+    const total = items.reduce(
+      (sum, it) => sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
+      0,
+    );
+
+    return (
+      <div className="flex flex-column gap-3">
+        {/* ── Header info cards ── */}
+        <div className="grid">
+          <div className="col-12 md:col-6 lg:col-3">
+            <div className="surface-100 border-round p-3 h-full">
+              <div className="flex align-items-center gap-2 mb-2">
+                <i className="pi pi-shopping-cart text-primary text-lg" />
+                <span className="text-500 text-sm font-medium">
+                  Orden de Compra
+                </span>
+              </div>
+              <div className="font-bold text-900 text-lg">
+                {selectedReceive.purchaseOrder?.orderNumber || "—"}
+              </div>
+              {selectedReceive.purchaseOrder?.supplier?.name && (
+                <div className="text-500 text-sm mt-1">
+                  <i className="pi pi-building text-xs mr-1" />
+                  {selectedReceive.purchaseOrder.supplier.name}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="col-12 md:col-6 lg:col-3">
+            <div className="surface-100 border-round p-3 h-full">
+              <div className="flex align-items-center gap-2 mb-2">
+                <i className="pi pi-box text-orange-500 text-lg" />
+                <span className="text-500 text-sm font-medium">Almacén</span>
+              </div>
+              <div className="font-bold text-900 text-lg">
+                {selectedReceive.warehouse?.name || "—"}
+              </div>
+              {selectedReceive.warehouse?.code && (
+                <div className="text-500 text-sm mt-1">
+                  Código: {selectedReceive.warehouse.code}
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="col-12 md:col-6 lg:col-3">
+            <div className="surface-100 border-round p-3 h-full">
+              <div className="flex align-items-center gap-2 mb-2">
+                <i className="pi pi-user text-green-500 text-lg" />
+                <span className="text-500 text-sm font-medium">
+                  Recibido Por
+                </span>
+              </div>
+              <div className="font-bold text-900 text-lg">
+                {(selectedReceive as any).receivedByName ||
+                  selectedReceive.receivedBy ||
+                  "—"}
+              </div>
+              <div className="text-500 text-sm mt-1">
+                {formatDate(selectedReceive.receivedAt)}
+              </div>
+            </div>
+          </div>
+
+          <div className="col-12 md:col-6 lg:col-3">
+            <div className="surface-100 border-round p-3 h-full">
+              <div className="flex align-items-center gap-2 mb-2">
+                <i className="pi pi-dollar text-purple-500 text-lg" />
+                <span className="text-500 text-sm font-medium">
+                  Total Recepción
+                </span>
+              </div>
+              <div className="font-bold text-primary text-xl">
+                {formatCurrency(total)}
+              </div>
+              <div className="text-500 text-sm mt-1">
+                {items.length} {items.length === 1 ? "artículo" : "artículos"}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Notes ── */}
+        {selectedReceive.notes && (
+          <div className="surface-100 border-round p-3">
+            <div className="flex align-items-center gap-2 mb-2">
+              <i className="pi pi-comment text-500" />
+              <span className="text-500 text-sm font-medium">Notas</span>
+            </div>
+            <div className="text-900">{selectedReceive.notes}</div>
+          </div>
+        )}
+
+        {/* ── Items table ── */}
+        <Divider align="left">
+          <span className="text-500 font-medium text-sm">
+            <i className="pi pi-list mr-2" />
+            Artículos Recibidos
+          </span>
+        </Divider>
+
+        {items.length > 0 ? (
+          <DataTable
+            value={items}
+            size="small"
+            stripedRows
+            showGridlines={false}
+            emptyMessage="No hay artículos"
+            className="border-round"
+            dataKey="id"
+          >
+            <Column
+              header="#"
+              body={(_: ReceiveItem, opts: { rowIndex: number }) =>
+                opts.rowIndex + 1
+              }
+              style={{ width: "3rem" }}
+              className="text-center"
+            />
+            <Column
+              header="Artículo"
+              body={(item: ReceiveItem) => (
+                <div className="flex flex-column">
+                  <span className="font-semibold text-900">
+                    {item.item?.name || "Artículo desconocido"}
+                  </span>
+                  {item.item?.sku && (
+                    <span className="text-500 text-xs">
+                      SKU: {item.item.sku}
+                    </span>
+                  )}
+                </div>
+              )}
+            />
+            <Column
+              header="Cantidad"
+              className="text-center"
+              style={{ width: "8rem" }}
+              body={(item: ReceiveItem) => (
+                <Tag
+                  value={item.quantityReceived.toString()}
+                  severity="success"
+                  className="text-sm"
+                />
+              )}
+            />
+            <Column
+              header="Costo Unit."
+              className="text-right"
+              style={{ width: "9rem" }}
+              body={(item: ReceiveItem) => formatCurrency(item.unitCost)}
+            />
+            <Column
+              header="Subtotal"
+              className="text-right font-semibold"
+              style={{ width: "9rem" }}
+              body={(item: ReceiveItem) =>
+                formatCurrency(
+                  Number(item.unitCost || 0) * (item.quantityReceived || 0),
+                )
+              }
+            />
+            <Column
+              header="Lote"
+              className="text-center"
+              style={{ width: "8rem" }}
+              body={(item: ReceiveItem) =>
+                item.batchNumber ? (
+                  <Tag
+                    value={item.batchNumber}
+                    severity="info"
+                    className="text-xs"
+                  />
+                ) : (
+                  <span className="text-400">—</span>
+                )
+              }
+            />
+            <Column
+              header="Vencimiento"
+              className="text-center"
+              style={{ width: "9rem" }}
+              body={(item: ReceiveItem) =>
+                item.expiryDate
+                  ? new Date(item.expiryDate).toLocaleDateString("es-VE")
+                  : "—"
+              }
+            />
+          </DataTable>
+        ) : (
+          <div className="text-center text-500 p-4">
+            <i
+              className="pi pi-inbox text-4xl mb-3"
+              style={{ display: "block" }}
+            />
+            No hay artículos en esta recepción
+          </div>
+        )}
+
+        {/* ── Footer total ── */}
+        {items.length > 0 && (
+          <div className="flex justify-content-end">
+            <div className="surface-100 border-round px-4 py-2">
+              <span className="text-500 mr-3">Total:</span>
+              <span className="font-bold text-primary text-xl">
+                {formatCurrency(total)}
+              </span>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div
+        className="flex flex-column align-items-center justify-content-center"
+        style={{ minHeight: "60vh" }}
+      >
+        <ProgressSpinner
+          style={{ width: "50px", height: "50px" }}
+          strokeWidth="4"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
+        <p className="mt-3 text-600 font-medium">Cargando recepciones...</p>
+      </div>
+    );
+  }
+
+  return (
+    <>
+      <Toast ref={toast} />
+      <motion.div
+        initial={{
+          opacity: 0,
+          scale: 0.95,
+          y: 40,
+          filter: "blur(8px)",
+        }}
+        animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+        transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+        className="card"
+      >
+        <DataTable
+          ref={dt}
+          value={receives}
+          header={renderHeader()}
+          paginator
+          rows={10}
+          responsiveLayout="scroll"
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} recepciones"
+          rowsPerPageOptions={[10, 25, 50]}
+          filters={filters}
+          loading={loading}
+          emptyMessage="No hay recepciones disponibles"
+          rowClassName={() => "animated-row"}
+          size="small"
+          dataKey="id"
+          stripedRows
+        >
+          <Column body={actionBodyTemplate} style={{ width: "7rem" }} frozen />
+          <Column field="receiveNumber" header="Nro. Recepción" sortable />
+          <Column
+            header="Orden de Compra"
+            sortable
+            sortField="purchaseOrder.orderNumber"
+            body={(rowData: Receive) =>
+              rowData.purchaseOrder?.orderNumber || "—"
+            }
+          />
+          <Column header="Proveedor" body={supplierBodyTemplate} />
+          <Column header="Almacén" body={warehouseBodyTemplate} />
+          <Column
+            header="Fecha Recepción"
+            body={dateBodyTemplate}
+            sortable
+            sortField="receivedAt"
+          />
+          <Column
+            header="Artículos"
+            body={itemsCountBodyTemplate}
+            style={{ width: "8rem" }}
+            className="text-center"
+          />
+          <Column
+            header="Total"
+            body={totalBodyTemplate}
+            style={{ width: "9rem" }}
+            className="text-right"
+          />
+          <Column header="Recibido Por" body={receivedByBodyTemplate} />
+        </DataTable>
+
+        {/* Delete confirmation */}
+        <Dialog
+          visible={deleteDialog}
+          style={{ width: "450px" }}
+          header="Confirmar Eliminación"
+          modal
+          footer={deleteDialogFooter}
+          onHide={hideDeleteDialog}
+        >
+          <div className="flex align-items-center gap-3 p-2">
+            <i
+              className="pi pi-exclamation-triangle text-orange-500"
+              style={{ fontSize: "2rem" }}
+            />
+            {selectedReceive && (
+              <span>
+                ¿Estás seguro de que deseas eliminar la recepción{" "}
+                <b>{selectedReceive.receiveNumber}</b>?
+              </span>
+            )}
+          </div>
+        </Dialog>
+
+        {/* Detail dialog - fully refactored */}
+        <Dialog
+          visible={detailDialog}
+          style={{ width: "960px" }}
+          header={
+            <div className="flex align-items-center gap-2">
+              <i className="pi pi-inbox text-primary" />
+              <span>Recepción: {selectedReceive?.receiveNumber || ""}</span>
+            </div>
+          }
+          modal
+          maximizable
+          onHide={() => {
+            setSelectedReceive(null);
+            setDetailDialog(false);
+          }}
+        >
+          {renderDetailContent()}
+        </Dialog>
+      </motion.div>
+    </>
+  );
+};
+
+export default ReceiveList;

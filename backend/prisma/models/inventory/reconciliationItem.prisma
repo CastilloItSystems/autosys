@@ -1,0 +1,20 @@
+// backend/prisma/models/inventory/reconciliationItem.prisma
+
+model ReconciliationItem {
+  id                  String            @id @default(uuid())
+  reconciliationId    String
+  reconciliation      Reconciliation    @relation(fields: [reconciliationId], references: [id], onDelete: Cascade)
+  itemId              String
+  item                Item              @relation("ReconciliationItems", fields: [itemId], references: [id], onDelete: Restrict)
+  systemQuantity      Int
+  expectedQuantity    Int
+  difference          Int
+  notes               String?           @db.Text
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
+
+  @@unique([reconciliationId, itemId])
+  @@index([reconciliationId])
+  @@index([itemId])
+  @@map("reconciliation_items")
+}

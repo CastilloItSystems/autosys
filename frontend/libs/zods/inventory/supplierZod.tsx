@@ -1,31 +1,88 @@
-import { array, boolean, object, string, z } from "zod";
+import { z } from "zod";
 
-export const supplierSchema = object({
-  id: string().optional(),
-  nombre: string()
+export const createSupplierSchema = z.object({
+  code: z
+    .string()
+    .min(2, "El código debe tener al menos 2 caracteres")
+    .max(50, "El código no puede exceder 50 caracteres")
+    .toUpperCase(),
+  name: z
+    .string()
     .min(1, "El nombre es obligatorio")
-    .max(100, "El nombre no puede exceder los 100 caracteres"),
-  contacto: string()
-    .max(100, "El contacto no puede exceder los 100 caracteres")
+    .max(200, "El nombre no puede exceder 200 caracteres"),
+  contactName: z
+    .string()
+    .max(100, "El contacto no puede exceder 100 caracteres")
+    .nullable()
     .optional(),
-  telefono: string()
-    .max(20, "El teléfono no puede exceder los 20 caracteres")
+  email: z
+    .string()
+    .email("Debe ser un correo válido")
+    .max(100, "El correo no puede exceder 100 caracteres")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  phone: z
+    .string()
+    .max(20, "El teléfono no puede exceder 20 caracteres")
+    .nullable()
     .optional(),
-  correo: string().email("Debe ser un correo válido").optional(),
-  direccion: string()
-    .max(200, "La dirección no puede exceder los 200 caracteres")
+  address: z
+    .string()
+    .max(300, "La dirección no puede exceder 300 caracteres")
+    .nullable()
     .optional(),
-  condicionesPago: string()
-    .max(200, "Las condiciones de pago no pueden exceder los 200 caracteres")
+  taxId: z
+    .string()
+    .max(50, "El RIF/NIT no puede exceder 50 caracteres")
+    .nullable()
     .optional(),
-  estado: string()
-    .refine((val) => val === "activo" || val === "inactivo", {
-      message: "El estado debe ser 'activo' o 'inactivo'",
-    })
-    .optional(),
-  eliminado: boolean().default(false).optional(),
-  createdBy: string().optional(),
-  historial: array(z.any()).optional(),
-  createdAt: string().optional(),
-  updatedAt: string().optional(),
 });
+
+export const updateSupplierSchema = z.object({
+  code: z
+    .string()
+    .min(2, "El código debe tener al menos 2 caracteres")
+    .max(50, "El código no puede exceder 50 caracteres")
+    .toUpperCase()
+    .optional(),
+  name: z
+    .string()
+    .min(1, "El nombre es obligatorio")
+    .max(200, "El nombre no puede exceder 200 caracteres")
+    .optional(),
+  contactName: z
+    .string()
+    .max(100, "El contacto no puede exceder 100 caracteres")
+    .nullable()
+    .optional(),
+  email: z
+    .string()
+    .email("Debe ser un correo válido")
+    .max(100, "El correo no puede exceder 100 caracteres")
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  phone: z
+    .string()
+    .max(20, "El teléfono no puede exceder 20 caracteres")
+    .nullable()
+    .optional(),
+  address: z
+    .string()
+    .max(300, "La dirección no puede exceder 300 caracteres")
+    .nullable()
+    .optional(),
+  taxId: z
+    .string()
+    .max(50, "El RIF/NIT no puede exceder 50 caracteres")
+    .nullable()
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+
+export type CreateSupplier = z.infer<typeof createSupplierSchema>;
+export type UpdateSupplier = z.infer<typeof updateSupplierSchema>;
+
+// Legacy: mantener supplierSchema para backward compatibility
+export const supplierSchema = createSupplierSchema;

@@ -5,19 +5,25 @@ import { Router } from 'express'
 // Importar rutas de submódulos
 import itemsRouter from './items/index'
 import catalogRoutes from './items/catalogs/index'
-// import warehouseRoutes from './warehouses/warehouses.routes'
-// import stockRoutes from './stock/stock.routes'
-// import movementRoutes from './movements/movements.routes'
-// import purchaseOrderRoutes from './purchaseOrders/purchaseOrders.routes'
-// import reservationRoutes from './reservations/reservations.routes'
-// import transferRoutes from './transfers/transfers.routes'
-// import exitNoteRoutes from './exitNotes/exitNotes.routes'
-// import batchRoutes from './batches/batches.routes'
-// import serialNumberRoutes from './serialNumbers/serialNumbers.routes'
-// import loanRoutes from './loans/loans.routes'
-// import returnRoutes from './returns/returns.routes'
-// import reportRoutes from './reports/index'
-// import analyticsRoutes from './analytics/index'
+import warehouseRoutes from './warehouses/index'
+import movementRoutes from './movements/index'
+import stockRoutes from './stock/index'
+import reservationRoutes from './reservations/index'
+import supplierRoutes from './suppliers/index'
+import purchaseOrderRoutes from './purchaseOrders/index'
+import receiveRoutes from './receives/index'
+import adjustmentRoutes from './adjustments/index'
+import cycleCountRoutes from './cycleCounts/index'
+import reconciliationRoutes from './reconciliations/index'
+import { batchesRouter } from './batches/index'
+import { serialNumbersRouter } from './serialNumbers/index'
+import { transfersRouter } from './transfers/index'
+import { returnsRouter } from './returns/index'
+import exitNotesRouter from './exitNotes/index'
+import loanRoutes from './loans/loans.routes'
+import reportRoutes from './reports/index'
+import analyticsRoutes from './analytics/index'
+import integrationsRoutes from './integrations/index'
 
 const router = Router()
 
@@ -34,56 +40,80 @@ router.use('/items', itemsRouter)
 // /api/inventory/catalogs/*
 router.use('/catalogs', catalogRoutes)
 
-// // Almacenes
-// // /api/inventory/warehouses/*
-// router.use('/warehouses', warehouseRoutes)
+// Almacenes
+// /api/inventory/warehouses/*
+router.use('/warehouses', warehouseRoutes)
 
-// // Stock
-// // /api/inventory/stock/*
-// router.use('/stock', stockRoutes)
+// Movimientos
+// /api/inventory/movements/*
+router.use('/movements', movementRoutes)
 
-// // Movimientos
-// // /api/inventory/movements/*
-// router.use('/movements', movementRoutes)
+// Stock
+// /api/inventory/stock/*
+router.use('/stock', stockRoutes)
 
-// // Órdenes de Compra
-// // /api/inventory/purchase-orders/*
-// router.use('/purchase-orders', purchaseOrderRoutes)
+// Reservas
+// /api/inventory/reservations/*
+router.use('/reservations', reservationRoutes)
 
-// // Reservas
-// // /api/inventory/reservations/*
-// router.use('/reservations', reservationRoutes)
+// Proveedores
+// /api/inventory/suppliers/*
+router.use('/suppliers', supplierRoutes)
 
-// // Transferencias
-// // /api/inventory/transfers/*
-// router.use('/transfers', transferRoutes)
+// Órdenes de Compra
+// /api/inventory/purchase-orders/*
+router.use('/purchase-orders', purchaseOrderRoutes)
 
-// // Notas de Salida
-// // /api/inventory/exit-notes/*
-// router.use('/exit-notes', exitNoteRoutes)
+// Recepciones
+// /api/inventory/receives/*
+router.use('/receives', receiveRoutes)
 
-// // Lotes
-// // /api/inventory/batches/*
-// router.use('/batches', batchRoutes)
+// Ajustes
+// /api/inventory/adjustments/*
+router.use('/adjustments', adjustmentRoutes)
 
-// // Números de Serie
-// // /api/inventory/serial-numbers/*
-// router.use('/serial-numbers', serialNumberRoutes)
+// Ciclos de Conteo
+// /api/inventory/cycle-counts/*
+router.use('/cycle-counts', cycleCountRoutes)
 
-// // Préstamos
-// // /api/inventory/loans/*
-// router.use('/loans', loanRoutes)
+// Reconciliaciones
+// /api/inventory/reconciliations/*
+router.use('/reconciliations', reconciliationRoutes)
 
-// // Devoluciones
-// // /api/inventory/returns/*
-// router.use('/returns', returnRoutes)
+// Lotes
+// /api/inventory/batches/*
+router.use('/batches', batchesRouter)
 
-// // Reportes
-// // /api/inventory/reports/*
-// router.use('/reports', reportRoutes)
+// Números de Serie
+// /api/inventory/serial-numbers/*
+router.use('/serial-numbers', serialNumbersRouter)
 
-// // Analíticas
-// // /api/inventory/analytics/*
-// router.use('/analytics', analyticsRoutes)
+// Transferencias
+// /api/inventory/transfers/*
+router.use('/transfers', transfersRouter)
+
+// Préstamos
+// /api/inventory/loans/*
+router.use('/loans', loanRoutes)
+
+// Devoluciones
+// /api/inventory/returns/*
+router.use('/returns', returnsRouter)
+
+// Notas de Salida
+// /api/inventory/exit-notes/*
+router.use('/exit-notes', exitNotesRouter)
+
+// Reportes
+// /api/inventory/reports/*
+router.use('/reports', reportRoutes)
+
+// Analíticas
+// /api/inventory/analytics/*
+router.use('/analytics', analyticsRoutes)
+
+// Integraciones
+// /api/inventory/integrations/*
+router.use('/integrations', integrationsRoutes)
 
 export default router

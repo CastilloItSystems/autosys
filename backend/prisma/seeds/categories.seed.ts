@@ -1,474 +1,601 @@
-import 'dotenv/config'
-import { PrismaClient } from '../../src/generated/prisma/client.js'
-import { PrismaPg } from '@prisma/adapter-pg'
+import type { PrismaClient } from '../../src/generated/prisma/client.js'
 
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not defined')
-}
-
-const adapter = new PrismaPg({ connectionString })
-const prisma = new PrismaClient({ adapter })
-
-async function seedCategories() {
+async function seedCategories(prisma: PrismaClient, empresaId: string) {
   try {
     console.log('🌱 Starting categories seed...\n')
-    
-    // Crear categorías raíz (sin padre)
-    const electronics = await prisma.category.upsert({
-      where: { code: 'ELEC' },
+
+    // ============================================
+    // CATEGORÍAS RAÍZ (nivel 1)
+    // ============================================
+
+    // Filtros
+    const filters = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FILT' } },
       update: {
-        name: 'Electrónica',
-        description: 'Productos electrónicos y accesorios',
+        name: 'Filtros',
+        defaultMargin: 30.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'FILT',
+        name: 'Filtros',
+        defaultMargin: 30.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Category upserted: ${filters.name}`)
+
+    // Aceites y Lubricantes
+    const oils = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ACEITE' } },
+      update: {
+        name: 'Aceites y Lubricantes',
         defaultMargin: 25.0,
         isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ACEITE',
+        name: 'Aceites y Lubricantes',
+        defaultMargin: 25.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Category upserted: ${oils.name}`)
+
+    // Frenos
+    const brakes = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FRENO' } },
+      update: {
+        name: 'Frenos',
+        defaultMargin: 35.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'FRENO',
+        name: 'Frenos',
+        defaultMargin: 35.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Category upserted: ${brakes.name}`)
+
+    // Sistema Eléctrico
+    const electrical = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ELEC' } },
+      update: {
+        name: 'Sistema Eléctrico',
+        defaultMargin: 28.0,
+        isActive: true,
+        empresaId,
       },
       create: {
         code: 'ELEC',
-        name: 'Electrónica',
-        description: 'Productos electrónicos y accesorios',
-        defaultMargin: 25.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Category upserted: ${electronics.name}`)
-
-    const clothing = await prisma.category.upsert({
-      where: { code: 'ROPA' },
-      update: {
-        name: 'Ropa',
-        description: 'Prendas de vestir',
-        defaultMargin: 40.0,
-        isActive: true,
-      },
-      create: {
-        code: 'ROPA',
-        name: 'Ropa',
-        description: 'Prendas de vestir',
-        defaultMargin: 40.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Category upserted: ${clothing.name}`)
-
-    const furniture = await prisma.category.upsert({
-      where: { code: 'MUEBL' },
-      update: {
-        name: 'Muebles',
-        description: 'Muebles para hogar y oficina',
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-      create: {
-        code: 'MUEBL',
-        name: 'Muebles',
-        description: 'Muebles para hogar y oficina',
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Category upserted: ${furniture.name}`)
-
-    const sports = await prisma.category.upsert({
-      where: { code: 'DEPO' },
-      update: {
-        name: 'Deportes',
-        description: 'Artículos deportivos',
-        defaultMargin: 30.0,
-        isActive: true,
-      },
-      create: {
-        code: 'DEPO',
-        name: 'Deportes',
-        description: 'Artículos deportivos',
-        defaultMargin: 30.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Category upserted: ${sports.name}`)
-
-    // Subcategorías de Electrónica
-    const computers = await prisma.category.upsert({
-      where: { code: 'COMP' },
-      update: {
-        name: 'Computadoras',
-        description: 'Computadoras y componentes',
-        parentId: electronics.id,
+        name: 'Sistema Eléctrico',
         defaultMargin: 28.0,
         isActive: true,
-      },
-      create: {
-        code: 'COMP',
-        name: 'Computadoras',
-        description: 'Computadoras y componentes',
-        parentId: electronics.id,
-        defaultMargin: 28.0,
-        isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Subcategory upserted: ${computers.name}`)
+    console.log(`✅ Category upserted: ${electrical.name}`)
 
-    const phones = await prisma.category.upsert({
-      where: { code: 'TELF' },
+    // Suspensión
+    const suspension = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'SUSP' } },
       update: {
-        name: 'Teléfonos',
-        description: 'Teléfonos móviles y accesorios',
-        parentId: electronics.id,
-        defaultMargin: 22.0,
-        isActive: true,
-      },
-      create: {
-        code: 'TELF',
-        name: 'Teléfonos',
-        description: 'Teléfonos móviles y accesorios',
-        parentId: electronics.id,
-        defaultMargin: 22.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Subcategory upserted: ${phones.name}`)
-
-    const audio = await prisma.category.upsert({
-      where: { code: 'AUDIO' },
-      update: {
-        name: 'Audio',
-        description: 'Equipos de audio y sonido',
-        parentId: electronics.id,
+        name: 'Suspensión',
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'AUDIO',
-        name: 'Audio',
-        description: 'Equipos de audio y sonido',
-        parentId: electronics.id,
+        code: 'SUSP',
+        name: 'Suspensión',
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Subcategory upserted: ${audio.name}`)
+    console.log(`✅ Category upserted: ${suspension.name}`)
 
-    // Sub-subcategorías de Computadoras
-    await prisma.category.upsert({
-      where: { code: 'LAPTOP' },
+    // Transmisión
+    const transmission = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'TRANS' } },
       update: {
-        name: 'Laptops',
-        description: 'Computadoras portátiles',
-        parentId: computers.id,
+        name: 'Transmisión',
+        defaultMargin: 36.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'TRANS',
+        name: 'Transmisión',
+        defaultMargin: 36.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Category upserted: ${transmission.name}`)
+
+    // Refrigeración
+    const cooling = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'REFRIG' } },
+      update: {
+        name: 'Refrigeración',
+        defaultMargin: 27.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'REFRIG',
+        name: 'Refrigeración',
+        defaultMargin: 27.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Category upserted: ${cooling.name}`)
+
+    // Combustible
+    const fuel = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'COMB' } },
+      update: {
+        name: 'Combustible',
         defaultMargin: 20.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'LAPTOP',
-        name: 'Laptops',
-        description: 'Computadoras portátiles',
-        parentId: computers.id,
+        code: 'COMB',
+        name: 'Combustible',
         defaultMargin: 20.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Sub-subcategory upserted: Laptops`)
+    console.log(`✅ Category upserted: ${fuel.name}`)
 
-    await prisma.category.upsert({
-      where: { code: 'DESK' },
+    // Herramientas
+    const tools = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'HERR' } },
       update: {
-        name: 'Desktops',
-        description: 'Computadoras de escritorio',
-        parentId: computers.id,
-        defaultMargin: 25.0,
-        isActive: true,
-      },
-      create: {
-        code: 'DESK',
-        name: 'Desktops',
-        description: 'Computadoras de escritorio',
-        parentId: computers.id,
-        defaultMargin: 25.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Sub-subcategory upserted: Desktops`)
-
-    // Subcategorías de Ropa
-    const menClothing = await prisma.category.upsert({
-      where: { code: 'HOMBRE' },
-      update: {
-        name: 'Ropa Hombre',
-        description: 'Ropa para hombres',
-        parentId: clothing.id,
-        defaultMargin: 38.0,
-        isActive: true,
-      },
-      create: {
-        code: 'HOMBRE',
-        name: 'Ropa Hombre',
-        description: 'Ropa para hombres',
-        parentId: clothing.id,
-        defaultMargin: 38.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Subcategory upserted: ${menClothing.name}`)
-
-    const womenClothing = await prisma.category.upsert({
-      where: { code: 'MUJER' },
-      update: {
-        name: 'Ropa Mujer',
-        description: 'Ropa para mujeres',
-        parentId: clothing.id,
-        defaultMargin: 42.0,
-        isActive: true,
-      },
-      create: {
-        code: 'MUJER',
-        name: 'Ropa Mujer',
-        description: 'Ropa para mujeres',
-        parentId: clothing.id,
-        defaultMargin: 42.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Subcategory upserted: ${womenClothing.name}`)
-
-    const kids = await prisma.category.upsert({
-      where: { code: 'NIÑOS' },
-      update: {
-        name: 'Ropa Niños',
-        description: 'Ropa para niños',
-        parentId: clothing.id,
+        name: 'Herramientas',
         defaultMargin: 40.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'NIÑOS',
-        name: 'Ropa Niños',
-        description: 'Ropa para niños',
-        parentId: clothing.id,
+        code: 'HERR',
+        name: 'Herramientas',
         defaultMargin: 40.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Subcategory upserted: ${kids.name}`)
+    console.log(`✅ Category upserted: ${tools.name}`)
 
-    // Sub-subcategorías de Ropa Hombre
-    await prisma.category.upsert({
-      where: { code: 'CAMISAS' },
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - FILTROS
+    // ============================================
+
+    const filtroAceite = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FILT_ACE' } },
       update: {
-        name: 'Camisas',
-        description: 'Camisas para hombres',
-        parentId: menClothing.id,
-        defaultMargin: 35.0,
+        name: 'Filtros de Aceite',
+        parentId: filters.id,
+        defaultMargin: 28.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'CAMISAS',
-        name: 'Camisas',
-        description: 'Camisas para hombres',
-        parentId: menClothing.id,
-        defaultMargin: 35.0,
+        code: 'FILT_ACE',
+        name: 'Filtros de Aceite',
+        parentId: filters.id,
+        defaultMargin: 28.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Sub-subcategory upserted: Camisas`)
+    console.log(`✅ Subcategory upserted: ${filtroAceite.name}`)
 
-    await prisma.category.upsert({
-      where: { code: 'PANTALONES' },
+    const filtroAire = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FILT_AIRE' } },
       update: {
-        name: 'Pantalones',
-        description: 'Pantalones para hombres',
-        parentId: menClothing.id,
-        defaultMargin: 40.0,
-        isActive: true,
-      },
-      create: {
-        code: 'PANTALONES',
-        name: 'Pantalones',
-        description: 'Pantalones para hombres',
-        parentId: menClothing.id,
-        defaultMargin: 40.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Sub-subcategory upserted: Pantalones`)
-
-    // Subcategorías de Muebles
-    const furniture_home = await prisma.category.upsert({
-      where: { code: 'MUE_CASA' },
-      update: {
-        name: 'Muebles para Casa',
-        description: 'Muebles para el hogar',
-        parentId: furniture.id,
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-      create: {
-        code: 'MUE_CASA',
-        name: 'Muebles para Casa',
-        description: 'Muebles para el hogar',
-        parentId: furniture.id,
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Subcategory upserted: ${furniture_home.name}`)
-
-    const furniture_office = await prisma.category.upsert({
-      where: { code: 'MUE_OFICI' },
-      update: {
-        name: 'Muebles para Oficina',
-        description: 'Muebles para espacios de trabajo',
-        parentId: furniture.id,
-        defaultMargin: 38.0,
-        isActive: true,
-      },
-      create: {
-        code: 'MUE_OFICI',
-        name: 'Muebles para Oficina',
-        description: 'Muebles para espacios de trabajo',
-        parentId: furniture.id,
-        defaultMargin: 38.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Subcategory upserted: ${furniture_office.name}`)
-
-    // Sub-subcategorías de Muebles Casa
-    await prisma.category.upsert({
-      where: { code: 'SOFAS' },
-      update: {
-        name: 'Sofás',
-        description: 'Sofás y asientos',
-        parentId: furniture_home.id,
+        name: 'Filtros de Aire',
+        parentId: filters.id,
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'SOFAS',
-        name: 'Sofás',
-        description: 'Sofás y asientos',
-        parentId: furniture_home.id,
+        code: 'FILT_AIRE',
+        name: 'Filtros de Aire',
+        parentId: filters.id,
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Sub-subcategory upserted: Sofás`)
+    console.log(`✅ Subcategory upserted: ${filtroAire.name}`)
 
-    await prisma.category.upsert({
-      where: { code: 'MESAS' },
+    const filtroCombustible = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FILT_COMB' } },
       update: {
-        name: 'Mesas',
-        description: 'Mesas de comedor y centro',
-        parentId: furniture_home.id,
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-      create: {
-        code: 'MESAS',
-        name: 'Mesas',
-        description: 'Mesas de comedor y centro',
-        parentId: furniture_home.id,
-        defaultMargin: 35.0,
-        isActive: true,
-      },
-    })
-    console.log(`✅ Sub-subcategory upserted: Mesas`)
-
-    // Subcategorías de Deportes
-    const sports_outdoor = await prisma.category.upsert({
-      where: { code: 'OUTDOOR' },
-      update: {
-        name: 'Deportes Outdoor',
-        description: 'Equipos para deportes al aire libre',
-        parentId: sports.id,
+        name: 'Filtros de Combustible',
+        parentId: filters.id,
         defaultMargin: 30.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'OUTDOOR',
-        name: 'Deportes Outdoor',
-        description: 'Equipos para deportes al aire libre',
-        parentId: sports.id,
+        code: 'FILT_COMB',
+        name: 'Filtros de Combustible',
+        parentId: filters.id,
         defaultMargin: 30.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Subcategory upserted: ${sports_outdoor.name}`)
+    console.log(`✅ Subcategory upserted: ${filtroCombustible.name}`)
 
-    const sports_gym = await prisma.category.upsert({
-      where: { code: 'GIMNASIA' },
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - FRENOS
+    // ============================================
+
+    const pastillas = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FRENO_PAST' } },
       update: {
-        name: 'Gimnasia',
-        description: 'Equipos de gimnasia y fitness',
-        parentId: sports.id,
-        defaultMargin: 28.0,
+        name: 'Pastillas de Freno',
+        parentId: brakes.id,
+        defaultMargin: 38.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'GIMNASIA',
-        name: 'Gimnasia',
-        description: 'Equipos de gimnasia y fitness',
-        parentId: sports.id,
-        defaultMargin: 28.0,
+        code: 'FRENO_PAST',
+        name: 'Pastillas de Freno',
+        parentId: brakes.id,
+        defaultMargin: 38.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Subcategory upserted: ${sports_gym.name}`)
+    console.log(`✅ Subcategory upserted: ${pastillas.name}`)
 
-    // Sub-subcategorías de Deportes Outdoor
-    await prisma.category.upsert({
-      where: { code: 'CICLISMO' },
+    const discos = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FRENO_DISC' } },
       update: {
-        name: 'Ciclismo',
-        description: 'Bicicletas y accesorios',
-        parentId: sports_outdoor.id,
-        defaultMargin: 28.0,
+        name: 'Discos de Freno',
+        parentId: brakes.id,
+        defaultMargin: 35.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'CICLISMO',
-        name: 'Ciclismo',
-        description: 'Bicicletas y accesorios',
-        parentId: sports_outdoor.id,
-        defaultMargin: 28.0,
+        code: 'FRENO_DISC',
+        name: 'Discos de Freno',
+        parentId: brakes.id,
+        defaultMargin: 35.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Sub-subcategory upserted: Ciclismo`)
+    console.log(`✅ Subcategory upserted: ${discos.name}`)
 
-    await prisma.category.upsert({
-      where: { code: 'CAMPISMO' },
+    const fluido = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'FRENO_FLUID' } },
       update: {
-        name: 'Campismo',
-        description: 'Equipos de campismo y acampada',
-        parentId: sports_outdoor.id,
+        name: 'Fluido de Freno',
+        parentId: brakes.id,
+        defaultMargin: 22.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'FRENO_FLUID',
+        name: 'Fluido de Freno',
+        parentId: brakes.id,
+        defaultMargin: 22.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${fluido.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - ACEITES
+    // ============================================
+
+    const aceiteMotor = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ACE_MOTOR' } },
+      update: {
+        name: 'Aceite de Motor',
+        parentId: oils.id,
+        defaultMargin: 24.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ACE_MOTOR',
+        name: 'Aceite de Motor',
+        parentId: oils.id,
+        defaultMargin: 24.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${aceiteMotor.name}`)
+
+    const aceiteCaja = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ACE_CAJA' } },
+      update: {
+        name: 'Aceite de Caja',
+        parentId: oils.id,
+        defaultMargin: 26.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ACE_CAJA',
+        name: 'Aceite de Caja',
+        parentId: oils.id,
+        defaultMargin: 26.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${aceiteCaja.name}`)
+
+    const aceiteHidraulico = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ACE_HIDRA' } },
+      update: {
+        name: 'Aceite Hidráulico',
+        parentId: oils.id,
+        defaultMargin: 27.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ACE_HIDRA',
+        name: 'Aceite Hidráulico',
+        parentId: oils.id,
+        defaultMargin: 27.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${aceiteHidraulico.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - SISTEMA ELÉCTRICO
+    // ============================================
+
+    const baterias = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ELEC_BAT' } },
+      update: {
+        name: 'Baterías',
+        parentId: electrical.id,
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
       create: {
-        code: 'CAMPISMO',
-        name: 'Campismo',
-        description: 'Equipos de campismo y acampada',
-        parentId: sports_outdoor.id,
+        code: 'ELEC_BAT',
+        name: 'Baterías',
+        parentId: electrical.id,
         defaultMargin: 32.0,
         isActive: true,
+        empresaId,
       },
     })
-    console.log(`✅ Sub-subcategory upserted: Campismo`)
+    console.log(`✅ Subcategory upserted: ${baterias.name}`)
+
+    const alternadores = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ELEC_ALT' } },
+      update: {
+        name: 'Alternadores',
+        parentId: electrical.id,
+        defaultMargin: 28.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ELEC_ALT',
+        name: 'Alternadores',
+        parentId: electrical.id,
+        defaultMargin: 28.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${alternadores.name}`)
+
+    const bujias = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'ELEC_BUJ' } },
+      update: {
+        name: 'Bujías',
+        parentId: electrical.id,
+        defaultMargin: 35.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'ELEC_BUJ',
+        name: 'Bujías',
+        parentId: electrical.id,
+        defaultMargin: 35.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${bujias.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - SUSPENSIÓN
+    // ============================================
+
+    const amortiguadores = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'SUSP_AMOR' } },
+      update: {
+        name: 'Amortiguadores',
+        parentId: suspension.id,
+        defaultMargin: 34.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'SUSP_AMOR',
+        name: 'Amortiguadores',
+        parentId: suspension.id,
+        defaultMargin: 34.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${amortiguadores.name}`)
+
+    const espirales = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'SUSP_ESPI' } },
+      update: {
+        name: 'Espirales',
+        parentId: suspension.id,
+        defaultMargin: 32.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'SUSP_ESPI',
+        name: 'Espirales',
+        parentId: suspension.id,
+        defaultMargin: 32.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${espirales.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - TRANSMISIÓN
+    // ============================================
+
+    const embrague = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'TRANS_EMBR' } },
+      update: {
+        name: 'Embrague',
+        parentId: transmission.id,
+        defaultMargin: 36.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'TRANS_EMBR',
+        name: 'Embrague',
+        parentId: transmission.id,
+        defaultMargin: 36.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${embrague.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - REFRIGERACIÓN
+    // ============================================
+
+    const termostatos = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'REFRIG_TERM' } },
+      update: {
+        name: 'Termostatos',
+        parentId: cooling.id,
+        defaultMargin: 26.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'REFRIG_TERM',
+        name: 'Termostatos',
+        parentId: cooling.id,
+        defaultMargin: 26.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${termostatos.name}`)
+
+    const mangueras = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'REFRIG_MANG' } },
+      update: {
+        name: 'Mangueras',
+        parentId: cooling.id,
+        defaultMargin: 28.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'REFRIG_MANG',
+        name: 'Mangueras',
+        parentId: cooling.id,
+        defaultMargin: 28.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${mangueras.name}`)
+
+    // ============================================
+    // SUBCATEGORÍAS (nivel 2) - HERRAMIENTAS
+    // ============================================
+
+    const destornilladores = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'HERR_DEST' } },
+      update: {
+        name: 'Destornilladores',
+        parentId: tools.id,
+        defaultMargin: 38.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'HERR_DEST',
+        name: 'Destornilladores',
+        parentId: tools.id,
+        defaultMargin: 38.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${destornilladores.name}`)
+
+    const llaves = await prisma.category.upsert({
+      where: { empresaId_code: { empresaId, code: 'HERR_LLAVE' } },
+      update: {
+        name: 'Llaves y Alicates',
+        parentId: tools.id,
+        defaultMargin: 42.0,
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'HERR_LLAVE',
+        name: 'Llaves y Alicates',
+        parentId: tools.id,
+        defaultMargin: 42.0,
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log(`✅ Subcategory upserted: ${llaves.name}`)
 
     console.log('\n✅ All test categories seeded successfully!')
   } catch (error) {
     console.error('❌ Error seeding categories:', error)
     throw error
-  } finally {
-    await prisma.$disconnect()
   }
 }
-
-// Ejecutar si el archivo se llama directamente
-seedCategories().catch(error => {
-  console.error(error)
-  process.exit(1)
-})
 
 export default seedCategories

@@ -1,15 +1,13 @@
 export interface Supplier {
   id: string;
-  nombre: string; // required
-  contacto?: string;
-  telefono?: string;
-  correo?: string;
-  direccion?: string;
-  condicionesPago?: string;
-  estado?: "activo" | "inactivo";
-  eliminado?: boolean;
-  createdBy?: string;
-  historial?: any[];
+  code: string;
+  name: string;
+  contactName?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  taxId?: string | null;
+  isActive: boolean;
   createdAt?: string;
   updatedAt?: string;
 }

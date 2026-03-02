@@ -1,8 +1,6 @@
 // backend/src/features/inventory/shared/utils/movementNumberGenerator.ts
 
-import { PrismaClient } from '../../../../generated/prisma'
-
-const prisma = new PrismaClient()
+import prisma from '../../../../services/prisma.service'
 
 export class MovementNumberGenerator {
   /**

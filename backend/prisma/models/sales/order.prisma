@@ -12,6 +12,9 @@ model Order {
   orderNumber     String      @unique
   status          OrderStatus @default(DRAFT)
   
+  empresaId       String
+  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  
   customerId      String
   customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
   
@@ -48,4 +51,5 @@ model Order {
   @@index([customerId])
   @@index([status])
   @@index([orderDate])
+  @@index([empresaId])
 }

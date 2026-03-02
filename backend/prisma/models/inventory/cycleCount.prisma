@@ -1,0 +1,40 @@
+// backend/prisma/models/inventory/cycleCount.prisma
+
+enum CycleCountStatus {
+  DRAFT
+  IN_PROGRESS
+  APPROVED
+  APPLIED
+  REJECTED
+  CANCELLED
+
+  @@map("cycle_count_status")
+}
+
+model CycleCount {
+  id                String             @id @default(uuid())
+  cycleCountNumber  String             @unique
+  warehouseId       String
+  warehouse         Warehouse          @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  status            CycleCountStatus   @default(DRAFT)
+  startedBy         String?
+  startedAt         DateTime?
+  completedBy       String?
+  completedAt       DateTime?
+  approvedBy        String?
+  approvedAt        DateTime?
+  appliedBy         String?
+  appliedAt         DateTime?
+  notes             String?            @db.Text
+  remarks           String?            @db.Text
+  items             CycleCountItem[]
+  createdBy         String
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  @@index([cycleCountNumber])
+  @@index([warehouseId])
+  @@index([status])
+  @@index([createdAt])
+  @@map("cycle_counts")
+}

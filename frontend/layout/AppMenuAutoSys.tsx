@@ -126,6 +126,11 @@ const AppMenuAutoSys = () => {
                   to: "/autosys/inventario/ordenes-compra",
                 },
                 {
+                  label: "recepciones",
+                  icon: "pi pi-fw pi-inbox",
+                  to: "/autosys/inventario/recepciones",
+                },
+                {
                   label: "órdenes de venta",
                   icon: "pi pi-fw pi-money-bill",
                   to: "/autosys/inventario/ordenes-venta",
@@ -134,6 +139,69 @@ const AppMenuAutoSys = () => {
                   label: "reservas",
                   icon: "pi pi-fw pi-bookmark",
                   to: "/autosys/inventario/reservas",
+                },
+                {
+                  label: "notas de salida",
+                  icon: "pi pi-fw pi-external-link",
+                  to: "/autosys/inventario/notas-salida",
+                },
+              ],
+            },
+            {
+              label: "almacén",
+              icon: "pi pi-fw pi-warehouse",
+              items: [
+                {
+                  label: "transferencias",
+                  icon: "pi pi-arrow-right-arrow-left",
+                  to: "/autosys/inventario/transferencias",
+                },
+                {
+                  label: "ajustes",
+                  icon: "pi pi-sliders-h",
+                  to: "/autosys/inventario/ajustes",
+                },
+                {
+                  label: "conteos cíclicos",
+                  icon: "pi pi-list-check",
+                  to: "/autosys/inventario/conteos",
+                },
+                {
+                  label: "reconciliaciones",
+                  icon: "pi pi-check-square",
+                  to: "/autosys/inventario/reconciliaciones",
+                },
+              ],
+            },
+            {
+              label: "trazabilidad",
+              icon: "pi pi-fw pi-map",
+              items: [
+                {
+                  label: "lotes",
+                  icon: "pi pi-fw pi-inbox",
+                  to: "/autosys/inventario/trazabilidad/lotes",
+                },
+                {
+                  label: "números de serie",
+                  icon: "pi pi-fw pi-barcode",
+                  to: "/autosys/inventario/trazabilidad/seriales",
+                },
+              ],
+            },
+            {
+              label: "logística",
+              icon: "pi pi-fw pi-truck",
+              items: [
+                {
+                  label: "préstamos",
+                  icon: "pi pi-fw pi-bookmark",
+                  to: "/autosys/inventario/prestamos",
+                },
+                {
+                  label: "devoluciones",
+                  icon: "pi pi-fw pi-undo",
+                  to: "/autosys/inventario/devoluciones",
                 },
               ],
             },

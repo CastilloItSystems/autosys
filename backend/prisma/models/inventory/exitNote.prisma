@@ -50,7 +50,8 @@ model ExitNote {
   // Relaciones
   items           ExitNoteItem[]
   reservations    Reservation[]
-  loan            Loan?
+  loanId          String? @unique
+  loan            Loan? @relation(fields: [loanId], references: [id], onDelete: Restrict)
   
   notes           String?        @db.Text
   

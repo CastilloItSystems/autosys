@@ -2,11 +2,13 @@
 import React, { useContext, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { classNames } from "primereact/utils";
-import { reservationSchema } from "@/libs/zods/inventory";
+import {
+  reservationSchema,
+  ReservationFormData,
+} from "@/libs/zods/inventory/reservationZod";
 import {
   createReservation,
   updateReservation,
@@ -15,34 +17,27 @@ import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
+import { Calendar } from "primereact/calendar";
 import { handleFormError } from "@/utils/errorHandlers";
 import { LayoutContext } from "@/layout/context/layoutcontext";
-import { Item, Warehouse } from "@/libs/interfaces/inventory";
-
-type FormData = z.infer<typeof reservationSchema>;
+import { Item } from "@/app/api/inventory/itemService";
+import { Warehouse } from "@/app/api/inventory/warehouseService";
+import { Reservation } from "@/libs/interfaces/inventory/reservation.interface";
 
 interface ReservationFormProps {
-  reservation: any;
+  reservation?: Reservation | null;
   hideFormDialog: () => void;
-  reservations: any[];
-  setReservations: (reservations: any[]) => void;
-  setReservation: (reservation: any) => void;
+  reservations: Reservation[];
+  setReservations: (reservations: Reservation[]) => void;
   showToast: (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => void;
   toast: React.RefObject<Toast> | null;
   items: Item[];
   warehouses: Warehouse[];
 }
-
-const estadoOptions = [
-  { label: "Activo", value: "activo" },
-  { label: "Liberado", value: "liberado" },
-  { label: "Consumido", value: "consumido" },
-  { label: "Cancelado", value: "cancelado" },
-];
 
 const ReservationForm = ({
   reservation,
@@ -64,38 +59,45 @@ const ReservationForm = ({
     formState: { errors },
     setValue,
     control,
-  } = useForm<FormData>({
+  } = useForm<ReservationFormData>({
     resolver: zodResolver(reservationSchema),
-    defaultValues: {
-      cantidad: 1,
-      estado: "activo",
-    },
+    defaultValues: reservation
+      ? {
+          itemId: reservation.itemId,
+          warehouseId: reservation.warehouseId,
+          quantity: reservation.quantity,
+          workOrderId: reservation.workOrderId,
+          saleOrderId: reservation.saleOrderId,
+          reference: reservation.reference,
+          notes: reservation.notes,
+          expiresAt: reservation.expiresAt
+            ? new Date(reservation.expiresAt)
+            : undefined,
+        }
+      : {
+          quantity: 1,
+        },
   });
 
-  useEffect(() => {
-    if (reservation) {
-      Object.keys(reservation).forEach((key) =>
-        setValue(key as keyof FormData, reservation[key])
-      );
-    }
-  }, [reservation, setValue]);
-
-  const onSubmit = async (data: FormData) => {
+  const onSubmit = async (data: ReservationFormData) => {
     setSubmitting(true);
     try {
+      // Clean up null values for compatibility with backend
+      const cleanedData = {
+        ...data,
+        expiresAt: data.expiresAt || undefined,
+      } as any;
+
       if (reservation) {
-        const updatedReservation = await updateReservation(
-          reservation.id,
-          data
+        const result = await updateReservation(reservation.id, cleanedData);
+        const updated = reservations.map((r) =>
+          r.id === result.data.id ? result.data : r,
         );
-        const updatedReservations = reservations.map((t) =>
-          t.id === updatedReservation.id ? updatedReservation : t
-        );
-        setReservations(updatedReservations);
+        setReservations(updated);
         showToast("success", "Éxito", "Reserva actualizada");
       } else {
-        const newReservation = await createReservation(data);
-        setReservations([...reservations, newReservation]);
+        const result = await createReservation(cleanedData as any);
+        setReservations([result.data, ...reservations]);
         showToast("success", "Éxito", "Reserva creada");
       }
       hideFormDialog();
@@ -107,12 +109,12 @@ const ReservationForm = ({
   };
 
   const itemOptions = items.map((item) => ({
-    label: item.nombre,
+    label: item.sku ? `${item.sku} - ${item.name}` : item.name,
     value: item.id,
   }));
 
   const warehouseOptions = warehouses.map((warehouse) => ({
-    label: warehouse.nombre,
+    label: warehouse.name,
     value: warehouse.id,
   }));
 
@@ -120,7 +122,7 @@ const ReservationForm = ({
     <div>
       <form onSubmit={handleSubmit(onSubmit)}>
         <div className="card p-fluid surface-50 p-3 border-round shadow-2">
-          {/* Header del Formulario */}
+          {/* Form Header */}
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
@@ -130,150 +132,194 @@ const ReservationForm = ({
             </div>
           </div>
 
-          {/* Cuerpo del Formulario */}
+          {/* Form Body */}
           <div className="grid formgrid row-gap-2">
-            {/* Artículo */}
+            {/* Item Selection */}
             <div className="field col-12 md:col-6">
-              <label htmlFor="item" className="font-medium text-900">
-                Artículo <span className="text-red-500">*</span>
+              <label htmlFor="itemId" className="font-medium text-900">
+                Producto <span className="text-red-500">*</span>
               </label>
               <Controller
-                name="item"
+                name="itemId"
                 control={control}
                 render={({ field }) => (
                   <Dropdown
-                    id="item"
+                    id="itemId"
                     value={field.value}
                     onChange={(e) => field.onChange(e.value)}
                     options={itemOptions}
-                    placeholder="Seleccione un artículo"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Seleccione un producto"
                     filter
                     className={classNames("w-full", {
-                      "p-invalid": errors.item,
+                      "p-invalid": errors.itemId,
                     })}
                   />
                 )}
               />
-              {errors.item && (
-                <small className="p-error">{errors.item.message}</small>
+              {errors.itemId && (
+                <small className="p-error">{errors.itemId.message}</small>
               )}
             </div>
 
-            {/* Almacén */}
+            {/* Warehouse Selection */}
             <div className="field col-12 md:col-6">
-              <label htmlFor="warehouse" className="font-medium text-900">
+              <label htmlFor="warehouseId" className="font-medium text-900">
                 Almacén <span className="text-red-500">*</span>
               </label>
               <Controller
-                name="warehouse"
+                name="warehouseId"
                 control={control}
                 render={({ field }) => (
                   <Dropdown
-                    id="warehouse"
+                    id="warehouseId"
                     value={field.value}
                     onChange={(e) => field.onChange(e.value)}
                     options={warehouseOptions}
+                    optionLabel="label"
+                    optionValue="value"
                     placeholder="Seleccione un almacén"
                     filter
                     className={classNames("w-full", {
-                      "p-invalid": errors.warehouse,
+                      "p-invalid": errors.warehouseId,
                     })}
                   />
                 )}
               />
-              {errors.warehouse && (
-                <small className="p-error">{errors.warehouse.message}</small>
+              {errors.warehouseId && (
+                <small className="p-error">{errors.warehouseId.message}</small>
               )}
             </div>
 
-            {/* Cantidad */}
+            {/* Quantity */}
             <div className="field col-12 md:col-4">
-              <label htmlFor="cantidad" className="font-medium text-900">
+              <label htmlFor="quantity" className="font-medium text-900">
                 Cantidad <span className="text-red-500">*</span>
               </label>
               <Controller
-                name="cantidad"
+                name="quantity"
                 control={control}
                 render={({ field }) => (
                   <InputNumber
-                    id="cantidad"
+                    id="quantity"
                     value={field.value}
                     onValueChange={(e) => field.onChange(e.value)}
                     min={1}
                     className={classNames("w-full", {
-                      "p-invalid": errors.cantidad,
+                      "p-invalid": errors.quantity,
                     })}
                   />
                 )}
               />
-              {errors.cantidad && (
-                <small className="p-error">{errors.cantidad.message}</small>
+              {errors.quantity && (
+                <small className="p-error">{errors.quantity.message}</small>
               )}
             </div>
 
-            {/* Reservado Por */}
+            {/* Work Order ID (Optional) */}
             <div className="field col-12 md:col-4">
-              <label htmlFor="reservadoPor" className="font-medium text-900">
-                Reservado Por
+              <label htmlFor="workOrderId" className="font-medium text-900">
+                Orden de Trabajo
               </label>
               <InputText
-                id="reservadoPor"
+                id="workOrderId"
                 type="text"
+                placeholder="ID de OT"
                 className={classNames("w-full", {
                   "p-filled": filledInput,
                 })}
-                {...register("reservadoPor")}
+                {...register("workOrderId")}
               />
-              {errors.reservadoPor && (
-                <small className="p-error">{errors.reservadoPor.message}</small>
+              {errors.workOrderId && (
+                <small className="p-error">{errors.workOrderId.message}</small>
               )}
             </div>
 
-            {/* Estado */}
+            {/* Sale Order ID (Optional) */}
             <div className="field col-12 md:col-4">
-              <label htmlFor="estado" className="font-medium text-900">
-                Estado
+              <label htmlFor="saleOrderId" className="font-medium text-900">
+                Orden de Venta
+              </label>
+              <InputText
+                id="saleOrderId"
+                type="text"
+                placeholder="ID de OV"
+                className={classNames("w-full", {
+                  "p-filled": filledInput,
+                })}
+                {...register("saleOrderId")}
+              />
+              {errors.saleOrderId && (
+                <small className="p-error">{errors.saleOrderId.message}</small>
+              )}
+            </div>
+
+            {/* Reference */}
+            <div className="field col-12">
+              <label htmlFor="reference" className="font-medium text-900">
+                Referencia
+              </label>
+              <InputText
+                id="reference"
+                type="text"
+                placeholder="Referencia adicional"
+                className={classNames("w-full", {
+                  "p-filled": filledInput,
+                })}
+                {...register("reference")}
+              />
+              {errors.reference && (
+                <small className="p-error">{errors.reference.message}</small>
+              )}
+            </div>
+
+            {/* Expiration Date (Optional) */}
+            <div className="field col-12 md:col-6">
+              <label htmlFor="expiresAt" className="font-medium text-900">
+                Fecha de Vencimiento
               </label>
               <Controller
-                name="estado"
+                name="expiresAt"
                 control={control}
                 render={({ field }) => (
-                  <Dropdown
-                    id="estado"
-                    value={field.value}
+                  <Calendar
+                    id="expiresAt"
+                    value={field.value || null}
                     onChange={(e) => field.onChange(e.value)}
-                    options={estadoOptions}
-                    placeholder="Seleccione un estado"
+                    dateFormat="dd/mm/yy"
+                    showIcon
                     className={classNames("w-full", {
-                      "p-invalid": errors.estado,
+                      "p-invalid": errors.expiresAt,
                     })}
                   />
                 )}
               />
-              {errors.estado && (
-                <small className="p-error">{errors.estado.message}</small>
+              {errors.expiresAt && (
+                <small className="p-error">{errors.expiresAt.message}</small>
               )}
             </div>
 
-            {/* Motivo */}
+            {/* Notes */}
             <div className="field col-12">
-              <label htmlFor="motivo" className="font-medium text-900">
-                Motivo
+              <label htmlFor="notes" className="font-medium text-900">
+                Notas
               </label>
               <InputTextarea
-                id="motivo"
+                id="notes"
                 rows={3}
+                placeholder="Notas adicionales"
                 className={classNames("w-full", {
                   "p-filled": filledInput,
                 })}
-                {...register("motivo")}
+                {...register("notes")}
               />
-              {errors.motivo && (
-                <small className="p-error">{errors.motivo.message}</small>
+              {errors.notes && (
+                <small className="p-error">{errors.notes.message}</small>
               )}
             </div>
 
-            {/* Botón de Envío */}
+            {/* Submit Button */}
             <div className="field col-12 text-right">
               <Button
                 type="submit"

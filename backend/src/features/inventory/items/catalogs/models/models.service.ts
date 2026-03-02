@@ -97,8 +97,14 @@ export class ModelService {
   /**
    * Obtener todos los modelos con paginación y filtros
    */
-  async findAll(filters: IModelFilters, page: number = 1, limit: number = 10) {
+  async findAll(
+    filters: IModelFilters,
+    page: number = 1,
+    limit: number = 10,
+    prismaClient?: any
+  ) {
     try {
+      const db = prismaClient || prisma
       const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
       // Construir filtros
@@ -126,7 +132,7 @@ export class ModelService {
 
       // Ejecutar consultas en paralelo
       const [models, total] = await Promise.all([
-        prisma.model.findMany({
+        db.model.findMany({
           where,
           skip,
           take,
@@ -146,7 +152,7 @@ export class ModelService {
             },
           },
         }),
-        prisma.model.count({ where }),
+        db.model.count({ where }),
       ])
 
       const meta = PaginationHelper.getMeta(page, limit, total)
@@ -491,9 +497,10 @@ export class ModelService {
   /**
    * Obtener modelos activos
    */
-  async findActive(): Promise<IModelWithRelations[]> {
+  async findActive(prismaClient?: any): Promise<IModelWithRelations[]> {
     try {
-      const models = await prisma.model.findMany({
+      const db = prismaClient || prisma
+      const models = await db.model.findMany({
         where: { isActive: true },
         orderBy: [
           { brand: { name: 'asc' } },
@@ -528,10 +535,12 @@ export class ModelService {
    */
   async search(
     term: string,
-    limit: number = 10
+    limit: number = 10,
+    prismaClient?: any
   ): Promise<IModelWithRelations[]> {
     try {
-      const models = await prisma.model.findMany({
+      const db = prismaClient || prisma
+      const models = await db.model.findMany({
         where: {
           name: { contains: term, mode: 'insensitive' },
           isActive: true,

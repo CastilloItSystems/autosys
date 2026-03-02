@@ -1,28 +1,47 @@
-import { array, boolean, number, object, string, z } from "zod";
+import { z } from "zod";
 
-export const warehouseTypeSchema = z.enum([
-  "almacen",
-  "bodega",
-  "taller",
-  "otro",
-]);
-
-export const warehouseStatusSchema = z.enum(["activo", "inactivo"]);
-
-export const warehouseSchema = object({
-  id: string().optional(),
-  nombre: string()
-    .min(1, "El nombre es obligatorio")
-    .max(100, "El nombre no puede exceder los 100 caracteres"),
-  ubicacion: string()
-    .max(200, "La ubicación no puede exceder los 200 caracteres")
-    .optional(),
-  tipo: warehouseTypeSchema.default("almacen").optional(),
-  capacidad: number().min(0, "La capacidad no puede ser negativa").optional(),
-  estado: warehouseStatusSchema.default("activo").optional(),
-  eliminado: boolean().default(false).optional(),
-  createdBy: string().optional(),
-  historial: array(z.any()).optional(),
-  createdAt: string().optional(),
-  updatedAt: string().optional(),
+export const warehouseTypeEnum = z.enum(["PRINCIPAL", "SUCURSAL", "TRANSITO"], {
+  errorMap: () => ({ message: "Selecciona un tipo válido" }),
 });
+
+export const createWarehouseSchema = z.object({
+  code: z
+    .string()
+    .min(2, "El código debe tener al menos 2 caracteres")
+    .max(50, "El código no puede exceder 50 caracteres")
+    .toUpperCase(),
+  name: z
+    .string()
+    .min(3, "El nombre debe tener al menos 3 caracteres")
+    .max(200, "El nombre no puede exceder 200 caracteres"),
+  type: warehouseTypeEnum.default("PRINCIPAL"),
+  address: z
+    .string()
+    .max(500, "La dirección no puede exceder 500 caracteres")
+    .nullable()
+    .optional(),
+});
+
+export const updateWarehouseSchema = z.object({
+  code: z
+    .string()
+    .min(2, "El código debe tener al menos 2 caracteres")
+    .max(50, "El código no puede exceder 50 caracteres")
+    .toUpperCase()
+    .optional(),
+  name: z
+    .string()
+    .min(3, "El nombre debe tener al menos 3 caracteres")
+    .max(200, "El nombre no puede exceder 200 caracteres")
+    .optional(),
+  type: warehouseTypeEnum.optional(),
+  address: z
+    .string()
+    .max(500, "La dirección no puede exceder 500 caracteres")
+    .nullable()
+    .optional(),
+  isActive: z.boolean().optional(),
+});
+
+export type CreateWarehouse = z.infer<typeof createWarehouseSchema>;
+export type UpdateWarehouse = z.infer<typeof updateWarehouseSchema>;

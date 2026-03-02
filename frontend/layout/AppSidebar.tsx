@@ -4,7 +4,7 @@ import AppMenu from "./AppMenu";
 import { LayoutContext } from "./context/layoutcontext";
 import { MenuProvider } from "./context/menucontext";
 import { usePathname } from "next/navigation";
-import AppMenuAutoSys from "./AppMenuAutoSys";
+import AppMenuEmpresa from "./AppMenuEmpresa";
 
 const AppSidebar = () => {
   const { layoutConfig, setLayoutState } = useContext(LayoutContext);
@@ -18,8 +18,8 @@ const AppSidebar = () => {
   };
 
   const renderMenu = () => {
-    if (pathname.startsWith("/autosys")) {
-      return <AppMenuAutoSys />;
+    if (pathname.startsWith("/empresa")) {
+      return <AppMenuEmpresa />;
     } else {
       return <AppMenu />;
     }

@@ -1,0 +1,21 @@
+// backend/prisma/models/inventory/cycleCountItem.prisma
+
+model CycleCountItem {
+  id                String      @id @default(uuid())
+  cycleCountId      String
+  cycleCount        CycleCount  @relation(fields: [cycleCountId], references: [id], onDelete: Cascade)
+  itemId            String
+  item              Item        @relation("CycleCountItems", fields: [itemId], references: [id], onDelete: Restrict)
+  expectedQuantity  Int
+  countedQuantity   Int?
+  variance          Int?
+  location          String?     @db.VarChar(255)
+  notes             String?     @db.Text
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  @@unique([cycleCountId, itemId])
+  @@index([cycleCountId])
+  @@index([itemId])
+  @@map("cycle_count_items")
+}

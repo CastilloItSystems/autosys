@@ -1,26 +1,17 @@
-import 'dotenv/config'
-import { PrismaClient } from '../../src/generated/prisma/client.js'
-import { PrismaPg } from '@prisma/adapter-pg'
-import * as bcrypt from 'bcrypt'
+import type { PrismaClient } from '../../src/generated/prisma/client.js'
+import bcrypt from 'bcryptjs'
 
-const connectionString = process.env.DATABASE_URL
-
-if (!connectionString) {
-  throw new Error('DATABASE_URL is not defined')
-}
-
-const adapter = new PrismaPg({ connectionString })
-const prisma = new PrismaClient({ adapter })
-
-async function seedUsers() {
+async function seedUsers(prisma: PrismaClient, empresaId: string) {
   try {
     // Hash para las contraseñas de prueba
     const adminPassword = await bcrypt.hash('admin123', 10)
     const userPassword = await bcrypt.hash('user123', 10)
 
     // Crear usuario admin
-    const adminUser = await prisma.user.create({
-      data: {
+    const adminUser = await prisma.user.upsert({
+      where: { correo: 'admin@test.com' },
+      update: { password: adminPassword },
+      create: {
         nombre: 'Admin User',
         correo: 'admin@test.com',
         password: adminPassword,
@@ -29,14 +20,17 @@ async function seedUsers() {
         departamento: ['administración', 'inventario', 'ventas'],
         acceso: 'completo',
         eliminado: false,
+        empresas: { connect: { id_empresa: empresaId } },
       },
     })
 
     console.log(`✅ Admin user created: ${adminUser.correo}`)
 
     // Crear usuario gerente
-    const gerenteUser = await prisma.user.create({
-      data: {
+    const gerenteUser = await prisma.user.upsert({
+      where: { correo: 'gerente@test.com' },
+      update: { password: userPassword },
+      create: {
         nombre: 'Gerente User',
         correo: 'gerente@test.com',
         password: userPassword,
@@ -45,14 +39,17 @@ async function seedUsers() {
         departamento: ['ventas', 'inventario'],
         acceso: 'completo',
         eliminado: false,
+        empresas: { connect: { id_empresa: empresaId } },
       },
     })
 
     console.log(`✅ Gerente user created: ${gerenteUser.correo}`)
 
     // Crear usuario vendedor
-    const vendedorUser = await prisma.user.create({
-      data: {
+    const vendedorUser = await prisma.user.upsert({
+      where: { correo: 'vendedor@test.com' },
+      update: { password: userPassword },
+      create: {
         nombre: 'Vendedor User',
         correo: 'vendedor@test.com',
         password: userPassword,
@@ -61,14 +58,17 @@ async function seedUsers() {
         departamento: ['ventas'],
         acceso: 'limitado',
         eliminado: false,
+        empresas: { connect: { id_empresa: empresaId } },
       },
     })
 
     console.log(`✅ Vendedor user created: ${vendedorUser.correo}`)
 
     // Crear usuario almacenista
-    const almacenistaUser = await prisma.user.create({
-      data: {
+    const almacenistaUser = await prisma.user.upsert({
+      where: { correo: 'almacenista@test.com' },
+      update: { password: userPassword },
+      create: {
         nombre: 'Almacenista User',
         correo: 'almacenista@test.com',
         password: userPassword,
@@ -77,14 +77,17 @@ async function seedUsers() {
         departamento: ['inventario'],
         acceso: 'limitado',
         eliminado: false,
+        empresas: { connect: { id_empresa: empresaId } },
       },
     })
 
     console.log(`✅ Almacenista user created: ${almacenistaUser.correo}`)
 
     // Crear usuario viewer
-    const viewerUser = await prisma.user.create({
-      data: {
+    const viewerUser = await prisma.user.upsert({
+      where: { correo: 'viewer@test.com' },
+      update: { password: userPassword },
+      create: {
         nombre: 'Viewer User',
         correo: 'viewer@test.com',
         password: userPassword,
@@ -93,6 +96,7 @@ async function seedUsers() {
         departamento: [],
         acceso: 'ninguno',
         eliminado: false,
+        empresas: { connect: { id_empresa: empresaId } },
       },
     })
 
