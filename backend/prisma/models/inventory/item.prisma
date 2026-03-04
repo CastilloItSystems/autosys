@@ -59,6 +59,7 @@ model Item {
   orderItems     OrderItem[]
   preInvoiceItems PreInvoiceItem[]
   exitNoteItems  ExitNoteItem[]
+  entryNoteItems EntryNoteItem[]
   invoiceItems   InvoiceItem[]
   batches        Batch[]
   serialNumbers  SerialNumber[]

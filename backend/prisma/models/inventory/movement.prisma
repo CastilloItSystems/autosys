@@ -44,6 +44,7 @@ model Movement {
   workOrderId     String?      // Para vincular con módulo de taller
   reservationId   String?
   exitNoteId      String?
+  entryNoteId     String?
   invoiceId       String?
   
   // Para salidas especiales sin factura

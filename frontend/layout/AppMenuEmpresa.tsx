@@ -60,17 +60,174 @@ const AppMenuEmpresa = () => {
           label: "inventario",
           icon: "pi pi-fw pi-box",
           items: [
+            // --- Accesos rápidos ---
+            {
+              label: "dashboard",
+              icon: "pi pi-fw pi-chart-line",
+              to: "/empresa/inventario/dashboard",
+            },
+            {
+              label: "artículos",
+              icon: "pi pi-fw pi-box",
+              to: "/empresa/inventario/items",
+            },
+            {
+              label: "stock bajo",
+              icon: "pi pi-fw pi-exclamation-triangle",
+              to: "/empresa/inventario/stock/low-stock",
+            },
+            {
+              label: "movimientos",
+              icon: "pi pi-fw pi-exchange",
+              to: "/empresa/inventario/movimientos",
+            },
+            // --- Navegación principal ---
             {
               label: "búsqueda",
               icon: "pi pi-fw pi-search",
               to: "/empresa/inventario/busqueda",
             },
             {
-              label: "configuraciones",
+              label: "stock",
+              icon: "pi pi-fw pi-chart-bar",
+              to: "/empresa/inventario/stock",
+            },
+            {
+              label: "compras",
+              icon: "pi pi-fw pi-shopping-cart",
+              items: [
+                {
+                  label: "órdenes de compra",
+                  icon: "pi pi-fw pi-shopping-cart",
+                  to: "/empresa/inventario/ordenes-compra",
+                },
+                {
+                  label: "notas de entrada",
+                  icon: "pi pi-fw pi-inbox",
+                  to: "/empresa/inventario/recepciones",
+                },
+                {
+                  label: "proveedores",
+                  icon: "pi pi-fw pi-users",
+                  to: "/empresa/inventario/proveedores",
+                },
+              ],
+            },
+            {
+              label: "ventas",
+              icon: "pi pi-fw pi-money-bill",
+              items: [
+                {
+                  label: "órdenes de venta",
+                  icon: "pi pi-fw pi-money-bill",
+                  to: "/empresa/inventario/ordenes-venta",
+                },
+                {
+                  label: "notas de salida",
+                  icon: "pi pi-fw pi-external-link",
+                  to: "/empresa/inventario/notas-salida",
+                },
+                {
+                  label: "reservas",
+                  icon: "pi pi-fw pi-bookmark",
+                  to: "/empresa/inventario/reservas",
+                },
+              ],
+            },
+            {
+              label: "almacén",
+              icon: "pi pi-fw pi-database",
+              items: [
+                {
+                  label: "almacenes",
+                  icon: "pi pi-fw pi-database",
+                  to: "/empresa/inventario/almacenes",
+                },
+                {
+                  label: "transferencias",
+                  icon: "pi pi-arrow-right-arrow-left",
+                  to: "/empresa/inventario/transferencias",
+                },
+                {
+                  label: "ajustes",
+                  icon: "pi pi-fw pi-pencil",
+                  to: "/empresa/inventario/ajustes",
+                },
+                {
+                  label: "conteos cíclicos",
+                  icon: "pi pi-list-check",
+                  to: "/empresa/inventario/conteos",
+                },
+                {
+                  label: "préstamos",
+                  icon: "pi pi-fw pi-bookmark",
+                  to: "/empresa/inventario/prestamos",
+                },
+                {
+                  label: "devoluciones",
+                  icon: "pi pi-fw pi-undo",
+                  to: "/empresa/inventario/devoluciones",
+                },
+                {
+                  label: "reconciliaciones",
+                  icon: "pi pi-fw pi-check-square",
+                  to: "/empresa/inventario/reconciliaciones",
+                },
+              ],
+            },
+            {
+              label: "trazabilidad",
+              icon: "pi pi-fw pi-map",
+              items: [
+                {
+                  label: "lotes",
+                  icon: "pi pi-fw pi-inbox",
+                  to: "/empresa/inventario/trazabilidad/lotes",
+                },
+                {
+                  label: "números de serie",
+                  icon: "pi pi-fw pi-barcode",
+                  to: "/empresa/inventario/trazabilidad/seriales",
+                },
+              ],
+            },
+            {
+              label: "reportes",
+              icon: "pi pi-fw pi-chart-line",
+              items: [
+                {
+                  label: "dashboard",
+                  icon: "pi pi-fw pi-th-large",
+                  to: "/empresa/inventario/reportes",
+                },
+                {
+                  label: "análisis ABC",
+                  icon: "pi pi-fw pi-chart-pie",
+                  to: "/empresa/inventario/reportes/abc",
+                },
+                {
+                  label: "rotación",
+                  icon: "pi pi-fw pi-sync",
+                  to: "/empresa/inventario/reportes/rotacion",
+                },
+                {
+                  label: "pronósticos",
+                  icon: "pi pi-fw pi-chart-bar",
+                  to: "/empresa/inventario/reportes/pronosticos",
+                },
+              ],
+            },
+            {
+              label: "importar / exportar",
+              icon: "pi pi-fw pi-upload",
+              to: "/empresa/inventario/importar",
+            },
+            {
+              label: "configuración",
               icon: "pi pi-fw pi-cog",
               items: [
                 {
-                  label: "categorias",
+                  label: "categorías",
                   icon: "pi pi-fw pi-tags",
                   to: "/empresa/inventario/categorias",
                 },
@@ -93,147 +250,6 @@ const AppMenuEmpresa = () => {
                   label: "unidades de medida",
                   icon: "pi pi-fw pi-box",
                   to: "/empresa/inventario/unidades",
-                },
-                {
-                  label: "proveedores",
-                  icon: "pi pi-fw pi-users",
-                  to: "/empresa/inventario/proveedores",
-                },
-                {
-                  label: "almacenes",
-                  icon: "pi pi-fw pi-database",
-                  to: "/empresa/inventario/almacenes",
-                },
-              ],
-            },
-            {
-              label: "operaciones diarias",
-              icon: "pi pi-fw pi-refresh",
-              items: [
-                {
-                  label: "artículos",
-                  icon: "pi pi-fw pi-box",
-                  to: "/empresa/inventario/items",
-                },
-                {
-                  label: "stock",
-                  icon: "pi pi-fw pi-chart-bar",
-                  items: [
-                    {
-                      label: "dashboard y listado",
-                      icon: "pi pi-fw pi-th-large",
-                      to: "/empresa/inventario/stock",
-                    },
-                    {
-                      label: "stock bajo",
-                      icon: "pi pi-fw pi-exclamation-triangle",
-                      to: "/empresa/inventario/stock/low-stock",
-                    },
-                  ],
-                },
-                {
-                  label: "movimientos",
-                  icon: "pi pi-fw pi-exchange",
-                  to: "/empresa/inventario/movimientos",
-                },
-                {
-                  label: "ajustes de inventario",
-                  icon: "pi pi-fw pi-pencil",
-                  to: "/empresa/inventario/ajustes",
-                },
-                {
-                  label: "importar / exportar",
-                  icon: "pi pi-fw pi-upload",
-                  to: "/empresa/inventario/importar",
-                },
-              ],
-            },
-            {
-              label: "compras y ventas",
-              icon: "pi pi-fw pi-shopping-cart",
-              items: [
-                {
-                  label: "órdenes de compra",
-                  icon: "pi pi-fw pi-shopping-cart",
-                  to: "/empresa/inventario/ordenes-compra",
-                },
-                {
-                  label: "recepciones",
-                  icon: "pi pi-fw pi-inbox",
-                  to: "/empresa/inventario/recepciones",
-                },
-                {
-                  label: "órdenes de venta",
-                  icon: "pi pi-fw pi-money-bill",
-                  to: "/empresa/inventario/ordenes-venta",
-                },
-                {
-                  label: "reservas",
-                  icon: "pi pi-fw pi-bookmark",
-                  to: "/empresa/inventario/reservas",
-                },
-                {
-                  label: "notas de salida",
-                  icon: "pi pi-fw pi-external-link",
-                  to: "/empresa/inventario/notas-salida",
-                },
-              ],
-            },
-            {
-              label: "almacén",
-              icon: "pi pi-fw pi-warehouse",
-              items: [
-                {
-                  label: "transferencias",
-                  icon: "pi pi-arrow-right-arrow-left",
-                  to: "/empresa/inventario/transferencias",
-                },
-                {
-                  label: "ajustes",
-                  icon: "pi pi-sliders-h",
-                  to: "/empresa/inventario/ajustes",
-                },
-                {
-                  label: "conteos cíclicos",
-                  icon: "pi pi-list-check",
-                  to: "/empresa/inventario/conteos",
-                },
-                {
-                  label: "reconciliaciones",
-                  icon: "pi pi-check-square",
-                  to: "/empresa/inventario/reconciliaciones",
-                },
-              ],
-            },
-            {
-              label: "trazabilidad",
-              icon: "pi pi-fw pi-map",
-              items: [
-                {
-                  label: "lotes",
-                  icon: "pi pi-fw pi-inbox",
-                  to: "/empresa/inventario/trazabilidad/lotes",
-                },
-                {
-                  label: "números de serie",
-                  icon: "pi pi-fw pi-barcode",
-                  to: "/empresa/inventario/trazabilidad/seriales",
-                },
-              ],
-            },
-            {
-              label: "logística",
-              icon: "pi pi-fw pi-truck",
-              items: [
-                {
-                  label: "préstamos",
-                  icon: "pi pi-fw pi-bookmark",
-                  to: "/empresa/inventario/prestamos",
-                },
-                {
-                  label: "devoluciones",
-                  icon: "pi pi-fw pi-undo",
-                  to: "/empresa/inventario/devoluciones",
                 },
               ],
             },

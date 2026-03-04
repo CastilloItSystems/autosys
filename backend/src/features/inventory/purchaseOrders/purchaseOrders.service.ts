@@ -24,6 +24,26 @@ import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 
 class PurchaseOrderService {
   /**
+   * Helper function to enrich purchase order(s) with calculated quantityPending
+   */
+  private enrichWithQuantityPending(po: any | any[]): any | any[] {
+    if (Array.isArray(po)) {
+      return po.map((item) => this.enrichWithQuantityPending(item))
+    }
+
+    if (!po) return po
+
+    if (po.items && Array.isArray(po.items)) {
+      po.items = po.items.map((item: any) => ({
+        ...item,
+        quantityPending: item.quantityOrdered - item.quantityReceived,
+      }))
+    }
+
+    return po
+  }
+
+  /**
    * Crear orden de compra
    */
   async create(
@@ -79,7 +99,9 @@ class PurchaseOrderService {
         supplierId: po.supplierId,
       })
 
-      return po as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        po
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al crear orden de compra', { error, data })
       throw error
@@ -109,7 +131,9 @@ class PurchaseOrderService {
         throw new NotFoundError('Orden de compra no encontrada')
       }
 
-      return po as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        po
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al obtener orden de compra', { error, id })
       throw error
@@ -133,6 +157,7 @@ class PurchaseOrderService {
     limit: number
   }> {
     try {
+      const db = prismaClient || prisma
       const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
       const where: any = {}
@@ -163,7 +188,9 @@ class PurchaseOrderService {
       ])
 
       return {
-        items: pos as unknown as IPurchaseOrderWithRelations[],
+        items: this.enrichWithQuantityPending(
+          pos
+        ) as unknown as IPurchaseOrderWithRelations[],
         total,
         page,
         limit,
@@ -193,7 +220,9 @@ class PurchaseOrderService {
         orderBy: { orderDate: 'desc' },
       })
 
-      return pos as unknown as IPurchaseOrderWithRelations[]
+      return this.enrichWithQuantityPending(
+        pos
+      ) as unknown as IPurchaseOrderWithRelations[]
     } catch (error) {
       logger.error('Error al obtener órdenes del proveedor', {
         error,
@@ -246,7 +275,9 @@ class PurchaseOrderService {
 
       logger.info(`Orden de compra actualizada: ${id}`, { data })
 
-      return updated as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        updated
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al actualizar orden de compra', { error, id, data })
       throw error
@@ -302,7 +333,9 @@ class PurchaseOrderService {
 
       logger.info(`Orden de compra aprobada: ${id}`, { approvedBy })
 
-      return updated as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        updated
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al aprobar orden de compra', { error, id })
       throw error
@@ -338,7 +371,9 @@ class PurchaseOrderService {
 
       logger.info(`Orden de compra cancelada: ${id}`)
 
-      return updated as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        updated
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al cancelar orden de compra', { error, id })
       throw error
@@ -573,7 +608,9 @@ class PurchaseOrderService {
         }
       )
 
-      return po as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        po
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al crear orden de compra con items', { error, data })
       throw error
@@ -582,7 +619,7 @@ class PurchaseOrderService {
 
   /**
    * Recepcionar mercancía de una orden de compra
-   * Crea Receive + ReceiveItems, actualiza PurchaseOrderItem quantities,
+   * Crea EntryNote + EntryNoteItems, actualiza PurchaseOrderItem quantities,
    * actualiza Stock, crea Movements — todo en una transacción atómica
    */
   async receiveOrder(
@@ -633,21 +670,24 @@ class PurchaseOrderService {
         }
       }
 
-      // Generar número de recepción
-      const receiveCount = await prisma.receive.count()
-      const receiveNumber = `REC-${new Date().getFullYear()}-${String(receiveCount + 1).padStart(5, '0')}`
+      // Generar número de nota de entrada
+      const entryNoteCount = await prisma.entryNote.count()
+      const entryNoteNumber = `EN-${new Date().getFullYear()}-${String(entryNoteCount + 1).padStart(5, '0')}`
 
       // Ejecutar todo en transacción atómica
       const result = await prisma.$transaction(async (tx) => {
-        // 1. Crear Receive
-        const receive = await tx.receive.create({
+        // 1. Crear EntryNote de tipo PURCHASE con estado COMPLETED
+        const entryNote = await tx.entryNote.create({
           data: {
-            receiveNumber,
+            entryNoteNumber,
+            type: 'PURCHASE',
+            status: 'COMPLETED',
             purchaseOrderId: poId,
             warehouseId,
             notes: data.notes ?? null,
             receivedBy: data.receivedBy || userId || null,
             receivedAt: new Date(),
+            verifiedAt: new Date(),
           },
         })
 
@@ -655,10 +695,10 @@ class PurchaseOrderService {
         for (const receiveItem of data.items) {
           const poItem = po.items.find((i) => i.itemId === receiveItem.itemId)!
 
-          // 2a. Crear ReceiveItem
-          await tx.receiveItem.create({
+          // 2a. Crear EntryNoteItem
+          await tx.entryNoteItem.create({
             data: {
-              receiveId: receive.id,
+              entryNoteId: entryNote.id,
               itemId: receiveItem.itemId,
               quantityReceived: receiveItem.quantityReceived,
               unitCost: receiveItem.unitCost,
@@ -743,9 +783,10 @@ class PurchaseOrderService {
               quantity: receiveItem.quantityReceived,
               unitCost: receiveItem.unitCost,
               totalCost: receiveItem.quantityReceived * receiveItem.unitCost,
-              reference: receiveNumber,
+              reference: entryNoteNumber,
               purchaseOrderId: poId,
-              notes: `Recepción ${receiveNumber} de orden ${po.orderNumber}`,
+              entryNoteId: entryNote.id,
+              notes: `Nota de entrada ${entryNoteNumber} de orden ${po.orderNumber}`,
               createdBy: data.receivedBy || userId || null,
             },
           })
@@ -777,7 +818,7 @@ class PurchaseOrderService {
             supplier: true,
             warehouse: true,
             items: { include: { item: true } },
-            receives: { include: { items: true } },
+            entryNotes: { include: { items: true } },
           },
         })
       })
@@ -785,12 +826,14 @@ class PurchaseOrderService {
       if (!result) throw new Error('Error al procesar la recepción')
 
       logger.info(`Recepción completada para orden ${poId}`, {
-        receiveNumber,
+        entryNoteNumber,
         itemsReceived: data.items.length,
         newStatus: result.status,
       })
 
-      return result as unknown as IPurchaseOrderWithRelations
+      return this.enrichWithQuantityPending(
+        result
+      ) as unknown as IPurchaseOrderWithRelations
     } catch (error) {
       logger.error('Error al recepcionar orden de compra', {
         error,

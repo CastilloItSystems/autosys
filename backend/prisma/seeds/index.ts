@@ -7,6 +7,8 @@ import seedCategories from './categories.seed.js'
 import seedUnits from './units.seed.js'
 import seedBrands from './brands.seed.js'
 import seedWarehouses from './warehouses.seed.js'
+import seedSuppliers from './suppliers.seed.js'
+import seedItems from './items.seed.js'
 
 const connectionString = process.env.DATABASE_URL
 
@@ -38,7 +40,15 @@ async function main() {
     await seedCategories(prisma, empresaId)
     console.log('')
 
-    // Fase 3: Crear usuarios y vincularlos a empresa
+    // Fase 3: Crear proveedores
+    await seedSuppliers(prisma, empresaId)
+    console.log('')
+
+    // Fase 4: Crear items/productos
+    await seedItems(prisma, empresaId)
+    console.log('')
+
+    // Fase 5: Crear usuarios y vincularlos a empresa
     await seedUsers(prisma, empresaId)
     console.log('')
 

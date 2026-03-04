@@ -1,11 +1,11 @@
 "use client";
 
-import ReceiveList from "@/components/inventory/receives/ReceiveList";
+import EntryNoteList from "@/components/inventory/entryNotes/EntryNoteList";
 
 function Recepciones() {
   return (
     <>
-      <ReceiveList />
+      <EntryNoteList />
     </>
   );
 }

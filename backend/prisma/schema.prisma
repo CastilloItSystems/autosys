@@ -171,6 +171,7 @@ model Batch {
   movements         Movement[]
   preInvoiceItems   PreInvoiceItem[]
   exitNoteItems     ExitNoteItem[]
+  entryNoteItems    EntryNoteItem[]
   
   createdAt         DateTime   @default(now())
   updatedAt         DateTime   @updatedAt
@@ -368,6 +369,113 @@ model CycleCountItem {
   @@index([cycleCountId])
   @@index([itemId])
   @@map("cycle_count_items")
+}
+
+
+// backend/prisma/models/inventory/entryNote.prisma
+
+enum EntryNoteStatus {
+  PENDING       // Pendiente de verificación
+  IN_PROGRESS   // En proceso de recepción
+  COMPLETED     // Completada
+  CANCELLED     // Cancelada
+}
+
+enum EntryType {
+  PURCHASE        // Entrada por compra (vinculada a PurchaseOrder)
+  RETURN          // Devolución de cliente
+  TRANSFER        // Traslado desde otro almacén
+  WARRANTY_RETURN // Devolución por garantía
+  LOAN_RETURN     // Devolución de préstamo
+  ADJUSTMENT_IN   // Ajuste de entrada
+  DONATION        // Donación recibida
+  SAMPLE          // Muestra recibida
+  OTHER           // Otro
+}
+
+model EntryNote {
+  id               String          @id @default(uuid())
+  entryNoteNumber  String          @unique
+  type             EntryType       @default(PURCHASE)
+  status           EntryNoteStatus @default(PENDING)
+  
+  // Relación OPCIONAL con Orden de Compra
+  purchaseOrderId  String?
+  purchaseOrder    PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  
+  warehouseId      String
+  warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Para entradas sin orden de compra
+  supplierName     String?
+  supplierId       String?         // Cédula/RIF del proveedor o texto libre
+  supplierPhone    String?
+  
+  reason           String?         @db.Text
+  reference        String?         // Número de guía, ticket, etc.
+  
+  // Relaciones
+  items            EntryNoteItem[]
+  
+  notes            String?         @db.Text
+  
+  // Fechas
+  receivedAt       DateTime?
+  verifiedAt       DateTime?
+  
+  // Auditoría
+  receivedBy       String?
+  verifiedBy       String?
+  authorizedBy     String?         // Quien autorizó entrada sin OC
+  
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("entry_notes")
+  @@index([entryNoteNumber])
+  @@index([type])
+  @@index([status])
+  @@index([purchaseOrderId])
+  @@index([warehouseId])
+}
+
+
+// backend/prisma/models/inventory/entryNoteItem.prisma
+
+model EntryNoteItem {
+  id               String        @id @default(uuid())
+  
+  entryNoteId      String
+  entryNote        EntryNote     @relation(fields: [entryNoteId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  item             Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityReceived Int
+  
+  unitCost         Decimal       @db.Decimal(12, 2)
+  
+  // Ubicación destino en almacén
+  storedToLocation String?
+  
+  // Trazabilidad
+  batchId          String?
+  batch            Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId   String?
+  serialNumber     SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  // Fallback para lotes sin registro formal
+  batchNumber      String?
+  expiryDate       DateTime?
+  
+  notes            String?       @db.Text
+  
+  createdAt        DateTime      @default(now())
+
+  @@map("entry_note_items")
+  @@index([entryNoteId])
+  @@index([itemId])
 }
 
 
@@ -647,6 +755,7 @@ model Item {
   orderItems     OrderItem[]
   preInvoiceItems PreInvoiceItem[]
   exitNoteItems  ExitNoteItem[]
+  entryNoteItems EntryNoteItem[]
   invoiceItems   InvoiceItem[]
   batches        Batch[]
   serialNumbers  SerialNumber[]
@@ -884,6 +993,7 @@ model Movement {
   workOrderId     String?      // Para vincular con módulo de taller
   reservationId   String?
   exitNoteId      String?
+  entryNoteId     String?
   invoiceId       String?
   
   // Para salidas especiales sin factura
@@ -991,7 +1101,7 @@ model PurchaseOrder {
   
   // Relaciones
   items         PurchaseOrderItem[]
-  receives      Receive[]
+  entryNotes    EntryNote[]
   
   // Fechas
   orderDate     DateTime            @default(now())
@@ -1035,59 +1145,6 @@ model PurchaseOrderItem {
 
   @@map("purchase_order_items")
   @@index([purchaseOrderId])
-  @@index([itemId])
-}
-
-// backend/prisma/models/inventory/receive.prisma
-
-model Receive {
-  id              String        @id @default(uuid())
-  receiveNumber   String        @unique
-  
-  purchaseOrderId String
-  purchaseOrder   PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
-  
-  warehouseId     String
-  
-  // Relaciones
-  items           ReceiveItem[]
-  
-  notes           String?       @db.Text
-  
-  // Auditoría
-  receivedBy      String?
-  receivedAt      DateTime      @default(now())
-  
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-
-  @@map("receives")
-  @@index([receiveNumber])
-  @@index([purchaseOrderId])
-  @@index([receivedAt])
-}
-
-// backend/prisma/models/inventory/receiveItem.prisma
-
-model ReceiveItem {
-  id               String   @id @default(uuid())
-  
-  receiveId        String
-  receive          Receive  @relation(fields: [receiveId], references: [id], onDelete: Cascade)
-  
-  itemId           String
-  quantityReceived Int
-  
-  unitCost         Decimal  @db.Decimal(12, 2)
-  
-  // Para lotes
-  batchNumber      String?
-  expiryDate       DateTime?
-  
-  createdAt        DateTime @default(now())
-
-  @@map("receive_items")
-  @@index([receiveId])
   @@index([itemId])
 }
 
@@ -1318,6 +1375,7 @@ model SerialNumber {
   // Relaciones
   preInvoiceItems PreInvoiceItem[]
   exitNoteItems   ExitNoteItem[]
+  entryNoteItems  EntryNoteItem[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
@@ -1555,6 +1613,7 @@ model Warehouse {
   orders          Order[]
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
+  entryNotes      EntryNote[]
   purchaseOrders  PurchaseOrder[]
   adjustments     Adjustment[]
   cycleCounts     CycleCount[]

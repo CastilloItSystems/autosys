@@ -1,0 +1,66 @@
+// backend/prisma/models/inventory/entryNote.prisma
+
+enum EntryNoteStatus {
+  PENDING       // Pendiente de verificación
+  IN_PROGRESS   // En proceso de recepción
+  COMPLETED     // Completada
+  CANCELLED     // Cancelada
+}
+
+enum EntryType {
+  PURCHASE        // Entrada por compra (vinculada a PurchaseOrder)
+  RETURN          // Devolución de cliente
+  TRANSFER        // Traslado desde otro almacén
+  WARRANTY_RETURN // Devolución por garantía
+  LOAN_RETURN     // Devolución de préstamo
+  ADJUSTMENT_IN   // Ajuste de entrada
+  DONATION        // Donación recibida
+  SAMPLE          // Muestra recibida
+  OTHER           // Otro
+}
+
+model EntryNote {
+  id               String          @id @default(uuid())
+  entryNoteNumber  String          @unique
+  type             EntryType       @default(PURCHASE)
+  status           EntryNoteStatus @default(PENDING)
+  
+  // Relación OPCIONAL con Orden de Compra
+  purchaseOrderId  String?
+  purchaseOrder    PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+  
+  warehouseId      String
+  warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  
+  // Para entradas sin orden de compra
+  supplierName     String?
+  supplierId       String?         // Cédula/RIF del proveedor o texto libre
+  supplierPhone    String?
+  
+  reason           String?         @db.Text
+  reference        String?         // Número de guía, ticket, etc.
+  
+  // Relaciones
+  items            EntryNoteItem[]
+  
+  notes            String?         @db.Text
+  
+  // Fechas
+  receivedAt       DateTime?
+  verifiedAt       DateTime?
+  
+  // Auditoría
+  receivedBy       String?
+  verifiedBy       String?
+  authorizedBy     String?         // Quien autorizó entrada sin OC
+  
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  @@map("entry_notes")
+  @@index([entryNoteNumber])
+  @@index([type])
+  @@index([status])
+  @@index([purchaseOrderId])
+  @@index([warehouseId])
+}

@@ -13,8 +13,8 @@ export * from "./purchaseOrder.interface";
 // Exit Note
 export * from "./exitNote.interface";
 
-// Receive
-export * from "./receive.interface";
+// Entry Note
+export * from "./entryNote.interface";
 
 // Sales Order
 export * from "./salesOrder.interface";

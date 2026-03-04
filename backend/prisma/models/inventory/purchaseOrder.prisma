@@ -29,7 +29,7 @@ model PurchaseOrder {
   
   // Relaciones
   items         PurchaseOrderItem[]
-  receives      Receive[]
+  entryNotes    EntryNote[]
   
   // Fechas
   orderDate     DateTime            @default(now())

@@ -137,3 +137,10 @@ dist
 # Vite logs files
 vite.config.js.timestamp-*
 vite.config.ts.timestamp-*
+
+# Agent skills / local agent data
+# Ignore local `.agents` folder which may contain installed skills
+.agents/
+.claude/
+
+# If you want to keep a specific skill in the repo, remove or override the above rule.

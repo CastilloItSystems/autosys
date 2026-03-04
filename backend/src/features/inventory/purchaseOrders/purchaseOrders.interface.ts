@@ -32,6 +32,7 @@ export interface IPurchaseOrderWithRelations extends IPurchaseOrder {
   warehouse?: any
   items?: any[]
   receives?: any[]
+  entryNotes?: any[]
 }
 
 export interface ICreatePurchaseOrderInput {

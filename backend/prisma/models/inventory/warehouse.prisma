@@ -25,6 +25,7 @@ model Warehouse {
   orders          Order[]
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
+  entryNotes      EntryNote[]
   purchaseOrders  PurchaseOrder[]
   adjustments     Adjustment[]
   cycleCounts     CycleCount[]

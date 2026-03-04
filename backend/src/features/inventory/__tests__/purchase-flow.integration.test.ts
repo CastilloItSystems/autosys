@@ -14,7 +14,7 @@ describe('Purchase Flow Integration Test', () => {
   let warehouseId: string
   let itemId: string
   let purchaseOrderId: string
-  let receiveId: string
+  let entryNoteId: string
   let brandId: string
   let categoryId: string
   let unitId: string
@@ -23,13 +23,13 @@ describe('Purchase Flow Integration Test', () => {
     const testId = Date.now() // Unique timestamp for this test run
 
     // ── Cleanup: Eliminar datos de tests previos ──
-    await prisma.receiveItem
+    await prisma.entryNoteItem
       .deleteMany({
-        where: { receive: { receiveNumber: { startsWith: 'TEST-PF-RCV' } } },
+        where: { entryNote: { entryNoteNumber: { startsWith: 'TEST-PF' } } },
       })
       .catch(() => {})
-    await prisma.receive
-      .deleteMany({ where: { receiveNumber: { startsWith: 'TEST-PF-RCV' } } })
+    await prisma.entryNote
+      .deleteMany({ where: { entryNoteNumber: { startsWith: 'TEST-PF' } } })
       .catch(() => {})
     await prisma.purchaseOrderItem
       .deleteMany({
@@ -124,8 +124,8 @@ describe('Purchase Flow Integration Test', () => {
 
   afterAll(async () => {
     // ── Cascade delete en orden seguro ──
-    await prisma.receiveItem.deleteMany({}).catch(() => {})
-    await prisma.receive.deleteMany({}).catch(() => {})
+    await prisma.entryNoteItem.deleteMany({}).catch(() => {})
+    await prisma.entryNote.deleteMany({}).catch(() => {})
     await prisma.purchaseOrderItem.deleteMany({}).catch(() => {})
     await prisma.purchaseOrder.deleteMany({}).catch(() => {})
     await prisma.stock.deleteMany({}).catch(() => {})
@@ -177,22 +177,23 @@ describe('Purchase Flow Integration Test', () => {
 
     expect([200, 400, 404]).toContain(getPORes.status)
 
-    // Step 4: Create Receive for approved PO
-    const createReceiveRes = await request(app)
-      .post('/api/inventory/receives')
+    // Step 4: Create Entry Note for approved PO
+    const createEntryNoteRes = await request(app)
+      .post('/api/inventory/entry-notes')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         purchaseOrderId,
         warehouseId,
+        type: 'PURCHASE',
       })
 
-    expect([201, 400, 422, 500]).toContain(createReceiveRes.status)
-    if (createReceiveRes.status !== 201) return
-    receiveId = createReceiveRes.body.data.id
+    expect([201, 400, 422, 500]).toContain(createEntryNoteRes.status)
+    if (createEntryNoteRes.status !== 201) return
+    entryNoteId = createEntryNoteRes.body.data.id
 
-    // Step 4.5: Add item to receive
+    // Step 4.5: Add item to entry note
     const addRcvItemRes = await request(app)
-      .post(`/api/inventory/receives/${receiveId}/items`)
+      .post(`/api/inventory/entry-notes/${entryNoteId}/items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ itemId, quantityReceived: 100, unitCost: 50.0 })
 
@@ -214,13 +215,13 @@ describe('Purchase Flow Integration Test', () => {
       }
     }
 
-    // Step 6: Verify Receive contains correct items
-    const getReceiveRes = await request(app)
-      .get(`/api/inventory/receives/${receiveId}`)
+    // Step 6: Verify Entry Note contains correct items
+    const getEntryNoteRes = await request(app)
+      .get(`/api/inventory/entry-notes/${entryNoteId}`)
       .set('Authorization', `Bearer ${authToken}`)
 
-    expect(getReceiveRes.status).toBe(200)
-    expect(getReceiveRes.body.data.purchaseOrderId).toBe(purchaseOrderId)
+    expect(getEntryNoteRes.status).toBe(200)
+    expect(getEntryNoteRes.body.data.purchaseOrderId).toBe(purchaseOrderId)
   }, 30000)
 
   test('Debe fallar al recibir si PO no está aprobado', async () => {
@@ -244,15 +245,16 @@ describe('Purchase Flow Integration Test', () => {
       .send({ itemId, quantityOrdered: 50, unitCost: 50.0 })
 
     // Try to receive without approval
-    const receiveRes = await request(app)
-      .post('/api/inventory/receives')
+    const entryNoteRes = await request(app)
+      .post('/api/inventory/entry-notes')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         purchaseOrderId: draftPOId,
         warehouseId,
+        type: 'PURCHASE',
       })
 
-    expect([201, 400, 422, 500]).toContain(receiveRes.status)
+    expect([201, 400, 422, 500]).toContain(entryNoteRes.status)
   })
 
   test('Debe permitir múltiples items en una PO y recibirlos todos', async () => {
@@ -304,32 +306,33 @@ describe('Purchase Flow Integration Test', () => {
     expect([200, 400, 422, 500]).toContain(approvePORes.status)
     if (approvePORes.status !== 200) return
 
-    // Create receive
-    const receiveRes = await request(app)
-      .post('/api/inventory/receives')
+    // Create entry note
+    const entryNoteRes = await request(app)
+      .post('/api/inventory/entry-notes')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         purchaseOrderId: poId,
         warehouseId,
+        type: 'PURCHASE',
       })
 
-    expect([201, 400, 422, 500]).toContain(receiveRes.status)
-    if (receiveRes.status !== 201) return
+    expect([201, 400, 422, 500]).toContain(entryNoteRes.status)
+    if (entryNoteRes.status !== 201) return
 
-    // Add items to receive
+    // Add items to entry note
     const addRcvItem1Res = await request(app)
-      .post(`/api/inventory/receives/${receiveRes.body.data.id}/items`)
+      .post(`/api/inventory/entry-notes/${entryNoteRes.body.data.id}/items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ itemId, quantityReceived: 80, unitCost: 45.0 })
 
     const addRcvItem2Res = await request(app)
-      .post(`/api/inventory/receives/${receiveRes.body.data.id}/items`)
+      .post(`/api/inventory/entry-notes/${entryNoteRes.body.data.id}/items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ itemId: item2.id, quantityReceived: 60, unitCost: 75.0 })
 
-    // Verify all items added to receive
-    const getReceiveRes = await request(app)
-      .get(`/api/inventory/receives/${receiveRes.body.data.id}/items`)
+    // Verify all items added to entry note
+    const getEntryNoteRes = await request(app)
+      .get(`/api/inventory/entry-notes/${entryNoteRes.body.data.id}/items`)
       .set('Authorization', `Bearer ${authToken}`)
   }, 30000)
 })

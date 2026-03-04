@@ -14,13 +14,13 @@ describe('E2E: Complete Purchase Cycle', () => {
   let warehouseId: string
   let itemId: string
   let purchaseOrderId: string
-  let receiveId: string
+  let entryNoteId: string
   let expectedStock: number
 
   beforeAll(async () => {
     // Cleanup
-    await prisma.receiveItem.deleteMany({}).catch(() => {})
-    await prisma.receive.deleteMany({}).catch(() => {})
+    await prisma.entryNoteItem.deleteMany({}).catch(() => {})
+    await prisma.entryNote.deleteMany({}).catch(() => {})
     await prisma.purchaseOrderItem.deleteMany({}).catch(() => {})
     await prisma.purchaseOrder.deleteMany({}).catch(() => {})
     await prisma.stock.deleteMany({}).catch(() => {})
@@ -103,8 +103,8 @@ describe('E2E: Complete Purchase Cycle', () => {
   })
 
   afterAll(async () => {
-    await prisma.receiveItem.deleteMany({}).catch(() => {})
-    await prisma.receive.deleteMany({}).catch(() => {})
+    await prisma.entryNoteItem.deleteMany({}).catch(() => {})
+    await prisma.entryNote.deleteMany({}).catch(() => {})
     await prisma.purchaseOrderItem.deleteMany({}).catch(() => {})
     await prisma.purchaseOrder.deleteMany({}).catch(() => {})
     await prisma.stock.deleteMany({}).catch(() => {})
@@ -147,21 +147,22 @@ describe('E2E: Complete Purchase Cycle', () => {
     expect(appRes.status).toBe(200)
     expect(appRes.body.data.status).toBe('SENT')
 
-    // 3. Receive goods
+    // 3. Create entry note
     const rcvRes = await request(app)
-      .post('/api/inventory/receives')
+      .post('/api/inventory/entry-notes')
       .set('Authorization', `Bearer ${authToken}`)
       .send({
         purchaseOrderId,
         warehouseId,
+        type: 'PURCHASE',
       })
 
     expect(rcvRes.status).toBe(201)
-    receiveId = rcvRes.body.data.id
+    entryNoteId = rcvRes.body.data.id
 
-    // 3.5. Add items to receive
+    // 3.5. Add items to entry note
     const addRcvItemRes = await request(app)
-      .post(`/api/inventory/receives/${receiveId}/items`)
+      .post(`/api/inventory/entry-notes/${entryNoteId}/items`)
       .set('Authorization', `Bearer ${authToken}`)
       .send({ itemId, quantityReceived: 200, unitCost: 25.0 })
 

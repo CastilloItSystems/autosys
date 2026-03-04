@@ -17,26 +17,9 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { handleFormError } from "@/utils/errorHandlers";
 import { LayoutContext } from "@/layout/context/layoutcontext";
 import type { PurchaseOrder } from "@/libs/interfaces/inventory";
-
-/* ── Tipos para opciones de dropdowns ── */
-interface ItemOption {
-  id: string;
-  name: string;
-  sku?: string;
-  costPrice?: number;
-}
-
-interface WarehouseOption {
-  id: string;
-  name: string;
-  code: string;
-}
-
-interface SupplierOption {
-  id: string;
-  name: string;
-  code?: string;
-}
+import type { Item } from "@/app/api/inventory/itemService";
+import type { Supplier } from "@/app/api/inventory/supplierService";
+import type { Warehouse } from "@/app/api/inventory/warehouseService";
 
 /* ── Props ── */
 interface PurchaseOrderFormProps {
@@ -50,9 +33,9 @@ interface PurchaseOrderFormProps {
     detail: string,
   ) => void;
   toast: React.RefObject<Toast> | null;
-  items: ItemOption[];
-  suppliers: SupplierOption[];
-  warehouses: WarehouseOption[];
+  items: Item[];
+  suppliers: Supplier[];
+  warehouses: Warehouse[];
 }
 
 const PurchaseOrderForm = ({

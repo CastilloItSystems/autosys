@@ -5,6 +5,8 @@ export default defineConfig({
     datasource: {
         url: env('DIRECT_URL'),
     },
-    seed: 'prisma/seeds/index.ts',
+    migrations: {
+        seed: 'tsx prisma/seeds/index.ts',
+    },
 });
 //# sourceMappingURL=prisma.config.js.map

@@ -1,0 +1,37 @@
+// backend/prisma/models/inventory/entryNoteItem.prisma
+
+model EntryNoteItem {
+  id               String        @id @default(uuid())
+  
+  entryNoteId      String
+  entryNote        EntryNote     @relation(fields: [entryNoteId], references: [id], onDelete: Cascade)
+  
+  itemId           String
+  item             Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  
+  quantityReceived Int
+  
+  unitCost         Decimal       @db.Decimal(12, 2)
+  
+  // Ubicación destino en almacén
+  storedToLocation String?
+  
+  // Trazabilidad
+  batchId          String?
+  batch            Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
+  
+  serialNumberId   String?
+  serialNumber     SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
+  
+  // Fallback para lotes sin registro formal
+  batchNumber      String?
+  expiryDate       DateTime?
+  
+  notes            String?       @db.Text
+  
+  createdAt        DateTime      @default(now())
+
+  @@map("entry_note_items")
+  @@index([entryNoteId])
+  @@index([itemId])
+}

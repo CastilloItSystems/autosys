@@ -13,6 +13,9 @@ export * from "./purchaseOrderZod";
 // Exit Note
 export * from "./exitNoteZod";
 
+// Entry Note
+export * from "./entryNoteZod";
+
 // Supplier
 export * from "./supplierZod";
 

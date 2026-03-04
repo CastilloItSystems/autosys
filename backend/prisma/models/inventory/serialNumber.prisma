@@ -27,6 +27,7 @@ model SerialNumber {
   // Relaciones
   preInvoiceItems PreInvoiceItem[]
   exitNoteItems   ExitNoteItem[]
+  entryNoteItems  EntryNoteItem[]
   
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt

@@ -11,7 +11,7 @@ import {
   DashboardMetrics,
 } from "@/app/api/inventory/stockService";
 
-export default function StockDashboard() {
+export default function InventoryDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
   const [loading, setLoading] = useState(true);
 

@@ -11,7 +11,7 @@ import stockRoutes from './stock/index'
 import reservationRoutes from './reservations/index'
 import supplierRoutes from './suppliers/index'
 import purchaseOrderRoutes from './purchaseOrders/index'
-import receiveRoutes from './receives/index'
+import entryNoteRoutes from './entryNotes/index'
 import adjustmentRoutes from './adjustments/index'
 import cycleCountRoutes from './cycleCounts/index'
 import reconciliationRoutes from './reconciliations/index'
@@ -64,9 +64,9 @@ router.use('/suppliers', supplierRoutes)
 // /api/inventory/purchase-orders/*
 router.use('/purchase-orders', purchaseOrderRoutes)
 
-// Recepciones
-// /api/inventory/receives/*
-router.use('/receives', receiveRoutes)
+// Notas de Entrada
+// /api/inventory/entry-notes/*
+router.use('/entry-notes', entryNoteRoutes)
 
 // Ajustes
 // /api/inventory/adjustments/*

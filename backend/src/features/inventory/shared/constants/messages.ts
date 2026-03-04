@@ -109,6 +109,23 @@ export const INVENTORY_MESSAGES = {
     alreadyConsumed: 'La reserva ya fue consumida',
     cannotRelease: 'No se puede liberar esta reserva',
   },
+  entryNote: {
+    created: 'Nota de entrada creada exitosamente',
+    updated: 'Nota de entrada actualizada exitosamente',
+    deleted: 'Nota de entrada eliminada exitosamente',
+    notFound: 'Nota de entrada no encontrada',
+    itemAdded: 'Item agregado a nota de entrada exitosamente',
+    itemsRetrieved: 'Items de nota de entrada obtenidos exitosamente',
+    listed: 'Notas de entrada obtenidas exitosamente',
+    retrieved: 'Nota de entrada obtenida exitosamente',
+    warehouseNotFound: 'Almacén no encontrado',
+    purchaseOrderNotFound: 'Orden de compra no encontrada',
+    itemNotFound: 'Item no encontrado',
+    cannotAddItems:
+      'No se pueden agregar items a una nota de entrada con estado {{status}}',
+    cannotDelete: 'No se puede eliminar una nota de entrada completada',
+    invalidStatusTransition: 'No se puede cambiar de estado {{from}} a {{to}}',
+  },
   exitNote: {
     created: 'Nota de salida creada exitosamente',
     updated: 'Nota de salida actualizada',
