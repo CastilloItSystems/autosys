@@ -25,7 +25,14 @@ export interface ISearchResult {
   name: string
   description?: string
   categoryName: string
+  brandName?: string
   salePrice: number
+  costPrice?: number
+  minStock?: number
+  reorderPoint?: number
+  quantity?: number
+  tags?: string[]
+  images?: { url: string; isPrimary: boolean }[]
   isActive: boolean
   score: number // Relevance score for full-text search
 }

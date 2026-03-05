@@ -20,12 +20,19 @@ export const createRateLimiter = (
     },
   })
 }
-
 // Rate limiters predefinidos
-export const generalLimiter = createRateLimiter(15 * 60 * 1000, 100)
+export const generalLimiter = createRateLimiter(
+  15 * 60 * 1000,
+  10000,
+  '🔴 BLOQUEADO POR: generalLimiter'
+)
 export const authLimiter = createRateLimiter(
   15 * 60 * 1000,
   5,
-  'Demasiados intentos de inicio de sesión'
+  '🔴 BLOQUEADO POR: authLimiter'
 )
-export const apiLimiter = createRateLimiter(1 * 60 * 1000, 30)
+export const apiLimiter = createRateLimiter(
+  1 * 60 * 1000,
+  30,
+  '🔴 BLOQUEADO POR: apiLimiter'
+)

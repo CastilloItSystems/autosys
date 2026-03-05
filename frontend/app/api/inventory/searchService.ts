@@ -8,11 +8,16 @@ export interface ISearchItem {
   name: string;
   description?: string;
   categoryName: string;
+  brandName?: string;
   salePrice: number;
+  costPrice?: number;
+  minStock?: number;
+  reorderPoint?: number;
+  quantity?: number;
+  tags?: string[];
+  images?: { url: string; isPrimary: boolean }[];
   isActive: boolean;
   score?: number;
-  brandName?: string;
-  image?: string;
 }
 
 export interface ISearchAggregation {
@@ -57,11 +62,15 @@ export interface IAdvancedSearchRequest extends ISearchRequest {
 }
 
 export interface ISearchResponse {
+  success: boolean;
+  message?: string;
   data: ISearchItem[];
-  page: number;
-  limit: number;
-  total: number;
-  pages: number;
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
 }
 
 // ===== SEARCH FUNCTIONS =====
@@ -73,7 +82,7 @@ export const search = async (
   request: ISearchRequest,
 ): Promise<ISearchResponse> => {
   const response = await apiClient.post<ISearchResponse>(
-    "/api/inventory/items/search",
+    "/inventory/items/search",
     {
       query: request.query,
       filters: request.filters,
@@ -93,7 +102,7 @@ export const advancedSearch = async (
   request: IAdvancedSearchRequest,
 ): Promise<ISearchResponse> => {
   const response = await apiClient.post<ISearchResponse>(
-    "/api/inventory/items/search/advanced",
+    "/inventory/items/search/advanced",
     {
       query: request.query,
       filters: request.filters,
@@ -114,7 +123,7 @@ export const getSuggestions = async (
   limit = 10,
 ): Promise<ISearchSuggestion[]> => {
   const response = await apiClient.get<ISearchSuggestion[]>(
-    "/api/inventory/items/search/suggestions",
+    "/inventory/items/search/suggestions",
     {
       params: {
         query,
@@ -132,7 +141,7 @@ export const getAggregations = async (
   query?: string,
 ): Promise<ISearchAggregations> => {
   const response = await apiClient.get<ISearchAggregations>(
-    "/api/inventory/items/search/aggregations",
+    "/inventory/items/search/aggregations",
     {
       params: {
         query: query || "",

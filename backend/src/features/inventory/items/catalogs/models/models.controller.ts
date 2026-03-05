@@ -8,7 +8,7 @@ import {
   ModelResponseDTO,
   ModelGroupedDTO,
 } from './models.dto'
-import { IModelFilters } from './models.interface'
+import { IModelFilters, ModelType } from './models.interface'
 import { ApiResponse } from '../../../../../shared/utils/ApiResponse'
 import { asyncHandler } from '../../../../../shared/middleware/asyncHandler.middleware'
 import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
@@ -21,12 +21,13 @@ export class ModelController {
    * Obtener todos los modelos
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
-    const { page, limit, search, brandId, year, isActive } = req.query
+    const { page, limit, search, brandId, year, type, isActive } = req.query
 
     const filters: IModelFilters = {}
     if (search) filters.search = search as string
     if (brandId) filters.brandId = brandId as string
     if (year) filters.year = Number(year)
+    if (type) filters.type = type as ModelType
     if (isActive === 'true') filters.isActive = true
     if (isActive === 'false') filters.isActive = false
 
@@ -61,9 +62,12 @@ export class ModelController {
       (model) => new ModelResponseDTO(model, { includeBrand: true })
     )
 
-    return ApiResponse.success(
+    return ApiResponse.paginated(
       res,
       response,
+      1,
+      response.length,
+      response.length,
       'Modelos activos obtenidos exitosamente'
     )
   })
@@ -117,7 +121,14 @@ export class ModelController {
       (model) => new ModelResponseDTO(model, { includeBrand: true })
     )
 
-    return ApiResponse.success(res, response, 'Búsqueda completada')
+    return ApiResponse.paginated(
+      res,
+      response,
+      1,
+      response.length,
+      response.length,
+      'Búsqueda completada'
+    )
   })
 
   /**

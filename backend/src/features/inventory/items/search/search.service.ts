@@ -67,12 +67,33 @@ export class SearchService {
         name: true,
         description: true,
         salePrice: true,
+        costPrice: true,
+        minStock: true,
+        reorderPoint: true,
         isActive: true,
+        tags: true,
         category: {
           select: {
             name: true,
           },
         },
+        brand: {
+          select: {
+            name: true,
+          },
+        },
+        images: {
+          select: {
+            url: true,
+            isPrimary: true,
+          },
+          orderBy: {
+            order: 'asc',
+          },
+          take: 1,
+        },
+        // Asumiendo que hay un campo quantity o calculo de stock, si no está directo en item,
+        // habría que ver cómo lo obtiene el getAll. Por ahora agrego lo que es seguro del modelo.
       },
       skip,
       take,
@@ -97,14 +118,24 @@ export class SearchService {
       // Descripción match
       if (item.description?.toLowerCase().includes(queryLower)) score += 20
 
+      // Brand match
+      if (item.brand?.name?.toLowerCase().includes(queryLower)) score += 30
+
       return {
         id: item.id,
         sku: item.sku,
         name: item.name,
         description: item.description,
-        categoryName: item.category.name,
-        salePrice: item.salePrice,
+        categoryName: item.category?.name,
+        brandName: item.brand?.name,
+        salePrice: Number(item.salePrice),
+        costPrice: Number(item.costPrice),
+        minStock: item.minStock,
+        reorderPoint: item.reorderPoint,
         isActive: item.isActive,
+        tags: item.tags,
+        images: item.images,
+        quantity: 0, // Placeholder, populate if logic exists for stock calculation
         score,
       }
     })

@@ -6,6 +6,7 @@ import seedUsers from './users.seed.js'
 import seedCategories from './categories.seed.js'
 import seedUnits from './units.seed.js'
 import seedBrands from './brands.seed.js'
+import seedModels from './models.seed.js'
 import seedWarehouses from './warehouses.seed.js'
 import seedSuppliers from './suppliers.seed.js'
 import seedItems from './items.seed.js'
@@ -32,6 +33,9 @@ async function main() {
     console.log('')
 
     await seedBrands(prisma, empresaId)
+    console.log('')
+
+    await seedModels(prisma, empresaId)
     console.log('')
 
     await seedWarehouses(prisma, empresaId)

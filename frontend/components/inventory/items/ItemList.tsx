@@ -3,14 +3,27 @@ import React, { useEffect, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
+import { DataView } from "primereact/dataview";
+import { SelectButton } from "primereact/selectbutton";
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from "primereact/autocomplete";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
+import { TabView, TabPanel } from "primereact/tabview";
+import { Divider } from "primereact/divider";
+import { Image } from "primereact/image";
+import { Sidebar } from "primereact/sidebar";
 import { motion } from "framer-motion";
 import itemService, { Item } from "@/app/api/inventory/itemService";
+import * as searchService from "@/app/api/inventory/searchService";
+import type { ISearchFilters } from "@/app/api/inventory/searchService";
 import ItemForm from "./ItemForm";
 import CreateButton from "@/components/common/CreateButton";
+import { AdvancedSearchPanel } from "@/components/inventory/search/AdvancedSearchPanel";
 
 const ItemList = () => {
   // Datos
@@ -21,19 +34,33 @@ const ItemList = () => {
   // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [page, setPage] = useState<number>(0);
-  const [rows, setRows] = useState<number>(10);
+  const [rows, setRows] = useState<number>(12);
   const [showActive, setShowActive] = useState<boolean>(true);
 
   // UI
   const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [detailsDialog, setDetailsDialog] = useState<boolean>(false);
+  const [filterSidebar, setFilterSidebar] = useState<boolean>(false);
+  const [layout, setLayout] = useState<"grid" | "list" | "table">("table");
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [advancedFilters, setAdvancedFilters] = useState<ISearchFilters>({});
   const toast = useRef<Toast>(null);
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Cargar items cuando cambien los filtros
   useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
+    const hasAdvancedFilters = Object.keys(advancedFilters).length > 0;
+
+    if ((searchQuery && searchQuery.trim().length > 0) || hasAdvancedFilters) {
+      // Si hay búsqueda o filtros avanzados, usar searchService
+      performSearch();
+    } else {
+      // Si no hay búsqueda ni filtros, cargar todo normal
+      loadItems();
+    }
+  }, [page, rows, searchQuery, showActive, advancedFilters]);
 
   const loadItems = async () => {
     try {
@@ -41,7 +68,7 @@ const ItemList = () => {
       const response = await itemService.getAll(
         page + 1,
         rows,
-        searchQuery || undefined,
+        undefined, // No mandamos query aquí porque lo maneja searchService
         undefined,
         undefined,
         showActive,
@@ -66,6 +93,43 @@ const ItemList = () => {
     }
   };
 
+  const performSearch = async () => {
+    try {
+      setLoading(true);
+      const response = await searchService.search({
+        query: searchQuery,
+        filters: {
+          ...advancedFilters,
+          isActive: showActive ? true : undefined,
+        },
+        page: page + 1,
+        limit: rows,
+      });
+
+      // Mapear resultados de búsqueda a Item
+      const searchItems = response.data.map((res: any) => ({
+        ...res,
+        category: { name: res.categoryName },
+        brand: { name: res.brandName },
+        // Images are already in correct structure from backend update
+      }));
+
+      setItems(searchItems as unknown as Item[]);
+      setTotalRecords(response.meta?.total || 0);
+    } catch (error) {
+      console.error("Search error:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error en la búsqueda",
+        life: 3000,
+      });
+      setItems([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const onPageChange = (event: any) => {
     const newPage =
       event.page !== undefined
@@ -78,6 +142,66 @@ const ItemList = () => {
   const handleSearch = (value: string) => {
     setSearchQuery(value);
     setPage(0);
+  };
+
+  const searchSuggestions = async (event: AutoCompleteCompleteEvent) => {
+    const query = event.query;
+
+    // Debounce manual
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      try {
+        const results = await searchService.search({
+          query: query,
+          page: 1,
+          limit: 10,
+        });
+
+        setSuggestions(results.data);
+      } catch (error) {
+        setSuggestions([]);
+      }
+    }, 300); // 300ms delay
+  };
+
+  const onSuggestionSelect = (e: any) => {
+    // Al seleccionar una sugerencia, mostramos los detalles directamente
+    // o filtramos la tabla por ese item específico
+    const selected = e.value;
+
+    // Opción 1: Mostrar detalles directamente
+    // const fullItem = { ...selected, category: { name: selected.categoryName } };
+    // showDetails(fullItem as unknown as Item);
+
+    // Opción 2: Filtrar la tabla (elegida por consistencia)
+    setSearchQuery(selected.name);
+    setPage(0);
+  };
+
+  const handleAdvancedSearch = (filters: ISearchFilters, query: string) => {
+    setAdvancedFilters(filters);
+    setSearchQuery(query);
+    setFilterSidebar(false);
+    setPage(0);
+  };
+
+  const itemSuggestionTemplate = (item: any) => {
+    return (
+      <div className="flex align-items-center justify-content-between gap-2">
+        <div className="flex flex-column">
+          <span className="font-bold text-sm">{item.name}</span>
+          <span className="text-xs text-600">
+            {item.sku} - {item.categoryName}
+          </span>
+        </div>
+        <span className="font-semibold text-primary text-sm">
+          ${item.salePrice}
+        </span>
+      </div>
+    );
   };
 
   const openNew = () => {
@@ -93,6 +217,11 @@ const ItemList = () => {
   const confirmDeleteItem = (item: Item) => {
     setSelectedItem(item);
     setDeleteDialog(true);
+  };
+
+  const showDetails = (item: Item) => {
+    setSelectedItem(item);
+    setDetailsDialog(true);
   };
 
   const handleToggleItem = async (item: Item) => {
@@ -149,10 +278,18 @@ const ItemList = () => {
     setFormDialog(false);
   };
 
-  // Templates
+  // Templates for DataTable
   const actionBodyTemplate = (rowData: Item) => {
     return (
       <div className="flex gap-2">
+        <Button
+          icon="pi pi-eye"
+          rounded
+          severity="secondary"
+          text
+          onClick={() => showDetails(rowData)}
+          tooltip="Ver detalles"
+        />
         <Button
           icon="pi pi-pencil"
           rounded
@@ -192,7 +329,11 @@ const ItemList = () => {
   };
 
   const codeBodyTemplate = (rowData: Item) => {
-    return <span className="font-bold text-primary">{rowData.code}</span>;
+    return (
+      <span className="font-bold text-primary">
+        {rowData.sku || rowData.code}
+      </span>
+    );
   };
 
   const quantityBodyTemplate = (rowData: Item) => {
@@ -240,36 +381,319 @@ const ItemList = () => {
       ));
   };
 
-  const header = (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <div className="flex align-items-center gap-2">
-        <h4 className="m-0">Artículos</h4>
-        <span className="text-600 text-sm">({totalRecords} total)</span>
+  // Templates for DataView
+  const getSeverity = (item: Item) => {
+    const amount = item.quantity || 0;
+    const minStock = item.minStock || 0;
+    if (amount === 0) return "danger";
+    if (amount <= minStock) return "warning";
+    return "success";
+  };
+
+  const getPrimaryImage = (item: Item) => {
+    if (!item.images || item.images.length === 0) {
+      return "/demo/images/product/product-placeholder.svg";
+    }
+    const primary = item.images.find((img) => img.isPrimary);
+    return (
+      primary?.url ||
+      item.images[0]?.url ||
+      "/demo/images/product/product-placeholder.svg"
+    );
+  };
+
+  const gridItem = (item: Item) => {
+    return (
+      <div className="col-12 sm:col-6 lg:col-6 xl:col-4 p-2">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div
+            className="p-4 surface-card border-round hover:shadow-4"
+            style={{ cursor: "pointer" }}
+          >
+            <div className="flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
+              <div className="flex align-items-center gap-2">
+                <i className="pi pi-tag text-600"></i>
+                <span className="font-semibold text-sm text-600">
+                  {item.category?.name || "-"}
+                </span>
+              </div>
+              <Tag
+                value={item.isActive ? "Activo" : "Inactivo"}
+                severity={item.isActive ? "success" : "secondary"}
+                rounded
+              />
+            </div>
+
+            <div className="flex flex-column align-items-center gap-3 py-5">
+              <img
+                src={getPrimaryImage(item)}
+                alt={item.name}
+                style={{
+                  width: "200px",
+                  height: "150px",
+                  objectFit: "cover",
+                  borderRadius: "6px",
+                }}
+              />
+              <div className="text-center">
+                <div className="text-sm text-primary font-bold mb-1">
+                  {item.sku || item.code}
+                </div>
+                <div className="text-2xl font-bold text-900">{item.name}</div>
+                <div className="text-sm text-600">
+                  {item.brand?.name || "-"}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex align-items-center justify-content-center gap-2 my-3">
+              <Tag
+                value={`Stock: ${item.quantity || 0}`}
+                severity={getSeverity(item)}
+                rounded
+              />
+              <span className="text-xs text-600">
+                Min: {item.minStock || 0}
+              </span>
+            </div>
+
+            <div className="flex align-items-center justify-content-between mt-4">
+              <span className="text-2xl font-semibold text-primary">
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(item.salePrice || 0)}
+              </span>
+              <Button
+                icon="pi pi-eye"
+                rounded
+                severity="secondary"
+                text
+                onClick={() => showDetails(item)}
+                tooltip="Ver detalles"
+              />
+            </div>
+
+            <div className="flex gap-2 justify-content-center mt-3">
+              <Button
+                icon="pi pi-pencil"
+                rounded
+                severity="info"
+                text
+                size="small"
+                onClick={() => editItem(item)}
+                tooltip="Editar"
+              />
+              <Button
+                icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
+                rounded
+                severity={item.isActive ? "warning" : "success"}
+                text
+                size="small"
+                onClick={() => handleToggleItem(item)}
+              />
+              <Button
+                icon="pi pi-trash"
+                rounded
+                severity="danger"
+                text
+                size="small"
+                onClick={() => confirmDeleteItem(item)}
+              />
+            </div>
+          </div>
+        </motion.div>
       </div>
-      <div className="flex gap-2">
-        <Button
-          label={showActive ? "Todos" : "Solo activos"}
-          icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
-          outlined
-          size="small"
-          onClick={() => {
-            setShowActive(!showActive);
-            setPage(0);
-          }}
-        />
-        <span className="p-input-icon-left">
-          <i className="pi pi-search" />
-          <InputText
-            type="search"
-            placeholder="Buscar..."
-            value={searchQuery}
-            onChange={(e) => handleSearch(e.target.value)}
+    );
+  };
+
+  const listItem = (item: Item, index: number) => {
+    return (
+      <div className="col-12" key={item.id}>
+        <motion.div
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.2 }}
+        >
+          <div
+            className={`flex flex-column xl:flex-row xl:align-items-start p-4 gap-4 ${
+              index !== 0 ? "border-top-1 surface-border" : ""
+            }`}
+          >
+            {/* Imagen */}
+            <img
+              src={getPrimaryImage(item)}
+              alt={item.name}
+              style={{
+                width: "9rem",
+                height: "9rem",
+                objectFit: "cover",
+                borderRadius: "6px",
+              }}
+            />
+
+            {/* Contenido principal */}
+            <div className="flex flex-column sm:flex-row justify-content-between align-items-center xl:align-items-start flex-1 gap-4">
+              <div className="flex flex-column align-items-center sm:align-items-start gap-3">
+                <div className="text-center sm:text-left">
+                  <div className="text-sm text-primary font-bold mb-1">
+                    {item.sku || item.code}
+                  </div>
+                  <div className="text-2xl font-bold text-900">{item.name}</div>
+                </div>
+                <div className="flex align-items-center gap-3 flex-wrap justify-content-center sm:justify-content-start">
+                  <span className="flex align-items-center gap-2 text-sm">
+                    <i className="pi pi-tag text-xs"></i>
+                    <span className="font-semibold">
+                      {item.category?.name || "-"}
+                    </span>
+                  </span>
+                  <span className="flex align-items-center gap-2 text-sm">
+                    <i className="pi pi-box text-xs"></i>
+                    <span className="font-semibold">
+                      {item.brand?.name || "-"}
+                    </span>
+                  </span>
+                  <Tag
+                    value={item.isActive ? "Activo" : "Inactivo"}
+                    severity={item.isActive ? "success" : "secondary"}
+                    rounded
+                  />
+                </div>
+                <div className="flex gap-3 align-items-center">
+                  <Tag
+                    value={`Stock: ${item.quantity || 0}`}
+                    severity={getSeverity(item)}
+                    rounded
+                  />
+                  <span className="text-xs text-600">
+                    Min: {item.minStock || 0}
+                  </span>
+                </div>
+              </div>
+
+              {/* Precio y acciones */}
+              <div className="flex sm:flex-column align-items-center sm:align-items-end gap-3 sm:gap-2">
+                <span className="text-2xl font-semibold text-primary">
+                  {new Intl.NumberFormat("en-US", {
+                    style: "currency",
+                    currency: "USD",
+                  }).format(item.salePrice || 0)}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    icon="pi pi-eye"
+                    rounded
+                    severity="secondary"
+                    text
+                    onClick={() => showDetails(item)}
+                    tooltip="Ver detalles"
+                  />
+                  <Button
+                    icon="pi pi-pencil"
+                    rounded
+                    severity="info"
+                    text
+                    onClick={() => editItem(item)}
+                    tooltip="Editar"
+                  />
+                  <Button
+                    icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
+                    rounded
+                    severity={item.isActive ? "warning" : "success"}
+                    text
+                    onClick={() => handleToggleItem(item)}
+                  />
+                  <Button
+                    icon="pi pi-trash"
+                    rounded
+                    severity="danger"
+                    text
+                    onClick={() => confirmDeleteItem(item)}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+      </div>
+    );
+  };
+
+  const itemTemplate = (item: Item, layout: string, index: number) => {
+    if (!item) return null;
+    if (layout === "list") return listItem(item, index);
+    else if (layout === "grid") return gridItem(item);
+  };
+
+  const dataViewTemplate = (items: Item[], layout: string) => {
+    if (!items || items.length === 0) return null;
+
+    if (layout === "grid") {
+      return (
+        <div className="grid grid-nogutter">
+          {items.map((item) => gridItem(item))}
+        </div>
+      );
+    } else {
+      return (
+        <div className="grid grid-nogutter">
+          {items.map((item, index) => listItem(item, index))}
+        </div>
+      );
+    }
+  };
+
+  const headerTemplate = () => {
+    return (
+      <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+        <div className="flex align-items-center gap-2">
+          <h4 className="m-0">Artículos</h4>
+          <span className="text-600 text-sm">({totalRecords} total)</span>
+        </div>
+        <div className="flex gap-2 flex-wrap align-items-center">
+          <Button
+            label={showActive ? "Todos" : "Solo activos"}
+            icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
+            outlined
+            size="small"
+            onClick={() => {
+              setShowActive(!showActive);
+              setPage(0);
+            }}
           />
-        </span>
-        <CreateButton label="Nuevo Artículo" onClick={openNew} />
+          <span className="p-input-icon-left w-20rem">
+            <i className="pi pi-search" style={{ zIndex: 1 }} />
+            <AutoComplete
+              value={searchQuery}
+              suggestions={suggestions}
+              completeMethod={searchSuggestions}
+              field="name"
+              placeholder="Buscar (SKU, Nombre, Desc...)"
+              itemTemplate={itemSuggestionTemplate}
+              onSelect={onSuggestionSelect}
+              onChange={(e) => handleSearch(e.value)}
+              delay={300}
+              inputClassName="w-full pl-5"
+              className="w-full"
+            />
+          </span>
+          <CreateButton label="Nuevo Artículo" onClick={openNew} />
+          <Button
+            icon="pi pi-sliders-h"
+            rounded
+            text
+            onClick={() => setFilterSidebar(true)}
+            tooltip="Filtros avanzados"
+          />
+        </div>
       </div>
-    </div>
-  );
+    );
+  };
 
   const deleteDialogFooter = (
     <>
@@ -288,6 +712,16 @@ const ItemList = () => {
     </>
   );
 
+  const layoutOptions = [
+    { icon: "pi pi-table", value: "table" },
+    { icon: "pi pi-list", value: "list" },
+    { icon: "pi pi-th-large", value: "grid" },
+  ];
+
+  const layoutTemplate = (option: any) => {
+    return <i className={option.icon}></i>;
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -296,85 +730,113 @@ const ItemList = () => {
     >
       <Toast ref={toast} />
       <div className="card">
-        <DataTable
-          value={items}
-          paginator
-          first={page * rows}
-          rows={rows}
-          totalRecords={totalRecords}
-          rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={onPageChange}
-          dataKey="id"
-          loading={loading}
-          header={header}
-          emptyMessage="No se encontraron artículos"
-          sortMode="multiple"
-          lazy
-        >
-          <Column
-            field="code"
-            header="Código"
-            sortable
-            body={codeBodyTemplate}
-            style={{ minWidth: "80px" }}
+        {headerTemplate()}
+
+        <div className="mt-4 flex align-items-center justify-content-end mb-3">
+          <SelectButton
+            value={layout}
+            onChange={(e) => e.value && setLayout(e.value)}
+            options={layoutOptions}
+            itemTemplate={layoutTemplate}
+            allowEmpty={false}
           />
-          <Column
-            field="name"
-            header="Nombre"
-            sortable
-            style={{ minWidth: "250px" }}
+        </div>
+
+        {layout === "table" ? (
+          <DataTable
+            value={items}
+            paginator
+            first={page * rows}
+            rows={rows}
+            totalRecords={totalRecords}
+            rowsPerPageOptions={[6, 12, 24, 50]}
+            onPage={onPageChange}
+            dataKey="id"
+            loading={loading}
+            emptyMessage="No se encontraron artículos"
+            sortMode="multiple"
+            lazy
+            tableStyle={{ minWidth: "50rem" }}
+          >
+            <Column
+              field="code"
+              header="Código"
+              sortable
+              body={codeBodyTemplate}
+              style={{ minWidth: "80px" }}
+            />
+            <Column
+              field="name"
+              header="Nombre"
+              sortable
+              style={{ minWidth: "250px" }}
+            />
+            <Column
+              field="brand.name"
+              header="Marca"
+              style={{ minWidth: "120px" }}
+            />
+            <Column
+              field="category.name"
+              header="Categoría"
+              style={{ minWidth: "120px" }}
+            />
+            <Column
+              field="salePrice"
+              header="Precio"
+              body={priceBodyTemplate}
+              sortable
+              style={{ minWidth: "100px" }}
+            />
+            <Column
+              header="Margen"
+              body={marginBodyTemplate}
+              style={{ minWidth: "90px" }}
+            />
+            <Column
+              field="quantity"
+              header="Stock"
+              body={quantityBodyTemplate}
+              style={{ minWidth: "80px" }}
+            />
+            <Column
+              header="Imágenes"
+              body={imagesBodyTemplate}
+              style={{ minWidth: "100px" }}
+            />
+            <Column
+              header="Tags"
+              body={tagsBodyTemplate}
+              style={{ minWidth: "120px" }}
+            />
+            <Column
+              field="isActive"
+              header="Estado"
+              body={statusBodyTemplate}
+              sortable
+              style={{ minWidth: "100px" }}
+            />
+            <Column
+              body={actionBodyTemplate}
+              exportable={false}
+              style={{ minWidth: "140px" }}
+            />
+          </DataTable>
+        ) : (
+          <DataView
+            value={items}
+            listTemplate={(items) => dataViewTemplate(items, layout)}
+            paginator
+            rows={rows}
+            first={page * rows}
+            totalRecords={totalRecords}
+            onPage={onPageChange}
+            loading={loading}
+            emptyMessage="No se encontraron artículos"
+            rowsPerPageOptions={[6, 12, 24, 50]}
+            lazy
           />
-          <Column
-            field="brand.name"
-            header="Marca"
-            style={{ minWidth: "120px" }}
-          />
-          <Column
-            field="category.name"
-            header="Categoría"
-            style={{ minWidth: "120px" }}
-          />
-          <Column
-            field="salePrice"
-            header="Precio"
-            body={priceBodyTemplate}
-            sortable
-            style={{ minWidth: "100px" }}
-          />
-          <Column
-            header="Margen"
-            body={marginBodyTemplate}
-            style={{ minWidth: "90px" }}
-          />
-          <Column
-            field="quantity"
-            header="Stock"
-            body={quantityBodyTemplate}
-            style={{ minWidth: "80px" }}
-          />
-          <Column
-            header="Imágenes"
-            body={imagesBodyTemplate}
-            style={{ minWidth: "100px" }}
-          />
-          <Column
-            header="Tags"
-            body={tagsBodyTemplate}
-            style={{ minWidth: "120px" }}
-          />
-          <Column
-            field="isActive"
-            header="Estado"
-            body={statusBodyTemplate}
-            sortable
-            style={{ minWidth: "100px" }}
-          />
-          <Column
-            body={actionBodyTemplate}
-            exportable={false}
-            style={{ minWidth: "140px" }}
-          />
-        </DataTable>
+        )}
       </div>
 
       <Dialog
@@ -422,6 +884,230 @@ const ItemList = () => {
           )}
         </div>
       </Dialog>
+
+      {/* Detalles Dialog */}
+      <Dialog
+        visible={detailsDialog}
+        style={{ width: "60vw" }}
+        header="Detalles del Artículo"
+        modal
+        onHide={() => setDetailsDialog(false)}
+        className="p-fluid"
+      >
+        {selectedItem && (
+          <div className="grid">
+            <div className="col-12 md:col-4">
+              <div className="flex flex-column align-items-center justify-content-center p-3 surface-card border-round h-full">
+                <img
+                  src={getPrimaryImage(selectedItem)}
+                  alt={selectedItem.name}
+                  className="w-full border-round shadow-2"
+                  style={{ maxHeight: "250px", objectFit: "contain" }}
+                />
+                <div className="mt-3 text-center">
+                  <Tag
+                    value={selectedItem.isActive ? "Activo" : "Inactivo"}
+                    severity={selectedItem.isActive ? "success" : "secondary"}
+                    rounded
+                    className="mb-2"
+                  />
+                  <div className="text-xl font-bold">
+                    {selectedItem.sku || selectedItem.code}
+                  </div>
+                  <span className="text-sm text-600">SKU / Código</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-12 md:col-8">
+              <TabView>
+                <TabPanel header="General">
+                  <div className="grid">
+                    <div className="col-12 mb-3">
+                      <span className="text-sm text-500 block">
+                        Nombre del Producto
+                      </span>
+                      <span className="text-xl font-bold text-900">
+                        {selectedItem.name}
+                      </span>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <span className="text-sm text-500 block">Marca</span>
+                      <span className="text-lg font-semibold">
+                        {selectedItem.brand?.name || "-"}
+                      </span>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <span className="text-sm text-500 block">Categoría</span>
+                      <span className="text-lg font-semibold">
+                        {selectedItem.category?.name || "-"}
+                      </span>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <span className="text-sm text-500 block">
+                        Descripción
+                      </span>
+                      <p className="m-0 text-700">
+                        {selectedItem.description ||
+                          "Sin descripción disponible."}
+                      </p>
+                    </div>
+
+                    <div className="col-12">
+                      <span className="text-sm text-500 block mb-2">
+                        Etiquetas
+                      </span>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedItem.tags && selectedItem.tags.length > 0 ? (
+                          selectedItem.tags.map((tag, i) => (
+                            <Tag key={i} value={tag} severity="info" rounded />
+                          ))
+                        ) : (
+                          <span className="text-sm text-600">-</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </TabPanel>
+
+                <TabPanel header="Inventario">
+                  <div className="grid">
+                    <div className="col-12 md:col-4 mb-3">
+                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
+                        <span className="block text-500 font-medium mb-2">
+                          Stock Actual
+                        </span>
+                        <div className="text-2xl font-bold text-primary">
+                          {selectedItem.quantity || 0}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-12 md:col-4 mb-3">
+                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
+                        <span className="block text-500 font-medium mb-2">
+                          Stock Mínimo
+                        </span>
+                        <div className="text-2xl font-bold text-orange-500">
+                          {selectedItem.minStock || 0}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-12 md:col-4 mb-3">
+                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
+                        <span className="block text-500 font-medium mb-2">
+                          Punto Reorden
+                        </span>
+                        <div className="text-2xl font-bold text-blue-500">
+                          {selectedItem.reorderPoint || 0}
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="col-12">
+                      <div className="flex align-items-center gap-2 mt-2">
+                        <span className="font-semibold">
+                          Estado de Inventario:
+                        </span>
+                        <Tag
+                          value={
+                            selectedItem.quantity === 0
+                              ? "Sin Stock"
+                              : selectedItem.quantity! <=
+                                (selectedItem.minStock || 0)
+                              ? "Bajo Stock"
+                              : "En Stock"
+                          }
+                          severity={getSeverity(selectedItem)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </TabPanel>
+
+                <TabPanel header="Precios">
+                  <div className="grid">
+                    <div className="col-12 md:col-6 mb-3">
+                      <div className="surface-50 p-3 border-round">
+                        <span className="text-sm text-500 block">
+                          Precio de Venta
+                        </span>
+                        <span className="text-2xl font-bold text-green-600">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(selectedItem.salePrice || 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <div className="surface-50 p-3 border-round">
+                        <span className="text-sm text-500 block">
+                          Precio de Costo
+                        </span>
+                        <span className="text-xl font-semibold text-600">
+                          {new Intl.NumberFormat("en-US", {
+                            style: "currency",
+                            currency: "USD",
+                          }).format(selectedItem.costPrice || 0)}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="col-12">
+                      <Divider />
+                      <div className="flex justify-content-between align-items-center">
+                        <span className="text-900 font-medium">
+                          Margen de Ganancia
+                        </span>
+                        <span className="text-lg font-bold">
+                          {selectedItem.salePrice && selectedItem.costPrice ? (
+                            <Tag
+                              value={`${(
+                                ((selectedItem.salePrice -
+                                  selectedItem.costPrice) /
+                                  selectedItem.costPrice) *
+                                100
+                              ).toFixed(2)}%`}
+                              severity={
+                                ((selectedItem.salePrice -
+                                  selectedItem.costPrice) /
+                                  selectedItem.costPrice) *
+                                  100 <
+                                20
+                                  ? "warning"
+                                  : "success"
+                              }
+                              className="text-base px-3"
+                            />
+                          ) : (
+                            "-"
+                          )}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </TabPanel>
+              </TabView>
+            </div>
+          </div>
+        )}
+      </Dialog>
+
+      <Sidebar
+        visible={filterSidebar}
+        onHide={() => setFilterSidebar(false)}
+        position="right"
+        className="w-full md:w-30rem"
+        header={<h2>Filtros Avanzados</h2>}
+      >
+        <AdvancedSearchPanel onSearch={handleAdvancedSearch} />
+      </Sidebar>
     </motion.div>
   );
 };

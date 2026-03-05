@@ -21,7 +21,6 @@ import CreateButton from "@/components/common/CreateButton";
 export default function ItemModelList() {
   // Datos
   const [models, setModels] = useState<Model[]>([]);
-  console.log("models", models);
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
 
@@ -52,7 +51,6 @@ export default function ItemModelList() {
       } else {
         response = await getModels(page + 1, rows, searchQuery || undefined);
       }
-
       // Estructura consistente en todos los endpoints
       const modelsData = response.data || [];
       const total = response.meta?.total || 0;
@@ -209,10 +207,21 @@ export default function ItemModelList() {
     return <span className="font-bold text-primary">{rowData.code}</span>;
   };
 
+  const brandBodyTemplate = (rowData: Model) => {
+    return rowData.brand?.name || "-";
+  };
+
   const typeBodyTemplate = (rowData: Model) => {
+    const label =
+      rowData.type === "VEHICLE"
+        ? "Vehículo"
+        : rowData.type === "PART"
+        ? "Repuesto"
+        : rowData.type;
+
     return (
       <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded">
-        {rowData.typeLabel}
+        {label}
       </span>
     );
   };
@@ -314,13 +323,20 @@ export default function ItemModelList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            field="brand.name"
+            header="Marca"
+            body={brandBodyTemplate}
+            sortable
+            style={{ minWidth: "150px" }}
+          />
+          <Column
             field="name"
             header="Nombre"
             sortable
             style={{ minWidth: "200px" }}
           />
           <Column
-            field="typeLabel"
+            field="type"
             header="Tipo"
             body={typeBodyTemplate}
             style={{ minWidth: "120px" }}
@@ -339,11 +355,6 @@ export default function ItemModelList() {
             style={{ minWidth: "100px" }}
           />
           <Column
-            header="Estadísticas"
-            body={statsBodyTemplate}
-            style={{ minWidth: "120px" }}
-          />
-          <Column
             body={actionBodyTemplate}
             exportable={false}
             style={{ minWidth: "140px" }}
@@ -353,7 +364,7 @@ export default function ItemModelList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "450px" }}
+        style={{ width: "60vw" }}
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">

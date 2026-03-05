@@ -9,11 +9,13 @@ import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { InputSwitch } from "primereact/inputswitch";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { Skeleton } from "primereact/skeleton";
 import { Tag } from "primereact/tag";
 import { Dialog } from "primereact/dialog";
+import { Toolbar } from "primereact/toolbar";
+import { Card } from "primereact/card";
 import { useRef } from "react";
-import { modelService } from "@/app/api/inventory/modelService";
+import * as modelService from "@/app/api/inventory/modelService";
 import * as compatibilityService from "@/app/api/inventory/compatibilityService";
 import type { Model } from "@/app/api/inventory/modelService";
 import type { IModelCompatibility } from "@/app/api/inventory/compatibilityService";
@@ -69,15 +71,21 @@ export const CompatibilityMatrix = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [parts, vehicles, compat] = await Promise.all([
-        modelService
-          .getModels(1, 500, "", undefined, undefined, "PART")
-          .then((r) => r.data),
-        modelService
-          .getModels(1, 500, "", undefined, undefined, "VEHICLE")
-          .then((r) => r.data),
-        compatibilityService.getAll({ limit: 500 }).then((r) => r.data),
-      ]);
+      // Backend limit is 100, so we request 100. Ideally this should be paginated.
+      const [partsResponse, vehiclesResponse, compatResponse] =
+        await Promise.all([
+          modelService.getModels(1, 100, "", undefined, undefined, "PART"),
+          modelService.getModels(1, 100, "", undefined, undefined, "VEHICLE"),
+          compatibilityService.getAll({ limit: 100 }),
+        ]);
+
+      const parts = partsResponse.data || [];
+      const vehicles = vehiclesResponse.data || [];
+      // compatibilityService.getAll returns { data: [], meta: ... } or just [] depending on implementation
+      // Let's handle both cases based on the service signature
+      const compat = Array.isArray(compatResponse)
+        ? compatResponse
+        : (compatResponse as any).data || [];
 
       setPartModels(parts);
       setVehicleModels(vehicles);
@@ -86,7 +94,7 @@ export const CompatibilityMatrix = () => {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Failed to load data",
+        detail: "Error al cargar datos",
       });
     } finally {
       setLoading(false);
@@ -162,14 +170,19 @@ export const CompatibilityMatrix = () => {
       try {
         setSaving(true);
         if (checked) {
-          await compatibilityService.create({
+          // Fix: Get the real response to use the real ID
+          const response: any = await compatibilityService.create({
             partModelId: partId,
             vehicleModelId: vehicleId,
           });
+
+          // compatibilityService.create returns { data: IModelCompatibility, ... } or IModelCompatibility directly
+          const newCompat = response.data || response;
+
           setCompatibilities((prev) => [
             ...prev,
             {
-              id: "",
+              id: newCompat.id, // Use real ID from backend
               partModelId: partId,
               vehicleModelId: vehicleId,
               isVerified: false,
@@ -179,8 +192,8 @@ export const CompatibilityMatrix = () => {
           ]);
           toast.current?.show({
             severity: "success",
-            summary: "Added",
-            detail: "Compatibility created",
+            summary: "Agregado",
+            detail: "Compatibilidad creada",
           });
         } else {
           const toDelete = compatibilities.find(
@@ -193,8 +206,8 @@ export const CompatibilityMatrix = () => {
             );
             toast.current?.show({
               severity: "success",
-              summary: "Removed",
-              detail: "Compatibility deleted",
+              summary: "Eliminado",
+              detail: "Compatibilidad eliminada",
             });
           }
         }
@@ -202,7 +215,7 @@ export const CompatibilityMatrix = () => {
         toast.current?.show({
           severity: "error",
           summary: "Error",
-          detail: "Failed to update compatibility",
+          detail: "Error al actualizar compatibilidad",
         });
       } finally {
         setSaving(false);
@@ -245,17 +258,44 @@ export const CompatibilityMatrix = () => {
       await loadData();
       toast.current?.show({
         severity: "success",
-        summary: "Success",
-        detail: "All changes saved",
+        summary: "Éxito",
+        detail: "Todos los cambios guardados",
       });
     } catch (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Failed to save changes",
+        detail: "Error al guardar cambios",
       });
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleVerify = async (partId: string, vehicleId: string) => {
+    const compat = compatibilities.find(
+      (c) => c.partModelId === partId && c.vehicleModelId === vehicleId,
+    );
+    if (compat && !compat.isVerified) {
+      try {
+        await compatibilityService.verify(compat.id);
+        setCompatibilities((prev) =>
+          prev.map((c) =>
+            c.id === compat.id ? { ...c, isVerified: true } : c,
+          ),
+        );
+        toast.current?.show({
+          severity: "success",
+          summary: "Éxito",
+          detail: "Compatibilidad verificada",
+        });
+      } catch (error) {
+        toast.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: "Error al verificar",
+        });
+      }
     }
   };
 
@@ -267,124 +307,163 @@ export const CompatibilityMatrix = () => {
     const checked = isChecked(partId, vehicleId);
 
     let severityColor = "";
+    let icon = null;
+
     if (state === "verified") {
-      severityColor = "check-circle text-green-600";
+      severityColor = "p-button-rounded p-button-text p-button-success";
+      icon = "pi pi-check-circle";
     } else if (state === "unverified") {
-      severityColor = "circle-fill text-yellow-600";
+      severityColor = "p-button-rounded p-button-text p-button-warning";
+      icon = "pi pi-exclamation-circle";
     }
 
     return (
-      <div className="flex align-items-center justify-content-center">
+      <div className="flex align-items-center justify-content-center gap-2">
         <Checkbox
           checked={checked}
           onChange={(e) =>
             handleCompatibilityChange(partId, vehicleId, e.checked || false)
           }
           disabled={saving}
-          className={severityColor}
         />
+        {state === "unverified" && (
+          <Button
+            icon={icon}
+            className={severityColor}
+            tooltip="Verificar (Click para aprobar)"
+            onClick={() => handleVerify(partId, vehicleId)}
+            aria-label="Verificar"
+          />
+        )}
+        {state === "verified" && (
+          <i className={`${icon} text-green-500`} title="Verificado" />
+        )}
       </div>
     );
   };
 
   if (loading) {
     return (
-      <div className="p-6 flex align-items-center justify-content-center">
-        <ProgressSpinner
-          style={{ width: "100px", height: "100px" }}
-          strokeWidth="4"
-        />
+      <div className="card">
+        <div className="flex justify-content-between mb-4">
+          <Skeleton width="15rem" height="3rem" />
+          <div className="flex gap-2">
+            <Skeleton width="8rem" height="3rem" />
+            <Skeleton width="8rem" height="3rem" />
+          </div>
+        </div>
+        <Skeleton width="100%" height="500px" />
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="surface-0">
       <Toast ref={toast} />
 
-      {/* Header Controls */}
-      <div className="bg-white p-4 mb-4 border-round shadow-1">
-        <div className="flex flex-column gap-4">
-          {/* First row: Mode toggle and filters */}
-          <div className="flex align-items-center justify-content-between gap-4">
+      <div className="card mb-0">
+        <Toolbar
+          className="mb-4"
+          start={
             <div className="flex align-items-center gap-2">
-              <label htmlFor="batchMode" className="font-semibold">
-                Batch Mode
-              </label>
               <InputSwitch
                 id="batchMode"
                 checked={batchMode}
                 onChange={(e) => setBatchMode(e.value)}
                 disabled={saving}
               />
+              <label htmlFor="batchMode" className="font-semibold ml-2">
+                Modo por lotes
+              </label>
             </div>
+          }
+          end={
+            <div className="flex gap-2">
+              <Button
+                icon="pi pi-refresh"
+                onClick={loadData}
+                loading={loading}
+                rounded
+                text
+                severity="secondary"
+                tooltip="Refrescar datos"
+              />
+              {batchMode && Object.keys(pendingChanges).length > 0 && (
+                <>
+                  <Button
+                    label="Descartar"
+                    icon="pi pi-times"
+                    severity="secondary"
+                    onClick={() => setPendingChanges({})}
+                    disabled={saving}
+                    text
+                  />
+                  <Button
+                    label={`Guardar (${Object.keys(pendingChanges).length})`}
+                    icon="pi pi-check"
+                    onClick={() => setShowConfirm(true)}
+                    loading={saving}
+                  />
+                </>
+              )}
+            </div>
+          }
+        />
 
-            {batchMode && Object.keys(pendingChanges).length > 0 && (
-              <div className="flex gap-2">
-                <Button
-                  label={`Save Changes (${Object.keys(pendingChanges).length})`}
-                  onClick={() => setShowConfirm(true)}
-                  loading={saving}
-                />
-                <Button
-                  label="Discard"
-                  severity="secondary"
-                  onClick={() => setPendingChanges({})}
-                  disabled={saving}
-                />
-              </div>
-            )}
+        <div className="flex flex-column md:flex-row gap-3 mb-4 align-items-end">
+          <div className="flex-1">
+            <span className="p-input-icon-left w-full">
+              <i className="pi pi-search" />
+              <InputText
+                placeholder="Buscar modelos..."
+                value={searchText}
+                onChange={(e) => setSearchText(e.target.value)}
+                className="w-full"
+              />
+            </span>
           </div>
-
-          {/* Second row: Search and filters */}
-          <div className="flex gap-4 flex-wrap">
-            <InputText
-              placeholder="Search models..."
-              value={searchText}
-              onChange={(e) => setSearchText(e.target.value)}
-              className="w-full md:w-20rem"
-            />
-            <Dropdown
-              options={[{ label: "All Brands", value: null }, ...partBrands]}
-              value={partBrandFilter}
-              onChange={(e) => setPartBrandFilter(e.value)}
-              placeholder="Part Brand"
-              className="w-full md:w-12rem"
-            />
-            <Dropdown
-              options={[{ label: "All Brands", value: null }, ...vehicleBrands]}
-              value={vehicleBrandFilter}
-              onChange={(e) => setVehicleBrandFilter(e.value)}
-              placeholder="Vehicle Brand"
-              className="w-full md:w-12rem"
-            />
-            <Button
-              label="Refresh"
-              icon="pi pi-refresh"
-              onClick={loadData}
-              loading={loading}
-            />
-          </div>
-
-          {/* Info */}
-          <div className="text-600 text-sm">
-            Showing {filteredPartModels.length} part models ×{" "}
-            {filteredVehicleModels.length} vehicle models
-          </div>
+          <Dropdown
+            options={[
+              { label: "Todas las Marcas", value: null },
+              ...partBrands,
+            ]}
+            value={partBrandFilter}
+            onChange={(e) => setPartBrandFilter(e.value)}
+            placeholder="Marca de Repuesto"
+            className="w-full md:w-15rem"
+            showClear
+          />
+          <Dropdown
+            options={[
+              { label: "Todas las Marcas", value: null },
+              ...vehicleBrands,
+            ]}
+            value={vehicleBrandFilter}
+            onChange={(e) => setVehicleBrandFilter(e.value)}
+            placeholder="Marca de Vehículo"
+            className="w-full md:w-15rem"
+            showClear
+          />
         </div>
-      </div>
 
-      {/* Matrix Table */}
-      <div className="bg-white p-4 border-round shadow-1 overflow-x-auto">
+        <div className="text-600 text-sm mb-2">
+          Mostrando {filteredPartModels.length} modelos de repuestos ×{" "}
+          {filteredVehicleModels.length} modelos de vehículos
+        </div>
+
         <DataTable
           value={filteredPartModels}
           scrollable
-          scrollHeight="70vh"
-          style={{ minWidth: "800px" }}
+          scrollHeight="65vh"
+          showGridlines
+          stripedRows
+          size="small"
+          className="p-datatable-sm"
+          style={{ minWidth: "100%" }}
         >
           <Column
             field="name"
-            header="Part Model"
+            header="Modelo Repuesto"
             style={{ width: "150px", minWidth: "150px" }}
             frozen
             body={(rowData: Model) => (
@@ -417,17 +496,24 @@ export const CompatibilityMatrix = () => {
             />
           ))}
         </DataTable>
-      </div>
 
-      {/* Legend */}
-      <div className="mt-4 flex gap-4 text-sm">
-        <div className="flex align-items-center gap-2">
-          <i className="pi pi-check-circle text-green-600"></i>
-          <span>Verified</span>
-        </div>
-        <div className="flex align-items-center gap-2">
-          <i className="pi pi-circle-fill text-yellow-600"></i>
-          <span>Unverified</span>
+        {/* Legend */}
+        <div className="mt-4 flex gap-4 text-sm align-items-center">
+          <span className="font-semibold mr-2">Leyenda:</span>
+          <div className="flex align-items-center gap-2">
+            <Tag
+              severity="success"
+              icon="pi pi-check-circle"
+              value="Verificado"
+            />
+          </div>
+          <div className="flex align-items-center gap-2">
+            <Tag
+              severity="warning"
+              icon="pi pi-exclamation-circle"
+              value="No Verificado"
+            />
+          </div>
         </div>
       </div>
 
@@ -435,23 +521,44 @@ export const CompatibilityMatrix = () => {
       <Dialog
         visible={showConfirm}
         onHide={() => setShowConfirm(false)}
-        header="Confirm Changes"
+        header="Confirmar Cambios"
         modal
+        style={{ width: "450px" }}
         footer={
-          <div className="flex gap-2">
-            <Button label="Cancel" onClick={() => setShowConfirm(false)} />
+          <div className="flex gap-2 pb-3 px-1">
             <Button
-              label="Save All"
+              label="Cancelar"
+              icon="pi pi-times"
+              severity="secondary"
+              onClick={() => setShowConfirm(false)}
+              className="flex-1"
+            />
+            <Button
+              label="Guardar Todo"
+              icon="pi pi-check"
               onClick={submitBatchChanges}
               loading={saving}
+              className="flex-1"
+              autoFocus
             />
           </div>
         }
       >
-        <p>
-          You have {Object.keys(pendingChanges).length} pending changes. Save
-          them now?
-        </p>
+        <div className="confirmation-content flex align-items-center gap-3">
+          <i
+            className="pi pi-exclamation-triangle"
+            style={{ fontSize: "2rem", color: "var(--yellow-500)" }}
+          />
+          <div className="flex flex-column">
+            <span>
+              Tienes <b>{Object.keys(pendingChanges).length}</b> cambios
+              pendientes. ¿Desea guardarlos ahora?
+            </span>
+            <small className="text-500 mt-2">
+              Esta acción actualizará la base de datos inmediatamente.
+            </small>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

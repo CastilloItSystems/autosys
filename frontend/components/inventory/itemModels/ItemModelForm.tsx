@@ -13,6 +13,8 @@ import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { InputNumber } from "primereact/inputnumber";
+import { TabView, TabPanel } from "primereact/tabview";
+import ModelCompatibilitySelector from "./ModelCompatibilitySelector";
 
 // API functions
 import {
@@ -173,6 +175,161 @@ export default function ItemModelForm({
     value: brand.id,
   }));
 
+  const BasicDataForm = () => (
+    <div className="grid">
+      {/* Código */}
+      <div className="col-12 md:col-6">
+        <label htmlFor="code" className="block text-900 font-medium mb-2">
+          Código <span className="text-red-500">*</span>
+        </label>
+        <Controller
+          name="code"
+          control={control}
+          render={({ field }) => (
+            <InputText
+              id="code"
+              {...field}
+              placeholder="Ej: MODEL-001, CIVIC-2024"
+              className={errors.code ? "p-invalid" : ""}
+              autoFocus
+              disabled={!!model?.id}
+              title={model?.id ? "El código no puede ser modificado" : ""}
+            />
+          )}
+        />
+        {errors.code && (
+          <small className="p-error block mt-1">{errors.code.message}</small>
+        )}
+      </div>
+
+      {/* Nombre */}
+      <div className="col-12 md:col-6">
+        <label htmlFor="name" className="block text-900 font-medium mb-2">
+          Nombre <span className="text-red-500">*</span>
+        </label>
+        <Controller
+          name="name"
+          control={control}
+          render={({ field }) => (
+            <InputText
+              id="name"
+              {...field}
+              placeholder="Ej: Honda Civic, Toyota Corolla"
+              className={errors.name ? "p-invalid" : ""}
+            />
+          )}
+        />
+        {errors.name && (
+          <small className="p-error block mt-1">{errors.name.message}</small>
+        )}
+      </div>
+
+      {/* Marca */}
+      <div className="col-12 md:col-6">
+        <label htmlFor="brandId" className="block text-900 font-medium mb-2">
+          Marca <span className="text-red-500">*</span>
+        </label>
+        <Controller
+          name="brandId"
+          control={control}
+          render={({ field }) => (
+            <Dropdown
+              {...field}
+              id="brandId"
+              options={brandOptions}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar marca"
+              className={errors.brandId ? "p-invalid" : ""}
+              filter
+            />
+          )}
+        />
+        {errors.brandId && (
+          <small className="p-error block mt-1">{errors.brandId.message}</small>
+        )}
+      </div>
+
+      {/* Tipo */}
+      <div className="col-12 md:col-6">
+        <label htmlFor="type" className="block text-900 font-medium mb-2">
+          Tipo <span className="text-red-500">*</span>
+        </label>
+        <Controller
+          name="type"
+          control={control}
+          render={({ field }) => (
+            <Dropdown
+              {...field}
+              id="type"
+              options={MODEL_TYPE_OPTIONS}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Seleccionar tipo"
+              className={errors.type ? "p-invalid" : ""}
+            />
+          )}
+        />
+        {errors.type && (
+          <small className="p-error block mt-1">{errors.type.message}</small>
+        )}
+      </div>
+
+      {/* Año */}
+      <div className="col-12 md:col-6">
+        <label htmlFor="year" className="block text-900 font-medium mb-2">
+          Año
+        </label>
+        <Controller
+          name="year"
+          control={control}
+          render={({ field }) => (
+            <InputNumber
+              {...field}
+              id="year"
+              placeholder="Ej: 2024"
+              min={1900}
+              max={new Date().getFullYear() + 1}
+              className={errors.year ? "p-invalid" : ""}
+              useGrouping={false}
+            />
+          )}
+        />
+        {errors.year && (
+          <small className="p-error block mt-1">{errors.year.message}</small>
+        )}
+      </div>
+
+      {/* Descripción */}
+      <div className="col-12">
+        <label
+          htmlFor="description"
+          className="block text-900 font-medium mb-2"
+        >
+          Descripción
+        </label>
+        <Controller
+          name="description"
+          control={control}
+          render={({ field }) => (
+            <InputTextarea
+              {...field}
+              id="description"
+              placeholder="Descripción del modelo (opcional)"
+              rows={3}
+              className={errors.description ? "p-invalid" : ""}
+            />
+          )}
+        />
+        {errors.description && (
+          <small className="p-error block mt-1">
+            {errors.description.message}
+          </small>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
@@ -187,171 +344,22 @@ export default function ItemModelForm({
         </div>
       ) : (
         <>
-          <div className="grid">
-            {/* Código */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="code" className="block text-900 font-medium mb-2">
-                Código <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="code"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="code"
-                    {...field}
-                    placeholder="Ej: MODEL-001, CIVIC-2024"
-                    className={errors.code ? "p-invalid" : ""}
-                    autoFocus
-                    disabled={!!model?.id}
-                    title={model?.id ? "El código no puede ser modificado" : ""}
-                  />
-                )}
-              />
-              {errors.code && (
-                <small className="p-error block mt-1">
-                  {errors.code.message}
-                </small>
-              )}
-            </div>
-
-            {/* Nombre */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="name" className="block text-900 font-medium mb-2">
-                Nombre <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="name"
-                    {...field}
-                    placeholder="Ej: Honda Civic, Toyota Corolla"
-                    className={errors.name ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.name && (
-                <small className="p-error block mt-1">
-                  {errors.name.message}
-                </small>
-              )}
-            </div>
-
-            {/* Marca */}
-            <div className="col-12 md:col-6">
-              <label
-                htmlFor="brandId"
-                className="block text-900 font-medium mb-2"
-              >
-                Marca <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="brandId"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    {...field}
-                    id="brandId"
-                    options={brandOptions}
-                    optionLabel="label"
-                    optionValue="value"
-                    placeholder="Seleccionar marca"
-                    className={errors.brandId ? "p-invalid" : ""}
-                    filter
-                  />
-                )}
-              />
-              {errors.brandId && (
-                <small className="p-error block mt-1">
-                  {errors.brandId.message}
-                </small>
-              )}
-            </div>
-
-            {/* Tipo */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="type" className="block text-900 font-medium mb-2">
-                Tipo <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="type"
-                control={control}
-                render={({ field }) => (
-                  <Dropdown
-                    {...field}
-                    id="type"
-                    options={MODEL_TYPE_OPTIONS}
-                    optionLabel="label"
-                    optionValue="value"
-                    placeholder="Seleccionar tipo"
-                    className={errors.type ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.type && (
-                <small className="p-error block mt-1">
-                  {errors.type.message}
-                </small>
-              )}
-            </div>
-
-            {/* Año */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="year" className="block text-900 font-medium mb-2">
-                Año
-              </label>
-              <Controller
-                name="year"
-                control={control}
-                render={({ field }) => (
-                  <InputNumber
-                    {...field}
-                    id="year"
-                    placeholder="Ej: 2024"
-                    min={1900}
-                    max={new Date().getFullYear() + 1}
-                    className={errors.year ? "p-invalid" : ""}
-                    useGrouping={false}
-                  />
-                )}
-              />
-              {errors.year && (
-                <small className="p-error block mt-1">
-                  {errors.year.message}
-                </small>
-              )}
-            </div>
-
-            {/* Descripción */}
-            <div className="col-12">
-              <label
-                htmlFor="description"
-                className="block text-900 font-medium mb-2"
-              >
-                Descripción
-              </label>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <InputTextarea
-                    {...field}
-                    id="description"
-                    placeholder="Descripción del modelo (opcional)"
-                    rows={3}
-                    className={errors.description ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.description && (
-                <small className="p-error block mt-1">
-                  {errors.description.message}
-                </small>
-              )}
-            </div>
-          </div>
+          {model?.id ? (
+            <TabView>
+              <TabPanel header="Datos del Modelo" leftIcon="pi pi-info-circle">
+                <BasicDataForm />
+              </TabPanel>
+              <TabPanel header="Compatibilidad" leftIcon="pi pi-link">
+                <ModelCompatibilitySelector
+                  modelId={model.id}
+                  modelType={model.type}
+                  toast={toast}
+                />
+              </TabPanel>
+            </TabView>
+          ) : (
+            <BasicDataForm />
+          )}
 
           {/* Action Buttons */}
           <div className="flex justify-content-end gap-2 mt-4">

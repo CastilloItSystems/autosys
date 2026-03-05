@@ -192,6 +192,51 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
     })
     console.log('✅ Item upserted: Filtro de Cabina Bosch CF-2017')
 
+    // Generate 50 additional items for pagination testing
+    console.log('🌱 Generating 50 test items...')
+    const brands = [bosch, castrol]
+    const categories = [filters, oils]
+
+    for (let i = 1; i <= 50; i++) {
+      const brand = brands[i % brands.length]!
+      const category = categories[i % categories.length]!
+      const sku = `GEN-ITEM-${i.toString().padStart(3, '0')}`
+      const name = `Item Generico ${i} ${brand.name}`
+      const price = (1000 + i * 50).toFixed(2)
+
+      await prisma.item.upsert({
+        where: { sku },
+        update: {
+          name,
+          description: `Descripción generada para el item ${i}`,
+          salePrice: price,
+          costPrice: (parseFloat(price) * 0.7).toFixed(2),
+          minStock: 5,
+          maxStock: 100,
+          reorderPoint: 10,
+          isActive: i % 10 !== 0, // Some items inactive
+          empresaId,
+        },
+        create: {
+          sku,
+          name,
+          description: `Descripción generada para el item ${i}`,
+          brandId: brand.id,
+          categoryId: category.id,
+          unitId: unit.id,
+          salePrice: price,
+          costPrice: (parseFloat(price) * 0.7).toFixed(2),
+          minStock: 5,
+          maxStock: 100,
+          reorderPoint: 10,
+          isActive: i % 10 !== 0,
+          empresaId,
+          tags: ['generico', 'test', brand.name.toLowerCase()],
+        },
+      })
+    }
+    console.log('✅ 50 test items generated')
+
     console.log('\n✅ Items seed completed!\n')
   } catch (error) {
     console.error('❌ Error seeding items:', error)

@@ -109,17 +109,17 @@ export const AdvancedSearchPanel: React.FC<AdvancedSearchPanelProps> = ({
     setActiveOnly(true);
   };
 
-  const categoryOptions = aggregations.categories.map((cat) => ({
+  const categoryOptions = (aggregations.categories || []).map((cat) => ({
     label: `${cat.name} (${cat.count})`,
     value: cat.value,
   }));
 
-  const brandOptions = aggregations.brands.map((brand) => ({
+  const brandOptions = (aggregations.brands || []).map((brand) => ({
     label: `${brand.name} (${brand.count})`,
     value: brand.value,
   }));
 
-  const tagOptions = aggregations.tags.map((tag) => ({
+  const tagOptions = (aggregations.tags || []).map((tag) => ({
     label: `${tag.name} (${tag.count})`,
     value: tag.value,
   }));
