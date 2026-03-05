@@ -336,6 +336,14 @@ router.get(
   movementController.getByItem
 )
 
+// GET /api/inventory/movements/dashboard
+router.get(
+  '/dashboard',
+  authenticate,
+  authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  movementController.getDashboard
+)
+
 /**
  * ============================================
  * RUTAS PROTEGIDAS - Requieren permisos

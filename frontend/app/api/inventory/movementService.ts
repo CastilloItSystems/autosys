@@ -199,3 +199,20 @@ export const cancelMovement = async (
   );
   return response.data;
 };
+
+// ── Dashboard Metrics ────────────────────────────────────────────────────
+
+export interface MovementDashboardMetrics {
+  totalMovements: number;
+  totalEntries: number;
+  totalExits: number;
+  netValue: number;
+  byType: { type: string; _count: number }[];
+}
+
+export const getMovementDashboard = async (): Promise<{
+  data: MovementDashboardMetrics;
+}> => {
+  const response = await apiClient.get("/inventory/movements/dashboard");
+  return response.data;
+};

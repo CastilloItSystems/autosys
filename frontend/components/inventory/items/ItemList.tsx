@@ -402,22 +402,50 @@ const ItemList = () => {
     );
   };
 
+  const getMargin = (item: Item) => {
+    if (!item.costPrice || !item.salePrice) return null;
+    return ((item.salePrice - item.costPrice) / item.costPrice) * 100;
+  };
+
+  const formatPrice = (value: number | undefined | null) =>
+    new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
+    }).format(value || 0);
+
   const gridItem = (item: Item) => {
+    const severity = getSeverity(item);
+    const margin = getMargin(item);
     return (
-      <div className="col-12 sm:col-6 lg:col-6 xl:col-4 p-2">
+      <div className="col-12 sm:col-6 md:col-4 lg:col-3 xl:col-3 p-2">
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.2 }}
+          className="h-full"
         >
           <div
-            className="p-4 surface-card border-round hover:shadow-4"
-            style={{ cursor: "pointer" }}
+            className="surface-card shadow-1 border-round h-full flex flex-column justify-content-between border-left-3"
+            style={{
+              borderLeftColor:
+                severity === "danger"
+                  ? "var(--red-500)"
+                  : severity === "warning"
+                  ? "var(--yellow-500)"
+                  : "var(--green-500)",
+            }}
           >
-            <div className="flex flex-wrap align-items-center justify-content-between gap-2 mb-3">
-              <div className="flex align-items-center gap-2">
-                <i className="pi pi-tag text-600"></i>
-                <span className="font-semibold text-sm text-600">
+            {/* Header: categoría + estado */}
+            <div className="flex align-items-center justify-content-between gap-1 px-3 pt-3 pb-1">
+              <div className="flex align-items-center gap-1 min-w-0">
+                <i
+                  className="pi pi-tag text-600"
+                  style={{ fontSize: "0.7rem" }}
+                ></i>
+                <span
+                  className="font-semibold text-600 text-overflow-ellipsis white-space-nowrap overflow-hidden"
+                  style={{ fontSize: "0.75rem" }}
+                >
                   {item.category?.name || "-"}
                 </span>
               </div>
@@ -425,60 +453,116 @@ const ItemList = () => {
                 value={item.isActive ? "Activo" : "Inactivo"}
                 severity={item.isActive ? "success" : "secondary"}
                 rounded
+                className="text-xs flex-shrink-0"
               />
             </div>
 
-            <div className="flex flex-column align-items-center gap-3 py-5">
+            {/* Imagen + info principal */}
+            <div className="flex flex-column align-items-center gap-2 px-3 py-2">
               <img
                 src={getPrimaryImage(item)}
                 alt={item.name}
                 style={{
-                  width: "200px",
-                  height: "150px",
+                  width: "100%",
+                  height: "110px",
                   objectFit: "cover",
-                  borderRadius: "6px",
+                  borderRadius: "8px",
                 }}
               />
-              <div className="text-center">
-                <div className="text-sm text-primary font-bold mb-1">
+              <div className="text-center w-full">
+                <div
+                  className="text-primary font-bold mb-1"
+                  style={{ fontSize: "0.75rem" }}
+                >
                   {item.sku || item.code}
                 </div>
-                <div className="text-2xl font-bold text-900">{item.name}</div>
-                <div className="text-sm text-600">
-                  {item.brand?.name || "-"}
+                <div
+                  className="font-bold text-900 text-overflow-ellipsis white-space-nowrap overflow-hidden"
+                  style={{ fontSize: "0.95rem" }}
+                  title={item.name}
+                >
+                  {item.name}
                 </div>
+                {item.brand?.name && (
+                  <div
+                    className="flex align-items-center justify-content-center gap-1 mt-1 text-600"
+                    style={{ fontSize: "0.75rem" }}
+                  >
+                    <i className="pi pi-box" style={{ fontSize: "0.65rem" }} />
+                    <span>{item.brand.name}</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="flex align-items-center justify-content-center gap-2 my-3">
+            {/* Precio destacado */}
+            <div className="text-center px-3 mb-1">
+              <span className="text-xl font-bold text-primary">
+                {formatPrice(item.salePrice)}
+              </span>
+            </div>
+
+            {/* Stock + Margen compactos */}
+            <div className="flex align-items-center justify-content-center gap-2 px-3 pb-1">
               <Tag
-                value={`Stock: ${item.quantity || 0}`}
-                severity={getSeverity(item)}
+                value={`${item.quantity || 0}`}
+                severity={severity}
                 rounded
+                className="text-xs"
               />
-              <span className="text-xs text-600">
+              {margin !== null ? (
+                <Tag
+                  value={`${margin.toFixed(0)}%`}
+                  severity={
+                    margin < 10 ? "danger" : margin < 20 ? "warning" : "success"
+                  }
+                  rounded
+                  className="text-xs"
+                />
+              ) : null}
+              <span className="text-500" style={{ fontSize: "0.65rem" }}>
                 Min: {item.minStock || 0}
               </span>
             </div>
 
-            <div className="flex align-items-center justify-content-between mt-4">
-              <span className="text-2xl font-semibold text-primary">
-                {new Intl.NumberFormat("en-US", {
-                  style: "currency",
-                  currency: "USD",
-                }).format(item.salePrice || 0)}
-              </span>
+            {/* Meta info compacta */}
+            <div
+              className="flex align-items-center justify-content-center gap-2 px-3 pb-1 text-500"
+              style={{ fontSize: "0.65rem" }}
+            >
+              {item.images && item.images.length > 0 && (
+                <span>
+                  <i
+                    className="pi pi-image mr-1"
+                    style={{ fontSize: "0.6rem" }}
+                  />
+                  {item.images.length}
+                </span>
+              )}
+              {item.tags && item.tags.length > 0 && (
+                <span>
+                  <i
+                    className="pi pi-hashtag mr-1"
+                    style={{ fontSize: "0.6rem" }}
+                  />
+                  {item.tags.length}
+                </span>
+              )}
+            </div>
+
+            {/* Actions */}
+            <div className="flex justify-content-center border-top-1 surface-border px-2 py-1 gap-0">
               <Button
                 icon="pi pi-eye"
                 rounded
                 severity="secondary"
                 text
+                size="small"
                 onClick={() => showDetails(item)}
                 tooltip="Ver detalles"
+                tooltipOptions={{ position: "top" }}
+                className="p-1"
               />
-            </div>
-
-            <div className="flex gap-2 justify-content-center mt-3">
               <Button
                 icon="pi pi-pencil"
                 rounded
@@ -487,6 +571,8 @@ const ItemList = () => {
                 size="small"
                 onClick={() => editItem(item)}
                 tooltip="Editar"
+                tooltipOptions={{ position: "top" }}
+                className="p-1"
               />
               <Button
                 icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
@@ -495,6 +581,9 @@ const ItemList = () => {
                 text
                 size="small"
                 onClick={() => handleToggleItem(item)}
+                tooltip={item.isActive ? "Desactivar" : "Activar"}
+                tooltipOptions={{ position: "top" }}
+                className="p-1"
               />
               <Button
                 icon="pi pi-trash"
@@ -503,6 +592,9 @@ const ItemList = () => {
                 text
                 size="small"
                 onClick={() => confirmDeleteItem(item)}
+                tooltip="Eliminar"
+                tooltipOptions={{ position: "top" }}
+                className="p-1"
               />
             </div>
           </div>
@@ -512,111 +604,164 @@ const ItemList = () => {
   };
 
   const listItem = (item: Item, index: number) => {
+    const severity = getSeverity(item);
+    const margin = getMargin(item);
     return (
-      <div className="col-12" key={item.id}>
+      <div className="col-12 p-2" key={item.id}>
         <motion.div
-          initial={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, x: -10 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.2 }}
         >
           <div
-            className={`flex flex-column xl:flex-row xl:align-items-start p-4 gap-4 ${
-              index !== 0 ? "border-top-1 surface-border" : ""
-            }`}
+            className="surface-card shadow-1 border-round p-3 flex flex-wrap align-items-center gap-3 border-left-3"
+            style={{
+              borderLeftColor:
+                severity === "danger"
+                  ? "var(--red-500)"
+                  : severity === "warning"
+                  ? "var(--yellow-500)"
+                  : "var(--green-500)",
+            }}
           >
             {/* Imagen */}
             <img
               src={getPrimaryImage(item)}
               alt={item.name}
               style={{
-                width: "9rem",
-                height: "9rem",
+                width: "5rem",
+                height: "5rem",
                 objectFit: "cover",
-                borderRadius: "6px",
+                borderRadius: "8px",
               }}
             />
 
-            {/* Contenido principal */}
-            <div className="flex flex-column sm:flex-row justify-content-between align-items-center xl:align-items-start flex-1 gap-4">
-              <div className="flex flex-column align-items-center sm:align-items-start gap-3">
-                <div className="text-center sm:text-left">
-                  <div className="text-sm text-primary font-bold mb-1">
-                    {item.sku || item.code}
-                  </div>
-                  <div className="text-2xl font-bold text-900">{item.name}</div>
-                </div>
-                <div className="flex align-items-center gap-3 flex-wrap justify-content-center sm:justify-content-start">
-                  <span className="flex align-items-center gap-2 text-sm">
-                    <i className="pi pi-tag text-xs"></i>
-                    <span className="font-semibold">
-                      {item.category?.name || "-"}
-                    </span>
-                  </span>
-                  <span className="flex align-items-center gap-2 text-sm">
-                    <i className="pi pi-box text-xs"></i>
-                    <span className="font-semibold">
-                      {item.brand?.name || "-"}
-                    </span>
-                  </span>
-                  <Tag
-                    value={item.isActive ? "Activo" : "Inactivo"}
-                    severity={item.isActive ? "success" : "secondary"}
-                    rounded
-                  />
-                </div>
-                <div className="flex gap-3 align-items-center">
-                  <Tag
-                    value={`Stock: ${item.quantity || 0}`}
-                    severity={getSeverity(item)}
-                    rounded
-                  />
-                  <span className="text-xs text-600">
-                    Min: {item.minStock || 0}
-                  </span>
-                </div>
+            {/* Info principal */}
+            <div className="flex-1 min-w-min">
+              <div className="flex align-items-center gap-2 mb-1">
+                <span className="font-semibold text-lg">{item.name}</span>
+                <Tag
+                  value={item.isActive ? "Activo" : "Inactivo"}
+                  severity={item.isActive ? "success" : "secondary"}
+                  rounded
+                  className="text-xs"
+                />
               </div>
-
-              {/* Precio y acciones */}
-              <div className="flex sm:flex-column align-items-center sm:align-items-end gap-3 sm:gap-2">
-                <span className="text-2xl font-semibold text-primary">
-                  {new Intl.NumberFormat("en-US", {
-                    style: "currency",
-                    currency: "USD",
-                  }).format(item.salePrice || 0)}
+              <div className="flex align-items-center gap-3 text-sm text-600 flex-wrap">
+                <span className="font-bold text-primary">
+                  {item.sku || item.code}
                 </span>
-                <div className="flex gap-2">
-                  <Button
-                    icon="pi pi-eye"
-                    rounded
-                    severity="secondary"
-                    text
-                    onClick={() => showDetails(item)}
-                    tooltip="Ver detalles"
-                  />
-                  <Button
-                    icon="pi pi-pencil"
-                    rounded
-                    severity="info"
-                    text
-                    onClick={() => editItem(item)}
-                    tooltip="Editar"
-                  />
-                  <Button
-                    icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
-                    rounded
-                    severity={item.isActive ? "warning" : "success"}
-                    text
-                    onClick={() => handleToggleItem(item)}
-                  />
-                  <Button
-                    icon="pi pi-trash"
-                    rounded
-                    severity="danger"
-                    text
-                    onClick={() => confirmDeleteItem(item)}
-                  />
-                </div>
+                <span>
+                  <i className="pi pi-tag text-xs mr-1" />
+                  {item.category?.name || "-"}
+                </span>
+                {item.brand?.name && (
+                  <span>
+                    <i className="pi pi-box text-xs mr-1" />
+                    {item.brand.name}
+                  </span>
+                )}
+                {item.tags && item.tags.length > 0 && (
+                  <span>
+                    <i className="pi pi-hashtag text-xs mr-1" />
+                    {item.tags.slice(0, 2).join(", ")}
+                  </span>
+                )}
               </div>
+            </div>
+
+            {/* Métricas */}
+            <div className="flex align-items-center gap-4">
+              <div className="text-center">
+                <div className="text-xs text-500">Stock</div>
+                <Tag
+                  value={String(item.quantity || 0)}
+                  severity={severity}
+                  rounded
+                  className="text-sm"
+                />
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-500">Min</div>
+                <span className="text-sm font-semibold">
+                  {item.minStock || 0}
+                </span>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-500">Precio</div>
+                <span className="text-sm font-bold text-primary">
+                  {formatPrice(item.salePrice)}
+                </span>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-500">Costo</div>
+                <span className="text-sm font-semibold">
+                  {formatPrice(item.costPrice)}
+                </span>
+              </div>
+              <div className="text-center">
+                <div className="text-xs text-500">Margen</div>
+                {margin !== null ? (
+                  <Tag
+                    value={`${margin.toFixed(0)}%`}
+                    severity={
+                      margin < 10
+                        ? "danger"
+                        : margin < 20
+                        ? "warning"
+                        : "success"
+                    }
+                    rounded
+                    className="text-sm"
+                  />
+                ) : (
+                  <span className="text-sm text-400">—</span>
+                )}
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex align-items-center gap-1">
+              <Button
+                icon="pi pi-eye"
+                rounded
+                severity="secondary"
+                text
+                size="small"
+                onClick={() => showDetails(item)}
+                tooltip="Ver detalles"
+                tooltipOptions={{ position: "top" }}
+              />
+              <Button
+                icon="pi pi-pencil"
+                rounded
+                severity="info"
+                text
+                size="small"
+                onClick={() => editItem(item)}
+                tooltip="Editar"
+                tooltipOptions={{ position: "top" }}
+              />
+              <Button
+                icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
+                rounded
+                severity={item.isActive ? "warning" : "success"}
+                text
+                size="small"
+                onClick={() => handleToggleItem(item)}
+                tooltip={item.isActive ? "Desactivar" : "Activar"}
+                tooltipOptions={{ position: "top" }}
+              />
+              <Button
+                icon="pi pi-trash"
+                rounded
+                severity="danger"
+                text
+                size="small"
+                onClick={() => confirmDeleteItem(item)}
+                tooltip="Eliminar"
+                tooltipOptions={{ position: "top" }}
+              />
             </div>
           </div>
         </motion.div>

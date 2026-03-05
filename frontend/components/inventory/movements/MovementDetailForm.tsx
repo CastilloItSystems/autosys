@@ -1,23 +1,20 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import {
-  cancelMovement,
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_SEVERITY,
   Movement,
 } from "@/app/api/inventory/movementService";
-import { handleFormError } from "@/utils/errorHandlers";
 
 interface MovementDetailFormProps {
   movement: Movement | null;
   isLoading: boolean;
   onCancel: () => void;
-  onSave: (updatedMovement: Movement) => void;
-  toast: React.RefObject<any>;
+  onSave?: (updatedMovement: Movement) => void;
+  toast?: React.RefObject<any>;
 }
 
 /* ── Helpers ───────────────────────────────────────────────── */
@@ -59,31 +56,7 @@ export default function MovementDetailForm({
   onSave,
   toast,
 }: MovementDetailFormProps) {
-  const [cancelDialog, setCancelDialog] = useState(false);
-  const [cancelling, setCancelling] = useState(false);
-
-  /**
-   * Maneja la cancelación del movimiento
-   */
-  const handleCancelMovement = async () => {
-    if (!movement) return;
-    setCancelling(true);
-    try {
-      const res = await cancelMovement(movement.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Movimiento cancelado",
-        life: 3000,
-      });
-      setCancelDialog(false);
-      onSave(res.data);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setCancelling(false);
-    }
-  };
+  const isCancelled = movement?.notes?.includes("[CANCELADO]");
 
   if (isLoading) {
     return (
@@ -115,6 +88,23 @@ export default function MovementDetailForm({
   return (
     <>
       <form className="p-fluid">
+        {isCancelled && (
+          <div className="surface-section border-1 border-red-500 border-round p-3 mb-4 bg-red-50 text-red-700 flex align-items-center gap-3">
+            <i className="pi pi-ban text-2xl"></i>
+            <div>
+              <span className="font-bold block">MOVIMIENTO CANCELADO</span>
+              <span className="text-sm block">
+                Este registro ha sido anulado administrativamente.
+              </span>
+              <span className="text-xs">
+                Nota: El stock físico <strong>NO</strong> fue revertido
+                automáticamente. Debe realizar un ajuste manual si requiere
+                corregir el inventario.
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Resumen Rápido - KPIs */}
         <div className="grid mb-4">
           <div className="col-6 md:col-3">
@@ -341,56 +331,9 @@ export default function MovementDetailForm({
             outlined
             onClick={onCancel}
             type="button"
-            disabled={cancelling}
-          />
-          <Button
-            label="Cancelar Movimiento"
-            icon="pi pi-ban"
-            severity="danger"
-            onClick={() => setCancelDialog(true)}
-            type="button"
-            disabled={cancelling}
           />
         </div>
       </form>
-
-      {/* Cancel Confirmation Dialog */}
-      <Dialog
-        visible={cancelDialog}
-        style={{ width: "420px" }}
-        header="Cancelar Movimiento"
-        modal
-        footer={
-          <>
-            <Button
-              label="No"
-              icon="pi pi-times"
-              text
-              onClick={() => setCancelDialog(false)}
-              disabled={cancelling}
-            />
-            <Button
-              label="Sí, Cancelar"
-              icon={cancelling ? "pi pi-spin pi-spinner" : "pi pi-check"}
-              severity="danger"
-              onClick={handleCancelMovement}
-              disabled={cancelling}
-            />
-          </>
-        }
-        onHide={() => setCancelDialog(false)}
-      >
-        <div className="flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle text-3xl"
-            style={{ color: "#ff9800" }}
-          />
-          <span>
-            ¿Estás seguro de que deseas cancelar este movimiento? Esta acción no
-            se puede deshacer.
-          </span>
-        </div>
-      </Dialog>
     </>
   );
 }

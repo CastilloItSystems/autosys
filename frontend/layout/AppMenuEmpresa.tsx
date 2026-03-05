@@ -82,11 +82,7 @@ const AppMenuEmpresa = () => {
               to: "/empresa/inventario/movimientos",
             },
             // --- Navegación principal ---
-            {
-              label: "búsqueda",
-              icon: "pi pi-fw pi-search",
-              to: "/empresa/inventario/busqueda",
-            },
+
             {
               label: "stock",
               icon: "pi pi-fw pi-chart-bar",

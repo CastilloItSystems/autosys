@@ -440,6 +440,78 @@ export class MovementService {
   }
 
   /**
+   * Obtener métricas de dashboard para movimientos
+   */
+  async getDashboardMetrics(): Promise<{
+    totalMovements: number
+    totalEntries: number
+    totalExits: number
+    netValue: number
+    byType: { type: string; _count: number }[]
+  }> {
+    try {
+      const entryTypes = [
+        'PURCHASE',
+        'ADJUSTMENT_IN',
+        'WORKSHOP_RETURN',
+        'RESERVATION_RELEASE',
+        'LOAN_RETURN',
+      ]
+      const exitTypes = [
+        'SALE',
+        'ADJUSTMENT_OUT',
+        'TRANSFER',
+        'SUPPLIER_RETURN',
+        'LOAN_OUT',
+      ]
+
+      const [
+        totalMovements,
+        totalEntries,
+        totalExits,
+        entriesValue,
+        exitsValue,
+        byType,
+      ] = await Promise.all([
+        prisma.movement.count(),
+        prisma.movement.count({
+          where: { type: { in: entryTypes as any } },
+        }),
+        prisma.movement.count({
+          where: { type: { in: exitTypes as any } },
+        }),
+        prisma.movement.aggregate({
+          where: { type: { in: entryTypes as any } },
+          _sum: { totalCost: true },
+        }),
+        prisma.movement.aggregate({
+          where: { type: { in: exitTypes as any } },
+          _sum: { totalCost: true },
+        }),
+        prisma.movement.groupBy({
+          by: ['type'],
+          _count: { _all: true },
+          orderBy: { _count: { type: 'desc' } },
+        }),
+      ])
+
+      const entryTotal = Number(entriesValue._sum.totalCost || 0)
+      const exitTotal = Number(exitsValue._sum.totalCost || 0)
+
+      return {
+        totalMovements,
+        totalEntries,
+        totalExits,
+        netValue: entryTotal - exitTotal,
+        byType: byType.map((g) => ({ type: g.type, _count: g._count._all })),
+      }
+    } catch (error) {
+      logger.error('Error al obtener métricas de movimientos', { error })
+      throw error
+    }
+  }
+
+  /**
    * Eliminar movimiento
    */
   async delete(id: string, userId?: string): Promise<void> {

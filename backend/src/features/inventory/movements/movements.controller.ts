@@ -232,6 +232,19 @@ export class MovementController {
   })
 
   /**
+   * GET /api/inventory/movements/dashboard
+   * Obtener métricas de dashboard
+   */
+  getDashboard = asyncHandler(async (_req: Request, res: Response) => {
+    const metrics = await movementService.getDashboardMetrics()
+    return ApiResponse.success(
+      res,
+      metrics,
+      'Dashboard de movimientos obtenido'
+    )
+  })
+
+  /**
    * PATCH /api/inventory/movements/:id/cancel
    * Cancelar movimiento
    */
