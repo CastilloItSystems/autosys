@@ -6,12 +6,28 @@ export class MovementNumberGenerator {
   /**
    * Genera número de movimiento: MOV-2024-00001
    */
-  static async generateMovementNumber(prefix: string = 'MOV'): Promise<string> {
+  static async generateMovementNumber(
+    prefixOrClient: string | any = 'MOV',
+    prefixArg?: string
+  ): Promise<string> {
+    // Support two signatures:
+    //   generateMovementNumber('MOV')           — uses global prisma
+    //   generateMovementNumber(tx, 'MOV')       — uses transaction client
+    let db: any = prisma
+    let prefix = 'MOV'
+
+    if (typeof prefixOrClient === 'string') {
+      prefix = prefixOrClient
+    } else {
+      db = prefixOrClient
+      prefix = prefixArg || 'MOV'
+    }
+
     const year = new Date().getFullYear()
     const basePattern = `${prefix}-${year}-`
 
     // Obtener el último número
-    const lastMovement = await prisma.movement.findFirst({
+    const lastMovement = await db.movement.findFirst({
       where: {
         movementNumber: {
           startsWith: basePattern,

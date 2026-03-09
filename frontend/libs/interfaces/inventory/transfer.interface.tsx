@@ -1,7 +1,8 @@
 export enum TransferStatus {
   DRAFT = "DRAFT",
-  IN_TRANSIT = "IN_TRANSIT",
-  RECEIVED = "RECEIVED",
+  PENDING_APPROVAL = "PENDING_APPROVAL",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
 }
 
@@ -11,15 +12,20 @@ export const TRANSFER_STATUS_CONFIG = {
     severity: "warning" as const,
     icon: "pi pi-pencil",
   },
-  [TransferStatus.IN_TRANSIT]: {
-    label: "En Tránsito",
-    severity: "info" as const,
-    icon: "pi pi-arrow-right",
+  [TransferStatus.PENDING_APPROVAL]: {
+    label: "Pendiente Aprobación",
+    severity: "warning" as const,
+    icon: "pi pi-clock",
   },
-  [TransferStatus.RECEIVED]: {
-    label: "Recibida",
+  [TransferStatus.APPROVED]: {
+    label: "Aprobada",
     severity: "success" as const,
-    icon: "pi pi-check-circle",
+    icon: "pi pi-check",
+  },
+  [TransferStatus.REJECTED]: {
+    label: "Rechazada",
+    severity: "danger" as const,
+    icon: "pi pi-ban",
   },
   [TransferStatus.CANCELLED]: {
     label: "Cancelada",
@@ -28,12 +34,24 @@ export const TRANSFER_STATUS_CONFIG = {
   },
 };
 
+export interface TransferNoteInfo {
+  id: string;
+  exitNoteNumber?: string;
+  entryNoteNumber?: string;
+  status: string;
+}
+
 export interface TransferItem {
   id: string;
   itemId: string;
   quantity: number;
   unitCost?: number;
   notes?: string;
+  item?: {
+    id: string;
+    name: string;
+    sku?: string;
+  };
 }
 
 export interface Transfer {
@@ -44,10 +62,15 @@ export interface Transfer {
   status: TransferStatus;
   items: TransferItem[];
   notes?: string;
-  sentAt?: Date | string;
-  receivedAt?: Date | string;
-  sentBy?: string;
-  receivedBy?: string;
+  approvedBy?: string;
+  approvedAt?: Date | string;
+  rejectedBy?: string;
+  rejectedAt?: Date | string;
+  rejectionReason?: string;
+  exitNoteId?: string | null;
+  entryNoteId?: string | null;
+  exitNote?: TransferNoteInfo | null;
+  entryNote?: TransferNoteInfo | null;
   createdBy?: string;
   createdAt: Date | string;
   updatedAt: Date | string;

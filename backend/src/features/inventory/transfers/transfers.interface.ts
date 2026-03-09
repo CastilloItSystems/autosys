@@ -2,8 +2,9 @@
 
 export enum TransferStatus {
   DRAFT = 'DRAFT',
-  IN_TRANSIT = 'IN_TRANSIT',
-  RECEIVED = 'RECEIVED',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
+  REJECTED = 'REJECTED',
   CANCELLED = 'CANCELLED',
 }
 
@@ -15,19 +16,31 @@ export interface ITransfer {
   status: TransferStatus
   quantity: number
   notes?: string | null
-  sentAt?: Date | null
-  receivedAt?: Date | null
-  sentBy?: string | null
-  receivedBy?: string | null
+  approvedBy?: string | null
+  approvedAt?: Date | null
+  rejectedBy?: string | null
+  rejectedAt?: Date | null
+  rejectionReason?: string | null
+  exitNoteId?: string | null
+  entryNoteId?: string | null
   createdBy: string
   createdAt: Date
   updatedAt: Date
+}
+
+export interface ITransferNoteInfo {
+  id: string
+  exitNoteNumber?: string
+  entryNoteNumber?: string
+  status: string
 }
 
 export interface ITransferWithRelations extends ITransfer {
   items?: ITransferItem[]
   fromWarehouse?: any
   toWarehouse?: any
+  exitNote?: ITransferNoteInfo | null
+  entryNote?: ITransferNoteInfo | null
 }
 
 export interface ITransferItem {
@@ -50,18 +63,15 @@ export interface IUpdateTransferInput {
   notes?: string | null
 }
 
-export interface ISendTransferInput {
-  sentBy: string
-}
-
-export interface IReceiveTransferInput {
-  receivedBy: string
+export interface IRejectTransferInput {
+  rejectionReason: string
 }
 
 export interface ITransferFilters {
   fromWarehouseId?: string
   toWarehouseId?: string
   status?: TransferStatus
+  search?: string
   createdFrom?: Date
   createdTo?: Date
 }

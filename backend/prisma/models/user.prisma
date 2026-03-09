@@ -16,7 +16,8 @@ model User {
   google       Boolean   @default(false)
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
-  auditLogs    AuditLog[]
+  auditLogs       AuditLog[]
+  userPermissions UserPermission[]
 }
 
 enum UserStatus {

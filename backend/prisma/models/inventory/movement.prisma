@@ -30,6 +30,10 @@ model Movement {
   
   quantity        Int
   
+  // Inventory Discrepancy Tracking (Variance Analysis)
+  snapshotQuantity Int?         // Expected quantity at time of count
+  variance        Int?         // Difference detected: countedQuantity - expectedQuantity
+  
   // Costos
   unitCost        Decimal?     @db.Decimal(12, 2)
   totalCost       Decimal?     @db.Decimal(12, 2)

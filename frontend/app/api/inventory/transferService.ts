@@ -1,46 +1,15 @@
 import apiClient from "../apiClient";
+import type {
+  Transfer,
+  TransferItem,
+  TransferNoteInfo,
+} from "@/libs/interfaces/inventory/transfer.interface";
 
-// Enums
-export enum TransferStatus {
-  DRAFT = "DRAFT",
-  IN_TRANSIT = "IN_TRANSIT",
-  RECEIVED = "RECEIVED",
-  CANCELLED = "CANCELLED",
-}
+// Re-export for backwards compatibility
+export { TransferStatus } from "@/libs/interfaces/inventory/transfer.interface";
+export type { Transfer, TransferItem, TransferNoteInfo };
 
-// Interfaces
-export interface TransferItem {
-  id: string;
-  itemId: string;
-  quantity: number;
-  unitCost?: number;
-  notes?: string;
-}
-
-export interface Transfer {
-  id: string;
-  transferNumber: string;
-  fromWarehouseId: string;
-  toWarehouseId: string;
-  status: TransferStatus;
-  items: TransferItem[];
-  notes?: string;
-  sentAt?: string;
-  receivedAt?: string;
-  sentBy?: string;
-  receivedBy?: string;
-  createdBy?: string;
-  createdAt: string;
-  updatedAt: string;
-  fromWarehouse?: {
-    id: string;
-    name: string;
-  };
-  toWarehouse?: {
-    id: string;
-    name: string;
-  };
-}
+// ─── Response types ─────────────────────────────────────────────────
 
 export interface TransfersResponse {
   data: Transfer[];
@@ -56,7 +25,8 @@ interface TransferResponse {
   data: Transfer;
 }
 
-// DTOs
+// ─── Request DTOs ───────────────────────────────────────────────────
+
 interface CreateTransferRequest {
   fromWarehouseId: string;
   toWarehouseId: string;
@@ -70,18 +40,15 @@ interface CreateTransferRequest {
 }
 
 interface UpdateTransferRequest {
-  fromWarehouseId?: string;
-  toWarehouseId?: string;
-  items?: Array<{
-    itemId: string;
-    quantity: number;
-    unitCost?: number;
-    notes?: string;
-  }>;
   notes?: string;
 }
 
-// API Methods
+interface RejectTransferRequest {
+  reason: string;
+}
+
+// ─── API Methods ────────────────────────────────────────────────────
+
 export const getTransfers = async (
   page = 1,
   limit = 20,
@@ -130,30 +97,38 @@ export const updateTransfer = async (
   return response.data;
 };
 
-export const sendTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.patch(`/inventory/transfers/${id}/send`, {});
+// ─── Approval flow ──────────────────────────────────────────────────
+
+export const submitTransfer = async (id: string): Promise<TransferResponse> => {
+  const response = await apiClient.patch(`/inventory/transfers/${id}/submit`);
   return response.data;
 };
 
-export const receiveTransfer = async (
+export const approveTransfer = async (
   id: string,
 ): Promise<TransferResponse> => {
+  const response = await apiClient.patch(`/inventory/transfers/${id}/approve`);
+  return response.data;
+};
+
+export const rejectTransfer = async (
+  id: string,
+  data: RejectTransferRequest,
+): Promise<TransferResponse> => {
   const response = await apiClient.patch(
-    `/inventory/transfers/${id}/receive`,
-    {},
+    `/inventory/transfers/${id}/reject`,
+    data,
   );
   return response.data;
 };
+
+// ─── State transitions ─────────────────────────────────────────────
 
 export const cancelTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/transfers/${id}/cancel`,
-    {},
-  );
+  const response = await apiClient.patch(`/inventory/transfers/${id}/cancel`);
   return response.data;
 };
 
-export const deleteTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.delete(`/inventory/transfers/${id}`);
-  return response.data;
+export const deleteTransfer = async (id: string): Promise<void> => {
+  await apiClient.delete(`/inventory/transfers/${id}`);
 };

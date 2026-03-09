@@ -17,27 +17,22 @@ export const createTransferSchema = Joi.object({
         itemId: Joi.string().uuid().required(),
         quantity: Joi.number().integer().positive().required(),
         unitCost: Joi.number().positive().allow(null).optional(),
-        notes: Joi.string().allow(null).optional(),
+        notes: Joi.string().allow(null, '').optional(),
       })
     )
     .min(1)
     .required(),
-  notes: Joi.string().allow(null).optional(),
+  notes: Joi.string().allow(null, '').optional(),
 })
 
 export const updateTransferSchema = Joi.object({
-  notes: Joi.string().allow(null).optional(),
+  notes: Joi.string().allow(null, '').optional(),
 }).min(1)
 
-export const sendTransferSchema = Joi.object({
-  sentBy: Joi.string().required().messages({
-    'any.required': 'sentBy es requerido',
-  }),
-})
-
-export const receiveTransferSchema = Joi.object({
-  receivedBy: Joi.string().required().messages({
-    'any.required': 'receivedBy es requerido',
+export const rejectTransferSchema = Joi.object({
+  rejectionReason: Joi.string().min(1).max(500).required().messages({
+    'any.required': 'El motivo de rechazo es requerido',
+    'string.empty': 'El motivo de rechazo no puede estar vacío',
   }),
 })
 
@@ -45,8 +40,9 @@ export const transferFiltersSchema = Joi.object({
   fromWarehouseId: Joi.string().uuid().optional(),
   toWarehouseId: Joi.string().uuid().optional(),
   status: Joi.string()
-    .valid('DRAFT', 'IN_TRANSIT', 'RECEIVED', 'CANCELLED')
+    .valid('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED')
     .optional(),
+  search: Joi.string().optional(),
   createdFrom: Joi.date().iso().optional(),
   createdTo: Joi.date().iso().optional(),
   page: Joi.number().integer().min(1).optional(),

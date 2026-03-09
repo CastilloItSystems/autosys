@@ -54,8 +54,12 @@ export enum EventType {
 
   // Transfer Events (Phase 5.5)
   TRANSFER_CREATED = 'transfer.created',
+  TRANSFER_SUBMITTED = 'transfer.submitted',
+  TRANSFER_APPROVED = 'transfer.approved',
+  TRANSFER_REJECTED = 'transfer.rejected',
   TRANSFER_SENT = 'transfer.sent',
   TRANSFER_RECEIVED = 'transfer.received',
+  TRANSFER_CANCELLED = 'transfer.cancelled',
 
   // Serial Number Events (Phase 5.2)
   SERIAL_CREATED = 'serialNumber.created',

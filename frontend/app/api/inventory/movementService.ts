@@ -84,6 +84,8 @@ export interface Movement {
   createdBy?: string;
   createdAt: string;
   updatedAt: string;
+  variance?: number | null;
+  snapshotQuantity?: number | null;
   item?: MovementItemSummary;
   warehouseFrom?: MovementWarehouseSummary;
   warehouseTo?: MovementWarehouseSummary;
@@ -145,7 +147,24 @@ export const getMovements = async (
   if (filters?.dateTo) params.append("dateTo", filters.dateTo);
 
   const response = await apiClient.get(`/inventory/movements?${params}`);
-  return response.data;
+  const payload = response.data as {
+    data?: Movement[];
+    meta?: Pagination;
+    pagination?: Pagination;
+  };
+
+  const resolvedMeta = payload.meta ||
+    payload.pagination || {
+      page,
+      limit,
+      total: payload.data?.length || 0,
+      totalPages: Math.ceil((payload.data?.length || 0) / limit) || 1,
+    };
+
+  return {
+    data: payload.data || [],
+    meta: resolvedMeta,
+  };
 };
 
 export const getMovement = async (id: string): Promise<{ data: Movement }> => {

@@ -17,6 +17,15 @@ export enum TurnoverClassification {
   STATIC = "STATIC",
 }
 
+export interface TopDiscrepancyItem {
+  itemId: string;
+  itemName: string;
+  itemSku: string;
+  occurrenceCount: number;
+  totalVarianceAbs: number;
+  netVariance: number;
+}
+
 // ============================================================================
 // INTERFACES
 // ============================================================================
@@ -244,6 +253,19 @@ export const getForecastAccuracy = async (
   return response.data;
 };
 
+// ============================================================================
+// DISCREPANCIES
+// ============================================================================
+
+export const getTopDiscrepancies = async (
+  limit = 5,
+): Promise<{ data: TopDiscrepancyItem[] }> => {
+  const response = await apiClient.get(
+    `/inventory/analytics/discrepancies/top?limit=${limit}`,
+  );
+  return response.data;
+};
+
 export default {
   getABCAnalysis,
   getAllTurnoverMetrics,
@@ -252,4 +274,5 @@ export default {
   getAllForecasts,
   getForecastByItem,
   getForecastAccuracy,
+  getTopDiscrepancies,
 };

@@ -60,11 +60,13 @@ export const CycleCountController = {
    */
   getOne: asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params
-    const { includeItems = true } = req.query
+    const { includeItems } = req.query
+
+    const shouldIncludeItems = includeItems !== 'false'
 
     const cycleCount = await CycleCountServiceInstance.findById(
       String(id),
-      includeItems === 'true'
+      shouldIncludeItems
     )
     const dto = new CycleCountResponseDTO(cycleCount)
 

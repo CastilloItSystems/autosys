@@ -4,6 +4,7 @@ import { Router } from 'express'
 import abcRoutes from './abc/abc.routes'
 import forecastingRoutes from './forecasting/forecasting.routes'
 import turnoverRoutes from './turnover/turnover.routes'
+import discrepancyRoutes from './discrepancies/discrepancies.routes'
 
 const router = Router()
 
@@ -11,6 +12,9 @@ const router = Router()
  * Rutas de Analíticas
  * Base: /api/inventory/analytics
  */
+
+// Discrepancias
+router.use('/discrepancies', discrepancyRoutes)
 
 // Análisis ABC
 // /api/inventory/analytics/abc

@@ -13,6 +13,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
 import {
   getAdjustments,
+  getAdjustment,
   approveAdjustment,
   applyAdjustment,
   rejectAdjustment,
@@ -27,6 +28,7 @@ import {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import AdjustmentForm from "@/components/inventory/adjustments/AdjustmentForm";
+import AdjustmentDetail from "@/components/inventory/adjustments/AdjustmentDetail";
 
 const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   [
@@ -45,6 +47,9 @@ const AdjustmentList = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
+  const [detailDialog, setDetailDialog] = useState(false);
+  const [selectedAdjustment, setSelectedAdjustment] =
+    useState<Adjustment | null>(null);
 
   // Pagination
   const [page, setPage] = useState(1);
@@ -174,6 +179,26 @@ const AdjustmentList = () => {
 
     return (
       <div className="flex gap-2">
+        <Button
+          icon="pi pi-eye"
+          rounded
+          size="small"
+          tooltip="Ver detalles"
+          onClick={async () => {
+            try {
+              const resp = await getAdjustment(rowData.id);
+              setSelectedAdjustment(resp.data);
+              setDetailDialog(true);
+            } catch (error) {
+              console.error("Error fetching adjustment details", error);
+              toast.current?.show({
+                severity: "error",
+                summary: "Error",
+                detail: "No se pudo cargar detalle",
+              });
+            }
+          }}
+        />
         {isDraft && (
           <Button
             icon="pi pi-check"
@@ -216,6 +241,11 @@ const AdjustmentList = () => {
         )}
       </div>
     );
+  };
+
+  const hideDetailDialog = () => {
+    setDetailDialog(false);
+    setSelectedAdjustment(null);
   };
 
   const handleApprove = (adjustment: Adjustment) => {
@@ -483,6 +513,26 @@ const AdjustmentList = () => {
         </DataTable>
 
         <ConfirmDialog />
+
+        <Dialog
+          visible={detailDialog}
+          style={{ width: "900px" }}
+          header="Detalle de Ajuste"
+          modal
+          onHide={hideDetailDialog}
+        >
+          {selectedAdjustment ? (
+            // Lazy load component
+            <>
+              {/* Dynamic import avoided; component is small and local */}
+              <AdjustmentDetail adjustment={selectedAdjustment} />
+            </>
+          ) : (
+            <div className="flex justify-content-center">
+              <ProgressSpinner />
+            </div>
+          )}
+        </Dialog>
 
         <Dialog
           visible={formDialog}

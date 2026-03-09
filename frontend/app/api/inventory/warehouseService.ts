@@ -17,7 +17,7 @@ export interface Warehouse {
 // Response con paginación estándar
 export interface WarehousesResponse {
   data: Warehouse[];
-  pagination: {
+  meta: {
     total: number;
     page: number;
     limit: number;

@@ -5,6 +5,7 @@ import { logger } from '../../../shared/utils/logger'
 import { PaginationHelper } from '../../../shared/utils/pagination'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/ApiError'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'
+import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator'
 import {
   IEntryNoteWithRelations,
   IEntryNoteItem,
@@ -452,6 +453,24 @@ export class EntryNoteService {
       )
     }
 
+    // Para notas de TRANSFER: validar que la nota de salida ya fue entregada
+    if (entryNote.type === 'TRANSFER') {
+      const transfer = await prisma.transfer.findFirst({
+        where: { entryNoteId: id },
+        include: {
+          exitNote: {
+            select: { id: true, status: true, exitNoteNumber: true },
+          },
+        },
+      })
+
+      if (transfer?.exitNote && transfer.exitNote.status !== 'DELIVERED') {
+        throw new BadRequestError(
+          `No se puede completar la recepción. La nota de salida ${transfer.exitNote.exitNoteNumber} aún no ha sido entregada (estado: ${transfer.exitNote.status}). Primero debe realizarse la salida del almacén origen.`
+        )
+      }
+    }
+
     // Mapear EntryType → MovementType
     const movementTypeMap: Record<string, string> = {
       PURCHASE: 'PURCHASE',
@@ -532,8 +551,8 @@ export class EntryNoteService {
         }
 
         // 2b. Crear Movement
-        const movementCount = await tx.movement.count()
-        const movementNumber = `MOV-${new Date().getFullYear()}-${String(movementCount + 1).padStart(5, '0')}`
+        const movementNumber =
+          await MovementNumberGenerator.generateMovementNumber(tx, 'MOV')
 
         await tx.movement.create({
           data: {

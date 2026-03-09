@@ -116,7 +116,13 @@ class AdjustmentService {
       const include: any = {
         warehouse: true,
       }
-      if (includeItems) include.items = true
+      if (includeItems) {
+        include.items = {
+          include: {
+            item: true,
+          },
+        }
+      }
 
       const adjustment = await prisma.adjustment.findUnique({
         where: { id },
@@ -172,8 +178,8 @@ class AdjustmentService {
       }
 
       const [total, adjustments] = await Promise.all([
-        db.adjustment.count({ where }),
-        db.adjustment.findMany({
+        prisma.adjustment.count({ where }),
+        prisma.adjustment.findMany({
           where,
           include: {
             items: true,
@@ -357,6 +363,15 @@ class AdjustmentService {
             data: {
               quantityReal: newQuantity,
               lastMovementAt: new Date(),
+            },
+          })
+
+          // Update adjustment item with snapshot values
+          await tx.adjustmentItem.update({
+            where: { id: item.id },
+            data: {
+              currentQuantity: stock.quantityReal,
+              newQuantity: newQuantity,
             },
           })
 

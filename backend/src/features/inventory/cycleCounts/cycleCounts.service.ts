@@ -13,6 +13,7 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
+  ForbiddenError,
 } from '../../../shared/utils/ApiError'
 import { PaginationHelper } from '../../../shared/utils/pagination'
 import { logger } from '../../../shared/utils/logger'
@@ -111,7 +112,13 @@ export class CycleCountService {
         where: { id },
         include: {
           warehouse: true,
-          items: includeItems,
+          items: includeItems
+            ? {
+                include: {
+                  item: true,
+                },
+              }
+            : false,
         },
       })
 
@@ -164,10 +171,17 @@ export class CycleCountService {
       const [cycleCounts, total] = await Promise.all([
         prisma.cycleCount.findMany({
           where,
-          include: { warehouse: true, items: true },
+          include: {
+            warehouse: true,
+            items: {
+              include: {
+                item: true,
+              },
+            },
+          },
           skip: (pageNum - 1) * limitNum,
           take: limitNum,
-          orderBy: { [sortBy]: sortOrder },
+          orderBy: { [sortBy]: (sortOrder as string).toLowerCase() },
         }),
         prisma.cycleCount.count({ where }),
       ])
@@ -204,9 +218,21 @@ export class CycleCountService {
         )
       }
 
-      const updateData = {
+      const updateData: any = {
         ...(data.notes !== undefined && { notes: data.notes }),
         ...(data.remarks !== undefined && { remarks: data.remarks }),
+      }
+
+      if (data.items) {
+        updateData.items = {
+          deleteMany: {},
+          create: data.items.map((item) => ({
+            itemId: item.itemId,
+            expectedQuantity: item.expectedQuantity,
+            location: item.location ?? null,
+            notes: item.notes ?? null,
+          })),
+        }
       }
 
       const updated = await prisma.cycleCount.update({
@@ -372,6 +398,34 @@ export class CycleCountService {
         )
       }
 
+      // ─── CONTROL DE CALIDAD: Varianza Alta ─────────────────────────────
+      const HIGH_VARIANCE_THRESHOLD = 5
+      const hasHighVariance = cycleCount.items.some((item) => {
+        const diff = Math.abs(
+          (item.countedQuantity ?? 0) - item.expectedQuantity
+        )
+        return diff > HIGH_VARIANCE_THRESHOLD
+      })
+
+      if (hasHighVariance) {
+        const approver = await prisma.user.findUnique({
+          where: { id: approvedBy },
+        })
+
+        if (!approver) {
+          throw new NotFoundError('Usuario aprobador no encontrado')
+        }
+
+        const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'GERENTE']
+        // @ts-ignore: rol is likely an enum string
+        if (!allowedRoles.includes(approver.rol)) {
+          throw new ForbiddenError(
+            `Se requiere rol de supervisor (ADMIN/GERENTE) para aprobar conteos con varianza > ${HIGH_VARIANCE_THRESHOLD} unidades.`
+          )
+        }
+      }
+      // ─────────────────────────────────────────────────────────────────
+
       const updated = await prisma.cycleCount.update({
         where: { id },
         data: {
@@ -454,8 +508,12 @@ export class CycleCountService {
             )
           }
 
+          // Calcular ajuste necesario para igualar el stock contado
+          // El objetivo es que stock.quantityReal sea igual a item.countedQuantity
+          const adjustmentQuantity =
+            (item.countedQuantity ?? 0) - stock.quantityReal
           const variance = (item.countedQuantity ?? 0) - item.expectedQuantity
-          const newQuantity = stock.quantityReal + variance
+          const newQuantity = stock.quantityReal + adjustmentQuantity
 
           if (newQuantity < 0) {
             throw new BadRequestError(
@@ -477,26 +535,34 @@ export class CycleCountService {
             },
           })
 
-          // Create movement record for audit trail if variance != 0
-          if (variance !== 0) {
+          // Create movement record for audit trail if adjustmentQuantity != 0 OR variance != 0
+          if (adjustmentQuantity !== 0 || variance !== 0) {
             const movementType =
-              variance > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT'
+              adjustmentQuantity >= 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT'
+
+            const adjustmentNote =
+              adjustmentQuantity !== 0
+                ? `Ajuste: ${adjustmentQuantity}`
+                : `Ajuste: 0 (Varianza detectada: ${variance})`
+
             await tx.movement.create({
               data: {
                 id: uuidv4(),
                 movementNumber: `MOV-CC-${uuidv4().substring(0, 8)}`,
                 type: movementType as any,
                 itemId: item.itemId,
-                quantity: Math.abs(variance),
+                quantity: Math.abs(adjustmentQuantity),
                 unitCost: 0,
                 totalCost: 0,
                 warehouseToId:
-                  variance > 0 ? cycleCount.warehouseId : undefined,
+                  adjustmentQuantity >= 0 ? cycleCount.warehouseId : undefined,
                 warehouseFromId:
-                  variance < 0 ? cycleCount.warehouseId : undefined,
+                  adjustmentQuantity < 0 ? cycleCount.warehouseId : undefined,
                 reference: cycleCount.cycleCountNumber,
-                notes: `Conteo Cíclico: ${item.location || 'sin ubicación'}`,
+                notes: `Conteo Cíclico: ${item.location || 'sin ubicación'} (${adjustmentNote})`,
                 createdBy: appliedBy || 'system',
+                snapshotQuantity: item.expectedQuantity,
+                variance: variance,
               },
             })
           }

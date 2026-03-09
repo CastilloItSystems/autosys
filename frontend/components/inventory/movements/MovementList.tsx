@@ -62,7 +62,7 @@ const MovementList = () => {
 
   // Pagination
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
 
   // Filters
@@ -119,7 +119,7 @@ const MovementList = () => {
       });
 
       setMovements(response.data);
-      setTotalRecords(response.meta.total);
+      setTotalRecords(response.meta?.total ?? response.data.length);
     } catch (error) {
       console.error("Error fetching movements:", error);
       toast.current?.show({
@@ -206,13 +206,18 @@ const MovementList = () => {
 
   const quantityBodyTemplate = (rowData: Movement) => {
     // Definir si es entrada o salida para colorear
-    const isIn = [
+    const inTypes = [
       "PURCHASE",
       "ADJUSTMENT_IN",
       "WORKSHOP_RETURN",
       "RESERVATION_RELEASE",
       "LOAN_RETURN",
-    ].includes(rowData.type);
+    ];
+    // Para TRANSFER, determinar dirección por almacén destino (entrada) vs origen (salida)
+    const isIn =
+      rowData.type === "TRANSFER"
+        ? !!rowData.warehouseToId && !rowData.warehouseFromId
+        : inTypes.includes(rowData.type);
 
     return (
       <span className={`font-bold ${isIn ? "text-green-600" : "text-red-600"}`}>
@@ -333,7 +338,7 @@ const MovementList = () => {
     const kpis = [
       {
         label: "Total Movimientos",
-        value: dashboardMetrics?.totalMovements ?? totalRecords,
+        value: totalRecords,
         icon: "pi pi-list",
         color: "blue",
         bgClass: "bg-blue-50",
@@ -558,11 +563,13 @@ const MovementList = () => {
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5 }}
-        className="card shadow-2 border-round p-0 overflow-hidden"
+        className="card shadow-2 border-round p-0"
       >
         <DataTable
           value={movements}
           paginator
+          alwaysShowPaginator
+          paginatorPosition="both"
           lazy
           first={(page - 1) * limit}
           rows={limit}
@@ -570,8 +577,9 @@ const MovementList = () => {
           onPage={handlePageChange}
           loading={loading}
           responsiveLayout="scroll"
-          currentPageReportTemplate="{first} - {last} de {totalRecords}"
-          rowsPerPageOptions={[10, 20, 50, 100]}
+          paginatorTemplate="RowsPerPageDropdown FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport"
+          currentPageReportTemplate="Mostrando {first}-{last} de {totalRecords}"
+          rowsPerPageOptions={[5, 10, 20, 50, 100]}
           emptyMessage={
             <div className="flex flex-column align-items-center justify-content-center p-5">
               <i className="pi pi-inbox text-500 text-5xl mb-3"></i>

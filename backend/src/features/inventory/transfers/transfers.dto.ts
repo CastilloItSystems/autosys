@@ -1,6 +1,10 @@
 // backend/src/features/inventory/transfers/transfers.dto.ts
 
-import { ITransfer, TransferStatus } from './transfers.interface'
+import {
+  ITransfer,
+  ITransferNoteInfo,
+  TransferStatus,
+} from './transfers.interface'
 
 export class CreateTransferDTO {
   fromWarehouseId: string
@@ -40,19 +44,11 @@ export class UpdateTransferDTO {
   }
 }
 
-export class SendTransferDTO {
-  sentBy: string
+export class RejectTransferDTO {
+  rejectionReason: string
 
   constructor(data: any) {
-    this.sentBy = data.sentBy
-  }
-}
-
-export class ReceiveTransferDTO {
-  receivedBy: string
-
-  constructor(data: any) {
-    this.receivedBy = data.receivedBy
+    this.rejectionReason = data.rejectionReason
   }
 }
 
@@ -64,10 +60,15 @@ export class TransferResponseDTO {
   status: TransferStatus
   quantity: number
   notes?: string | null
-  sentAt?: Date | null
-  receivedAt?: Date | null
-  sentBy?: string | null
-  receivedBy?: string | null
+  approvedBy?: string | null
+  approvedAt?: Date | null
+  rejectedBy?: string | null
+  rejectedAt?: Date | null
+  rejectionReason?: string | null
+  exitNoteId?: string | null
+  entryNoteId?: string | null
+  exitNote?: ITransferNoteInfo | null
+  entryNote?: ITransferNoteInfo | null
   createdBy: string
   createdAt: Date
   updatedAt: Date
@@ -76,7 +77,13 @@ export class TransferResponseDTO {
   toWarehouse?: any
 
   constructor(
-    data: ITransfer & { items?: any[]; fromWarehouse?: any; toWarehouse?: any }
+    data: ITransfer & {
+      items?: any[]
+      fromWarehouse?: any
+      toWarehouse?: any
+      exitNote?: any
+      entryNote?: any
+    }
   ) {
     this.id = data.id
     this.transferNumber = data.transferNumber
@@ -84,11 +91,16 @@ export class TransferResponseDTO {
     this.toWarehouseId = data.toWarehouseId
     this.status = data.status
     this.quantity = data.quantity
-    this.notes = data.notes
-    this.sentAt = data.sentAt
-    this.receivedAt = data.receivedAt
-    this.sentBy = data.sentBy
-    this.receivedBy = data.receivedBy
+    this.notes = data.notes ?? null
+    this.approvedBy = data.approvedBy ?? null
+    this.approvedAt = data.approvedAt ?? null
+    this.rejectedBy = data.rejectedBy ?? null
+    this.rejectedAt = data.rejectedAt ?? null
+    this.rejectionReason = data.rejectionReason ?? null
+    this.exitNoteId = data.exitNoteId ?? null
+    this.entryNoteId = data.entryNoteId ?? null
+    this.exitNote = data.exitNote ?? null
+    this.entryNote = data.entryNote ?? null
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
@@ -105,8 +117,8 @@ export class TransferListResponseDTO {
   toWarehouse?: string
   status: TransferStatus
   quantity: number
-  sentAt?: Date | null
-  receivedAt?: Date | null
+  exitNote?: ITransferNoteInfo | null
+  entryNote?: ITransferNoteInfo | null
   createdAt: Date
 
   constructor(data: any) {
@@ -116,8 +128,8 @@ export class TransferListResponseDTO {
     this.toWarehouse = data.toWarehouse?.name
     this.status = data.status
     this.quantity = data.quantity
-    this.sentAt = data.sentAt
-    this.receivedAt = data.receivedAt
+    this.exitNote = data.exitNote ?? null
+    this.entryNote = data.entryNote ?? null
     this.createdAt = data.createdAt
   }
 }

@@ -13,84 +13,10 @@ const eventService = EventService.getInstance()
  * Register movement event listeners
  */
 export function registerMovementEventHandlers(): void {
-  // Handle transfer movements
+  // Transfer movements are now handled by ExitNote (deliver) and EntryNote (complete)
+  // Transfer events are logged for auditing only
   eventService.on(EventType.TRANSFER_CREATED, async (data: any) => {
-    try {
-      // Log transfer as pending movement
-      console.log(
-        `Transfer ${data.transferNumber} created: ${data.quantity} units from warehouse ${data.fromWarehouseId}`
-      )
-
-      // Create preliminary movement record with PENDING status
-      await prisma.movement.create({
-        data: {
-          itemId: data.itemId,
-          warehouseId: data.fromWarehouseId,
-          movementType: 'TRANSFER_OUT',
-          quantity: -data.quantity, // Negative for outgoing
-          reference: data.transferNumber,
-          notes: `Transfer to ${data.toWarehouseId}`,
-          status: 'PENDING',
-        },
-      })
-    } catch (error) {
-      console.error('Error handling TRANSFER_CREATED event:', error)
-    }
-  })
-
-  eventService.on(EventType.TRANSFER_SENT, async (data: any) => {
-    try {
-      // Update movement status to IN_TRANSIT
-      await prisma.movement.updateMany({
-        where: {
-          reference: data.transferNumber,
-          movementType: 'TRANSFER_OUT',
-        },
-        data: {
-          status: 'IN_TRANSIT',
-          updatedAt: new Date(),
-        },
-      })
-
-      console.log(`Transfer ${data.transferNumber} sent - in transit`)
-    } catch (error) {
-      console.error('Error handling TRANSFER_SENT event:', error)
-    }
-  })
-
-  eventService.on(EventType.TRANSFER_RECEIVED, async (data: any) => {
-    try {
-      // Update outgoing movement
-      await prisma.movement.updateMany({
-        where: {
-          reference: data.transferNumber,
-          movementType: 'TRANSFER_OUT',
-        },
-        data: {
-          status: 'COMPLETED',
-          updatedAt: new Date(),
-        },
-      })
-
-      // Create incoming movement at destination
-      await prisma.movement.create({
-        data: {
-          itemId: data.itemId,
-          warehouseId: data.toWarehouseId,
-          movementType: 'TRANSFER_IN',
-          quantity: data.quantity,
-          reference: data.transferNumber,
-          notes: `Received from warehouse ${data.fromWarehouseId}`,
-          status: 'COMPLETED',
-        },
-      })
-
-      console.log(
-        `Transfer ${data.transferNumber} completed - received at ${data.toWarehouseId}`
-      )
-    } catch (error) {
-      console.error('Error handling TRANSFER_RECEIVED event:', error)
-    }
+    console.log(`Transfer ${data.transferNumber} created`)
   })
 
   // Handle return movements
@@ -207,8 +133,6 @@ export function registerMovementEventHandlers(): void {
  */
 export function unregisterMovementEventHandlers(): void {
   eventService.removeAllListeners(EventType.TRANSFER_CREATED)
-  eventService.removeAllListeners(EventType.TRANSFER_SENT)
-  eventService.removeAllListeners(EventType.TRANSFER_RECEIVED)
   eventService.removeAllListeners(EventType.RETURN_CREATED)
   eventService.removeAllListeners(EventType.RETURN_PROCESSED)
   eventService.removeAllListeners(EventType.EXIT_NOTE_CREATED)

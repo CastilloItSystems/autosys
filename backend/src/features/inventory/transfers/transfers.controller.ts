@@ -7,8 +7,7 @@ import TransfersService from './transfers.service'
 import {
   CreateTransferDTO,
   UpdateTransferDTO,
-  SendTransferDTO,
-  ReceiveTransferDTO,
+  RejectTransferDTO,
   TransferResponseDTO,
   TransferListResponseDTO,
 } from './transfers.dto'
@@ -17,7 +16,6 @@ import { ITransferFilters } from './transfers.interface'
 export class TransfersController {
   /**
    * GET /api/inventory/transfers
-   * Get all transfers with pagination
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
     const {
@@ -26,6 +24,7 @@ export class TransfersController {
       fromWarehouseId,
       toWarehouseId,
       status,
+      search,
       createdFrom,
       createdTo,
     } = req.query
@@ -34,6 +33,7 @@ export class TransfersController {
     if (fromWarehouseId) filters.fromWarehouseId = fromWarehouseId as string
     if (toWarehouseId) filters.toWarehouseId = toWarehouseId as string
     if (status) filters.status = status as any
+    if (search) filters.search = search as string
     if (createdFrom) filters.createdFrom = new Date(createdFrom as string)
     if (createdTo) filters.createdTo = new Date(createdTo as string)
 
@@ -59,10 +59,9 @@ export class TransfersController {
 
   /**
    * GET /api/inventory/transfers/:id
-   * Get transfer by ID
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const transfer = await TransfersService.findById(id)
     const dto = new TransferResponseDTO(transfer)
     return ApiResponse.success(res, dto)
@@ -70,7 +69,6 @@ export class TransfersController {
 
   /**
    * POST /api/inventory/transfers
-   * Create new transfer
    */
   create = asyncHandler(async (req: Request, res: Response) => {
     const createDTO = new CreateTransferDTO(req.body)
@@ -82,10 +80,9 @@ export class TransfersController {
 
   /**
    * PUT /api/inventory/transfers/:id
-   * Update transfer
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const updateDTO = new UpdateTransferDTO(req.body)
     const userId = (req as any).user?.userId || 'system'
     const transfer = await TransfersService.update(id, updateDTO, userId)
@@ -94,45 +91,62 @@ export class TransfersController {
   })
 
   /**
-   * PATCH /api/inventory/transfers/:id/send
-   * Send transfer (mark as in transit)
+   * PATCH /api/inventory/transfers/:id/submit
+   * Submit for approval (DRAFT → PENDING_APPROVAL)
    */
-  send = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const sendDTO = new SendTransferDTO(req.body)
+  submit = asyncHandler(async (req: Request, res: Response) => {
+    const id = req.params.id as string
     const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.send(id, sendDTO.sentBy, userId)
+    const transfer = await TransfersService.submitForApproval(id, userId)
     const dto = new TransferResponseDTO(transfer)
     return ApiResponse.success(res, dto)
   })
 
   /**
-   * PATCH /api/inventory/transfers/:id/receive
-   * Receive transfer
+   * PATCH /api/inventory/transfers/:id/approve
+   * Approve transfer (PENDING_APPROVAL → APPROVED)
    */
-  receive = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const receiveDTO = new ReceiveTransferDTO(req.body)
+  approve = asyncHandler(async (req: Request, res: Response) => {
+    const id = req.params.id as string
     const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.receive(
-      id,
-      receiveDTO.receivedBy,
-      userId
-    )
+    const transfer = await TransfersService.approve(id, userId)
+    const dto = new TransferResponseDTO(transfer)
+    return ApiResponse.success(res, dto)
+  })
+
+  /**
+   * PATCH /api/inventory/transfers/:id/reject
+   * Reject transfer (PENDING_APPROVAL → REJECTED)
+   */
+  reject = asyncHandler(async (req: Request, res: Response) => {
+    const id = req.params.id as string
+    const rejectDTO = new RejectTransferDTO(req.body)
+    const userId = (req as any).user?.userId || 'system'
+    const transfer = await TransfersService.reject(id, rejectDTO, userId)
     const dto = new TransferResponseDTO(transfer)
     return ApiResponse.success(res, dto)
   })
 
   /**
    * PATCH /api/inventory/transfers/:id/cancel
-   * Cancel transfer
    */
   cancel = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const userId = (req as any).user?.userId || 'system'
     const transfer = await TransfersService.cancel(id, userId)
     const dto = new TransferResponseDTO(transfer)
     return ApiResponse.success(res, dto)
+  })
+
+  /**
+   * DELETE /api/inventory/transfers/:id
+   * Delete transfer (DRAFT only)
+   */
+  remove = asyncHandler(async (req: Request, res: Response) => {
+    const id = req.params.id as string
+    const userId = (req as any).user?.userId || 'system'
+    await TransfersService.delete(id, userId)
+    return ApiResponse.noContent(res)
   })
 }
 

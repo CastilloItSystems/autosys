@@ -80,7 +80,7 @@ class AdjustmentController {
 
     const adjustment = await AdjustmentService.findById(
       String(id),
-      includeItems === 'true'
+      String(includeItems) === 'true'
     )
 
     const dto = new AdjustmentResponseDTO(adjustment)

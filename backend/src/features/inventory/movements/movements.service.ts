@@ -80,6 +80,8 @@ export class MovementService {
           exitType: data.exitType ?? null,
           notes: data.notes ?? null,
           createdBy: userId ?? null,
+          snapshotQuantity: data.snapshotQuantity ?? null,
+          variance: data.variance ?? null,
           movementDate: data.movementDate ?? new Date(),
         },
         include: {
@@ -158,12 +160,24 @@ export class MovementService {
         where.itemId = filters.itemId
       }
 
-      if (filters.warehouseFromId) {
-        where.warehouseFromId = filters.warehouseFromId
-      }
+      if (filters.warehouseFromId && filters.warehouseToId) {
+        if (filters.warehouseFromId === filters.warehouseToId) {
+          where.OR = [
+            { warehouseFromId: filters.warehouseFromId },
+            { warehouseToId: filters.warehouseToId },
+          ]
+        } else {
+          where.warehouseFromId = filters.warehouseFromId
+          where.warehouseToId = filters.warehouseToId
+        }
+      } else {
+        if (filters.warehouseFromId) {
+          where.warehouseFromId = filters.warehouseFromId
+        }
 
-      if (filters.warehouseToId) {
-        where.warehouseToId = filters.warehouseToId
+        if (filters.warehouseToId) {
+          where.warehouseToId = filters.warehouseToId
+        }
       }
 
       if (filters.createdBy) {

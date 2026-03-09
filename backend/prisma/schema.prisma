@@ -417,6 +417,9 @@ model EntryNote {
   // Relaciones
   items            EntryNoteItem[]
   
+  // Relación con Transfer (cuando type=TRANSFER)
+  transfer         Transfer?
+
   notes            String?         @db.Text
   
   // Fechas
@@ -640,6 +643,9 @@ model ExitNote {
   loanId          String? @unique
   loan            Loan? @relation(fields: [loanId], references: [id], onDelete: Restrict)
   
+  // Relación con Transfer (cuando type=TRANSFER)
+  transfer        Transfer?
+
   notes           String?        @db.Text
   
   // Fechas
@@ -978,6 +984,10 @@ model Movement {
   warehouseTo     Warehouse?   @relation("WarehouseTo", fields: [warehouseToId], references: [id], onDelete: Restrict)
   
   quantity        Int
+  
+  // Inventory Discrepancy Tracking (Variance Analysis)
+  snapshotQuantity Int?         // Expected quantity at time of count
+  variance        Int?         // Difference detected: countedQuantity - expectedQuantity
   
   // Costos
   unitCost        Decimal?     @db.Decimal(12, 2)
@@ -1487,8 +1497,9 @@ model Supplier {
 
 enum TransferStatus {
   DRAFT
-  IN_TRANSIT
-  RECEIVED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
   CANCELLED
 }
 
@@ -1508,12 +1519,21 @@ model Transfer {
 
   notes            String?        @db.Text
 
-  sentAt           DateTime?
-  receivedAt       DateTime?
-  sentBy           String?
-  receivedBy       String?
+  // Approval fields
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  rejectionReason  String?        @db.Text
 
   createdBy        String
+
+  // Documentos generados al aprobar
+  exitNoteId       String?        @unique
+  exitNote         ExitNote?      @relation(fields: [exitNoteId], references: [id], onDelete: SetNull)
+
+  entryNoteId      String?        @unique
+  entryNote        EntryNote?     @relation(fields: [entryNoteId], references: [id], onDelete: SetNull)
 
   items            TransferItem[]
 

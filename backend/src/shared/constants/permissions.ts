@@ -6,6 +6,7 @@ export const PERMISSIONS = {
   INVENTORY_CREATE: 'inventory:create',
   INVENTORY_UPDATE: 'inventory:update',
   INVENTORY_DELETE: 'inventory:delete',
+  INVENTORY_APPROVE_HIGH_VARIANCE: 'inventory:approve_high_variance',
 
   // Items
   ITEMS_VIEW: 'items:view',
@@ -29,6 +30,7 @@ export const PERMISSIONS = {
   STOCK_VIEW: 'stock:view',
   STOCK_ADJUST: 'stock:adjust',
   STOCK_TRANSFER: 'stock:transfer',
+  TRANSFER_APPROVE: 'transfers:approve',
 
   // Purchase Orders
   PO_VIEW: 'purchase_orders:view',
@@ -115,6 +117,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.STOCK_VIEW,
     PERMISSIONS.STOCK_ADJUST,
     PERMISSIONS.STOCK_TRANSFER,
+    PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.PO_VIEW,
     PERMISSIONS.PO_CREATE,
     PERMISSIONS.PO_APPROVE,
@@ -136,6 +139,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.INVENTORY_VIEW,
     PERMISSIONS.ITEMS_VIEW,
     PERMISSIONS.STOCK_VIEW,
+    PERMISSIONS.TRANSFER_APPROVE,
     PERMISSIONS.PO_VIEW,
     PERMISSIONS.PO_APPROVE,
     PERMISSIONS.SALES_VIEW,
@@ -155,6 +159,7 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.ITEMS_VIEW,
     PERMISSIONS.STOCK_VIEW,
     PERMISSIONS.STOCK_ADJUST,
+    PERMISSIONS.STOCK_TRANSFER,
     PERMISSIONS.PO_VIEW,
     PERMISSIONS.PO_RECEIVE,
     PERMISSIONS.EXIT_NOTE_VIEW,

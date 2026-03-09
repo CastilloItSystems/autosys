@@ -10,6 +10,7 @@ import {
   getDashboardMetrics,
   DashboardMetrics,
 } from "@/app/api/inventory/stockService";
+import { DiscrepancyWidget } from "./DiscrepancyWidget";
 
 export default function InventoryDashboard() {
   const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
@@ -126,7 +127,7 @@ export default function InventoryDashboard() {
         ))}
       </div>
 
-      {/* Stock Health + Alerts Row */}
+      {/* Stock Health + Alerts + Discrepancies Row */}
       <div className="grid mb-3">
         {/* Stock Health */}
         <div className="col-12 md:col-6 lg:col-4">
@@ -255,6 +256,19 @@ export default function InventoryDashboard() {
                 <Tag value={String(alerts.info)} severity="info" rounded />
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Discrepancies Widget */}
+      <div className="grid mb-3">
+        <div className="col-12">
+          <div className="card mb-0">
+            <h5 className="mb-3">
+              <i className="pi pi-exclamation-triangle mr-2 text-primary"></i>
+              Top Discrepancias (últimos 30 días)
+            </h5>
+            <DiscrepancyWidget />
           </div>
         </div>
       </div>

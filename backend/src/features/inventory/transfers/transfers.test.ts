@@ -151,7 +151,6 @@ describe('Transfers API Tests', () => {
 
   afterAll(async () => {
     try {
-      // ── Cleanup en orden FK-safe ──
       await prisma.movement
         .deleteMany({
           where: { movementNumber: { startsWith: 'MOV-TRANSFER' } },
@@ -187,11 +186,61 @@ describe('Transfers API Tests', () => {
     }
   })
 
+  // ── Helper: create a transfer in DRAFT ──
+  async function createDraftTransfer(qty = 25) {
+    const res = await request(app)
+      .post('/api/inventory/transfers')
+      .set('Authorization', `Bearer ${authToken}`)
+      .send({
+        fromWarehouseId: warehouseFromId,
+        toWarehouseId: warehouseToId,
+        notes: 'Test transfer',
+        items: [{ itemId, quantity: qty, unitCost: 35 }],
+      })
+    expect(res.status).toBe(201)
+    return res.body.data.id as string
+  }
+
+  // ── Helper: advance transfer through the approval flow ──
+  async function advanceTo(
+    id: string,
+    target: 'PENDING_APPROVAL' | 'APPROVED' | 'IN_TRANSIT' | 'RECEIVED'
+  ) {
+    if (
+      ['PENDING_APPROVAL', 'APPROVED', 'IN_TRANSIT', 'RECEIVED'].includes(
+        target
+      )
+    ) {
+      await request(app)
+        .patch(`/api/inventory/transfers/${id}/submit`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+    }
+    if (['APPROVED', 'IN_TRANSIT', 'RECEIVED'].includes(target)) {
+      await request(app)
+        .patch(`/api/inventory/transfers/${id}/approve`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+    }
+    if (['IN_TRANSIT', 'RECEIVED'].includes(target)) {
+      await request(app)
+        .patch(`/api/inventory/transfers/${id}/send`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+    }
+    if (target === 'RECEIVED') {
+      await request(app)
+        .patch(`/api/inventory/transfers/${id}/receive`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .expect(200)
+    }
+  }
+
   // ============================================
   // CREATE TESTS
   // ============================================
   describe('POST /api/inventory/transfers', () => {
-    test('Debe crear un transfer exitosamente', async () => {
+    test('Debe crear un transfer exitosamente en DRAFT', async () => {
       const res = await request(app)
         .post('/api/inventory/transfers')
         .set('Authorization', `Bearer ${authToken}`)
@@ -199,18 +248,14 @@ describe('Transfers API Tests', () => {
           fromWarehouseId: warehouseFromId,
           toWarehouseId: warehouseToId,
           notes: 'Transfer de prueba',
-          items: [
-            {
-              itemId,
-              quantity: 50,
-              unitCost: 35,
-            },
-          ],
+          items: [{ itemId, quantity: 50, unitCost: 35 }],
         })
 
       expect(res.status).toBe(201)
       expect(res.body.success).toBe(true)
       expect(res.body.data).toHaveProperty('id')
+      expect(res.body.data.status).toBe('DRAFT')
+      expect(res.body.data.transferNumber).toMatch(/^TRANS-/)
       transferId = res.body.data.id
     })
 
@@ -257,11 +302,11 @@ describe('Transfers API Tests', () => {
         .set('Authorization', `Bearer ${authToken}`)
         .send({
           fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseFromId, // Mismo warehouse
+          toWarehouseId: warehouseFromId,
           items: [{ itemId, quantity: 50 }],
         })
 
-      expect([400, 422]).toContain(res.status)
+      expect(res.status).toBe(400)
     })
 
     test('Debe fallar transferir más que stock disponible', async () => {
@@ -271,10 +316,10 @@ describe('Transfers API Tests', () => {
         .send({
           fromWarehouseId: warehouseFromId,
           toWarehouseId: warehouseToId,
-          items: [{ itemId, quantity: 5000 }], // Más que stock
+          items: [{ itemId, quantity: 5000 }],
         })
 
-      expect([400, 422]).toContain(res.status)
+      expect(res.status).toBe(400)
     })
   })
 
@@ -282,7 +327,7 @@ describe('Transfers API Tests', () => {
   // GET ALL TESTS
   // ============================================
   describe('GET /api/inventory/transfers', () => {
-    test('Debe obtener lista de transfers', async () => {
+    test('Debe obtener lista de transfers paginada', async () => {
       const res = await request(app)
         .get('/api/inventory/transfers')
         .set('Authorization', `Bearer ${authToken}`)
@@ -290,15 +335,20 @@ describe('Transfers API Tests', () => {
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
+      expect(res.body.data).toBeInstanceOf(Array)
+      expect(res.body).toHaveProperty('pagination')
     })
 
-    test('Debe filtrar por estado', async () => {
+    test('Debe filtrar por estado DRAFT', async () => {
       const res = await request(app)
         .get('/api/inventory/transfers')
         .set('Authorization', `Bearer ${authToken}`)
         .query({ status: 'DRAFT', page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
+      if (res.body.data.length > 0) {
+        expect(res.body.data[0].status).toBe('DRAFT')
+      }
     })
 
     test('Debe filtrar por warehouse origen', async () => {
@@ -309,17 +359,23 @@ describe('Transfers API Tests', () => {
 
       expect(res.status).toBe(200)
     })
+
+    test('Debe buscar por texto', async () => {
+      const res = await request(app)
+        .get('/api/inventory/transfers')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({ search: 'Transfer de prueba', page: 1, limit: 10 })
+
+      expect(res.status).toBe(200)
+    })
   })
 
   // ============================================
   // GET BY ID TESTS
   // ============================================
   describe('GET /api/inventory/transfers/:id', () => {
-    test('Debe obtener transfer por ID', async () => {
-      if (!transferId) {
-        console.warn('transferId no disponible')
-        return
-      }
+    test('Debe obtener transfer por ID con items', async () => {
+      expect(transferId).toBeDefined()
 
       const res = await request(app)
         .get(`/api/inventory/transfers/${transferId}`)
@@ -328,6 +384,9 @@ describe('Transfers API Tests', () => {
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
       expect(res.body.data.id).toBe(transferId)
+      expect(res.body.data).toHaveProperty('items')
+      expect(res.body.data).toHaveProperty('fromWarehouse')
+      expect(res.body.data).toHaveProperty('toWarehouse')
     })
 
     test('Debe fallar con ID no válido', async () => {
@@ -338,7 +397,7 @@ describe('Transfers API Tests', () => {
       expect(res.status).toBe(422)
     })
 
-    test('Debe fallar con transfer no encontrado', async () => {
+    test('Debe retornar 404 con transfer no encontrado', async () => {
       const res = await request(app)
         .get('/api/inventory/transfers/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
@@ -351,89 +410,140 @@ describe('Transfers API Tests', () => {
   // UPDATE TESTS
   // ============================================
   describe('PUT /api/inventory/transfers/:id', () => {
-    test('Debe actualizar transfer en PENDING', async () => {
-      const createRes = await request(app)
-        .post('/api/inventory/transfers')
+    test('Debe actualizar notas de un transfer en DRAFT', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .put(`/api/inventory/transfers/${id}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseToId,
-          notes: 'Para actualizar',
-          items: [{ itemId, quantity: 35 }],
-        })
+        .send({ notes: 'Notas actualizadas' })
 
-      if (createRes.status === 201) {
-        const updateRes = await request(app)
-          .put(`/api/inventory/transfers/${createRes.body.data.id}`)
-          .set('Authorization', `Bearer ${authToken}`)
-          .send({
-            notes: 'Notas actualizadas',
-          })
-
-        expect([200, 400]).toContain(updateRes.status)
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.notes).toBe('Notas actualizadas')
     }, 15000)
   })
 
   // ============================================
-  // SEND TESTS
+  // APPROVAL FLOW TESTS
   // ============================================
-  describe('PATCH /api/inventory/transfers/:id/send', () => {
-    test('Debe enviar un transfer', async () => {
-      const createRes = await request(app)
-        .post('/api/inventory/transfers')
+  describe('Approval Flow', () => {
+    test('DRAFT → PENDING_APPROVAL (submit)', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/submit`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseToId,
-          notes: 'Para enviar',
-          items: [{ itemId, quantity: 25 }],
-        })
 
-      if (createRes.status === 201) {
-        const sendRes = await request(app)
-          .patch(`/api/inventory/transfers/${createRes.body.data.id}/send`)
-          .set('Authorization', `Bearer ${authToken}`)
-          .send({ sentBy: userId })
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('PENDING_APPROVAL')
+    }, 15000)
 
-        expect([200, 400]).toContain(sendRes.status)
-      }
-    }, 60000)
+    test('PENDING_APPROVAL → APPROVED (approve)', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'PENDING_APPROVAL')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/approve`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('APPROVED')
+      expect(res.body.data).toHaveProperty('approvedAt')
+    }, 15000)
+
+    test('PENDING_APPROVAL → REJECTED (reject)', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'PENDING_APPROVAL')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/reject`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({ reason: 'Stock insuficiente verificado' })
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('REJECTED')
+      expect(res.body.data.rejectionReason).toBe(
+        'Stock insuficiente verificado'
+      )
+    }, 15000)
+
+    test('Debe fallar reject sin razón', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'PENDING_APPROVAL')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/reject`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({})
+
+      expect(res.status).toBe(422)
+    }, 15000)
+
+    test('Debe fallar submit en estado no DRAFT', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'PENDING_APPROVAL')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/submit`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(400)
+    }, 15000)
+
+    test('Debe fallar approve en estado no PENDING_APPROVAL', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/approve`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(400)
+    }, 15000)
   })
 
   // ============================================
-  // RECeIVE TESTS
+  // SEND TESTS (no body needed)
+  // ============================================
+  describe('PATCH /api/inventory/transfers/:id/send', () => {
+    test('Debe enviar un transfer aprobado (no body)', async () => {
+      const id = await createDraftTransfer(10)
+      await advanceTo(id, 'APPROVED')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/send`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('IN_TRANSIT')
+      expect(res.body.data).toHaveProperty('sentAt')
+    }, 60000)
+
+    test('Debe fallar send en estado DRAFT (no aprobado)', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/send`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(400)
+    }, 15000)
+  })
+
+  // ============================================
+  // RECEIVE TESTS (no body needed)
   // ============================================
   describe('PATCH /api/inventory/transfers/:id/receive', () => {
-    test('Debe recibir un transfer', async () => {
-      // Create transfer and send it first
-      const createRes = await request(app)
-        .post('/api/inventory/transfers')
+    test('Debe recibir un transfer en tránsito (no body)', async () => {
+      const id = await createDraftTransfer(10)
+      await advanceTo(id, 'IN_TRANSIT')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/receive`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseToId,
-          notes: 'Para recibir',
-          items: [{ itemId, quantity: 20 }],
-        })
 
-      if (createRes.status === 201) {
-        const trfId = createRes.body.data.id
-
-        // Send the transfer first
-        await request(app)
-          .patch(`/api/inventory/transfers/${trfId}/send`)
-          .set('Authorization', `Bearer ${authToken}`)
-          .send({ sentBy: userId })
-
-        // Then receive it
-        const res = await request(app)
-          .patch(`/api/inventory/transfers/${trfId}/receive`)
-          .set('Authorization', `Bearer ${authToken}`)
-          .send({ receivedBy: userId })
-
-        expect([200, 400]).toContain(res.status)
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('RECEIVED')
+      expect(res.body.data).toHaveProperty('receivedAt')
     }, 60000)
   })
 
@@ -441,51 +551,93 @@ describe('Transfers API Tests', () => {
   // CANCEL TESTS
   // ============================================
   describe('PATCH /api/inventory/transfers/:id/cancel', () => {
-    test('Debe cancelar un transfer', async () => {
-      const createRes = await request(app)
-        .post('/api/inventory/transfers')
+    test('Debe cancelar un transfer en DRAFT', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/cancel`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseToId,
-          notes: 'Para cancelar',
-          items: [{ itemId, quantity: 40 }],
-        })
 
-      if (createRes.status === 201) {
-        const trfId = createRes.body.data.id
-        const res = await request(app)
-          .patch(`/api/inventory/transfers/${trfId}/cancel`)
-          .set('Authorization', `Bearer ${authToken}`)
-
-        expect([200, 400]).toContain(res.status)
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('CANCELLED')
     }, 15000)
+
+    test('Debe cancelar un transfer en IN_TRANSIT y revertir stock', async () => {
+      // Check stock before
+      const stockBefore = await prisma.stock.findFirst({
+        where: { itemId, warehouseId: warehouseFromId },
+      })
+
+      const id = await createDraftTransfer(10)
+      await advanceTo(id, 'IN_TRANSIT')
+
+      // Stock should have decreased after send
+      const stockAfterSend = await prisma.stock.findFirst({
+        where: { itemId, warehouseId: warehouseFromId },
+      })
+      expect(Number(stockAfterSend?.quantityAvailable)).toBeLessThan(
+        Number(stockBefore?.quantityAvailable)
+      )
+
+      // Cancel should reverse the stock
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/cancel`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.status).toBe('CANCELLED')
+
+      // Stock should be restored
+      const stockAfterCancel = await prisma.stock.findFirst({
+        where: { itemId, warehouseId: warehouseFromId },
+      })
+      expect(Number(stockAfterCancel?.quantityAvailable)).toBe(
+        Number(stockBefore?.quantityAvailable)
+      )
+    }, 60000)
+
+    test('Debe fallar cancelar un transfer ya RECEIVED', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'RECEIVED')
+
+      const res = await request(app)
+        .patch(`/api/inventory/transfers/${id}/cancel`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(400)
+    }, 60000)
   })
 
   // ============================================
   // DELETE TESTS
   // ============================================
   describe('DELETE /api/inventory/transfers/:id', () => {
-    test('Debe eliminar transfer en PENDING', async () => {
-      const createRes = await request(app)
-        .post('/api/inventory/transfers')
+    test('Debe eliminar transfer en DRAFT', async () => {
+      const id = await createDraftTransfer(5)
+
+      const res = await request(app)
+        .delete(`/api/inventory/transfers/${id}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          fromWarehouseId: warehouseFromId,
-          toWarehouseId: warehouseToId,
-          notes: 'Para eliminar',
-          items: [{ itemId, quantity: 30 }],
-        })
 
-      if (createRes.status === 201) {
-        const trfId = createRes.body.data.id
-        const res = await request(app)
-          .delete(`/api/inventory/transfers/${trfId}`)
-          .set('Authorization', `Bearer ${authToken}`)
+      expect(res.status).toBe(204)
 
-        expect([200, 400, 404]).toContain(res.status)
-      }
-    })
+      // Confirm it's gone
+      const getRes = await request(app)
+        .get(`/api/inventory/transfers/${id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(getRes.status).toBe(404)
+    }, 15000)
+
+    test('Debe fallar eliminar transfer no en DRAFT', async () => {
+      const id = await createDraftTransfer(5)
+      await advanceTo(id, 'PENDING_APPROVAL')
+
+      const res = await request(app)
+        .delete(`/api/inventory/transfers/${id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(res.status).toBe(400)
+    }, 15000)
   })
 })

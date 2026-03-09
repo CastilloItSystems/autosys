@@ -53,6 +53,9 @@ model ExitNote {
   loanId          String? @unique
   loan            Loan? @relation(fields: [loanId], references: [id], onDelete: Restrict)
   
+  // Relación con Transfer (cuando type=TRANSFER)
+  transfer        Transfer?
+
   notes           String?        @db.Text
   
   // Fechas

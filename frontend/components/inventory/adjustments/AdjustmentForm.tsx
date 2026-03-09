@@ -17,7 +17,7 @@ import {
   ADJUSTMENT_TYPE_LABELS,
 } from "@/app/api/inventory/adjustmentService";
 import { createAdjustmentSchema } from "@/libs/zods";
-import { getActiveItems, Item } from "@/app/api/inventory/itemService";
+import { getStockByWarehouse, Stock } from "@/app/api/inventory/stockService";
 import {
   getActiveWarehouses,
   Warehouse,
@@ -41,9 +41,10 @@ export default function AdjustmentForm({
   toast,
 }: AdjustmentFormProps) {
   // State
-  const [itemsList, setItemsList] = useState<Item[]>([]);
+  const [warehouseStocks, setWarehouseStocks] = useState<Stock[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [loadingStocks, setLoadingStocks] = useState(false);
 
   // Form
   const {
@@ -62,38 +63,70 @@ export default function AdjustmentForm({
     },
   });
 
+  const selectedWarehouseId = watch("warehouseId");
+
   // Field array for items
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, replace } = useFieldArray({
     control,
     name: "items",
   });
 
   // Load data on mount
   useEffect(() => {
-    loadData();
+    loadWarehouses();
   }, []);
 
-  const loadData = async () => {
+  const loadWarehouses = async () => {
     try {
       setIsLoading(true);
-      const [itemsResponse, warehousesResponse] = await Promise.all([
-        getActiveItems(),
-        getActiveWarehouses(),
-      ]);
-      setItemsList(itemsResponse.data);
+      const warehousesResponse = await getActiveWarehouses();
       setWarehouses(warehousesResponse.data);
     } catch (error) {
-      console.error("Error loading data:", error);
+      console.error("Error loading warehouses:", error);
       toast?.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "No se pudieron cargar los datos",
+        detail: "No se pudieron cargar los almacenes",
         life: 3000,
       });
     } finally {
       setIsLoading(false);
     }
   };
+
+  // Cargar stocks del almacén seleccionado
+  useEffect(() => {
+    if (!selectedWarehouseId) {
+      setWarehouseStocks([]);
+      return;
+    }
+
+    const loadStocks = async () => {
+      try {
+        setLoadingStocks(true);
+        const response = await getStockByWarehouse(
+          selectedWarehouseId,
+          1,
+          1000,
+        );
+        setWarehouseStocks(response.data || []);
+      } catch (error) {
+        console.error("Error loading stocks:", error);
+        toast?.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: "Error al cargar stock del almacén",
+          life: 3000,
+        });
+      } finally {
+        setLoadingStocks(false);
+      }
+    };
+
+    loadStocks();
+    // Reset items to default when warehouse changes
+    replace([{ itemId: "", quantityChange: 1, notes: "" }]);
+  }, [selectedWarehouseId, replace]);
 
   const onSubmit = async (data: FormData) => {
     try {
@@ -111,9 +144,13 @@ export default function AdjustmentForm({
     }
   };
 
-  const itemOptions = itemsList.map((item) => ({
-    label: `${item.name} (${item.sku})`,
-    value: item.id,
+  const itemOptions = warehouseStocks.map((stock) => ({
+    label: stock.item
+      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${
+          stock.quantityAvailable
+        })`
+      : stock.itemId,
+    value: stock.itemId,
   }));
 
   const warehouseOptions = warehouses.map((warehouse) => ({
@@ -145,9 +182,10 @@ export default function AdjustmentForm({
           options={itemOptions}
           optionLabel="label"
           optionValue="value"
-          placeholder="Seleccionar"
+          placeholder={loadingStocks ? "Cargando..." : "Seleccionar"}
           filter
           showClear
+          disabled={loadingStocks || !selectedWarehouseId}
           className={
             errors.items?.[options.rowIndex]?.itemId ? "p-invalid" : ""
           }
@@ -331,12 +369,8 @@ export default function AdjustmentForm({
             />
           </DataTable>
 
-          {errors.items && (
-            <small className="p-error block mt-2">
-              {typeof errors.items === "object" && "message" in errors.items
-                ? errors.items.message
-                : "Se requiere al menos un artículo"}
-            </small>
+          {errors.items?.message && (
+            <small className="p-error block mt-2">{errors.items.message}</small>
           )}
         </div>
       </div>

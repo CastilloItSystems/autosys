@@ -258,6 +258,9 @@ export const INVENTORY_MESSAGES = {
   transfer: {
     created: 'Transferencia creada exitosamente',
     updated: 'Transferencia actualizada exitosamente',
+    submitted: 'Transferencia enviada a aprobación exitosamente',
+    approved: 'Transferencia aprobada exitosamente',
+    rejected: 'Transferencia rechazada',
     sent: 'Transferencia enviada exitosamente',
     received: 'Transferencia recibida exitosamente',
     cancelled: 'Transferencia cancelada exitosamente',
@@ -265,6 +268,10 @@ export const INVENTORY_MESSAGES = {
     notFound: 'Transferencia no encontrada',
     invalidStatus: 'Estado de transferencia inválido',
     insufficientStock: 'Stock insuficiente en almacén origen',
-    samWarehouse: 'No se puede transferir al mismo almacén',
+    sameWarehouse: 'No se puede transferir al mismo almacén',
+    cannotCancelReceived: 'No se puede cancelar una transferencia recibida',
+    cannotDeleteNonDraft: 'Solo se pueden eliminar transferencias en borrador',
+    warehouseNotFound: 'Almacén no encontrado',
+    itemNotFound: 'Artículo no encontrado',
   },
 } as const

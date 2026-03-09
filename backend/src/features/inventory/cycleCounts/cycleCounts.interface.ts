@@ -56,6 +56,7 @@ export interface ICreateCycleCountInput {
 export interface IUpdateCycleCountInput {
   notes?: string | null
   remarks?: string | null
+  items?: ICreateCycleCountItemInput[]
 }
 
 export interface IStartCycleCountInput {

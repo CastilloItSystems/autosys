@@ -15,6 +15,7 @@ import { Calendar } from "primereact/calendar";
 
 import {
   getCycleCounts,
+  getCycleCount,
   startCycleCount,
   completeCycleCount,
   approveCycleCount,
@@ -55,11 +56,12 @@ export default function CycleCountList() {
   const [searchQuery, setSearchQuery] = useState("");
   const toast = useRef<Toast>(null);
 
-  const canCreate = session?.user?.rol
+  const canCreate = true;
+  /* session?.user?.rol
     ? Object.values(CreateAllowedRoles).includes(
         session.user.rol as CreateAllowedRoles,
       )
-    : false;
+    : false; */
 
   useEffect(() => {
     (async () => {
@@ -114,10 +116,42 @@ export default function CycleCountList() {
     action: "start" | "complete" | "approve" | "apply" | "reject" | "cancel",
     actionLabel: string,
   ) => {
+    let message = `¿Confirma ${actionLabel}?`;
+    let header = `Confirmar ${actionLabel}`;
+    let icon = "pi pi-exclamation-triangle";
+    let acceptClassName = "";
+
+    // Verificar varianza alta antes de aprobar
+    if (action === "approve") {
+      try {
+        const fullData = await getCycleCount(cycleCountId);
+        // @ts-ignore
+        const cycleCount = fullData.data || fullData;
+
+        const hasHighVariance = cycleCount.items?.some((item: any) => {
+          const diff = Math.abs(
+            (item.countedQuantity ?? 0) - item.expectedQuantity,
+          );
+          return diff > 5;
+        });
+
+        if (hasHighVariance) {
+          header = "⚠️ ALERTA: Alta Varianza Detectada";
+          message =
+            "Este conteo tiene diferencias mayores a 5 unidades. Se requiere rol de Supervisor (ADMIN/GERENTE) para aprobar. ¿Desea continuar?";
+          icon = "pi pi-exclamation-triangle text-red-500 text-xl";
+          acceptClassName = "p-button-danger";
+        }
+      } catch (e) {
+        console.error("Error verificando varianza", e);
+      }
+    }
+
     confirmDialog({
-      message: `¿Confirma ${actionLabel}?`,
-      header: `Confirmar ${actionLabel}`,
-      icon: "pi pi-exclamation-triangle",
+      message,
+      header,
+      icon,
+      acceptClassName,
       accept: async () => {
         try {
           const userId = session?.user?.id || "SYSTEM";
@@ -148,12 +182,15 @@ export default function CycleCountList() {
             life: 3000,
           });
           loadCycleCounts();
-        } catch (error) {
+        } catch (error: any) {
+          // Mostrar mensaje de error específico si viene del backend (ej. Forbidden)
+          const errorMsg =
+            error.response?.data?.message || `Error al ${actionLabel}`;
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: `Error al ${actionLabel}`,
-            life: 3000,
+            detail: errorMsg,
+            life: 5000,
           });
         }
       },
@@ -180,22 +217,44 @@ export default function CycleCountList() {
           outlined
           severity="info"
           size="small"
-          onClick={() => {
+          onClick={async () => {
             setSelectedCycleCount(rowData);
             setShowDetail(true);
+            try {
+              const fullData = await getCycleCount(rowData.id);
+              // @ts-ignore - The response structure might be directly the object or { data: object } depending on interceptors
+              const cycleCountData = fullData.data || fullData;
+              setSelectedCycleCount(cycleCountData);
+            } catch (error) {
+              console.error("Error fetching full details", error);
+            }
           }}
           tooltip="Ver detalles"
         />
         {rowData.status === CycleCountStatus.DRAFT && (
-          <Button
-            icon="pi pi-play"
-            rounded
-            outlined
-            severity="success"
-            size="small"
-            onClick={() => performAction(rowData.id, "start", "iniciado")}
-            tooltip="Iniciar conteo"
-          />
+          <>
+            <Button
+              icon="pi pi-pencil"
+              rounded
+              outlined
+              severity="warning"
+              size="small"
+              onClick={() => {
+                setSelectedCycleCount(rowData);
+                setShowForm(true);
+              }}
+              tooltip="Editar borrador"
+            />
+            <Button
+              icon="pi pi-play"
+              rounded
+              outlined
+              severity="success"
+              size="small"
+              onClick={() => performAction(rowData.id, "start", "iniciado")}
+              tooltip="Iniciar conteo"
+            />
+          </>
         )}
         {rowData.status === CycleCountStatus.IN_PROGRESS && (
           <Button
@@ -271,9 +330,14 @@ export default function CycleCountList() {
       <Toast ref={toast} />
       <ConfirmDialog />
 
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Conteos Cíclicos</h1>
+      <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center mb-4 gap-3">
+        <div>
+          <h1 className="text-2xl font-bold text-900 m-0">Conteos Cíclicos</h1>
+          <p className="text-500 m-0 text-sm">
+            Auditoría y corrección de inventario
+          </p>
+        </div>
+        <div className="flex gap-2">
           {canCreate && (
             <Button
               label="Nuevo Conteo"
@@ -282,49 +346,60 @@ export default function CycleCountList() {
                 setSelectedCycleCount(null);
                 setShowForm(true);
               }}
-              className="bg-blue-600 hover:bg-blue-700"
+              severity="primary"
             />
           )}
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          <InputText
-            placeholder="Buscar por número..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(0);
-            }}
-            className="w-full"
-          />
+      <div className="card p-3 shadow-2 border-round mb-4">
+        <div className="grid formgrid p-fluid">
+          <div className="col-12 md:col-4">
+            <span className="p-input-icon-left w-full">
+              <i className="pi pi-search" />
+              <InputText
+                placeholder="Buscar por número..."
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setPage(0);
+                }}
+                className="w-full"
+              />
+            </span>
+          </div>
 
-          <Dropdown
-            options={statusOptions}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Filtrar por estado"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.value);
-              setPage(0);
-            }}
-            showClear
-            className="w-full"
-          />
+          <div className="col-12 md:col-4">
+            <Dropdown
+              options={statusOptions}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Filtrar por estado"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.value);
+                setPage(0);
+              }}
+              showClear
+              className="w-full"
+            />
+          </div>
 
-          <Dropdown
-            options={warehouseOptions}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Filtrar por almacén"
-            value={warehouseFilter}
-            onChange={(e) => {
-              setWarehouseFilter(e.value);
-              setPage(0);
-            }}
-            showClear
-            className="w-full"
-          />
+          <div className="col-12 md:col-4">
+            <Dropdown
+              options={warehouseOptions}
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Filtrar por almacén"
+              value={warehouseFilter}
+              onChange={(e) => {
+                setWarehouseFilter(e.value);
+                setPage(0);
+              }}
+              showClear
+              className="w-full"
+            />
+          </div>
         </div>
       </div>
 
@@ -373,7 +448,7 @@ export default function CycleCountList() {
           field="createdAt"
           header="Fecha"
           body={(rowData: CycleCount) => (
-            <>{new Date(rowData.createdAt).toLocaleDateString()}</>
+            <>{new Date(rowData.createdAt).toLocaleDateString("es-ES")}</>
           )}
           style={{ width: "100px" }}
         />

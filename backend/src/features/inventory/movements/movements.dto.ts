@@ -20,6 +20,8 @@ export class CreateMovementDTO {
   exitType?: string
   notes?: string
   createdBy?: string
+  snapshotQuantity?: number
+  variance?: number
   movementDate?: Date | undefined
 
   constructor(data: any) {
@@ -40,6 +42,8 @@ export class CreateMovementDTO {
     this.exitType = data.exitType
     this.notes = data.notes
     this.createdBy = data.createdBy
+    this.snapshotQuantity = data.snapshotQuantity
+    this.variance = data.variance
     this.movementDate = data.movementDate
       ? new Date(data.movementDate)
       : undefined
@@ -64,6 +68,8 @@ export class UpdateMovementDTO {
   notes?: string | null
   approvedBy?: string | null
   approvedAt?: Date | null | undefined
+  snapshotQuantity?: number | null
+  variance?: number | null
 
   constructor(data: any) {
     if (data.type !== undefined) this.type = data.type
@@ -90,6 +96,9 @@ export class UpdateMovementDTO {
     if (data.approvedBy !== undefined) this.approvedBy = data.approvedBy
     if (data.approvedAt !== undefined)
       this.approvedAt = data.approvedAt ? new Date(data.approvedAt) : undefined
+    if (data.snapshotQuantity !== undefined)
+      this.snapshotQuantity = data.snapshotQuantity
+    if (data.variance !== undefined) this.variance = data.variance
   }
 }
 
@@ -115,6 +124,8 @@ export class MovementResponseDTO {
   createdBy?: string | null
   approvedBy?: string | null
   approvedAt?: Date | null
+  snapshotQuantity?: number | null
+  variance?: number | null
   movementDate: Date
   createdAt: Date
   updatedAt: Date
@@ -150,6 +161,8 @@ export class MovementResponseDTO {
     this.createdBy = movement.createdBy ?? null
     this.approvedBy = movement.approvedBy ?? null
     this.approvedAt = movement.approvedAt ?? null
+    this.snapshotQuantity = movement.snapshotQuantity ?? null
+    this.variance = movement.variance ?? null
     this.movementDate = movement.movementDate
     this.createdAt = movement.createdAt
     this.updatedAt = movement.updatedAt

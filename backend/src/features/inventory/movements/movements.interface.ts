@@ -35,6 +35,8 @@ export interface IMovement {
   createdBy?: string | null
   approvedBy?: string | null
   approvedAt?: Date | null
+  snapshotQuantity?: number | null
+  variance?: number | null
   movementDate: Date
   createdAt: Date
   updatedAt: Date
@@ -65,6 +67,8 @@ export interface ICreateMovementInput {
   exitType?: string
   notes?: string
   createdBy?: string
+  snapshotQuantity?: number
+  variance?: number
   movementDate?: Date | undefined
 }
 

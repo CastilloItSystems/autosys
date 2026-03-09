@@ -57,7 +57,7 @@ export default function MovementDetailForm({
   toast,
 }: MovementDetailFormProps) {
   const isCancelled = movement?.notes?.includes("[CANCELADO]");
-
+  console.log(movement);
   if (isLoading) {
     return (
       <div className="flex flex-column align-items-center justify-content-center p-4">
@@ -258,6 +258,74 @@ export default function MovementDetailForm({
             </div>
           </div>
         )}
+
+        {/* Análisis de Varianza - Solo si existe */}
+        {movement.variance !== null &&
+          movement.variance !== undefined &&
+          movement.variance !== 0 && (
+            <div className="mb-4">
+              <label className="block text-900 font-medium mb-2 text-sm flex align-items-center gap-1">
+                <i className="pi pi-exclamation-triangle text-orange-500 text-xs"></i>
+                Análisis de Varianza de Conteo
+              </label>
+              <div className="surface-card border-1 surface-border border-round p-4">
+                <div className="grid gap-3">
+                  <div className="col-12 md:col-6">
+                    <div
+                      className="border-round p-3"
+                      style={{ background: "var(--blue-50)" }}
+                    >
+                      <span className="text-xs text-500 uppercase font-semibold block mb-2">
+                        Cantidad Esperada
+                      </span>
+                      <span className="text-2xl font-bold text-blue-600">
+                        {movement.snapshotQuantity ?? "—"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-12 md:col-6">
+                    <div
+                      className="border-round p-3"
+                      style={{
+                        background:
+                          movement.variance > 0
+                            ? "var(--orange-50)"
+                            : "var(--red-50)",
+                      }}
+                    >
+                      <span className="text-xs text-500 uppercase font-semibold block mb-2">
+                        Varianza Detectada
+                      </span>
+                      <span
+                        className="text-2xl font-bold"
+                        style={{
+                          color:
+                            movement.variance > 0
+                              ? "var(--orange-600)"
+                              : "var(--red-600)",
+                        }}
+                      >
+                        {movement.variance > 0 ? "+" : ""}
+                        {movement.variance}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <div className="surface-100 border-round p-3 text-sm text-600">
+                      <i className="pi pi-info-circle mr-2"></i>
+                      <strong>Interpretación:</strong> Se contaron{" "}
+                      <span className="font-semibold">
+                        {movement.variance > 0 ? "más" : "menos"} unidades
+                      </span>{" "}
+                      de las esperadas en el sistema.
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
         {/* Notas */}
         {movement.notes && (

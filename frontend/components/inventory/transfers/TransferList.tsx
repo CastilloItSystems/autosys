@@ -1,12 +1,16 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { Toast } from "primereact/toast";
+import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
+import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
-import { Tooltip } from "primereact/tooltip";
+import { Dropdown } from "primereact/dropdown";
+import { InputTextarea } from "primereact/inputtextarea";
+import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { motion } from "framer-motion";
 import {
   Transfer,
   TransferStatus,
@@ -14,153 +18,301 @@ import {
 } from "@/libs/interfaces";
 import {
   getTransfers,
-  sendTransfer,
-  receiveTransfer,
+  getTransfer,
+  submitTransfer,
+  approveTransfer,
+  rejectTransfer,
   cancelTransfer,
   deleteTransfer,
 } from "@/app/api/inventory/transferService";
 import TransferForm from "./TransferForm";
 import TransferDetail from "./TransferDetail";
+import CreateButton from "@/components/common/CreateButton";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
-import { motion } from "framer-motion";
+import { hasPermission, PERMISSIONS } from "@/lib/roles";
+import { useUserRoles } from "@/hooks/useUserRoles";
 
 interface TransferListProps {
   warehouseId?: string;
   warehouses: Warehouse[];
 }
 
+const STATUS_OPTIONS = [
+  { label: "Todos", value: null },
+  ...Object.entries(TRANSFER_STATUS_CONFIG).map(([value, config]) => ({
+    label: config.label,
+    value,
+  })),
+];
+
 export default function TransferList({
   warehouseId,
   warehouses,
 }: TransferListProps) {
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [lazyState, setLazyState] = useState({
-    first: 0,
-    rows: 10,
-    page: 1,
-  });
+  const userRoles = useUserRoles();
 
-  const [filterStatus, setFilterStatus] = useState<TransferStatus | null>(null);
-  const [showForm, setShowForm] = useState(false);
+  // Datos
+  const [transfers, setTransfers] = useState<Transfer[]>([]);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(
     null,
   );
-  const [showDetail, setShowDetail] = useState(false);
-  const [actingTransfer, setActingTransfer] = useState<Transfer | null>(null);
+
+  // Filtros y paginación
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [filterStatus, setFilterStatus] = useState<TransferStatus | null>(null);
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+
+  // UI
+  const [loading, setLoading] = useState<boolean>(true);
+  const [formDialog, setFormDialog] = useState<boolean>(false);
+  const [detailDialog, setDetailDialog] = useState<boolean>(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+
+  // Rejection dialog state
+  const [showRejectDialog, setShowRejectDialog] = useState(false);
+  const [rejectingTransfer, setRejectingTransfer] = useState<Transfer | null>(
+    null,
+  );
+  const [rejectionReason, setRejectionReason] = useState("");
 
   const toast = useRef<Toast>(null);
 
-  // Load transfers
-  const loadTransfers = async (page: number, rows: number, status?: string) => {
-    setLoading(true);
+  const canApprove = hasPermission(userRoles, PERMISSIONS.TRANSFER_APPROVE);
+  const canTransfer = hasPermission(userRoles, PERMISSIONS.STOCK_TRANSFER);
+
+  // Cargar transferencias cuando cambien los filtros
+  useEffect(() => {
+    loadTransfers();
+  }, [page, rows, searchQuery, filterStatus, warehouseId]);
+
+  const loadTransfers = async () => {
     try {
+      setLoading(true);
       const response = await getTransfers(page + 1, rows, {
-        status: status || undefined,
+        status: filterStatus || undefined,
         fromWarehouseId: warehouseId || undefined,
+        search: searchQuery || undefined,
       });
-      setTransfers(response.data);
-      setTotalRecords(response.pagination.total);
+      setTransfers(response.data || []);
+      setTotalRecords(response.pagination?.total || 0);
     } catch (error) {
       console.error("Error loading transfers:", error);
-      handleFormError(error, toast);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar transferencias",
+        life: 3000,
+      });
+      setTransfers([]);
     } finally {
       setLoading(false);
     }
   };
 
-  React.useEffect(() => {
-    loadTransfers(lazyState.page, lazyState.rows, filterStatus || undefined);
-  }, [lazyState, filterStatus]);
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
 
-  const onPage = (event: any) => {
-    setLazyState({
-      first: event.first,
-      rows: event.rows,
-      page: (event.first || 0) / event.rows + 1,
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+    setPage(0);
+  };
+
+  const openNew = () => {
+    setSelectedTransfer(null);
+    setFormDialog(true);
+  };
+
+  const fetchFullTransfer = async (id: string) => {
+    try {
+      setLoading(true);
+      const res = await getTransfer(id);
+      return res.data;
+    } catch (error) {
+      console.error("Error fetching transfer details:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar los detalles de la transferencia",
+        life: 3000,
+      });
+      return null;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const editTransfer = async (transfer: Transfer) => {
+    const fullData = await fetchFullTransfer(transfer.id);
+    if (fullData) {
+      setSelectedTransfer(fullData);
+      setFormDialog(true);
+    }
+  };
+
+  const viewDetail = async (transfer: Transfer) => {
+    const fullData = await fetchFullTransfer(transfer.id);
+    if (fullData) {
+      setSelectedTransfer(fullData);
+      setDetailDialog(true);
+    }
+  };
+
+  // ─── Action helpers ─────────────────────────────────────────────
+
+  const withAction = async (
+    transferId: string,
+    action: () => Promise<void>,
+  ) => {
+    setActionInProgress(transferId);
+    try {
+      await action();
+      loadTransfers();
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setActionInProgress(null);
+    }
+  };
+
+  const handleSubmitForApproval = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Enviar la transferencia ${transfer.transferNumber} para aprobación?`,
+      header: "Confirmar Envío",
+      icon: "pi pi-send",
+      acceptLabel: "Enviar",
+      rejectLabel: "Cancelar",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await submitTransfer(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia enviada para aprobación",
+            life: 3000,
+          });
+        }),
     });
   };
 
-  // Action handlers
-  const handleSend = async (transfer: Transfer) => {
-    setActionInProgress(transfer.id);
-    try {
-      await sendTransfer(transfer.id);
+  const handleApprove = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Aprobar la transferencia ${transfer.transferNumber}?`,
+      header: "Confirmar Aprobación",
+      icon: "pi pi-check",
+      acceptLabel: "Aprobar",
+      rejectLabel: "Cancelar",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await approveTransfer(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia aprobada",
+            life: 3000,
+          });
+        }),
+    });
+  };
+
+  const handleRejectOpen = (transfer: Transfer) => {
+    setRejectingTransfer(transfer);
+    setRejectionReason("");
+    setShowRejectDialog(true);
+  };
+
+  const handleRejectConfirm = async () => {
+    if (!rejectingTransfer || !rejectionReason.trim()) return;
+    setShowRejectDialog(false);
+    await withAction(rejectingTransfer.id, async () => {
+      await rejectTransfer(rejectingTransfer.id, {
+        reason: rejectionReason.trim(),
+      });
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: "Transferencia enviada correctamente",
+        detail: "Transferencia rechazada",
         life: 3000,
       });
-      loadTransfers(lazyState.page, lazyState.rows, filterStatus || undefined);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setActionInProgress(null);
-    }
+    });
+    setRejectingTransfer(null);
   };
 
-  const handleReceive = async (transfer: Transfer) => {
-    setActionInProgress(transfer.id);
-    try {
-      await receiveTransfer(transfer.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Transferencia recibida correctamente",
-        life: 3000,
-      });
-      loadTransfers(lazyState.page, lazyState.rows, filterStatus || undefined);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setActionInProgress(null);
-    }
+  const handleCancel = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Cancelar la transferencia ${transfer.transferNumber}?${
+        transfer.status === TransferStatus.APPROVED
+          ? " Se cancelarán las notas de salida/entrada asociadas y se revertirá la reserva de stock."
+          : ""
+      }`,
+      header: "Confirmar Cancelación",
+      icon: "pi pi-exclamation-triangle",
+      acceptLabel: "Cancelar Transferencia",
+      rejectLabel: "Volver",
+      acceptClassName: "p-button-danger",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await cancelTransfer(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia cancelada correctamente",
+            life: 3000,
+          });
+        }),
+    });
   };
 
-  const handleCancel = async (transfer: Transfer) => {
-    setActionInProgress(transfer.id);
-    try {
-      await cancelTransfer(transfer.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Transferencia cancelada correctamente",
-        life: 3000,
-      });
-      loadTransfers(lazyState.page, lazyState.rows, filterStatus || undefined);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setActionInProgress(null);
-    }
+  const handleDeleteTransfer = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Eliminar la transferencia ${transfer.transferNumber}? Esta acción no se puede deshacer.`,
+      header: "Confirmar Eliminación",
+      icon: "pi pi-trash",
+      acceptLabel: "Eliminar",
+      rejectLabel: "Cancelar",
+      acceptClassName: "p-button-danger",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await deleteTransfer(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia eliminada correctamente",
+            life: 3000,
+          });
+        }),
+    });
   };
 
-  const handleDelete = async (transfer: Transfer) => {
-    if (!confirm("¿Está seguro de que desea eliminar esta transferencia?"))
-      return;
-
-    setActionInProgress(transfer.id);
-    try {
-      await deleteTransfer(transfer.id);
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Transferencia eliminada correctamente",
-        life: 3000,
-      });
-      loadTransfers(lazyState.page, lazyState.rows, filterStatus || undefined);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setActionInProgress(null);
-    }
+  const handleSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selectedTransfer?.id
+        ? "Transferencia actualizada correctamente"
+        : "Transferencia creada correctamente",
+      life: 3000,
+    });
+    loadTransfers();
+    setFormDialog(false);
   };
 
-  // Templates
+  // ─── Templates ──────────────────────────────────────────────────
+
+  const transferNumberTemplate = (rowData: Transfer) => {
+    return (
+      <span className="font-bold text-primary">{rowData.transferNumber}</span>
+    );
+  };
+
   const statusTemplate = (rowData: Transfer) => {
     const config = TRANSFER_STATUS_CONFIG[rowData.status];
     return (
@@ -168,89 +320,156 @@ export default function TransferList({
         value={config.label}
         severity={config.severity as any}
         icon={config.icon}
+        rounded
       />
     );
   };
 
-  const actionTemplate = (rowData: Transfer) => {
+  const warehouseTemplate = (
+    rowData: Transfer,
+    field: "fromWarehouse" | "toWarehouse",
+  ) => {
+    const value = rowData[field];
+    if (typeof value === "string") return value;
+    return value?.name || "—";
+  };
+
+  const itemsCountTemplate = (rowData: Transfer) => {
+    return rowData.items?.length ?? 0;
+  };
+
+  const dateTemplate = (rowData: Transfer) => {
+    return new Date(rowData.createdAt).toLocaleDateString("es-ES");
+  };
+
+  const actionBodyTemplate = (rowData: Transfer) => {
     const isLoading = actionInProgress === rowData.id;
 
     return (
       <div className="flex gap-2">
+        {/* Ver detalles */}
         <Button
           icon="pi pi-eye"
           rounded
-          text
           severity="info"
-          onClick={() => {
-            setSelectedTransfer(rowData);
-            setShowDetail(true);
-          }}
+          text
+          onClick={() => viewDetail(rowData)}
           tooltip="Ver detalles"
           disabled={isLoading}
         />
 
-        {rowData.status === TransferStatus.DRAFT && (
+        {/* Editar (solo DRAFT) */}
+        {rowData.status === TransferStatus.DRAFT && canTransfer && (
+          <Button
+            icon="pi pi-pencil"
+            rounded
+            severity="info"
+            text
+            onClick={() => editTransfer(rowData)}
+            tooltip="Editar borrador"
+            disabled={isLoading}
+          />
+        )}
+
+        {/* Enviar para aprobación (DRAFT → PENDING_APPROVAL) */}
+        {rowData.status === TransferStatus.DRAFT && canTransfer && (
           <Button
             icon="pi pi-send"
             rounded
+            severity="warning"
             text
-            severity="success"
-            onClick={() => handleSend(rowData)}
+            onClick={() => handleSubmitForApproval(rowData)}
+            tooltip="Enviar para aprobación"
             loading={isLoading}
-            tooltip="Enviar transferencia"
           />
         )}
 
-        {rowData.status === TransferStatus.IN_TRANSIT && (
+        {/* Aprobar (PENDING_APPROVAL → APPROVED) */}
+        {rowData.status === TransferStatus.PENDING_APPROVAL && canApprove && (
           <Button
             icon="pi pi-check"
             rounded
-            text
             severity="success"
-            onClick={() => handleReceive(rowData)}
+            text
+            onClick={() => handleApprove(rowData)}
+            tooltip="Aprobar"
             loading={isLoading}
-            tooltip="Recibir transferencia"
           />
         )}
 
-        {rowData.status !== TransferStatus.CANCELLED &&
-          rowData.status !== TransferStatus.RECEIVED && (
+        {/* Rechazar (PENDING_APPROVAL → REJECTED) */}
+        {rowData.status === TransferStatus.PENDING_APPROVAL && canApprove && (
+          <Button
+            icon="pi pi-ban"
+            rounded
+            severity="danger"
+            text
+            onClick={() => handleRejectOpen(rowData)}
+            tooltip="Rechazar"
+            loading={isLoading}
+          />
+        )}
+
+        {/* Cancelar (cualquier estado no terminal) */}
+        {![TransferStatus.CANCELLED, TransferStatus.REJECTED].includes(
+          rowData.status,
+        ) &&
+          canTransfer && (
             <Button
               icon="pi pi-times"
               rounded
-              text
               severity="danger"
+              text
               onClick={() => handleCancel(rowData)}
-              loading={isLoading}
               tooltip="Cancelar transferencia"
+              loading={isLoading}
             />
           )}
 
-        {rowData.status === TransferStatus.DRAFT && (
+        {/* Eliminar (solo DRAFT) */}
+        {rowData.status === TransferStatus.DRAFT && canTransfer && (
           <Button
             icon="pi pi-trash"
             rounded
-            text
             severity="danger"
-            onClick={() => handleDelete(rowData)}
-            loading={isLoading}
+            text
+            onClick={() => handleDeleteTransfer(rowData)}
             tooltip="Eliminar"
+            loading={isLoading}
           />
         )}
       </div>
     );
   };
 
-  const headerTemplate = (
-    <div className="flex justify-content-between align-items-center">
-      <h5 className="m-0">Transferencias Entre Almacenes</h5>
-      <Button
-        label="Nueva Transferencia"
-        icon="pi pi-plus"
-        className="p-button-success"
-        onClick={() => setShowForm(true)}
-      />
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Transferencias Entre Almacenes</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex gap-2">
+        <Dropdown
+          value={filterStatus}
+          options={STATUS_OPTIONS}
+          onChange={(e) => {
+            setFilterStatus(e.value);
+            setPage(0);
+          }}
+          placeholder="Filtrar por estado"
+          className="w-15rem"
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => handleSearch(e.target.value)}
+          />
+        </span>
+        <CreateButton label="Nueva Transferencia" onClick={openNew} />
+      </div>
     </div>
   );
 
@@ -261,97 +480,293 @@ export default function TransferList({
       transition={{ duration: 0.3 }}
     >
       <Toast ref={toast} />
-      <Tooltip target=".custom-tooltip-icon" />
+      <ConfirmDialog />
 
-      <DataTable
-        value={transfers}
-        lazy
-        paginator
-        first={lazyState.first}
-        rows={lazyState.rows}
-        totalRecords={totalRecords}
-        onPage={onPage}
-        loading={loading}
-        dataKey="id"
-        header={headerTemplate}
-        responsiveLayout="scroll"
-        emptyMessage="No se encontraron transferencias"
-        stripedRows
-      >
-        <Column
-          field="transferNumber"
-          header="Número"
-          sortable
-          style={{ width: "12%" }}
-        />
-        <Column
-          field="fromWarehouseId"
-          header="Origen"
-          style={{ width: "15%" }}
-        />
-        <Column
-          field="toWarehouseId"
-          header="Destino"
-          style={{ width: "15%" }}
-        />
-        <Column field="itemsCount" header="Items" style={{ width: "10%" }} />
-        <Column
-          field="status"
-          header="Estado"
-          body={statusTemplate}
-          style={{ width: "15%" }}
-        />
-        <Column
-          field="createdAt"
-          header="Fecha Creación"
-          style={{ width: "15%" }}
-          body={(rowData) =>
-            new Date(rowData.createdAt).toLocaleDateString("es-ES")
-          }
-        />
-        <Column
-          body={actionTemplate}
-          style={{ width: "18%" }}
-          exportable={false}
-        />
-      </DataTable>
+      <div className="card">
+        <DataTable
+          value={transfers}
+          paginator
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          onPage={onPageChange}
+          dataKey="id"
+          loading={loading}
+          header={header}
+          emptyMessage="No se encontraron transferencias"
+          sortMode="multiple"
+          lazy
+          stripedRows
+        >
+          <Column
+            field="transferNumber"
+            header="Número"
+            sortable
+            body={transferNumberTemplate}
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            header="Origen"
+            body={(row) => warehouseTemplate(row, "fromWarehouse")}
+            style={{ minWidth: "150px" }}
+          />
+          <Column
+            header="Destino"
+            body={(row) => warehouseTemplate(row, "toWarehouse")}
+            style={{ minWidth: "150px" }}
+          />
+          <Column
+            header="Items"
+            body={itemsCountTemplate}
+            style={{ minWidth: "80px" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            sortable
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            header="Nota Salida"
+            body={(rowData: Transfer) => {
+              if (!rowData.exitNote) return "—";
+              const statusMap: Record<
+                string,
+                { label: string; severity: string }
+              > = {
+                PENDING: { label: "Pendiente", severity: "warning" },
+                IN_PROGRESS: { label: "En Proceso", severity: "info" },
+                READY: { label: "Lista", severity: "info" },
+                DELIVERED: { label: "Entregada", severity: "success" },
+                CANCELLED: { label: "Cancelada", severity: "danger" },
+              };
+              const s = statusMap[rowData.exitNote.status] || {
+                label: rowData.exitNote.status,
+                severity: "info",
+              };
+              return (
+                <div className="flex flex-column gap-1">
+                  <span className="text-xs text-500">
+                    {rowData.exitNote.exitNoteNumber}
+                  </span>
+                  <Tag
+                    value={s.label}
+                    severity={s.severity as any}
+                    rounded
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                </div>
+              );
+            }}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Nota Entrada"
+            body={(rowData: Transfer) => {
+              if (!rowData.entryNote) return "—";
+              const statusMap: Record<
+                string,
+                { label: string; severity: string }
+              > = {
+                PENDING: { label: "Pendiente", severity: "warning" },
+                IN_PROGRESS: { label: "En Proceso", severity: "info" },
+                COMPLETED: { label: "Completada", severity: "success" },
+                CANCELLED: { label: "Cancelada", severity: "danger" },
+              };
+              const s = statusMap[rowData.entryNote.status] || {
+                label: rowData.entryNote.status,
+                severity: "info",
+              };
+              return (
+                <div className="flex flex-column gap-1">
+                  <span className="text-xs text-500">
+                    {rowData.entryNote.entryNoteNumber}
+                  </span>
+                  <Tag
+                    value={s.label}
+                    severity={s.severity as any}
+                    rounded
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                </div>
+              );
+            }}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Tránsito"
+            body={(rowData: Transfer) => {
+              if (!rowData.exitNote || !rowData.entryNote) return "—";
+              const exitDelivered = rowData.exitNote.status === "DELIVERED";
+              const entryCompleted = rowData.entryNote.status === "COMPLETED";
+              const cancelled =
+                rowData.exitNote.status === "CANCELLED" ||
+                rowData.entryNote.status === "CANCELLED";
+              if (cancelled)
+                return (
+                  <Tag
+                    value="Cancelada"
+                    severity="danger"
+                    rounded
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                );
+              if (exitDelivered && entryCompleted)
+                return (
+                  <Tag
+                    value="Completada"
+                    severity="success"
+                    rounded
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                );
+              if (exitDelivered && !entryCompleted)
+                return (
+                  <Tag
+                    icon="pi pi-truck"
+                    value="En Tránsito"
+                    severity="warning"
+                    rounded
+                    style={{ fontSize: "0.7rem" }}
+                  />
+                );
+              return (
+                <Tag
+                  value="Pendiente"
+                  severity="info"
+                  rounded
+                  style={{ fontSize: "0.7rem" }}
+                />
+              );
+            }}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="createdAt"
+            header="Fecha Creación"
+            body={dateTemplate}
+            sortable
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            body={actionBodyTemplate}
+            exportable={false}
+            style={{ minWidth: "200px" }}
+          />
+        </DataTable>
+      </div>
 
-      {/* Form Dialog */}
+      {/* Dialog Crear / Editar */}
       <Dialog
-        header="Nueva Transferencia"
-        visible={showForm}
+        visible={formDialog}
         style={{ width: "90vw", maxWidth: "800px" }}
-        onHide={() => setShowForm(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-arrow-right-arrow-left mr-3 text-primary text-3xl"></i>
+                {selectedTransfer?.id
+                  ? "Modificar Transferencia"
+                  : "Crear Transferencia"}
+              </h2>
+            </div>
+          </div>
+        }
         modal
+        className="p-fluid"
+        onHide={() => setFormDialog(false)}
       >
         <TransferForm
+          transfer={selectedTransfer}
           warehouses={warehouses}
-          onSuccess={() => {
-            setShowForm(false);
-            loadTransfers(
-              lazyState.page,
-              lazyState.rows,
-              filterStatus || undefined,
-            );
-          }}
+          onSave={handleSave}
+          onCancel={() => setFormDialog(false)}
+          toast={toast}
         />
       </Dialog>
 
-      {/* Detail Dialog */}
+      {/* Dialog Detalle */}
       {selectedTransfer && (
         <Dialog
-          header={`Transferencia: ${selectedTransfer.transferNumber}`}
-          visible={showDetail}
+          visible={detailDialog}
           style={{ width: "90vw", maxWidth: "900px" }}
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-eye mr-3 text-primary text-3xl"></i>
+                  Transferencia: {selectedTransfer.transferNumber}
+                </h2>
+              </div>
+            </div>
+          }
+          modal
           onHide={() => {
-            setShowDetail(false);
+            setDetailDialog(false);
             setSelectedTransfer(null);
           }}
-          modal
         >
           <TransferDetail transfer={selectedTransfer} />
         </Dialog>
       )}
+
+      {/* Dialog Rechazo */}
+      <Dialog
+        visible={showRejectDialog}
+        style={{ width: "450px" }}
+        header="Rechazar Transferencia"
+        modal
+        footer={
+          <>
+            <Button
+              label="No"
+              icon="pi pi-times"
+              outlined
+              onClick={() => {
+                setShowRejectDialog(false);
+                setRejectingTransfer(null);
+              }}
+            />
+            <Button
+              label="Rechazar"
+              icon="pi pi-ban"
+              severity="danger"
+              onClick={handleRejectConfirm}
+              disabled={!rejectionReason.trim()}
+            />
+          </>
+        }
+        onHide={() => {
+          setShowRejectDialog(false);
+          setRejectingTransfer(null);
+        }}
+      >
+        <div className="confirmation-content flex flex-column gap-3">
+          <div className="flex align-items-center gap-3">
+            <i
+              className="pi pi-exclamation-triangle"
+              style={{ fontSize: "2rem", color: "var(--red-500)" }}
+            />
+            <span>
+              Indique la razón del rechazo para{" "}
+              <b>{rejectingTransfer?.transferNumber}</b>:
+            </span>
+          </div>
+          <InputTextarea
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+            rows={4}
+            placeholder="Razón del rechazo..."
+            className="w-full"
+            maxLength={500}
+          />
+          <small className="text-600">
+            {rejectionReason.length}/500 caracteres
+          </small>
+        </div>
+      </Dialog>
     </motion.div>
   );
 }

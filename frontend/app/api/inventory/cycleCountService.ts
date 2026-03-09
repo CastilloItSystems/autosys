@@ -250,7 +250,7 @@ export const updateItemCountedQuantity = async (
   countedQuantity: number,
 ): Promise<CycleCountItem> => {
   const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/items/${itemId}/counted`,
+    `/inventory/cycle-counts/${id}/items/${itemId}`,
     { countedQuantity },
   );
   return response.data;

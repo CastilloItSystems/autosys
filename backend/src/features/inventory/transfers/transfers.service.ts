@@ -5,18 +5,29 @@ import prisma from '../../../services/prisma.service'
 import { logger } from '../../../shared/utils/logger'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/ApiError'
 import {
-  ITransfer,
   ITransferWithRelations,
   ICreateTransferInput,
   IUpdateTransferInput,
+  IRejectTransferInput,
   ITransferFilters,
   TransferStatus,
 } from './transfers.interface'
 import { EventType } from '../shared/events/event.types'
-import { MovementType } from '../movements/movements.interface'
 import EventService from '../shared/events/event.service'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 
 const eventService = EventService.getInstance()
+const MSG = INVENTORY_MESSAGES.transfer
+
+// Shared include for note info on transfer queries
+const NOTE_INCLUDE = {
+  exitNote: {
+    select: { id: true, exitNoteNumber: true, status: true },
+  },
+  entryNote: {
+    select: { id: true, entryNoteNumber: true, status: true },
+  },
+}
 
 class TransfersService {
   private static instance: TransfersService
@@ -31,7 +42,7 @@ class TransfersService {
   }
 
   /**
-   * Create a new transfer
+   * Create a new transfer in DRAFT status
    */
   async create(
     input: ICreateTransferInput,
@@ -44,56 +55,41 @@ class TransfersService {
       })
 
       // Validate warehouses exist and are different
-      const fromWh = await prisma.warehouse.findUnique({
-        where: { id: input.fromWarehouseId },
-      })
-      const toWh = await prisma.warehouse.findUnique({
-        where: { id: input.toWarehouseId },
-      })
+      const [fromWh, toWh] = await Promise.all([
+        prisma.warehouse.findUnique({ where: { id: input.fromWarehouseId } }),
+        prisma.warehouse.findUnique({ where: { id: input.toWarehouseId } }),
+      ])
 
       if (!fromWh || !toWh) {
-        throw new NotFoundError('Warehouse not found')
+        throw new NotFoundError(MSG.warehouseNotFound)
       }
 
       if (input.fromWarehouseId === input.toWarehouseId) {
-        throw new BadRequestError('Cannot transfer to same warehouse')
+        throw new BadRequestError(MSG.sameWarehouse)
       }
 
-      // Validate items and stock in source warehouse
+      // Validate items exist
+      const itemIds = input.items.map((i) => i.itemId)
+      const itemRecords = await prisma.item.findMany({
+        where: { id: { in: itemIds } },
+      })
+
+      const itemMap = new Map(itemRecords.map((i) => [i.id, i]))
+
       let totalQuantity = 0
       for (const item of input.items) {
-        const itemRecord = await prisma.item.findUnique({
-          where: { id: item.itemId },
-        })
-
+        const itemRecord = itemMap.get(item.itemId)
         if (!itemRecord) {
-          throw new NotFoundError(`Item ${item.itemId} not found`)
+          throw new NotFoundError(`${MSG.itemNotFound}: ${item.itemId}`)
         }
-
-        const stock = await prisma.stock.findUnique({
-          where: {
-            itemId_warehouseId: {
-              itemId: item.itemId,
-              warehouseId: input.fromWarehouseId,
-            },
-          },
-        })
-
-        if (!stock || stock.quantityAvailable < item.quantity) {
-          throw new BadRequestError(
-            `Insufficient quantity for item ${itemRecord.name} in source warehouse`
-          )
-        }
-
         totalQuantity += item.quantity
       }
 
-      // Generate transfer number
-      const count = await prisma.transfer.count()
-      const transferNumber = `TRANS-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`
-
       // Create transfer with items in transaction
       const transfer = await prisma.$transaction(async (tx) => {
+        const count = await tx.transfer.count()
+        const transferNumber = `TRANS-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`
+
         const newTransfer = await tx.transfer.create({
           data: {
             id: uuidv4(),
@@ -107,10 +103,10 @@ class TransfersService {
             items: {
               create: input.items.map((item) => ({
                 id: uuidv4(),
-                itemId: item.itemId,
+                item: { connect: { id: item.itemId } },
                 quantity: item.quantity,
                 unitCost: item.unitCost ?? null,
-                notes: item.notes,
+                notes: item.notes ?? null,
               })),
             },
           },
@@ -118,6 +114,7 @@ class TransfersService {
             items: true,
             fromWarehouse: true,
             toWarehouse: true,
+            ...NOTE_INCLUDE,
           },
         })
 
@@ -138,7 +135,7 @@ class TransfersService {
         },
       })
 
-      logger.info('Transfer created', {
+      logger.info(MSG.created, {
         transferId: transfer.id,
         transferNumber: transfer.transferNumber,
       })
@@ -151,7 +148,7 @@ class TransfersService {
   }
 
   /**
-   * Find transfer by ID
+   * Find transfer by ID with full relations
    */
   async findById(id: string): Promise<ITransferWithRelations> {
     try {
@@ -161,11 +158,12 @@ class TransfersService {
           items: { include: { item: true } },
           fromWarehouse: true,
           toWarehouse: true,
+          ...NOTE_INCLUDE,
         },
       })
 
       if (!transfer) {
-        throw new NotFoundError('Transfer not found')
+        throw new NotFoundError(MSG.notFound)
       }
 
       return this.mapToInterface(transfer)
@@ -176,7 +174,7 @@ class TransfersService {
   }
 
   /**
-   * Find transfers with pagination
+   * Find transfers with pagination, filters, and search
    */
   async findAll(
     filters: ITransferFilters,
@@ -204,14 +202,21 @@ class TransfersService {
         if (filters.createdTo) where.createdAt.lte = filters.createdTo
       }
 
+      if (filters.search) {
+        where.OR = [
+          { transferNumber: { contains: filters.search, mode: 'insensitive' } },
+          { notes: { contains: filters.search, mode: 'insensitive' } },
+        ]
+      }
+
       const total = await db.transfer.count({ where })
 
       const transfers = await db.transfer.findMany({
         where,
         include: {
-          items: { include: { item: true } },
-          fromWarehouse: true,
-          toWarehouse: true,
+          fromWarehouse: { select: { id: true, name: true } },
+          toWarehouse: { select: { id: true, name: true } },
+          ...NOTE_INCLUDE,
         },
         skip: (page - 1) * limit,
         take: limit,
@@ -219,7 +224,7 @@ class TransfersService {
       })
 
       return {
-        data: transfers.map((t) => this.mapToInterface(t)),
+        data: transfers.map((t: any) => this.mapToInterface(t)),
         total,
         page,
         limit,
@@ -231,7 +236,7 @@ class TransfersService {
   }
 
   /**
-   * Update transfer
+   * Update transfer (DRAFT only, notes field)
    */
   async update(
     id: string,
@@ -242,11 +247,11 @@ class TransfersService {
       const transfer = await prisma.transfer.findUnique({ where: { id } })
 
       if (!transfer) {
-        throw new NotFoundError('Transfer not found')
+        throw new NotFoundError(MSG.notFound)
       }
 
       if (transfer.status !== TransferStatus.DRAFT) {
-        throw new BadRequestError('Can only update draft transfers')
+        throw new BadRequestError(MSG.invalidStatus)
       }
 
       const updated = await prisma.transfer.update({
@@ -258,8 +263,11 @@ class TransfersService {
           items: { include: { item: true } },
           fromWarehouse: true,
           toWarehouse: true,
+          ...NOTE_INCLUDE,
         },
       })
+
+      logger.info(MSG.updated, { transferId: id })
 
       return this.mapToInterface(updated)
     } catch (error) {
@@ -269,52 +277,129 @@ class TransfersService {
   }
 
   /**
-   * Send transfer (mark as in transit)
+   * Submit transfer for approval (DRAFT → PENDING_APPROVAL)
    */
-  async send(
+  async submitForApproval(
     id: string,
-    sentBy: string,
     userId: string
   ): Promise<ITransferWithRelations> {
     try {
-      logger.info('Sending transfer', { transferId: id })
+      logger.info('Submitting transfer for approval', { transferId: id })
 
-      const transfer = await prisma.transfer.findUnique({
-        where: { id },
-      })
+      const transfer = await prisma.transfer.findUnique({ where: { id } })
 
       if (!transfer) {
-        throw new NotFoundError('Transfer not found')
+        throw new NotFoundError(MSG.notFound)
       }
 
       if (transfer.status !== TransferStatus.DRAFT) {
-        throw new BadRequestError('Can only send draft transfers')
+        throw new BadRequestError(MSG.invalidStatus)
       }
 
-      // Create TRANSFER_OUT movements in source warehouse
-      const items = await prisma.transferItem.findMany({
-        where: { transferId: id },
+      const updated = await prisma.transfer.update({
+        where: { id },
+        data: {
+          status: TransferStatus.PENDING_APPROVAL as any,
+        },
+        include: {
+          items: { include: { item: true } },
+          fromWarehouse: true,
+          toWarehouse: true,
+          ...NOTE_INCLUDE,
+        },
       })
 
-      await prisma.$transaction(async (tx) => {
-        for (const item of items) {
-          // Create movement
-          await tx.movement.create({
-            data: {
-              id: uuidv4(),
-              movementNumber: `MOV-TRANSFER-OUT-${uuidv4().substring(0, 8)}`,
-              type: 'TRANSFER' as any,
-              itemId: item.itemId,
-              quantity: item.quantity,
-              unitCost: item.unitCost || 0,
-              warehouseFromId: transfer.fromWarehouseId,
-              warehouseToId: transfer.toWarehouseId,
-              movementDate: new Date(),
-              createdBy: userId,
-            },
-          })
+      await eventService.emit({
+        type: EventType.TRANSFER_SUBMITTED,
+        entityId: id,
+        entityType: 'transfer',
+        userId,
+        data: { transferId: id, transferNumber: updated.transferNumber },
+      })
 
-          // Update stock in source warehouse
+      logger.info(MSG.submitted, { transferId: id })
+
+      return this.mapToInterface(updated)
+    } catch (error) {
+      logger.error('Error submitting transfer for approval', { error })
+      throw error
+    }
+  }
+
+  /**
+   * Approve transfer (PENDING_APPROVAL → APPROVED)
+   * Generates ExitNote (source warehouse) and EntryNote (destination warehouse)
+   * Reserves stock in source warehouse via ExitNote standard flow
+   */
+  async approve(id: string, userId: string): Promise<ITransferWithRelations> {
+    try {
+      logger.info('Approving transfer', { transferId: id })
+
+      const transfer = await prisma.transfer.findUnique({
+        where: { id },
+        include: {
+          items: { include: { item: true } },
+          fromWarehouse: true,
+          toWarehouse: true,
+        },
+      })
+
+      if (!transfer) {
+        throw new NotFoundError(MSG.notFound)
+      }
+
+      if (transfer.status !== TransferStatus.PENDING_APPROVAL) {
+        throw new BadRequestError(MSG.invalidStatus)
+      }
+
+      // Validate stock availability before approving (reserves stock)
+      const stockRecords = await prisma.stock.findMany({
+        where: {
+          itemId: { in: transfer.items.map((i) => i.itemId) },
+          warehouseId: transfer.fromWarehouseId,
+        },
+      })
+      const stockMap = new Map(stockRecords.map((s) => [s.itemId, s]))
+
+      for (const ti of transfer.items) {
+        const stock = stockMap.get(ti.itemId)
+        if (!stock || stock.quantityAvailable < ti.quantity) {
+          const itemName = (ti as any).item?.name || ti.itemId
+          throw new BadRequestError(`${MSG.insufficientStock}: ${itemName}`)
+        }
+      }
+
+      // Execute everything in a transaction
+      const updated = await prisma.$transaction(async (tx) => {
+        // 1. Generate ExitNote number
+        const exitNoteCount = await tx.exitNote.count()
+        const exitNoteNumber = `EXIT-${new Date().getFullYear()}-${String(exitNoteCount + 1).padStart(5, '0')}`
+
+        // 2. Create ExitNote (type TRANSFER, status PENDING)
+        const exitNote = await tx.exitNote.create({
+          data: {
+            id: uuidv4(),
+            exitNoteNumber,
+            type: 'TRANSFER' as any,
+            status: 'PENDING' as any,
+            warehouseId: transfer.fromWarehouseId,
+            reference: transfer.transferNumber,
+            reason: `Transferencia ${transfer.transferNumber} al almacén ${transfer.toWarehouse?.name || transfer.toWarehouseId}`,
+            authorizedBy: userId,
+            notes: transfer.notes,
+            items: {
+              create: transfer.items.map((item) => ({
+                id: uuidv4(),
+                itemId: item.itemId,
+                quantity: item.quantity,
+                notes: item.notes,
+              })),
+            },
+          },
+        })
+
+        // 3. Reserve stock in source warehouse (standard ExitNote behavior)
+        for (const item of transfer.items) {
           await tx.stock.update({
             where: {
               itemId_warehouseId: {
@@ -323,166 +408,153 @@ class TransfersService {
               },
             },
             data: {
-              quantityReal: {
-                decrement: item.quantity,
-              },
-              quantityAvailable: {
-                decrement: item.quantity,
-              },
+              quantityReserved: { increment: item.quantity },
+              quantityAvailable: { decrement: item.quantity },
             },
           })
         }
 
-        // Update transfer status
-        await tx.transfer.update({
-          where: { id },
+        // 4. Generate EntryNote number
+        const entryNoteCount = await tx.entryNote.count()
+        const entryNoteNumber = `EN-${new Date().getFullYear()}-${String(entryNoteCount + 1).padStart(5, '0')}`
+
+        // 5. Create EntryNote (type TRANSFER, status PENDING)
+        const entryNote = await tx.entryNote.create({
           data: {
-            status: TransferStatus.IN_TRANSIT as any,
-            sentAt: new Date(),
-            sentBy,
+            id: uuidv4(),
+            entryNoteNumber,
+            type: 'TRANSFER' as any,
+            status: 'PENDING' as any,
+            warehouseId: transfer.toWarehouseId,
+            reference: transfer.transferNumber,
+            reason: `Transferencia ${transfer.transferNumber} desde almacén ${transfer.fromWarehouse?.name || transfer.fromWarehouseId}`,
+            authorizedBy: userId,
+            notes: transfer.notes,
+            items: {
+              create: transfer.items.map((item) => ({
+                id: uuidv4(),
+                itemId: item.itemId,
+                quantityReceived: item.quantity,
+                unitCost: item.unitCost ?? 0,
+                notes: item.notes,
+              })),
+            },
           },
         })
+
+        // 6. Update transfer: set APPROVED + link notes
+        const result = await tx.transfer.update({
+          where: { id },
+          data: {
+            status: TransferStatus.APPROVED as any,
+            approvedBy: userId,
+            approvedAt: new Date(),
+            exitNoteId: exitNote.id,
+            entryNoteId: entryNote.id,
+          },
+          include: {
+            items: { include: { item: true } },
+            fromWarehouse: true,
+            toWarehouse: true,
+            exitNote: {
+              select: { id: true, exitNoteNumber: true, status: true },
+            },
+            entryNote: {
+              select: { id: true, entryNoteNumber: true, status: true },
+            },
+          },
+        })
+
+        return result
       })
 
-      // Emit event
       await eventService.emit({
-        type: EventType.TRANSFER_SENT,
+        type: EventType.TRANSFER_APPROVED,
         entityId: id,
         entityType: 'transfer',
         userId,
         data: {
           transferId: id,
-          sentBy,
+          approvedBy: userId,
+          exitNoteId: updated.exitNoteId,
+          entryNoteId: updated.entryNoteId,
         },
       })
 
-      return this.findById(id)
+      logger.info(MSG.approved, {
+        transferId: id,
+        exitNoteId: updated.exitNoteId,
+        entryNoteId: updated.entryNoteId,
+      })
+
+      return this.mapToInterface(updated)
     } catch (error) {
-      logger.error('Error sending transfer', { error })
+      logger.error('Error approving transfer', { error })
       throw error
     }
   }
 
   /**
-   * Receive transfer
+   * Reject transfer (PENDING_APPROVAL → REJECTED)
    */
-  async receive(
+  async reject(
     id: string,
-    receivedBy: string,
+    input: IRejectTransferInput,
     userId: string
   ): Promise<ITransferWithRelations> {
     try {
-      logger.info('Receiving transfer', { transferId: id })
+      logger.info('Rejecting transfer', { transferId: id })
 
-      const transfer = await prisma.transfer.findUnique({
-        where: { id },
-      })
+      const transfer = await prisma.transfer.findUnique({ where: { id } })
 
       if (!transfer) {
-        throw new NotFoundError('Transfer not found')
+        throw new NotFoundError(MSG.notFound)
       }
 
-      if (transfer.status !== TransferStatus.IN_TRANSIT) {
-        throw new BadRequestError('Can only receive in-transit transfers')
+      if (transfer.status !== TransferStatus.PENDING_APPROVAL) {
+        throw new BadRequestError(MSG.invalidStatus)
       }
 
-      const items = await prisma.transferItem.findMany({
-        where: { transferId: id },
+      const updated = await prisma.transfer.update({
+        where: { id },
+        data: {
+          status: TransferStatus.REJECTED as any,
+          rejectedBy: userId,
+          rejectedAt: new Date(),
+          rejectionReason: input.rejectionReason,
+        },
+        include: {
+          items: { include: { item: true } },
+          fromWarehouse: true,
+          toWarehouse: true,
+          ...NOTE_INCLUDE,
+        },
       })
 
-      await prisma.$transaction(async (tx) => {
-        for (const item of items) {
-          // Create movement
-          await tx.movement.create({
-            data: {
-              id: uuidv4(),
-              movementNumber: `MOV-TRANSFER-IN-${uuidv4().substring(0, 8)}`,
-              type: 'TRANSFER' as any,
-              itemId: item.itemId,
-              quantity: item.quantity,
-              unitCost: item.unitCost || 0,
-              warehouseFromId: transfer.fromWarehouseId,
-              warehouseToId: transfer.toWarehouseId,
-              movementDate: new Date(),
-              createdBy: userId,
-            },
-          })
-
-          // Update stock in destination warehouse
-          const destStock = await tx.stock.findUnique({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: transfer.toWarehouseId,
-              },
-            },
-          })
-
-          if (!destStock) {
-            // Create stock if doesn't exist
-            await tx.stock.create({
-              data: {
-                id: uuidv4(),
-                itemId: item.itemId,
-                warehouseId: transfer.toWarehouseId,
-                quantityReal: item.quantity,
-                quantityReserved: 0,
-                quantityAvailable: item.quantity,
-                averageCost: item.unitCost?.toString() || '0',
-              },
-            })
-          } else {
-            await tx.stock.update({
-              where: {
-                itemId_warehouseId: {
-                  itemId: item.itemId,
-                  warehouseId: transfer.toWarehouseId,
-                },
-              },
-              data: {
-                quantityReal: {
-                  increment: item.quantity,
-                },
-                quantityAvailable: {
-                  increment: item.quantity,
-                },
-              },
-            })
-          }
-        }
-
-        // Update transfer status
-        await tx.transfer.update({
-          where: { id },
-          data: {
-            status: TransferStatus.RECEIVED as any,
-            receivedAt: new Date(),
-            receivedBy,
-          },
-        })
-      })
-
-      // Emit event
       await eventService.emit({
-        type: EventType.TRANSFER_RECEIVED,
+        type: EventType.TRANSFER_REJECTED,
         entityId: id,
         entityType: 'transfer',
         userId,
         data: {
           transferId: id,
-          receivedBy,
+          rejectedBy: userId,
+          rejectionReason: input.rejectionReason,
         },
       })
 
-      return this.findById(id)
+      logger.info(MSG.rejected, { transferId: id })
+
+      return this.mapToInterface(updated)
     } catch (error) {
-      logger.error('Error receiving transfer', { error })
+      logger.error('Error rejecting transfer', { error })
       throw error
     }
   }
 
   /**
-   * Cancel transfer
+   * Cancel transfer (DRAFT|PENDING_APPROVAL|APPROVED → CANCELLED)
+   * If APPROVED, cancels linked ExitNote/EntryNote and reverses stock reservations
    */
   async cancel(id: string, userId: string): Promise<ITransferWithRelations> {
     try {
@@ -490,29 +562,94 @@ class TransfersService {
 
       const transfer = await prisma.transfer.findUnique({
         where: { id },
+        include: {
+          items: true,
+          exitNote: { select: { id: true, status: true } },
+          entryNote: { select: { id: true, status: true } },
+        },
       })
 
       if (!transfer) {
-        throw new NotFoundError('Transfer not found')
+        throw new NotFoundError(MSG.notFound)
       }
 
-      if (transfer.status === TransferStatus.RECEIVED) {
-        throw new BadRequestError('Cannot cancel received transfers')
+      if (
+        transfer.status === TransferStatus.CANCELLED ||
+        transfer.status === TransferStatus.REJECTED
+      ) {
+        throw new BadRequestError(MSG.invalidStatus)
       }
 
-      const updated = await prisma.transfer.update({
-        where: { id },
+      // If APPROVED, we need to handle the linked notes and stock reservations
+      if (transfer.status === TransferStatus.APPROVED) {
+        await prisma.$transaction(async (tx) => {
+          // Cancel the ExitNote if it exists and isn't already delivered/cancelled
+          if (
+            transfer.exitNote &&
+            !['DELIVERED', 'CANCELLED'].includes(transfer.exitNote.status)
+          ) {
+            await tx.exitNote.update({
+              where: { id: transfer.exitNote.id },
+              data: { status: 'CANCELLED' as any },
+            })
+
+            // Reverse stock reservations
+            for (const item of transfer.items) {
+              await tx.stock.update({
+                where: {
+                  itemId_warehouseId: {
+                    itemId: item.itemId,
+                    warehouseId: transfer.fromWarehouseId,
+                  },
+                },
+                data: {
+                  quantityReserved: { decrement: item.quantity },
+                  quantityAvailable: { increment: item.quantity },
+                },
+              })
+            }
+          }
+
+          // Cancel the EntryNote if it exists and isn't already completed/cancelled
+          if (
+            transfer.entryNote &&
+            !['COMPLETED', 'CANCELLED'].includes(transfer.entryNote.status)
+          ) {
+            await tx.entryNote.update({
+              where: { id: transfer.entryNote.id },
+              data: { status: 'CANCELLED' as any },
+            })
+          }
+
+          await tx.transfer.update({
+            where: { id },
+            data: { status: TransferStatus.CANCELLED as any },
+          })
+        })
+      } else {
+        // Simple status update for DRAFT, PENDING_APPROVAL
+        await prisma.transfer.update({
+          where: { id },
+          data: { status: TransferStatus.CANCELLED as any },
+        })
+      }
+
+      // Emit event
+      await eventService.emit({
+        type: EventType.TRANSFER_CANCELLED,
+        entityId: id,
+        entityType: 'transfer',
+        userId,
         data: {
-          status: TransferStatus.CANCELLED as any,
-        },
-        include: {
-          items: { include: { item: true } },
-          fromWarehouse: true,
-          toWarehouse: true,
+          transferId: id,
+          previousStatus: transfer.status,
+          hadNotes: !!(transfer.exitNoteId || transfer.entryNoteId),
         },
       })
 
-      return this.mapToInterface(updated)
+      logger.info(MSG.cancelled, { transferId: id })
+
+      return this.findById(id)
     } catch (error) {
       logger.error('Error cancelling transfer', { error })
       throw error
@@ -520,7 +657,36 @@ class TransfersService {
   }
 
   /**
-   * Map transfer to interface
+   * Delete transfer (DRAFT only - hard delete)
+   */
+  async delete(id: string, userId: string): Promise<void> {
+    try {
+      logger.info('Deleting transfer', { transferId: id })
+
+      const transfer = await prisma.transfer.findUnique({ where: { id } })
+
+      if (!transfer) {
+        throw new NotFoundError(MSG.notFound)
+      }
+
+      if (transfer.status !== TransferStatus.DRAFT) {
+        throw new BadRequestError(MSG.cannotDeleteNonDraft)
+      }
+
+      await prisma.$transaction(async (tx) => {
+        await tx.transferItem.deleteMany({ where: { transferId: id } })
+        await tx.transfer.delete({ where: { id } })
+      })
+
+      logger.info(MSG.deleted, { transferId: id })
+    } catch (error) {
+      logger.error('Error deleting transfer', { error })
+      throw error
+    }
+  }
+
+  /**
+   * Map Prisma transfer record to interface
    */
   private mapToInterface(transfer: any): ITransferWithRelations {
     return {
@@ -531,16 +697,21 @@ class TransfersService {
       status: transfer.status,
       quantity: transfer.quantity,
       notes: transfer.notes,
-      sentAt: transfer.sentAt,
-      receivedAt: transfer.receivedAt,
-      sentBy: transfer.sentBy,
-      receivedBy: transfer.receivedBy,
+      approvedBy: transfer.approvedBy,
+      approvedAt: transfer.approvedAt,
+      rejectedBy: transfer.rejectedBy,
+      rejectedAt: transfer.rejectedAt,
+      rejectionReason: transfer.rejectionReason,
+      exitNoteId: transfer.exitNoteId,
+      entryNoteId: transfer.entryNoteId,
       createdBy: transfer.createdBy,
       createdAt: transfer.createdAt,
       updatedAt: transfer.updatedAt,
       items: transfer.items,
       fromWarehouse: transfer.fromWarehouse,
       toWarehouse: transfer.toWarehouse,
+      exitNote: transfer.exitNote || null,
+      entryNote: transfer.entryNote || null,
     }
   }
 }

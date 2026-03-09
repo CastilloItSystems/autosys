@@ -2,8 +2,9 @@
 
 enum TransferStatus {
   DRAFT
-  IN_TRANSIT
-  RECEIVED
+  PENDING_APPROVAL
+  APPROVED
+  REJECTED
   CANCELLED
 }
 
@@ -23,12 +24,21 @@ model Transfer {
 
   notes            String?        @db.Text
 
-  sentAt           DateTime?
-  receivedAt       DateTime?
-  sentBy           String?
-  receivedBy       String?
+  // Approval fields
+  approvedBy       String?
+  approvedAt       DateTime?
+  rejectedBy       String?
+  rejectedAt       DateTime?
+  rejectionReason  String?        @db.Text
 
   createdBy        String
+
+  // Documentos generados al aprobar
+  exitNoteId       String?        @unique
+  exitNote         ExitNote?      @relation(fields: [exitNoteId], references: [id], onDelete: SetNull)
+
+  entryNoteId      String?        @unique
+  entryNote        EntryNote?     @relation(fields: [entryNoteId], references: [id], onDelete: SetNull)
 
   items            TransferItem[]
 

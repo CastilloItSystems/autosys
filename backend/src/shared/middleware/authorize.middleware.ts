@@ -2,16 +2,21 @@
 
 import { Request, Response, NextFunction } from 'express'
 import { ForbiddenError } from '../utils/ApiError'
-import { ROLE_PERMISSIONS, Permission, Role } from '../constants/permissions'
+import { Permission, Role } from '../constants/permissions'
 
+/**
+ * Middleware de autorización basado en permisos.
+ * Lee los permisos ya resueltos que vienen en el JWT (req.user.permissions).
+ * Esos permisos ya incluyen rol base + overrides individuales del usuario.
+ */
 export const authorize = (...requiredPermissions: Permission[]) => {
   return (req: Request, res: Response, next: NextFunction): void => {
     if (!req.user) {
       throw new ForbiddenError('Usuario no autenticado')
     }
 
-    const userRole = req.user.role as Role
-    const userPermissions = ROLE_PERMISSIONS[userRole] || []
+    // Los permisos resueltos vienen en el JWT desde el login
+    const userPermissions: string[] = req.user.permissions ?? []
 
     const hasPermission = requiredPermissions.every((permission) =>
       userPermissions.includes(permission)

@@ -43,6 +43,9 @@ model EntryNote {
   // Relaciones
   items            EntryNoteItem[]
   
+  // Relación con Transfer (cuando type=TRANSFER)
+  transfer         Transfer?
+
   notes            String?         @db.Text
   
   // Fechas

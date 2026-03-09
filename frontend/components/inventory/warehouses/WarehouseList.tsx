@@ -61,7 +61,7 @@ export default function WarehouseList() {
 
       // Estructura consistente en todos los endpoints
       const warehousesData = response.data || [];
-      const total = response.pagination?.total || 0;
+      const total = response.meta?.total || 0;
 
       setWarehouses(Array.isArray(warehousesData) ? warehousesData : []);
       setTotalRecords(total);

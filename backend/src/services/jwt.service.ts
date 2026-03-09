@@ -8,6 +8,8 @@ export interface JWTPayload {
   email: string
   role: string
   access: string
+  /** Lista de permisos resueltos (rol base + overrides individuales) */
+  permissions: string[]
 }
 
 export const generateToken = (payload: JWTPayload): string => {

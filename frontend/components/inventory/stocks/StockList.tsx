@@ -278,13 +278,18 @@ export default function StockList() {
   );
 
   const historyQtyTemplate = (row: Movement) => {
-    const isIn = [
+    const inTypes = [
       "PURCHASE",
       "ADJUSTMENT_IN",
       "WORKSHOP_RETURN",
       "RESERVATION_RELEASE",
       "LOAN_RETURN",
-    ].includes(row.type);
+    ];
+    // Para TRANSFER, determinar dirección por almacén destino (entrada) vs origen (salida)
+    const isIn =
+      row.type === "TRANSFER"
+        ? !!row.warehouseToId && !row.warehouseFromId
+        : inTypes.includes(row.type);
     return (
       <span className={`font-bold ${isIn ? "text-green-600" : "text-red-600"}`}>
         {isIn ? "+" : "-"}

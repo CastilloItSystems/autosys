@@ -40,6 +40,12 @@ export interface IAdjustmentItem {
   notes?: string | null
   createdAt: Date
   updatedAt?: Date
+  item?: {
+    id: string
+    sku: string
+    name: string
+    [key: string]: any
+  }
 }
 
 export interface ICreateAdjustmentInput {

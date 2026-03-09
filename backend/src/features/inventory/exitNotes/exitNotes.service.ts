@@ -469,7 +469,7 @@ export class ExitNotesService {
       const movements = []
       for (const item of note.items) {
         const movementNumber =
-          await MovementNumberGenerator.generateMovementNumber()
+          await MovementNumberGenerator.generateMovementNumber(tx, 'MOV')
         const movement = await tx.movement.create({
           data: {
             movementNumber,
@@ -792,29 +792,29 @@ export class ExitNotesService {
   private getMovementType(exitNoteType: ExitNoteType): string {
     switch (exitNoteType) {
       case ExitNoteType.SALE:
-        return 'SALE_OUT'
+        return 'SALE'
       case ExitNoteType.WARRANTY:
-        return 'WARRANTY_OUT'
+        return 'SUPPLIER_RETURN'
       case ExitNoteType.LOAN:
         return 'LOAN_OUT'
       case ExitNoteType.INTERNAL_USE:
-        return 'INTERNAL_USE'
+        return 'ADJUSTMENT_OUT'
       case ExitNoteType.SAMPLE:
-        return 'SAMPLE_OUT'
+        return 'ADJUSTMENT_OUT'
       case ExitNoteType.DONATION:
-        return 'DONATION_OUT'
+        return 'ADJUSTMENT_OUT'
       case ExitNoteType.OWNER_PICKUP:
-        return 'OWNER_PICKUP_OUT'
+        return 'ADJUSTMENT_OUT'
       case ExitNoteType.DEMO:
-        return 'DEMO_OUT'
+        return 'ADJUSTMENT_OUT'
       case ExitNoteType.TRANSFER:
-        return 'TRANSFER_OUT'
+        return 'TRANSFER'
       case ExitNoteType.LOAN_RETURN:
-        return 'LOAN_RETURN_IN'
+        return 'LOAN_RETURN'
       case ExitNoteType.OTHER:
-        return 'OTHER_OUT'
+        return 'ADJUSTMENT_OUT'
       default:
-        return 'EXIT_OUT'
+        return 'ADJUSTMENT_OUT'
     }
   }
 

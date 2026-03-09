@@ -1,6 +1,10 @@
 // backend/src/features/inventory/cycleCounts/cycleCounts.dto.ts
 
-import { ICycleCount, ICycleCountItem, ICycleCountWithRelations } from './cycleCounts.interface'
+import {
+  ICycleCount,
+  ICycleCountItem,
+  ICycleCountWithRelations,
+} from './cycleCounts.interface'
 
 export class CreateCycleCountDTO {
   warehouseId: string
@@ -10,20 +14,24 @@ export class CreateCycleCountDTO {
   constructor(data: any) {
     this.warehouseId = data.warehouseId
     this.notes = data.notes ?? null
-    this.items = data.items?.map((item: any) => new CreateCycleCountItemDTO(item)) ?? []
+    this.items =
+      data.items?.map((item: any) => new CreateCycleCountItemDTO(item)) ?? []
   }
 }
 
 export class UpdateCycleCountDTO {
   notes?: string | null
   remarks?: string | null
+  items?: CreateCycleCountItemDTO[]
 
   constructor(data: any) {
-    const updateData = {
-      ...(data.notes !== undefined && { notes: data.notes }),
-      ...(data.remarks !== undefined && { remarks: data.remarks }),
+    this.notes = data.notes ?? null
+    this.remarks = data.remarks ?? null
+    if (data.items) {
+      this.items = data.items.map(
+        (item: any) => new CreateCycleCountItemDTO(item)
+      )
     }
-    Object.assign(this, updateData)
   }
 }
 
@@ -113,7 +121,8 @@ export class CycleCountResponseDTO {
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt ?? new Date()
     if (data.warehouse) this.warehouse = data.warehouse
-    if (data.items) this.items = data.items.map((item) => new CycleCountItemResponseDTO(item))
+    if (data.items)
+      this.items = data.items.map((item) => new CycleCountItemResponseDTO(item))
   }
 }
 
@@ -126,10 +135,11 @@ export class CycleCountItemResponseDTO {
   variance: number | null | undefined
   location: string | null
   notes?: string | null
+  item?: any
   createdAt: Date
   updatedAt?: Date
 
-  constructor(data: ICycleCountItem) {
+  constructor(data: any) {
     this.id = data.id
     this.cycleCountId = data.cycleCountId
     this.itemId = data.itemId
@@ -138,6 +148,7 @@ export class CycleCountItemResponseDTO {
     this.variance = data.variance ?? undefined
     this.location = data.location ?? null
     this.notes = data.notes ?? null
+    this.item = data.item
     this.createdAt = data.createdAt
     if (data.updatedAt) this.updatedAt = data.updatedAt
   }

@@ -12,14 +12,14 @@ export const createAdjustmentSchema = Joi.object({
     'string.max': 'reason no puede exceder 255 caracteres',
     'any.required': 'reason es requerido',
   }),
-  notes: Joi.string().allow(null).optional(),
+  notes: Joi.string().allow(null, '').optional(),
   items: Joi.array()
     .items(
       Joi.object({
         itemId: Joi.string().uuid().required(),
         quantityChange: Joi.number().integer().required(),
         unitCost: Joi.number().positive().allow(null).optional(),
-        notes: Joi.string().allow(null).optional(),
+        notes: Joi.string().allow(null, '').optional(),
       })
     )
     .min(1)
