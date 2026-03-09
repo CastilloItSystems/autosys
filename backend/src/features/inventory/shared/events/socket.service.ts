@@ -3,24 +3,24 @@
  * Broadcasts inventory events to connected clients
  */
 
-import { Server as SocketIOServer, Socket } from 'socket.io';
-import { Server as HTTPServer } from 'http';
-import { logger } from '../../../../shared/utils/logger';
-import { IEvent, EventType, ISocketEventPayload } from './event.types';
+import { Server as SocketIOServer, Socket } from 'socket.io'
+import { Server as HTTPServer } from 'http'
+import { logger } from '../../../../shared/utils/logger'
+import { IEvent, EventType, ISocketEventPayload } from './event.types'
 
 class SocketService {
-  private static instance: SocketService;
-  private io: SocketIOServer | null = null;
-  private connectedClients: Map<string, Socket> = new Map();
-  private clientChannels: Map<string, Set<string>> = new Map();
+  private static instance: SocketService
+  private io: SocketIOServer | null = null
+  private connectedClients: Map<string, Socket> = new Map()
+  private clientChannels: Map<string, Set<string>> = new Map()
 
   private constructor() {}
 
   static getInstance(): SocketService {
     if (!SocketService.instance) {
-      SocketService.instance = new SocketService();
+      SocketService.instance = new SocketService()
     }
-    return SocketService.instance;
+    return SocketService.instance
   }
 
   /**
@@ -28,8 +28,8 @@ class SocketService {
    */
   initialize(httpServer: HTTPServer): void {
     if (this.io) {
-      logger.warn('SocketService already initialized');
-      return;
+      logger.warn('SocketService already initialized')
+      return
     }
 
     this.io = new SocketIOServer(httpServer, {
@@ -41,95 +41,95 @@ class SocketService {
       transports: ['websocket', 'polling'],
     })
 
-    this.setupMiddleware();
-    this.setupEventHandlers();
+    this.setupMiddleware()
+    this.setupEventHandlers()
 
-    logger.info('Socket.io server initialized');
+    logger.info('Socket.io server initialized')
   }
 
   /**
    * Setup Socket.io middleware
    */
   private setupMiddleware(): void {
-    if (!this.io) return;
+    if (!this.io) return
 
     this.io.use((socket, next) => {
       // Optional: Validate token from handshake
-      const token = socket.handshake.auth.token;
-      const userId = socket.handshake.auth.userId;
+      const token = socket.handshake.auth.token
+      const userId = socket.handshake.auth.userId
 
       if (!userId) {
-        return next(new Error('Missing user ID in handshake'));
+        return next(new Error('Missing user ID in handshake'))
       }
 
-      socket.data.userId = userId;
-      socket.data.token = token;
+      socket.data.userId = userId
+      socket.data.token = token
 
-      next();
-    });
+      next()
+    })
   }
 
   /**
    * Setup Socket.io event handlers
    */
   private setupEventHandlers(): void {
-    if (!this.io) return;
+    if (!this.io) return
 
     this.io.on('connection', (socket: Socket) => {
       logger.info(`Client connected: ${socket.id}`, {
         userId: socket.data.userId,
-      });
+      })
 
-      this.connectedClients.set(socket.id, socket);
+      this.connectedClients.set(socket.id, socket)
 
       // Handle channel subscription
       socket.on('subscribe', (channel: string) => {
-        socket.join(channel);
+        socket.join(channel)
         if (!this.clientChannels.has(socket.id)) {
-          this.clientChannels.set(socket.id, new Set());
+          this.clientChannels.set(socket.id, new Set())
         }
-        this.clientChannels.get(socket.id)!.add(channel);
+        this.clientChannels.get(socket.id)!.add(channel)
 
         logger.debug(`Client subscribed to channel: ${channel}`, {
           socketId: socket.id,
-        });
+        })
 
-        socket.emit('subscribed', { channel });
-      });
+        socket.emit('subscribed', { channel })
+      })
 
       // Handle channel unsubscribe
       socket.on('unsubscribe', (channel: string) => {
-        socket.leave(channel);
-        const channels = this.clientChannels.get(socket.id);
+        socket.leave(channel)
+        const channels = this.clientChannels.get(socket.id)
         if (channels) {
-          channels.delete(channel);
+          channels.delete(channel)
         }
 
         logger.debug(`Client unsubscribed from channel: ${channel}`, {
           socketId: socket.id,
-        });
+        })
 
-        socket.emit('unsubscribed', { channel });
-      });
+        socket.emit('unsubscribed', { channel })
+      })
 
       // Handle disconnect
       socket.on('disconnect', () => {
         logger.info(`Client disconnected: ${socket.id}`, {
           userId: socket.data.userId,
-        });
+        })
 
-        this.connectedClients.delete(socket.id);
-        this.clientChannels.delete(socket.id);
-      });
+        this.connectedClients.delete(socket.id)
+        this.clientChannels.delete(socket.id)
+      })
 
       // Handle errors
       socket.on('error', (error) => {
         logger.error(`Socket error for ${socket.id}`, {
           error,
           userId: socket.data.userId,
-        });
-      });
-    });
+        })
+      })
+    })
   }
 
   /**
@@ -141,8 +141,8 @@ class SocketService {
     additionalData?: Record<string, any>
   ): void {
     if (!this.io) {
-      logger.warn('Socket.io not initialized');
-      return;
+      logger.warn('Socket.io not initialized')
+      return
     }
 
     const payload: ISocketEventPayload = {
@@ -157,50 +157,62 @@ class SocketService {
         timestamp: event.createdAt,
       },
       timestamp: new Date(),
-    };
+    }
 
-    this.io.to(channel).emit(event.type, payload);
+    this.io.to(channel).emit(event.type, payload)
 
     logger.debug(`Event broadcasted to channel: ${channel}`, {
       eventType: event.type,
       eventId: event.id,
-    });
+    })
   }
 
   /**
    * Broadcast event to user
    */
-  broadcastToUser(userId: string, event: IEvent, additionalData?: Record<string, any>): void {
-    this.broadcastToChannel(`user:${userId}`, event, additionalData);
+  broadcastToUser(
+    userId: string,
+    event: IEvent,
+    additionalData?: Record<string, any>
+  ): void {
+    this.broadcastToChannel(`user:${userId}`, event, additionalData)
   }
 
   /**
    * Broadcast event to warehouse
    */
-  broadcastToWarehouse(warehouseId: string, event: IEvent, additionalData?: Record<string, any>): void {
-    this.broadcastToChannel(`warehouse:${warehouseId}`, event, additionalData);
+  broadcastToWarehouse(
+    warehouseId: string,
+    event: IEvent,
+    additionalData?: Record<string, any>
+  ): void {
+    this.broadcastToChannel(`warehouse:${warehouseId}`, event, additionalData)
   }
 
   /**
    * Broadcast event to all connected clients
    */
   broadcastToAll(event: IEvent, additionalData?: Record<string, any>): void {
-    this.broadcastToChannel('inventory', event, additionalData);
+    this.broadcastToChannel('inventory', event, additionalData)
   }
 
   /**
    * Send targeted message to specific socket
    */
-  sendToSocket(socketId: string, event: IEvent, additionalData?: Record<string, any>): void {
+  sendToSocket(
+    socketId: string,
+    event: IEvent,
+    additionalData?: Record<string, any>
+  ): void {
     if (!this.io) {
-      logger.warn('Socket.io not initialized');
-      return;
+      logger.warn('Socket.io not initialized')
+      return
     }
 
-    const socket = this.connectedClients.get(socketId);
+    const socket = this.connectedClients.get(socketId)
     if (!socket) {
-      logger.warn(`Socket not found: ${socketId}`);
-      return;
+      logger.warn(`Socket not found: ${socketId}`)
+      return
     }
 
     const payload = {
@@ -211,32 +223,32 @@ class SocketService {
         ...additionalData,
       },
       timestamp: new Date(),
-    };
+    }
 
-    socket.emit('event', payload);
+    socket.emit('event', payload)
   }
 
   /**
    * Get connected clients count
    */
   getConnectedClientsCount(): number {
-    return this.connectedClients.size;
+    return this.connectedClients.size
   }
 
   /**
    * Get clients subscribed to channel
    */
   getChannelSubscribers(channel: string): number {
-    if (!this.io) return 0;
-    const room = this.io.sockets.adapter.rooms.get(channel);
-    return room ? room.size : 0;
+    if (!this.io) return 0
+    const room = this.io.sockets.adapter.rooms.get(channel)
+    return room ? room.size : 0
   }
 
   /**
    * Get Socket.io instance (for direct access if needed)
    */
   getIO(): SocketIOServer | null {
-    return this.io;
+    return this.io
   }
 
   /**
@@ -244,11 +256,11 @@ class SocketService {
    */
   shutdown(): void {
     if (this.io) {
-      this.io.close();
-      this.io = null;
-      logger.info('Socket.io server shutdown');
+      this.io.close()
+      this.io = null
+      logger.info('Socket.io server shutdown')
     }
   }
 }
 
-export default SocketService;
+export default SocketService

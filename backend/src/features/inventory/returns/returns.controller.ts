@@ -13,7 +13,11 @@ import {
 export class ReturnsController {
   getAll = asyncHandler(async (req: Request, res: Response) => {
     const { page = 1, limit = 20 } = req.query
-    const result = await ReturnsService.findAll(Number(page), Number(limit), req.prisma || undefined)
+    const result = await ReturnsService.findAll(
+      Number(page),
+      Number(limit),
+      req.prisma || undefined
+    )
     return ApiResponse.paginated(
       res,
       result.data,

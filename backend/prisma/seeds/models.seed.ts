@@ -19,28 +19,106 @@ async function seedModels(prisma: PrismaClient, empresaId: string) {
     // 2. Definimos los modelos a sembrar
     const models = [
       // Toyota (Vehículos)
-      { brandCode: 'TOY', code: 'TOY-COR', name: 'Corolla', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'TOY', code: 'TOY-HIL', name: 'Hilux', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'TOY', code: 'TOY-YAR', name: 'Yaris', year: 2024, type: 'VEHICLE' },
+      {
+        brandCode: 'TOY',
+        code: 'TOY-COR',
+        name: 'Corolla',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'TOY',
+        code: 'TOY-HIL',
+        name: 'Hilux',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'TOY',
+        code: 'TOY-YAR',
+        name: 'Yaris',
+        year: 2024,
+        type: 'VEHICLE',
+      },
       { brandCode: 'TOY', code: 'TOY-FOR', name: 'Fortuner', type: 'VEHICLE' }, // Sin año específico (aplica a varios)
 
       // Chevrolet (Vehículos)
-      { brandCode: 'CHV', code: 'CHV-AVE', name: 'Aveo', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'CHV', code: 'CHV-SIL', name: 'Silverado', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'CHV', code: 'CHV-TAH', name: 'Tahoe', year: 2024, type: 'VEHICLE' },
+      {
+        brandCode: 'CHV',
+        code: 'CHV-AVE',
+        name: 'Aveo',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'CHV',
+        code: 'CHV-SIL',
+        name: 'Silverado',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'CHV',
+        code: 'CHV-TAH',
+        name: 'Tahoe',
+        year: 2024,
+        type: 'VEHICLE',
+      },
 
       // Ford (Vehículos)
-      { brandCode: 'FRD', code: 'FRD-F15', name: 'F-150', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'FRD', code: 'FRD-EXP', name: 'Explorer', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'FRD', code: 'FRD-FIE', name: 'Fiesta', year: 2020, type: 'VEHICLE' },
+      {
+        brandCode: 'FRD',
+        code: 'FRD-F15',
+        name: 'F-150',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'FRD',
+        code: 'FRD-EXP',
+        name: 'Explorer',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'FRD',
+        code: 'FRD-FIE',
+        name: 'Fiesta',
+        year: 2020,
+        type: 'VEHICLE',
+      },
 
       // Nissan (Vehículos)
-      { brandCode: 'NIS', code: 'NIS-SEN', name: 'Sentra', year: 2024, type: 'VEHICLE' },
-      { brandCode: 'NIS', code: 'NIS-FRO', name: 'Frontier', year: 2024, type: 'VEHICLE' },
+      {
+        brandCode: 'NIS',
+        code: 'NIS-SEN',
+        name: 'Sentra',
+        year: 2024,
+        type: 'VEHICLE',
+      },
+      {
+        brandCode: 'NIS',
+        code: 'NIS-FRO',
+        name: 'Frontier',
+        year: 2024,
+        type: 'VEHICLE',
+      },
 
       // Bosch (Repuestos)
-      { brandCode: 'BSH', code: 'BSH-SPK', name: 'Bujía Iridium', type: 'PART', specifications: { material: 'Iridium', gap: '1.1mm' } },
-      { brandCode: 'BSH', code: 'BSH-OIL', name: 'Filtro de Aceite Premium', type: 'PART', specifications: { type: 'Spin-on', thread: 'M20x1.5' } },
+      {
+        brandCode: 'BSH',
+        code: 'BSH-SPK',
+        name: 'Bujía Iridium',
+        type: 'PART',
+        specifications: { material: 'Iridium', gap: '1.1mm' },
+      },
+      {
+        brandCode: 'BSH',
+        code: 'BSH-OIL',
+        name: 'Filtro de Aceite Premium',
+        type: 'PART',
+        specifications: { type: 'Spin-on', thread: 'M20x1.5' },
+      },
     ]
 
     // 3. Insertar o actualizar modelos
@@ -48,7 +126,9 @@ async function seedModels(prisma: PrismaClient, empresaId: string) {
       const brandId = brandMap.get(model.brandCode)
 
       if (!brandId) {
-        console.warn(`⚠️ Marca no encontrada: ${model.brandCode}. Saltando modelo ${model.name}.`)
+        console.warn(
+          `⚠️ Marca no encontrada: ${model.brandCode}. Saltando modelo ${model.name}.`
+        )
         continue
       }
 
@@ -68,7 +148,9 @@ async function seedModels(prisma: PrismaClient, empresaId: string) {
         await prisma.model.update({
           where: { id: existing.id },
           data: {
-            description: model.specifications ? `Repuesto ${model.name}` : `Vehículo ${model.name} ${model.year || ''}`,
+            description: model.specifications
+              ? `Repuesto ${model.name}`
+              : `Vehículo ${model.name} ${model.year || ''}`,
             specifications: model.specifications ?? undefined,
             isActive: true,
           },
@@ -82,7 +164,9 @@ async function seedModels(prisma: PrismaClient, empresaId: string) {
             name: model.name,
             year: model.year ?? null,
             type: model.type as any,
-            description: model.specifications ? `Repuesto ${model.name}` : `Vehículo ${model.name} ${model.year || ''}`,
+            description: model.specifications
+              ? `Repuesto ${model.name}`
+              : `Vehículo ${model.name} ${model.year || ''}`,
             specifications: model.specifications ?? undefined,
             isActive: true,
           },

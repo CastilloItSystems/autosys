@@ -20,7 +20,8 @@ export class CreateReconciliationDTO {
     this.reason = data.reason
     this.notes = data.notes ?? null
     this.items =
-      data.items?.map((item: any) => new CreateReconciliationItemDTO(item)) ?? []
+      data.items?.map((item: any) => new CreateReconciliationItemDTO(item)) ??
+      []
   }
 }
 
@@ -130,7 +131,9 @@ export class ReconciliationResponseDTO {
     this.updatedAt = data.updatedAt ?? new Date()
     if (data.warehouse) this.warehouse = data.warehouse
     if (data.items)
-      this.items = data.items.map((item) => new ReconciliationItemResponseDTO(item))
+      this.items = data.items.map(
+        (item) => new ReconciliationItemResponseDTO(item)
+      )
   }
 }
 

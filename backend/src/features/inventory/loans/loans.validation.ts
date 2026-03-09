@@ -2,7 +2,7 @@
  * Loans Validation Schemas - Joi
  */
 
-import Joi from 'joi';
+import Joi from 'joi'
 
 export const createLoanSchema = Joi.object({
   borrowerName: Joi.string().max(255).required(),
@@ -21,18 +21,18 @@ export const createLoanSchema = Joi.object({
     )
     .min(1)
     .required(),
-});
+})
 
 export const updateLoanSchema = Joi.object({
   borrowerName: Joi.string().max(255).optional(),
   dueDate: Joi.date().iso().optional(),
   purpose: Joi.string().max(255).optional(),
   notes: Joi.string().optional(),
-});
+})
 
 export const approveLoanSchema = Joi.object({
   approvalNotes: Joi.string().optional(),
-});
+})
 
 export const returnLoanSchema = Joi.object({
   items: Joi.array()
@@ -45,15 +45,23 @@ export const returnLoanSchema = Joi.object({
     .min(1)
     .required(),
   returnNotes: Joi.string().optional(),
-});
+})
 
 export const cancelLoanSchema = Joi.object({
   reason: Joi.string().max(255).optional(),
-});
+})
 
 export const loanFiltersSchema = Joi.object({
   status: Joi.string()
-    .valid('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'ACTIVE', 'RETURNED', 'OVERDUE', 'CANCELLED')
+    .valid(
+      'DRAFT',
+      'PENDING_APPROVAL',
+      'APPROVED',
+      'ACTIVE',
+      'RETURNED',
+      'OVERDUE',
+      'CANCELLED'
+    )
     .optional(),
   warehouseId: Joi.string().uuid().optional(),
   borrowerId: Joi.string().uuid().optional(),
@@ -66,4 +74,4 @@ export const loanFiltersSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).optional(),
   sortBy: Joi.string().optional(),
   sortOrder: Joi.string().valid('asc', 'desc').optional(),
-});
+})

@@ -2,21 +2,21 @@
  * Loans Routes
  */
 
-import { Router, Request, Response } from 'express';
-import * as controller from './loans.controller';
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware';
-import { authenticate } from '../../../shared/middleware/authenticate.middleware';
-import { authorize } from '../../../shared/middleware/authorize.middleware';
-import { PERMISSIONS } from '../../../shared/constants/permissions';
+import { Router, Request, Response } from 'express'
+import * as controller from './loans.controller'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware'
+import { authorize } from '../../../shared/middleware/authorize.middleware'
+import { PERMISSIONS } from '../../../shared/constants/permissions'
 import {
   createLoanSchema,
   updateLoanSchema,
   approveLoanSchema,
   returnLoanSchema,
   cancelLoanSchema,
-} from './loans.validation';
+} from './loans.validation'
 
-const router = Router();
+const router = Router()
 
 /**
  * @swagger
@@ -62,7 +62,7 @@ router.get(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   controller.getLoans
-);
+)
 
 /**
  * @swagger
@@ -90,7 +90,7 @@ router.get(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   controller.getLoanById
-);
+)
 
 /**
  * @swagger
@@ -146,7 +146,7 @@ router.post(
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateRequest(createLoanSchema),
   controller.createLoan
-);
+)
 
 /**
  * @swagger
@@ -188,7 +188,7 @@ router.put(
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateRequest(updateLoanSchema),
   controller.updateLoan
-);
+)
 
 /**
  * @swagger
@@ -216,7 +216,7 @@ router.patch(
   authenticate,
   authorize(PERMISSIONS.LOAN_APPROVE),
   controller.approveLoan
-);
+)
 
 /**
  * @swagger
@@ -244,7 +244,7 @@ router.patch(
   authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   controller.activateLoan
-);
+)
 
 /**
  * @swagger
@@ -293,7 +293,7 @@ router.patch(
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateRequest(returnLoanSchema),
   controller.returnLoanItems
-);
+)
 
 /**
  * @swagger
@@ -330,6 +330,6 @@ router.patch(
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateRequest(cancelLoanSchema),
   controller.cancelLoan
-);
+)
 
-export default router;
+export default router

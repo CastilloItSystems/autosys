@@ -2,9 +2,9 @@
  * Job Queue Service - Bull Queue Setup and Management
  */
 
-import Queue from 'bull';
-import { logger } from '../../../shared/utils/logger';
-import { EventType } from '../shared/events/event.types';
+import Queue from 'bull'
+import { logger } from '../../../shared/utils/logger'
+import { EventType } from '../shared/events/event.types'
 
 // Define job types
 export enum JobType {
@@ -14,53 +14,53 @@ export enum JobType {
   SYNC_RESERVATIONS = 'sync-reservations',
   CALCULATE_ROTATION = 'calculate-rotation',
   AUDIT_STOCK_DELTA = 'audit-stock-delta',
-  
+
   // Loan jobs
   CHECK_LOANS_OVERDUE = 'check-loans-overdue',
-  
+
   // Batch jobs
   CHECK_EXPIRING_BATCHES = 'check-expiring-batches',
-  
+
   // Analytics jobs
   GENERATE_ANALYTICS_SNAPSHOT = 'generate-analytics-snapshot',
-  
+
   // System jobs
   CLEANUP_OLD_EVENTS = 'cleanup-old-events',
   SYNC_EXTERNAL_DATA = 'sync-external-data',
 }
 
 export interface IJobData {
-  [key: string]: any;
+  [key: string]: any
 }
 
 export interface IJobOptions {
-  attempts?: number;
+  attempts?: number
   backoff?: {
-    type: string;
-    delay: number;
-  };
-  removeOnComplete?: boolean;
-  removeOnFail?: boolean;
+    type: string
+    delay: number
+  }
+  removeOnComplete?: boolean
+  removeOnFail?: boolean
   repeat?: {
-    cron?: string;
-    every?: number;
-  };
+    cron?: string
+    every?: number
+  }
 }
 
 class QueueService {
-  private static instance: QueueService;
-  private queues: Map<JobType, Queue.Queue> = new Map();
-  private redisUrl: string;
+  private static instance: QueueService
+  private queues: Map<JobType, Queue.Queue> = new Map()
+  private redisUrl: string
 
   private constructor(redisUrl: string = 'redis://localhost:6379') {
-    this.redisUrl = redisUrl;
+    this.redisUrl = redisUrl
   }
 
   static getInstance(redisUrl?: string): QueueService {
     if (!QueueService.instance) {
-      QueueService.instance = new QueueService(redisUrl);
+      QueueService.instance = new QueueService(redisUrl)
     }
-    return QueueService.instance;
+    return QueueService.instance
   }
 
   /**
@@ -68,23 +68,23 @@ class QueueService {
    */
   initializeQueues(): void {
     try {
-      this.createQueue(JobType.GENERATE_ALERTS);
-      this.createQueue(JobType.UPDATE_STOCK_LEVELS);
-      this.createQueue(JobType.SYNC_RESERVATIONS);
-      this.createQueue(JobType.CALCULATE_ROTATION);
-      this.createQueue(JobType.AUDIT_STOCK_DELTA);
-      this.createQueue(JobType.CHECK_LOANS_OVERDUE);
-      this.createQueue(JobType.CHECK_EXPIRING_BATCHES);
-      this.createQueue(JobType.GENERATE_ANALYTICS_SNAPSHOT);
-      this.createQueue(JobType.CLEANUP_OLD_EVENTS);
-      this.createQueue(JobType.SYNC_EXTERNAL_DATA);
+      this.createQueue(JobType.GENERATE_ALERTS)
+      this.createQueue(JobType.UPDATE_STOCK_LEVELS)
+      this.createQueue(JobType.SYNC_RESERVATIONS)
+      this.createQueue(JobType.CALCULATE_ROTATION)
+      this.createQueue(JobType.AUDIT_STOCK_DELTA)
+      this.createQueue(JobType.CHECK_LOANS_OVERDUE)
+      this.createQueue(JobType.CHECK_EXPIRING_BATCHES)
+      this.createQueue(JobType.GENERATE_ANALYTICS_SNAPSHOT)
+      this.createQueue(JobType.CLEANUP_OLD_EVENTS)
+      this.createQueue(JobType.SYNC_EXTERNAL_DATA)
 
       logger.info('All job queues initialized', {
         queueCount: this.queues.size,
-      });
+      })
     } catch (error) {
-      logger.error('Error initializing job queues', { error });
-      throw error;
+      logger.error('Error initializing job queues', { error })
+      throw error
     }
   }
 
@@ -92,31 +92,31 @@ class QueueService {
    * Create a queue
    */
   private createQueue(jobType: JobType): Queue.Queue {
-    let queue = this.queues.get(jobType);
+    let queue = this.queues.get(jobType)
 
     if (!queue) {
-      queue = new Queue(jobType, this.redisUrl);
+      queue = new Queue(jobType, this.redisUrl)
 
       queue.on('ready', () => {
-        logger.debug(`Queue ready: ${jobType}`);
-      });
+        logger.debug(`Queue ready: ${jobType}`)
+      })
 
       queue.on('error', (error) => {
-        logger.error(`Queue error: ${jobType}`, { error });
-      });
+        logger.error(`Queue error: ${jobType}`, { error })
+      })
 
       queue.on('completed', (job) => {
-        logger.debug(`Job completed: ${jobType} - ${job.id}`);
-      });
+        logger.debug(`Job completed: ${jobType} - ${job.id}`)
+      })
 
       queue.on('failed', (job, err) => {
-        logger.error(`Job failed: ${jobType} - ${job.id}`, { error: err });
-      });
+        logger.error(`Job failed: ${jobType} - ${job.id}`, { error: err })
+      })
 
-      this.queues.set(jobType, queue);
+      this.queues.set(jobType, queue)
     }
 
-    return queue;
+    return queue
   }
 
   /**
@@ -127,10 +127,10 @@ class QueueService {
     data: IJobData,
     options?: IJobOptions
   ): Promise<Queue.Job> {
-    const queue = this.queues.get(jobType);
+    const queue = this.queues.get(jobType)
 
     if (!queue) {
-      throw new Error(`Queue not found: ${jobType}`);
+      throw new Error(`Queue not found: ${jobType}`)
     }
 
     const jobOptions: any = {
@@ -141,24 +141,24 @@ class QueueService {
       },
       removeOnComplete: options?.removeOnComplete !== false,
       removeOnFail: options?.removeOnFail || false,
-    };
+    }
 
     if (options?.repeat) {
       if (options.repeat.cron) {
-        jobOptions.repeat = { cron: options.repeat.cron };
+        jobOptions.repeat = { cron: options.repeat.cron }
       } else if (options.repeat.every) {
-        jobOptions.repeat = { every: options.repeat.every };
+        jobOptions.repeat = { every: options.repeat.every }
       }
     }
 
-    const job = await queue.add(data, jobOptions);
+    const job = await queue.add(data, jobOptions)
 
     logger.info(`Job added to queue: ${jobType}`, {
       jobId: job.id,
       data: JSON.stringify(data).substring(0, 200),
-    });
+    })
 
-    return job;
+    return job
   }
 
   /**
@@ -170,10 +170,10 @@ class QueueService {
     cronExpression: string,
     options?: IJobOptions
   ): Promise<Queue.Job> {
-    const queue = this.queues.get(jobType);
+    const queue = this.queues.get(jobType)
 
     if (!queue) {
-      throw new Error(`Queue not found: ${jobType}`);
+      throw new Error(`Queue not found: ${jobType}`)
     }
 
     const job = await queue.add(data, {
@@ -187,14 +187,14 @@ class QueueService {
       },
       removeOnComplete: options?.removeOnComplete !== false,
       removeOnFail: options?.removeOnFail || false,
-    });
+    })
 
     logger.info(`Recurring job added: ${jobType}`, {
       jobId: job.id,
       cron: cronExpression,
-    });
+    })
 
-    return job;
+    return job
   }
 
   /**
@@ -204,43 +204,43 @@ class QueueService {
     jobType: JobType,
     handler: (job: Queue.Job) => Promise<void>
   ): Promise<void> {
-    const queue = this.queues.get(jobType);
+    const queue = this.queues.get(jobType)
 
     if (!queue) {
-      throw new Error(`Queue not found: ${jobType}`);
+      throw new Error(`Queue not found: ${jobType}`)
     }
 
     queue.process(async (job) => {
       logger.info(`Processing job: ${jobType} - ${job.id}`, {
         data: job.data,
-      });
+      })
 
       try {
-        await handler(job);
-        return { success: true };
+        await handler(job)
+        return { success: true }
       } catch (error) {
         logger.error(`Job processing failed: ${jobType} - ${job.id}`, {
           error,
-        });
-        throw error;
+        })
+        throw error
       }
-    });
+    })
 
-    logger.info(`Job processor registered: ${jobType}`);
+    logger.info(`Job processor registered: ${jobType}`)
   }
 
   /**
    * Get queue
    */
   getQueue(jobType: JobType): Queue.Queue | undefined {
-    return this.queues.get(jobType);
+    return this.queues.get(jobType)
   }
 
   /**
    * Get all queues
    */
   getAllQueues(): Map<JobType, Queue.Queue> {
-    return this.queues;
+    return this.queues
   }
 
   /**
@@ -249,32 +249,30 @@ class QueueService {
   async closeAll(): Promise<void> {
     try {
       for (const [jobType, queue] of this.queues) {
-        await queue.close();
-        logger.info(`Queue closed: ${jobType}`);
+        await queue.close()
+        logger.info(`Queue closed: ${jobType}`)
       }
-      this.queues.clear();
+      this.queues.clear()
     } catch (error) {
-      logger.error('Error closing queues', { error });
-      throw error;
+      logger.error('Error closing queues', { error })
+      throw error
     }
   }
 
   /**
    * Get queue status
    */
-  async getQueueStatus(
+  async getQueueStatus(jobType: JobType): Promise<{
     jobType: JobType
-  ): Promise<{
-    jobType: JobType;
-    active: number;
-    waiting: number;
-    completed: number;
-    failed: number;
+    active: number
+    waiting: number
+    completed: number
+    failed: number
   } | null> {
-    const queue = this.queues.get(jobType);
+    const queue = this.queues.get(jobType)
 
     if (!queue) {
-      return null;
+      return null
     }
 
     const [active, waiting, completed, failed] = await Promise.all([
@@ -282,24 +280,24 @@ class QueueService {
       queue.getWaitingCount(),
       queue.getCompletedCount(),
       queue.getFailedCount(),
-    ]);
+    ])
 
-    return { jobType, active, waiting, completed, failed };
+    return { jobType, active, waiting, completed, failed }
   }
 
   /**
    * Clear all jobs in a queue
    */
   async clearQueue(jobType: JobType): Promise<void> {
-    const queue = this.queues.get(jobType);
+    const queue = this.queues.get(jobType)
 
     if (!queue) {
-      throw new Error(`Queue not found: ${jobType}`);
+      throw new Error(`Queue not found: ${jobType}`)
     }
 
-    await queue.empty();
-    logger.info(`Queue cleared: ${jobType}`);
+    await queue.empty()
+    logger.info(`Queue cleared: ${jobType}`)
   }
 }
 
-export default QueueService;
+export default QueueService
