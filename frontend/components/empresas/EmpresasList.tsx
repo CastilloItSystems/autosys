@@ -12,6 +12,7 @@ import { motion } from "framer-motion";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 import EmpresaForm from "./EmpresaForm";
+import EmpresaRoles from "./EmpresaRoles";
 import CustomActionButtons from "../common/CustomActionButtons";
 import AuditHistoryDialog from "../common/AuditHistoryDialog";
 import { Empresa } from "@/libs/interfaces/empresaInterface";
@@ -39,6 +40,10 @@ const EmpresasList = () => {
 
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+
+  // Estado para el panel de roles dinámicos
+  const [rolesDialogVisible, setRolesDialogVisible] = useState(false);
+  const [selectedRolesEmpresa, setSelectedRolesEmpresa] = useState<Empresa | null>(null);
 
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
@@ -156,9 +161,10 @@ const EmpresasList = () => {
 
   const actionBodyTemplate = (rowData: Empresa) => {
     return (
-      <CustomActionButtons
-        rowData={rowData}
-        onInfo={async (data) => {
+      <div className="flex align-items-center gap-1">
+        <CustomActionButtons
+          rowData={rowData}
+          onInfo={async (data) => {
           setSelectedAuditEmpresa(data);
           setAuditLogsLoading(true);
           try {
@@ -178,9 +184,20 @@ const EmpresasList = () => {
           }
           setAuditDialogVisible(true);
         }}
-        onEdit={() => editEmpresa(rowData)}
-        onDelete={() => confirmDeleteEmpresa(rowData)}
-      />
+          onEdit={() => editEmpresa(rowData)}
+          onDelete={() => confirmDeleteEmpresa(rowData)}
+        />
+        <Button
+          icon="pi pi-shield"
+          className="p-button-rounded p-button-text p-button-warning"
+          onClick={() => {
+            setSelectedRolesEmpresa(rowData);
+            setRolesDialogVisible(true);
+          }}
+          tooltip="Gestionar Roles"
+          tooltipOptions={{ position: "top" }}
+        />
+      </div>
     );
   };
 
@@ -339,6 +356,19 @@ const EmpresasList = () => {
           )}
         </div>
       </Dialog>
+      {/* ── Panel de gestión de roles dinámicos ── */}
+      {selectedRolesEmpresa && (
+        <EmpresaRoles
+          visible={rolesDialogVisible}
+          onHide={() => {
+            setRolesDialogVisible(false);
+            setSelectedRolesEmpresa(null);
+          }}
+          empresaId={selectedRolesEmpresa.id_empresa}
+          empresaNombre={selectedRolesEmpresa.nombre}
+          toast={toast}
+        />
+      )}
     </motion.div>
   );
 };

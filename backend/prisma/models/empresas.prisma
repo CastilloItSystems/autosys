@@ -27,8 +27,10 @@ model Empresa {
   dprefijosrv   String?
   dprefijousr   String?
   eliminado     Boolean  @default(false)
-  users         User[]
-  
+  users            User[]
+  companyRoles     CompanyRole[]     // NEW: roles dinámicos de esta empresa
+  userEmpresaRoles UserEmpresaRole[] // NEW: asignaciones usuario-rol en esta empresa
+
   warehouses    Warehouse[]
   items         Item[]
   customers     Customer[]

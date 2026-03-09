@@ -31,7 +31,7 @@ export const usuarioSchema = object({
       message:
         "La contraseña debe tener al menos 6 caracteres si se proporciona",
     }),
-  rol: string().min(1, "Debes seleccionar un rol"),
+  rol: string().optional(),
   estado: string().min(1, "Debes seleccionar un estado"),
   acceso: string().min(1, "Debes seleccionar un acceso"),
   idEmpresas: string().array().optional(),

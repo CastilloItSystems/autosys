@@ -165,12 +165,14 @@ export async function middleware(req: NextRequest) {
   const user = token?.user;
   // console.log("user es aqui?", user);
   if (route) {
-    // Validación de rol
-    // console.log("entro aqui?");
-    const userRole = user?.rol as string;
+    // Validación de rol — normalizar a minúsculas para compatibilidad con roles dinámicos
+    // (legacy: "superAdmin", nuevo sistema: "SUPER_ADMIN")
+    const userRole = (user?.rol as string)?.toLowerCase().replace("_", "") ?? "";
     // console.log("userRole", userRole);
-    const isSuperAdmin = userRole === "superAdmin";
-    const hasRole = route.roles.includes(userRole);
+    const isSuperAdmin = userRole === "superadmin";
+    const hasRole = route.roles.some(
+      (r) => r.toLowerCase().replace("_", "") === userRole
+    );
 
     // Si es superAdmin, acceso total
     if (isSuperAdmin) {

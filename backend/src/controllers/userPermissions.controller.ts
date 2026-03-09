@@ -3,8 +3,8 @@
 
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
-import { PERMISSIONS, ROLE_PERMISSIONS, Role } from '../shared/constants/permissions.js'
-import { resolvePermissions } from '../shared/utils/resolvePermissions.js'
+import { PERMISSIONS } from '../shared/constants/permissions.js'
+import { resolvePermissionsFromBase } from '../shared/utils/resolvePermissions.js'
 
 /**
  * GET /users/:id/permissions
@@ -20,6 +20,12 @@ export const getUserPermissions = async (req: Request, res: Response) => {
         id: true,
         nombre: true,
         rol: true,
+        userEmpresaRoles: {
+          include: {
+            role: { select: { name: true, permissions: true } },
+            empresa: { select: { id_empresa: true, nombre: true } },
+          },
+        },
         userPermissions: {
           select: {
             id: true,
@@ -38,11 +44,13 @@ export const getUserPermissions = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
 
-    // Permisos base que le corresponden por su rol
-    const rolePermissions = (ROLE_PERMISSIONS[user.rol as Role] ?? []) as string[]
+    // Permisos base = unión de permissions[] de todos los CompanyRoles del usuario
+    const rolePermissions = [
+      ...new Set(user.userEmpresaRoles.flatMap((uer) => uer.role.permissions)),
+    ]
 
-    // Permisos efectivos = rol base + overrides
-    const effectivePermissions = resolvePermissions(user.rol, user.userPermissions)
+    // Permisos efectivos = rol base + overrides individuales
+    const effectivePermissions = resolvePermissionsFromBase(rolePermissions, user.userPermissions)
 
     // Todos los permisos disponibles en el sistema
     const allPermissions = Object.values(PERMISSIONS) as string[]
@@ -139,6 +147,9 @@ export const setUserPermissions = async (req: Request, res: Response) => {
         id: true,
         nombre: true,
         rol: true,
+        userEmpresaRoles: {
+          include: { role: { select: { permissions: true } } },
+        },
         userPermissions: {
           select: { permission: true, action: true, reason: true },
           orderBy: { permission: 'asc' },
@@ -146,8 +157,11 @@ export const setUserPermissions = async (req: Request, res: Response) => {
       },
     })
 
-    const effectivePermissions = resolvePermissions(
-      updatedUser!.rol,
+    const basePermissions = [
+      ...new Set(updatedUser!.userEmpresaRoles.flatMap((uer) => uer.role.permissions)),
+    ]
+    const effectivePermissions = resolvePermissionsFromBase(
+      basePermissions,
       updatedUser!.userPermissions
     )
 

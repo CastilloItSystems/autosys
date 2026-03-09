@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import prisma from '../services/prisma.service.js'
 import { generateToken } from '../services/jwt.service.js'
-import { resolvePermissions } from '../shared/utils/resolvePermissions.js'
+import { resolvePermissionsFromBase } from '../shared/utils/resolvePermissions.js'
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -14,11 +14,17 @@ export const login = async (req: Request, res: Response) => {
         .json({ error: 'Correo y contraseña son requeridos' })
     }
 
-    // Buscar usuario por correo incluyendo overrides de permisos
+    // Buscar usuario incluyendo roles dinámicos por empresa y overrides individuales
     const user = await prisma.user.findUnique({
       where: { correo },
       include: {
-        empresas: true,
+        userEmpresaRoles: {
+          include: {
+            role: {
+              select: { name: true, permissions: true },
+            },
+          },
+        },
         userPermissions: {
           select: { permission: true, action: true },
         },
@@ -29,36 +35,39 @@ export const login = async (req: Request, res: Response) => {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
-    // Verificar si el usuario está eliminado
     if (user.eliminado) {
       return res.status(401).json({ error: 'Usuario inactivo' })
     }
 
-    // Verificar estado
     if (user.estado !== 'activo') {
       return res.status(401).json({ error: 'Usuario inactivo o pendiente de activación' })
     }
 
-    // Verificar contraseña
     const isValidPassword = bcrypt.compareSync(password, user.password)
     if (!isValidPassword) {
       return res.status(401).json({ error: 'Credenciales inválidas' })
     }
 
-    // Resolver permisos efectivos: rol base + overrides individuales
-    const permissions = resolvePermissions(user.rol, user.userPermissions)
+    // Resolver permisos: unión de permissions[] de todos los roles del usuario + overrides individuales
+    const basePermissions = user.userEmpresaRoles.flatMap((uer) => uer.role.permissions)
+    const permissions = resolvePermissionsFromBase(basePermissions, user.userPermissions)
 
-    // Generar token JWT con permisos incluidos
+    // Determinar el role field del JWT (SUPER_ADMIN tiene acceso total)
+    const isSuperAdmin = user.userEmpresaRoles.some((uer) => uer.role.name === 'SUPER_ADMIN')
+    const jwtRole = isSuperAdmin
+      ? 'SUPER_ADMIN'
+      : (user.userEmpresaRoles[0]?.role.name ?? user.rol) // fallback al campo legacy
+
     const token = generateToken({
       userId: user.id,
       email: user.correo,
-      role: user.rol,
+      role: jwtRole,
       access: user.acceso,
       permissions,
     })
 
-    // Remover password y tokens sensibles del response
-    const { password: _, userPermissions, ...userWithoutPassword } = user
+    // Remover campos sensibles del response
+    const { password: _, userPermissions, userEmpresaRoles, ...userWithoutPassword } = user
 
     res.json({
       message: 'Login exitoso',
@@ -82,7 +91,6 @@ export const register = async (req: Request, res: Response) => {
       })
     }
 
-    // Verificar si el correo ya existe
     const existingUser = await prisma.user.findUnique({
       where: { correo },
     })
@@ -91,11 +99,10 @@ export const register = async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'El correo ya está registrado' })
     }
 
-    // Hash de la contraseña
     const salt = bcrypt.genSaltSync(10)
     const hashedPassword = bcrypt.hashSync(password, salt)
 
-    // Crear usuario (sin permisos individuales aún)
+    // Crear usuario (sin empresa ni rol asignado aún — el admin lo asigna después)
     const newUser = await prisma.user.create({
       data: {
         nombre,
@@ -108,19 +115,15 @@ export const register = async (req: Request, res: Response) => {
       },
     })
 
-    // Permisos base del rol (sin overrides porque recién se creó)
-    const permissions = resolvePermissions(newUser.rol, [])
-
-    // Generar token JWT
+    // Usuario recién creado no tiene empresa ni rol dinámico aún → permisos vacíos
     const token = generateToken({
       userId: newUser.id,
       email: newUser.correo,
       role: newUser.rol,
       access: newUser.acceso,
-      permissions,
+      permissions: [],
     })
 
-    // Remover password del response
     const { password: _, ...userWithoutPassword } = newUser
 
     res.status(201).json({
@@ -143,6 +146,12 @@ export const getProfile = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: {
+        userEmpresaRoles: {
+          include: {
+            empresa: { select: { id_empresa: true, nombre: true } },
+            role: { select: { id: true, name: true, permissions: true } },
+          },
+        },
         userPermissions: {
           select: { permission: true, action: true, reason: true },
         },
@@ -153,8 +162,8 @@ export const getProfile = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
 
-    // Incluir permisos efectivos en el perfil
-    const effectivePermissions = resolvePermissions(user.rol, user.userPermissions)
+    const basePermissions = user.userEmpresaRoles.flatMap((uer) => uer.role.permissions)
+    const effectivePermissions = resolvePermissionsFromBase(basePermissions, user.userPermissions)
 
     const { password, ...userWithoutPassword } = user
 
@@ -169,8 +178,6 @@ export const getProfile = async (req: Request, res: Response) => {
 }
 
 export const logout = async (req: Request, res: Response) => {
-  // En una implementación real, aquí podrías invalidar el token
-  // agregándolo a una lista negra en Redis o base de datos
   res.json({ message: 'Logout exitoso' })
 }
 
@@ -194,7 +201,6 @@ export const changePassword = async (req: Request, res: Response) => {
         .json({ error: 'La nueva contraseña debe tener al menos 6 caracteres' })
     }
 
-    // Obtener usuario
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
     })
@@ -203,20 +209,14 @@ export const changePassword = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Usuario no encontrado' })
     }
 
-    // Verificar contraseña actual
-    const isValidCurrentPassword = bcrypt.compareSync(
-      currentPassword,
-      user.password
-    )
+    const isValidCurrentPassword = bcrypt.compareSync(currentPassword, user.password)
     if (!isValidCurrentPassword) {
       return res.status(400).json({ error: 'Contraseña actual incorrecta' })
     }
 
-    // Hash de la nueva contraseña
     const salt = bcrypt.genSaltSync(10)
     const hashedNewPassword = bcrypt.hashSync(newPassword, salt)
 
-    // Actualizar contraseña
     await prisma.user.update({
       where: { id: req.user.userId },
       data: { password: hashedNewPassword },

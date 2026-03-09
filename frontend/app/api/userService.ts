@@ -32,6 +32,40 @@ export const getAuditLogsForUser = async (id: string) => {
   return response.data;
 };
 
+// ── Permisos individuales ──────────────────────────────────────────────────
+
+export interface PermissionOverride {
+  id?: string;
+  permission: string;
+  action: "GRANT" | "REVOKE";
+  reason?: string;
+}
+
+export interface UserPermissionsResponse {
+  userId: string;
+  userName: string;
+  role: string;
+  rolePermissions: string[];
+  effectivePermissions: string[];
+  overrides: PermissionOverride[];
+  allPermissions: string[];
+}
+
+export const getUserPermissions = async (
+  id: string
+): Promise<UserPermissionsResponse> => {
+  const response = await apiClient.get(`/users/${id}/permissions`);
+  return response.data;
+};
+
+export const setUserPermissions = async (
+  id: string,
+  overrides: Omit<PermissionOverride, "id">[]
+): Promise<{ effectivePermissions: string[]; overrides: PermissionOverride[] }> => {
+  const response = await apiClient.put(`/users/${id}/permissions`, { overrides });
+  return response.data;
+};
+
 export const loginUser = async (data: any) => {
   const response = await apiClient.post("/auth/login", data);
   return response.data;

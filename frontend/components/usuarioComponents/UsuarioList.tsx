@@ -13,6 +13,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 
 import UsuarioForm from "./UsuarioForm";
 import UsuarioChangePasswordForm from "./UsuarioChangePasswordForm";
+import UsuarioPermisos from "./UsuarioPermisos";
 import CustomActionButtons from "../common/CustomActionButtons";
 import AuditHistoryDialog from "../common/AuditHistoryDialog";
 import { Usuario } from "@/libs/interfaces";
@@ -42,6 +43,11 @@ const UsuarioList = () => {
 
   const [auditLogs, setAuditLogs] = useState<any[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
+
+  // Estado para el panel de permisos
+  const [permisosDialogVisible, setPermisosDialogVisible] = useState(false);
+  const [selectedPermisosUsuario, setSelectedPermisosUsuario] =
+    useState<Usuario | null>(null);
 
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
@@ -214,6 +220,16 @@ const UsuarioList = () => {
           tooltip="Cambiar Contraseña"
           tooltipOptions={{ position: "top" }}
         />
+        <Button
+          icon="pi pi-shield"
+          className="p-button-rounded p-button-text p-button-warning"
+          onClick={() => {
+            setSelectedPermisosUsuario(rowData);
+            setPermisosDialogVisible(true);
+          }}
+          tooltip="Gestionar Permisos"
+          tooltipOptions={{ position: "top" }}
+        />
       </div>
     );
   };
@@ -281,55 +297,35 @@ const UsuarioList = () => {
             style={{ minWidth: "150px" }}
           ></Column>
           <Column
-            field="rol"
-            header="Rol"
-            sortable
-            body={(rowData) => (
-              <span
-                className={`customer-badge status-${
-                  rowData.rol?.toLowerCase() || "new"
-                }`}
-              >
-                {rowData.rol}
-              </span>
-            )}
-            style={{ minWidth: "120px" }}
-          ></Column>
-          <Column
-            field="departamento"
-            header="Departamento"
-            sortable
-            body={(rowData: Usuario) =>
-              rowData.departamento && Array.isArray(rowData.departamento)
-                ? rowData.departamento.join(", ")
-                : rowData.departamento || "-"
-            }
-            style={{ minWidth: "200px" }}
+            header="Empresa / Rol"
+            body={(rowData) => {
+              if (rowData.userEmpresaRoles?.length > 0) {
+                return (
+                  <div className="flex flex-column gap-1">
+                    {rowData.userEmpresaRoles.map((uer: any) => (
+                      <div key={uer.empresaId} className="flex align-items-center gap-2">
+                        <span className="text-500 text-xs">{uer.empresa?.nombre}</span>
+                        <Tag value={uer.role?.name} severity="info" />
+                      </div>
+                    ))}
+                  </div>
+                );
+              }
+              return <Tag value={rowData.rol || "Sin rol"} severity="secondary" />;
+            }}
+            style={{ minWidth: "220px" }}
           ></Column>
           <Column
             field="acceso"
             header="Acceso"
             sortable
-            body={(rowData) => (
-              <span
-                className={`customer-badge status-${
-                  rowData.acceso === "completo" ? "qualified" : "proposal"
-                }`}
-              >
-                {rowData.acceso}
-              </span>
-            )}
-            style={{ minWidth: "120px" }}
-          ></Column>
-          <Column
-            field="empresas"
-            header="Empresas"
-            body={(rowData: Usuario) =>
-              rowData.empresas && rowData.empresas.length > 0
-                ? rowData.empresas.map((empresa) => empresa.nombre).join(", ")
-                : "Sin acceso"
-            }
-            style={{ minWidth: "200px" }}
+            body={(rowData) => {
+              const severity =
+                rowData.acceso === "completo" ? "success" :
+                rowData.acceso === "limitado" ? "warning" : "secondary";
+              return <Tag value={rowData.acceso} severity={severity} />;
+            }}
+            style={{ minWidth: "110px" }}
           ></Column>
           <Column
             field="estado"
@@ -437,6 +433,20 @@ const UsuarioList = () => {
           )}
         </div>
       </Dialog>
+
+      {/* ── Panel de gestión de permisos ── */}
+      {selectedPermisosUsuario && (
+        <UsuarioPermisos
+          visible={permisosDialogVisible}
+          onHide={() => {
+            setPermisosDialogVisible(false);
+            setSelectedPermisosUsuario(null);
+          }}
+          userId={selectedPermisosUsuario.id}
+          userName={selectedPermisosUsuario.nombre}
+          toast={toast}
+        />
+      )}
     </motion.div>
   );
 };

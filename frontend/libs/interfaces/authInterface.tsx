@@ -23,11 +23,18 @@ interface User {
   email: string;
 }
 
+// Información de rol dinámico por empresa para un usuario
+export interface UserEmpresaRoleInfo {
+  empresaId: string;
+  empresa: { id_empresa: string; nombre: string };
+  role: { id: string; name: string; permissions: string[] };
+}
+
 export interface Usuario {
   id: string;
   nombre: string;
   correo: string;
-  rol: string;
+  rol?: string; // campo legacy — se mantiene durante transición
   acceso: string;
   estado: string;
   createdBy: UserReference;
@@ -38,6 +45,7 @@ export interface Usuario {
   idRefineria?: Refineria[];
   idAutoSys?: AutoSys[];
   empresas?: Empresa[];
+  userEmpresaRoles?: UserEmpresaRoleInfo[]; // NEW: roles dinámicos por empresa
 
   departamento?: string[];
 

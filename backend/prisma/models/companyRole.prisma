@@ -1,0 +1,28 @@
+// backend/prisma/models/companyRole.prisma
+// Roles dinámicos por empresa. Reemplazan el enum Role estático.
+
+model CompanyRole {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+
+  // Empresa dueña de este rol
+  empresaId   String
+  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  // Permisos que tiene este rol (strings del catálogo de 47 permisos)
+  permissions String[]
+
+  // isSystem: true en roles creados desde ROLE_PERMISSIONS base.
+  // Protege contra borrado accidental, pero el admin puede editar sus permisos.
+  isSystem    Boolean  @default(false)
+
+  userEmpresaRoles UserEmpresaRole[]
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([name, empresaId])
+  @@map("company_roles")
+  @@index([empresaId])
+}

@@ -5,18 +5,19 @@ import prisma from '../services/prisma.service.js'
 export const getAllUsers = async (req: Request, res: Response) => {
   try {
     const users = await prisma.user.findMany({
-      where: {
-        eliminado: false,
-      },
+      where: { eliminado: false },
       include: {
-        empresas: true,
+        empresas: true, // mantenido para compatibilidad durante transición
+        userEmpresaRoles: {
+          include: {
+            empresa: { select: { id_empresa: true, nombre: true } },
+            role: { select: { id: true, name: true } },
+          },
+        },
       },
     })
 
-    res.json({
-      total: users.length,
-      users,
-    })
+    res.json({ total: users.length, users })
   } catch (error) {
     res.status(500).json({ error: 'Hubo un error al obtener los usuarios.' })
   }
@@ -24,9 +25,11 @@ export const getAllUsers = async (req: Request, res: Response) => {
 
 export const createUser = async (req: Request, res: Response) => {
   try {
-    const { password, idEmpresas, ...userData } = req.body
-    const currentUserId =
-      (req as any).user?.userId || (req as any).user?.id || null
+    // empresaRoles: [{ empresaId, roleId }] — nuevo formato dinámico
+    // idEmpresas: string[] — formato legacy, mantenido para compatibilidad
+    const { password, idEmpresas, empresaRoles, ...userData } = req.body
+    const currentUserId = (req as any).user?.userId || (req as any).user?.id || null
+    const assignedBy = currentUserId
 
     if (!password) {
       return res.status(400).json({ error: 'La contraseña es obligatoria.' })
@@ -35,29 +38,31 @@ export const createUser = async (req: Request, res: Response) => {
     const salt = bcrypt.genSaltSync(10)
     const hashedPassword = bcrypt.hashSync(password, salt)
 
-    const data: any = {
-      ...userData,
-      password: hashedPassword,
-    }
+    const data: any = { ...userData, password: hashedPassword }
 
-    // Manejar relación de empresas
-    if (Array.isArray(idEmpresas)) {
+    // Conectar empresas legacy (many-to-many, para compatibilidad)
+    if (Array.isArray(idEmpresas) && idEmpresas.length > 0) {
       data.empresas = {
         connect: idEmpresas.map((empId: string) => ({ id_empresa: empId })),
       }
     }
 
-    // Ejecutar creación y auditoría en transacción
     const newUser = await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
         data,
-        include: {
-          empresas: true,
-        },
+        include: { empresas: true },
       })
 
-      // Crear registro de auditoría para la creación
-      const cleanNew = { ...user, password: '[HIDDEN]' }
+      // Crear asignaciones de rol dinámico por empresa
+      if (Array.isArray(empresaRoles) && empresaRoles.length > 0) {
+        for (const { empresaId, roleId } of empresaRoles) {
+          if (empresaId && roleId) {
+            await tx.userEmpresaRole.create({
+              data: { userId: user.id, empresaId, roleId, assignedBy },
+            })
+          }
+        }
+      }
 
       await tx.auditLog.create({
         data: {
@@ -65,10 +70,7 @@ export const createUser = async (req: Request, res: Response) => {
           entityId: user.id,
           action: 'CREATE',
           userId: currentUserId,
-          changes: {
-            before: {},
-            after: cleanNew,
-          },
+          changes: { before: {}, after: { ...user, password: '[HIDDEN]' } },
         },
       })
 
@@ -103,14 +105,13 @@ export const getUserById = async (req: Request, res: Response) => {
 
 export const updateUser = async (req: Request, res: Response) => {
   const { id } = req.params
-  const { password, idEmpresas, ...userData } = req.body
-  const currentUserId =
-    (req as any).user?.userId || (req as any).user?.id || null
+  const { password, idEmpresas, empresaRoles, ...userData } = req.body
+  const currentUserId = (req as any).user?.userId || (req as any).user?.id || null
 
   try {
     const oldUser = await prisma.user.findUnique({
       where: { id: String(id) },
-      include: { empresas: true },
+      include: { empresas: true, userEmpresaRoles: true },
     })
 
     if (!oldUser) {
@@ -124,7 +125,6 @@ export const updateUser = async (req: Request, res: Response) => {
       data.password = bcrypt.hashSync(password, salt)
     }
 
-    // Manejar relación de empresas
     if (Array.isArray(idEmpresas)) {
       data.empresas = {
         set: idEmpresas.map((empId: string) => ({ id_empresa: empId })),
@@ -135,13 +135,21 @@ export const updateUser = async (req: Request, res: Response) => {
       const user = await tx.user.update({
         where: { id: String(id) },
         data,
-        include: {
-          empresas: true,
-        },
+        include: { empresas: true },
       })
 
-      const cleanOld = { ...oldUser, password: '[HIDDEN]' }
-      const cleanNew = { ...user, password: '[HIDDEN]' }
+      // Actualizar asignaciones de rol dinámico si se envían
+      if (Array.isArray(empresaRoles)) {
+        for (const { empresaId, roleId } of empresaRoles) {
+          if (empresaId && roleId) {
+            await tx.userEmpresaRole.upsert({
+              where: { userId_empresaId: { userId: String(id), empresaId } },
+              create: { userId: String(id), empresaId, roleId, assignedBy: currentUserId },
+              update: { roleId, assignedBy: currentUserId },
+            })
+          }
+        }
+      }
 
       await tx.auditLog.create({
         data: {
@@ -150,8 +158,8 @@ export const updateUser = async (req: Request, res: Response) => {
           action: 'UPDATE',
           userId: currentUserId,
           changes: {
-            before: cleanOld,
-            after: cleanNew,
+            before: { ...oldUser, password: '[HIDDEN]' },
+            after: { ...user, password: '[HIDDEN]' },
           },
         },
       })
