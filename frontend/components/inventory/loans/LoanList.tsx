@@ -4,12 +4,14 @@ import { useState, useEffect, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
-import { Badge } from "primereact/badge";
+import { Tag } from "primereact/tag";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
+import { Message } from "primereact/message";
+import { motion } from "framer-motion";
+import { useEmpresasStore } from "@/store/empresasStore";
 import loanService, {
   Loan,
   LoanStatus,
@@ -17,90 +19,73 @@ import loanService, {
 } from "@/app/api/inventory/loanService";
 import LoanForm from "./LoanForm";
 import LoanDetail from "./LoanDetail";
-
-interface LoanListFilters {
-  status?: LoanStatus;
-  borrowerName?: string;
-}
+import LoanReturnDialog from "./LoanReturnDialog";
 
 const LoanList = () => {
+  const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
   const [loans, setLoans] = useState<Loan[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [filters, setFilters] = useState<
-    LoanListFilters & { page: number; limit: number }
-  >({
-    page: 1,
-    limit: 20,
-  });
+  const [filters, setFilters] = useState<{
+    status?: LoanStatus | null;
+    borrowerName?: string;
+    page: number;
+    limit: number;
+  }>({ page: 1, limit: 20 });
+
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  // Load loans
-  const loadLoans = async (
-    page: number,
-    limit: number,
-    status?: LoanStatus,
-    borrowerName?: string,
-  ) => {
-    setLoading(true);
+  // ── Data loading ─────────────────────────────────────────────────────────
+
+  const loadLoans = async () => {
     try {
-      const response = await loanService.getLoans(page, limit, {
-        status,
-        borrowerName,
+      setLoading(true);
+      const response = await loanService.getLoans(filters.page, filters.limit, {
+        status: filters.status || undefined,
+        borrowerName: filters.borrowerName || undefined,
       });
-      setLoans(response.data);
-      setTotalRecords(response.pagination.total);
-    } catch (error) {
-      console.error("Error loading loans:", error);
+      setLoans(Array.isArray(response.data) ? response.data : []);
+      setTotalRecords(response.pagination?.total ?? 0);
+    } catch (error: any) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "No se pudieron cargar los préstamos",
+        detail: error?.response?.data?.message || "No se pudieron cargar los préstamos",
+        life: 3000,
       });
+      setLoans([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadLoans(
-      filters.page,
-      filters.limit,
-      filters.status,
-      filters.borrowerName,
-    );
-  }, [filters.page, filters.limit, filters.status, filters.borrowerName]);
+    if (activeEmpresa) loadLoans();
+  }, [filters.page, filters.limit, filters.status, filters.borrowerName, activeEmpresa?.id_empresa]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────
 
   const handleApprove = (loan: Loan) => {
     confirmDialog({
-      message: `¿Aprobar préstamo ${loan.loanNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Aprobar el préstamo ${loan.loanNumber}?`,
+      header: "Confirmar aprobación",
+      icon: "pi pi-check-circle",
+      acceptClassName: "p-button-success",
+      acceptLabel: "Aprobar",
+      rejectLabel: "Cancelar",
       accept: async () => {
         setActionInProgress(loan.id);
         try {
           await loanService.approveLoan(loan.id);
-          toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: "Préstamo aprobado",
-          });
-          loadLoans(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.borrowerName,
-          );
-        } catch (error) {
-          toast.current?.show({
-            severity: "error",
-            summary: "Error",
-            detail: "No se pudo aprobar el préstamo",
-          });
+          toast.current?.show({ severity: "success", summary: "Aprobado", detail: `Préstamo ${loan.loanNumber} aprobado`, life: 3000 });
+          loadLoans();
+        } catch (error: any) {
+          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo aprobar", life: 4000 });
         } finally {
           setActionInProgress(null);
         }
@@ -110,30 +95,20 @@ const LoanList = () => {
 
   const handleActivate = (loan: Loan) => {
     confirmDialog({
-      message: `¿Activar préstamo ${loan.loanNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Activar el préstamo ${loan.loanNumber}? Los artículos serán descontados del stock.`,
+      header: "Confirmar activación",
+      icon: "pi pi-play",
+      acceptClassName: "p-button-success",
+      acceptLabel: "Activar",
+      rejectLabel: "Cancelar",
       accept: async () => {
         setActionInProgress(loan.id);
         try {
           await loanService.activateLoan(loan.id);
-          toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: "Préstamo activado",
-          });
-          loadLoans(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.borrowerName,
-          );
-        } catch (error) {
-          toast.current?.show({
-            severity: "error",
-            summary: "Error",
-            detail: "No se pudo activar el préstamo",
-          });
+          toast.current?.show({ severity: "success", summary: "Activado", detail: `Préstamo ${loan.loanNumber} activado`, life: 3000 });
+          loadLoans();
+        } catch (error: any) {
+          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo activar", life: 4000 });
         } finally {
           setActionInProgress(null);
         }
@@ -143,30 +118,20 @@ const LoanList = () => {
 
   const handleCancel = (loan: Loan) => {
     confirmDialog({
-      message: `¿Cancelar préstamo ${loan.loanNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Cancelar el préstamo ${loan.loanNumber}?`,
+      header: "Confirmar cancelación",
+      icon: "pi pi-times-circle",
+      acceptClassName: "p-button-danger",
+      acceptLabel: "Cancelar préstamo",
+      rejectLabel: "Volver",
       accept: async () => {
         setActionInProgress(loan.id);
         try {
           await loanService.cancelLoan(loan.id);
-          toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: "Préstamo cancelado",
-          });
-          loadLoans(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.borrowerName,
-          );
-        } catch (error) {
-          toast.current?.show({
-            severity: "error",
-            summary: "Error",
-            detail: "No se pudo cancelar el préstamo",
-          });
+          toast.current?.show({ severity: "info", summary: "Cancelado", detail: `Préstamo ${loan.loanNumber} cancelado`, life: 3000 });
+          loadLoans();
+        } catch (error: any) {
+          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo cancelar", life: 4000 });
         } finally {
           setActionInProgress(null);
         }
@@ -174,209 +139,154 @@ const LoanList = () => {
     });
   };
 
-  const handlePageChange = (e: any) => {
-    setFilters({ ...filters, page: e.page + 1, limit: e.rows });
-  };
+  // ── Templates ────────────────────────────────────────────────────────────
 
-  const handleStatusChange = (status: LoanStatus | null) => {
-    setFilters({ ...filters, status, page: 1 });
-  };
-
-  const handleBorrowerNameChange = (borrowerName: string) => {
-    setFilters({ ...filters, borrowerName, page: 1 });
-  };
-
-  const handleEdit = (loan: Loan) => {
-    setSelectedLoan(loan);
-    setIsFormOpen(true);
-  };
-
-  const handleView = (loan: Loan) => {
-    setSelectedLoan(loan);
-    setIsDetailOpen(true);
-  };
-
-  const statusOptions = Object.values(LoanStatus).map((status) => ({
-    label: LOAN_STATUS_CONFIG[status].label,
-    value: status,
-  }));
-
-  // Action template
-  const actionTemplate = (rowData: Loan) => {
-    const isOverdue = rowData.status === LoanStatus.OVERDUE;
-
-    return (
-      <div className="flex gap-2 flex-wrap">
-        {/* View button */}
-        <Button
-          icon="pi pi-eye"
-          rounded
-          text
-          severity="info"
-          onClick={() => handleView(rowData)}
-          tooltip="Ver detalles"
-          tooltipPosition="top"
-          size="small"
-          disabled={actionInProgress !== null}
-        />
-
-        {/* Edit button - only for DRAFT */}
-        {rowData.status === LoanStatus.DRAFT && (
-          <Button
-            icon="pi pi-pencil"
-            rounded
-            text
-            severity="warning"
-            onClick={() => handleEdit(rowData)}
-            tooltip="Editar"
-            tooltipPosition="top"
-            size="small"
-            disabled={actionInProgress !== null}
-          />
-        )}
-
-        {/* Approve button - only for DRAFT */}
-        {rowData.status === LoanStatus.DRAFT && (
-          <Button
-            icon="pi pi-check"
-            rounded
-            text
-            severity="success"
-            onClick={() => handleApprove(rowData)}
-            tooltip="Aprobar"
-            tooltipPosition="top"
-            size="small"
-            loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
-          />
-        )}
-
-        {/* Activate button - only for APPROVED */}
-        {rowData.status === LoanStatus.APPROVED && (
-          <Button
-            icon="pi pi-play"
-            rounded
-            text
-            severity="success"
-            onClick={() => handleActivate(rowData)}
-            tooltip="Activar"
-            tooltipPosition="top"
-            size="small"
-            loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
-          />
-        )}
-
-        {/* Cancel button - for DRAFT, APPROVED, ACTIVE, OVERDUE */}
-        {[
-          LoanStatus.DRAFT,
-          LoanStatus.APPROVED,
-          LoanStatus.ACTIVE,
-          LoanStatus.OVERDUE,
-        ].includes(rowData.status) && (
-          <Button
-            icon="pi pi-times"
-            rounded
-            text
-            severity="danger"
-            onClick={() => handleCancel(rowData)}
-            tooltip="Cancelar"
-            tooltipPosition="top"
-            size="small"
-            loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
-          />
-        )}
-      </div>
-    );
-  };
-
-  // Status template
   const statusTemplate = (rowData: Loan) => {
-    const config = LOAN_STATUS_CONFIG[rowData.status];
+    const cfg = LOAN_STATUS_CONFIG[rowData.status];
     return (
-      <div className="flex items-center gap-2">
-        <i className={config.icon}></i>
-        <Badge value={config.label} severity={config.severity as any} />
-      </div>
+      <Tag value={cfg.label} severity={cfg.severity as any} icon={cfg.icon} />
     );
   };
 
-  // Overdue indicator
   const dueDateTemplate = (rowData: Loan) => {
     const dueDate = new Date(rowData.dueDate);
     const today = new Date();
-    const isOverdue = dueDate < today && rowData.status === LoanStatus.ACTIVE;
+    const isOverdue =
+      dueDate < today &&
+      (rowData.status === LoanStatus.ACTIVE || rowData.status === LoanStatus.OVERDUE);
     const daysOverdue = isOverdue
-      ? Math.floor(
-          (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
-        )
+      ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+    const daysUntilDue = !isOverdue
+      ? Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
-    if (isOverdue) {
-      return (
-        <div className="flex items-center gap-2">
-          <span>{dueDate.toLocaleDateString()}</span>
-          <Badge
-            value={`${daysOverdue}d vencido`}
-            severity="danger"
-            className="font-bold"
-          />
-        </div>
-      );
-    }
-
-    const daysUntilDue = Math.floor(
-      (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
-    );
     return (
-      <div className="flex items-center gap-2">
-        <span>{dueDate.toLocaleDateString()}</span>
-        {daysUntilDue <= 7 && (
-          <Badge value={`${daysUntilDue}d restantes`} severity="warning" />
+      <div className="flex align-items-center gap-2">
+        <span>{dueDate.toLocaleDateString("es-VE")}</span>
+        {isOverdue && <Tag value={`${daysOverdue}d vencido`} severity="danger" />}
+        {!isOverdue && daysUntilDue <= 7 && daysUntilDue >= 0 && (
+          <Tag value={`${daysUntilDue}d restantes`} severity="warning" />
         )}
       </div>
     );
   };
 
+  const actionTemplate = (rowData: Loan) => {
+    const busy = actionInProgress !== null;
+    return (
+      <div className="flex align-items-center gap-1">
+        <Button
+          icon="pi pi-eye"
+          rounded text severity="info" size="small"
+          tooltip="Ver detalles" tooltipOptions={{ position: "top" }}
+          onClick={() => { setSelectedLoan(rowData); setIsDetailOpen(true); }}
+          disabled={busy}
+        />
+        {rowData.status === LoanStatus.DRAFT && (
+          <Button
+            icon="pi pi-pencil"
+            rounded text severity="warning" size="small"
+            tooltip="Editar" tooltipOptions={{ position: "top" }}
+            onClick={() => { setSelectedLoan(rowData); setIsFormOpen(true); }}
+            disabled={busy}
+          />
+        )}
+        {rowData.status === LoanStatus.DRAFT && (
+          <Button
+            icon="pi pi-check"
+            rounded text severity="success" size="small"
+            tooltip="Aprobar" tooltipOptions={{ position: "top" }}
+            loading={actionInProgress === rowData.id}
+            disabled={busy}
+            onClick={() => handleApprove(rowData)}
+          />
+        )}
+        {rowData.status === LoanStatus.APPROVED && (
+          <Button
+            icon="pi pi-play"
+            rounded text severity="success" size="small"
+            tooltip="Activar" tooltipOptions={{ position: "top" }}
+            loading={actionInProgress === rowData.id}
+            disabled={busy}
+            onClick={() => handleActivate(rowData)}
+          />
+        )}
+        {(rowData.status === LoanStatus.ACTIVE || rowData.status === LoanStatus.OVERDUE) && (
+          <Button
+            icon="pi pi-undo"
+            rounded text severity="info" size="small"
+            tooltip="Registrar devolución" tooltipOptions={{ position: "top" }}
+            disabled={busy}
+            onClick={() => { setSelectedLoan(rowData); setIsReturnOpen(true); }}
+          />
+        )}
+        {[LoanStatus.DRAFT, LoanStatus.APPROVED, LoanStatus.ACTIVE, LoanStatus.OVERDUE].includes(rowData.status) && (
+          <Button
+            icon="pi pi-ban"
+            rounded text severity="danger" size="small"
+            tooltip="Cancelar" tooltipOptions={{ position: "top" }}
+            loading={actionInProgress === rowData.id}
+            disabled={busy}
+            onClick={() => handleCancel(rowData)}
+          />
+        )}
+      </div>
+    );
+  };
+
+  // ── Header del DataTable ─────────────────────────────────────────────────
+
+  const statusOptions = [
+    { label: "Todos los estados", value: null },
+    ...Object.values(LoanStatus).map((s) => ({
+      label: LOAN_STATUS_CONFIG[s].label,
+      value: s,
+    })),
+  ];
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <h4 className="m-0">Gestión de Préstamos</h4>
+      <div className="flex flex-wrap gap-2 align-items-center">
+        <Dropdown
+          options={statusOptions}
+          value={filters.status ?? null}
+          onChange={(e) => setFilters({ ...filters, status: e.value, page: 1 })}
+          placeholder="Todos los estados"
+          className="w-14rem"
+          showClear={!!filters.status}
+        />
+        <Button
+          label="Nuevo Préstamo"
+          icon="pi pi-plus"
+          disabled={!activeEmpresa}
+          onClick={() => { setSelectedLoan(null); setIsFormOpen(true); }}
+        />
+      </div>
+    </div>
+  );
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <ConfirmDialog />
 
-      <div className="space-y-4">
-        {/* Toolbar */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            label="Nuevo Préstamo"
-            icon="pi pi-plus"
-            onClick={() => {
-              setSelectedLoan(null);
-              setIsFormOpen(true);
-            }}
-            severity="success"
-          />
+      {!activeEmpresa && (
+        <Message
+          severity="warn"
+          className="w-full mb-3"
+          text="Selecciona una empresa desde el menú superior para ver los préstamos."
+        />
+      )}
 
-          <Dropdown
-            options={[
-              { label: "Todos los estados", value: null },
-              ...statusOptions,
-            ]}
-            value={filters.status || null}
-            onChange={(e) => handleStatusChange(e.value)}
-            placeholder="Filtrar por estado"
-            className="w-full md:w-48"
-          />
-
-          <InputText
-            placeholder="Buscar por prestatario..."
-            value={filters.borrowerName || ""}
-            onChange={(e) => handleBorrowerNameChange(e.target.value)}
-            className="w-full md:flex-1"
-          />
-        </div>
-
-        {/* Data Table */}
+      <div className="card">
         <DataTable
           value={loans}
           loading={loading}
@@ -384,38 +294,39 @@ const LoanList = () => {
           rows={filters.limit}
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
-          onPage={handlePageChange}
+          onPage={(e) => setFilters({ ...filters, page: e.page + 1, limit: e.rows })}
+          rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"
           stripedRows
-          responsive
-          className="w-full"
+          scrollable
+          header={header}
+          emptyMessage="No se encontraron préstamos."
+          size="small"
         >
+          <Column body={actionTemplate} style={{ minWidth: "180px" }} />
+          <Column field="loanNumber" header="Nº Préstamo" sortable style={{ minWidth: "140px" }} />
+          <Column field="borrowerName" header="Prestatario" style={{ minWidth: "160px" }} />
           <Column
-            field="loanNumber"
-            header="Nº Préstamo"
-            style={{ width: "12%" }}
+            field="purpose"
+            header="Propósito"
+            style={{ minWidth: "180px" }}
+            body={(r) => (
+              <span
+                className="overflow-hidden white-space-nowrap block"
+                style={{ maxWidth: "180px", textOverflow: "ellipsis" }}
+              >
+                {r.purpose}
+              </span>
+            )}
           />
+          <Column header="Estado" body={statusTemplate} style={{ minWidth: "160px" }} />
+          <Column header="Fecha Devolución" body={dueDateTemplate} style={{ minWidth: "190px" }} />
           <Column
-            field="borrowerName"
-            header="Prestatario"
-            style={{ width: "18%" }}
-          />
-          <Column field="purpose" header="Propósito" style={{ width: "20%" }} />
-          <Column
-            header="Estado"
-            body={statusTemplate}
-            style={{ width: "15%" }}
-          />
-          <Column
-            header="Fecha de Devolución"
-            body={dueDateTemplate}
-            style={{ width: "18%" }}
-          />
-          <Column
-            header="Acciones"
-            body={actionTemplate}
-            style={{ width: "17%" }}
-            align="center"
+            header="Creado"
+            field="createdAt"
+            sortable
+            style={{ minWidth: "120px" }}
+            body={(r) => new Date(r.createdAt).toLocaleDateString("es-VE")}
           />
         </DataTable>
       </div>
@@ -423,36 +334,64 @@ const LoanList = () => {
       {/* Form Dialog */}
       <Dialog
         visible={isFormOpen}
-        onHide={() => setIsFormOpen(false)}
-        header={selectedLoan ? "Editar Préstamo" : "Nuevo Préstamo"}
+        onHide={() => { setIsFormOpen(false); setSelectedLoan(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-file-edit text-primary text-2xl" />
+            <span className="text-xl font-semibold">
+              {selectedLoan ? "Editar Préstamo" : "Nuevo Préstamo"}
+            </span>
+          </div>
+        }
         modal
-        style={{ width: "90vw", maxWidth: "800px" }}
+        style={{ width: "90vw", maxWidth: "820px" }}
       >
         <LoanForm
-          loan={selectedLoan}
-          onSuccess={() => {
-            setIsFormOpen(false);
-            loadLoans(
-              filters.page,
-              filters.limit,
-              filters.status,
-              filters.borrowerName,
-            );
-          }}
+          loan={selectedLoan ?? undefined}
+          onSuccess={() => { setIsFormOpen(false); loadLoans(); }}
+          onCancel={() => { setIsFormOpen(false); setSelectedLoan(null); }}
         />
       </Dialog>
 
       {/* Detail Dialog */}
       <Dialog
         visible={isDetailOpen}
-        onHide={() => setIsDetailOpen(false)}
-        header={`Préstamo ${selectedLoan?.loanNumber}`}
+        onHide={() => { setIsDetailOpen(false); setSelectedLoan(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-info-circle text-primary text-2xl" />
+            <span className="text-xl font-semibold">
+              Préstamo {selectedLoan?.loanNumber}
+            </span>
+          </div>
+        }
         modal
-        style={{ width: "90vw", maxWidth: "800px" }}
+        style={{ width: "90vw", maxWidth: "820px" }}
       >
-        {selectedLoan && <LoanDetail loan={selectedLoan} />}
+        {selectedLoan && (
+          <LoanDetail
+            loan={selectedLoan}
+            onReturn={() => { setIsDetailOpen(false); setIsReturnOpen(true); }}
+            onRefresh={loadLoans}
+          />
+        )}
       </Dialog>
-    </>
+
+      {/* Return Dialog */}
+      {selectedLoan && (
+        <LoanReturnDialog
+          visible={isReturnOpen}
+          loan={selectedLoan}
+          onHide={() => setIsReturnOpen(false)}
+          onSuccess={() => {
+            setIsReturnOpen(false);
+            toast.current?.show({ severity: "success", summary: "Éxito", detail: "Devolución registrada correctamente", life: 3000 });
+            loadLoans();
+          }}
+          toast={toast}
+        />
+      )}
+    </motion.div>
   );
 };
 

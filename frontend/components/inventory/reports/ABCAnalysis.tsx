@@ -8,10 +8,8 @@ import { Chart } from 'primereact/chart';
 import { Skeleton } from 'primereact/skeleton';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
-import { Button } from 'primereact/button';
 import { motion } from 'framer-motion';
 import { getABCAnalysis, ABCItem, ABCClassification } from '@/app/api/inventory/analyticsService';
-import ReportsTable from './ReportsTable';
 import { LayoutContext } from '@/layout/context/layoutcontext';
 
 const ABCAnalysis = () => {
@@ -56,7 +54,6 @@ const ABCAnalysis = () => {
   };
 
   const initializeParetoChart = () => {
-    // Prepare data for Pareto chart
     const sortedItems = [...items].sort(
       (a, b) => b.totalMovementValue - a.totalMovementValue
     );
@@ -166,10 +163,10 @@ const ABCAnalysis = () => {
   };
 
   const recommendationTemplate = (rowData: ABCItem) => (
-    <div className="space-y-1">
+    <div className="flex flex-column gap-1">
       {rowData.recommendations &&
         rowData.recommendations.slice(0, 2).map((rec, idx) => (
-          <p key={idx} className="text-xs text-gray-600 dark:text-gray-400">
+          <p key={idx} className="text-xs text-500 m-0">
             • {rec}
           </p>
         ))}
@@ -177,18 +174,8 @@ const ABCAnalysis = () => {
   );
 
   const columns = [
-    {
-      field: 'itemName',
-      header: 'Artículo',
-      width: '20%',
-      sortable: true,
-    },
-    {
-      field: 'sku',
-      header: 'SKU',
-      width: '12%',
-      sortable: true,
-    },
+    { field: 'itemName', header: 'Artículo', width: '20%', sortable: true },
+    { field: 'sku', header: 'SKU', width: '12%', sortable: true },
     {
       field: 'totalMovementValue',
       header: 'Valor Total',
@@ -234,7 +221,7 @@ const ABCAnalysis = () => {
 
   if (loading && !chartData) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-column gap-3">
         <Card>
           <Skeleton height="300px" />
         </Card>
@@ -243,69 +230,41 @@ const ABCAnalysis = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-column gap-4">
       <Toast ref={toast} />
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0 }}
-          >
-            <Card className="text-center">
-              <p className="text-gray-500 text-sm">Total Artículos</p>
-              <p className="text-3xl font-bold text-blue-600">
-                {summary.totalItems}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="text-center">
-              <p className="text-gray-500 text-sm">Clase A</p>
-              <p className="text-3xl font-bold text-green-600">
-                {summary.classA}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="text-center">
-              <p className="text-gray-500 text-sm">Clase B</p>
-              <p className="text-3xl font-bold text-yellow-600">
-                {summary.classB}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="text-center">
-              <p className="text-gray-500 text-sm">Clase C</p>
-              <p className="text-3xl font-bold text-red-600">
-                {summary.classC}
-              </p>
-            </Card>
-          </motion.div>
+        <div className="grid">
+          {[
+            { label: 'Total Artículos', value: summary.totalItems, color: 'var(--blue-500)' },
+            { label: 'Clase A', value: summary.classA, color: 'var(--green-500)' },
+            { label: 'Clase B', value: summary.classB, color: 'var(--yellow-500)' },
+            { label: 'Clase C', value: summary.classC, color: 'var(--red-500)' },
+          ].map((item, index) => (
+            <div key={item.label} className="col-12 md:col-6 lg:col-3">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card>
+                  <div className="text-center">
+                    <p className="text-500 text-sm m-0 mb-2">{item.label}</p>
+                    <p className="text-4xl font-bold m-0" style={{ color: item.color }}>
+                      {item.value}
+                    </p>
+                  </div>
+                </Card>
+              </motion.div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Pareto Chart */}
       {chartData && (
-        <Card title="Análisis de Pareto - Clasificación ABC" className="shadow-lg">
+        <Card title="Análisis de Pareto - Clasificación ABC">
           <div style={{ height: '400px' }}>
             <Chart
               type="bar"
@@ -313,16 +272,16 @@ const ABCAnalysis = () => {
               options={chartOptions}
             />
           </div>
-          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400 space-y-2">
-            <p>
+          <div className="mt-3 flex flex-column gap-2">
+            <p className="text-sm text-500 m-0">
               <strong>Clase A:</strong> Los 20% de artículos que representan el 80% del valor total.
               Requieren control estricto y pronóstico de demanda.
             </p>
-            <p>
+            <p className="text-sm text-500 m-0">
               <strong>Clase B:</strong> Los artículos intermedios que representan el 15% del valor
               total. Control estándar.
             </p>
-            <p>
+            <p className="text-sm text-500 m-0">
               <strong>Clase C:</strong> Los artículos que representan solo el 5% del valor total.
               Control simplificado.
             </p>
@@ -331,12 +290,13 @@ const ABCAnalysis = () => {
       )}
 
       {/* Data Table */}
-      <Card title="Detalles del Análisis ABC" className="shadow-lg">
+      <Card title="Detalles del Análisis ABC">
         <DataTable
           value={items}
           loading={loading}
           paginator
           rows={rows}
+          rowsPerPageOptions={[10, 20, 50]}
           first={(page - 1) * rows}
           totalRecords={totalRecords}
           onPage={(e: DataTablePageEvent) => {
@@ -345,9 +305,10 @@ const ABCAnalysis = () => {
           }}
           dataKey="itemId"
           stripedRows
-          responsiveLayout="scroll"
+          scrollable
+          size="small"
           emptyMessage="No hay datos disponibles"
-          className="w-full text-sm"
+          className="w-full"
         >
           {columns.map((col) => (
             <Column

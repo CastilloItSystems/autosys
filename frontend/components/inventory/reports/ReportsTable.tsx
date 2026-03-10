@@ -11,7 +11,7 @@ import { Toolbar } from 'primereact/toolbar';
 import { Toast } from 'primereact/toast';
 import { InputText } from 'primereact/inputtext';
 import { ReportFormat, downloadReport } from '@/app/api/inventory/reportService';
-import { format } from 'date-fns';
+import { format as formatDate } from 'date-fns';
 
 // ============================================================================
 // TYPES
@@ -81,10 +81,10 @@ const ReportsTable = ({
       const exportFilters: Record<string, any> = {};
 
       if (filters.dateFrom) {
-        exportFilters.dateFrom = format('yyyy-MM-dd', filters.dateFrom);
+        exportFilters.dateFrom = formatDate(filters.dateFrom, 'yyyy-MM-dd');
       }
       if (filters.dateTo) {
-        exportFilters.dateTo = format('yyyy-MM-dd', filters.dateTo);
+        exportFilters.dateTo = formatDate(filters.dateTo, 'yyyy-MM-dd');
       }
       if (filters.warehouseId) {
         exportFilters.warehouseId = filters.warehouseId;
@@ -122,11 +122,11 @@ const ReportsTable = ({
 
   const header = (
     <Toolbar
-      className="mb-4"
+      className="mb-3"
       left={
-        <div className="flex gap-3 items-end w-full flex-wrap">
+        <div className="flex align-items-end gap-3 flex-wrap">
           {showSearchFilter && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-column gap-1">
               <label className="text-sm font-medium">Búsqueda</label>
               <InputText
                 placeholder="Buscar..."
@@ -134,14 +134,14 @@ const ReportsTable = ({
                 onChange={(e) =>
                   onFiltersChange?.({ ...filters, search: e.target.value })
                 }
-                className="w-48"
+                style={{ width: '12rem' }}
               />
             </div>
           )}
 
           {showDateFilter && (
             <>
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-column gap-1">
                 <label className="text-sm font-medium">Desde</label>
                 <Calendar
                   value={filters.dateFrom || null}
@@ -150,11 +150,11 @@ const ReportsTable = ({
                   }
                   dateFormat="dd/mm/yy"
                   showIcon
-                  className="w-48"
+                  style={{ width: '12rem' }}
                 />
               </div>
 
-              <div className="flex flex-col gap-2">
+              <div className="flex flex-column gap-1">
                 <label className="text-sm font-medium">Hasta</label>
                 <Calendar
                   value={filters.dateTo || null}
@@ -163,14 +163,14 @@ const ReportsTable = ({
                   }
                   dateFormat="dd/mm/yy"
                   showIcon
-                  className="w-48"
+                  style={{ width: '12rem' }}
                 />
               </div>
             </>
           )}
 
           {showWarehouseFilter && warehouses.length > 0 && (
-            <div className="flex flex-col gap-2">
+            <div className="flex flex-column gap-1">
               <label className="text-sm font-medium">Almacén</label>
               <Dropdown
                 options={[{ label: 'Todos', value: '' }, ...warehouses.map((w) => ({ label: w.name, value: w.id }))]}
@@ -179,7 +179,7 @@ const ReportsTable = ({
                   onFiltersChange?.({ ...filters, warehouseId: e.value })
                 }
                 placeholder="Seleccionar almacén"
-                className="w-48"
+                style={{ width: '12rem' }}
               />
             </div>
           )}
@@ -235,12 +235,14 @@ const ReportsTable = ({
           loading={loading}
           paginator
           rows={rows}
+          rowsPerPageOptions={[10, 20, 50]}
           first={(page - 1) * rows}
           totalRecords={totalRecords}
           onPage={onPageChange}
           dataKey="id"
           stripedRows
-          responsiveLayout="scroll"
+          scrollable
+          size="small"
           emptyMessage="No hay datos disponibles"
           className="w-full"
         >
@@ -256,7 +258,7 @@ const ReportsTable = ({
           ))}
         </DataTable>
 
-        {footer && <div className="mt-4">{footer}</div>}
+        {footer && <div className="mt-3">{footer}</div>}
       </Card>
     </>
   );

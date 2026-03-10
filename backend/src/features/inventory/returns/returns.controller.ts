@@ -12,10 +12,15 @@ import {
 
 export class ReturnsController {
   getAll = asyncHandler(async (req: Request, res: Response) => {
-    const { page = 1, limit = 20 } = req.query
+    const { page = 1, limit = 20, status, type, warehouseId } = req.query
     const result = await ReturnsService.findAll(
       Number(page),
       Number(limit),
+      {
+        status: status as any,
+        type: type as string,
+        warehouseId: warehouseId as string,
+      },
       req.prisma || undefined
     )
     return ApiResponse.paginated(
@@ -67,6 +72,12 @@ export class ReturnsController {
   cancel = asyncHandler(async (req: Request, res: Response) => {
     const userId = (req as any).user?.id || 'system'
     const ret = await ReturnsService.cancel(req.params.id, userId)
+    return ApiResponse.success(res, new ReturnResponseDTO(ret))
+  })
+
+  submit = asyncHandler(async (req: Request, res: Response) => {
+    const userId = (req as any).user?.id || 'system'
+    const ret = await ReturnsService.submit(req.params.id, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 }

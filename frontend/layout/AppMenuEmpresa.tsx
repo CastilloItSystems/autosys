@@ -211,6 +211,31 @@ const AppMenuEmpresa = () => {
                   icon: "pi pi-fw pi-chart-bar",
                   to: "/empresa/inventario/reportes/pronosticos",
                 },
+                {
+                  label: "stock bajo",
+                  icon: "pi pi-fw pi-exclamation-triangle",
+                  to: "/empresa/inventario/reportes/stock-bajo",
+                },
+                {
+                  label: "stock muerto",
+                  icon: "pi pi-fw pi-times-circle",
+                  to: "/empresa/inventario/reportes/stock-muerto",
+                },
+                {
+                  label: "valoración",
+                  icon: "pi pi-fw pi-dollar",
+                  to: "/empresa/inventario/reportes/valoracion",
+                },
+                {
+                  label: "movimientos",
+                  icon: "pi pi-fw pi-exchange",
+                  to: "/empresa/inventario/reportes/movimientos",
+                },
+                {
+                  label: "salidas sin factura",
+                  icon: "pi pi-fw pi-file-excel",
+                  to: "/empresa/inventario/reportes/salidas-sin-factura",
+                },
               ],
             },
             {
@@ -483,42 +508,47 @@ const AppMenuEmpresa = () => {
                     {
                       label: "dashboard",
                       icon: "pi pi-fw pi-th-large",
-                      to: "/empresa/reportes/inventario",
+                      to: "/empresa/inventario/reportes",
                     },
                     {
                       label: "análisis abc",
                       icon: "pi pi-fw pi-chart-pie",
-                      to: "/empresa/reportes/inventario/abc",
+                      to: "/empresa/inventario/reportes/abc",
                     },
                     {
                       label: "análisis de rotación",
                       icon: "pi pi-fw pi-sync",
-                      to: "/empresa/reportes/inventario/rotacion",
+                      to: "/empresa/inventario/reportes/rotacion",
                     },
                     {
                       label: "pronósticos",
                       icon: "pi pi-fw pi-chart-bar",
-                      to: "/empresa/reportes/inventario/pronosticos",
+                      to: "/empresa/inventario/reportes/pronosticos",
                     },
                     {
                       label: "stock bajo",
                       icon: "pi pi-fw pi-exclamation-triangle",
-                      to: "/empresa/reportes/inventario/stock-bajo",
+                      to: "/empresa/inventario/reportes/stock-bajo",
                     },
                     {
                       label: "stock muerto",
                       icon: "pi pi-fw pi-times-circle",
-                      to: "/empresa/reportes/inventario/stock-muerto",
+                      to: "/empresa/inventario/reportes/stock-muerto",
                     },
                     {
                       label: "valoración",
                       icon: "pi pi-fw pi-dollar",
-                      to: "/empresa/reportes/inventario/valoracion",
+                      to: "/empresa/inventario/reportes/valoracion",
                     },
                     {
                       label: "movimientos",
                       icon: "pi pi-fw pi-exchange",
-                      to: "/empresa/reportes/inventario/movimientos",
+                      to: "/empresa/inventario/reportes/movimientos",
+                    },
+                    {
+                      label: "salidas sin factura",
+                      icon: "pi pi-fw pi-file-excel",
+                      to: "/empresa/inventario/reportes/salidas-sin-factura",
                     },
                   ],
                 },

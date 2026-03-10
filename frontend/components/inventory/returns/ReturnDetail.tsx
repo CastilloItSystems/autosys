@@ -1,163 +1,241 @@
 "use client";
 
+import { useState, useEffect } from "react";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Tag } from "primereact/tag";
+import { Divider } from "primereact/divider";
+import { Skeleton } from "primereact/skeleton";
+import { Button } from "primereact/button";
 import {
   ReturnOrder,
+  ReturnStatus,
   RETURN_STATUS_CONFIG,
   RETURN_TYPE_CONFIG,
 } from "@/app/api/inventory/returnService";
-import { Badge } from "primereact/badge";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
+import { getWarehouse, Warehouse } from "@/app/api/inventory/warehouseService";
 
 interface ReturnDetailProps {
   returnOrder: ReturnOrder;
+  onRefresh?: () => void;
 }
 
-const ReturnDetail = ({ returnOrder }: ReturnDetailProps) => {
+const ReturnDetail = ({ returnOrder, onRefresh }: ReturnDetailProps) => {
   const statusConfig = RETURN_STATUS_CONFIG[returnOrder.status];
   const typeConfig = RETURN_TYPE_CONFIG[returnOrder.type];
 
-  return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label className="font-semibold block text-gray-500">
-              Nº Devolución
-            </label>
-            <p className="text-lg font-bold">{returnOrder.returnNumber}</p>
-          </div>
-          <div>
-            <label className="font-semibold block text-gray-500">Estado</label>
-            <div className="flex items-center gap-2 mt-1">
-              <i className={statusConfig.icon}></i>
-              <Badge
-                value={statusConfig.label}
-                severity={statusConfig.severity as any}
-              />
-            </div>
-          </div>
-          <div>
-            <label className="font-semibold block text-gray-500">
-              Crear En
-            </label>
-            <p className="text-sm">
-              {new Date(returnOrder.createdAt).toLocaleDateString()}
-            </p>
-          </div>
-        </div>
+  const [warehouse, setWarehouse] = useState<Warehouse | null>(null);
+  const [warehouseLoading, setWarehouseLoading] = useState(false);
 
-        <div className="border-t pt-4" />
+  useEffect(() => {
+    if (!returnOrder.warehouseId) return;
+    const fetchWarehouse = async () => {
+      setWarehouseLoading(true);
+      try {
+        const res = await getWarehouse(returnOrder.warehouseId);
+        setWarehouse(res.data ?? null);
+      } catch {
+        // silent — fallback to raw ID
+      } finally {
+        setWarehouseLoading(false);
+      }
+    };
+    fetchWarehouse();
+  }, [returnOrder.warehouseId]);
+
+  const severityMap: Record<string, any> = {
+    secondary: "secondary",
+    warning: "warning",
+    info: "info",
+    success: "success",
+    danger: "danger",
+  };
+
+  return (
+    <div className="flex flex-column gap-4">
+
+      {/* ── Header row ───────────────────────────────────────────────── */}
+      <div className="grid">
+        <div className="col-12 md:col-4">
+          <span className="text-500 text-sm font-semibold block mb-1">Nº Devolución</span>
+          <span className="text-xl font-bold">{returnOrder.returnNumber}</span>
+        </div>
+        <div className="col-12 md:col-4">
+          <span className="text-500 text-sm font-semibold block mb-1">Estado</span>
+          <Tag
+            value={statusConfig.label}
+            severity={severityMap[statusConfig.severity] ?? "info"}
+            icon={statusConfig.icon}
+          />
+        </div>
+        <div className="col-12 md:col-4">
+          <span className="text-500 text-sm font-semibold block mb-1">Creado</span>
+          <span>{new Date(returnOrder.createdAt).toLocaleDateString("es-VE")}</span>
+        </div>
       </div>
 
-      {/* Type and Warehouse Info */}
-      <div className="space-y-2">
-        <label className="font-semibold block text-lg">
-          Información General
-        </label>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="font-semibold text-gray-500 block">
-              Tipo de Devolución
-            </label>
-            <div className="flex items-center gap-2 mt-1">
-              <i className={typeConfig.icon}></i>
+      <Divider className="my-0" />
+
+      {/* ── Información General ───────────────────────────────────────── */}
+      <div>
+        <p className="font-semibold text-lg mt-0 mb-3">Información General</p>
+        <div className="grid">
+          <div className="col-12 md:col-6">
+            <span className="text-500 text-sm font-semibold block mb-1">Tipo de Devolución</span>
+            <div className="flex align-items-center gap-2">
+              <i className={typeConfig.icon} style={{ color: typeConfig.color }} />
               <span>{typeConfig.label}</span>
             </div>
           </div>
-          <div>
-            <label className="font-semibold text-gray-500 block">Almacén</label>
-            <p>{returnOrder.warehouseId}</p>
+          <div className="col-12 md:col-6">
+            <span className="text-500 text-sm font-semibold block mb-1">Almacén</span>
+            {warehouseLoading ? (
+              <Skeleton width="120px" height="1.2rem" />
+            ) : (
+              <span>{warehouse?.name ?? returnOrder.warehouseId}</span>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Reason */}
-      <div className="space-y-2">
-        <label className="font-semibold block text-lg">Razón</label>
-        <div className="bg-gray-50 p-3 rounded border border-gray-200">
-          <p>{returnOrder.reason}</p>
+      {/* ── Razón ────────────────────────────────────────────────────── */}
+      <div>
+        <span className="text-500 text-sm font-semibold block mb-1">Razón</span>
+        <div className="surface-50 p-3 border-round border-1 surface-border">
+          <p className="m-0">{returnOrder.reason}</p>
         </div>
       </div>
 
-      {/* Approval Info */}
+      {/* ── Notas ────────────────────────────────────────────────────── */}
+      {returnOrder.notes && (
+        <div>
+          <span className="text-500 text-sm font-semibold block mb-1">Notas</span>
+          <div className="surface-50 p-3 border-round border-1 surface-border">
+            <p className="m-0 white-space-pre-wrap">{returnOrder.notes}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Aprobación ───────────────────────────────────────────────── */}
       {returnOrder.approvedAt && (
-        <div className="space-y-2">
-          <label className="font-semibold block text-lg">
-            Información de Aprobación
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="font-semibold text-gray-500 block">
-                Aprobado por
-              </label>
-              <p>{returnOrder.approvedBy || "-"}</p>
-            </div>
-            <div>
-              <label className="font-semibold text-gray-500 block">
-                Aprobado en
-              </label>
-              <p>{new Date(returnOrder.approvedAt).toLocaleDateString()}</p>
+        <>
+          <Divider className="my-0" />
+          <div>
+            <p className="font-semibold text-lg mt-0 mb-3">Información de Aprobación</p>
+            <div className="grid">
+              <div className="col-12 md:col-6">
+                <span className="text-500 text-sm font-semibold block mb-1">Aprobado por</span>
+                <span>{returnOrder.approvedBy || "—"}</span>
+              </div>
+              <div className="col-12 md:col-6">
+                <span className="text-500 text-sm font-semibold block mb-1">Aprobado en</span>
+                <span>{new Date(returnOrder.approvedAt).toLocaleString("es-VE")}</span>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Processing Info */}
+      {/* ── Procesamiento ─────────────────────────────────────────────── */}
       {returnOrder.processedAt && (
-        <div className="space-y-2">
-          <label className="font-semibold block text-lg">
-            Información de Procesamiento
-          </label>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="font-semibold text-gray-500 block">
-                Procesado por
-              </label>
-              <p>{returnOrder.processedBy || "-"}</p>
-            </div>
-            <div>
-              <label className="font-semibold text-gray-500 block">
-                Procesado en
-              </label>
-              <p>{new Date(returnOrder.processedAt).toLocaleDateString()}</p>
+        <>
+          <Divider className="my-0" />
+          <div>
+            <p className="font-semibold text-lg mt-0 mb-3">Información de Procesamiento</p>
+            <div className="grid">
+              <div className="col-12 md:col-6">
+                <span className="text-500 text-sm font-semibold block mb-1">
+                  {returnOrder.status === ReturnStatus.REJECTED ? "Rechazado por" : "Procesado por"}
+                </span>
+                <span>{returnOrder.processedBy || "—"}</span>
+              </div>
+              <div className="col-12 md:col-6">
+                <span className="text-500 text-sm font-semibold block mb-1">
+                  {returnOrder.status === ReturnStatus.REJECTED ? "Rechazado en" : "Procesado en"}
+                </span>
+                <span>{new Date(returnOrder.processedAt).toLocaleString("es-VE")}</span>
+              </div>
             </div>
           </div>
-        </div>
+        </>
       )}
 
-      {/* Items */}
-      <div className="space-y-2">
-        <label className="font-semibold block text-lg">Artículos</label>
-        <DataTable value={returnOrder.items} responsiveLayout="scroll">
-          <Column field="item.name" header="Artículo" />
-          <Column field="item.sku" header="SKU" />
-          <Column field="quantity" header="Cantidad" />
-          <Column field="unitPrice" header="Precio Unitario" />
-          <Column field="notes" header="Notas" />
+      {/* ── Artículos ────────────────────────────────────────────────── */}
+      <Divider className="my-0" />
+      <div>
+        <p className="font-semibold text-lg mt-0 mb-3">
+          Artículos ({returnOrder.items?.length ?? 0})
+        </p>
+        <DataTable
+          value={returnOrder.items ?? []}
+          size="small"
+          emptyMessage="Sin artículos registrados"
+          stripedRows
+        >
+          <Column
+            header="Artículo"
+            style={{ minWidth: "180px" }}
+            body={(r) => (
+              <div className="flex flex-column">
+                <span className="font-semibold">{r.item?.name ?? r.itemId}</span>
+                {r.item?.sku && (
+                  <span className="text-500 text-xs">{r.item.sku}</span>
+                )}
+              </div>
+            )}
+          />
+          <Column
+            field="quantity"
+            header="Cantidad"
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            header="Precio Unit."
+            style={{ minWidth: "130px" }}
+            body={(r) =>
+              r.unitPrice != null
+                ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(r.unitPrice)
+                : <span className="text-500">—</span>
+            }
+          />
+          <Column
+            header="Total"
+            style={{ minWidth: "130px" }}
+            body={(r) =>
+              r.unitPrice != null
+                ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(r.unitPrice * r.quantity)
+                : <span className="text-500">—</span>
+            }
+          />
+          <Column
+            field="notes"
+            header="Notas"
+            style={{ minWidth: "150px" }}
+            body={(r) => r.notes || <span className="text-500">—</span>}
+          />
         </DataTable>
       </div>
 
-      {/* Notes */}
-      {returnOrder.notes && (
-        <div className="space-y-2">
-          <label className="font-semibold block text-lg">Notas</label>
-          <div className="bg-gray-50 p-3 rounded border border-gray-200">
-            <p className="whitespace-pre-wrap">{returnOrder.notes}</p>
-          </div>
+      {/* ── Metadata ─────────────────────────────────────────────────── */}
+      <div className="text-xs text-500 pt-2 border-top-1 surface-border flex flex-column gap-1">
+        <span>ID: {returnOrder.id}</span>
+        <span>Creado por: {returnOrder.createdBy}</span>
+        <span>Última actualización: {new Date(returnOrder.updatedAt).toLocaleString("es-VE")}</span>
+      </div>
+
+      {/* ── Refresh button (optional) ─────────────────────────────────── */}
+      {onRefresh && (
+        <div className="flex justify-content-end">
+          <Button
+            icon="pi pi-refresh"
+            label="Actualizar"
+            severity="secondary"
+            outlined
+            size="small"
+            onClick={onRefresh}
+          />
         </div>
       )}
-
-      {/* Metadata */}
-      <div className="text-xs text-gray-500 space-y-1 pt-4 border-t">
-        <p>ID: {returnOrder.id}</p>
-        <p>Creado por: {returnOrder.createdBy}</p>
-        <p>
-          Última actualización:{" "}
-          {new Date(returnOrder.updatedAt).toLocaleString()}
-        </p>
-      </div>
     </div>
   );
 };

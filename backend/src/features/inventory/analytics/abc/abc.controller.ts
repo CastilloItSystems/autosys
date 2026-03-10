@@ -4,7 +4,7 @@
 
 import { Request, Response } from 'express'
 import { getABCAnalysis } from './abc.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/ApiResponse'
 
 export const getABCAnalysisHandler = async (
   req: Request,
@@ -13,21 +13,22 @@ export const getABCAnalysisHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getABCAnalysis(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'ABC Analysis',
-          result.summary
-        )
-      )
+    const result = await getABCAnalysis(page, limit, (req as any).prisma || undefined)
+    res.status(200).json({
+      success: true,
+      message: 'ABC Analysis',
+      data: result.data,
+      summary: result.summary,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 

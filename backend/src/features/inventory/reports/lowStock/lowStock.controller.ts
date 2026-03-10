@@ -13,7 +13,7 @@ export const getLowStockReportHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getLowStockReport(page, limit)
+    const result = await getLowStockReport(page, limit, (req as any).prisma || undefined)
     ApiResponse.paginated(
       res,
       result.data,

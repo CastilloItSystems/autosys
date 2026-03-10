@@ -8,7 +8,6 @@ import { Chart } from 'primereact/chart';
 import { Skeleton } from 'primereact/skeleton';
 import { Tag } from 'primereact/tag';
 import { Toast } from 'primereact/toast';
-import { Button } from 'primereact/button';
 import { Dropdown } from 'primereact/dropdown';
 import { ProgressBar } from 'primereact/progressbar';
 import { motion } from 'framer-motion';
@@ -103,18 +102,18 @@ const TurnoverAnalysis = () => {
     { label: 'Estático', value: TurnoverClassification.STATIC },
   ];
 
-  const getClassificationColor = (classification: TurnoverClassification) => {
+  const getClassificationConfig = (classification: TurnoverClassification) => {
     switch (classification) {
       case TurnoverClassification.FAST_MOVING:
-        return { label: 'Rápido', color: 'success', bgColor: 'bg-green-100 text-green-800' };
+        return { label: 'Rápido', color: 'success' };
       case TurnoverClassification.MODERATE:
-        return { label: 'Moderado', color: 'info', bgColor: 'bg-blue-100 text-blue-800' };
+        return { label: 'Moderado', color: 'info' };
       case TurnoverClassification.SLOW_MOVING:
-        return { label: 'Lento', color: 'warning', bgColor: 'bg-yellow-100 text-yellow-800' };
+        return { label: 'Lento', color: 'warning' };
       case TurnoverClassification.STATIC:
-        return { label: 'Estático', color: 'danger', bgColor: 'bg-red-100 text-red-800' };
+        return { label: 'Estático', color: 'danger' };
       default:
-        return { label: 'Desconocido', color: 'secondary', bgColor: 'bg-gray-100 text-gray-800' };
+        return { label: 'Desconocido', color: 'secondary' };
     }
   };
 
@@ -133,7 +132,7 @@ const TurnoverAnalysis = () => {
   };
 
   const healthScoreBody = (rowData: TurnoverMetrics) => (
-    <div className="flex items-center gap-2">
+    <div className="flex align-items-center gap-2">
       <ProgressBar
         value={rowData.healthScore}
         style={{ height: '24px', width: '100px' }}
@@ -150,18 +149,8 @@ const TurnoverAnalysis = () => {
   );
 
   const columns = [
-    {
-      field: 'itemName',
-      header: 'Artículo',
-      width: '18%',
-      sortable: true,
-    },
-    {
-      field: 'sku',
-      header: 'SKU',
-      width: '12%',
-      sortable: true,
-    },
+    { field: 'itemName', header: 'Artículo', width: '18%', sortable: true },
+    { field: 'sku', header: 'SKU', width: '12%', sortable: true },
     {
       field: 'turnoverRatio',
       header: 'Ratio de Rotación',
@@ -192,7 +181,7 @@ const TurnoverAnalysis = () => {
       header: 'Clasificación',
       width: '14%',
       body: (rowData: TurnoverMetrics) => {
-        const cfg = getClassificationColor(rowData.classification);
+        const cfg = getClassificationConfig(rowData.classification);
         return <Tag value={cfg.label} severity={cfg.color as any} />;
       },
     },
@@ -202,18 +191,18 @@ const TurnoverAnalysis = () => {
       width: '10%',
       body: (rowData: TurnoverMetrics) => {
         const icons: { [key: string]: string } = {
-          improving: 'pi pi-arrow-up text-green-600',
-          declining: 'pi pi-arrow-down text-red-600',
-          stable: 'pi pi-minus text-yellow-600',
+          improving: 'pi pi-arrow-up text-green-500',
+          declining: 'pi pi-arrow-down text-red-500',
+          stable: 'pi pi-minus text-yellow-500',
         };
-        return <i className={icons[rowData.trend]}></i>;
+        return <i className={icons[rowData.trend] ?? 'pi pi-minus text-500'}></i>;
       },
     },
   ];
 
   if (loading && !chartData) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-column gap-3">
         <Card>
           <Skeleton height="300px" />
         </Card>
@@ -222,83 +211,42 @@ const TurnoverAnalysis = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-column gap-4">
       <Toast ref={toast} />
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0 }}
-          >
-            <Card className="text-center">
-              <p className="text-gray-500 text-sm">Total Analizados</p>
-              <p className="text-3xl font-bold text-gray-700">
-                {summary.averageTurnover?.toFixed(1) || 0}x
-              </p>
-              <p className="text-xs text-gray-500 mt-1">Rotación Promedio</p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-          >
-            <Card className="text-center bg-green-50 dark:bg-green-900/20">
-              <p className="text-gray-500 text-sm">Rápido Movimiento</p>
-              <p className="text-3xl font-bold text-green-600">
-                {summary.fastMovingCount}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-          >
-            <Card className="text-center bg-blue-50 dark:bg-blue-900/20">
-              <p className="text-gray-500 text-sm">Moderado</p>
-              <p className="text-3xl font-bold text-blue-600">
-                {summary.moderateCount}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-          >
-            <Card className="text-center bg-yellow-50 dark:bg-yellow-900/20">
-              <p className="text-gray-500 text-sm">Lento Movimiento</p>
-              <p className="text-3xl font-bold text-yellow-600">
-                {summary.slowMovingCount}
-              </p>
-            </Card>
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.4 }}
-          >
-            <Card className="text-center bg-red-50 dark:bg-red-900/20">
-              <p className="text-gray-500 text-sm">Estático</p>
-              <p className="text-3xl font-bold text-red-600">
-                {summary.staticCount}
-              </p>
-            </Card>
-          </motion.div>
+        <div className="grid">
+          {[
+            { label: 'Rotación Promedio', value: `${summary.averageTurnover?.toFixed(1) || 0}x`, sub: 'Ratio promedio', color: 'var(--text-color)' },
+            { label: 'Rápido Movimiento', value: summary.fastMovingCount, color: 'var(--green-500)' },
+            { label: 'Moderado', value: summary.moderateCount, color: 'var(--blue-500)' },
+            { label: 'Lento Movimiento', value: summary.slowMovingCount, color: 'var(--yellow-500)' },
+            { label: 'Estático', value: summary.staticCount, color: 'var(--red-500)' },
+          ].map((item, index) => (
+            <div key={item.label} className="col-12 md:col-6 lg:col">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.1 }}
+              >
+                <Card>
+                  <div className="text-center">
+                    <p className="text-500 text-sm m-0 mb-2">{item.label}</p>
+                    <p className="text-4xl font-bold m-0" style={{ color: item.color }}>
+                      {item.value}
+                    </p>
+                  </div>
+                </Card>
+              </motion.div>
+            </div>
+          ))}
         </div>
       )}
 
       {/* Distribution Chart */}
       {chartData && (
-        <Card title="Distribución por Clasificación" className="shadow-lg">
+        <Card title="Distribución por Clasificación">
           <div style={{ height: '300px' }}>
             <Chart
               type="doughnut"
@@ -310,9 +258,9 @@ const TurnoverAnalysis = () => {
       )}
 
       {/* Filter and Data Table */}
-      <Card title="Análisis Detallado de Rotación" className="shadow-lg">
-        <div className="mb-4 flex gap-3">
-          <div className="flex flex-col gap-2 w-48">
+      <Card title="Análisis Detallado de Rotación">
+        <div className="mb-3 flex align-items-end gap-3">
+          <div className="flex flex-column gap-1" style={{ width: '14rem' }}>
             <label className="text-sm font-medium">Filtrar por clasificación</label>
             <Dropdown
               options={classificationOptions}
@@ -331,6 +279,7 @@ const TurnoverAnalysis = () => {
           loading={loading}
           paginator
           rows={rows}
+          rowsPerPageOptions={[10, 20, 50]}
           first={(page - 1) * rows}
           totalRecords={totalRecords}
           onPage={(e: DataTablePageEvent) => {
@@ -339,9 +288,10 @@ const TurnoverAnalysis = () => {
           }}
           dataKey="itemId"
           stripedRows
-          responsiveLayout="scroll"
+          scrollable
+          size="small"
           emptyMessage="No hay datos disponibles"
-          className="w-full text-sm"
+          className="w-full"
         >
           {columns.map((col) => (
             <Column
@@ -357,20 +307,20 @@ const TurnoverAnalysis = () => {
       </Card>
 
       {/* Legend */}
-      <Card title="Definiciones" className="text-sm text-gray-600 dark:text-gray-400">
-        <div className="space-y-2">
-          <p>
+      <Card title="Definiciones">
+        <div className="flex flex-column gap-2">
+          <p className="text-sm text-500 m-0">
             <strong>Ratio de Rotación:</strong> Número de veces que el inventario se vende y se
             reemplaza durante el período.
           </p>
-          <p>
+          <p className="text-sm text-500 m-0">
             <strong>DIO (Days Inventory Outstanding):</strong> Número de días promedio que un
             artículo permanece en inventario.
           </p>
-          <p>
+          <p className="text-sm text-500 m-0">
             <strong>Salud:</strong> Puntuación 0-100 basada en rotación, tendencia y consistencia.
           </p>
-          <p>
+          <p className="text-sm text-500 m-0">
             <strong>Clasificación:</strong> Rápido (rotación alta), Moderado (rotación media), Lento
             (rotación baja), Estático (sin movimiento reciente).
           </p>

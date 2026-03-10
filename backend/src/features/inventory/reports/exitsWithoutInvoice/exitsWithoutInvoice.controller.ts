@@ -4,7 +4,7 @@
 
 import { Request, Response } from 'express'
 import { getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/ApiResponse'
 
 export const getExitsWithoutInvoiceReportHandler = async (
   req: Request,
@@ -13,20 +13,17 @@ export const getExitsWithoutInvoiceReportHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getExitsWithoutInvoiceReport(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Exits without invoice'
-        )
-      )
+    const result = await getExitsWithoutInvoiceReport(page, limit, (req as any).prisma || undefined)
+    ApiResponse.paginated(
+      res,
+      result.data,
+      page,
+      limit,
+      result.total,
+      'Exits without invoice'
+    )
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 

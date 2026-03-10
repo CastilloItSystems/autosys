@@ -240,6 +240,22 @@ class ReturnService {
   }
 
   /**
+   * Submit a draft return for approval
+   */
+  async submitReturn(id: string): Promise<ReturnResponse> {
+    try {
+      const response = await apiClient.patch<ReturnResponse>(
+        `${this.baseUrl}/${id}/submit`,
+        {},
+      );
+      return response.data;
+    } catch (error) {
+      console.error(`Error submitting return ${id}:`, error);
+      throw error;
+    }
+  }
+
+  /**
    * Approve a pending return
    */
   async approveReturn(id: string): Promise<ReturnResponse> {

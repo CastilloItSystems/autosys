@@ -43,7 +43,7 @@ export const getMovementsReportHandler = async (
       filters.type = type
     }
 
-    const result = await getMovementsReport(filters)
+    const result = await getMovementsReport(filters, (req as any).prisma || undefined)
 
     ApiResponse.paginated(
       res,
@@ -72,7 +72,7 @@ export const getMovementsSummaryHandler = async (
     const dateFromObj = dateFrom ? new Date(dateFrom) : undefined
     const dateToObj = dateTo ? new Date(dateTo) : undefined
 
-    const summary = await getMovementsSummary(dateFromObj, dateToObj)
+    const summary = await getMovementsSummary(dateFromObj, dateToObj, (req as any).prisma || undefined)
 
     ApiResponse.success(res, summary, 'Movements summary')
   } catch (error: any) {

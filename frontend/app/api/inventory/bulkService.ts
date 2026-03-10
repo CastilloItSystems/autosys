@@ -17,9 +17,12 @@ export interface IBulkImportRequest {
 }
 
 export interface IBulkExportRequest {
-  format?: "csv" | "json" | "excel";
+  format?: "csv" | "json" | "xlsx";
   filters?: {
     categoryId?: string;
+    brandId?: string;
+    minPrice?: number;
+    maxPrice?: number;
     isActive?: boolean;
     inStock?: boolean;
   };
@@ -41,35 +44,37 @@ export interface IBulkDeleteRequest {
 }
 
 export interface IBulkValidationError {
-  row: number;
+  rowNumber: number;
   field: string;
-  message: string;
+  error: string;
   value: any;
 }
 
 export interface IBulkOperationResult {
   operationId: string;
-  type: "IMPORT" | "EXPORT" | "UPDATE" | "DELETE";
-  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
-  totalRecords?: number;
-  successCount?: number;
-  failureCount?: number;
-  skippedCount?: number;
-  errors?: IBulkValidationError[];
-  createdAt: string;
-  updatedAt: string;
+  imported: number;
+  updated: number;
+  failed: number;
+  errors?: Array<{
+    rowNumber: number;
+    field: string;
+    value: any;
+    error: string;
+  }>;
 }
 
 export interface IBulkOperation {
   id: string;
-  type: "IMPORT" | "EXPORT" | "UPDATE" | "DELETE";
+  operationType: "IMPORT" | "EXPORT" | "UPDATE" | "DELETE";
   status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
   fileName?: string;
+  fileUrl?: string;
   totalRecords: number;
-  successCount: number;
-  failureCount: number;
-  skippedCount: number;
-  errorDetails?: IBulkValidationError[];
+  processedRecords: number;
+  errorRecords: number;
+  errorDetails?: string | IBulkValidationError[];
+  startDate?: string;
+  endDate?: string;
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
@@ -175,13 +180,14 @@ export const getOperation = async (
  * Download CSV template
  */
 export const downloadTemplate = async (): Promise<Blob> => {
-  const response = await apiClient.get(
-    `/public/templates/items-import-template.csv`,
-    {
-      responseType: "blob",
-    },
-  );
-  return response.data;
+  // The template file is served from the frontend `public/templates` folder.
+  // In Next.js files placed in `public/` are available at the site root: `/templates/...`.
+  const resp = await fetch('/templates/items-import-template.csv');
+  if (!resp.ok) {
+    throw new Error(`Plantilla no encontrada (${resp.status})`);
+  }
+  const blob = await resp.blob();
+  return blob;
 };
 
 /**

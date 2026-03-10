@@ -1,0 +1,4 @@
+sku,name,category,costPrice,salePrice,minStock,barcode,unit,brand,status
+FLT-AIR-001,Filtro de Aire Bosch BA-2015,Aire,3000,4500,10,1234567890123,unidad,Bosch,Activo
+FLT-OIL-001,Filtro de Aceite Bosch OB-2016,Aceite,2200,3500,15,1234567890124,unidad,Bosch,Activo
+OIL-10W40-001,Aceite Castrol 10W40 1L,Aceite,1800,2800,20,1234567890125,unidad,Castrol,Activo

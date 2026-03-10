@@ -5,9 +5,10 @@
 import prisma from '../../../../services/prisma.service'
 
 
-export async function getExitsWithoutInvoiceReport(page = 1, limit = 50) {
+export async function getExitsWithoutInvoiceReport(page = 1, limit = 50, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
-    const exitNotes = await prisma.exitNote.findMany({
+    const exitNotes = await db.exitNote.findMany({
       include: { items: true, warehouse: true },
       where: {
         type: 'SALE',
@@ -42,7 +43,7 @@ export async function getExitsWithoutInvoiceReport(page = 1, limit = 50) {
       }
     })
 
-    const total = await prisma.exitNote.count({
+    const total = await db.exitNote.count({
       where: {
         type: 'SALE',
         preInvoiceId: null,

@@ -30,6 +30,7 @@ router.put(
   validateRequest(updateReturnSchema, 'body'),
   ReturnsController.update
 )
+router.patch('/:id/submit', ReturnsController.submit)
 router.patch('/:id/approve', ReturnsController.approve)
 router.patch('/:id/process', ReturnsController.process)
 router.patch('/:id/reject', ReturnsController.reject)

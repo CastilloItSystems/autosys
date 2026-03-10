@@ -97,7 +97,7 @@ class ForecastingService {
     const item = await prisma.item.findUnique({
       where: { id: itemId },
       include: {
-        stock: {
+        stocks: {
           include: { warehouse: true },
         },
       },
@@ -160,7 +160,7 @@ class ForecastingService {
     const confidenceLevel = Math.max(0.5, Math.min(1, 1 - variance))
 
     // Calculate stockout risk
-    const currentStock = item.stock.reduce((sum, s) => sum + s.quantityReal, 0)
+    const currentStock = item.stocks.reduce((sum, s) => sum + s.quantityReal, 0)
     const stockoutRisk = Math.max(
       0,
       Math.min(1, 1 - currentStock / forecast30Days)
@@ -236,7 +236,7 @@ class ForecastingService {
     const skip = (page - 1) * limit
 
     const items = await prisma.item.findMany({
-      where: { active: true },
+      where: { isActive: true },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -246,7 +246,7 @@ class ForecastingService {
       items.map((item) => this.getDemandForecastForItem(item.id))
     )
 
-    const total = await prisma.item.count({ where: { active: true } })
+    const total = await prisma.item.count({ where: { isActive: true } })
 
     return { data: forecasts, total }
   }

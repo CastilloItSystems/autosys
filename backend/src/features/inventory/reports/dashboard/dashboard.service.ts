@@ -47,13 +47,14 @@ export interface DashboardMetrics {
 /**
  * Get dashboard metrics
  */
-export async function getDashboardMetrics(): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(prismaClient?: any): Promise<DashboardMetrics> {
+  const db = prismaClient || prisma
   try {
     const [items, warehouses, stocks, movements] = await Promise.all([
-      prisma.item.findMany(),
-      prisma.warehouse.findMany(),
-      prisma.stock.findMany({ include: { item: true } }),
-      prisma.movement.findMany({
+      db.item.findMany(),
+      db.warehouse.findMany(),
+      db.stock.findMany({ include: { item: true } }),
+      db.movement.findMany({
         orderBy: { createdAt: 'desc' },
         take: 1000,
       }),

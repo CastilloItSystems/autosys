@@ -168,7 +168,8 @@ class LoansService {
     page = 1,
     limit = 20,
     sortBy = 'createdAt',
-    sortOrder: 'asc' | 'desc' = 'desc'
+    sortOrder: 'asc' | 'desc' = 'desc',
+    prismaClient?: any
   ): Promise<{
     items: ILoanWithRelations[]
     total: number
@@ -190,15 +191,17 @@ class LoansService {
         if (filters.toDate) where.createdAt.lte = filters.toDate
       }
 
+      const db = prismaClient || prisma
+
       const [loans, total] = await Promise.all([
-        prisma.loan.findMany({
+        db.loan.findMany({
           where,
           include: { items: { include: { item: true } } },
           orderBy: { [sortBy]: sortOrder },
           skip: (page - 1) * limit,
           take: limit,
         }),
-        prisma.loan.count({ where }),
+        db.loan.count({ where }),
       ])
 
       return {

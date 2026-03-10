@@ -5,9 +5,10 @@
 import prisma from '../../../../services/prisma.service'
 
 
-export async function getStockValueReport(page = 1, limit = 50) {
+export async function getStockValueReport(page = 1, limit = 50, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
-    const stocks = await prisma.stock.findMany({
+    const stocks = await db.stock.findMany({
       include: { item: true, warehouse: true },
       skip: (page - 1) * limit,
       take: limit,
@@ -44,7 +45,7 @@ export async function getStockValueReport(page = 1, limit = 50) {
           : '0.00',
     }))
 
-    const total = await prisma.stock.count()
+    const total = await db.stock.count()
 
     return {
       data: enrichedValues,

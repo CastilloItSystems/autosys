@@ -8,7 +8,7 @@ import {
   getAllDemandForecasts,
   calculateForecastAccuracy,
 } from './forecasting.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/ApiResponse'
 
 export const getForecastForItemHandler = async (
   req: Request,
@@ -17,11 +17,9 @@ export const getForecastForItemHandler = async (
   try {
     const { itemId } = req.params
     const result = await getDemandForecastForItem(itemId)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Forecast retrieved successfully'))
+    ApiResponse.success(res, result, 'Forecast retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 
@@ -33,19 +31,9 @@ export const getAllForecastsHandler = async (
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
     const result = await getAllDemandForecasts(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Demand Forecasts'
-        )
-      )
+    ApiResponse.paginated(res, result.data, page, limit, result.total, 'Demand Forecasts')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 
@@ -57,16 +45,9 @@ export const getAccuracyHandler = async (
     const { itemId } = req.params
     const daysBack = parseInt(req.query.daysBack as string) || 30
     const accuracy = await calculateForecastAccuracy(itemId, daysBack)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(
-          { itemId, accuracy, daysBack },
-          'Forecast accuracy calculated successfully'
-        )
-      )
+    ApiResponse.success(res, { itemId, accuracy, daysBack }, 'Forecast accuracy calculated successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 

@@ -104,15 +104,28 @@ class ReturnsService {
     return this.mapToInterface(ret)
   }
 
-  async findAll(page = 1, limit = 10, prismaClient?: any): Promise<any> {
+  async findAll(
+    page = 1,
+    limit = 10,
+    filters?: { status?: ReturnStatus; type?: string; warehouseId?: string },
+    prismaClient?: any
+  ): Promise<any> {
+    const where: any = {}
+    if (filters?.status) where.status = filters.status
+    if (filters?.type) where.type = filters.type
+    if (filters?.warehouseId) where.warehouseId = filters.warehouseId
+
+    const db = prismaClient || prisma
+
     const [data, total] = await Promise.all([
-      prisma.returnOrder.findMany({
-        include: { items: true, warehouse: true },
+      db.returnOrder.findMany({
+        where,
+        include: { items: { include: { item: true } }, warehouse: true },
         skip: (page - 1) * limit,
         take: limit,
         orderBy: { createdAt: 'desc' },
       }),
-      db.returnOrder.count(),
+      db.returnOrder.count({ where }),
     ])
 
     return {
@@ -121,6 +134,29 @@ class ReturnsService {
       page,
       limit,
     }
+  }
+
+  async submit(id: string, userId: string): Promise<IReturnWithRelations> {
+    const ret = await prisma.returnOrder.findUnique({ where: { id } })
+    if (!ret) throw new NotFoundError('Return not found')
+    if (ret.status !== ReturnStatus.DRAFT)
+      throw new BadRequestError('Only draft returns can be submitted for approval')
+
+    const updated = await prisma.returnOrder.update({
+      where: { id },
+      data: { status: ReturnStatus.PENDING_APPROVAL as any },
+      include: { items: { include: { item: true } }, warehouse: true },
+    })
+
+    await eventService.emit({
+      type: EventType.RETURN_CREATED,
+      entityId: id,
+      entityType: 'return',
+      userId,
+      data: { returnNumber: updated.returnNumber, action: 'submitted' },
+    })
+
+    return this.mapToInterface(updated)
   }
 
   async update(
@@ -148,6 +184,8 @@ class ReturnsService {
   async approve(id: string, userId: string): Promise<IReturnWithRelations> {
     const ret = await prisma.returnOrder.findUnique({ where: { id } })
     if (!ret) throw new NotFoundError('Return not found')
+    if (ret.status !== ReturnStatus.PENDING_APPROVAL)
+      throw new BadRequestError('Only pending returns can be approved')
 
     const updated = await prisma.returnOrder.update({
       where: { id },

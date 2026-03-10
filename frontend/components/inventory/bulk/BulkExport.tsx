@@ -63,8 +63,8 @@ export const BulkExport = () => {
     "status",
   ]);
 
-  const [includeInactive, setIncludeInactive] = useState(false);
-  const [includeLowStock, setIncludeLowStock] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [inStock, setInStock] = useState(false);
 
   const [minPrice, setMinPrice] = useState<number | null>(null);
   const [maxPrice, setMaxPrice] = useState<number | null>(null);
@@ -76,6 +76,50 @@ export const BulkExport = () => {
   const [showPreview, setShowPreview] = useState(false);
   const [previewData, setPreviewData] = useState<any[]>([]);
   const [exportStats, setExportStats] = useState<ExportStats | null>(null);
+
+  // Handle preview
+  const handlePreview = async () => {
+    if (selectedColumns.length === 0) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Aviso",
+        detail: "Selecciona al menos una columna",
+      });
+      return;
+    }
+
+    try {
+      setExporting(true);
+
+      const exportRequest: IBulkExportRequest = {
+        format: "json",
+        columns: selectedColumns,
+        filters: {
+          isActive: isActive ? true : undefined,
+          inStock: inStock ? true : undefined,
+          minPrice: minPrice || undefined,
+          maxPrice: maxPrice || undefined,
+          categoryId: selectedCategory || undefined,
+          brandId: selectedBrand || undefined,
+        },
+      };
+
+      const blob = await bulkService.exportItems(exportRequest);
+      const text = await blob.text();
+      const data = JSON.parse(text);
+
+      setPreviewData(data.slice(0, 20));
+      setShowPreview(true);
+    } catch (error: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: error.message || "Error al cargar la vista previa",
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
 
   // Handle export
   const handleExport = async () => {
@@ -95,8 +139,8 @@ export const BulkExport = () => {
         format: format as "csv" | "json" | "xlsx",
         columns: selectedColumns,
         filters: {
-          includeInactive,
-          includeLowStock,
+          isActive: isActive ? true : undefined,
+          inStock: inStock ? true : undefined,
           minPrice: minPrice || undefined,
           maxPrice: maxPrice || undefined,
           categoryId: selectedCategory || undefined,
@@ -206,22 +250,24 @@ export const BulkExport = () => {
           <div className="col-12 md:col-6">
             <div className="flex align-items-center gap-2">
               <InputSwitch
-                inputId="includeInactive"
-                checked={includeInactive}
-                onChange={(e) => setIncludeInactive(e.value || false)}
+                inputId="isActive"
+                checked={isActive}
+                onChange={(e) => setIsActive(e.value || false)}
               />
-              <label htmlFor="includeInactive">Incluir inactivos</label>
+              <label htmlFor="isActive">Solo artículos activos</label>
             </div>
           </div>
 
           <div className="col-12 md:col-6">
             <div className="flex align-items-center gap-2">
               <InputSwitch
-                inputId="includeLowStock"
-                checked={includeLowStock}
-                onChange={(e) => setIncludeLowStock(e.value || false)}
+                inputId="inStock"
+                checked={inStock}
+                onChange={(e) => setInStock(e.value || false)}
               />
-              <label htmlFor="includeLowStock">Incluir bajo stock</label>
+              <label htmlFor="inStock">
+                Solo con existencias (Stock &gt; 0)
+              </label>
             </div>
           </div>
 
@@ -266,7 +312,8 @@ export const BulkExport = () => {
                 label="Vista previa"
                 icon="pi pi-eye"
                 severity="info"
-                onClick={() => setShowPreview(true)}
+                onClick={handlePreview}
+                loading={exporting}
                 disabled={selectedColumns.length === 0}
               />
             </div>

@@ -45,7 +45,7 @@ class TurnoverService {
     const item = await prisma.item.findUnique({
       where: { id: itemId },
       include: {
-        stock: {
+        stocks: {
           include: { warehouse: true },
         },
       },
@@ -92,7 +92,7 @@ class TurnoverService {
     const cogs30Days = outgoing30Days.reduce((sum, m) => sum + m.quantity, 0)
 
     // Calculate average stock
-    const currentStock = item.stock.reduce((sum, s) => sum + s.quantityReal, 0)
+    const currentStock = item.stocks.reduce((sum, s) => sum + s.quantityReal, 0)
     const averageStock = this.calculateAverageStock(movements, currentStock)
     const averageStockValue = averageStock * (item.costPrice || 0)
 
@@ -135,6 +135,7 @@ class TurnoverService {
     return {
       itemId,
       itemSku: item.sku,
+      sku: item.sku,
       itemName: item.name,
       turnoverRatio: Math.round(turnoverRatio * 100) / 100,
       daysInventoryOutstanding: Math.round(daysInventoryOutstanding * 10) / 10,
@@ -150,6 +151,8 @@ class TurnoverService {
       classification,
       trend,
       recommendation,
+      recommendations: [recommendation],
+      stockValue: averageStockValue,
     }
   }
 
@@ -296,11 +299,11 @@ class TurnoverService {
   async getAllTurnoverMetrics(
     page: number = 1,
     limit: number = 50
-  ): Promise<{ data: TurnoverMetrics[]; total: number }> {
+  ): Promise<{ data: TurnoverMetrics[]; total: number; summary: any }> {
     const skip = (page - 1) * limit
 
     const items = await prisma.item.findMany({
-      where: { active: true },
+      where: { isActive: true },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -310,9 +313,20 @@ class TurnoverService {
       items.map((item) => this.getTurnoverMetricsForItem(item.id))
     )
 
-    const total = await prisma.item.count({ where: { active: true } })
+    const total = await prisma.item.count({ where: { isActive: true } })
 
-    return { data: metrics, total }
+    const summary = {
+      averageTurnover: metrics.length > 0
+        ? metrics.reduce((sum, m) => sum + m.turnoverRatio, 0) / metrics.length
+        : 0,
+      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING').length,
+      moderateCount: metrics.filter((m) => m.classification === 'MODERATE').length,
+      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING').length,
+      staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
+      totalItems: total,
+    }
+
+    return { data: metrics, total, summary }
   }
 
   /**
@@ -322,11 +336,11 @@ class TurnoverService {
     classification: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC',
     page: number = 1,
     limit: number = 50
-  ): Promise<{ data: TurnoverMetrics[]; total: number }> {
+  ): Promise<{ data: TurnoverMetrics[]; total: number; summary: any }> {
     const skip = (page - 1) * limit
 
     const items = await prisma.item.findMany({
-      where: { active: true },
+      where: { isActive: true },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
@@ -339,7 +353,18 @@ class TurnoverService {
     const filtered = metrics.filter((m) => m.classification === classification)
     const total = metrics.length
 
-    return { data: filtered, total }
+    const summary = {
+      averageTurnover: filtered.length > 0
+        ? filtered.reduce((sum, m) => sum + m.turnoverRatio, 0) / filtered.length
+        : 0,
+      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING').length,
+      moderateCount: metrics.filter((m) => m.classification === 'MODERATE').length,
+      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING').length,
+      staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
+      totalItems: total,
+    }
+
+    return { data: filtered, total, summary }
   }
 }
 

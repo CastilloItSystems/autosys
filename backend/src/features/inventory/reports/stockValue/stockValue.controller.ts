@@ -4,7 +4,7 @@
 
 import { Request, Response } from 'express'
 import { getStockValueReport } from './stockValue.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/ApiResponse'
 
 export const getStockValueReportHandler = async (
   req: Request,
@@ -13,23 +13,22 @@ export const getStockValueReportHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getStockValueReport(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          {
-            items: result.data,
-            totalInventoryValue: result.totalInventoryValue,
-          },
-          result.total,
-          page,
-          limit,
-          'Stock value report'
-        )
-      )
+    const result = await getStockValueReport(page, limit, (req as any).prisma || undefined)
+    res.status(200).json({
+      success: true,
+      message: 'Stock value report',
+      data: result.data,
+      summary: { totalInventoryValue: result.totalInventoryValue },
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 

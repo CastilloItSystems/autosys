@@ -1,69 +1,74 @@
 "use client";
 
-import React from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import { Badge } from "primereact/badge";
+import { Tag } from "primereact/tag";
+import { Button } from "primereact/button";
+import { Divider } from "primereact/divider";
+import { motion } from "framer-motion";
+
 import { Reconciliation } from "../../../app/api/inventory/reconciliationService";
 import {
   RECONCILIATION_STATUS_CONFIG,
   RECONCILIATION_SOURCE_CONFIG,
 } from "../../../libs/interfaces/inventory/reconciliation.interface";
-import { motion } from "framer-motion";
 
 interface ReconciliationDetailProps {
   reconciliation: Reconciliation;
+  onRefresh?: () => void;
 }
 
 export default function ReconciliationDetail({
   reconciliation,
+  onRefresh,
 }: ReconciliationDetailProps) {
   const statusConfig = RECONCILIATION_STATUS_CONFIG[reconciliation.status];
   const sourceConfig = reconciliation.source
     ? RECONCILIATION_SOURCE_CONFIG[reconciliation.source]
     : undefined;
 
-  const differenceRowClass = (rowData: any) => {
-    const difference = (rowData.expectedQuantity || 0) - rowData.systemQuantity;
-    if (difference === 0) return "";
-    if (Math.abs(difference) <= 5) return "bg-yellow-50";
-    return "bg-red-50";
+  // ── Helpers ──────────────────────────────────────────────────────────────
+  const formatDate = (d?: string | Date | null) => {
+    if (!d) return "—";
+    return new Date(d).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
-  const itemTemplate = (rowData: any) => (
+  const totalItems = reconciliation.items?.length ?? 0;
+  const itemsWithDiscrepancy = reconciliation.items?.filter((i) => {
+    const diff = (i.expectedQuantity ?? 0) - i.systemQuantity;
+    return diff !== 0;
+  }).length ?? 0;
+  const itemsOk = totalItems - itemsWithDiscrepancy;
+
+  // ── Templates de tabla ───────────────────────────────────────────────────
+  const itemNameTemplate = (rowData: any) => (
     <div>
-      <div className="font-medium">{rowData.itemName}</div>
-      <div className="text-sm text-gray-500">{rowData.itemSku}</div>
+      <div className="font-medium text-900">{rowData.itemName ?? rowData.item?.name ?? rowData.itemId}</div>
+      {(rowData.itemSku ?? rowData.item?.sku) && (
+        <small className="text-500">{rowData.itemSku ?? rowData.item?.sku}</small>
+      )}
     </div>
   );
 
-  const systemQuantityTemplate = (rowData: any) => (
-    <span className="font-semibold">{rowData.systemQuantity}</span>
-  );
-
-  const expectedQuantityTemplate = (rowData: any) => (
-    <span className="font-semibold">{rowData.expectedQuantity}</span>
-  );
-
   const differenceTemplate = (rowData: any) => {
-    const difference = (rowData.expectedQuantity || 0) - rowData.systemQuantity;
-    if (difference === 0) {
-      return <Badge value="0" severity="success" />;
-    }
-    if (difference > 0) {
-      return (
-        <Badge
-          value={`+${difference}`}
-          severity={Math.abs(difference) <= 5 ? "warning" : "danger"}
-        />
-      );
-    }
-    return (
-      <Badge
-        value={difference}
-        severity={Math.abs(difference) <= 5 ? "warning" : "danger"}
-      />
-    );
+    const diff = (rowData.expectedQuantity ?? 0) - rowData.systemQuantity;
+    if (diff === 0) return <Tag value="0 — OK" severity="success" />;
+    if (diff > 0)
+      return <Tag value={`+${diff}`} severity={Math.abs(diff) <= 5 ? "warning" : "danger"} />;
+    return <Tag value={String(diff)} severity={Math.abs(diff) <= 5 ? "warning" : "danger"} />;
+  };
+
+  const rowClass = (rowData: any) => {
+    const diff = (rowData.expectedQuantity ?? 0) - rowData.systemQuantity;
+    if (diff === 0) return "";
+    if (Math.abs(diff) <= 5) return "bg-yellow-50";
+    return "bg-red-50";
   };
 
   return (
@@ -71,156 +76,163 @@ export default function ReconciliationDetail({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       transition={{ duration: 0.3 }}
-      className="space-y-4"
     >
-      {/* Header Info */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div className="rounded-lg bg-gray-50 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-600">
-            Número de Reconciliación
-          </p>
-          <p className="text-lg font-bold">
-            {reconciliation.reconciliationNumber}
-          </p>
+      {/* ── Encabezado: datos principales ──────────────────────────────── */}
+      <div className="grid mb-3">
+
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3">
+            <div className="text-500 text-sm mb-1">Nº Reconciliación</div>
+            <div className="text-900 font-bold text-lg">{reconciliation.reconciliationNumber}</div>
+          </div>
         </div>
 
-        <div className="rounded-lg bg-gray-50 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-600">Estado</p>
-          {statusConfig && (
-            <Badge
-              value={statusConfig.label}
-              severity={statusConfig.severity as any}
-            />
-          )}
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3">
+            <div className="text-500 text-sm mb-2">Estado</div>
+            <div className="flex align-items-center gap-2">
+              <i className={statusConfig.icon} />
+              <Tag value={statusConfig.label} severity={statusConfig.severity as any} />
+            </div>
+          </div>
         </div>
 
-        <div className="rounded-lg bg-gray-50 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-600">
-            Origen de Discrepancia
-          </p>
-          <p className="font-semibold">
-            {sourceConfig?.label || reconciliation.source}
-          </p>
-        </div>
-      </div>
-
-      {/* Warehouse and Dates */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <div>
-          <p className="mb-1 text-sm font-medium text-gray-600">Almacén</p>
-          <p className="font-semibold">
-            {reconciliation.warehouse?.name || "N/A"}
-          </p>
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3">
+            <div className="text-500 text-sm mb-1">Origen de Discrepancia</div>
+            <div className="flex align-items-center gap-2">
+              {sourceConfig && <i className={`${sourceConfig.icon} text-500`} />}
+              <span className="font-medium text-900">
+                {sourceConfig?.label ?? reconciliation.source ?? "—"}
+              </span>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <p className="mb-1 text-sm font-medium text-gray-600">Creado</p>
-          <p className="text-sm">
-            {new Date(reconciliation.createdAt).toLocaleDateString("es-ES", {
-              year: "numeric",
-              month: "short",
-              day: "numeric",
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
-          </p>
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3">
+            <div className="text-500 text-sm mb-1">Almacén</div>
+            <div className="font-medium text-900">{reconciliation.warehouse?.name ?? "—"}</div>
+          </div>
+        </div>
+
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3">
+            <div className="text-500 text-sm mb-1">Creado</div>
+            <div className="text-900">{formatDate(reconciliation.createdAt)}</div>
+          </div>
         </div>
 
         {reconciliation.approvedAt && (
-          <div>
-            <p className="mb-1 text-sm font-medium text-gray-600">Aprobado</p>
-            <p className="text-sm">
-              {new Date(reconciliation.approvedAt).toLocaleDateString("es-ES", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+          <div className="col-12 md:col-4">
+            <div className="surface-100 border-round p-3">
+              <div className="text-500 text-sm mb-1">Aprobado</div>
+              <div className="text-900">{formatDate(reconciliation.approvedAt)}</div>
+            </div>
           </div>
         )}
 
         {reconciliation.appliedAt && (
-          <div>
-            <p className="mb-1 text-sm font-medium text-gray-600">Aplicado</p>
-            <p className="text-sm">
-              {new Date(reconciliation.appliedAt).toLocaleDateString("es-ES", {
-                year: "numeric",
-                month: "short",
-                day: "numeric",
-                hour: "2-digit",
-                minute: "2-digit",
-              })}
-            </p>
+          <div className="col-12 md:col-4">
+            <div className="surface-100 border-round p-3">
+              <div className="text-500 text-sm mb-1">Aplicado al stock</div>
+              <div className="text-900">{formatDate(reconciliation.appliedAt)}</div>
+            </div>
           </div>
         )}
       </div>
 
-      {/* Notes Section */}
+      {/* ── Notas ───────────────────────────────────────────────────────── */}
       {reconciliation.notes && (
-        <div className="rounded-lg bg-blue-50 p-4">
-          <p className="mb-2 text-sm font-medium text-gray-700">Notas</p>
-          <p className="text-sm text-gray-600">{reconciliation.notes}</p>
+        <div className="surface-50 border-left-3 border-primary p-3 mb-3 border-round-right">
+          <div className="text-500 text-sm mb-1 font-medium">Notas</div>
+          <div className="text-700">{reconciliation.notes}</div>
         </div>
       )}
 
-      {/* Discrepancy Legend */}
-      <div className="rounded-lg bg-gray-50 p-3">
-        <p className="mb-2 text-sm font-medium text-gray-600">
-          Leyenda de Discrepancias
-        </p>
-        <div className="flex flex-wrap gap-4 text-xs">
-          <span>
-            <span className="mr-1 inline-block h-3 w-3 rounded bg-green-200"></span>
-            Sin discrepancia
-          </span>
-          <span>
-            <span className="mr-1 inline-block h-3 w-3 rounded bg-yellow-100"></span>
-            Discrepancia ±5 unidades
-          </span>
-          <span>
-            <span className="mr-1 inline-block h-3 w-3 rounded bg-red-100"></span>
-            Discrepancia &gt;5 unidades
-          </span>
+      {/* ── Resumen de discrepancias ─────────────────────────────────────── */}
+      <div className="grid mb-3">
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3 text-center">
+            <div className="text-2xl font-bold text-900">{totalItems}</div>
+            <div className="text-500 text-sm mt-1">Total artículos</div>
+          </div>
+        </div>
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3 text-center">
+            <div className="text-2xl font-bold text-green-600">{itemsOk}</div>
+            <div className="text-500 text-sm mt-1">Sin discrepancia</div>
+          </div>
+        </div>
+        <div className="col-12 md:col-4">
+          <div className="surface-100 border-round p-3 text-center">
+            <div className="text-2xl font-bold text-red-500">{itemsWithDiscrepancy}</div>
+            <div className="text-500 text-sm mt-1">Con discrepancia</div>
+          </div>
         </div>
       </div>
 
-      {/* Items DataTable */}
-      <div>
-        <h3 className="mb-3 text-lg font-semibold">Artículos</h3>
-        <DataTable
-          value={reconciliation.items}
-          rowClassName={differenceRowClass}
-          className="text-sm"
-        >
-          <Column field="itemName" header="Artículo" body={itemTemplate} />
-          <Column
-            field="systemQuantity"
-            header="Stock Sistema"
-            body={systemQuantityTemplate}
-            align="right"
-          />
-          <Column
-            field="expectedQuantity"
-            header="Stock Esperado"
-            body={expectedQuantityTemplate}
-            align="right"
-          />
-          <Column
-            header="Discrepancia"
-            body={differenceTemplate}
-            align="center"
-          />
-        </DataTable>
+      <Divider />
+
+      {/* ── Leyenda ─────────────────────────────────────────────────────── */}
+      <div className="flex flex-wrap gap-3 mb-3">
+        <div className="flex align-items-center gap-2">
+          <div className="w-1rem h-1rem border-round bg-green-100 border-1 border-green-300" />
+          <span className="text-500 text-sm">Sin discrepancia</span>
+        </div>
+        <div className="flex align-items-center gap-2">
+          <div className="w-1rem h-1rem border-round bg-yellow-50 border-1 border-yellow-300" />
+          <span className="text-500 text-sm">Discrepancia ±5 unidades</span>
+        </div>
+        <div className="flex align-items-center gap-2">
+          <div className="w-1rem h-1rem border-round bg-red-50 border-1 border-red-300" />
+          <span className="text-500 text-sm">Discrepancia &gt;5 unidades</span>
+        </div>
       </div>
 
-      {/* Summary */}
-      <div className="rounded-lg border border-gray-200 bg-white p-4">
-        <p className="text-sm font-semibold text-gray-700">
-          Total de artículos: {reconciliation.items.length}
-        </p>
-      </div>
+      {/* ── Tabla de artículos ───────────────────────────────────────────── */}
+      <DataTable
+        value={reconciliation.items ?? []}
+        rowClassName={rowClass}
+        size="small"
+        stripedRows
+        emptyMessage="Sin artículos registrados"
+        responsiveLayout="scroll"
+      >
+        <Column header="Artículo" body={itemNameTemplate} style={{ minWidth: "180px" }} />
+        <Column
+          header="Stock Sistema"
+          field="systemQuantity"
+          align="right"
+          style={{ width: "130px" }}
+          body={(r: any) => <span className="font-medium">{r.systemQuantity}</span>}
+        />
+        <Column
+          header="Stock Real/Contado"
+          field="expectedQuantity"
+          align="right"
+          style={{ width: "150px" }}
+          body={(r: any) => <span className="font-medium">{r.expectedQuantity ?? 0}</span>}
+        />
+        <Column
+          header="Discrepancia"
+          body={differenceTemplate}
+          align="center"
+          style={{ width: "130px" }}
+        />
+      </DataTable>
+
+      {/* ── Acciones ────────────────────────────────────────────────────── */}
+      {onRefresh && (
+        <div className="flex justify-content-end mt-3">
+          <Button
+            label="Actualizar"
+            icon="pi pi-refresh"
+            severity="secondary"
+            onClick={onRefresh}
+          />
+        </div>
+      )}
     </motion.div>
   );
 }

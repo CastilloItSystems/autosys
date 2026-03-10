@@ -166,8 +166,10 @@ export class ReconciliationService {
           where.completedAt.lte = filters.completedDateTo
       }
 
+      const db = prismaClient || prisma
+
       const [reconciliations, total] = await Promise.all([
-        prisma.reconciliation.findMany({
+        db.reconciliation.findMany({
           where,
           include: { warehouse: true, items: true },
           skip: (pageNum - 1) * limitNum,

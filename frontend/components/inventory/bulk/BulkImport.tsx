@@ -61,9 +61,7 @@ export const BulkImport = () => {
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
 
-  const [operationResult, setOperationResult] = useState<IBulkOperation | null>(
-    null,
-  );
+  const [operationResult, setOperationResult] = useState<any>(null);
   const [showResult, setShowResult] = useState(false);
 
   // Parse CSV
@@ -154,15 +152,15 @@ export const BulkImport = () => {
       clearInterval(progressInterval);
       setUploadProgress(100);
 
-      setOperationResult(result as IBulkOperation);
+      setOperationResult(result);
       setShowResult(true);
 
       toast.current?.show({
         severity: "success",
         summary: "Import complete",
-        detail: `${result.successCount || 0} items imported, ${
-          result.failureCount || 0
-        } errors`,
+        detail: `${
+          (result.imported || 0) + (result.updated || 0)
+        } items imported/updated, ${result.failed || 0} errors`,
       });
     } catch (error: any) {
       toast.current?.show({
@@ -346,41 +344,34 @@ export const BulkImport = () => {
           <div className="flex flex-column gap-4">
             {/* Summary Cards */}
             <div className="grid">
-              <div className="col-12 md:col-3">
+              <div className="col-12 md:col-4">
                 <Card className="bg-green-50">
                   <div className="text-center">
                     <div className="text-4xl font-bold text-green-600">
-                      {operationResult.successCount || 0}
+                      {(operationResult.imported || 0) +
+                        (operationResult.updated || 0)}
                     </div>
-                    <div className="text-600 mt-2">Exitosos</div>
+                    <div className="text-600 mt-2">Procesados</div>
                   </div>
                 </Card>
               </div>
-              <div className="col-12 md:col-3">
+              <div className="col-12 md:col-4">
                 <Card className="bg-red-50">
                   <div className="text-center">
                     <div className="text-4xl font-bold text-red-600">
-                      {operationResult.failureCount || 0}
+                      {operationResult.failed || 0}
                     </div>
                     <div className="text-600 mt-2">Errores</div>
                   </div>
                 </Card>
               </div>
-              <div className="col-12 md:col-3">
-                <Card className="bg-yellow-50">
-                  <div className="text-center">
-                    <div className="text-4xl font-bold text-yellow-600">
-                      {operationResult.skippedCount || 0}
-                    </div>
-                    <div className="text-600 mt-2">Omitidos</div>
-                  </div>
-                </Card>
-              </div>
-              <div className="col-12 md:col-3">
+              <div className="col-12 md:col-4">
                 <Card className="bg-blue-50">
                   <div className="text-center">
                     <div className="text-4xl font-bold text-blue-600">
-                      {operationResult.totalRecords || 0}
+                      {(operationResult.imported || 0) +
+                        (operationResult.updated || 0) +
+                        (operationResult.failed || 0)}
                     </div>
                     <div className="text-600 mt-2">Total</div>
                   </div>
@@ -389,39 +380,54 @@ export const BulkImport = () => {
             </div>
 
             {/* Error Details */}
-            {operationResult.errorDetails &&
-              operationResult.errorDetails.length > 0 && (
-                <div>
-                  <h4 className="mt-0">Detalles de errores</h4>
-                  <DataTable
-                    value={operationResult.errorDetails}
-                    scrollable
-                    size="small"
-                  >
-                    <Column
-                      field="row"
-                      header="Fila"
-                      style={{ width: "60px" }}
-                    />
-                    <Column
-                      field="field"
-                      header="Campo"
-                      style={{ width: "100px" }}
-                    />
-                    <Column field="message" header="Mensaje" flex={1} />
-                    <Column
-                      field="value"
-                      header="Valor"
-                      style={{ width: "150px" }}
-                      body={(rowData: IBulkValidationError) => (
-                        <code className="text-600 text-sm">
-                          {String(rowData.value).substring(0, 30)}
-                        </code>
-                      )}
-                    />
-                  </DataTable>
-                </div>
-              )}
+            {(() => {
+              let parsedImportErrors: IBulkValidationError[] = [];
+              const errs =
+                (operationResult as any).errors || operationResult.errorDetails;
+              if (typeof errs === "string") {
+                try {
+                  parsedImportErrors = JSON.parse(errs);
+                } catch (e) {}
+              } else if (Array.isArray(errs)) {
+                parsedImportErrors = errs;
+              }
+
+              if (parsedImportErrors.length > 0) {
+                return (
+                  <div>
+                    <h4 className="mt-0">Detalles de errores</h4>
+                    <DataTable
+                      value={parsedImportErrors}
+                      scrollable
+                      size="small"
+                    >
+                      <Column
+                        field="rowNumber"
+                        header="Fila"
+                        style={{ width: "60px" }}
+                      />
+                      <Column
+                        field="field"
+                        header="Campo"
+                        style={{ width: "100px" }}
+                      />
+                      <Column field="error" header="Mensaje" flex={1} />
+                      <Column
+                        field="value"
+                        header="Valor"
+                        style={{ width: "150px" }}
+                        body={(rowData: IBulkValidationError) => (
+                          <code className="text-600 text-sm">
+                            {String(rowData.value).substring(0, 30)}
+                          </code>
+                        )}
+                      />
+                    </DataTable>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div className="flex justify-content-end gap-2">
               <Button label="Cerrar" onClick={() => setShowResult(false)} />

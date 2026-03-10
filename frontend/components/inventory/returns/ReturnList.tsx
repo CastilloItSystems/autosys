@@ -4,12 +4,13 @@ import { useState, useEffect, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
-import { Badge } from "primereact/badge";
+import { Tag } from "primereact/tag";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
+import { Message } from "primereact/message";
+import { motion } from "framer-motion";
 import returnService, {
   ReturnOrder,
   ReturnStatus,
@@ -17,88 +18,120 @@ import returnService, {
   RETURN_STATUS_CONFIG,
   RETURN_TYPE_CONFIG,
 } from "@/app/api/inventory/returnService";
+import { useEmpresasStore } from "@/store/empresasStore";
 import ReturnForm from "./ReturnForm";
 import ReturnDetail from "./ReturnDetail";
 
-interface ReturnListFilters {
-  status?: ReturnStatus | null;
-  type?: ReturnType | null;
-}
-
 const ReturnList = () => {
+  const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
   const [returns, setReturns] = useState<ReturnOrder[]>([]);
   const [loading, setLoading] = useState(false);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [filters, setFilters] = useState<
-    ReturnListFilters & { page: number; limit: number }
-  >({
+  const [filters, setFilters] = useState<{
+    status?: ReturnStatus | null;
+    type?: ReturnType | null;
+    page: number;
+    limit: number;
+  }>({
     page: 1,
     limit: 20,
   });
-  const [selectedReturn, setSelectedReturn] = useState<ReturnOrder | null>(
-    null,
-  );
+
+  const [selectedReturn, setSelectedReturn] = useState<ReturnOrder | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
 
-  // Load returns
-  const loadReturns = async (
-    page: number,
-    limit: number,
-    status?: ReturnStatus | null,
-    type?: ReturnType | null,
-  ) => {
-    setLoading(true);
+  // ── Data loading ────────────────────────────────────────────────────────────
+
+  const loadReturns = async () => {
     try {
-      const response = await returnService.getReturns(page, limit, {
-        status: status || undefined,
-        type: type || undefined,
-      });
-      setReturns(response.data);
-      setTotalRecords(response.pagination.total);
-    } catch (error) {
-      console.error("Error loading returns:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar las devoluciones",
-      });
+      setLoading(true);
+      const response = await returnService.getReturns(
+        filters.page,
+        filters.limit,
+        {
+          status: filters.status || undefined,
+          type: filters.type || undefined,
+        }
+      );
+      setReturns(Array.isArray(response.data) ? response.data : []);
+      setTotalRecords(response.pagination?.total || 0);
+    } catch (error: any) {
+      const detail =
+        error?.response?.data?.message || "No se pudieron cargar las devoluciones";
+      toast.current?.show({ severity: "error", summary: "Error", detail, life: 3000 });
+      setReturns([]);
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadReturns(filters.page, filters.limit, filters.status, filters.type);
-  }, [filters.page, filters.limit, filters.status, filters.type]);
+    if (activeEmpresa) loadReturns();
+  }, [filters.page, filters.limit, filters.status, filters.type, activeEmpresa?.id_empresa]);
+
+  // ── Actions ──────────────────────────────────────────────────────────────────
+
+  const handleSubmitForApproval = (ret: ReturnOrder) => {
+    confirmDialog({
+      message: `¿Enviar la devolución ${ret.returnNumber} a aprobación?`,
+      header: "Confirmar envío",
+      icon: "pi pi-send",
+      acceptClassName: "p-button-info",
+      acceptLabel: "Enviar",
+      rejectLabel: "Cancelar",
+      accept: async () => {
+        setActionInProgress(ret.id);
+        try {
+          await returnService.submitReturn(ret.id);
+          toast.current?.show({
+            severity: "info",
+            summary: "Enviado",
+            detail: `Devolución ${ret.returnNumber} enviada a aprobación`,
+            life: 3000,
+          });
+          loadReturns();
+        } catch (error: any) {
+          toast.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: error?.response?.data?.message || "No se pudo enviar la devolución",
+            life: 3000,
+          });
+        } finally {
+          setActionInProgress(null);
+        }
+      },
+    });
+  };
 
   const handleApprove = (ret: ReturnOrder) => {
     confirmDialog({
-      message: `¿Aprobar devolución ${ret.returnNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Aprobar la devolución ${ret.returnNumber}?`,
+      header: "Confirmar aprobación",
+      icon: "pi pi-check-circle",
+      acceptClassName: "p-button-success",
+      acceptLabel: "Aprobar",
+      rejectLabel: "Cancelar",
       accept: async () => {
         setActionInProgress(ret.id);
         try {
           await returnService.approveReturn(ret.id);
           toast.current?.show({
             severity: "success",
-            summary: "Éxito",
-            detail: "Devolución aprobada",
+            summary: "Aprobado",
+            detail: `Devolución ${ret.returnNumber} aprobada`,
+            life: 3000,
           });
-          loadReturns(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.type,
-          );
-        } catch (error) {
+          loadReturns();
+        } catch (error: any) {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: "No se pudo aprobar la devolución",
+            detail: error?.response?.data?.message || "No se pudo aprobar la devolución",
+            life: 3000,
           });
         } finally {
           setActionInProgress(null);
@@ -109,29 +142,29 @@ const ReturnList = () => {
 
   const handleProcess = (ret: ReturnOrder) => {
     confirmDialog({
-      message: `¿Procesar devolución ${ret.returnNumber}? Esto agregará los artículos al stock.`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Procesar la devolución ${ret.returnNumber}? Los artículos serán agregados al stock.`,
+      header: "Confirmar procesamiento",
+      icon: "pi pi-box",
+      acceptClassName: "p-button-success",
+      acceptLabel: "Procesar",
+      rejectLabel: "Cancelar",
       accept: async () => {
         setActionInProgress(ret.id);
         try {
           await returnService.processReturn(ret.id);
           toast.current?.show({
             severity: "success",
-            summary: "Éxito",
-            detail: "Devolución procesada",
+            summary: "Procesado",
+            detail: `Devolución ${ret.returnNumber} procesada. Stock actualizado.`,
+            life: 4000,
           });
-          loadReturns(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.type,
-          );
-        } catch (error) {
+          loadReturns();
+        } catch (error: any) {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: "No se pudo procesar la devolución",
+            detail: error?.response?.data?.message || "No se pudo procesar la devolución",
+            life: 3000,
           });
         } finally {
           setActionInProgress(null);
@@ -142,29 +175,29 @@ const ReturnList = () => {
 
   const handleReject = (ret: ReturnOrder) => {
     confirmDialog({
-      message: `¿Rechazar devolución ${ret.returnNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Rechazar la devolución ${ret.returnNumber}?`,
+      header: "Confirmar rechazo",
+      icon: "pi pi-times-circle",
+      acceptClassName: "p-button-danger",
+      acceptLabel: "Rechazar",
+      rejectLabel: "Cancelar",
       accept: async () => {
         setActionInProgress(ret.id);
         try {
           await returnService.rejectReturn(ret.id);
           toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: "Devolución rechazada",
+            severity: "warn",
+            summary: "Rechazado",
+            detail: `Devolución ${ret.returnNumber} rechazada`,
+            life: 3000,
           });
-          loadReturns(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.type,
-          );
-        } catch (error) {
+          loadReturns();
+        } catch (error: any) {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: "No se pudo rechazar la devolución",
+            detail: error?.response?.data?.message || "No se pudo rechazar la devolución",
+            life: 3000,
           });
         } finally {
           setActionInProgress(null);
@@ -175,29 +208,29 @@ const ReturnList = () => {
 
   const handleCancel = (ret: ReturnOrder) => {
     confirmDialog({
-      message: `¿Cancelar devolución ${ret.returnNumber}?`,
-      header: "Confirmar",
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Cancelar la devolución ${ret.returnNumber}?`,
+      header: "Confirmar cancelación",
+      icon: "pi pi-times-circle",
+      acceptClassName: "p-button-danger",
+      acceptLabel: "Cancelar devolución",
+      rejectLabel: "Volver",
       accept: async () => {
         setActionInProgress(ret.id);
         try {
           await returnService.cancelReturn(ret.id);
           toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: "Devolución cancelada",
+            severity: "info",
+            summary: "Cancelado",
+            detail: `Devolución ${ret.returnNumber} cancelada`,
+            life: 3000,
           });
-          loadReturns(
-            filters.page,
-            filters.limit,
-            filters.status,
-            filters.type,
-          );
-        } catch (error) {
+          loadReturns();
+        } catch (error: any) {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: "No se pudo cancelar la devolución",
+            detail: error?.response?.data?.message || "No se pudo cancelar la devolución",
+            life: 3000,
           });
         } finally {
           setActionInProgress(null);
@@ -206,182 +239,191 @@ const ReturnList = () => {
     });
   };
 
-  const handleView = (ret: ReturnOrder) => {
-    setSelectedReturn(ret);
-    setIsDetailOpen(true);
-  };
+  // ── Templates ────────────────────────────────────────────────────────────────
 
-  const handlePageChange = (e: any) => {
-    setFilters({ ...filters, page: e.page + 1, limit: e.rows });
-  };
-
-  const handleStatusChange = (status: ReturnStatus | null) => {
-    setFilters({ ...filters, status, page: 1 });
-  };
-
-  const handleTypeChange = (type: ReturnType | null) => {
-    setFilters({ ...filters, type, page: 1 });
-  };
-
-  const statusOptions = Object.values(ReturnStatus).map((status) => ({
-    label: RETURN_STATUS_CONFIG[status].label,
-    value: status,
-  }));
-
-  const typeOptions = Object.values(ReturnType).map((type) => ({
-    label: RETURN_TYPE_CONFIG[type].label,
-    value: type,
-  }));
-
-  // Action template
-  const actionTemplate = (rowData: ReturnOrder) => {
+  const statusTemplate = (rowData: ReturnOrder) => {
+    const cfg = RETURN_STATUS_CONFIG[rowData.status];
+    const severityMap: Record<string, any> = {
+      secondary: "secondary",
+      warning: "warning",
+      info: "info",
+      success: "success",
+      danger: "danger",
+    };
     return (
-      <div className="flex gap-2 flex-wrap">
-        {/* View button */}
+      <Tag
+        value={cfg.label}
+        severity={severityMap[cfg.severity] ?? "info"}
+        icon={cfg.icon}
+      />
+    );
+  };
+
+  const typeTemplate = (rowData: ReturnOrder) => {
+    const cfg = RETURN_TYPE_CONFIG[rowData.type];
+    return (
+      <div className="flex align-items-center gap-2">
+        <i className={cfg.icon} style={{ color: cfg.color }} />
+        <span>{cfg.label}</span>
+      </div>
+    );
+  };
+
+  const actionTemplate = (rowData: ReturnOrder) => {
+    const busy = actionInProgress !== null;
+    const isDraft = rowData.status === ReturnStatus.DRAFT;
+    const isPending = rowData.status === ReturnStatus.PENDING_APPROVAL;
+    const isApproved = rowData.status === ReturnStatus.APPROVED;
+    const isCancellable = [
+      ReturnStatus.DRAFT,
+      ReturnStatus.PENDING_APPROVAL,
+      ReturnStatus.APPROVED,
+    ].includes(rowData.status);
+
+    return (
+      <div className="flex align-items-center gap-1">
+        {/* Ver */}
         <Button
           icon="pi pi-eye"
-          rounded
-          text
-          severity="info"
-          onClick={() => handleView(rowData)}
-          tooltip="Ver detalles"
-          tooltipOptions={{ position: "top" }}
-          size="small"
-          disabled={actionInProgress !== null}
+          rounded text severity="info" size="small"
+          tooltip="Ver detalles" tooltipOptions={{ position: "top" }}
+          onClick={() => { setSelectedReturn(rowData); setIsDetailOpen(true); }}
+          disabled={busy}
         />
 
-        {/* Approve button - only for DRAFT */}
-        {rowData.status === ReturnStatus.DRAFT && (
+        {/* Enviar a aprobación — solo DRAFT */}
+        {isDraft && (
+          <Button
+            icon="pi pi-send"
+            rounded text severity="info" size="small"
+            tooltip="Enviar a aprobación" tooltipOptions={{ position: "top" }}
+            onClick={() => handleSubmitForApproval(rowData)}
+            loading={actionInProgress === rowData.id}
+            disabled={busy}
+          />
+        )}
+
+        {/* Aprobar — solo PENDING_APPROVAL */}
+        {isPending && (
           <Button
             icon="pi pi-check"
-            rounded
-            text
-            severity="success"
+            rounded text severity="success" size="small"
+            tooltip="Aprobar" tooltipOptions={{ position: "top" }}
             onClick={() => handleApprove(rowData)}
-            tooltip="Aprobar"
-            tooltipOptions={{ position: "top" }}
-            size="small"
             loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
+            disabled={busy}
           />
         )}
 
-        {/* Process button - only for APPROVED */}
-        {rowData.status === ReturnStatus.APPROVED && (
-          <Button
-            icon="pi pi-plus"
-            rounded
-            text
-            severity="success"
-            onClick={() => handleProcess(rowData)}
-            tooltip="Procesar"
-            tooltipOptions={{ position: "top" }}
-            size="small"
-            loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
-          />
-        )}
-
-        {/* Reject button - only for PENDING */}
-        {rowData.status === ReturnStatus.PENDING_APPROVAL && (
+        {/* Rechazar — solo PENDING_APPROVAL */}
+        {isPending && (
           <Button
             icon="pi pi-times"
-            rounded
-            text
-            severity="danger"
+            rounded text severity="danger" size="small"
+            tooltip="Rechazar" tooltipOptions={{ position: "top" }}
             onClick={() => handleReject(rowData)}
-            tooltip="Rechazar"
-            tooltipOptions={{ position: "top" }}
-            size="small"
             loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
+            disabled={busy}
           />
         )}
 
-        {/* Cancel button - for DRAFT, APPROVED, PENDING */}
-        {[
-          ReturnStatus.DRAFT,
-          ReturnStatus.APPROVED,
-          ReturnStatus.PENDING_APPROVAL,
-        ].includes(rowData.status) && (
+        {/* Procesar — solo APPROVED */}
+        {isApproved && (
+          <Button
+            icon="pi pi-box"
+            rounded text severity="success" size="small"
+            tooltip="Procesar (agregar a stock)" tooltipOptions={{ position: "top" }}
+            onClick={() => handleProcess(rowData)}
+            loading={actionInProgress === rowData.id}
+            disabled={busy}
+          />
+        )}
+
+        {/* Cancelar */}
+        {isCancellable && (
           <Button
             icon="pi pi-ban"
-            rounded
-            text
-            severity="danger"
+            rounded text severity="danger" size="small"
+            tooltip="Cancelar" tooltipOptions={{ position: "top" }}
             onClick={() => handleCancel(rowData)}
-            tooltip="Cancelar"
-            tooltipOptions={{ position: "top" }}
-            size="small"
             loading={actionInProgress === rowData.id}
-            disabled={actionInProgress !== null}
+            disabled={busy}
           />
         )}
       </div>
     );
   };
 
-  // Status template
-  const statusTemplate = (rowData: ReturnOrder) => {
-    const config = RETURN_STATUS_CONFIG[rowData.status];
-    return (
-      <div className="flex items-center gap-2">
-        <i className={config.icon}></i>
-        <Badge value={config.label} severity={config.severity as any} />
-      </div>
-    );
-  };
+  // ── Filter options ────────────────────────────────────────────────────────────
 
-  // Type template
-  const typeTemplate = (rowData: ReturnOrder) => {
-    const config = RETURN_TYPE_CONFIG[rowData.type];
-    return (
-      <div className="flex items-center gap-2">
-        <i className={config.icon}></i>
-        <span>{config.label}</span>
+  const statusOptions = [
+    { label: "Todos los estados", value: null },
+    ...Object.values(ReturnStatus).map((s) => ({
+      label: RETURN_STATUS_CONFIG[s].label,
+      value: s,
+    })),
+  ];
+
+  const typeOptions = [
+    { label: "Todos los tipos", value: null },
+    ...Object.values(ReturnType).map((t) => ({
+      label: RETURN_TYPE_CONFIG[t].label,
+      value: t,
+    })),
+  ];
+
+  // ── Header ────────────────────────────────────────────────────────────────────
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <h4 className="m-0">Gestión de Devoluciones</h4>
+      <div className="flex flex-wrap gap-2 align-items-center">
+        <Dropdown
+          options={statusOptions}
+          value={filters.status ?? null}
+          onChange={(e) => setFilters({ ...filters, status: e.value, page: 1 })}
+          placeholder="Todos los estados"
+          className="w-14rem"
+          showClear={!!filters.status}
+        />
+        <Dropdown
+          options={typeOptions}
+          value={filters.type ?? null}
+          onChange={(e) => setFilters({ ...filters, type: e.value, page: 1 })}
+          placeholder="Todos los tipos"
+          className="w-14rem"
+          showClear={!!filters.type}
+        />
+        <Button
+          label="Nueva Devolución"
+          icon="pi pi-plus"
+          onClick={() => { setSelectedReturn(null); setIsFormOpen(true); }}
+        />
       </div>
-    );
-  };
+    </div>
+  );
+
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
-    <>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <ConfirmDialog />
 
-      <div className="space-y-4">
-        {/* Toolbar */}
-        <div className="flex gap-2 flex-wrap">
-          <Button
-            label="Nueva Devolución"
-            icon="pi pi-plus"
-            onClick={() => setIsFormOpen(true)}
-            severity="success"
-          />
+      {/* Aviso si no hay empresa activa */}
+      {!activeEmpresa && (
+        <Message
+          severity="warn"
+          className="w-full mb-3"
+          text="Selecciona una empresa desde el menú superior para ver las devoluciones."
+        />
+      )}
 
-          <Dropdown
-            options={[
-              { label: "Todos los estados", value: null },
-              ...statusOptions,
-            ]}
-            value={filters.status || null}
-            onChange={(e) => handleStatusChange(e.value)}
-            placeholder="Filtrar por estado"
-            className="w-full md:w-48"
-          />
-
-          <Dropdown
-            options={[
-              { label: "Todos los tipos", value: null },
-              ...typeOptions,
-            ]}
-            value={filters.type || null}
-            onChange={(e) => handleTypeChange(e.value)}
-            placeholder="Filtrar por tipo"
-            className="w-full md:w-48"
-          />
-        </div>
-
-        {/* Data Table */}
+      <div className="card">
         <DataTable
           value={returns}
           loading={loading}
@@ -389,34 +431,43 @@ const ReturnList = () => {
           rows={filters.limit}
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
-          onPage={handlePageChange}
+          onPage={(e) => setFilters({ ...filters, page: e.page + 1, limit: e.rows })}
+          rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"
           stripedRows
-          responsiveLayout="scroll"
-          className="w-full"
+          scrollable
+          header={header}
+          emptyMessage="No se encontraron devoluciones."
+          size="small"
         >
+          <Column body={actionTemplate} style={{ minWidth: "200px" }} />
+          <Column field="returnNumber" header="Nº Devolución" sortable style={{ minWidth: "140px" }} />
+          <Column header="Tipo" body={typeTemplate} style={{ minWidth: "200px" }} />
           <Column
-            field="returnNumber"
-            header="Nº Devolución"
-            style={{ width: "12%" }}
+            field="reason"
+            header="Razón"
+            style={{ minWidth: "200px" }}
+            body={(r) => (
+              <span
+                className="overflow-hidden white-space-nowrap block"
+                style={{ maxWidth: "200px", textOverflow: "ellipsis" }}
+              >
+                {r.reason}
+              </span>
+            )}
           />
-          <Column header="Tipo" body={typeTemplate} style={{ width: "18%" }} />
-          <Column field="reason" header="Razón" style={{ width: "25%" }} />
+          <Column header="Estado" body={statusTemplate} style={{ minWidth: "180px" }} />
           <Column
-            header="Estado"
-            body={statusTemplate}
-            style={{ width: "15%" }}
-          />
-          <Column
-            field="warehouseId"
             header="Almacén"
-            style={{ width: "13%" }}
+            style={{ minWidth: "140px" }}
+            body={(r) => r.warehouse?.name ?? r.warehouseId}
           />
           <Column
-            header="Acciones"
-            body={actionTemplate}
-            style={{ width: "17%" }}
-            align="center"
+            header="Creado"
+            field="createdAt"
+            sortable
+            style={{ minWidth: "130px" }}
+            body={(r) => new Date(r.createdAt).toLocaleDateString("es-VE")}
           />
         </DataTable>
       </div>
@@ -424,35 +475,45 @@ const ReturnList = () => {
       {/* Form Dialog */}
       <Dialog
         visible={isFormOpen}
-        onHide={() => setIsFormOpen(false)}
-        header="Nueva Devolución"
+        onHide={() => { setIsFormOpen(false); setSelectedReturn(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-file-edit text-primary text-2xl" />
+            <span className="text-xl font-semibold">Nueva Devolución</span>
+          </div>
+        }
         modal
-        style={{ width: "90vw", maxWidth: "800px" }}
+        style={{ width: "90vw", maxWidth: "860px" }}
       >
         <ReturnForm
-          onSuccess={() => {
-            setIsFormOpen(false);
-            loadReturns(
-              filters.page,
-              filters.limit,
-              filters.status,
-              filters.type,
-            );
-          }}
+          onSuccess={() => { setIsFormOpen(false); loadReturns(); }}
+          onCancel={() => { setIsFormOpen(false); setSelectedReturn(null); }}
         />
       </Dialog>
 
       {/* Detail Dialog */}
       <Dialog
         visible={isDetailOpen}
-        onHide={() => setIsDetailOpen(false)}
-        header={`Devolución ${selectedReturn?.returnNumber}`}
+        onHide={() => { setIsDetailOpen(false); setSelectedReturn(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-info-circle text-primary text-2xl" />
+            <span className="text-xl font-semibold">
+              Devolución {selectedReturn?.returnNumber}
+            </span>
+          </div>
+        }
         modal
-        style={{ width: "90vw", maxWidth: "800px" }}
+        style={{ width: "90vw", maxWidth: "860px" }}
       >
-        {selectedReturn && <ReturnDetail returnOrder={selectedReturn} />}
+        {selectedReturn && (
+          <ReturnDetail
+            returnOrder={selectedReturn}
+            onRefresh={() => loadReturns()}
+          />
+        )}
       </Dialog>
-    </>
+    </motion.div>
   );
 };
 

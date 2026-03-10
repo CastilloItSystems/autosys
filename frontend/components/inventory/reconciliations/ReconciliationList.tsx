@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
-import { DataTable, DataTableStateEvent } from "primereact/datatable";
+import { useState, useRef, useEffect } from "react";
+import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
-import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
-import { Badge } from "primereact/badge";
+import { Tag } from "primereact/tag";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { Message } from "primereact/message";
 import { motion } from "framer-motion";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 import {
   getReconciliations,
@@ -31,259 +32,227 @@ import {
 import {
   RECONCILIATION_STATUS_CONFIG,
   RECONCILIATION_SOURCE_CONFIG,
-  CreateAllowedRoles,
 } from "../../../libs/interfaces/inventory/reconciliation.interface";
 import ReconciliationForm from "./ReconciliationForm";
 import ReconciliationDetail from "./ReconciliationDetail";
-import { useSession } from "next-auth/react";
 
 export default function ReconciliationList() {
-  const { data: session } = useSession();
+  const { activeEmpresa } = useEmpresasStore();
+  const toast = useRef<Toast>(null);
+
   const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [selectedReconciliation, setSelectedReconciliation] =
-    useState<Reconciliation | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [filters, setFilters] = useState<{
+    status?: ReconciliationStatus | null;
+    warehouseId?: string | null;
+    source?: ReconciliationSource | null;
+    page: number;
+    limit: number;
+  }>({ page: 1, limit: 20 });
+
+  const [selectedReconciliation, setSelectedReconciliation] = useState<Reconciliation | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(0);
-  const [rows, setRows] = useState(10);
-  const [statusFilter, setStatusFilter] = useState<ReconciliationStatus | null>(
-    null,
-  );
-  const [warehouseFilter, setWarehouseFilter] = useState<string | null>(null);
-  const [sourceFilter, setSourceFilter] = useState<ReconciliationSource | null>(
-    null,
-  );
-  const [searchQuery, setSearchQuery] = useState("");
-  const toast = useRef<Toast>(null);
 
-  const canCreate = session?.user?.rol
-    ? Object.values(CreateAllowedRoles).includes(
-        session.user.rol as CreateAllowedRoles,
-      )
-    : false;
-
+  // ── Carga inicial de almacenes ───────────────────────────────────────────
   useEffect(() => {
     (async () => {
       try {
         const response = await getActiveWarehouses();
-        setWarehouses(response.data || []);
+        setWarehouses(Array.isArray(response.data) ? response.data : []);
       } catch {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "Error al cargar almacenes",
-          life: 3000,
-        });
+        // silencioso
       }
     })();
   }, []);
 
+  // ── Carga de reconciliaciones ────────────────────────────────────────────
   useEffect(() => {
-    loadReconciliations();
-  }, [page, rows, statusFilter, warehouseFilter, sourceFilter, searchQuery]);
+    if (activeEmpresa) loadReconciliations();
+  }, [filters.page, filters.limit, filters.status, filters.warehouseId, filters.source, activeEmpresa?.id_empresa]);
 
   const loadReconciliations = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
-      const filters: any = {};
+      const params: Record<string, string> = {};
+      if (filters.status) params.status = filters.status;
+      if (filters.warehouseId) params.warehouseId = filters.warehouseId;
+      if (filters.source) params.source = filters.source;
 
-      if (statusFilter) filters.status = statusFilter;
-      if (warehouseFilter) filters.warehouseId = warehouseFilter;
-      if (sourceFilter) filters.source = sourceFilter;
-      if (searchQuery) filters.search = searchQuery;
-
-      const response = await getReconciliations(page + 1, rows, filters);
-
-      const data = response.data || [];
-      const total = response.pagination?.total || 0;
-
-      setReconciliations(Array.isArray(data) ? data : []);
-      setTotalRecords(total);
-    } catch (error) {
+      const response = await getReconciliations(filters.page, filters.limit, params);
+      setReconciliations(Array.isArray(response.data) ? response.data : []);
+      setTotalRecords(response.pagination?.total ?? 0);
+    } catch (error: any) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: "Error al cargar reconciliaciones",
+        detail: error?.response?.data?.message || "Error al cargar reconciliaciones",
         life: 3000,
       });
+      setReconciliations([]);
     } finally {
       setLoading(false);
     }
   };
 
-  const performAction = async (
-    reconciliationId: string,
+  // ── Acciones de flujo ────────────────────────────────────────────────────
+  const performAction = (
+    reconciliation: Reconciliation,
     action: "start" | "complete" | "approve" | "apply" | "reject" | "cancel",
-    actionLabel: string,
+    label: string,
+    icon: string,
+    acceptClass: string,
   ) => {
     confirmDialog({
-      message: `¿Confirma ${actionLabel}?`,
-      header: `Confirmar ${actionLabel}`,
-      icon: "pi pi-exclamation-triangle",
+      message: `¿Confirma ${label} la reconciliación ${reconciliation.reconciliationNumber}?`,
+      header: `Confirmar acción`,
+      icon,
+      acceptClassName: acceptClass,
+      acceptLabel: label.charAt(0).toUpperCase() + label.slice(1),
+      rejectLabel: "Volver",
       accept: async () => {
         try {
-          const userId = session?.user?.id || "SYSTEM";
           switch (action) {
-            case "start":
-              await startReconciliation(reconciliationId, userId);
-              break;
-            case "complete":
-              await completeReconciliation(reconciliationId, userId);
-              break;
-            case "approve":
-              await approveReconciliation(reconciliationId, userId);
-              break;
-            case "apply":
-              await applyReconciliation(reconciliationId, userId);
-              break;
-            case "reject":
-              await rejectReconciliation(
-                reconciliationId,
-                "Rechazado por usuario",
-              );
-              break;
-            case "cancel":
-              await cancelReconciliation(reconciliationId);
-              break;
+            case "start":    await startReconciliation(reconciliation.id, "SYSTEM"); break;
+            case "complete": await completeReconciliation(reconciliation.id, "SYSTEM"); break;
+            case "approve":  await approveReconciliation(reconciliation.id, "SYSTEM"); break;
+            case "apply":    await applyReconciliation(reconciliation.id, "SYSTEM"); break;
+            case "reject":   await rejectReconciliation(reconciliation.id, "Rechazado por usuario"); break;
+            case "cancel":   await cancelReconciliation(reconciliation.id); break;
           }
-          toast.current?.show({
-            severity: "success",
-            summary: "Éxito",
-            detail: `Reconciliación ${actionLabel}`,
-            life: 3000,
-          });
+          toast.current?.show({ severity: "success", summary: "Éxito", detail: `Reconciliación ${label} correctamente`, life: 3000 });
           loadReconciliations();
-        } catch (error) {
-          toast.current?.show({
-            severity: "error",
-            summary: "Error",
-            detail: `Error al ${actionLabel}`,
-            life: 3000,
-          });
+        } catch (err: any) {
+          toast.current?.show({ severity: "error", summary: "Error", detail: err?.response?.data?.message ?? `Error al ${label}`, life: 4000 });
         }
       },
     });
   };
 
+  // ── Templates ────────────────────────────────────────────────────────────
   const statusTemplate = (rowData: Reconciliation) => {
-    const config = RECONCILIATION_STATUS_CONFIG[rowData.status];
-    return (
-      <Badge
-        value={config.label}
-        severity={config.severity}
-        className="text-xs"
-      />
-    );
+    const cfg = RECONCILIATION_STATUS_CONFIG[rowData.status];
+    return <Tag value={cfg.label} severity={cfg.severity as any} icon={cfg.icon} />;
   };
 
   const sourceTemplate = (rowData: Reconciliation) => {
-    const config = rowData.source
-      ? RECONCILIATION_SOURCE_CONFIG[rowData.source]
-      : undefined;
-    return <span>{config?.label || "N/A"}</span>;
-  };
-
-  const actionsTemplate = (rowData: Reconciliation) => {
+    if (!rowData.source) return <span className="text-500">—</span>;
+    const cfg = RECONCILIATION_SOURCE_CONFIG[rowData.source];
     return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-eye"
-          rounded
-          outlined
-          severity="info"
-          size="small"
-          onClick={() => {
-            setSelectedReconciliation(rowData);
-            setShowDetail(true);
-          }}
-          tooltip="Ver detalles"
-        />
-        {rowData.status === ReconciliationStatus.DRAFT && (
-          <Button
-            icon="pi pi-play"
-            rounded
-            outlined
-            severity="success"
-            size="small"
-            onClick={() => performAction(rowData.id, "start", "iniciada")}
-            tooltip="Iniciar"
-          />
-        )}
-        {rowData.status === ReconciliationStatus.IN_PROGRESS && (
-          <Button
-            icon="pi pi-check"
-            rounded
-            outlined
-            severity="success"
-            size="small"
-            onClick={() => performAction(rowData.id, "complete", "completada")}
-            tooltip="Completar"
-          />
-        )}
-        {rowData.status === ReconciliationStatus.COMPLETED && (
-          <Button
-            icon="pi pi-check-circle"
-            rounded
-            outlined
-            severity="success"
-            size="small"
-            onClick={() => performAction(rowData.id, "approve", "aprobada")}
-            tooltip="Aprobar"
-          />
-        )}
-        {rowData.status === ReconciliationStatus.APPROVED && (
-          <Button
-            icon="pi pi-arrow-right"
-            rounded
-            outlined
-            severity="success"
-            size="small"
-            onClick={() => performAction(rowData.id, "apply", "aplicada")}
-            tooltip="Aplicar cambios"
-          />
-        )}
-        {[ReconciliationStatus.DRAFT, ReconciliationStatus.COMPLETED].includes(
-          rowData.status,
-        ) && (
-          <Button
-            icon="pi pi-times"
-            rounded
-            outlined
-            severity="danger"
-            size="small"
-            onClick={() => performAction(rowData.id, "cancel", "cancelada")}
-            tooltip="Cancelar"
-          />
-        )}
+      <div className="flex align-items-center gap-2">
+        <i className={`${cfg.icon} text-500`} />
+        <span>{cfg.label}</span>
       </div>
     );
   };
 
-  const warehouseOptions = warehouses.map((w) => ({
-    label: w.name,
-    value: w.id,
-  }));
-
-  const statusOptions = Object.entries(RECONCILIATION_STATUS_CONFIG).map(
-    ([key, config]) => ({
-      label: config.label,
-      value: key,
-    }),
+  const actionTemplate = (rowData: Reconciliation) => (
+    <div className="flex align-items-center gap-1">
+      <Button
+        icon="pi pi-eye"
+        rounded text severity="info" size="small"
+        tooltip="Ver detalles" tooltipOptions={{ position: "top" }}
+        onClick={() => { setSelectedReconciliation(rowData); setShowDetail(true); }}
+      />
+      {rowData.status === ReconciliationStatus.DRAFT && (
+        <Button icon="pi pi-play" rounded text severity="success" size="small"
+          tooltip="Iniciar" tooltipOptions={{ position: "top" }}
+          onClick={() => performAction(rowData, "start", "iniciada", "pi pi-play", "p-button-success")}
+        />
+      )}
+      {rowData.status === ReconciliationStatus.IN_PROGRESS && (
+        <Button icon="pi pi-check" rounded text severity="success" size="small"
+          tooltip="Completar" tooltipOptions={{ position: "top" }}
+          onClick={() => performAction(rowData, "complete", "completada", "pi pi-check", "p-button-success")}
+        />
+      )}
+      {rowData.status === ReconciliationStatus.COMPLETED && (
+        <>
+          <Button icon="pi pi-thumbs-up" rounded text severity="success" size="small"
+            tooltip="Aprobar" tooltipOptions={{ position: "top" }}
+            onClick={() => performAction(rowData, "approve", "aprobada", "pi pi-thumbs-up", "p-button-success")}
+          />
+          <Button icon="pi pi-thumbs-down" rounded text severity="warning" size="small"
+            tooltip="Rechazar" tooltipOptions={{ position: "top" }}
+            onClick={() => performAction(rowData, "reject", "rechazada", "pi pi-exclamation-triangle", "p-button-warning")}
+          />
+        </>
+      )}
+      {rowData.status === ReconciliationStatus.APPROVED && (
+        <Button icon="pi pi-arrow-right" rounded text severity="success" size="small"
+          tooltip="Aplicar cambios al stock" tooltipOptions={{ position: "top" }}
+          onClick={() => performAction(rowData, "apply", "aplicada", "pi pi-bolt", "p-button-success")}
+        />
+      )}
+      {[ReconciliationStatus.DRAFT, ReconciliationStatus.IN_PROGRESS, ReconciliationStatus.COMPLETED].includes(rowData.status) && (
+        <Button icon="pi pi-ban" rounded text severity="danger" size="small"
+          tooltip="Cancelar" tooltipOptions={{ position: "top" }}
+          onClick={() => performAction(rowData, "cancel", "cancelada", "pi pi-exclamation-triangle", "p-button-danger")}
+        />
+      )}
+    </div>
   );
 
-  const sourceOptions = Object.entries(RECONCILIATION_SOURCE_CONFIG).map(
-    ([key, config]) => ({
-      label: config.label,
-      value: key,
-    }),
+  // ── Opciones de filtros ──────────────────────────────────────────────────
+  const statusOptions = [
+    { label: "Todos los estados", value: null },
+    ...Object.entries(RECONCILIATION_STATUS_CONFIG).map(([key, cfg]) => ({ label: cfg.label, value: key })),
+  ];
+
+  const warehouseOptions = [
+    { label: "Todos los almacenes", value: null },
+    ...warehouses.map((w) => ({ label: w.name, value: w.id })),
+  ];
+
+  const sourceOptions = [
+    { label: "Todos los orígenes", value: null },
+    ...Object.entries(RECONCILIATION_SOURCE_CONFIG).map(([key, cfg]) => ({ label: cfg.label, value: key })),
+  ];
+
+  // ── Header del DataTable ─────────────────────────────────────────────────
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <h4 className="m-0">Gestión de Reconciliaciones</h4>
+      <div className="flex flex-wrap gap-2 align-items-center">
+        <Dropdown
+          options={statusOptions}
+          value={filters.status ?? null}
+          onChange={(e) => setFilters({ ...filters, status: e.value, page: 1 })}
+          placeholder="Todos los estados"
+          className="w-14rem"
+          showClear={!!filters.status}
+        />
+        <Dropdown
+          options={warehouseOptions}
+          value={filters.warehouseId ?? null}
+          onChange={(e) => setFilters({ ...filters, warehouseId: e.value, page: 1 })}
+          placeholder="Todos los almacenes"
+          className="w-14rem"
+          showClear={!!filters.warehouseId}
+        />
+        <Dropdown
+          options={sourceOptions}
+          value={filters.source ?? null}
+          onChange={(e) => setFilters({ ...filters, source: e.value, page: 1 })}
+          placeholder="Todos los orígenes"
+          className="w-14rem"
+          showClear={!!filters.source}
+        />
+        <Button
+          label="Nueva Reconciliación"
+          icon="pi pi-plus"
+          disabled={!activeEmpresa}
+          onClick={() => { setSelectedReconciliation(null); setShowForm(true); }}
+        />
+      </div>
+    </div>
   );
 
+  // ── Render ───────────────────────────────────────────────────────────────
   return (
     <motion.div
-      className="w-full"
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3 }}
@@ -291,172 +260,94 @@ export default function ReconciliationList() {
       <Toast ref={toast} />
       <ConfirmDialog />
 
-      <div className="mb-6 flex flex-col gap-4">
-        <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-800">Reconciliaciones</h1>
-          {canCreate && (
-            <Button
-              label="Nueva Reconciliación"
-              icon="pi pi-plus"
-              onClick={() => {
-                setSelectedReconciliation(null);
-                setShowForm(true);
-              }}
-              className="bg-blue-600 hover:bg-blue-700"
-            />
-          )}
-        </div>
+      {!activeEmpresa && (
+        <Message
+          severity="warn"
+          className="w-full mb-3"
+          text="Selecciona una empresa desde el menú superior para ver las reconciliaciones."
+        />
+      )}
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
-          <InputText
-            placeholder="Buscar por número..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(0);
-            }}
-            className="w-full"
+      <div className="card">
+        <DataTable
+          value={reconciliations}
+          loading={loading}
+          paginator
+          rows={filters.limit}
+          first={(filters.page - 1) * filters.limit}
+          totalRecords={totalRecords}
+          onPage={(e) => setFilters({ ...filters, page: e.page + 1, limit: e.rows })}
+          rowsPerPageOptions={[10, 20, 50]}
+          dataKey="id"
+          stripedRows
+          scrollable
+          header={header}
+          emptyMessage="No se encontraron reconciliaciones."
+          size="small"
+        >
+          <Column body={actionTemplate} style={{ minWidth: "200px" }} />
+          <Column field="reconciliationNumber" header="# Reconciliación" sortable style={{ minWidth: "160px" }} />
+          <Column field="warehouse.name" header="Almacén" style={{ minWidth: "130px" }} />
+          <Column header="Origen" body={sourceTemplate} style={{ minWidth: "170px" }} />
+          <Column
+            header="Ítems"
+            style={{ minWidth: "80px" }}
+            body={(r: Reconciliation) => r.items?.length ?? 0}
           />
-
-          <Dropdown
-            options={statusOptions}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Filtrar por estado"
-            value={statusFilter}
-            onChange={(e) => {
-              setStatusFilter(e.value);
-              setPage(0);
-            }}
-            showClear
-            className="w-full"
+          <Column header="Estado" body={statusTemplate} style={{ minWidth: "160px" }} />
+          <Column
+            header="Creado"
+            field="createdAt"
+            sortable
+            style={{ minWidth: "120px" }}
+            body={(r: Reconciliation) => new Date(r.createdAt).toLocaleDateString("es-VE")}
           />
-
-          <Dropdown
-            options={warehouseOptions}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Filtrar por almacén"
-            value={warehouseFilter}
-            onChange={(e) => {
-              setWarehouseFilter(e.value);
-              setPage(0);
-            }}
-            showClear
-            className="w-full"
-          />
-
-          <Dropdown
-            options={sourceOptions}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Filtrar por origen"
-            value={sourceFilter}
-            onChange={(e) => {
-              setSourceFilter(e.value);
-              setPage(0);
-            }}
-            showClear
-            className="w-full"
-          />
-        </div>
+        </DataTable>
       </div>
 
-      <DataTable
-        value={reconciliations}
-        lazy
-        paginator
-        rows={rows}
-        totalRecords={totalRecords}
-        onPage={(e) => {
-          setPage(e.first! / e.rows!);
-          setRows(e.rows!);
-        }}
-        loading={loading}
-        className="w-full"
-        stripedRows
-        showGridlines
-        responsiveLayout="scroll"
-      >
-        <Column
-          field="reconciliationNumber"
-          header="# Reconciliación"
-          sortable
-          style={{ width: "140px" }}
-        />
-        <Column
-          field="warehouse.name"
-          header="Almacén"
-          style={{ width: "120px" }}
-        />
-        <Column
-          field="source"
-          header="Origen"
-          body={sourceTemplate}
-          style={{ width: "120px" }}
-        />
-        <Column
-          field="itemsCount"
-          header="Items"
-          style={{ width: "80px" }}
-          body={(rowData: Reconciliation) => (
-            <span>{rowData.items?.length || 0}</span>
-          )}
-        />
-        <Column
-          field="status"
-          header="Estado"
-          body={statusTemplate}
-          style={{ width: "120px" }}
-        />
-        <Column
-          field="createdAt"
-          header="Fecha"
-          body={(rowData: Reconciliation) => (
-            <>{new Date(rowData.createdAt).toLocaleDateString()}</>
-          )}
-          style={{ width: "100px" }}
-        />
-        <Column
-          header="Acciones"
-          body={actionsTemplate}
-          style={{ width: "250px" }}
-        />
-      </DataTable>
-
+      {/* Form Dialog */}
       <Dialog
-        header="Nueva Reconciliación"
         visible={showForm}
-        onHide={() => {
-          setShowForm(false);
-          setSelectedReconciliation(null);
-        }}
+        onHide={() => { setShowForm(false); setSelectedReconciliation(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-file-edit text-primary text-2xl" />
+            <span className="text-xl font-semibold">
+              {selectedReconciliation ? "Editar Reconciliación" : "Nueva Reconciliación"}
+            </span>
+          </div>
+        }
         modal
-        style={{ width: "90vw", maxWidth: "850px" }}
+        style={{ width: "90vw", maxWidth: "860px" }}
       >
         <ReconciliationForm
-          reconciliation={selectedReconciliation || undefined}
+          reconciliation={selectedReconciliation ?? undefined}
           warehouses={warehouses}
-          onSuccess={() => {
-            setShowForm(false);
-            setSelectedReconciliation(null);
-            loadReconciliations();
-          }}
+          onSuccess={() => { setShowForm(false); setSelectedReconciliation(null); loadReconciliations(); }}
+          onCancel={() => { setShowForm(false); setSelectedReconciliation(null); }}
         />
       </Dialog>
 
+      {/* Detail Dialog */}
       <Dialog
-        header="Detalles de Reconciliación"
         visible={showDetail}
-        onHide={() => {
-          setShowDetail(false);
-          setSelectedReconciliation(null);
-        }}
+        onHide={() => { setShowDetail(false); setSelectedReconciliation(null); }}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-info-circle text-primary text-2xl" />
+            <span className="text-xl font-semibold">
+              Reconciliación {selectedReconciliation?.reconciliationNumber}
+            </span>
+          </div>
+        }
         modal
         style={{ width: "90vw", maxWidth: "1000px" }}
       >
         {selectedReconciliation && (
-          <ReconciliationDetail reconciliation={selectedReconciliation} />
+          <ReconciliationDetail
+            reconciliation={selectedReconciliation}
+            onRefresh={() => { setShowDetail(false); loadReconciliations(); }}
+          />
         )}
       </Dialog>
     </motion.div>

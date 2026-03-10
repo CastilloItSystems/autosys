@@ -4,9 +4,10 @@
 
 import prisma from '../../../../services/prisma.service'
 
-export async function getLowStockReport(page = 1, limit = 50) {
+export async function getLowStockReport(page = 1, limit = 50, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
-    const stocks = await prisma.stock.findMany({
+    const stocks = await db.stock.findMany({
       include: { item: true, warehouse: true },
       skip: (page - 1) * limit,
       take: limit,
@@ -31,7 +32,7 @@ export async function getLowStockReport(page = 1, limit = 50) {
         lastMovement: s.updatedAt,
       }))
 
-    const total = await prisma.stock.count({
+    const total = await db.stock.count({
       where: {
         quantityAvailable: {
           lte: 10, // Assume conservative default

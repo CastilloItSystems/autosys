@@ -31,7 +31,7 @@ export const bulkExportSchema = Joi.object({
     createdBefore: Joi.date().optional(),
   }).optional(),
   columns: Joi.array().items(Joi.string()).optional(),
-  format: Joi.string().valid('csv', 'json', 'excel').optional().default('csv'),
+  format: Joi.string().valid('csv', 'json', 'xlsx').optional().default('csv'),
 })
 
 export const bulkUpdateSchema = Joi.object({

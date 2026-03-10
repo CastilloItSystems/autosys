@@ -6,9 +6,10 @@
 import prisma from '../../../../services/prisma.service'
 
 
-export async function getABCAnalysis(page = 1, limit = 50) {
+export async function getABCAnalysis(page = 1, limit = 50, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
-    const stocks = await prisma.stock.findMany({
+    const stocks = await db.stock.findMany({
       include: { item: true, warehouse: true },
     })
 

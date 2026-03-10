@@ -21,7 +21,7 @@ import { LayoutContext } from '@/layout/context/layoutcontext';
 const ForecastingView = () => {
   const toast = useRef<Toast>(null);
   const { layoutState, layoutConfig } = useContext(LayoutContext);
-  
+
   const [items, setItems] = useState<ForecastData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<ForecastData | null>(null);
@@ -84,17 +84,7 @@ const ForecastingView = () => {
   const initializeDetailChart = () => {
     if (!selectedItem) return;
 
-    const days = [
-      'Hoy',
-      'Día 7',
-      'Día 14',
-      'Día 21',
-      'Día 30',
-      'Día 45',
-      'Día 60',
-      'Día 75',
-      'Día 90',
-    ];
+    const days = ['Hoy', 'Día 7', 'Día 14', 'Día 21', 'Día 30', 'Día 45', 'Día 60', 'Día 75', 'Día 90'];
     const historical = [
       selectedItem.currentStock,
       selectedItem.currentStock + 5,
@@ -107,7 +97,6 @@ const ForecastingView = () => {
       selectedItem.currentStock - 15,
     ];
 
-    // Generate forecast with trend
     const forecast = [
       selectedItem.currentStock,
       selectedItem.estimatedDemand.demand30Days * 0.1,
@@ -120,7 +109,6 @@ const ForecastingView = () => {
       selectedItem.estimatedDemand.demand90Days * 0.9,
     ];
 
-    // Confidence band (upper/lower bounds)
     const upperBound = forecast.map((v) => v * 1.2);
     const lowerBound = forecast.map((v) => Math.max(0, v * 0.8));
 
@@ -172,27 +160,19 @@ const ForecastingView = () => {
 
   const getRiskBadgeSeverity = (risk: string) => {
     switch (risk) {
-      case 'low':
-        return 'success';
-      case 'medium':
-        return 'warning';
-      case 'high':
-        return 'danger';
-      default:
-        return 'info';
+      case 'low': return 'success';
+      case 'medium': return 'warning';
+      case 'high': return 'danger';
+      default: return 'info';
     }
   };
 
   const getRiskLabel = (risk: string) => {
     switch (risk) {
-      case 'low':
-        return 'Bajo';
-      case 'medium':
-        return 'Medio';
-      case 'high':
-        return 'Alto';
-      default:
-        return 'Desconocido';
+      case 'low': return 'Bajo';
+      case 'medium': return 'Medio';
+      case 'high': return 'Alto';
+      default: return 'Desconocido';
     }
   };
 
@@ -207,36 +187,26 @@ const ForecastingView = () => {
           padding: 15,
         },
       },
-      filler: {
-        propagate: true,
-      },
+      filler: { propagate: true },
     },
     scales: {
       y: {
         beginAtZero: true,
-        ticks: {
-          color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333',
-        },
-        grid: {
-          color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb',
-        },
+        ticks: { color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333' },
+        grid: { color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb' },
       },
       x: {
-        ticks: {
-          color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333',
-        },
-        grid: {
-          color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb',
-        },
+        ticks: { color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333' },
+        grid: { color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb' },
       },
     },
   };
 
   const itemTemplate = (option: ForecastData) => (
-    <div className="flex items-center justify-between p-2">
+    <div className="flex align-items-center justify-content-between p-2">
       <div>
-        <p className="font-medium">{option.itemName}</p>
-        <p className="text-sm text-gray-500">{option.sku}</p>
+        <p className="font-medium m-0">{option.itemName}</p>
+        <p className="text-sm text-500 m-0">{option.sku}</p>
       </div>
       <Tag
         value={getRiskLabel(option.stockoutRisk)}
@@ -246,16 +216,8 @@ const ForecastingView = () => {
   );
 
   const columns = [
-    {
-      field: 'itemName',
-      header: 'Artículo',
-      width: '18%',
-    },
-    {
-      field: 'sku',
-      header: 'SKU',
-      width: '12%',
-    },
+    { field: 'itemName', header: 'Artículo', width: '18%' },
+    { field: 'sku', header: 'SKU', width: '12%' },
     {
       field: 'currentStock',
       header: 'Stock Actual',
@@ -269,7 +231,7 @@ const ForecastingView = () => {
       header: 'Demanda 30d',
       width: '12%',
       body: (rowData: ForecastData) => (
-        <span>{rowData.estimatedDemand.demand30Days.toFixed(0)} unidades</span>
+        <span>{rowData.estimatedDemand.demand30Days.toFixed(0)} unid.</span>
       ),
     },
     {
@@ -277,7 +239,7 @@ const ForecastingView = () => {
       header: 'Demanda 60d',
       width: '12%',
       body: (rowData: ForecastData) => (
-        <span>{rowData.estimatedDemand.demand60Days.toFixed(0)} unidades</span>
+        <span>{rowData.estimatedDemand.demand60Days.toFixed(0)} unid.</span>
       ),
     },
     {
@@ -285,7 +247,7 @@ const ForecastingView = () => {
       header: 'Demanda 90d',
       width: '12%',
       body: (rowData: ForecastData) => (
-        <span>{rowData.estimatedDemand.demand90Days.toFixed(0)} unidades</span>
+        <span>{rowData.estimatedDemand.demand90Days.toFixed(0)} unid.</span>
       ),
     },
     {
@@ -303,7 +265,7 @@ const ForecastingView = () => {
 
   if (loading && items.length === 0) {
     return (
-      <div className="space-y-4">
+      <div className="flex flex-column gap-3">
         <Card>
           <Skeleton height="300px" />
         </Card>
@@ -312,127 +274,96 @@ const ForecastingView = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-column gap-4">
       <Toast ref={toast} />
 
       {/* Item Selector */}
-      <Card title="Seleccionar Artículo para Pronóstico Detallado" className="shadow-lg">
-        <div className="w-full">
-          <AutoComplete
-            value={selectedItem}
-            suggestions={itemSuggestions}
-            completeMethod={searchItems}
-            placeholder="Buscar artículo por nombre o SKU..."
-            onSelect={(e: any) => setSelectedItem(e.value)}
-            itemTemplate={itemTemplate}
-            className="w-full"
-          />
-        </div>
+      <Card title="Seleccionar Artículo para Pronóstico Detallado">
+        <AutoComplete
+          value={selectedItem}
+          suggestions={itemSuggestions}
+          completeMethod={searchItems}
+          placeholder="Buscar artículo por nombre o SKU..."
+          onSelect={(e: any) => setSelectedItem(e.value)}
+          itemTemplate={itemTemplate}
+          className="w-full"
+        />
       </Card>
 
       {/* Detailed Forecast View */}
       {selectedItem && detailedMetrics && (
         <>
           {/* Metrics Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0 }}
-            >
-              <Card className="text-center">
-                <p className="text-gray-500 text-sm">Stock Actual</p>
-                <p className="text-3xl font-bold text-blue-600">
-                  {selectedItem.currentStock.toFixed(0)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">unidades</p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-            >
-              <Card className="text-center">
-                <p className="text-gray-500 text-sm">Demanda Estimada 30d</p>
-                <p className="text-3xl font-bold text-purple-600">
-                  {selectedItem.estimatedDemand.demand30Days.toFixed(0)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">unidades</p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-            >
-              <Card className="text-center">
-                <p className="text-gray-500 text-sm">Demanda Estimada 60d</p>
-                <p className="text-3xl font-bold text-orange-600">
-                  {selectedItem.estimatedDemand.demand60Days.toFixed(0)}
-                </p>
-                <p className="text-xs text-gray-500 mt-1">unidades</p>
-              </Card>
-            </motion.div>
-
-            <motion.div
-              initial={{
-                opacity: 0,
-                y: 20,
-                backgroundColor:
-                  selectedItem.stockoutRisk === 'high'
-                    ? 'rgba(239, 68, 68, 0.1)'
-                    : 'rgba(245, 158, 11, 0.1)',
-              }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="rounded-lg"
-            >
-              <Card
-                className={
-                  selectedItem.stockoutRisk === 'high'
-                    ? 'bg-red-50 dark:bg-red-900/20'
-                    : 'bg-yellow-50 dark:bg-yellow-900/20'
-                }
+          <div className="grid">
+            {[
+              { label: 'Stock Actual', value: selectedItem.currentStock.toFixed(0), sub: 'unidades', color: 'var(--blue-500)' },
+              { label: 'Demanda Estimada 30d', value: selectedItem.estimatedDemand.demand30Days.toFixed(0), sub: 'unidades', color: 'var(--purple-500)' },
+              { label: 'Demanda Estimada 60d', value: selectedItem.estimatedDemand.demand60Days.toFixed(0), sub: 'unidades', color: 'var(--orange-500)' },
+            ].map((item, index) => (
+              <div key={item.label} className="col-12 md:col-4">
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.1 }}
+                >
+                  <Card>
+                    <div className="text-center">
+                      <p className="text-500 text-sm m-0 mb-2">{item.label}</p>
+                      <p className="text-4xl font-bold m-0" style={{ color: item.color }}>
+                        {item.value}
+                      </p>
+                      <p className="text-xs text-500 mt-1 m-0">{item.sub}</p>
+                    </div>
+                  </Card>
+                </motion.div>
+              </div>
+            ))}
+            <div className="col-12 md:col-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
               >
-                <p className="text-gray-500 text-sm">Riesgo de Agotamiento</p>
-                <Tag
-                  value={getRiskLabel(selectedItem.stockoutRisk)}
-                  severity={getRiskBadgeSeverity(selectedItem.stockoutRisk) as any}
-                  className="mt-2"
-                />
-              </Card>
-            </motion.div>
+                <Card>
+                  <div className="text-center">
+                    <p className="text-500 text-sm m-0 mb-2">Riesgo de Agotamiento</p>
+                    <div className="flex justify-content-center mt-2">
+                      <Tag
+                        value={getRiskLabel(selectedItem.stockoutRisk)}
+                        severity={getRiskBadgeSeverity(selectedItem.stockoutRisk) as any}
+                      />
+                    </div>
+                  </div>
+                </Card>
+              </motion.div>
+            </div>
           </div>
 
           {/* Forecast Chart */}
           {chartData && (
-            <Card
-              title={`Pronóstico de Demanda - ${selectedItem.itemName}`}
-              className="shadow-lg"
-            >
+            <Card title={`Pronóstico de Demanda - ${selectedItem.itemName}`}>
               <div style={{ height: '400px' }}>
                 <Chart type="line" data={chartData} options={chartOptions} />
               </div>
               <Divider />
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4 text-sm">
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-3 rounded">
-                  <p className="font-medium text-blue-800">Línea Azul</p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Datos históricos del períodactual
-                  </p>
+              <div className="grid mt-2">
+                <div className="col-12 md:col-4">
+                  <div className="surface-100 border-round p-3">
+                    <p className="font-medium text-primary m-0 mb-1">Línea Azul</p>
+                    <p className="text-500 text-sm m-0">Datos históricos del período actual</p>
+                  </div>
                 </div>
-                <div className="bg-green-50 dark:bg-green-900/20 p-3 rounded">
-                  <p className="font-medium text-green-800">Línea Verde (Punteada)</p>
-                  <p className="text-gray-600 dark:text-gray-300">Pronóstico calculado</p>
+                <div className="col-12 md:col-4">
+                  <div className="surface-100 border-round p-3">
+                    <p className="font-medium text-green-500 m-0 mb-1">Línea Verde (Punteada)</p>
+                    <p className="text-500 text-sm m-0">Pronóstico calculado</p>
+                  </div>
                 </div>
-                <div className="bg-emerald-50 dark:bg-emerald-900/20 p-3 rounded">
-                  <p className="font-medium text-emerald-800">Área Verde</p>
-                  <p className="text-gray-600 dark:text-gray-300">
-                    Banda de confianza (80-120%)
-                  </p>
+                <div className="col-12 md:col-4">
+                  <div className="surface-100 border-round p-3">
+                    <p className="font-medium text-green-400 m-0 mb-1">Área Verde</p>
+                    <p className="text-500 text-sm m-0">Banda de confianza (80-120%)</p>
+                  </div>
                 </div>
               </div>
             </Card>
@@ -440,12 +371,12 @@ const ForecastingView = () => {
 
           {/* Recommendations */}
           {selectedItem.recommendations && selectedItem.recommendations.length > 0 && (
-            <Card title="Recomendaciones del Sistema" className="shadow-lg">
-              <ul className="space-y-2">
+            <Card title="Recomendaciones del Sistema">
+              <ul className="list-none p-0 m-0 flex flex-column gap-2">
                 {selectedItem.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex items-start gap-3">
-                    <i className="pi pi-check-circle text-green-600 mt-1"></i>
-                    <span className="text-gray-700 dark:text-gray-300">{rec}</span>
+                  <li key={idx} className="flex align-items-start gap-3">
+                    <i className="pi pi-check-circle text-green-500 mt-1"></i>
+                    <span className="text-700">{rec}</span>
                   </li>
                 ))}
               </ul>
@@ -455,12 +386,13 @@ const ForecastingView = () => {
       )}
 
       {/* All Forecasts Table */}
-      <Card title="Todos los Pronósticos" className="shadow-lg">
+      <Card title="Todos los Pronósticos">
         <DataTable
           value={items}
           loading={loading}
           paginator
           rows={rows}
+          rowsPerPageOptions={[10, 20, 50]}
           first={(page - 1) * rows}
           totalRecords={totalRecords}
           onPage={(e: DataTablePageEvent) => {
@@ -469,9 +401,10 @@ const ForecastingView = () => {
           }}
           dataKey="itemId"
           stripedRows
-          responsiveLayout="scroll"
+          scrollable
+          size="small"
           emptyMessage="No hay pronósticos disponibles"
-          className="w-full text-sm"
+          className="w-full"
         >
           {columns.map((col) => (
             <Column
@@ -486,23 +419,24 @@ const ForecastingView = () => {
       </Card>
 
       {/* Info Section */}
-      <Card title="Acerca de los Pronósticos" className="text-sm text-gray-600 dark:text-gray-400">
-        <div className="space-y-2">
-          <p>
+      <Card title="Acerca de los Pronósticos">
+        <div className="flex flex-column gap-2">
+          <p className="text-sm text-500 m-0">
             <strong>Pronóstico de Demanda:</strong> Estimación de la cantidad de artículos que se
-            espereconsumidor en los próximos 30, 60 y 90 días basada en patrones históricos.
+            espera consumir en los próximos 30, 60 y 90 días basada en patrones históricos.
           </p>
-          <p>
+          <p className="text-sm text-500 m-0">
             <strong>Banda de Confianza:</strong> Rango esperado alrededor del pronóstico. Los
             valores reales probablemente caerán dentro de este rango.
           </p>
-          <p>
+          <p className="text-sm text-500 m-0">
             <strong>Riesgo de Agotamiento:</strong> Probabilidad de que el stock se agote antes de
             recibir nuevas compras basada en la demanda proyectada.
           </p>
-          <p>
-            <strong>Bajo:</strong> Suficiente stock proyectado | <strong>Medio:</strong> Stock
-            limitado | <strong>Alto:</strong> Riesgo significativo de agotamiento
+          <p className="text-sm text-500 m-0">
+            <strong>Bajo:</strong> Suficiente stock proyectado |{' '}
+            <strong>Medio:</strong> Stock limitado |{' '}
+            <strong>Alto:</strong> Riesgo significativo de agotamiento
           </p>
         </div>
       </Card>

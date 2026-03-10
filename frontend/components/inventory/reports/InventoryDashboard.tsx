@@ -91,15 +91,7 @@ const InventoryDashboard = () => {
   const initializeCharts = () => {
     if (!metrics) return;
 
-    const textColor = layoutConfig.colorScheme === 'dark' ? '#fff' : '#333';
-    const gridColor = layoutConfig.colorScheme === 'dark' ? '#444' : '#ddd';
-
     // Stock Health - Donut Chart
-    const healthTotal =
-      metrics.stockHealth.inStock +
-      metrics.stockHealth.lowStock +
-      metrics.stockHealth.outOfStock;
-
     setStockHealthChart({
       labels: ['En Stock', 'Stock Bajo', 'Agotado'],
       datasets: [
@@ -116,7 +108,7 @@ const InventoryDashboard = () => {
       ],
     });
 
-    // Movements Trend - Line Chart (simulated)
+    // Movements Trend - Line Chart
     setMovementsChart({
       labels: ['Hoy', 'Esta Semana', 'Este Mes'],
       datasets: [
@@ -161,13 +153,13 @@ const InventoryDashboard = () => {
     title,
     value,
     icon,
-    color,
+    iconBg,
     index,
   }: {
     title: string;
     value: string | number;
     icon: string;
-    color: string;
+    iconBg: string;
     index: number;
   }) => (
     <motion.div
@@ -175,13 +167,16 @@ const InventoryDashboard = () => {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: index * 0.1 }}
     >
-      <Card className="shadow-lg">
-        <div className="flex items-center justify-between">
+      <Card>
+        <div className="flex align-items-center justify-content-between">
           <div>
-            <p className="text-gray-500 text-sm font-medium">{title}</p>
-            <p className="text-3xl font-bold mt-2">{value}</p>
+            <p className="text-500 text-sm font-medium mb-1">{title}</p>
+            <p className="text-4xl font-bold m-0">{value}</p>
           </div>
-          <div className={`p-4 rounded-lg ${color}`}>
+          <div
+            className="border-round p-3 flex align-items-center justify-content-center"
+            style={{ backgroundColor: iconBg, width: '3.5rem', height: '3.5rem' }}
+          >
             <i className={`${icon} text-2xl text-white`}></i>
           </div>
         </div>
@@ -191,12 +186,14 @@ const InventoryDashboard = () => {
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="flex flex-column gap-3">
+        <div className="grid">
           {[1, 2, 3, 4].map((i) => (
-            <Card key={i}>
-              <Skeleton height="100px" />
-            </Card>
+            <div key={i} className="col-12 md:col-6 lg:col-3">
+              <Card>
+                <Skeleton height="80px" />
+              </Card>
+            </div>
           ))}
         </div>
       </div>
@@ -205,24 +202,25 @@ const InventoryDashboard = () => {
 
   if (!metrics) {
     return (
-      <Card className="text-center p-8">
-        <p className="text-gray-500">No se pudieron cargar las métricas</p>
-        <Button
-          label="Reintentar"
-          icon="pi pi-refresh"
-          onClick={loadMetrics}
-          className="mt-4"
-        />
+      <Card>
+        <div className="text-center p-5">
+          <p className="text-500 mb-3">No se pudieron cargar las métricas</p>
+          <Button
+            label="Reintentar"
+            icon="pi pi-refresh"
+            onClick={loadMetrics}
+          />
+        </div>
       </Card>
     );
   }
 
-  const alertColor =
+  const alertSeverityBg =
     metrics.alerts.critical > 0
-      ? 'bg-red-500'
+      ? '#EF4444'
       : metrics.alerts.warning > 0
-        ? 'bg-yellow-500'
-        : 'bg-blue-500';
+        ? '#F59E0B'
+        : '#3B82F6';
 
   const chartOptions = {
     maintainAspectRatio: false,
@@ -240,65 +238,71 @@ const InventoryDashboard = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="flex flex-column gap-4">
       <Toast ref={toast} />
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KPICard
-          title="Total Artículos"
-          value={metrics.totalItems}
-          icon="pi pi-box"
-          color="bg-blue-500"
-          index={0}
-        />
-        <KPICard
-          title="Almacenes"
-          value={metrics.totalWarehouses}
-          icon="pi pi-building"
-          color="bg-green-500"
-          index={1}
-        />
-        <KPICard
-          title="Valor Total Inventario"
-          value={`$${(metrics.totalStockValue / 1000).toFixed(0)}K`}
-          icon="pi pi-dollar"
-          color="bg-purple-500"
-          index={2}
-        />
-        <KPICard
-          title="Movimientos Hoy"
-          value={metrics.movements.today}
-          icon="pi pi-arrow-right-arrow-left"
-          color="bg-orange-500"
-          index={3}
-        />
+      <div className="grid">
+        <div className="col-12 md:col-6 lg:col-3">
+          <KPICard
+            title="Total Artículos"
+            value={metrics.totalItems}
+            icon="pi pi-box"
+            iconBg="#3B82F6"
+            index={0}
+          />
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <KPICard
+            title="Almacenes"
+            value={metrics.totalWarehouses}
+            icon="pi pi-building"
+            iconBg="#10B981"
+            index={1}
+          />
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <KPICard
+            title="Valor Total Inventario"
+            value={`$${(metrics.totalStockValue / 1000).toFixed(0)}K`}
+            icon="pi pi-dollar"
+            iconBg="#8B5CF6"
+            index={2}
+          />
+        </div>
+        <div className="col-12 md:col-6 lg:col-3">
+          <KPICard
+            title="Movimientos Hoy"
+            value={metrics.movements.today}
+            icon="pi pi-arrow-right-arrow-left"
+            iconBg="#F59E0B"
+            index={3}
+          />
+        </div>
       </div>
 
       {/* Alerts Card */}
-      {(metrics.alerts.critical > 0 ||
-        metrics.alerts.warning > 0 ||
-        metrics.alerts.info > 0) && (
+      {(metrics.alerts.critical > 0 || metrics.alerts.warning > 0 || metrics.alerts.info > 0) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <Card className={`${alertColor} text-white`}>
-            <div className="flex items-center justify-between">
+          <Card
+            style={{ backgroundColor: alertSeverityBg, color: '#fff' }}
+          >
+            <div className="flex align-items-center justify-content-between">
               <div>
-                <h3 className="font-bold text-lg">Alertas de Inventario</h3>
-                <p className="text-sm mt-1 opacity-90">
-                  {metrics.alerts.critical} crítica
-                  {metrics.alerts.critical > 1 ? 's' : ''},{' '}
-                  {metrics.alerts.warning} advertencia
-                  {metrics.alerts.warning > 1 ? 's' : ''}
+                <h3 className="font-bold text-lg m-0">Alertas de Inventario</h3>
+                <p className="text-sm mt-1 m-0" style={{ opacity: 0.9 }}>
+                  {metrics.alerts.critical} crítica{metrics.alerts.critical > 1 ? 's' : ''},{' '}
+                  {metrics.alerts.warning} advertencia{metrics.alerts.warning > 1 ? 's' : ''}
                 </p>
               </div>
               <Button
                 label="Ver Alertas"
                 icon="pi pi-bell"
                 text
-                className="text-white hover:bg-white hover:bg-opacity-20"
+                style={{ color: '#fff' }}
               />
             </div>
           </Card>
@@ -306,23 +310,25 @@ const InventoryDashboard = () => {
       )}
 
       {/* Charts Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+      <div className="grid">
         {/* Stock Health Donut */}
-        <Card title="Salud del Stock" className="shadow-lg">
-          <div style={{ height: '300px' }}>
-            {stockHealthChart && (
-              <Chart
-                type="doughnut"
-                data={stockHealthChart}
-                options={chartOptions}
-              />
-            )}
-          </div>
-        </Card>
+        <div className="col-12 xl:col-4">
+          <Card title="Salud del Stock">
+            <div style={{ height: '300px' }}>
+              {stockHealthChart && (
+                <Chart
+                  type="doughnut"
+                  data={stockHealthChart}
+                  options={chartOptions}
+                />
+              )}
+            </div>
+          </Card>
+        </div>
 
         {/* Movements Trend Line */}
-        <div className="xl:col-span-2">
-          <Card title="Tendencia de Movimientos" className="shadow-lg">
+        <div className="col-12 xl:col-8">
+          <Card title="Tendencia de Movimientos">
             <div style={{ height: '300px' }}>
               {movementsChart && (
                 <Chart
@@ -338,7 +344,7 @@ const InventoryDashboard = () => {
 
       {/* Top Moving Items Chart */}
       {topMovingChart && (
-        <Card title="Top 10 Artículos Más Movidos" className="shadow-lg">
+        <Card title="Top 10 Artículos Más Movidos">
           <div style={{ height: '300px' }}>
             <Chart
               type="bar"
@@ -353,61 +359,66 @@ const InventoryDashboard = () => {
       )}
 
       {/* Tables Grid */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid">
         {/* Top Warehouses */}
-        <Card title="Almacenes Principales" className="shadow-lg">
-          <DataTable
-            value={metrics.topWarehouses}
-            responsiveLayout="scroll"
-            className="text-sm"
-          >
-            <Column
-              field="warehouseName"
-              header="Almacén"
-              body={(rowData) => (
-                <span className="font-semibold">{rowData.warehouseName}</span>
-              )}
-            />
-            <Column
-              field="itemCount"
-              header="Artículos"
-              body={(rowData) => (
-                <Tag
-                  value={rowData.itemCount}
-                  severity="info"
-                  rounded
-                />
-              )}
-            />
-            <Column
-              field="totalValue"
-              header="Valor"
-              body={(rowData) => (
-                <span className="font-medium">
-                  ${(rowData.totalValue / 1000).toFixed(1)}K
-                </span>
-              )}
-            />
-          </DataTable>
-        </Card>
+        <div className="col-12 xl:col-6">
+          <Card title="Almacenes Principales">
+            <DataTable
+              value={metrics.topWarehouses}
+              scrollable
+              size="small"
+              className="w-full"
+            >
+              <Column
+                field="warehouseName"
+                header="Almacén"
+                body={(rowData) => (
+                  <span className="font-semibold">{rowData.warehouseName}</span>
+                )}
+              />
+              <Column
+                field="itemCount"
+                header="Artículos"
+                body={(rowData) => (
+                  <Tag
+                    value={rowData.itemCount}
+                    severity="info"
+                    rounded
+                  />
+                )}
+              />
+              <Column
+                field="totalValue"
+                header="Valor"
+                body={(rowData) => (
+                  <span className="font-medium">
+                    ${(rowData.totalValue / 1000).toFixed(1)}K
+                  </span>
+                )}
+              />
+            </DataTable>
+          </Card>
+        </div>
 
         {/* Recent Activities */}
         {metrics.recentActivities && metrics.recentActivities.length > 0 && (
-          <Card title="Actividades Recientes" className="shadow-lg">
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {metrics.recentActivities.slice(0, 10).map((activity, idx) => (
-                <div
-                  key={idx}
-                  className="border-l-4 border-blue-500 pl-4 py-2 hover:bg-gray-50 dark:hover:bg-gray-800 rounded transition"
-                >
-                  <p className="text-sm font-medium">{activity.description}</p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {new Date(activity.timestamp).toLocaleString()}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </Card>
+          <div className="col-12 xl:col-6">
+            <Card title="Actividades Recientes">
+              <div style={{ maxHeight: '24rem', overflowY: 'auto' }}>
+                {metrics.recentActivities.slice(0, 10).map((activity, idx) => (
+                  <div
+                    key={idx}
+                    className="border-left-3 border-primary pl-3 py-2 mb-2 surface-hover border-round"
+                  >
+                    <p className="text-sm font-medium m-0">{activity.description}</p>
+                    <p className="text-xs text-500 mt-1 m-0">
+                      {new Date(activity.timestamp).toLocaleString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
         )}
       </div>
     </div>

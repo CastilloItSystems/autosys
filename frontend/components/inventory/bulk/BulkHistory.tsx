@@ -33,7 +33,9 @@ export const BulkHistory = () => {
     try {
       setLoading(true);
       const response = await bulkService.getOperations();
-      setOperations(response || []);
+      // Safe fallback for API response to prevent DataTable `.slice is not a function` error
+      const opsData = response?.data;
+      setOperations(Array.isArray(opsData) ? opsData : []);
     } catch (error: any) {
       toast.current?.show({
         severity: "error",
@@ -50,7 +52,7 @@ export const BulkHistory = () => {
     try {
       if (operation.id) {
         const details = await bulkService.getOperation(operation.id);
-        setSelectedOperation(details as IBulkOperation);
+        setSelectedOperation(details?.data || operation);
       } else {
         setSelectedOperation(operation);
       }
@@ -67,15 +69,15 @@ export const BulkHistory = () => {
   // Type badge
   const typeTemplate = (rowData: IBulkOperation) => {
     const typeConfig: Record<string, { severity: string; label: string }> = {
-      import: { severity: "info", label: "Importación" },
-      export: { severity: "success", label: "Exportación" },
-      update: { severity: "warning", label: "Actualización" },
-      delete: { severity: "danger", label: "Eliminación" },
+      IMPORT: { severity: "info", label: "Importación" },
+      EXPORT: { severity: "success", label: "Exportación" },
+      UPDATE: { severity: "warning", label: "Actualización" },
+      DELETE: { severity: "danger", label: "Eliminación" },
     };
 
-    const config = typeConfig[rowData.type || ""] || {
+    const config = typeConfig[rowData.operationType || ""] || {
       severity: "secondary",
-      label: rowData.type,
+      label: rowData.operationType,
     };
 
     return <Tag value={config.label} severity={config.severity as any} />;
@@ -84,10 +86,11 @@ export const BulkHistory = () => {
   // Status badge
   const statusTemplate = (rowData: IBulkOperation) => {
     const statusConfig: Record<string, { severity: string; label: string }> = {
-      pending: { severity: "warning", label: "Pendiente" },
-      processing: { severity: "info", label: "Procesando" },
-      completed: { severity: "success", label: "Completado" },
-      failed: { severity: "danger", label: "Fallido" },
+      PENDING: { severity: "warning", label: "Pendiente" },
+      PROCESSING: { severity: "info", label: "Procesando" },
+      COMPLETED: { severity: "success", label: "Completado" },
+      FAILED: { severity: "danger", label: "Fallido" },
+      CANCELLED: { severity: "secondary", label: "Cancelado" },
     };
 
     const config = statusConfig[rowData.status || ""] || {
@@ -100,16 +103,21 @@ export const BulkHistory = () => {
 
   // Summary template
   const summaryTemplate = (rowData: IBulkOperation) => {
+    const omitted = Math.max(
+      0,
+      (rowData.totalRecords || 0) -
+        ((rowData.processedRecords || 0) + (rowData.errorRecords || 0)),
+    );
     return (
       <div className="text-sm">
         <div>
-          <strong>Exitosos:</strong> {rowData.successCount || 0}
+          <strong>Procesados:</strong> {rowData.processedRecords || 0}
         </div>
         <div>
-          <strong>Errores:</strong> {rowData.failureCount || 0}
+          <strong>Errores:</strong> {rowData.errorRecords || 0}
         </div>
         <div>
-          <strong>Omitidos:</strong> {rowData.skippedCount || 0}
+          <strong>Omitidos:</strong> {omitted}
         </div>
       </div>
     );
@@ -165,17 +173,32 @@ export const BulkHistory = () => {
 
   // Expandable row for errors
   const errorRowExpansionTemplate = (rowData: IBulkOperation) => {
-    if (!rowData.errorDetails || rowData.errorDetails.length === 0) {
+    let parsedErrors: IBulkValidationError[] = [];
+    if (typeof rowData.errorDetails === "string") {
+      try {
+        const parsed = JSON.parse(rowData.errorDetails);
+        parsedErrors = Array.isArray(parsed) ? parsed : [parsed];
+      } catch (e) {
+        // Fallback for non-JSON string
+        parsedErrors = [{ error: rowData.errorDetails } as any];
+      }
+    } else if (Array.isArray(rowData.errorDetails)) {
+      parsedErrors = rowData.errorDetails;
+    } else if (rowData.errorDetails) {
+      parsedErrors = [rowData.errorDetails as any];
+    }
+
+    if (!parsedErrors || parsedErrors.length === 0) {
       return <div className="p-3 text-600">No hay errores</div>;
     }
 
     return (
       <div className="p-3">
-        <h5>Detalles de errores ({rowData.errorDetails.length})</h5>
-        <DataTable value={rowData.errorDetails} size="small" scrollable>
-          <Column field="row" header="Fila" style={{ width: "60px" }} />
+        <h5>Detalles de errores ({parsedErrors.length})</h5>
+        <DataTable value={parsedErrors} size="small" scrollable>
+          <Column field="rowNumber" header="Fila" style={{ width: "60px" }} />
           <Column field="field" header="Campo" style={{ width: "100px" }} />
-          <Column field="message" header="Mensaje" flex={1} />
+          <Column field="error" header="Mensaje" flex={1} />
           <Column
             field="value"
             header="Valor"
@@ -230,7 +253,7 @@ export const BulkHistory = () => {
         >
           <Column expander style={{ width: "3rem" }} />
           <Column
-            field="type"
+            field="operationType"
             header="Tipo"
             style={{ width: "100px" }}
             body={typeTemplate}
@@ -265,10 +288,10 @@ export const BulkHistory = () => {
             body={dateTemplate}
           />
           <Column
-            field="user"
+            field="createdBy"
             header="Usuario"
             style={{ width: "120px" }}
-            body={(rowData) => rowData.user || "-"}
+            body={(rowData) => rowData.createdBy || "-"}
           />
           <Column
             field="actions"
@@ -296,7 +319,7 @@ export const BulkHistory = () => {
                 <div className="mb-2">
                   <strong>Tipo:</strong>
                 </div>
-                <div>{selectedOperation.type || "-"}</div>
+                <div>{typeTemplate(selectedOperation)}</div>
               </div>
               <div className="col-12 md:col-6 lg:col-3">
                 <div className="mb-2">
@@ -324,9 +347,9 @@ export const BulkHistory = () => {
                 <Card className="bg-green-50 mb-0">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-green-600">
-                      {selectedOperation.successCount || 0}
+                      {selectedOperation.processedRecords || 0}
                     </div>
-                    <div className="text-600 text-sm mt-1">Exitosos</div>
+                    <div className="text-600 text-sm mt-1">Procesados</div>
                   </div>
                 </Card>
               </div>
@@ -334,7 +357,7 @@ export const BulkHistory = () => {
                 <Card className="bg-red-50 mb-0">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-red-600">
-                      {selectedOperation.failureCount || 0}
+                      {selectedOperation.errorRecords || 0}
                     </div>
                     <div className="text-600 text-sm mt-1">Errores</div>
                   </div>
@@ -344,7 +367,12 @@ export const BulkHistory = () => {
                 <Card className="bg-yellow-50 mb-0">
                   <div className="text-center">
                     <div className="text-3xl font-bold text-yellow-600">
-                      {selectedOperation.skippedCount || 0}
+                      {Math.max(
+                        0,
+                        (selectedOperation.totalRecords || 0) -
+                          ((selectedOperation.processedRecords || 0) +
+                            (selectedOperation.errorRecords || 0)),
+                      )}
                     </div>
                     <div className="text-600 text-sm mt-1">Omitidos</div>
                   </div>
@@ -363,42 +391,61 @@ export const BulkHistory = () => {
             </div>
 
             {/* Error Details if any */}
-            {selectedOperation.errorDetails &&
-              selectedOperation.errorDetails.length > 0 && (
-                <div>
-                  <h5>
-                    Detalles de errores ({selectedOperation.errorDetails.length}
-                    )
-                  </h5>
-                  <DataTable
-                    value={selectedOperation.errorDetails}
-                    scrollable
-                    size="small"
-                  >
-                    <Column
-                      field="row"
-                      header="Fila"
-                      style={{ width: "60px" }}
-                    />
-                    <Column
-                      field="field"
-                      header="Campo"
-                      style={{ width: "100px" }}
-                    />
-                    <Column field="message" header="Mensaje" flex={1} />
-                    <Column
-                      field="value"
-                      header="Valor"
-                      style={{ width: "150px" }}
-                      body={(rowData: IBulkValidationError) => (
-                        <code className="text-600 text-sm">
-                          {String(rowData.value).substring(0, 30)}
-                        </code>
-                      )}
-                    />
-                  </DataTable>
-                </div>
-              )}
+            {(() => {
+              let parsedSelectedErrors: IBulkValidationError[] = [];
+              if (typeof selectedOperation.errorDetails === "string") {
+                try {
+                  const parsed = JSON.parse(selectedOperation.errorDetails);
+                  parsedSelectedErrors = Array.isArray(parsed)
+                    ? parsed
+                    : [parsed];
+                } catch (e) {
+                  parsedSelectedErrors = [
+                    { error: selectedOperation.errorDetails } as any,
+                  ];
+                }
+              } else if (Array.isArray(selectedOperation.errorDetails)) {
+                parsedSelectedErrors = selectedOperation.errorDetails;
+              } else if (selectedOperation.errorDetails) {
+                parsedSelectedErrors = [selectedOperation.errorDetails as any];
+              }
+
+              if (parsedSelectedErrors.length > 0) {
+                return (
+                  <div>
+                    <h5>Detalles de errores ({parsedSelectedErrors.length})</h5>
+                    <DataTable
+                      value={parsedSelectedErrors}
+                      scrollable
+                      size="small"
+                    >
+                      <Column
+                        field="rowNumber"
+                        header="Fila"
+                        style={{ width: "60px" }}
+                      />
+                      <Column
+                        field="field"
+                        header="Campo"
+                        style={{ width: "100px" }}
+                      />
+                      <Column field="error" header="Mensaje" flex={1} />
+                      <Column
+                        field="value"
+                        header="Valor"
+                        style={{ width: "150px" }}
+                        body={(rowData: IBulkValidationError) => (
+                          <code className="text-600 text-sm">
+                            {String(rowData.value).substring(0, 30)}
+                          </code>
+                        )}
+                      />
+                    </DataTable>
+                  </div>
+                );
+              }
+              return null;
+            })()}
 
             <div className="flex justify-content-end">
               <Button label="Cerrar" onClick={() => setShowDetails(false)} />

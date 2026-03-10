@@ -1,16 +1,16 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
-import { Toast } from "primereact/toast";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Divider } from "primereact/divider";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { Skeleton } from "primereact/skeleton";
+import { Tag } from "primereact/tag";
 
 import {
   createReconciliation,
@@ -31,17 +31,18 @@ interface ReconciliationFormProps {
   reconciliation?: Reconciliation;
   warehouses: Warehouse[];
   onSuccess: () => void;
+  onCancel: () => void;
 }
 
 export default function ReconciliationForm({
   reconciliation,
   warehouses,
   onSuccess,
+  onCancel,
 }: ReconciliationFormProps) {
   const [items, setItems] = useState<any[]>([]);
   const [initialLoading, setInitialLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const toast = useRef<Toast>(null);
 
   const {
     control,
@@ -50,32 +51,28 @@ export default function ReconciliationForm({
   } = useForm<CreateReconciliationInput>({
     resolver: zodResolver(createReconciliationSchema),
     defaultValues: {
-      warehouseId: reconciliation?.warehouseId || "",
-      source: reconciliation?.source || ReconciliationSource.PHYSICAL_INVENTORY,
-      items: reconciliation?.items || [
-        { itemId: "", systemQuantity: 0, expectedQuantity: 0 },
-      ],
-      notes: reconciliation?.notes || "",
+      warehouseId: reconciliation?.warehouseId ?? "",
+      source: reconciliation?.source ?? ReconciliationSource.PHYSICAL_INVENTORY,
+      items: reconciliation?.items?.length
+        ? reconciliation.items.map((i) => ({
+            itemId: i.itemId,
+            systemQuantity: i.systemQuantity,
+            expectedQuantity: i.expectedQuantity,
+          }))
+        : [{ itemId: "", systemQuantity: 0, expectedQuantity: 0 }],
+      notes: reconciliation?.notes ?? "",
     },
   });
 
-  const { fields, append, remove } = useFieldArray({
-    control,
-    name: "items",
-  });
+  const { fields, append, remove } = useFieldArray({ control, name: "items" });
 
   useEffect(() => {
     (async () => {
       try {
         const response = await getActiveItems();
-        setItems(response.data || []);
-      } catch (error) {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "Error al cargar artículos",
-          life: 3000,
-        });
+        setItems(Array.isArray(response.data) ? response.data : []);
+      } catch {
+        // silencioso — opciones vacías
       } finally {
         setInitialLoading(false);
       }
@@ -83,252 +80,264 @@ export default function ReconciliationForm({
   }, []);
 
   const onSubmit = async (data: CreateReconciliationInput) => {
+    setIsSubmitting(true);
     try {
-      setIsSubmitting(true);
-      const submitData = {
-        ...data,
-        source: data.source as ReconciliationSource | undefined,
-      };
       if (reconciliation) {
-        await updateReconciliation(reconciliation.id, submitData);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Reconciliación actualizada",
-          life: 3000,
-        });
+        await updateReconciliation(reconciliation.id, data);
       } else {
-        await createReconciliation(submitData);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Reconciliación creada",
-          life: 3000,
-        });
+        await createReconciliation(data);
       }
       onSuccess();
     } catch (error) {
-      handleFormError(error, toast);
+      handleFormError(error, { current: null } as any);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const warehouseOptions = warehouses.map((w) => ({ label: w.name, value: w.id }));
+
+  const sourceOptions = Object.entries(RECONCILIATION_SOURCE_CONFIG).map(([key, cfg]) => ({
+    label: cfg.label,
+    value: key,
+  }));
+
   const itemOptions = items.map((item) => ({
-    label: item.sku ? `${item.sku} - ${item.name}` : item.name,
+    label: item.sku ? `${item.sku} — ${item.name}` : item.name,
     value: item.id,
   }));
 
-  const warehouseOptions = warehouses.map((w) => ({
-    label: w.name,
-    value: w.id,
-  }));
-
-  const sourceOptions = Object.entries(RECONCILIATION_SOURCE_CONFIG).map(
-    ([key, config]) => ({
-      label: config.label,
-      value: key,
-    }),
-  );
-
   if (initialLoading) {
-    return <ProgressSpinner />;
+    return (
+      <div className="grid">
+        <div className="col-12 md:col-6"><Skeleton height="2.5rem" className="mb-2" /><Skeleton height="2.5rem" /></div>
+        <div className="col-12 md:col-6"><Skeleton height="2.5rem" className="mb-2" /><Skeleton height="2.5rem" /></div>
+        <div className="col-12"><Skeleton height="6rem" /></div>
+      </div>
+    );
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-      <Toast ref={toast} />
+    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      <div className="grid">
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <div>
-          <label className="mb-2 block font-semibold text-gray-700">
-            Almacén *
+        {/* ── Almacén ──────────────────────────────────────────────────── */}
+        <div className="col-12 md:col-6">
+          <label className="block text-900 font-medium mb-2">
+            Almacén <span className="text-red-500">*</span>
           </label>
           <Controller
             name="warehouseId"
             control={control}
             render={({ field }) => (
-              <>
-                <Dropdown
-                  {...field}
-                  options={warehouseOptions}
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Seleccione almacén"
-                  className="w-full"
-                />
-                {errors.warehouseId && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.warehouseId.message}
-                  </p>
-                )}
-              </>
+              <Dropdown
+                {...field}
+                options={warehouseOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccione almacén"
+                className={errors.warehouseId ? "p-invalid" : ""}
+              />
             )}
           />
+          {errors.warehouseId && (
+            <small className="p-error block mt-1">{errors.warehouseId.message}</small>
+          )}
         </div>
 
-        <div>
-          <label className="mb-2 block font-semibold text-gray-700">
-            Origen de Discrepancia *
+        {/* ── Origen de Discrepancia ───────────────────────────────────── */}
+        <div className="col-12 md:col-6">
+          <label className="block text-900 font-medium mb-2">
+            Origen de Discrepancia <span className="text-red-500">*</span>
           </label>
           <Controller
             name="source"
             control={control}
             render={({ field }) => (
-              <>
-                <Dropdown
-                  {...field}
-                  options={sourceOptions}
-                  optionLabel="label"
-                  optionValue="value"
-                  placeholder="Seleccione origen"
-                  className="w-full"
-                />
-                {errors.source && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.source.message}
-                  </p>
-                )}
-              </>
+              <Dropdown
+                {...field}
+                options={sourceOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccione origen"
+                className={errors.source ? "p-invalid" : ""}
+              />
+            )}
+          />
+          {errors.source && (
+            <small className="p-error block mt-1">{errors.source.message}</small>
+          )}
+        </div>
+
+        {/* ── Notas ───────────────────────────────────────────────────── */}
+        <div className="col-12">
+          <label className="block text-900 font-medium mb-2">Notas adicionales</label>
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <InputTextarea
+                {...field}
+                rows={3}
+                placeholder="Detalles sobre las discrepancias encontradas..."
+              />
             )}
           />
         </div>
-      </div>
 
-      <Divider />
+        {/* ── Artículos ────────────────────────────────────────────────── */}
+        <div className="col-12">
+          <Divider />
+          <div className="flex align-items-center justify-content-between mb-3">
+            <span className="text-900 font-medium">
+              Artículos con Discrepancias <span className="text-red-500">*</span>
+            </span>
+            <Button
+              type="button"
+              label="Agregar artículo"
+              icon="pi pi-plus"
+              size="small"
+              severity="info"
+              text
+              onClick={() => append({ itemId: "", systemQuantity: 0, expectedQuantity: 0 })}
+            />
+          </div>
 
-      <div>
-        <div className="mb-3 flex items-center justify-between">
-          <label className="font-semibold text-gray-700">
-            Artículos con Discrepancias *
-          </label>
+          {fields.length === 0 ? (
+            <div
+              className="flex flex-column align-items-center justify-content-center border-2 border-dashed border-300 border-round p-5 text-500"
+              style={{ minHeight: "100px" }}
+            >
+              <i className="pi pi-list-check text-4xl mb-2 text-300" />
+              <span>Agrega al menos un artículo con discrepancia</span>
+            </div>
+          ) : (
+            <div className="flex flex-column gap-2">
+              {fields.map((field, index) => {
+                const itemErr = errors.items?.[index];
+                return (
+                  <div
+                    key={field.id}
+                    className="grid border-1 border-200 border-round p-2 m-0"
+                  >
+                    {/* Artículo */}
+                    <div className="col-12 md:col-5">
+                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                        Artículo
+                      </label>
+                      <Controller
+                        name={`items.${index}.itemId`}
+                        control={control}
+                        render={({ field }) => (
+                          <Dropdown
+                            {...field}
+                            options={itemOptions}
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Seleccione artículo"
+                            filter
+                            filterPlaceholder="Buscar..."
+                            className={itemErr?.itemId ? "p-invalid" : ""}
+                          />
+                        )}
+                      />
+                      {itemErr?.itemId && (
+                        <small className="p-error block mt-1">{itemErr.itemId.message}</small>
+                      )}
+                    </div>
+
+                    {/* Stock Sistema */}
+                    <div className="col-12 md:col-3">
+                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                        Stock Sistema
+                        <Tag value="actual" severity="secondary" className="ml-2" style={{ fontSize: "0.7rem" }} />
+                      </label>
+                      <Controller
+                        name={`items.${index}.systemQuantity`}
+                        control={control}
+                        render={({ field }) => (
+                          <InputNumber
+                            value={field.value}
+                            onValueChange={(e) => field.onChange(e.value ?? 0)}
+                            min={0}
+                            showButtons
+                            className={itemErr?.systemQuantity ? "p-invalid" : ""}
+                          />
+                        )}
+                      />
+                      {itemErr?.systemQuantity && (
+                        <small className="p-error block mt-1">{itemErr.systemQuantity.message}</small>
+                      )}
+                    </div>
+
+                    {/* Stock Esperado */}
+                    <div className="col-12 md:col-3">
+                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                        Stock Real/Contado
+                        <Tag value="físico" severity="info" className="ml-2" style={{ fontSize: "0.7rem" }} />
+                      </label>
+                      <Controller
+                        name={`items.${index}.expectedQuantity`}
+                        control={control}
+                        render={({ field }) => (
+                          <InputNumber
+                            value={field.value}
+                            onValueChange={(e) => field.onChange(e.value ?? 0)}
+                            min={0}
+                            showButtons
+                            className={itemErr?.expectedQuantity ? "p-invalid" : ""}
+                          />
+                        )}
+                      />
+                      {itemErr?.expectedQuantity && (
+                        <small className="p-error block mt-1">{itemErr.expectedQuantity.message}</small>
+                      )}
+                    </div>
+
+                    {/* Eliminar */}
+                    <div className="col-12 md:col-1 flex align-items-end justify-content-center">
+                      <Button
+                        type="button"
+                        icon="pi pi-trash"
+                        severity="danger"
+                        text
+                        rounded
+                        size="small"
+                        tooltip="Eliminar fila"
+                        tooltipOptions={{ position: "top" }}
+                        onClick={() => remove(index)}
+                        disabled={fields.length === 1}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {errors.items && !Array.isArray(errors.items) && (
+            <small className="p-error block mt-2">{(errors.items as any).message}</small>
+          )}
+        </div>
+
+        {/* ── Botones ──────────────────────────────────────────────────── */}
+        <div className="col-12 flex justify-content-end gap-2 mt-2">
           <Button
             type="button"
-            label="Agregar Artículo"
-            icon="pi pi-plus"
-            size="small"
-            onClick={() =>
-              append({ itemId: "", systemQuantity: 0, expectedQuantity: 0 })
-            }
-            className="bg-blue-600"
+            label="Cancelar"
+            icon="pi pi-times"
+            severity="secondary"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          />
+          <Button
+            type="submit"
+            label={reconciliation ? "Guardar cambios" : "Crear Reconciliación"}
+            icon="pi pi-check"
+            loading={isSubmitting}
           />
         </div>
 
-        <div className="space-y-3">
-          {fields.map((field, index) => (
-            <div
-              key={field.id}
-              className="space-y-2 border border-gray-200 p-3 rounded-lg"
-            >
-              <div className="grid grid-cols-1 gap-2 md:grid-cols-4">
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Artículo
-                  </label>
-                  <Controller
-                    name={`items.${index}.itemId`}
-                    control={control}
-                    render={({ field }) => (
-                      <Dropdown
-                        {...field}
-                        options={itemOptions}
-                        optionLabel="label"
-                        optionValue="value"
-                        placeholder="Seleccione"
-                        filter
-                        className="w-full text-sm"
-                      />
-                    )}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Stock Sistema
-                  </label>
-                  <Controller
-                    name={`items.${index}.systemQuantity`}
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        min={0}
-                        className="w-full text-sm"
-                      />
-                    )}
-                  />
-                </div>
-
-                <div>
-                  <label className="mb-1 block text-sm font-medium">
-                    Stock Esperado/Real
-                  </label>
-                  <Controller
-                    name={`items.${index}.expectedQuantity`}
-                    control={control}
-                    render={({ field }) => (
-                      <InputNumber
-                        {...field}
-                        min={0}
-                        className="w-full text-sm"
-                      />
-                    )}
-                  />
-                </div>
-
-                <div className="flex items-end">
-                  <Button
-                    type="button"
-                    icon="pi pi-trash"
-                    size="small"
-                    severity="danger"
-                    rounded
-                    outlined
-                    onClick={() => remove(index)}
-                    className="w-full"
-                  />
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {errors.items && (
-          <p className="mt-2 text-sm text-red-600">{errors.items.message}</p>
-        )}
-      </div>
-
-      <Divider />
-
-      <div>
-        <label className="mb-2 block font-semibold text-gray-700">Notas</label>
-        <Controller
-          name="notes"
-          control={control}
-          render={({ field }) => (
-            <InputTextarea
-              {...field}
-              rows={3}
-              placeholder="Detalles de las discrepancias..."
-              className="w-full"
-            />
-          )}
-        />
-      </div>
-
-      <div className="flex justify-end gap-3 pt-4">
-        <Button
-          type="button"
-          label="Cancelar"
-          severity="secondary"
-          onClick={() => onSuccess()}
-          disabled={isSubmitting}
-        />
-        <Button
-          type="submit"
-          label={reconciliation ? "Actualizar" : "Crear"}
-          loading={isSubmitting}
-        />
       </div>
     </form>
   );

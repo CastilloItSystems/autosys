@@ -32,7 +32,7 @@ export const getLoans = asyncHandler(async (req: Request, res: Response) => {
   if (borrowerName) filters.borrowerName = borrowerName
   if (warehouseId) filters.warehouseId = warehouseId
 
-  const result = await service.findAll(filters, page, limit)
+  const result = await service.findAll(filters, page, limit, undefined, undefined, req.prisma || undefined)
 
   return ApiResponse.paginated(
     res,

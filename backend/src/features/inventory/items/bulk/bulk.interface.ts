@@ -49,7 +49,7 @@ export interface IColumnMapping {
 export interface IBulkExportInput {
   filters?: IBulkExportFilters
   columns?: string[]
-  format?: 'csv' | 'json' | 'excel'
+  format?: 'csv' | 'json' | 'xlsx'
 }
 
 export interface IBulkExportFilters {

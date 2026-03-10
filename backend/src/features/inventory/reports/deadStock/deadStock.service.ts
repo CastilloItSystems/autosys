@@ -5,12 +5,13 @@
 import prisma from '../../../../services/prisma.service'
 
 
-export async function getDeadStockReport(page = 1, limit = 50) {
+export async function getDeadStockReport(page = 1, limit = 50, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
     const sixMonthsAgo = new Date()
     sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6)
 
-    const stocks = await prisma.stock.findMany({
+    const stocks = await db.stock.findMany({
       include: { item: true, warehouse: true },
       where: {
         quantityReal: { gt: 0 },
@@ -35,7 +36,7 @@ export async function getDeadStockReport(page = 1, limit = 50) {
       ),
     }))
 
-    const total = await prisma.stock.count({
+    const total = await db.stock.count({
       where: {
         quantityReal: { gt: 0 },
         lastCountDate: { lt: sixMonthsAgo },

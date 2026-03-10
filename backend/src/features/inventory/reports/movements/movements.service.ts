@@ -15,7 +15,8 @@ interface MovementsFilter {
   type?: string
 }
 
-export async function getMovementsReport(filters: MovementsFilter = {}) {
+export async function getMovementsReport(filters: MovementsFilter = {}, prismaClient?: any) {
+  const db = prismaClient || prisma
   try {
     const page = filters.page || 1
     const limit = filters.limit || 50
@@ -64,7 +65,7 @@ export async function getMovementsReport(filters: MovementsFilter = {}) {
     }
 
     // Fetch paginated movements with relations
-    const movements = await prisma.movement.findMany({
+    const movements = await db.movement.findMany({
       where,
       include: {
         item: {
@@ -96,7 +97,7 @@ export async function getMovementsReport(filters: MovementsFilter = {}) {
     })
 
     // Count total for pagination
-    const total = await prisma.movement.count({ where })
+    const total = await db.movement.count({ where })
 
     // Map to API response format
     const data = movements.map((m: any) => ({
@@ -141,8 +142,10 @@ interface MovementsSummary {
 
 export async function getMovementsSummary(
   dateFrom?: Date | string,
-  dateTo?: Date | string
+  dateTo?: Date | string,
+  prismaClient?: any
 ): Promise<MovementsSummary> {
+  const db = prismaClient || prisma
   try {
     const where: any = {}
 
@@ -162,10 +165,10 @@ export async function getMovementsSummary(
     }
 
     // Total movements count
-    const totalMovements = await prisma.movement.count({ where })
+    const totalMovements = await db.movement.count({ where })
 
     // Movements by type
-    const movementsByType = await prisma.movement.groupBy({
+    const movementsByType = await db.movement.groupBy({
       by: ['type'],
       where,
       _count: {
@@ -179,7 +182,7 @@ export async function getMovementsSummary(
     })
 
     // Movements by warehouse (combining from/to)
-    const movementsFromWarehouse = await prisma.movement.groupBy({
+    const movementsFromWarehouse = await db.movement.groupBy({
       by: ['warehouseFromId'],
       where: {
         ...where,
@@ -190,7 +193,7 @@ export async function getMovementsSummary(
       },
     })
 
-    const movementsToWarehouse = await prisma.movement.groupBy({
+    const movementsToWarehouse = await db.movement.groupBy({
       by: ['warehouseToId'],
       where: {
         ...where,
@@ -223,7 +226,7 @@ export async function getMovementsSummary(
 
     // Get warehouse names for response
     const warehouseIds = Object.keys(byWarehouse).filter((id) => id !== 'null')
-    const warehouses = await prisma.warehouse.findMany({
+    const warehouses = await db.warehouse.findMany({
       where: { id: { in: warehouseIds } },
       select: { id: true, name: true },
     })
@@ -240,7 +243,7 @@ export async function getMovementsSummary(
     })
 
     // Total quantity and cost
-    const totals = await prisma.movement.aggregate({
+    const totals = await db.movement.aggregate({
       where,
       _sum: {
         quantity: true,

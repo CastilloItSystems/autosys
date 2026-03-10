@@ -10,25 +10,41 @@ const bulkService = new BulkService()
 export class BulkController {
   import = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const userId = (req as any).user?.id || 'system'
-    const result = await bulkService.importItems(req.body, userId)
+      const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+      const result = await bulkService.importItems(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Importación completada', 201)
   })
 
   export = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const userId = (req as any).user?.id || 'system'
-    const result = await bulkService.exportItems(req.body, userId)
-    ApiResponse.success(res, result, 'Exportación completada', 201)
+      const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+      const result = await bulkService.exportItems(req.body, userId, empresaId)
+
+    let mimeType = 'text/csv'
+    if (result.format === 'json') mimeType = 'application/json'
+    else if (result.format === 'xlsx')
+      mimeType =
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+
+    res.setHeader('Content-Type', mimeType)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.fileName}"`
+    )
+    res.send(result.content)
   })
 
   update = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const userId = (req as any).user?.id || 'system'
-    const result = await bulkService.bulkUpdate(req.body, userId)
+      const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+      const result = await bulkService.bulkUpdate(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Actualización en lote completada')
   })
 
   delete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const userId = (req as any).user?.id || 'system'
-    const result = await bulkService.bulkDelete(req.body, userId)
+      const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+      const result = await bulkService.bulkDelete(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Eliminación en lote completada')
   })
 

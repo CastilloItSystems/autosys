@@ -8,7 +8,7 @@ import {
   getAllTurnoverMetrics,
   getItemsByClassification,
 } from './turnover.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/ApiResponse'
 
 export const getTurnoverMetricsHandler = async (
   req: Request,
@@ -17,13 +17,9 @@ export const getTurnoverMetricsHandler = async (
   try {
     const { itemId } = req.params
     const result = await getTurnoverMetricsForItem(itemId)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(result, 'Turnover metrics retrieved successfully')
-      )
+    ApiResponse.success(res, result, 'Turnover metrics retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 
@@ -35,19 +31,21 @@ export const getAllTurnoverMetricsHandler = async (
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
     const result = await getAllTurnoverMetrics(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Inventory Turnover Metrics'
-        )
-      )
+    res.status(200).json({
+      success: true,
+      message: 'Inventory Turnover Metrics',
+      data: result.data,
+      summary: result.summary,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 
@@ -62,7 +60,7 @@ export const getItemsByClassificationHandler = async (
 
     const valid = ['FAST_MOVING', 'MODERATE', 'SLOW_MOVING', 'STATIC']
     if (!valid.includes(classification)) {
-      res.status(400).json(ApiResponse.error('Invalid classification'))
+      ApiResponse.error(res, 'Invalid classification', 400)
       return
     }
 
@@ -71,19 +69,21 @@ export const getItemsByClassificationHandler = async (
       page,
       limit
     )
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          `${classification} Items`
-        )
-      )
+    res.status(200).json({
+      success: true,
+      message: `${classification} Items`,
+      data: result.data,
+      summary: result.summary,
+      pagination: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message, 500)
   }
 }
 
