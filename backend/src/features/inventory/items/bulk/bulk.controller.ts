@@ -9,6 +9,8 @@ const bulkService = new BulkService()
 
 export class BulkController {
   import = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    console.log("BODY REQ:", req.body);
+
     const userId = (req as any).user?.id || 'system'
       const empresaId = (req.headers['x-empresa-id'] as string) || undefined
       const result = await bulkService.importItems(req.body, userId, empresaId)

@@ -96,11 +96,11 @@ export interface IBulkOperationsResponse {
 export const importItems = async (
   request: IBulkImportRequest,
 ): Promise<IBulkOperationResult> => {
-  const response = await apiClient.post<IBulkOperationResult>(
+  const response = await apiClient.post<{ data: IBulkOperationResult }>(
     `/inventory/items/bulk/import`,
     request,
   );
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -125,11 +125,11 @@ export const exportItems = async (
 export const bulkUpdate = async (
   request: IBulkUpdateRequest,
 ): Promise<IBulkOperationResult> => {
-  const response = await apiClient.patch<IBulkOperationResult>(
+  const response = await apiClient.patch<{ data: IBulkOperationResult }>(
     `/inventory/items/bulk/update`,
     request,
   );
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -138,13 +138,13 @@ export const bulkUpdate = async (
 export const bulkDelete = async (
   request: IBulkDeleteRequest,
 ): Promise<IBulkOperationResult> => {
-  const response = await apiClient.delete<IBulkOperationResult>(
+  const response = await apiClient.delete<{ data: IBulkOperationResult }>(
     `/inventory/items/bulk/delete`,
     {
       data: request,
     },
   );
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -158,10 +158,10 @@ export const getOperations = async (
     page: String(page),
     limit: String(limit),
   });
-  const response = await apiClient.get<IBulkOperationsResponse>(
+  const response = await apiClient.get<{ data: IBulkOperationsResponse }>(
     `/inventory/items/bulk/operations?${params.toString()}`,
   );
-  return response.data;
+  return response.data.data;
 };
 
 /**
@@ -170,10 +170,10 @@ export const getOperations = async (
 export const getOperation = async (
   operationId: string,
 ): Promise<{ data: IBulkOperation }> => {
-  const response = await apiClient.get<{ data: IBulkOperation }>(
+  const response = await apiClient.get<{ data: { data: IBulkOperation } }>(
     `/inventory/items/bulk/operations/${operationId}`,
   );
-  return response.data;
+  return response.data.data;
 };
 
 /**

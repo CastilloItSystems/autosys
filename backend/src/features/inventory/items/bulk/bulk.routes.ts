@@ -205,6 +205,8 @@ const controller = new BulkController()
 /**
  * Operaciones en lote - Importar, Exportar, Actualizar y Eliminar
  */
+router.post("/test-import", controller.import)
+
 
 // POST /api/inventory/items/bulk/import
 router.post(

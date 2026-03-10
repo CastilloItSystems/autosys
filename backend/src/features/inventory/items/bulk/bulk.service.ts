@@ -495,7 +495,17 @@ export class BulkService {
     if (empresaId) where.empresaId = empresaId
     const existing = await prisma.unit.findFirst({ where })
     if (existing) return existing.id
-    const created = await prisma.unit.create({ data: { name, empresaId: empresaId || 'default', code: name.slice(0, 30) } })
+    
+    // Auto-create missing unit with defaults for abbreviation and type
+    const created = await prisma.unit.create({ 
+      data: { 
+        name, 
+        empresaId: empresaId || 'default', 
+        code: name.slice(0, 30),
+        abbreviation: name.slice(0, 5).toLowerCase(),
+        type: 'COUNTABLE'
+      } 
+    })
     return created.id
   }
 

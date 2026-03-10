@@ -12,31 +12,13 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { ProgressBar } from "primereact/progressbar";
 import { Toast } from "primereact/toast";
-import { Tag } from "primereact/tag";
 import { Checkbox } from "primereact/checkbox";
-import { Dropdown } from "primereact/dropdown";
-import { InputSwitch } from "primereact/inputswitch";
 import { Card } from "primereact/card";
 import * as bulkService from "@/app/api/inventory/bulkService";
 import type {
   IBulkValidationError,
   IBulkOperation,
 } from "@/app/api/inventory/bulkService";
-
-// CSV column headers to match backend
-const EXPECTED_HEADERS = [
-  "sku",
-  "name",
-  "costPrice",
-  "salePrice",
-  "description",
-  "categoryId",
-  "unitId",
-  "brandId",
-  "wholesalePrice",
-  "minStock",
-  "barcode",
-];
 
 interface PreviewRow {
   [key: string]: any;
@@ -106,12 +88,12 @@ export const BulkImport = () => {
       const content = event.target?.result as string;
       setCsvFile(file);
       setCsvContent(content);
-      parseCSV(content);
+      const { rows } = parseCSV(content);
 
       toast.current?.show({
         severity: "success",
-        summary: "File loaded",
-        detail: `${file.name} (${previewRows.length} rows)`,
+        summary: "Archivo cargado",
+        detail: `${file.name} (${rows.length} filas)`,
       });
     };
     reader.readAsText(file);
@@ -208,11 +190,7 @@ export const BulkImport = () => {
       <Toast ref={toast} />
 
       {/* Upload Section */}
-      <Card>
-        <template slot="header">
-          <h3 className="m-0">Subir archivo CSV</h3>
-        </template>
-
+      <Card header={<h3 className="m-0 p-3">Subir archivo CSV</h3>}>
         <div className="flex flex-column gap-4">
           <FileUpload
             ref={fileUploadRef}
@@ -222,8 +200,10 @@ export const BulkImport = () => {
             onSelect={handleFileSelect}
             auto={false}
             chooseLabel="Seleccionar archivo"
-            cancelLabel="Limpiar"
             customUpload
+            uploadHandler={() => {}}
+            showUploadButton={false}
+            showCancelButton={false}
             emptyTemplate={
               <p className="m-0">
                 Arrastra un archivo CSV aquí o haz click para seleccionar
@@ -305,11 +285,7 @@ export const BulkImport = () => {
 
       {/* Preview Section */}
       {previewRows.length > 0 && !uploading && (
-        <Card>
-          <template slot="header">
-            <h3 className="m-0">Vista previa (primeras 10 filas)</h3>
-          </template>
-
+        <Card header={<h3 className="m-0 p-3">Vista previa (primeras 10 filas)</h3>}>
           <div className="overflow-x-auto">
             <DataTable value={previewRows} scrollable size="small">
               {headers.map((header) => (
@@ -411,7 +387,7 @@ export const BulkImport = () => {
                         header="Campo"
                         style={{ width: "100px" }}
                       />
-                      <Column field="error" header="Mensaje" flex={1} />
+                      <Column field="error" header="Mensaje" style={{ minWidth: "200px" }} />
                       <Column
                         field="value"
                         header="Valor"

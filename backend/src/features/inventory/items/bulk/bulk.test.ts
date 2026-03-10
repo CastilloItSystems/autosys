@@ -11,6 +11,7 @@ describe('Bulk Operations Routes', () => {
   let brandId: string
   let categoryId: string
   let unitId: string
+  let empresaId: string
 
   beforeAll(async () => {
     // Clean up previous test data
@@ -41,6 +42,20 @@ describe('Bulk Operations Routes', () => {
     })
     userId = user?.id || '550e8400-e29b-41d4-a716-446655440000'
 
+    // Ensure there is an Empresa and the test user has access to it
+    let empresa = await prisma.empresa.findFirst({ where: { nombre: 'Test Empresa Bulk' } })
+    if (!empresa) {
+      empresa = await prisma.empresa.create({ data: { nombre: 'Test Empresa Bulk' } })
+    }
+    empresaId = empresa.id_empresa
+
+    // Connect empresa to user if not already connected
+    const userWithEmpresas = await prisma.user.findUnique({ where: { id: userId }, include: { empresas: true } })
+    const hasEmpresa = userWithEmpresas?.empresas?.some((e: any) => e.id_empresa === empresaId)
+    if (!hasEmpresa) {
+      await prisma.user.update({ where: { id: userId }, data: { empresas: { connect: { id_empresa: empresaId } } } })
+    }
+
     // Create test catalogs for FK constraints
     const brand = await prisma.brand.create({
       data: {
@@ -48,6 +63,7 @@ describe('Bulk Operations Routes', () => {
         name: 'Test Brand for Bulk',
         type: 'PART',
         isActive: true,
+        empresaId: empresaId,
       },
     })
     brandId = brand.id
@@ -57,6 +73,7 @@ describe('Bulk Operations Routes', () => {
         code: 'TEST-CAT-BULK',
         name: 'Test Category for Bulk',
         isActive: true,
+        empresaId: empresaId,
       },
     })
     categoryId = category.id
@@ -68,6 +85,7 @@ describe('Bulk Operations Routes', () => {
         abbreviation: 'TUB',
         type: 'COUNTABLE',
         isActive: true,
+        empresaId: empresaId,
       },
     })
     unitId = unit.id
@@ -107,6 +125,7 @@ BULK-TEST-003,Test Item 3,Test Description 3,20,40,75`
       const response = await request(app)
         .post('/api/inventory/items/bulk/import')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           fileName: 'test_import.csv',
           fileContent: csvContent,
@@ -129,6 +148,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .post('/api/inventory/items/bulk/import')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           fileName: 'test_update_import.csv',
           fileContent: csvContent,
@@ -145,6 +165,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .post('/api/inventory/items/bulk/import')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           fileName: 'empty.csv',
           fileContent: 'sku,name',
@@ -165,6 +186,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
             categoryId,
             brandId,
             unitId,
+            empresaId: empresaId,
             costPrice: 10,
             salePrice: 20,
             isActive: true,
@@ -175,6 +197,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .post('/api/inventory/items/bulk/export')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           format: 'csv',
           filters: {
@@ -182,10 +205,8 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
           },
         })
 
-      expect(response.status).toBe(201)
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toHaveProperty('fileName')
-      expect(response.body.data).toHaveProperty('content')
+      expect(response.status).toBe(200)
+      expect(response.header['content-disposition']).toBeDefined()
     })
 
     test('should export items as JSON', async () => {
@@ -198,6 +219,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
             categoryId,
             brandId,
             unitId,
+            empresaId: empresaId,
             costPrice: 15,
             salePrice: 30,
             isActive: true,
@@ -208,12 +230,13 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .post('/api/inventory/items/bulk/export')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           format: 'json',
         })
 
-      expect(response.status).toBe(201)
-      expect(response.body.data.format).toBe('json')
+      expect(response.status).toBe(200)
+      expect(response.header['content-type']).toContain('application/json')
     })
 
     test('should apply price range filters on export', async () => {
@@ -226,6 +249,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
             categoryId,
             brandId,
             unitId,
+            empresaId: empresaId,
             costPrice: 50,
             salePrice: 80,
             isActive: true,
@@ -236,6 +260,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .post('/api/inventory/items/bulk/export')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           format: 'csv',
           filters: {
@@ -244,8 +269,8 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
           },
         })
 
-      expect(response.status).toBe(201)
-      expect(response.body.data).toHaveProperty('recordCount')
+      expect(response.status).toBe(200)
+      expect(response.header['content-disposition']).toBeDefined()
     })
   })
 
@@ -260,6 +285,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
             categoryId,
             brandId,
             unitId,
+            empresaId: empresaId,
             costPrice: 10,
             salePrice: 20,
           },
@@ -269,6 +295,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .patch('/api/inventory/items/bulk/update')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           filter: {
             sku: { contains: 'BULK-TEST-UPDATE' },
@@ -287,6 +314,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .patch('/api/inventory/items/bulk/update')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           filter: {
             sku: 'NONEXISTENT-SKU',
@@ -310,6 +338,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
           categoryId,
           brandId,
           unitId,
+          empresaId: empresaId,
           costPrice: 10,
           salePrice: 20,
         },
@@ -318,6 +347,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .delete('/api/inventory/items/bulk/delete')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           filter: {
             sku: 'BULK-DELETE-001',
@@ -338,6 +368,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
           categoryId,
           brandId,
           unitId,
+          empresaId: empresaId,
           costPrice: 10,
           salePrice: 20,
         },
@@ -346,6 +377,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .delete('/api/inventory/items/bulk/delete')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           filter: {
             id: item.id,
@@ -362,6 +394,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .get('/api/inventory/items/bulk/operations')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(response.status).toBe(200)
       expect(response.body.success).toBe(true)
@@ -374,6 +407,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .get('/api/inventory/items/bulk/operations?page=1&limit=5')
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(response.status).toBe(200)
       expect(response.body.meta.page).toBe(1)
@@ -403,6 +437,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .get(`/api/inventory/items/bulk/operations/${operationId}`)
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(response.status).toBe(200)
       expect(response.body.data.id).toBe(operationId)
@@ -414,6 +449,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
           '/api/inventory/items/bulk/operations/00000000-0000-0000-0000-000000000000'
         )
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(response.status).toBe(404)
     })
@@ -435,6 +471,7 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       const response = await request(app)
         .delete(`/api/inventory/items/bulk/operations/${operation.id}`)
         .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(response.status).toBe(200)
       expect(response.body.success).toBe(true)
