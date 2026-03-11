@@ -2,7 +2,7 @@
 
 import { Request, Response } from 'express'
 import { SearchService } from './search.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
 
 const searchService = new SearchService()

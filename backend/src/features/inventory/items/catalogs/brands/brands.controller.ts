@@ -4,7 +4,7 @@ import { Request, Response } from 'express'
 import { BrandService } from './brands.service'
 import { CreateBrandDTO, UpdateBrandDTO, BrandResponseDTO } from './brands.dto'
 import { IBrandFilters, BrandType } from './brands.interface'
-import { ApiResponse } from '../../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../../../shared/middleware/asyncHandler.middleware'
 import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
 

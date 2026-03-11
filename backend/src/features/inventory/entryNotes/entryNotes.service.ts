@@ -3,7 +3,7 @@
 import prisma from '../../../services/prisma.service'
 import { logger } from '../../../shared/utils/logger'
 import { PaginationHelper } from '../../../shared/utils/pagination'
-import { NotFoundError, BadRequestError } from '../../../shared/utils/ApiError'
+import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator'
 import {

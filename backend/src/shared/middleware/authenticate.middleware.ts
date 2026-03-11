@@ -1,25 +1,13 @@
 // backend/src/shared/middleware/authenticate.middleware.ts
-
 import { Request, Response, NextFunction } from 'express'
-import { UnauthorizedError } from '../utils/ApiError'
-import { asyncHandler } from './asyncHandler.middleware'
-import { verifyToken, JWTPayload } from '../../services/jwt.service'
-import prisma from '../../services/prisma.service'
-
-// Extender Express Request para incluir usuario
-declare global {
-  namespace Express {
-    interface Request {
-      user?: JWTPayload
-    }
-  }
-}
+import { UnauthorizedError } from '../utils/apiError.js'
+import { asyncHandler } from './asyncHandler.middleware.js'
+import { verifyToken } from '../../services/jwt.service.js'
+import prisma from '../../services/prisma.service.js'
 
 export const authenticate = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
-    // Obtener token del header
+  async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedError('Token no proporcionado')
     }
@@ -29,13 +17,17 @@ export const authenticate = asyncHandler(
       throw new UnauthorizedError('Formato de token inválido')
     }
 
-    // Verificar token
-    const decoded = verifyToken(token)
+    let decoded
+    try {
+      decoded = verifyToken(token)
+    } catch {
+      throw new UnauthorizedError('Token inválido o expirado')
+    }
+
     if (!decoded) {
       throw new UnauthorizedError('Token inválido o expirado')
     }
 
-    // Verificar que el usuario existe, no está eliminado y está activo
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
@@ -52,34 +44,30 @@ export const authenticate = asyncHandler(
       throw new UnauthorizedError('Usuario no autorizado o inactivo')
     }
 
-    // Adjuntar usuario al request
     req.user = decoded
-
     next()
   }
 )
 
 export const optionalAuthenticate = asyncHandler(
-  async (req: Request, res: Response, next: NextFunction) => {
+  async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization
-
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return next()
     }
 
     const token = authHeader.split(' ')[1]
-    if (!token) {
+    if (!token) return next()
+
+    let decoded
+    try {
+      decoded = verifyToken(token)
+    } catch {
       return next()
     }
 
-    const decoded = verifyToken(token)
+    if (!decoded) return next()
 
-    if (!decoded) {
-      // Si el token es inválido, simplemente continuar sin usuario
-      return next()
-    }
-
-    // Verificar que usuario existe y está activo
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {

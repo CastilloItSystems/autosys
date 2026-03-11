@@ -4,7 +4,7 @@ import multer, { FileFilterCallback } from 'multer'
 import path from 'path'
 import fs from 'fs'
 import { Request } from 'express'
-import { ApiError } from './ApiError'
+import { ApiError } from './apiError'
 
 export class FileUploadHelper {
   static readonly UPLOAD_DIR = './public/uploads'

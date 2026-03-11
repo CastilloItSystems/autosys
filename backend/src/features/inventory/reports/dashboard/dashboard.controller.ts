@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express'
 import { getDashboardMetrics } from './dashboard.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 /**
  * Get dashboard metrics

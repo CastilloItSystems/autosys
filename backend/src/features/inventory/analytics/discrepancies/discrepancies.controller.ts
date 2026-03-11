@@ -1,6 +1,6 @@
 import { Request, Response } from 'express'
 import { DiscrepancyAnalyticsService } from './discrepancies.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
 
 const service = new DiscrepancyAnalyticsService()

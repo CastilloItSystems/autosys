@@ -5,7 +5,7 @@ import {
   UpdateExitNoteDTO,
   ExitNoteResponseDTO,
 } from './exitNotes.dto'
-import { ApiResponse } from '../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
 import { ExitNoteStatus, ExitNoteType } from './exitNotes.interface'
 

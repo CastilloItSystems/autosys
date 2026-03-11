@@ -1,5 +1,4 @@
 // backend/src/features/inventory/items/items.interface.ts
-
 export interface IItem {
   id: string
   sku: string
@@ -7,40 +6,42 @@ export interface IItem {
   name: string
   description?: string | null
 
-  // Relaciones
   brandId: string
   categoryId: string
   modelId?: string | null
   unitId: string
 
-  // Ubicación
   location?: string | null
 
-  // Precios
   costPrice: number
   salePrice: number
   wholesalePrice?: number | null
 
-  // Control de inventario
   minStock: number
   maxStock?: number | null
   reorderPoint: number
 
-  // Configuración
   isActive: boolean
   isSerialized: boolean
   hasBatch: boolean
   hasExpiry: boolean
   allowNegativeStock: boolean
 
-  // Información adicional
-  technicalSpecs?: any
+  technicalSpecs?: unknown
   tags?: string[]
 
-  // Auditoría
-  historial?: any
+  historial?: unknown
   createdAt: Date
   updatedAt: Date
+}
+
+export interface IItemImage {
+  id: string
+  itemId: string
+  url: string
+  isPrimary: boolean
+  order: number
+  createdAt: Date
 }
 
 export interface IItemWithRelations extends IItem {
@@ -66,70 +67,73 @@ export interface IItemWithRelations extends IItem {
     abbreviation: string
   }
   images?: IItemImage[]
+  stocks?: Array<{
+    warehouseId: string
+    quantityReal: number
+    quantityReserved: number
+    quantityAvailable: number
+    warehouse?: {
+      id: string
+      code?: string
+      name: string
+    }
+  }>
   _count?: {
     stocks: number
     movements: number
     images: number
+    reservations?: number
   }
-}
-
-export interface IItemImage {
-  id: string
-  itemId: string
-  url: string
-  isPrimary: boolean
-  order: number
-  createdAt: Date
 }
 
 export interface ICreateItemInput {
   sku: string
-  barcode?: string
+  barcode?: string | undefined
   name: string
-  description?: string
+  description?: string | undefined
   brandId: string
   categoryId: string
-  modelId?: string
+  modelId?: string | undefined
   unitId: string
-  location?: string
+  location?: string | undefined
   costPrice: number
   salePrice: number
-  wholesalePrice?: number
-  minStock?: number
-  maxStock?: number
-  reorderPoint?: number
-  isActive?: boolean
-  isSerialized?: boolean
-  hasBatch?: boolean
-  hasExpiry?: boolean
-  allowNegativeStock?: boolean
-  technicalSpecs?: any
-  tags?: string[]
+  wholesalePrice?: number | undefined
+  minStock?: number | undefined
+  maxStock?: number | undefined
+  reorderPoint?: number | undefined
+  isActive?: boolean | undefined
+  isSerialized?: boolean | undefined
+  hasBatch?: boolean | undefined
+  hasExpiry?: boolean | undefined
+  allowNegativeStock?: boolean | undefined
+  technicalSpecs?: unknown
+  tags?: string[] | undefined
 }
 
 export interface IUpdateItemInput {
-  sku?: string
-  barcode?: string
-  name?: string
-  description?: string
-  brandId?: string
-  categoryId?: string
-  modelId?: string
-  unitId?: string
-  location?: string
-  costPrice?: number
-  salePrice?: number
-  wholesalePrice?: number
-  minStock?: number
-  maxStock?: number
-  reorderPoint?: number
-  isActive?: boolean
-  isSerialized?: boolean
-  hasBatch?: boolean
-  hasExpiry?: boolean
-  allowNegativeStock?: boolean
-  technicalSpecs?: any
-  tags?: string[]
+  sku?: string | undefined
+  barcode?: string | undefined
+  name?: string | undefined
+  description?: string | undefined
+  brandId?: string | undefined
+  categoryId?: string | undefined
+  modelId?: string | undefined
+  unitId?: string | undefined
+  location?: string | undefined
+  costPrice?: number | undefined
+  salePrice?: number | undefined
+  wholesalePrice?: number | undefined
+  minStock?: number | undefined
+  maxStock?: number | undefined
+  reorderPoint?: number | undefined
+  isActive?: boolean | undefined
+  isSerialized?: boolean | undefined
+  hasBatch?: boolean | undefined
+  hasExpiry?: boolean | undefined
+  allowNegativeStock?: boolean | undefined
+  technicalSpecs?: unknown
+  tags?: string[] | undefined
 }
 
 export interface IItemFilters {

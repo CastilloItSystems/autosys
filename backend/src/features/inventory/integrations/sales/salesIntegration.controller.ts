@@ -11,7 +11,7 @@ import {
   confirmShipment,
   getSalesMetrics,
 } from './salesIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 export const linkToPreInvoiceHandler = async (
   req: Request,

@@ -3,10 +3,7 @@
  */
 
 import { prisma } from '../../../../config/database'
-import {
-  EventService,
-  EventType,
-} from '../../../../shared/services/event.service'
+import { EventService, EventType } from '../../../../services/event.service'
 import { BadRequestError, NotFoundError } from '../../../../shared/utils/errors'
 
 interface ForecastData {

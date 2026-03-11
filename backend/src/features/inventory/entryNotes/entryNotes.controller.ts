@@ -10,7 +10,7 @@ import {
   EntryNoteItemResponseDTO,
 } from './entryNotes.dto'
 import { IEntryNoteFilters } from './entryNotes.interface'
-import { ApiResponse } from '../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 

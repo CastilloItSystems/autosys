@@ -3,7 +3,7 @@
  * Logs all actions for compliance and debugging
  */
 
-import prisma from '../../services/prisma.service'
+import prisma from './prisma.service.js'
 import { Request } from 'express'
 
 export interface AuditLogInput {

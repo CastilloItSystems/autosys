@@ -1,17 +1,13 @@
 // backend/src/features/inventory/items/index.ts
-
 import { Router } from 'express'
-import itemRoutes from './items.routes'
+import itemRoutes from './items.routes.js'
 
 const router = Router()
 
 /**
- * Rutas de Items (Artículos)
+ * Rutas de Items
  * Base: /api/inventory/items
  */
-
-// CRUD de items + sub-módulos (images, pricing, search, bulk)
-// /api/inventory/items/*
-router.use('/', itemRoutes)
+router.use(itemRoutes)
 
 export default router

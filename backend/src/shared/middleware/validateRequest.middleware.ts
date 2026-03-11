@@ -2,20 +2,9 @@
 
 import { Request, Response, NextFunction } from 'express'
 import Joi from 'joi'
-import { ApiResponse } from '../utils/ApiResponse'
+import { ApiResponse } from '../utils/apiResponse.js'
 
 type ValidationSource = 'body' | 'query' | 'params'
-
-// Extender Express Request para incluir datos validados
-declare global {
-  namespace Express {
-    interface Request {
-      validatedBody?: any
-      validatedQuery?: any
-      validatedParams?: any
-    }
-  }
-}
 
 export const validateRequest = (
   schema: Joi.ObjectSchema,
@@ -32,33 +21,28 @@ export const validateRequest = (
         stripUnknown: true,
       })
 
-      // Almacenar valores validados sin reasignar las propiedades de solo lectura
-      if (source === 'body') {
-        req.validatedBody = value
-      } else if (source === 'query') {
-        req.validatedQuery = value
-      } else if (source === 'params') {
-        req.validatedParams = value
-      }
+      if (source === 'body') req.validatedBody = value
+      if (source === 'query') req.validatedQuery = value
+      if (source === 'params') req.validatedParams = value
 
       next()
-    } catch (err) {
+    } catch (err: unknown) {
       if (Joi.isError(err)) {
         const errors = err.details.map((detail) => ({
           field: detail.path.join('.'),
           message: detail.message,
         }))
-
         ApiResponse.validationError(res, errors)
         return
       }
-      // Handle errors thrown by .external() validators
+
       if (err instanceof Error) {
         ApiResponse.validationError(res, [
           { field: 'value', message: err.message },
         ])
         return
       }
+
       next(err)
     }
   }

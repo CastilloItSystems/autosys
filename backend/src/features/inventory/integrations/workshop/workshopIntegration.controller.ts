@@ -10,7 +10,7 @@ import {
   completeWorkOrder,
   getWorkOrderConsumptionHistory,
 } from './workshopIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 export const recordConsumptionHandler = async (
   req: Request,

@@ -1,8 +1,8 @@
-// backend/src/shared/utils/ApiResponse.ts
+// backend/src/shared/utils/apiResponse.ts
 
 import { Response } from 'express'
 
-interface ApiResponseData<T = any> {
+interface ApiResponseData<T = unknown> {
   success: boolean
   message?: string
   data?: T
@@ -12,7 +12,7 @@ interface ApiResponseData<T = any> {
     total?: number
     totalPages?: number
   }
-  errors?: any[]
+  errors?: unknown[]
   timestamp?: string
 }
 
@@ -20,23 +20,21 @@ export class ApiResponse {
   static success<T>(
     res: Response,
     data?: T,
-    message: string = 'Operación exitosa',
-    statusCode: number = 200
+    message = 'Operación exitosa',
+    statusCode = 200
   ): Response {
-    const response: ApiResponseData<T> = {
+    return res.status(statusCode).json({
       success: true,
       message,
       data,
       timestamp: new Date().toISOString(),
-    }
-
-    return res.status(statusCode).json(response)
+    } as ApiResponseData<T>)
   }
 
   static created<T>(
     res: Response,
     data?: T,
-    message: string = 'Recurso creado exitosamente'
+    message = 'Recurso creado exitosamente'
   ): Response {
     return this.success(res, data, message, 201)
   }
@@ -47,9 +45,10 @@ export class ApiResponse {
     page: number,
     limit: number,
     total: number,
-    message: string = 'Datos obtenidos exitosamente'
+    message = 'Datos obtenidos exitosamente'
   ): Response {
-    const response: ApiResponseData<T[]> = {
+    const safeLimit = limit > 0 ? limit : 1
+    return res.status(200).json({
       success: true,
       message,
       data,
@@ -57,12 +56,10 @@ export class ApiResponse {
         page,
         limit,
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / safeLimit),
       },
       timestamp: new Date().toISOString(),
-    }
-
-    return res.status(200).json(response)
+    } as ApiResponseData<T[]>)
   }
 
   static noContent(res: Response): Response {
@@ -71,69 +68,64 @@ export class ApiResponse {
 
   static error(
     res: Response,
-    message: string = 'Ha ocurrido un error',
-    statusCode: number = 500,
-    errors?: any[]
+    message = 'Ha ocurrido un error',
+    statusCode = 500,
+    errors?: unknown[]
   ): Response {
-    const response: ApiResponseData = {
+    return res.status(statusCode).json({
       success: false,
       message,
       errors,
       timestamp: new Date().toISOString(),
-    }
-
-    return res.status(statusCode).json(response)
+    } as ApiResponseData)
   }
 
   static badRequest(
     res: Response,
-    message: string = 'Solicitud inválida',
-    errors?: any[]
+    message = 'Solicitud inválida',
+    errors?: unknown[]
   ): Response {
     return this.error(res, message, 400, errors)
   }
 
-  static unauthorized(
-    res: Response,
-    message: string = 'No autorizado'
-  ): Response {
+  static unauthorized(res: Response, message = 'No autorizado'): Response {
     return this.error(res, message, 401)
   }
 
-  static forbidden(
-    res: Response,
-    message: string = 'Acceso denegado'
-  ): Response {
+  static forbidden(res: Response, message = 'Acceso denegado'): Response {
     return this.error(res, message, 403)
   }
 
-  static notFound(
-    res: Response,
-    message: string = 'Recurso no encontrado'
-  ): Response {
+  static notFound(res: Response, message = 'Recurso no encontrado'): Response {
     return this.error(res, message, 404)
   }
 
   static conflict(
     res: Response,
-    message: string = 'Conflicto con el estado actual del recurso'
+    message = 'Conflicto con el estado actual del recurso'
   ): Response {
     return this.error(res, message, 409)
   }
 
   static validationError(
     res: Response,
-    errors: any[],
-    message: string = 'Error de validación'
+    errors: unknown[],
+    message = 'Error de validación'
   ): Response {
     return this.error(res, message, 422, errors)
   }
 
   static serverError(
     res: Response,
-    message: string = 'Error interno del servidor',
-    error?: any
+    message = 'Error interno del servidor',
+    error?: unknown
   ): Response {
-    return this.error(res, message, 500, error ? [error] : undefined)
+    const isProd = process.env.NODE_ENV === 'production'
+    const errors =
+      !isProd && error
+        ? [error instanceof Error ? error.message : String(error)]
+        : undefined
+
+    return this.error(res, message, 500, errors)
   }
 }

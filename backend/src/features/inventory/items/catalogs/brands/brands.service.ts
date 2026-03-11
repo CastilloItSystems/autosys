@@ -16,7 +16,7 @@ import {
   BadRequestError,
   NotFoundError,
   ConflictError,
-} from '../../../../../shared/utils/ApiError'
+} from '../../../../../shared/utils/apiError'
 import { PaginationHelper } from '../../../../../shared/utils/pagination'
 import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
 import { logger } from '../../../../../shared/utils/logger'

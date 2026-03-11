@@ -8,7 +8,7 @@ import {
   getAllTurnoverMetrics,
   getItemsByClassification,
 } from './turnover.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 export const getTurnoverMetricsHandler = async (
   req: Request,

@@ -3,26 +3,34 @@
 export class ApiError extends Error {
   public statusCode: number
   public isOperational: boolean
-  public errors?: any[]
+  public errors?: unknown[] | undefined
 
   constructor(
     message: string,
     statusCode: number = 500,
     isOperational: boolean = true,
-    errors?: any[]
+    errors?: unknown[] | undefined
   ) {
     super(message)
+
+    this.name = this.constructor.name
     this.statusCode = statusCode
     this.isOperational = isOperational
     this.errors = errors
 
-    Object.setPrototypeOf(this, ApiError.prototype)
-    Error.captureStackTrace(this, this.constructor)
+    Object.setPrototypeOf(this, new.target.prototype)
+
+    if (Error.captureStackTrace) {
+      Error.captureStackTrace(this, this.constructor)
+    }
   }
 }
 
 export class BadRequestError extends ApiError {
-  constructor(message: string = 'Solicitud inválida', errors?: any[]) {
+  constructor(
+    message: string = 'Solicitud inválida',
+    errors?: unknown[] | undefined
+  ) {
     super(message, 400, true, errors)
   }
 }
@@ -52,7 +60,10 @@ export class ConflictError extends ApiError {
 }
 
 export class ValidationError extends ApiError {
-  constructor(message: string = 'Error de validación', errors?: any[]) {
+  constructor(
+    message: string = 'Error de validación',
+    errors?: unknown[] | undefined
+  ) {
     super(message, 422, true, errors)
   }
 }

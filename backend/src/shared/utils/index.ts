@@ -1,7 +1,7 @@
 // backend/src/shared/utils/index.ts
 
-export * from './ApiResponse'
-export * from './ApiError'
+export * from './apiResponse'
+export * from './apiError'
 export * from './logger'
 export * from './pagination'
 export * from './dateHelper'

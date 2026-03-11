@@ -1,9 +1,9 @@
 // backend/src/shared/middleware/index.ts
 
-export * from './errorHandler.middleware'
-export * from './validateRequest.middleware'
-export * from './asyncHandler.middleware'
-export * from './authenticate.middleware'
-export * from './authorize.middleware'
-export * from './rateLimiter.middleware'
-export * from './requestLogger.middleware'
+export * from './errorHandler.middleware.js'
+export * from './validateRequest.middleware.js'
+export * from './asyncHandler.middleware.js'
+export * from './authenticate.middleware.js'
+export * from './authorize.middleware.js'
+export * from './rateLimiter.middleware.js'
+export * from './requestLogger.middleware.js'

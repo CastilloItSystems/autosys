@@ -5,9 +5,8 @@ import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middlew
 import {
   BadRequestError,
   NotFoundError,
-} from '../../../../shared/utils/ApiError'
+} from '../../../../shared/utils/apiError'
 import prisma from '../../../../services/prisma.service'
-
 
 /**
  * Middleware para validar que el almacén existe y está activo

@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express'
 import { ExitNotesService } from '../exitNotes.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 import { ExitNoteType } from '../exitNotes.interface'
 
 const exitNotesService = ExitNotesService.getInstance()

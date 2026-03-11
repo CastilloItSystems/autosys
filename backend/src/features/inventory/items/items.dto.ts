@@ -1,4 +1,8 @@
 // backend/src/features/inventory/items/items.dto.ts
+type AnyRecord = Record<string, unknown>
+
+const asRecord = (value: unknown): AnyRecord =>
+  value && typeof value === 'object' ? (value as AnyRecord) : {}
 
 export class CreateItemDTO {
   sku: string
@@ -21,34 +25,45 @@ export class CreateItemDTO {
   hasBatch?: boolean
   hasExpiry?: boolean
   allowNegativeStock?: boolean
-  technicalSpecs?: any
+  technicalSpecs?: unknown
   tags?: string[]
 
-  constructor(data: any) {
-    this.sku = data.sku?.toUpperCase()
-    this.barcode = data.barcode
-    this.name = data.name
-    this.description = data.description
-    this.brandId = data.brandId
-    this.categoryId = data.categoryId
-    this.modelId = data.modelId
-    this.unitId = data.unitId
-    this.location = data.location?.toUpperCase()
-    this.costPrice = Number(data.costPrice)
-    this.salePrice = Number(data.salePrice)
-    if (data.wholesalePrice) {
-      this.wholesalePrice = Number(data.wholesalePrice)
+  constructor(data: unknown) {
+    const d = asRecord(data)
+
+    this.sku = String(d.sku ?? '').toUpperCase()
+    this.name = String(d.name ?? '')
+    this.brandId = String(d.brandId ?? '')
+    this.categoryId = String(d.categoryId ?? '')
+    this.unitId = String(d.unitId ?? '')
+
+    if (d.barcode != null) this.barcode = String(d.barcode)
+    if (d.description != null) this.description = String(d.description)
+    if (d.modelId != null) this.modelId = String(d.modelId)
+    if (d.location != null) this.location = String(d.location).toUpperCase()
+
+    this.costPrice = Number(d.costPrice ?? 0)
+    this.salePrice = Number(d.salePrice ?? 0)
+
+    if (d.wholesalePrice != null) {
+      this.wholesalePrice = Number(d.wholesalePrice)
     }
-    this.minStock = data.minStock ?? 5
-    this.maxStock = data.maxStock ?? 100
-    this.reorderPoint = data.reorderPoint ?? 10
-    this.isActive = data.isActive ?? true
-    this.isSerialized = data.isSerialized ?? false
-    this.hasBatch = data.hasBatch ?? false
-    this.hasExpiry = data.hasExpiry ?? false
-    this.allowNegativeStock = data.allowNegativeStock ?? false
-    this.technicalSpecs = data.technicalSpecs
-    this.tags = data.tags?.map((tag: string) => tag.toLowerCase())
+
+    this.minStock = Number(d.minStock ?? 5)
+    this.maxStock = Number(d.maxStock ?? 100)
+    this.reorderPoint = Number(d.reorderPoint ?? 10)
+
+    this.isActive = (d.isActive as boolean) ?? true
+    this.isSerialized = (d.isSerialized as boolean) ?? false
+    this.hasBatch = (d.hasBatch as boolean) ?? false
+    this.hasExpiry = (d.hasExpiry as boolean) ?? false
+    this.allowNegativeStock = (d.allowNegativeStock as boolean) ?? false
+
+    if (d.technicalSpecs !== undefined) this.technicalSpecs = d.technicalSpecs
+
+    if (Array.isArray(d.tags)) {
+      this.tags = d.tags.map((tag) => String(tag).toLowerCase())
+    }
   }
 }
 
@@ -73,37 +88,43 @@ export class UpdateItemDTO {
   hasBatch?: boolean
   hasExpiry?: boolean
   allowNegativeStock?: boolean
-  technicalSpecs?: any
+  technicalSpecs?: unknown
   tags?: string[]
 
-  constructor(data: any) {
-    if (data.sku !== undefined) this.sku = data.sku.toUpperCase()
-    if (data.barcode !== undefined) this.barcode = data.barcode
-    if (data.name !== undefined) this.name = data.name
-    if (data.description !== undefined) this.description = data.description
-    if (data.brandId !== undefined) this.brandId = data.brandId
-    if (data.categoryId !== undefined) this.categoryId = data.categoryId
-    if (data.modelId !== undefined) this.modelId = data.modelId
-    if (data.unitId !== undefined) this.unitId = data.unitId
-    if (data.location !== undefined)
-      this.location = data.location?.toUpperCase()
-    if (data.costPrice !== undefined) this.costPrice = Number(data.costPrice)
-    if (data.salePrice !== undefined) this.salePrice = Number(data.salePrice)
-    if (data.wholesalePrice !== undefined)
-      this.wholesalePrice = Number(data.wholesalePrice)
-    if (data.minStock !== undefined) this.minStock = data.minStock
-    if (data.maxStock !== undefined) this.maxStock = data.maxStock
-    if (data.reorderPoint !== undefined) this.reorderPoint = data.reorderPoint
-    if (data.isActive !== undefined) this.isActive = data.isActive
-    if (data.isSerialized !== undefined) this.isSerialized = data.isSerialized
-    if (data.hasBatch !== undefined) this.hasBatch = data.hasBatch
-    if (data.hasExpiry !== undefined) this.hasExpiry = data.hasExpiry
-    if (data.allowNegativeStock !== undefined)
-      this.allowNegativeStock = data.allowNegativeStock
-    if (data.technicalSpecs !== undefined)
-      this.technicalSpecs = data.technicalSpecs
-    if (data.tags !== undefined)
-      this.tags = data.tags.map((tag: string) => tag.toLowerCase())
+  constructor(data: unknown) {
+    const d = asRecord(data)
+
+    if (d.sku !== undefined) this.sku = String(d.sku).toUpperCase()
+    if (d.barcode !== undefined)
+      this.barcode = d.barcode == null ? '' : String(d.barcode)
+    if (d.name !== undefined) this.name = String(d.name)
+    if (d.description !== undefined)
+      this.description = d.description == null ? '' : String(d.description)
+    if (d.brandId !== undefined) this.brandId = String(d.brandId)
+    if (d.categoryId !== undefined) this.categoryId = String(d.categoryId)
+    if (d.modelId !== undefined)
+      this.modelId = d.modelId == null ? '' : String(d.modelId)
+    if (d.unitId !== undefined) this.unitId = String(d.unitId)
+    if (d.location !== undefined)
+      this.location = d.location == null ? '' : String(d.location).toUpperCase()
+    if (d.costPrice !== undefined) this.costPrice = Number(d.costPrice)
+    if (d.salePrice !== undefined) this.salePrice = Number(d.salePrice)
+    if (d.wholesalePrice !== undefined)
+      this.wholesalePrice = Number(d.wholesalePrice)
+    if (d.minStock !== undefined) this.minStock = Number(d.minStock)
+    if (d.maxStock !== undefined) this.maxStock = Number(d.maxStock)
+    if (d.reorderPoint !== undefined) this.reorderPoint = Number(d.reorderPoint)
+    if (d.isActive !== undefined) this.isActive = Boolean(d.isActive)
+    if (d.isSerialized !== undefined)
+      this.isSerialized = Boolean(d.isSerialized)
+    if (d.hasBatch !== undefined) this.hasBatch = Boolean(d.hasBatch)
+    if (d.hasExpiry !== undefined) this.hasExpiry = Boolean(d.hasExpiry)
+    if (d.allowNegativeStock !== undefined)
+      this.allowNegativeStock = Boolean(d.allowNegativeStock)
+    if (d.technicalSpecs !== undefined) this.technicalSpecs = d.technicalSpecs
+    if (d.tags !== undefined && Array.isArray(d.tags)) {
+      this.tags = d.tags.map((tag) => String(tag).toLowerCase())
+    }
   }
 }
 
@@ -114,75 +135,48 @@ export class ItemResponseDTO {
   name: string
   description?: string | null
 
-  // Relaciones
   brandId: string
   categoryId: string
   modelId?: string | null
   unitId: string
 
-  brand?: {
-    id: string
-    code: string
-    name: string
-  }
-  category?: {
-    id: string
-    code: string
-    name: string
-  }
+  brand?: { id: string; code: string; name: string }
+  category?: { id: string; code: string; name: string }
   model?: {
     id: string
     name: string
     year?: number | null
     fullName?: string
   } | null
-  unit?: {
-    id: string
-    code: string
-    name: string
-    abbreviation: string
-  }
+  unit?: { id: string; code: string; name: string; abbreviation: string }
 
-  // Ubicación
   location?: string | null
 
-  // Precios
   costPrice: number
   salePrice: number
   wholesalePrice?: number | null
-  margin?: number // Calculado
+  margin?: number
 
-  // Control de inventario
   minStock: number
   maxStock?: number | null
   reorderPoint: number
 
-  // Configuración
   isActive: boolean
   isSerialized: boolean
   hasBatch: boolean
   hasExpiry: boolean
   allowNegativeStock: boolean
 
-  // Información adicional
-  technicalSpecs?: any
+  technicalSpecs?: unknown
   tags?: string[]
 
-  // Imágenes
-  images?: {
-    id: string
-    url: string
-    isPrimary: boolean
-    order: number
-  }[]
+  images?: { id: string; url: string; isPrimary: boolean; order: number }[]
   primaryImage?: string
 
-  // Contadores
   stockCount?: number
   movementCount?: number
   imageCount?: number
 
-  // Stock (si se incluye)
   totalStock?: number
   availableStock?: number
   reservedStock?: number
@@ -191,122 +185,139 @@ export class ItemResponseDTO {
   updatedAt: Date
 
   constructor(
-    item: any,
+    item: unknown,
     options?: { includeRelations?: boolean; includeStock?: boolean }
   ) {
-    this.id = item.id
-    this.sku = item.sku
-    this.barcode = item.barcode
-    this.name = item.name
-    this.description = item.description
+    const i = asRecord(item)
 
-    this.brandId = item.brandId
-    this.categoryId = item.categoryId
-    this.modelId = item.modelId
-    this.unitId = item.unitId
+    this.id = String(i.id ?? '')
+    this.sku = String(i.sku ?? '')
+    this.name = String(i.name ?? '')
+    this.brandId = String(i.brandId ?? '')
+    this.categoryId = String(i.categoryId ?? '')
+    this.unitId = String(i.unitId ?? '')
 
-    this.location = item.location
+    if (i.barcode !== undefined)
+      this.barcode = (i.barcode as string | null) ?? null
+    if (i.description !== undefined)
+      this.description = (i.description as string | null) ?? null
+    if (i.modelId !== undefined)
+      this.modelId = (i.modelId as string | null) ?? null
+    if (i.location !== undefined)
+      this.location = (i.location as string | null) ?? null
 
-    this.costPrice = Number(item.costPrice)
-    this.salePrice = Number(item.salePrice)
-    this.wholesalePrice = item.wholesalePrice
-      ? Number(item.wholesalePrice)
-      : null
+    this.costPrice = Number(i.costPrice ?? 0)
+    this.salePrice = Number(i.salePrice ?? 0)
+    if (i.wholesalePrice !== undefined && i.wholesalePrice !== null) {
+      this.wholesalePrice = Number(i.wholesalePrice)
+    } else if (i.wholesalePrice === null) {
+      this.wholesalePrice = null
+    }
 
-    // Calcular margen
     if (this.costPrice > 0) {
       this.margin = Number(
         (((this.salePrice - this.costPrice) / this.costPrice) * 100).toFixed(2)
       )
     }
 
-    this.minStock = item.minStock
-    this.maxStock = item.maxStock
-    this.reorderPoint = item.reorderPoint
+    this.minStock = Number(i.minStock ?? 0)
+    if (i.maxStock !== undefined)
+      this.maxStock = (i.maxStock as number | null) ?? null
+    this.reorderPoint = Number(i.reorderPoint ?? 0)
 
-    this.isActive = item.isActive
-    this.isSerialized = item.isSerialized
-    this.hasBatch = item.hasBatch
-    this.hasExpiry = item.hasExpiry
-    this.allowNegativeStock = item.allowNegativeStock
+    this.isActive = Boolean(i.isActive)
+    this.isSerialized = Boolean(i.isSerialized)
+    this.hasBatch = Boolean(i.hasBatch)
+    this.hasExpiry = Boolean(i.hasExpiry)
+    this.allowNegativeStock = Boolean(i.allowNegativeStock)
 
-    this.technicalSpecs = item.technicalSpecs
-    this.tags = item.tags
+    if (i.technicalSpecs !== undefined) this.technicalSpecs = i.technicalSpecs
+    if (Array.isArray(i.tags)) this.tags = i.tags as string[]
 
-    this.createdAt = item.createdAt
-    this.updatedAt = item.updatedAt
+    this.createdAt = (i.createdAt as Date) ?? new Date()
+    this.updatedAt = (i.updatedAt as Date) ?? new Date()
 
-    // Relaciones
     if (options?.includeRelations) {
-      if (item.brand) {
+      const brand = asRecord(i.brand)
+      if (brand.id) {
         this.brand = {
-          id: item.brand.id,
-          code: item.brand.code,
-          name: item.brand.name,
+          id: String(brand.id),
+          code: String(brand.code ?? ''),
+          name: String(brand.name ?? ''),
         }
       }
 
-      if (item.category) {
+      const category = asRecord(i.category)
+      if (category.id) {
         this.category = {
-          id: item.category.id,
-          code: item.category.code,
-          name: item.category.name,
+          id: String(category.id),
+          code: String(category.code ?? ''),
+          name: String(category.name ?? ''),
         }
       }
 
-      if (item.model) {
+      const model = asRecord(i.model)
+      if (model.id) {
+        const modelBrand = asRecord(model.brand)
+        const modelName = String(model.name ?? '')
+        const modelYear = model.year as number | null | undefined
         this.model = {
-          id: item.model.id,
-          name: item.model.name,
-          year: item.model.year,
-          fullName: item.model.brand
-            ? `${item.model.brand.name} ${item.model.name}${item.model.year ? ` ${item.model.year}` : ''}`
-            : item.model.name,
+          id: String(model.id),
+          name: modelName,
+          year: modelYear ?? null,
+          fullName: modelBrand.name
+            ? `${String(modelBrand.name)} ${modelName}${modelYear ? ` ${modelYear}` : ''}`
+            : modelName,
         }
       }
 
-      if (item.unit) {
+      const unit = asRecord(i.unit)
+      if (unit.id) {
         this.unit = {
-          id: item.unit.id,
-          code: item.unit.code,
-          name: item.unit.name,
-          abbreviation: item.unit.abbreviation,
+          id: String(unit.id),
+          code: String(unit.code ?? ''),
+          name: String(unit.name ?? ''),
+          abbreviation: String(unit.abbreviation ?? ''),
         }
       }
 
-      // Imágenes
-      if (item.images) {
-        this.images = item.images.map((img: any) => ({
-          id: img.id,
-          url: img.url,
-          isPrimary: img.isPrimary,
-          order: img.order,
-        }))
-
-        const primary = item.images.find((img: any) => img.isPrimary)
-        this.primaryImage = primary?.url || item.images[0]?.url
+      if (Array.isArray(i.images)) {
+        this.images = i.images.map((imgRaw) => {
+          const img = asRecord(imgRaw)
+          return {
+            id: String(img.id ?? ''),
+            url: String(img.url ?? ''),
+            isPrimary: Boolean(img.isPrimary),
+            order: Number(img.order ?? 0),
+          }
+        })
+        const primary = this.images.find((img) => img.isPrimary)
+        const primaryUrl = primary?.url ?? this.images[0]?.url
+        if (primaryUrl) {
+          this.primaryImage = primaryUrl
+        }
       }
     }
 
-    // Contadores
-    if (item._count) {
-      this.stockCount = item._count.stocks || 0
-      this.movementCount = item._count.movements || 0
-      this.imageCount = item._count.images || 0
+    const count = asRecord(i._count)
+    if (Object.keys(count).length > 0) {
+      this.stockCount = Number(count.stocks ?? 0)
+      this.movementCount = Number(count.movements ?? 0)
+      this.imageCount = Number(count.images ?? 0)
     }
 
-    // Stock
-    if (options?.includeStock && item.stocks) {
-      this.totalStock = item.stocks.reduce(
-        (sum: number, s: any) => sum + s.quantityReal,
+    if (options?.includeStock && Array.isArray(i.stocks)) {
+      const stocks = i.stocks.map((s) => asRecord(s))
+      this.totalStock = stocks.reduce(
+        (sum, s) => sum + Number(s.quantityReal ?? 0),
         0
       )
-      this.availableStock = item.stocks.reduce(
-        (sum: number, s: any) => sum + s.quantityAvailable,
+      this.availableStock = stocks.reduce(
+        (sum, s) => sum + Number(s.quantityAvailable ?? 0),
         0
       )
-      this.reservedStock = item.stocks.reduce(
-        (sum: number, s: any) => sum + s.quantityReserved,
+      this.reservedStock = stocks.reduce(
+        (sum, s) => sum + Number(s.quantityReserved ?? 0),
         0
       )
     }
@@ -320,17 +331,19 @@ export class ItemListResponseDTO {
   limit: number
   totalPages: number
 
-  constructor(data: any) {
-    this.items = data.items.map(
-      (item: any) =>
+  constructor(data: unknown) {
+    const d = asRecord(data)
+    const items = Array.isArray(d.items) ? d.items : []
+    this.items = items.map(
+      (item) =>
         new ItemResponseDTO(item, {
           includeRelations: true,
           includeStock: true,
         })
     )
-    this.total = data.total
-    this.page = data.page
-    this.limit = data.limit
-    this.totalPages = data.totalPages
+    this.total = Number(d.total ?? 0)
+    this.page = Number(d.page ?? 1)
+    this.limit = Number(d.limit ?? 10)
+    this.totalPages = Number(d.totalPages ?? 1)
   }
 }

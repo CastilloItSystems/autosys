@@ -1,624 +1,154 @@
-// backend/src/features/inventory/items/items.routes.ts
-
 /**
  * @swagger
  * tags:
  *   - name: Inventory - Items
- *     description: Gestión completa de artículos en inventario
+ *     description: Gestión de artículos de inventario
  *
  * /inventory/items:
  *   get:
- *     summary: Obtener lista de artículos
+ *     summary: Listar artículos
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: query
  *         name: page
- *         schema:
- *           type: integer
- *           default: 1
+ *         schema: { type: integer, default: 1 }
  *       - in: query
  *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
+ *         schema: { type: integer, default: 10 }
  *       - in: query
  *         name: search
- *         schema:
- *           type: string
+ *         schema: { type: string }
  *       - in: query
  *         name: brandId
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *       - in: query
  *         name: categoryId
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: query
- *         name: minPrice
- *         schema:
- *           type: number
- *       - in: query
- *         name: maxPrice
- *         schema:
- *           type: number
- *       - in: query
- *         name: inStock
- *         schema:
- *           type: boolean
+ *         schema: { type: string, format: uuid }
  *       - in: query
  *         name: sortBy
- *         schema:
- *           type: string
- *           enum: [name, sku, salePrice, createdAt]
+ *         schema: { type: string, example: name }
+ *       - in: query
+ *         name: sortOrder
+ *         schema: { type: string, enum: [asc, desc], default: asc }
  *     responses:
- *       200:
- *         description: Lista de artículos obtenida exitosamente
- *       401:
- *         description: No autorizado
- *       403:
- *         description: No tiene permisos
+ *       200: { description: OK }
  *
  *   post:
- *     summary: Crear nuevo artículo
+ *     summary: Crear artículo
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - sku
- *               - name
- *               - brandId
- *               - categoryId
- *               - unitId
- *               - costPrice
- *               - salePrice
- *               - minStock
- *               - reorderPoint
- *             properties:
- *               sku:
- *                 type: string
- *                 example: "ITEM-001"
- *               name:
- *                 type: string
- *                 example: "Artículo de prueba"
- *               description:
- *                 type: string
- *               barcode:
- *                 type: string
- *               brandId:
- *                 type: string
- *                 format: uuid
- *               categoryId:
- *                 type: string
- *                 format: uuid
- *               unitId:
- *                 type: string
- *                 format: uuid
- *               costPrice:
- *                 type: number
- *               salePrice:
- *                 type: number
- *               wholesalePrice:
- *                 type: number
- *               minStock:
- *                 type: integer
- *               maxStock:
- *                 type: integer
- *               reorderPoint:
- *                 type: integer
- *               location:
- *                 type: string
- *               isSerialized:
- *                 type: boolean
- *               hasBatch:
- *                 type: boolean
- *               hasExpiry:
- *                 type: boolean
  *     responses:
- *       201:
- *         description: Artículo creado exitosamente
- *       400:
- *         description: Datos inválidos
- *       409:
- *         description: El SKU o barcode ya existe
+ *       201: { description: Creado }
+ *
+ * /inventory/items/active:
+ *   get:
+ *     summary: Listar artículos activos
+ *     tags: [Inventory - Items]
+ *     responses:
+ *       200: { description: OK }
+ *
+ * /inventory/items/search:
+ *   get:
+ *     summary: Buscar artículos
+ *     tags: [Inventory - Items]
+ *     parameters:
+ *       - in: query
+ *         name: term
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: OK }
  *
  * /inventory/items/{id}:
  *   get:
  *     summary: Obtener artículo por ID
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
- *       200:
- *         description: Artículo obtenido exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
+ *       200: { description: OK }
+ *       404: { description: No encontrado }
  *   put:
  *     summary: Actualizar artículo
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               name:
- *                 type: string
- *               description:
- *                 type: string
- *               barcode:
- *                 type: string
- *               minStock:
- *                 type: integer
- *               maxStock:
- *                 type: integer
- *               reorderPoint:
- *                 type: integer
- *               location:
- *                 type: string
- *               isActive:
- *                 type: boolean
+ *         schema: { type: string, format: uuid }
  *     responses:
- *       200:
- *         description: Artículo actualizado exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
+ *       200: { description: Actualizado }
  *   delete:
  *     summary: Eliminar artículo (soft delete)
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
- *       200:
- *         description: Artículo eliminado exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/active:
- *   get:
- *     summary: Obtener solo artículos activos
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *     responses:
- *       200:
- *         description: Lista de artículos activos
- *
- * /inventory/items/search:
- *   get:
- *     summary: Buscar artículos por término
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: term
- *         required: true
- *         schema:
- *           type: string
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *     responses:
- *       200:
- *         description: Resultados de búsqueda
- *       400:
- *         description: Término de búsqueda requerido
- *
- * /inventory/items/low-stock:
- *   get:
- *     summary: Obtener artículos con stock bajo
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: warehouseId
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Artículos con stock bajo
- *
- * /inventory/items/out-of-stock:
- *   get:
- *     summary: Obtener artículos sin stock
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: query
- *         name: warehouseId
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Artículos sin stock
- *
- * /inventory/items/category/{categoryId}:
- *   get:
- *     summary: Obtener artículos de una categoría
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: categoryId
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Artículos de la categoría
- *       404:
- *         description: Categoría no encontrada
- *
- * /inventory/items/sku/{sku}:
- *   get:
- *     summary: Obtener artículo por SKU
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: sku
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Artículo obtenido exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/barcode/{barcode}:
- *   get:
- *     summary: Obtener artículo por código de barras
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: barcode
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Artículo obtenido exitosamente
- *       404:
- *         description: Artículo no encontrado
+ *       200: { description: Eliminado }
  *
  * /inventory/items/{id}/stats:
  *   get:
- *     summary: Obtener estadísticas del artículo
+ *     summary: Obtener estadísticas de artículo
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
- *       200:
- *         description: Estadísticas del artículo
- *       404:
- *         description: Artículo no encontrado
+ *       200: { description: OK }
  *
  * /inventory/items/{id}/history:
  *   get:
- *     summary: Obtener historial de cambios del artículo
+ *     summary: Obtener historial de artículo
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     responses:
- *       200:
- *         description: Historial del artículo
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/{id}/related:
- *   get:
- *     summary: Obtener artículos relacionados
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 10
- *     responses:
- *       200:
- *         description: Artículos relacionados
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/bulk:
- *   post:
- *     summary: Crear múltiples artículos
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - items
- *             properties:
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *     responses:
- *       201:
- *         description: Artículos creados exitosamente
- *       400:
- *         description: Datos inválidos
- *
- * /inventory/items/generate-sku:
- *   post:
- *     summary: Generar SKU automático
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - brandId
- *               - categoryId
- *             properties:
- *               brandId:
- *                 type: string
- *                 format: uuid
- *               categoryId:
- *                 type: string
- *                 format: uuid
- *     responses:
- *       200:
- *         description: SKU generado exitosamente
- *       400:
- *         description: Datos inválidos
- *
- * /inventory/items/check-availability:
- *   post:
- *     summary: Verificar disponibilidad de artículo
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - sku
- *               - quantity
- *             properties:
- *               sku:
- *                 type: string
- *               quantity:
- *                 type: integer
- *               warehouseId:
- *                 type: string
- *                 format: uuid
- *     responses:
- *       200:
- *         description: Disponibilidad verificada
- *       404:
- *         description: Artículo no encontrado
+ *       200: { description: OK }
  *
  * /inventory/items/{id}/duplicate:
  *   post:
- *     summary: Duplicar un artículo
+ *     summary: Duplicar artículo
  *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
- *         schema:
- *           type: string
- *           format: uuid
+ *         schema: { type: string, format: uuid }
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
- *             required:
- *               - sku
+ *             required: [newSku]
  *             properties:
- *               sku:
- *                 type: string
- *               name:
+ *               newSku:
  *                 type: string
  *     responses:
- *       201:
- *         description: Artículo duplicado exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/{id}/pricing:
- *   put:
- *     summary: Actualizar precios del artículo
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             properties:
- *               costPrice:
- *                 type: number
- *               salePrice:
- *                 type: number
- *               wholesalePrice:
- *                 type: number
- *     responses:
- *       200:
- *         description: Precios actualizados exitosamente
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/bulk-update:
- *   put:
- *     summary: Actualizar múltiples artículos
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required:
- *               - items
- *             properties:
- *               items:
- *                 type: array
- *                 items:
- *                   type: object
- *                   properties:
- *                     id:
- *                       type: string
- *                       format: uuid
- *     responses:
- *       200:
- *         description: Artículos actualizados exitosamente
- *       400:
- *         description: Datos inválidos
- *
- * /inventory/items/{id}/toggle:
- *   patch:
- *     summary: Activar/Desactivar artículo
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Estado del artículo actualizado
- *       404:
- *         description: Artículo no encontrado
- *
- * /inventory/items/{id}/hard:
- *   delete:
- *     summary: Eliminar artículo permanentemente (hard delete)
- *     tags: [Inventory - Items]
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *     responses:
- *       200:
- *         description: Artículo eliminado permanentemente
- *       404:
- *         description: Artículo no encontrado
+ *       201: { description: Duplicado }
  */
-
+// backend/src/features/inventory/items/items.routes.ts
 import { Router } from 'express'
-import itemController from './items.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
+import itemController from './items.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
-} from '../../../shared/middleware/validateRequest.middleware'
+} from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createItemSchema,
   updateItemSchema,
@@ -629,207 +159,147 @@ import {
   bulkUpdateSchema,
   generateSkuSchema,
   checkAvailabilitySchema,
-} from './items.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
-import imagesRouter from './images/images.routes'
-import pricingRouter from './pricing/pricing.routes'
-import searchRouter from './search/search.routes'
-import bulkRouter from './bulk/bulk.routes'
+} from './items.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import imagesRouter from './images/images.routes.js'
+import pricingRouter from './pricing/pricing.routes.js'
+import searchRouter from './search/search.routes.js'
+import bulkRouter from './bulk/bulk.routes.js'
 
 const router = Router()
 
 /**
- * ============================================
- * SUB-MÓDULOS DE ITEMS (REGISTRAR PRIMERO)
- * ============================================
+ * IMPORTANTE:
+ * authenticate + extractEmpresa ya se aplican en el mount padre (/api/inventory)
+ * en src/routes/api.routes.ts
  */
 
-// Registrar sub-módulos ANTES de cualquier otra ruta
+// Sub-módulos (primero)
 router.use('/images', imagesRouter)
 router.use('/pricing', pricingRouter)
 router.use('/search', searchRouter)
 router.use('/bulk', bulkRouter)
 
-/**
- * ============================================
- * RUTAS DE BÚSQUEDA Y CONSULTA (Públicas con auth)
- * ============================================
- */
+// Rutas de consulta
+router.get('/active', itemController.getActive)
+router.get('/search', itemController.search)
+router.get('/low-stock', itemController.getLowStock)
+router.get('/out-of-stock', itemController.getOutOfStock)
+router.get('/category/:categoryId', itemController.getByCategory)
+router.get('/sku/:sku', itemController.getBySku)
+router.get('/barcode/:barcode', itemController.getByBarcode)
 
-// GET /api/inventory/items/active
-router.get('/active', authenticate, itemController.getActive)
-
-// GET /api/inventory/items/search
-router.get('/search', authenticate, itemController.search)
-
-// GET /api/inventory/items/low-stock
-router.get('/low-stock', authenticate, itemController.getLowStock)
-
-// GET /api/inventory/items/out-of-stock
-router.get('/out-of-stock', authenticate, itemController.getOutOfStock)
-
-// GET /api/inventory/items/category/:categoryId
-router.get('/category/:categoryId', authenticate, itemController.getByCategory)
-
-// GET /api/inventory/items/sku/:sku
-router.get('/sku/:sku', authenticate, itemController.getBySku)
-
-// GET /api/inventory/items/barcode/:barcode
-router.get('/barcode/:barcode', authenticate, itemController.getByBarcode)
-
-/**
- * ============================================
- * RUTAS PROTEGIDAS - Requieren permisos
- * ============================================
- */
-
-// GET /api/inventory/items
+// CRUD principal
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateQuery(getItemsQuerySchema),
   itemController.getAll
 )
 
-// POST /api/inventory/items
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
   validateBody(createItemSchema),
   itemController.create
 )
 
-// POST /api/inventory/items/bulk - Crear múltiples artículos
 router.post(
   '/bulk',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
   validateBody(bulkCreateSchema),
   itemController.bulkCreate
 )
 
-// POST /api/inventory/items/generate-sku - Generar SKU automático
 router.post(
   '/generate-sku',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
   validateBody(generateSkuSchema),
   itemController.generateSku
 )
 
-// POST /api/inventory/items/check-availability - Verificar disponibilidad
 router.post(
   '/check-availability',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateBody(checkAvailabilitySchema),
   itemController.checkAvailability
 )
 
-// PUT /api/inventory/items/bulk-update - Actualizar múltiples artículos
 router.put(
   '/bulk-update',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_UPDATE),
   validateBody(bulkUpdateSchema),
   itemController.bulkUpdate
 )
 
-/**
- * ============================================
- * RUTAS CON PARÁMETROS (después de sub-módulos)
- * ============================================
- */
-
-// GET /api/inventory/items/:id
+// Rutas por ID (después de rutas específicas)
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateParams(itemIdSchema),
   itemController.getById
 )
 
-// GET /api/inventory/items/:id/stats
 router.get(
   '/:id/stats',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateParams(itemIdSchema),
   itemController.getStats
 )
 
-// GET /api/inventory/items/:id/history
 router.get(
   '/:id/history',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateParams(itemIdSchema),
   itemController.getHistory
 )
 
-// GET /api/inventory/items/:id/related
 router.get(
   '/:id/related',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateParams(itemIdSchema),
   itemController.getRelatedItems
 )
 
-// POST /api/inventory/items/:id/duplicate
 router.post(
   '/:id/duplicate',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
   validateParams(itemIdSchema),
   itemController.duplicate
 )
 
-// PUT /api/inventory/items/:id
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_UPDATE),
   validateParams(itemIdSchema),
   validateBody(updateItemSchema),
   itemController.update
 )
 
-// PUT /api/inventory/items/:id/pricing
 router.put(
   '/:id/pricing',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_UPDATE),
   validateParams(itemIdSchema),
   validateBody(updatePricingSchema),
   itemController.updatePricing
 )
 
-// PATCH /api/inventory/items/:id/toggle
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_UPDATE),
   validateParams(itemIdSchema),
   itemController.toggleActive
 )
 
-// DELETE /api/inventory/items/:id (soft delete)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_DELETE),
   validateParams(itemIdSchema),
   itemController.delete
 )
 
-// DELETE /api/inventory/items/:id/hard (hard delete)
 router.delete(
   '/:id/hard',
-  authenticate,
   authorize(PERMISSIONS.ITEMS_DELETE),
   validateParams(itemIdSchema),
   itemController.hardDelete

@@ -13,7 +13,7 @@ import {
 import {
   BadRequestError,
   NotFoundError,
-} from '../../../../shared/utils/ApiError'
+} from '../../../../shared/utils/apiError'
 import { v4 as uuid } from 'uuid'
 import prisma from '../../../../services/prisma.service'
 import { PaginationHelper } from '../../../../shared/utils/pagination'
@@ -65,7 +65,9 @@ export class BulkService {
 
     const parseNumber = (v: any) => {
       if (v === undefined || v === null) return undefined
-      const s = String(v).replace(/[^0-9.,-]/g, '').replace(/,/g, '.')
+      const s = String(v)
+        .replace(/[^0-9.,-]/g, '')
+        .replace(/,/g, '.')
       const n = parseFloat(s)
       return Number.isNaN(n) ? undefined : n
     }
@@ -89,11 +91,17 @@ export class BulkService {
         row.costPrice = parseNumber(row.costPrice)
         row.salePrice = parseNumber(row.salePrice)
         row.wholesalePrice = parseNumber(row.wholesalePrice)
-        row.minStock = row.minStock !== undefined ? parseInt(String(row.minStock).replace(/[^0-9-]/g, ''), 10) : undefined
+        row.minStock =
+          row.minStock !== undefined
+            ? parseInt(String(row.minStock).replace(/[^0-9-]/g, ''), 10)
+            : undefined
 
         // Resolve relational IDs: categoryId, brandId, unitId
         if (!isUuid(row.categoryId) && row.category) {
-          row.categoryId = await this.resolveCategoryIdByName(row.category, empresaId)
+          row.categoryId = await this.resolveCategoryIdByName(
+            row.category,
+            empresaId
+          )
         }
         if (!isUuid(row.brandId) && row.brand) {
           row.brandId = await this.resolveBrandIdByName(row.brand, empresaId)
@@ -201,7 +209,11 @@ export class BulkService {
     }
   }
 
-  async exportItems(data: IBulkExportInput, userId: string, empresaId?: string): Promise<any> {
+  async exportItems(
+    data: IBulkExportInput,
+    userId: string,
+    empresaId?: string
+  ): Promise<any> {
     const operationId = uuid()
     const format = data.format || 'csv'
 
@@ -322,7 +334,9 @@ export class BulkService {
     const operationId = uuid()
 
     // Count matching items
-    const filterWithEmpresa = empresaId ? { ...data.filter, empresaId } : data.filter
+    const filterWithEmpresa = empresaId
+      ? { ...data.filter, empresaId }
+      : data.filter
     const matchedItems = await prisma.item.findMany({
       where: filterWithEmpresa,
     })
@@ -367,7 +381,9 @@ export class BulkService {
   ): Promise<{ deletedCount: number }> {
     const operationId = uuid()
 
-    const filterWithEmpresa = empresaId ? { ...data.filter, empresaId } : data.filter
+    const filterWithEmpresa = empresaId
+      ? { ...data.filter, empresaId }
+      : data.filter
     const matchedItems = await prisma.item.findMany({
       where: filterWithEmpresa,
     })
@@ -468,43 +484,64 @@ export class BulkService {
   }
 
   // Helper methods
-  private async resolveCategoryIdByName(name: string, empresaId?: string): Promise<string | undefined> {
+  private async resolveCategoryIdByName(
+    name: string,
+    empresaId?: string
+  ): Promise<string | undefined> {
     if (!name) return undefined
     const where: any = { name: { equals: name, mode: 'insensitive' } }
     if (empresaId) where.empresaId = empresaId
     const existing = await prisma.category.findFirst({ where })
     if (existing) return existing.id
     // create new category scoped to empresa
-    const created = await prisma.category.create({ data: { name, empresaId: empresaId || 'default', code: name.slice(0, 30) } })
+    const created = await prisma.category.create({
+      data: {
+        name,
+        empresaId: empresaId || 'default',
+        code: name.slice(0, 30),
+      },
+    })
     return created.id
   }
 
-  private async resolveBrandIdByName(name: string, empresaId?: string): Promise<string | undefined> {
+  private async resolveBrandIdByName(
+    name: string,
+    empresaId?: string
+  ): Promise<string | undefined> {
     if (!name) return undefined
     const where: any = { name: { equals: name, mode: 'insensitive' } }
     if (empresaId) where.empresaId = empresaId
     const existing = await prisma.brand.findFirst({ where })
     if (existing) return existing.id
-    const created = await prisma.brand.create({ data: { name, empresaId: empresaId || 'default', code: name.slice(0, 30) } })
+    const created = await prisma.brand.create({
+      data: {
+        name,
+        empresaId: empresaId || 'default',
+        code: name.slice(0, 30),
+      },
+    })
     return created.id
   }
 
-  private async resolveUnitIdByName(name: string, empresaId?: string): Promise<string | undefined> {
+  private async resolveUnitIdByName(
+    name: string,
+    empresaId?: string
+  ): Promise<string | undefined> {
     if (!name) return undefined
     const where: any = { name: { equals: name, mode: 'insensitive' } }
     if (empresaId) where.empresaId = empresaId
     const existing = await prisma.unit.findFirst({ where })
     if (existing) return existing.id
-    
+
     // Auto-create missing unit with defaults for abbreviation and type
-    const created = await prisma.unit.create({ 
-      data: { 
-        name, 
-        empresaId: empresaId || 'default', 
+    const created = await prisma.unit.create({
+      data: {
+        name,
+        empresaId: empresaId || 'default',
         code: name.slice(0, 30),
         abbreviation: name.slice(0, 5).toLowerCase(),
-        type: 'COUNTABLE'
-      } 
+        type: 'COUNTABLE',
+      },
     })
     return created.id
   }

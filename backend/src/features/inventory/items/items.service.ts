@@ -1,131 +1,108 @@
 // backend/src/features/inventory/items/items.service.ts
-
-import prisma from '../../../services/prisma.service'
+import prisma from '../../../services/prisma.service.js'
+import type { PrismaClient } from '../../../generated/prisma/client.js'
 import {
   ICreateItemInput,
   IUpdateItemInput,
   IItemFilters,
   IItemWithRelations,
-  IItemWithStock,
-} from './items.interface'
+} from './items.interface.js'
 import {
   NotFoundError,
   ConflictError,
   BadRequestError,
-} from '../../../shared/utils/ApiError'
-import { PaginationHelper } from '../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
-import { logger } from '../../../shared/utils/logger'
-import { SKUGenerator } from '../shared/utils/skuGenerator'
-import { LocationValidator } from '../shared/utils/locationValidator'
-import { PriceCalculator } from '../shared/utils/priceCalculator'
+} from '../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { LocationValidator } from '../shared/utils/locationValidator.js'
+import { PriceCalculator } from '../shared/utils/priceCalculator.js'
+
+type DB = PrismaClient
 
 export class ItemService {
-  /**
-   * Crear un nuevo artículo
-   */
+  private getDB(db?: DB): DB {
+    return (db ?? prisma) as DB
+  }
+
+  private ensureEmpresaId(empresaId?: string): string {
+    if (!empresaId) throw new BadRequestError('empresaId es requerido')
+    return empresaId
+  }
+
   async create(
+    empresaId: string,
     data: ICreateItemInput,
-    userId?: string
+    userId?: string,
+    db?: DB
   ): Promise<IItemWithRelations> {
-    try {
-      // Verificar si el SKU ya existe
-      const existingSku = await prisma.item.findUnique({
-        where: { sku: data.sku.toUpperCase() },
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const existingSku = await client.item.findFirst({
+      where: { empresaId: tenantEmpresaId, sku: data.sku.toUpperCase() },
+    })
+    if (existingSku) throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
+
+    if (data.barcode) {
+      const existingBarcode = await client.item.findFirst({
+        where: { empresaId: tenantEmpresaId, barcode: data.barcode },
       })
+      if (existingBarcode)
+        throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
+    }
 
-      if (existingSku) {
-        throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
-      }
+    const [brand, category, unit] = await Promise.all([
+      client.brand.findFirst({
+        where: { id: data.brandId, empresaId: tenantEmpresaId },
+      }),
+      client.category.findFirst({
+        where: { id: data.categoryId, empresaId: tenantEmpresaId },
+      }),
+      client.unit.findFirst({
+        where: { id: data.unitId, empresaId: tenantEmpresaId },
+      }),
+    ])
 
-      // Verificar si el barcode ya existe (si se proporciona)
-      if (data.barcode) {
-        const existingBarcode = await prisma.item.findUnique({
-          where: { barcode: data.barcode },
-        })
+    if (!brand) throw new NotFoundError('Marca no encontrada')
+    if (!brand.isActive) throw new BadRequestError('La marca no está activa')
+    if (!category) throw new NotFoundError('Categoría no encontrada')
+    if (!category.isActive)
+      throw new BadRequestError('La categoría no está activa')
+    if (!unit) throw new NotFoundError('Unidad no encontrada')
 
-        if (existingBarcode) {
-          throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
-        }
-      }
-
-      // Verificar que la marca existe y está activa
-      const brand = await prisma.brand.findUnique({
-        where: { id: data.brandId },
+    if (data.modelId) {
+      const model = await client.model.findFirst({
+        where: { id: data.modelId, empresaId: tenantEmpresaId },
       })
-
-      if (!brand) {
-        throw new NotFoundError('Marca no encontrada')
-      }
-
-      if (!brand.isActive) {
-        throw new BadRequestError('La marca no está activa')
-      }
-
-      // Verificar que la categoría existe y está activa
-      const category = await prisma.category.findUnique({
-        where: { id: data.categoryId },
-      })
-
-      if (!category) {
-        throw new NotFoundError('Categoría no encontrada')
-      }
-
-      if (!category.isActive) {
-        throw new BadRequestError('La categoría no está activa')
-      }
-
-      // Verificar que la unidad existe
-      const unit = await prisma.unit.findUnique({
-        where: { id: data.unitId },
-      })
-
-      if (!unit) {
-        throw new NotFoundError('Unidad no encontrada')
-      }
-
-      // Verificar el modelo si se proporciona
-      if (data.modelId) {
-        const model = await prisma.model.findUnique({
-          where: { id: data.modelId },
-        })
-
-        if (!model) {
-          throw new NotFoundError('Modelo no encontrado')
-        }
-
-        // Verificar que el modelo pertenece a la marca
-        if (model.brandId !== data.brandId) {
-          throw new BadRequestError(
-            'El modelo no pertenece a la marca seleccionada'
-          )
-        }
-      }
-
-      // Validar ubicación si se proporciona
-      if (data.location) {
-        const isValidLocation = LocationValidator.isValid(data.location)
-        if (!isValidLocation) {
-          throw new BadRequestError(INVENTORY_MESSAGES.item.invalidLocation)
-        }
-      }
-
-      // Validar precios
-      if (data.salePrice < data.costPrice) {
+      if (!model) throw new NotFoundError('Modelo no encontrado')
+      if (model.brandId !== data.brandId) {
         throw new BadRequestError(
-          'El precio de venta debe ser mayor o igual al precio de costo'
+          'El modelo no pertenece a la marca seleccionada'
         )
       }
+    }
 
-      // Crear el artículo
-      const createData: any = {
+    if (data.location && !LocationValidator.isValid(data.location)) {
+      throw new BadRequestError(INVENTORY_MESSAGES.item.invalidLocation)
+    }
+
+    if (data.salePrice < data.costPrice) {
+      throw new BadRequestError(
+        'El precio de venta debe ser mayor o igual al precio de costo'
+      )
+    }
+
+    const item = await client.item.create({
+      data: {
+        empresaId: tenantEmpresaId,
         sku: data.sku.toUpperCase(),
         name: data.name,
         brandId: data.brandId,
         categoryId: data.categoryId,
         unitId: data.unitId,
-        costPrice: data.costPrice,
-        salePrice: data.salePrice,
+        costPrice: data.costPrice as any,
+        salePrice: data.salePrice as any,
         minStock: data.minStock ?? 5,
         maxStock: data.maxStock ?? 100,
         reorderPoint: data.reorderPoint ?? 10,
@@ -139,987 +116,519 @@ export class ItemService {
           action: 'CREATE',
           userId,
           timestamp: new Date().toISOString(),
-          changes: data as any,
-        },
-      }
-      if (data.barcode) createData.barcode = data.barcode
-      if (data.description) createData.description = data.description
-      if (data.modelId) createData.modelId = data.modelId
-      if (data.location) createData.location = data.location.toUpperCase()
-      if (data.wholesalePrice) createData.wholesalePrice = data.wholesalePrice
-      if (data.technicalSpecs) createData.technicalSpecs = data.technicalSpecs
+          changes: data,
+        } as any,
 
-      const item = await prisma.item.create({
-        data: createData,
-        include: {
-          brand: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-            },
-          },
-          model: {
-            select: {
-              id: true,
-              name: true,
-              year: true,
-            },
-          },
-          unit: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              abbreviation: true,
-            },
-          },
-          images: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
+        ...(data.barcode ? { barcode: data.barcode } : {}),
+        ...(data.description ? { description: data.description } : {}),
+        ...(data.modelId ? { modelId: data.modelId } : {}),
+        ...(data.location ? { location: data.location.toUpperCase() } : {}),
+        ...(data.wholesalePrice != null
+          ? { wholesalePrice: data.wholesalePrice as any }
+          : {}),
+        ...(data.technicalSpecs != null
+          ? { technicalSpecs: data.technicalSpecs as any }
+          : {}),
+      },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: true,
+        _count: { select: { stocks: true, movements: true, images: true } },
+      },
+    })
 
-      logger.info('Item created', {
-        itemId: item.id,
-        sku: item.sku,
-        name: item.name,
-        userId,
-      })
-
-      return item as any
-    } catch (error) {
-      logger.error('Error creating item', { error, data, userId })
-      throw error
-    }
+    logger.info('Item created', {
+      itemId: item.id,
+      empresaId: tenantEmpresaId,
+      userId,
+    })
+    return item as unknown as IItemWithRelations
   }
 
-  /**
-   * Obtener todos los artículos con paginación y filtros
-   */
-  async findAll(
-    filters: IItemFilters,
-    page: number = 1,
-    limit: number = 10,
-    sortBy: string = 'name',
-    sortOrder: 'asc' | 'desc' = 'asc',
-    prismaClient?: any // Parámetro opcional para Prisma client extendido con contexto de empresa
-  ) {
-    try {
-      // Usar el Prisma client extendido si se proporciona, sino usar el global
-      const db = prismaClient || prisma
-
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
-
-      // Construir filtros
-      const where: any = {}
-
-      // Búsqueda general
-      if (filters.search) {
-        where.OR = [
-          { sku: { contains: filters.search, mode: 'insensitive' } },
-          { name: { contains: filters.search, mode: 'insensitive' } },
-          { barcode: { contains: filters.search, mode: 'insensitive' } },
-          { description: { contains: filters.search, mode: 'insensitive' } },
-          { tags: { has: filters.search.toLowerCase() } },
-        ]
-      }
-
-      // Filtros específicos
-      if (filters.brandId) {
-        where.brandId = filters.brandId
-      }
-
-      if (filters.categoryId) {
-        where.categoryId = filters.categoryId
-      }
-
-      if (filters.modelId) {
-        where.modelId = filters.modelId
-      }
-
-      if (filters.isActive !== undefined) {
-        where.isActive = filters.isActive
-      }
-
-      // Filtrar por tags
-      if (filters.tags && filters.tags.length > 0) {
-        where.tags = {
-          hasSome: filters.tags.map((tag) => tag.toLowerCase()),
-        }
-      }
-
-      // Filtrar por rango de precios
-      if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
-        where.salePrice = {}
-        if (filters.minPrice !== undefined) {
-          where.salePrice.gte = filters.minPrice
-        }
-        if (filters.maxPrice !== undefined) {
-          where.salePrice.lte = filters.maxPrice
-        }
-      }
-
-      // Filtrar por stock
-      if (filters.inStock) {
-        where.stocks = {
-          some: {
-            quantityAvailable: {
-              gt: 0,
-            },
-          },
-        }
-      }
-
-      if (filters.lowStock) {
-        // Items con stock disponible menor al mínimo
-        where.stocks = {
-          some: {
-            quantityAvailable: {
-              lte: prisma.item.fields.minStock,
-            },
-          },
-        }
-      }
-
-      // Ordenamiento
-      const orderBy: any = {}
-      orderBy[sortBy] = sortOrder
-
-      // Ejecutar consultas en paralelo
-      const [items, total] = await Promise.all([
-        db.item.findMany({
-          where,
-          skip,
-          take,
-          orderBy,
-          include: {
-            brand: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            category: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-              },
-            },
-            model: {
-              select: {
-                id: true,
-                name: true,
-                year: true,
-                brand: {
-                  select: {
-                    name: true,
-                  },
-                },
-              },
-            },
-            unit: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                abbreviation: true,
-              },
-            },
-            images: {
-              orderBy: { order: 'asc' },
-            },
-            stocks: {
-              select: {
-                quantityReal: true,
-                quantityReserved: true,
-                quantityAvailable: true,
-              },
-            },
-            _count: {
-              select: {
-                stocks: true,
-                movements: true,
-                images: true,
-              },
-            },
-          },
-        }),
-        db.item.count({ where }),
-      ])
-
-      const meta = PaginationHelper.getMeta(page, limit, total)
-
-      return {
-        items,
-        ...meta,
-      }
-    } catch (error) {
-      logger.error('Error finding items', { error, filters })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener artículo por ID
-   */
   async findById(
+    empresaId: string,
     id: string,
-    includeStock: boolean = true
+    includeStock = true,
+    db?: DB
   ): Promise<IItemWithRelations> {
-    try {
-      const item = await prisma.item.findUnique({
-        where: { id },
-        include: {
-          brand: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-            },
-          },
-          category: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              defaultMargin: true,
-            },
-          },
-          model: {
-            select: {
-              id: true,
-              name: true,
-              year: true,
-              brand: {
-                select: {
-                  name: true,
-                },
-              },
-            },
-          },
-          unit: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              abbreviation: true,
-            },
-          },
-          images: {
-            orderBy: { order: 'asc' },
-          },
-          stocks: includeStock
-            ? {
-                include: {
-                  warehouse: {
-                    select: {
-                      id: true,
-                      code: true,
-                      name: true,
-                    },
-                  },
-                },
-              }
-            : false,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-              reservations: true,
-            },
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const item = await client.item.findFirst({
+      where: { id, empresaId: tenantEmpresaId },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: { orderBy: { order: 'asc' } },
+        stocks: includeStock ? { include: { warehouse: true } } : false,
+        _count: {
+          select: {
+            stocks: true,
+            movements: true,
+            images: true,
+            reservations: true,
           },
         },
-      })
+      },
+    })
 
-      if (!item) {
-        throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-      }
-
-      return item as any
-    } catch (error) {
-      logger.error('Error finding item by ID', { error, id })
-      throw error
-    }
+    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+    return item as unknown as IItemWithRelations
   }
 
-  /**
-   * Obtener artículo por SKU
-   */
-  async findBySku(sku: string): Promise<IItemWithRelations | null> {
-    try {
-      const item = await prisma.item.findUnique({
-        where: { sku: sku.toUpperCase() },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
+  async findBySku(
+    empresaId: string,
+    sku: string,
+    db?: DB
+  ): Promise<IItemWithRelations | null> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      return item as any
-    } catch (error) {
-      logger.error('Error finding item by SKU', { error, sku })
-      throw error
-    }
+    const item = await client.item.findFirst({
+      where: { empresaId: tenantEmpresaId, sku: sku.toUpperCase() },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: true,
+        stocks: true,
+        _count: { select: { stocks: true, movements: true, images: true } },
+      },
+    })
+    return item as unknown as IItemWithRelations | null
   }
 
-  /**
-   * Obtener artículo por código de barras
-   */
-  async findByBarcode(barcode: string): Promise<IItemWithRelations | null> {
-    try {
-      const item = await prisma.item.findUnique({
-        where: { barcode },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
+  async findByBarcode(
+    empresaId: string,
+    barcode: string,
+    db?: DB
+  ): Promise<IItemWithRelations | null> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      return item as any
-    } catch (error) {
-      logger.error('Error finding item by barcode', { error, barcode })
-      throw error
-    }
+    const item = await client.item.findFirst({
+      where: { empresaId: tenantEmpresaId, barcode },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: true,
+        stocks: true,
+        _count: { select: { stocks: true, movements: true, images: true } },
+      },
+    })
+    return item as unknown as IItemWithRelations | null
   }
 
-  /**
-   * Actualizar artículo
-   */
   async update(
+    empresaId: string,
     id: string,
     data: IUpdateItemInput,
-    userId?: string
+    userId?: string,
+    db?: DB
   ): Promise<IItemWithRelations> {
-    try {
-      // Verificar que existe
-      const existing = await this.findById(id, false)
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      // Guardar estado anterior para historial
-      const previousState = {
-        sku: existing.sku,
-        name: existing.name,
-        costPrice: existing.costPrice,
-        salePrice: existing.salePrice,
-        // ... otros campos relevantes
-      }
+    const existing = await this.findById(tenantEmpresaId, id, false, client)
 
-      // Si se actualiza el SKU, verificar que no exista
-      if (data.sku && data.sku !== existing.sku) {
-        const existingSku = await prisma.item.findUnique({
-          where: { sku: data.sku.toUpperCase() },
-        })
+    if (data.sku && data.sku !== existing.sku) {
+      const existingSku = await client.item.findFirst({
+        where: {
+          empresaId: tenantEmpresaId,
+          sku: data.sku.toUpperCase(),
+          id: { not: id },
+        },
+      })
+      if (existingSku)
+        throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
+    }
 
-        if (existingSku) {
-          throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
-        }
-      }
+    if (data.barcode && data.barcode !== (existing as any).barcode) {
+      const existingBarcode = await client.item.findFirst({
+        where: {
+          empresaId: tenantEmpresaId,
+          barcode: data.barcode,
+          id: { not: id },
+        },
+      })
+      if (existingBarcode)
+        throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
+    }
 
-      // Si se actualiza el barcode, verificar que no exista
-      if (data.barcode && data.barcode !== existing.barcode) {
-        const existingBarcode = await prisma.item.findUnique({
-          where: { barcode: data.barcode },
-        })
-
-        if (existingBarcode) {
-          throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
-        }
-      }
-
-      // Validar marca si se actualiza
-      if (data.brandId && data.brandId !== existing.brandId) {
-        const brand = await prisma.brand.findUnique({
-          where: { id: data.brandId },
-        })
-
-        if (!brand || !brand.isActive) {
-          throw new BadRequestError('Marca no válida')
-        }
-      }
-
-      // Validar categoría si se actualiza
-      if (data.categoryId && data.categoryId !== existing.categoryId) {
-        const category = await prisma.category.findUnique({
-          where: { id: data.categoryId },
-        })
-
-        if (!category || !category.isActive) {
-          throw new BadRequestError('Categoría no válida')
-        }
-      }
-
-      // Validar modelo si se actualiza
-      if (data.modelId) {
-        const model = await prisma.model.findUnique({
-          where: { id: data.modelId },
-        })
-
-        if (!model) {
-          throw new NotFoundError('Modelo no encontrado')
-        }
-
-        const targetBrandId = data.brandId || existing.brandId
-        if (model.brandId !== targetBrandId) {
-          throw new BadRequestError(
-            'El modelo no pertenece a la marca seleccionada'
-          )
-        }
-      }
-
-      // Validar ubicación si se actualiza
-      if (data.location) {
-        const isValidLocation = LocationValidator.isValid(data.location)
-        if (!isValidLocation) {
-          throw new BadRequestError(INVENTORY_MESSAGES.item.invalidLocation)
-        }
-      }
-
-      // Preparar historial
-      const currentHistorial = existing.historial as any
-      const historialArray = Array.isArray(currentHistorial)
-        ? currentHistorial
-        : []
-
-      const newHistorial = [
-        ...historialArray,
-        {
+    const result = await client.item.updateMany({
+      where: { id, empresaId: tenantEmpresaId },
+      data: {
+        ...(data.sku && { sku: data.sku.toUpperCase() }),
+        ...(data.barcode !== undefined && { barcode: data.barcode }),
+        ...(data.name && { name: data.name }),
+        ...(data.description !== undefined && {
+          description: data.description,
+        }),
+        ...(data.brandId && { brandId: data.brandId }),
+        ...(data.categoryId && { categoryId: data.categoryId }),
+        ...(data.modelId !== undefined && { modelId: data.modelId }),
+        ...(data.unitId && { unitId: data.unitId }),
+        ...(data.location !== undefined && {
+          location: data.location?.toUpperCase(),
+        }),
+        ...(data.costPrice !== undefined && {
+          costPrice: data.costPrice as any,
+        }),
+        ...(data.salePrice !== undefined && {
+          salePrice: data.salePrice as any,
+        }),
+        ...(data.wholesalePrice !== undefined && {
+          wholesalePrice: data.wholesalePrice as any,
+        }),
+        ...(data.minStock !== undefined && { minStock: data.minStock }),
+        ...(data.maxStock !== undefined && { maxStock: data.maxStock }),
+        ...(data.reorderPoint !== undefined && {
+          reorderPoint: data.reorderPoint,
+        }),
+        ...(data.isActive !== undefined && { isActive: data.isActive }),
+        ...(data.isSerialized !== undefined && {
+          isSerialized: data.isSerialized,
+        }),
+        ...(data.hasBatch !== undefined && { hasBatch: data.hasBatch }),
+        ...(data.hasExpiry !== undefined && { hasExpiry: data.hasExpiry }),
+        ...(data.allowNegativeStock !== undefined && {
+          allowNegativeStock: data.allowNegativeStock,
+        }),
+        ...(data.technicalSpecs !== undefined && {
+          technicalSpecs: (data.technicalSpecs as any) || null,
+        }),
+        ...(data.tags && { tags: data.tags }),
+        historial: {
           action: 'UPDATE',
           userId,
           timestamp: new Date().toISOString(),
-          previousState,
           changes: data,
-        },
+        } as any,
+      },
+    })
+
+    if (result.count === 0)
+      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+    return this.findById(tenantEmpresaId, id, true, client)
+  }
+
+  async findAll(
+    empresaId: string,
+    filters: IItemFilters = {},
+    page = 1,
+    limit = 10,
+    sortBy = 'name',
+    sortOrder: 'asc' | 'desc' = 'asc',
+    db?: DB
+  ) {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+    const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
+
+    const where: any = { empresaId: tenantEmpresaId }
+
+    if (filters.search) {
+      where.OR = [
+        { sku: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { barcode: { contains: filters.search, mode: 'insensitive' } },
+        { description: { contains: filters.search, mode: 'insensitive' } },
+        { tags: { has: filters.search.toLowerCase() } },
       ]
-
-      // Actualizar
-      const item = await prisma.item.update({
-        where: { id },
-        data: {
-          ...(data.sku && { sku: data.sku.toUpperCase() }),
-          ...(data.barcode !== undefined && { barcode: data.barcode }),
-          ...(data.name && { name: data.name }),
-          ...(data.description !== undefined && {
-            description: data.description,
-          }),
-          ...(data.brandId && { brandId: data.brandId }),
-          ...(data.categoryId && { categoryId: data.categoryId }),
-          ...(data.modelId !== undefined && { modelId: data.modelId }),
-          ...(data.unitId && { unitId: data.unitId }),
-          ...(data.location !== undefined && {
-            location: data.location?.toUpperCase(),
-          }),
-          ...(data.costPrice !== undefined && { costPrice: data.costPrice }),
-          ...(data.salePrice !== undefined && { salePrice: data.salePrice }),
-          ...(data.wholesalePrice !== undefined && {
-            wholesalePrice: data.wholesalePrice,
-          }),
-          ...(data.minStock !== undefined && { minStock: data.minStock }),
-          ...(data.maxStock !== undefined && { maxStock: data.maxStock }),
-          ...(data.reorderPoint !== undefined && {
-            reorderPoint: data.reorderPoint,
-          }),
-          ...(data.isActive !== undefined && { isActive: data.isActive }),
-          ...(data.isSerialized !== undefined && {
-            isSerialized: data.isSerialized,
-          }),
-          ...(data.hasBatch !== undefined && { hasBatch: data.hasBatch }),
-          ...(data.hasExpiry !== undefined && { hasExpiry: data.hasExpiry }),
-          ...(data.allowNegativeStock !== undefined && {
-            allowNegativeStock: data.allowNegativeStock,
-          }),
-          ...(data.technicalSpecs !== undefined && {
-            technicalSpecs: data.technicalSpecs || null,
-          }),
-          ...(data.tags && { tags: data.tags }),
-          historial: newHistorial,
-        },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
-
-      logger.info('Item updated', { itemId: id, userId })
-
-      return item as any
-    } catch (error) {
-      logger.error('Error updating item', { error, id, data, userId })
-      throw error
     }
-  }
 
-  /**
-   * Eliminar artículo (soft delete)
-   */
-  async delete(id: string, userId?: string): Promise<void> {
-    try {
-      const item = await this.findById(id, true)
+    if (filters.brandId) where.brandId = filters.brandId
+    if (filters.categoryId) where.categoryId = filters.categoryId
+    if (filters.modelId) where.modelId = filters.modelId
+    if (filters.isActive !== undefined) where.isActive = filters.isActive
 
-      // Verificar que no tenga stock
-      if (item._count && item._count.stocks > 0) {
-        const hasStock = await prisma.stock.findFirst({
-          where: {
-            itemId: id,
-            quantityReal: {
-              gt: 0,
-            },
-          },
-        })
-
-        if (hasStock) {
-          throw new BadRequestError(INVENTORY_MESSAGES.item.hasStock)
-        }
-      }
-
-      // Verificar que no tenga reservas activas
-      const hasActiveReservations = await prisma.reservation.count({
-        where: {
-          itemId: id,
-          status: {
-            in: ['ACTIVE', 'PENDING_PICKUP'],
-          },
-        },
-      })
-
-      if (hasActiveReservations > 0) {
-        throw new BadRequestError(
-          'No se puede eliminar un artículo con reservas activas'
-        )
-      }
-
-      // Soft delete
-      await prisma.item.update({
-        where: { id },
-        data: {
-          isActive: false,
-          historial: {
-            action: 'DELETE',
-            userId,
-            timestamp: new Date().toISOString(),
-          },
-        },
-      })
-
-      logger.info('Item soft deleted', { itemId: id, userId })
-    } catch (error) {
-      logger.error('Error deleting item', { error, id, userId })
-      throw error
+    if (filters.tags?.length) {
+      where.tags = { hasSome: filters.tags.map((t) => t.toLowerCase()) }
     }
-  }
 
-  /**
-   * Eliminar artículo permanentemente
-   */
-  async hardDelete(id: string, userId?: string): Promise<void> {
-    try {
-      const item = await this.findById(id, true)
-
-      // Verificar que no tenga movimientos
-      if (item._count && item._count.movements > 0) {
-        throw new BadRequestError(INVENTORY_MESSAGES.item.hasMovements)
-      }
-
-      // Verificar que no tenga stock
-      if (item._count && item._count.stocks > 0) {
-        throw new BadRequestError(INVENTORY_MESSAGES.item.hasStock)
-      }
-
-      // Eliminar permanentemente
-      await prisma.item.delete({
-        where: { id },
-      })
-
-      logger.info('Item hard deleted', { itemId: id, userId })
-    } catch (error) {
-      logger.error('Error hard deleting item', { error, id, userId })
-      throw error
+    if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
+      where.salePrice = {}
+      if (filters.minPrice !== undefined) where.salePrice.gte = filters.minPrice
+      if (filters.maxPrice !== undefined) where.salePrice.lte = filters.maxPrice
     }
-  }
 
-  /**
-   * Activar/Desactivar artículo
-   */
-  async toggleActive(id: string, userId?: string): Promise<IItemWithRelations> {
-    try {
-      const item = await this.findById(id, false)
-
-      const updated = await prisma.item.update({
-        where: { id },
-        data: {
-          isActive: !item.isActive,
-          historial: {
-            action: 'TOGGLE_ACTIVE',
-            userId,
-            timestamp: new Date().toISOString(),
-            newStatus: !item.isActive,
-          },
-        },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
-
-      logger.info('Item active status toggled', {
-        itemId: id,
-        newStatus: updated.isActive,
-        userId,
-      })
-
-      return updated as any
-    } catch (error) {
-      logger.error('Error toggling item active status', { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener artículos activos
-   */
-  async findActive(limit: number = 100): Promise<IItemWithRelations[]> {
-    try {
-      const items = await prisma.item.findMany({
-        where: { isActive: true },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: {
-            select: {
-              quantityReal: true,
-              quantityAvailable: true,
-              quantityReserved: true,
-            },
-          },
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
-
-      return items as any
-    } catch (error) {
-      logger.error('Error finding active items', { error })
-      throw error
-    }
-  }
-
-  /**
-   * Buscar artículos
-   */
-  async search(
-    term: string,
-    limit: number = 20
-  ): Promise<IItemWithRelations[]> {
-    try {
-      const items = await prisma.item.findMany({
-        where: {
-          isActive: true,
-          OR: [
-            { sku: { contains: term, mode: 'insensitive' } },
-            { name: { contains: term, mode: 'insensitive' } },
-            { barcode: { contains: term, mode: 'insensitive' } },
-            { tags: { has: term.toLowerCase() } },
-          ],
-        },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-          stocks: {
-            select: {
-              quantityAvailable: true,
-            },
-          },
-        },
-      })
-
-      return items as any
-    } catch (error) {
-      logger.error('Error searching items', { error, term })
-      throw error
-    }
-  }
-  /**
-   * Obtener artículos con stock bajo
-   */
-  async findLowStock(warehouseId?: string): Promise<IItemWithStock[]> {
-    try {
-      const where: any = {
-        isActive: true,
-      }
-
-      const items = await prisma.item.findMany({
+    const [items, total] = await Promise.all([
+      client.item.findMany({
         where,
-        include: {
-          brand: true,
-          category: true,
-          unit: true,
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-          stocks: warehouseId
-            ? {
-                where: { warehouseId },
-                include: {
-                  warehouse: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              }
-            : {
-                include: {
-                  warehouse: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              },
-        },
-      })
-
-      // Filtrar artículos con stock bajo
-      const lowStockItems = items.filter((item: any) => {
-        const totalAvailable = item.stocks.reduce(
-          (sum: number, s: any) => sum + s.quantityAvailable,
-          0
-        )
-        return totalAvailable <= item.minStock
-      })
-
-      return lowStockItems as any
-    } catch (error) {
-      logger.error('Error finding low stock items', { error, warehouseId })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener artículos sin stock
-   */
-  async findOutOfStock(warehouseId?: string): Promise<IItemWithStock[]> {
-    try {
-      const items = await prisma.item.findMany({
-        where: {
-          isActive: true,
-        },
-        include: {
-          brand: true,
-          category: true,
-          unit: true,
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-          stocks: warehouseId
-            ? {
-                where: { warehouseId },
-                include: {
-                  warehouse: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              }
-            : {
-                include: {
-                  warehouse: {
-                    select: {
-                      id: true,
-                      name: true,
-                    },
-                  },
-                },
-              },
-        },
-      })
-
-      // Filtrar artículos sin stock
-      const outOfStockItems = items.filter((item: any) => {
-        const totalAvailable = item.stocks.reduce(
-          (sum: number, s: any) => sum + s.quantityAvailable,
-          0
-        )
-        return totalAvailable === 0
-      })
-
-      return outOfStockItems as any
-    } catch (error) {
-      logger.error('Error finding out of stock items', { error, warehouseId })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener artículos por categoría (incluye subcategorías)
-   */
-  async findByCategory(
-    categoryId: string,
-    includeSubcategories: boolean = true
-  ): Promise<IItemWithRelations[]> {
-    try {
-      // Verificar que la categoría existe
-      const category = await prisma.category.findUnique({
-        where: { id: categoryId },
-      })
-
-      if (!category) {
-        throw new NotFoundError('Categoría no encontrada')
-      }
-
-      let categoryIds = [categoryId]
-
-      // Si se incluyen subcategorías, obtener todas las descendientes
-      if (includeSubcategories) {
-        const descendants = await this.getCategoryDescendants(categoryId)
-        categoryIds = [...categoryIds, ...descendants.map((d) => d.id)]
-      }
-
-      const items = await prisma.item.findMany({
-        where: {
-          categoryId: {
-            in: categoryIds,
-          },
-          isActive: true,
-        },
-        orderBy: { name: 'asc' },
+        skip,
+        take,
+        orderBy: { [sortBy]: sortOrder },
         include: {
           brand: true,
           category: true,
           model: true,
           unit: true,
-          images: true,
+          images: { orderBy: { order: 'asc' } },
           stocks: {
             select: {
               quantityReal: true,
-              quantityAvailable: true,
               quantityReserved: true,
+              quantityAvailable: true,
             },
           },
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
+          _count: { select: { stocks: true, movements: true, images: true } },
         },
-      })
+      }),
+      client.item.count({ where }),
+    ])
 
-      return items as any
-    } catch (error) {
-      logger.error('Error finding items by category', { error, categoryId })
-      throw error
+    const meta = PaginationHelper.getMeta(page, limit, total)
+    return {
+      items: items as unknown as IItemWithRelations[],
+      page: meta.page,
+      limit: meta.limit,
+      total: meta.total,
+      totalPages: meta.totalPages,
     }
   }
 
-  /**
-   * Obtener descendientes de una categoría (helper)
-   */
-  private async getCategoryDescendants(categoryId: string): Promise<any[]> {
-    const descendants: any[] = []
-    const queue = [categoryId]
+  async delete(
+    empresaId: string,
+    id: string,
+    userId?: string,
+    db?: DB
+  ): Promise<void> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-    while (queue.length > 0) {
-      const currentId = queue.shift()!
+    const result = await client.item.updateMany({
+      where: { id, empresaId: tenantEmpresaId },
+      data: {
+        isActive: false,
+        historial: {
+          action: 'DELETE',
+          userId,
+          timestamp: new Date().toISOString(),
+        } as any,
+      },
+    })
 
-      const children = await prisma.category.findMany({
-        where: { parentId: currentId },
-      })
-
-      descendants.push(...children)
-      queue.push(...children.map((c: any) => c.id))
-    }
-
-    return descendants
+    if (result.count === 0)
+      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
   }
 
-  /**
-   * Actualizar precios de un artículo
-   */
+  async hardDelete(
+    empresaId: string,
+    id: string,
+    userId?: string,
+    db?: DB
+  ): Promise<void> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const item = await client.item.findFirst({
+      where: { id, empresaId: tenantEmpresaId },
+      include: { _count: { select: { movements: true, stocks: true } } },
+    })
+    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+
+    if (item._count.movements > 0) {
+      throw new BadRequestError(INVENTORY_MESSAGES.item.hasMovements)
+    }
+
+    const activeStock = await client.stock.count({
+      where: { itemId: id, quantityReal: { gt: 0 } },
+    })
+    if (activeStock > 0)
+      throw new BadRequestError(INVENTORY_MESSAGES.item.hasStock)
+
+    await client.itemImage.deleteMany({ where: { itemId: id } })
+
+    const deleted = await client.item.deleteMany({
+      where: { id, empresaId: tenantEmpresaId },
+    })
+    if (deleted.count === 0)
+      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+
+    logger.warn('Item hard deleted', {
+      itemId: id,
+      empresaId: tenantEmpresaId,
+      userId,
+    })
+  }
+
+  async toggleActive(
+    empresaId: string,
+    id: string,
+    userId?: string,
+    db?: DB
+  ): Promise<IItemWithRelations> {
+    const item = await this.findById(empresaId, id, false, db)
+    return this.update(empresaId, id, { isActive: !item.isActive }, userId, db)
+  }
+
+  async findActive(
+    empresaId: string,
+    limit = 100,
+    db?: DB
+  ): Promise<IItemWithRelations[]> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const items = await client.item.findMany({
+      where: { empresaId: tenantEmpresaId, isActive: true },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: true,
+        stocks: true,
+        _count: { select: { stocks: true, movements: true, images: true } },
+      },
+    })
+
+    return items as unknown as IItemWithRelations[]
+  }
+
+  async search(
+    empresaId: string,
+    term: string,
+    limit = 20,
+    db?: DB
+  ): Promise<IItemWithRelations[]> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const items = await client.item.findMany({
+      where: {
+        empresaId: tenantEmpresaId,
+        isActive: true,
+        OR: [
+          { sku: { contains: term, mode: 'insensitive' } },
+          { name: { contains: term, mode: 'insensitive' } },
+          { barcode: { contains: term, mode: 'insensitive' } },
+          { tags: { has: term.toLowerCase() } },
+        ],
+      },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: { where: { isPrimary: true }, take: 1 },
+        stocks: { select: { quantityAvailable: true } },
+      },
+    })
+
+    return items as unknown as IItemWithRelations[]
+  }
+
+  async findLowStock(empresaId: string, warehouseId?: string, db?: DB) {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const items = await client.item.findMany({
+      where: { empresaId: tenantEmpresaId, isActive: true },
+      include: {
+        brand: true,
+        category: true,
+        unit: true,
+        images: { where: { isPrimary: true }, take: 1 },
+        stocks: warehouseId
+          ? { where: { warehouseId }, include: { warehouse: true } }
+          : { include: { warehouse: true } },
+      },
+    })
+
+    return items.filter((item: any) => {
+      const totalAvailable = item.stocks.reduce(
+        (sum: number, s: any) => sum + s.quantityAvailable,
+        0
+      )
+      return totalAvailable <= item.minStock
+    })
+  }
+
+  async findOutOfStock(empresaId: string, warehouseId?: string, db?: DB) {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const items = await client.item.findMany({
+      where: { empresaId: tenantEmpresaId, isActive: true },
+      include: {
+        brand: true,
+        category: true,
+        unit: true,
+        images: { where: { isPrimary: true }, take: 1 },
+        stocks: warehouseId
+          ? { where: { warehouseId }, include: { warehouse: true } }
+          : { include: { warehouse: true } },
+      },
+    })
+
+    return items.filter((item: any) => {
+      const totalAvailable = item.stocks.reduce(
+        (sum: number, s: any) => sum + s.quantityAvailable,
+        0
+      )
+      return totalAvailable === 0
+    })
+  }
+
+  async findByCategory(
+    empresaId: string,
+    categoryId: string,
+    includeSubcategories = true,
+    db?: DB
+  ): Promise<IItemWithRelations[]> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const category = await client.category.findFirst({
+      where: { id: categoryId, empresaId: tenantEmpresaId },
+    })
+    if (!category) throw new NotFoundError('Categoría no encontrada')
+
+    const categoryIds = [categoryId]
+    if (includeSubcategories) {
+      const children = await client.category.findMany({
+        where: { empresaId: tenantEmpresaId, parentId: categoryId },
+        select: { id: true },
+      })
+      categoryIds.push(...children.map((c) => c.id))
+    }
+
+    const items = await client.item.findMany({
+      where: {
+        empresaId: tenantEmpresaId,
+        categoryId: { in: categoryIds },
+        isActive: true,
+      },
+      orderBy: { name: 'asc' },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: true,
+        stocks: true,
+        _count: { select: { stocks: true, movements: true, images: true } },
+      },
+    })
+
+    return items as unknown as IItemWithRelations[]
+  }
+
   async updatePricing(
+    empresaId: string,
     id: string,
     data: {
       costPrice?: number
@@ -1128,516 +637,359 @@ export class ItemService {
       applyMargin?: boolean
       marginPercentage?: number
     },
-    userId?: string
+    userId?: string,
+    db?: DB
   ): Promise<IItemWithRelations> {
-    try {
-      const item = await this.findById(id, false)
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      let costPrice = data.costPrice ?? item.costPrice
-      let salePrice = data.salePrice ?? item.salePrice
-      let wholesalePrice = data.wholesalePrice ?? item.wholesalePrice
+    const item = await this.findById(tenantEmpresaId, id, false, client)
 
-      // Si se aplica margen, calcular precio de venta
-      if (data.applyMargin && data.marginPercentage !== undefined) {
-        salePrice = PriceCalculator.calculateSalePriceWithMargin(
-          costPrice,
-          data.marginPercentage
-        )
-      }
+    let costPrice = data.costPrice ?? Number((item as any).costPrice)
+    let salePrice = data.salePrice ?? Number((item as any).salePrice)
+    const wholesalePrice =
+      data.wholesalePrice ?? Number((item as any).wholesalePrice ?? 0)
 
-      // Validar que precio de venta sea mayor que costo
-      if (salePrice < costPrice) {
-        throw new BadRequestError(
-          'El precio de venta debe ser mayor o igual al precio de costo'
-        )
-      }
-
-      const updated = await prisma.item.update({
-        where: { id },
-        data: {
-          costPrice,
-          salePrice,
-          ...(wholesalePrice !== undefined && { wholesalePrice }),
-          historial: {
-            action: 'UPDATE_PRICING',
-            userId,
-            timestamp: new Date().toISOString(),
-            previousPrices: {
-              costPrice: item.costPrice,
-              salePrice: item.salePrice,
-              wholesalePrice: item.wholesalePrice,
-            },
-            newPrices: {
-              costPrice,
-              salePrice,
-              wholesalePrice,
-            },
-          },
-        },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: true,
-          stocks: true,
-          _count: {
-            select: {
-              stocks: true,
-              movements: true,
-              images: true,
-            },
-          },
-        },
-      })
-
-      logger.info('Item pricing updated', { itemId: id, userId })
-
-      return updated as any
-    } catch (error) {
-      logger.error('Error updating item pricing', { error, id, data, userId })
-      throw error
+    if (data.applyMargin && data.marginPercentage !== undefined) {
+      salePrice = PriceCalculator.calculateSalePriceWithMargin(
+        costPrice,
+        data.marginPercentage
+      )
     }
+
+    if (salePrice < costPrice) {
+      throw new BadRequestError(
+        'El precio de venta debe ser mayor o igual al precio de costo'
+      )
+    }
+
+    await client.item.updateMany({
+      where: { id, empresaId: tenantEmpresaId },
+      data: {
+        costPrice: costPrice as any,
+        salePrice: salePrice as any,
+        wholesalePrice: wholesalePrice as any,
+        historial: {
+          action: 'UPDATE_PRICING',
+          userId,
+          timestamp: new Date().toISOString(),
+          previousPrices: {
+            costPrice: Number((item as any).costPrice),
+            salePrice: Number((item as any).salePrice),
+            wholesalePrice: Number((item as any).wholesalePrice ?? 0),
+          },
+          newPrices: { costPrice, salePrice, wholesalePrice },
+        } as any,
+      },
+    })
+
+    return this.findById(tenantEmpresaId, id, true, client)
   }
 
-  /**
-   * Actualización masiva de artículos
-   */
   async bulkUpdate(
+    empresaId: string,
     itemIds: string[],
     updates: {
       categoryId?: string
       isActive?: boolean
       tags?: string[]
-      applyPriceIncrease?: number // Porcentaje
+      applyPriceIncrease?: number
     },
-    userId?: string
+    userId?: string,
+    db?: DB
   ) {
-    try {
-      const results = {
-        success: [] as any[],
-        errors: [] as any[],
-      }
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      for (const itemId of itemIds) {
-        try {
-          const item = await this.findById(itemId, false)
+    const results = { success: [] as any[], errors: [] as any[] }
 
-          const updateData: any = {}
+    for (const itemId of itemIds) {
+      try {
+        const item = await this.findById(tenantEmpresaId, itemId, false, client)
 
-          if (updates.categoryId) {
-            updateData.categoryId = updates.categoryId
+        const updateData: any = {}
+        if (updates.categoryId) updateData.categoryId = updates.categoryId
+        if (updates.isActive !== undefined)
+          updateData.isActive = updates.isActive
+        if (updates.tags)
+          updateData.tags = updates.tags.map((t) => t.toLowerCase())
+
+        if (updates.applyPriceIncrease !== undefined) {
+          const inc = updates.applyPriceIncrease / 100
+          updateData.costPrice = Number((item as any).costPrice) * (1 + inc)
+          updateData.salePrice = Number((item as any).salePrice) * (1 + inc)
+          if ((item as any).wholesalePrice) {
+            updateData.wholesalePrice =
+              Number((item as any).wholesalePrice) * (1 + inc)
           }
-
-          if (updates.isActive !== undefined) {
-            updateData.isActive = updates.isActive
-          }
-
-          if (updates.tags) {
-            updateData.tags = updates.tags.map((tag) => tag.toLowerCase())
-          }
-
-          // Aplicar incremento de precio
-          if (updates.applyPriceIncrease !== undefined) {
-            const increase = updates.applyPriceIncrease / 100
-            updateData.costPrice = Number(item.costPrice) * (1 + increase)
-            updateData.salePrice = Number(item.salePrice) * (1 + increase)
-            if (item.wholesalePrice) {
-              updateData.wholesalePrice =
-                Number(item.wholesalePrice) * (1 + increase)
-            }
-          }
-
-          const updated = await prisma.item.update({
-            where: { id: itemId },
-            data: {
-              ...updateData,
-              historial: {
-                action: 'BULK_UPDATE',
-                userId,
-                timestamp: new Date().toISOString(),
-                updates,
-              },
-            },
-          })
-
-          results.success.push(updated)
-        } catch (error: any) {
-          results.errors.push({
-            itemId,
-            error: error.message,
-          })
         }
+
+        await client.item.updateMany({
+          where: { id: itemId, empresaId: tenantEmpresaId },
+          data: {
+            ...updateData,
+            historial: {
+              action: 'BULK_UPDATE',
+              userId,
+              timestamp: new Date().toISOString(),
+              updates,
+            } as any,
+          },
+        })
+
+        results.success.push({ itemId, ok: true })
+      } catch (error: any) {
+        results.errors.push({ itemId, error: error.message })
       }
-
-      logger.info('Bulk update completed', {
-        total: itemIds.length,
-        success: results.success.length,
-        errors: results.errors.length,
-        userId,
-      })
-
-      return results
-    } catch (error) {
-      logger.error('Error in bulk update', { error, itemIds, updates, userId })
-      throw error
     }
+
+    return results
   }
 
-  /**
-   * Importación masiva de artículos
-   */
-  async bulkCreate(items: ICreateItemInput[], userId?: string) {
-    try {
-      const results = {
-        success: [] as any[],
-        errors: [] as any[],
+  async bulkCreate(
+    empresaId: string,
+    items: ICreateItemInput[],
+    userId?: string,
+    db?: DB
+  ) {
+    const results = { success: [] as any[], errors: [] as any[] }
+    for (const itemData of items) {
+      try {
+        const item = await this.create(empresaId, itemData, userId, db)
+        results.success.push(item)
+      } catch (error: any) {
+        results.errors.push({
+          sku: itemData.sku,
+          name: itemData.name,
+          error: error.message,
+        })
       }
-
-      for (const itemData of items) {
-        try {
-          const item = await this.create(itemData, userId)
-          results.success.push(item)
-        } catch (error: any) {
-          results.errors.push({
-            sku: itemData.sku,
-            name: itemData.name,
-            error: error.message,
-          })
-        }
-      }
-
-      logger.info('Bulk item creation completed', {
-        total: items.length,
-        success: results.success.length,
-        errors: results.errors.length,
-        userId,
-      })
-
-      return results
-    } catch (error) {
-      logger.error('Error in bulk item creation', { error, userId })
-      throw error
     }
+    return results
   }
 
-  /**
-   * Generar SKU automático
-   */
   async generateSKU(categoryCode: string, brandCode: string): Promise<string> {
-    try {
-      return await SKUGenerator.generate(categoryCode, brandCode)
-    } catch (error) {
-      logger.error('Error generating SKU', { error, categoryCode, brandCode })
-      throw error
+    return `${categoryCode}-${brandCode}-${Date.now().toString().slice(-6)}`
+  }
+
+  async getHistory(empresaId: string, id: string, db?: DB): Promise<any[]> {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const item = await client.item.findFirst({
+      where: { id, empresaId: tenantEmpresaId },
+      select: { historial: true },
+    })
+    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+
+    const historial = item.historial as any
+    return Array.isArray(historial) ? historial : []
+  }
+
+  async getStats(empresaId: string, id: string, db?: DB) {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const item = await this.findById(tenantEmpresaId, id, true, client)
+    const stocks = (item as any).stocks || []
+
+    const totalStock = stocks.reduce(
+      (sum: number, s: any) => sum + s.quantityReal,
+      0
+    )
+    const availableStock = stocks.reduce(
+      (sum: number, s: any) => sum + s.quantityAvailable,
+      0
+    )
+    const reservedStock = stocks.reduce(
+      (sum: number, s: any) => sum + s.quantityReserved,
+      0
+    )
+
+    const [recentMovements, totalMovements, lastSale, totalSales] =
+      await Promise.all([
+        client.movement.findMany({
+          where: { itemId: id },
+          take: 10,
+          orderBy: { movementDate: 'desc' },
+        }),
+        client.movement.count({ where: { itemId: id } }),
+        client.movement.findFirst({
+          where: { itemId: id, type: 'SALE' },
+          orderBy: { movementDate: 'desc' },
+        }),
+        client.movement.count({ where: { itemId: id, type: 'SALE' } }),
+      ])
+
+    const margin = PriceCalculator.calculateMargin(
+      Number((item as any).costPrice),
+      Number((item as any).salePrice)
+    )
+
+    return {
+      item: {
+        id: (item as any).id,
+        sku: (item as any).sku,
+        name: (item as any).name,
+      },
+      stock: {
+        total: totalStock,
+        available: availableStock,
+        reserved: reservedStock,
+      },
+      pricing: {
+        costPrice: Number((item as any).costPrice),
+        salePrice: Number((item as any).salePrice),
+        wholesalePrice: (item as any).wholesalePrice
+          ? Number((item as any).wholesalePrice)
+          : null,
+        margin,
+      },
+      movements: {
+        total: totalMovements,
+        recent: recentMovements,
+        lastSale,
+        totalSales,
+      },
     }
   }
 
-  /**
-   * Obtener historial de cambios de un artículo
-   */
-  async getHistory(id: string): Promise<any[]> {
-    try {
-      const item = await prisma.item.findUnique({
-        where: { id },
-        select: {
-          historial: true,
-        },
-      })
-
-      if (!item) {
-        throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-      }
-
-      const historial = item.historial as any
-      return Array.isArray(historial) ? historial : []
-    } catch (error) {
-      logger.error('Error getting item history', { error, id })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener estadísticas de un artículo
-   */
-  async getStats(id: string) {
-    try {
-      const item = await this.findById(id, true)
-
-      // Calcular totales de stock
-      const totalStock =
-        (item as any).stocks?.reduce(
-          (sum: number, s: any) => sum + s.quantityReal,
-          0
-        ) || 0
-
-      const availableStock =
-        (item as any).stocks?.reduce(
-          (sum: number, s: any) => sum + s.quantityAvailable,
-          0
-        ) || 0
-
-      const reservedStock =
-        (item as any).stocks?.reduce(
-          (sum: number, s: any) => sum + s.quantityReserved,
-          0
-        ) || 0
-
-      // Obtener movimientos recientes
-      const [recentMovements, totalMovements, lastSale, totalSales] =
-        await Promise.all([
-          prisma.movement.findMany({
-            where: { itemId: id },
-            take: 10,
-            orderBy: { movementDate: 'desc' },
-            include: {
-              warehouseFrom: {
-                select: { name: true },
-              },
-              warehouseTo: {
-                select: { name: true },
-              },
-            },
-          }),
-          prisma.movement.count({
-            where: { itemId: id },
-          }),
-          prisma.movement.findFirst({
-            where: {
-              itemId: id,
-              type: 'SALE',
-            },
-            orderBy: { movementDate: 'desc' },
-          }),
-          prisma.movement.count({
-            where: {
-              itemId: id,
-              type: 'SALE',
-            },
-          }),
-        ])
-
-      // Calcular margen
-      const margin = PriceCalculator.calculateMargin(
-        Number(item.costPrice),
-        Number(item.salePrice)
-      )
-
-      // Calcular valor del inventario
-      const inventoryValue = totalStock * Number(item.costPrice)
-
-      return {
-        item: {
-          id: item.id,
-          sku: item.sku,
-          name: item.name,
-        },
-        stock: {
-          total: totalStock,
-          available: availableStock,
-          reserved: reservedStock,
-          status:
-            availableStock === 0
-              ? 'OUT_OF_STOCK'
-              : availableStock <= item.minStock
-                ? 'LOW_STOCK'
-                : availableStock >= (item.maxStock || Infinity)
-                  ? 'OVERSTOCK'
-                  : 'NORMAL',
-          byWarehouse: (item as any).stocks?.map((s: any) => ({
-            warehouseId: s.warehouse.id,
-            warehouseName: s.warehouse.name,
-            quantityReal: s.quantityReal,
-            quantityReserved: s.quantityReserved,
-            quantityAvailable: s.quantityAvailable,
-          })),
-        },
-        pricing: {
-          costPrice: Number(item.costPrice),
-          salePrice: Number(item.salePrice),
-          wholesalePrice: item.wholesalePrice
-            ? Number(item.wholesalePrice)
-            : null,
-          margin,
-          inventoryValue,
-        },
-        movements: {
-          total: totalMovements,
-          recent: recentMovements,
-          lastSale: lastSale
-            ? {
-                date: lastSale.movementDate,
-                quantity: lastSale.quantity,
-              }
-            : null,
-          totalSales,
-        },
-      }
-    } catch (error) {
-      logger.error('Error getting item stats', { error, id })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener artículos relacionados (misma categoría o marca)
-   */
   async getRelatedItems(
+    empresaId: string,
     id: string,
-    limit: number = 10
+    limit = 10,
+    db?: DB
   ): Promise<IItemWithRelations[]> {
-    try {
-      const item = await this.findById(id, false)
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      const relatedItems = await prisma.item.findMany({
-        where: {
-          id: { not: id },
-          isActive: true,
-          OR: [
-            { categoryId: item.categoryId },
-            { brandId: item.brandId },
-            { modelId: item.modelId || null },
-          ],
-        },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: {
-            where: { isPrimary: true },
-            take: 1,
-          },
-          stocks: {
-            select: {
-              quantityAvailable: true,
-            },
-          },
-        },
-      })
+    const item = await this.findById(tenantEmpresaId, id, false, client)
 
-      return relatedItems as any
-    } catch (error) {
-      logger.error('Error getting related items', { error, id })
-      throw error
-    }
+    const related = await client.item.findMany({
+      where: {
+        empresaId: tenantEmpresaId,
+        id: { not: id },
+        isActive: true,
+        OR: [
+          { categoryId: (item as any).categoryId },
+          { brandId: (item as any).brandId },
+          { modelId: (item as any).modelId || null },
+        ],
+      },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: {
+        brand: true,
+        category: true,
+        model: true,
+        unit: true,
+        images: { where: { isPrimary: true }, take: 1 },
+        stocks: { select: { quantityAvailable: true } },
+      },
+    })
+
+    return related as unknown as IItemWithRelations[]
   }
 
-  /**
-   * Duplicar artículo
-   */
   async duplicate(
+    empresaId: string,
     id: string,
     newSku: string,
-    userId?: string
+    userId?: string,
+    db?: DB
   ): Promise<IItemWithRelations> {
-    try {
-      const original = await this.findById(id, false)
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
 
-      // Verificar que el nuevo SKU no exista
-      const existingSku = await prisma.item.findUnique({
-        where: { sku: newSku.toUpperCase() },
-      })
+    const original = await this.findById(tenantEmpresaId, id, false, client)
 
-      if (existingSku) {
-        throw new ConflictError('El nuevo SKU ya existe')
-      }
+    const existingSku = await client.item.findFirst({
+      where: { empresaId: tenantEmpresaId, sku: newSku.toUpperCase() },
+    })
+    if (existingSku) throw new ConflictError('El nuevo SKU ya existe')
 
-      // Crear copia
-      const createData: any = {
-        sku: newSku,
-        name: `${original.name} (Copia)`,
-        brandId: original.brandId,
-        categoryId: original.categoryId,
-        unitId: original.unitId,
-        costPrice: Number(original.costPrice),
-        salePrice: Number(original.salePrice),
-        minStock: original.minStock,
-        reorderPoint: original.reorderPoint,
-        isActive: false,
-        isSerialized: original.isSerialized,
-        hasBatch: original.hasBatch,
-        hasExpiry: original.hasExpiry,
-        allowNegativeStock: original.allowNegativeStock,
-      }
-      if (original.description) createData.description = original.description
-      if (original.modelId) createData.modelId = original.modelId
-      if (original.location) createData.location = original.location
-      if (original.wholesalePrice)
-        createData.wholesalePrice = Number(original.wholesalePrice)
-      if (original.maxStock) createData.maxStock = original.maxStock
-      if (original.technicalSpecs)
-        createData.technicalSpecs = original.technicalSpecs
-      if (original.tags && original.tags.length > 0)
-        createData.tags = original.tags
+    const payload: ICreateItemInput = {
+      sku: newSku,
+      name: `${(original as any).name} (Copia)`,
+      brandId: (original as any).brandId,
+      categoryId: (original as any).categoryId,
+      unitId: (original as any).unitId,
+      costPrice: Number((original as any).costPrice),
+      salePrice: Number((original as any).salePrice),
+      minStock: (original as any).minStock,
+      reorderPoint: (original as any).reorderPoint,
+      isActive: false,
+      isSerialized: (original as any).isSerialized,
+      hasBatch: (original as any).hasBatch,
+      hasExpiry: (original as any).hasExpiry,
+      allowNegativeStock: (original as any).allowNegativeStock,
+      tags: (original as any).tags ?? [],
 
-      const duplicated = await this.create(createData, userId)
-
-      logger.info('Item duplicated', {
-        originalId: id,
-        duplicatedId: duplicated.id,
-        userId,
-      })
-
-      return duplicated
-    } catch (error) {
-      logger.error('Error duplicating item', { error, id, newSku, userId })
-      throw error
+      ...((original as any).modelId
+        ? { modelId: (original as any).modelId }
+        : {}),
+      ...((original as any).description
+        ? { description: (original as any).description }
+        : {}),
+      ...((original as any).location
+        ? { location: (original as any).location }
+        : {}),
+      ...((original as any).wholesalePrice != null
+        ? { wholesalePrice: Number((original as any).wholesalePrice) }
+        : {}),
+      ...((original as any).maxStock != null
+        ? { maxStock: (original as any).maxStock }
+        : {}),
+      ...((original as any).technicalSpecs
+        ? { technicalSpecs: (original as any).technicalSpecs }
+        : {}),
     }
-  }
 
-  /**
-   * Verificar disponibilidad de stock para múltiples items
-   */
+    const duplicated = await this.create(
+      tenantEmpresaId,
+      payload,
+      userId,
+      client
+    )
+    return duplicated
+  }
   async checkAvailability(
-    items: { itemId: string; quantity: number; warehouseId: string }[]
-  ): Promise<{
-    available: boolean
-    details: {
+    empresaId: string,
+    items: { itemId: string; quantity: number; warehouseId: string }[],
+    db?: DB
+  ) {
+    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
+    const client = this.getDB(db)
+
+    const details: {
       itemId: string
       itemName: string
       requested: number
       available: number
       sufficient: boolean
-    }[]
-  }> {
-    try {
-      const details = []
-      let allAvailable = true
+    }[] = []
 
-      for (const { itemId, quantity, warehouseId } of items) {
-        const item = await this.findById(itemId, true)
+    let allAvailable = true
 
-        const stock = (item as any).stocks?.find(
-          (s: any) => s.warehouse.id === warehouseId
-        )
+    for (const { itemId, quantity, warehouseId } of items) {
+      const item = await this.findById(tenantEmpresaId, itemId, true, client)
+      const stock = (item as any).stocks?.find(
+        (s: any) => s.warehouseId === warehouseId
+      )
+      const available = stock?.quantityAvailable || 0
+      const sufficient = available >= quantity
+      if (!sufficient) allAvailable = false
 
-        const available = stock?.quantityAvailable || 0
-        const sufficient = available >= quantity
-
-        if (!sufficient) {
-          allAvailable = false
-        }
-
-        details.push({
-          itemId,
-          itemName: item.name,
-          requested: quantity,
-          available,
-          sufficient,
-        })
-      }
-
-      return {
-        available: allAvailable,
-        details,
-      }
-    } catch (error) {
-      logger.error('Error checking availability', { error, items })
-      throw error
+      details.push({
+        itemId,
+        itemName: (item as any).name,
+        requested: quantity,
+        available,
+        sufficient,
+      })
     }
+
+    return { available: allAvailable, details }
   }
 }
 

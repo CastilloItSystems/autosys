@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express'
 import { ExitNoteItemsService } from './items.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 const itemsService = ExitNoteItemsService.getInstance()
 

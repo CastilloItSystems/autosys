@@ -10,7 +10,7 @@ import { PurchaseOrderResponseDTO } from './purchaseOrders.dto'
 import { PurchaseOrderItemResponseDTO } from './purchaseOrders.dto'
 import { ReceiveOrderDTO } from './purchaseOrders.dto'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../shared/utils/apiResponse'
 
 class PurchaseOrderController {
   /**

@@ -5,7 +5,7 @@
 
 import { Request, Response } from 'express'
 import { ExitNotePreparationService } from './preparation.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 const preparationService = ExitNotePreparationService.getInstance()
 

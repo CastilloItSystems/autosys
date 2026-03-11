@@ -4,7 +4,7 @@
 
 import { Request, Response } from 'express'
 import { getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 export const getExitsWithoutInvoiceReportHandler = async (
   req: Request,
@@ -13,7 +13,11 @@ export const getExitsWithoutInvoiceReportHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getExitsWithoutInvoiceReport(page, limit, (req as any).prisma || undefined)
+    const result = await getExitsWithoutInvoiceReport(
+      page,
+      limit,
+      (req as any).prisma || undefined
+    )
     ApiResponse.paginated(
       res,
       result.data,

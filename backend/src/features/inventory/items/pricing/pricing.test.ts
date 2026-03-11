@@ -1,7 +1,7 @@
 // backend/src/features/inventory/items/pricing/pricing.test.ts
 
 import request from 'supertest'
-import app from '../../../../index'
+import app from '../../../../app'
 import prisma from '../../../../services/prisma.service'
 import { getTestAuthToken } from '../../../../shared/utils/test.utils'
 

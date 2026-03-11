@@ -13,7 +13,7 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
-} from '../../../shared/utils/ApiError'
+} from '../../../shared/utils/apiError'
 import { PaginationHelper } from '../../../shared/utils/pagination'
 import { logger } from '../../../shared/utils/logger'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'

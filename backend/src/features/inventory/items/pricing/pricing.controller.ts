@@ -2,7 +2,7 @@
 
 import { Request, Response } from 'express'
 import { PricingService } from './pricing.service'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
 import { PricingResponseDTO, PricingTierResponseDTO } from './pricing.dto'
 

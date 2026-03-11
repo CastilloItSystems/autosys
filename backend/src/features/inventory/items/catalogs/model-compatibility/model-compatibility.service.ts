@@ -6,7 +6,7 @@ import {
   ConflictError,
   NotFoundError,
   BadRequestError,
-} from '../../../../../shared/utils/ApiError'
+} from '../../../../../shared/utils/apiError'
 import { PaginationHelper } from '../../../../../shared/utils/pagination'
 import {
   ICreateCompatibilityInput,

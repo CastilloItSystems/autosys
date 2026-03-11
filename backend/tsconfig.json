@@ -4,12 +4,16 @@
     // File Layout
     "rootDir": "./src",
     "outDir": "./dist",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
 
     // Environment Settings
     // See also https://aka.ms/tsconfig/module
-    "module": "ESNext",
+    "module": "NodeNext",
     "target": "ES2023",
-    "moduleResolution": "bundler",
+    "moduleResolution": "NodeNext",
     "types": ["node", "jest"],
     // For nodejs:
     // "lib": ["esnext"],
@@ -43,5 +47,15 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true
-  }
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "**/*.test.ts",
+    "**/*.integration.test.ts",
+    "scripts",
+    "prisma",
+    "prisma.config.ts"
+  ]
 }

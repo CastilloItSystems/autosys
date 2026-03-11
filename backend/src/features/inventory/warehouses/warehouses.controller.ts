@@ -7,7 +7,7 @@ import {
   UpdateWarehouseDTO,
   WarehouseResponseDTO,
 } from './warehouses.dto'
-import { ApiResponse } from '../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../shared/utils/apiResponse'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 

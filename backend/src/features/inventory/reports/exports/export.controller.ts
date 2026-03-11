@@ -4,8 +4,8 @@
  */
 
 import { Request, Response } from 'express'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
-import { logReportExport } from '../../../../shared/services/audit.service'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { logReportExport } from '../../../../services/audit.service'
 import { getLowStockReport } from '../lowStock/lowStock.service'
 import { getDeadStockReport } from '../deadStock/deadStock.service'
 import { getStockValueReport } from '../stockValue/stockValue.service'

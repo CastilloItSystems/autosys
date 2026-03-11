@@ -7,7 +7,7 @@ import {
   NotFoundError,
   BadRequestError,
   ConflictError,
-} from '../../../shared/utils/ApiError'
+} from '../../../shared/utils/apiError'
 import {
   IAdjustmentWithRelations,
   IAdjustmentItem,

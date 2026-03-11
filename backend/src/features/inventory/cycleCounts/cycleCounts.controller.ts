@@ -12,7 +12,7 @@ import {
   CycleCountResponseDTO,
 } from './cycleCounts.dto'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../shared/utils/apiResponse'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages'
 
 export const CycleCountController = {

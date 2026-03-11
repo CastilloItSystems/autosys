@@ -1,9 +1,16 @@
 // backend/src/shared/utils/logger.ts
-
 import winston from 'winston'
 import path from 'path'
+import fs from 'fs'
 
 const { combine, timestamp, printf, colorize, errors } = winston.format
+const isProduction = process.env.NODE_ENV === 'production'
+
+// Asegurar carpeta logs en desarrollo
+const logsDir = path.join(process.cwd(), 'logs')
+if (!isProduction && !fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir, { recursive: true })
+}
 
 // Formato personalizado
 const customFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
@@ -20,36 +27,39 @@ const customFormat = printf(({ level, message, timestamp, stack, ...meta }) => {
   return log
 })
 
-// Transports
-const transports: winston.transport[] = [
-  // Console
-  new winston.transports.Console({
-    format: combine(
-      colorize(),
-      timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      customFormat
-    ),
-  }),
+// Console transport (siempre)
+const consoleTransport = new winston.transports.Console({
+  format: combine(
+    colorize(),
+    timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+    errors({ stack: true }),
+    customFormat
+  ),
+})
 
-  // Error file
-  new winston.transports.File({
-    filename: path.join('logs', 'error.log'),
-    level: 'error',
-    format: combine(
-      timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
-      errors({ stack: true }),
-      customFormat
-    ),
-  }),
+// File transports (solo dev/local)
+const fileTransports: winston.transport[] = !isProduction
+  ? [
+      new winston.transports.File({
+        filename: path.join(logsDir, 'error.log'),
+        level: 'error',
+        format: combine(
+          timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          errors({ stack: true }),
+          customFormat
+        ),
+      }),
+      new winston.transports.File({
+        filename: path.join(logsDir, 'combined.log'),
+        format: combine(
+          timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }),
+          errors({ stack: true }),
+          customFormat
+        ),
+      }),
+    ]
+  : []
 
-  // Combined file
-  new winston.transports.File({
-    filename: path.join('logs', 'combined.log'),
-    format: combine(timestamp({ format: 'YYYY-MM-DD HH:mm:ss' }), customFormat),
-  }),
-]
-
-// Crear logger
 export const logger = winston.createLogger({
   level: process.env.LOG_LEVEL || 'info',
   format: combine(
@@ -57,20 +67,24 @@ export const logger = winston.createLogger({
     errors({ stack: true }),
     customFormat
   ),
-  transports,
-  exceptionHandlers: [
-    new winston.transports.File({
-      filename: path.join('logs', 'exceptions.log'),
-    }),
-  ],
-  rejectionHandlers: [
-    new winston.transports.File({
-      filename: path.join('logs', 'rejections.log'),
-    }),
-  ],
+  transports: [consoleTransport, ...fileTransports],
+  exceptionHandlers: !isProduction
+    ? [
+        new winston.transports.File({
+          filename: path.join(logsDir, 'exceptions.log'),
+        }),
+      ]
+    : [consoleTransport],
+  rejectionHandlers: !isProduction
+    ? [
+        new winston.transports.File({
+          filename: path.join(logsDir, 'rejections.log'),
+        }),
+      ]
+    : [consoleTransport],
 })
 
-// Stream para Morgan (HTTP logger)
+// Stream para Morgan
 export const morganStream = {
   write: (message: string) => {
     logger.http(message.trim())

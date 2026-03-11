@@ -4,7 +4,7 @@
 
 import { Request, Response } from 'express'
 import { getMovementsReport, getMovementsSummary } from './movements.service.js'
-import { ApiResponse } from '../../../../shared/utils/ApiResponse'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 /**
  * Get detailed movements report with pagination and filters
@@ -43,7 +43,10 @@ export const getMovementsReportHandler = async (
       filters.type = type
     }
 
-    const result = await getMovementsReport(filters, (req as any).prisma || undefined)
+    const result = await getMovementsReport(
+      filters,
+      (req as any).prisma || undefined
+    )
 
     ApiResponse.paginated(
       res,
@@ -72,7 +75,11 @@ export const getMovementsSummaryHandler = async (
     const dateFromObj = dateFrom ? new Date(dateFrom) : undefined
     const dateToObj = dateTo ? new Date(dateTo) : undefined
 
-    const summary = await getMovementsSummary(dateFromObj, dateToObj, (req as any).prisma || undefined)
+    const summary = await getMovementsSummary(
+      dateFromObj,
+      dateToObj,
+      (req as any).prisma || undefined
+    )
 
     ApiResponse.success(res, summary, 'Movements summary')
   } catch (error: any) {

@@ -2,7 +2,7 @@
 
 import prisma from '../../../../services/prisma.service'
 import { logger } from '../../../../shared/utils/logger'
-import { NotFoundError } from '../../../../shared/utils/ApiError'
+import { NotFoundError } from '../../../../shared/utils/apiError'
 import {
   ISerialNumberTracking,
   ISerialMovement,

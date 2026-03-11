@@ -7,7 +7,7 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
-} from '../../../shared/utils/ApiError'
+} from '../../../shared/utils/apiError'
 import {
   IPurchaseOrder,
   IPurchaseOrderWithRelations,

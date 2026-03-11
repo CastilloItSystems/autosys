@@ -6,7 +6,12 @@ declare global {
     interface Request {
       user?: JWTPayload
       empresaId?: string
-      prisma?: any // Prisma client extendido con contexto de tenant
+      prisma?: PrismaClient
+      validatedBody?: unknown
+      validatedQuery?: unknown
+      validatedParams?: unknown
     }
   }
 }
+
+export {}

@@ -252,7 +252,7 @@ import {
   logout,
   changePassword,
 } from '../controllers/auth.controller.js'
-import { authenticateToken } from '../middleware/auth.middleware.js'
+import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 
 const router = Router()
 
@@ -261,8 +261,8 @@ router.post('/login', login)
 router.post('/register', register)
 
 // Rutas protegidas
-router.get('/profile', authenticateToken, getProfile)
-router.post('/logout', authenticateToken, logout)
-router.post('/change-password', authenticateToken, changePassword)
+router.get('/profile', authenticate, getProfile)
+router.post('/logout', authenticate, logout)
+router.post('/change-password', authenticate, changePassword)
 
 export default router

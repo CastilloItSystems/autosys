@@ -9,7 +9,7 @@ import {
   getCostByCostCenter,
   getInventoryValuation,
 } from './accountingIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/api-response'
+import { ApiResponse } from '../../../../shared/utils/apiResponse'
 
 export const postMovementHandler = async (
   req: Request,

@@ -2,10 +2,9 @@
 
 import { Request, Response, NextFunction } from 'express'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { BadRequestError } from '../../../../shared/utils/ApiError'
+import { BadRequestError } from '../../../../shared/utils/apiError'
 import { StockCalculator } from '../utils/stockCalculator'
 import prisma from '../../../../services/prisma.service'
-
 
 interface StockCheckItem {
   itemId: string

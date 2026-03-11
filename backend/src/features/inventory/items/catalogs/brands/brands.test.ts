@@ -2,7 +2,7 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
-import app from '../../../../../index'
+import app from '../../../../../app'
 import { getTestAuthToken } from '../../../../../shared/utils/test.utils'
 import prisma from '../../../../../services/prisma.service'
 import { BrandType } from './brands.interface'
