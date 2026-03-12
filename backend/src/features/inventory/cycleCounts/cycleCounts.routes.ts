@@ -1,10 +1,10 @@
 // backend/src/features/inventory/cycleCounts/cycleCounts.routes.ts
 
 import { Router } from 'express'
-import { CycleCountController } from './cycleCounts.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import { validateBody } from '../../../shared/middleware/validateRequest.middleware'
+import { CycleCountController } from './cycleCounts.controller.js'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { validateBody } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createCycleCountSchema,
   updateCycleCountSchema,
@@ -13,8 +13,8 @@ import {
   approveCycleCountSchema,
   applyCycleCountSchema,
   addCycleCountItemSchema,
-} from './cycleCounts.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+} from './cycleCounts.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
 

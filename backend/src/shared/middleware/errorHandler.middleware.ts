@@ -1,9 +1,9 @@
 // backend/src/shared/middleware/errorHandler.middleware.ts
 import { Request, Response, NextFunction } from 'express'
-import { Prisma } from '../../generated/prisma/client'
-import { ApiError } from '../utils/apiError'
-import { ApiResponse } from '../utils/apiResponse'
-import { logger } from '../utils/logger'
+import { Prisma } from '../../generated/prisma/client.js'
+import { ApiError } from '../utils/apiError.js'
+import { ApiResponse } from '../utils/apiResponse.js'
+import { logger } from '../utils/logger.js'
 
 const isProduction = process.env.NODE_ENV === 'production'
 

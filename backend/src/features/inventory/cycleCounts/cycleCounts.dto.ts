@@ -4,7 +4,7 @@ import {
   ICycleCount,
   ICycleCountItem,
   ICycleCountWithRelations,
-} from './cycleCounts.interface'
+} from './cycleCounts.interface.js'
 
 export class CreateCycleCountDTO {
   warehouseId: string

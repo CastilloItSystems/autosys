@@ -2,10 +2,13 @@
  * Stock Value Report Service
  */
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 
-
-export async function getStockValueReport(page = 1, limit = 50, prismaClient?: any) {
+export async function getStockValueReport(
+  page = 1,
+  limit = 50,
+  prismaClient?: any
+) {
   const db = prismaClient || prisma
   try {
     const stocks = await db.stock.findMany({

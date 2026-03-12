@@ -1,14 +1,14 @@
 // backend/src/features/inventory/returns/returns.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import ReturnsService from './returns.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import ReturnsService from './returns.service.js'
 import {
   CreateReturnDTO,
   UpdateReturnDTO,
   ReturnResponseDTO,
-} from './returns.dto'
+} from './returns.dto.js'
 
 export class ReturnsController {
   getAll = asyncHandler(async (req: Request, res: Response) => {

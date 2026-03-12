@@ -1,12 +1,12 @@
 // backend/src/features/inventory/shared/middleware/validateWarehouse.middleware.ts
 
 import { Request, Response, NextFunction } from 'express'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 import {
   BadRequestError,
   NotFoundError,
-} from '../../../../shared/utils/apiError'
-import prisma from '../../../../services/prisma.service'
+} from '../../../../shared/utils/apiError.js'
+import prisma from '../../../../services/prisma.service.js'
 
 /**
  * Middleware para validar que el almacén existe y está activo

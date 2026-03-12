@@ -3,10 +3,10 @@
  * Checks for batches expiring soon and emits events
  */
 
-import { logger } from '../../../../shared/utils/logger'
-import BatchesService from '../../batches/batches.service'
-import { EventType, EventPriority } from '../../shared/events/event.types'
-import EventService from '../../shared/events/event.service'
+import { logger } from '../../../../shared/utils/logger.js'
+import BatchesService from '../../batches/batches.service.js'
+import { EventType, EventPriority } from '../../shared/events/event.types.js'
+import EventService from '../../shared/events/event.service.js'
 
 const eventService = EventService.getInstance()
 

@@ -2,12 +2,12 @@
 
 import 'dotenv/config'
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals'
-import prisma from '../../../services/prisma.service'
-import SerialNumbersService from './serialNumbers.service'
+import prisma from '../../../services/prisma.service.js'
+import SerialNumbersService from './serialNumbers.service.js'
 import {
   ICreateSerialNumberInput,
   SerialStatus,
-} from './serialNumbers.interface'
+} from './serialNumbers.interface.js'
 
 describe('SerialNumbersService', () => {
   let itemId: string

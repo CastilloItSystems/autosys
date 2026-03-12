@@ -196,23 +196,23 @@
  */
 
 import { Router } from 'express'
-import { ImageController } from './images.controller'
+import { ImageController } from './images.controller.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
-} from '../../../../shared/middleware/validateRequest.middleware'
-import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../shared/middleware/authorize.middleware'
-import { FileUploadHelper } from '../../../../shared/utils/fileUpload'
+} from '../../../../shared/middleware/validateRequest.middleware.js'
+import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../../shared/middleware/authorize.middleware.js'
+import { FileUploadHelper } from '../../../../shared/utils/fileUpload.js'
 import {
   createImageSchema,
   updateImageSchema,
   imageIdSchema,
   itemIdSchema,
   getImageFiltersSchema,
-} from './images.validation'
-import { PERMISSIONS } from '../../../../shared/constants/permissions'
+} from './images.validation.js'
+import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
 
 const router = Router({ mergeParams: true })
 const controller = new ImageController()

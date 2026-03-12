@@ -3,26 +3,26 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import prisma from '../../../services/prisma.service'
-import { logger } from '../../../shared/utils/logger'
-import { PaginationHelper } from '../../../shared/utils/pagination'
+import prisma from '../../../services/prisma.service.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import {
   NotFoundError,
   BadRequestError,
   ConflictError,
-} from '../../../shared/utils/apiError'
+} from '../../../shared/utils/apiError.js'
 import {
   ILoanWithRelations,
   ICreateLoanInput,
   IUpdateLoanInput,
   ILoanFilters,
   LoanStatus,
-} from './loans.interface'
-import { MovementType } from '../movements/movements.interface'
-import { EventType } from '../shared/events/event.types'
-import EventService from '../shared/events/event.service'
-import HookRegistry from '../hooks/hook.registry'
-import { HookType, HookStage } from '../hooks/hook.interface'
+} from './loans.interface.js'
+import { MovementType } from '../movements/movements.interface.js'
+import { EventType } from '../shared/events/event.types.js'
+import EventService from '../shared/events/event.service.js'
+import HookRegistry from '../hooks/hook.registry.js'
+import { HookType, HookStage } from '../hooks/hook.interface.js'
 
 const eventService = EventService.getInstance()
 const hookRegistry = HookRegistry.getInstance()

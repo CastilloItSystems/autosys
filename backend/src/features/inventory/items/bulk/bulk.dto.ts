@@ -8,7 +8,7 @@ import {
   IBulkDeleteInput,
   IBulkOperationResult,
   IBulkImportResult,
-} from './bulk.interface'
+} from './bulk.interface.js'
 
 export class BulkOperationDTO {
   id: string

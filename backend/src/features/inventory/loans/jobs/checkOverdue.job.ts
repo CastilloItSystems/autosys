@@ -3,9 +3,9 @@
  * Identifies and alerts on overdue equipment loans
  */
 
-import prisma from '../../../../services/prisma.service'
-import { EventService } from '../../shared/events/event.service'
-import { EventType } from '../../shared/types/event.types'
+import prisma from '../../../../services/prisma.service.js'
+import { EventService } from '../../shared/events/event.service.js'
+import { EventType } from '../../shared/types/event.types.js'
 
 const eventService = EventService.getInstance()
 

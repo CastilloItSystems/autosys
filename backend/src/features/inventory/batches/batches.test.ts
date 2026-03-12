@@ -1,9 +1,9 @@
 // backend/src/features/inventory/batches/batches.test.ts
 
 import { describe, it, expect, beforeAll, afterAll } from '@jest/globals'
-import prisma from '../../../services/prisma.service'
-import BatchesService from './batches.service'
-import { ICreateBatchInput } from './batches.interface'
+import prisma from '../../../services/prisma.service.js'
+import BatchesService from './batches.service.js'
+import { ICreateBatchInput } from './batches.interface.js'
 
 describe('BatchesService', () => {
   let itemId: string

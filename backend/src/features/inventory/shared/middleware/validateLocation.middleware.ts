@@ -1,9 +1,9 @@
 // backend/src/features/inventory/shared/middleware/validateLocation.middleware.ts
 
 import { Request, Response, NextFunction } from 'express'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { BadRequestError } from '../../../../shared/utils/apiError'
-import { LocationValidator } from '../utils/locationValidator'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { BadRequestError } from '../../../../shared/utils/apiError.js'
+import { LocationValidator } from '../utils/locationValidator.js'
 
 /**
  * Middleware para validar formato de ubicación

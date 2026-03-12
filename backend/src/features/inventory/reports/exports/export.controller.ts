@@ -4,14 +4,14 @@
  */
 
 import { Request, Response } from 'express'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { logReportExport } from '../../../../services/audit.service'
-import { getLowStockReport } from '../lowStock/lowStock.service'
-import { getDeadStockReport } from '../deadStock/deadStock.service'
-import { getStockValueReport } from '../stockValue/stockValue.service'
-import { getMovementsReport } from '../movements/movements.service'
-import { exportDataToExcel } from './excel.service'
-import { generatePDFReport } from './pdf.service'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { logReportExport } from '../../../../services/audit.service.js'
+import { getLowStockReport } from '../lowStock/lowStock.service.js'
+import { getDeadStockReport } from '../deadStock/deadStock.service.js'
+import { getStockValueReport } from '../stockValue/stockValue.service.js'
+import { getMovementsReport } from '../movements/movements.service.js'
+import { exportDataToExcel } from './excel.service.js'
+import { generatePDFReport } from './pdf.service.js'
 
 type ReportType = 'low-stock' | 'dead-stock' | 'stock-value' | 'movements'
 

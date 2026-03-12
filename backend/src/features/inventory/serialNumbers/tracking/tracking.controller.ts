@@ -1,9 +1,9 @@
 // backend/src/features/inventory/serialNumbers/tracking/tracking.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import TrackingService from './tracking.service'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import TrackingService from './tracking.service.js'
 
 export class TrackingController {
   /**

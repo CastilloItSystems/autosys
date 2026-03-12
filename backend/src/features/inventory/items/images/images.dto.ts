@@ -4,7 +4,7 @@ import {
   ICreateImageInput,
   IUpdateImageInput,
   IItemImageWithItem,
-} from './images.interface'
+} from './images.interface.js'
 
 export class CreateImageDTO implements ICreateImageInput {
   itemId: string

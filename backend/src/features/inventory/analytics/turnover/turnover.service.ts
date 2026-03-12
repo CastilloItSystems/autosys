@@ -2,8 +2,8 @@
  * Turnover Service - Inventory Turnover Analysis
  */
 
-import { prisma } from '../../../../config/database'
-import { NotFoundError } from '../../../../shared/utils/errors'
+import { prisma } from '../../../../config/database.js'
+import { NotFoundError } from '../../../../shared/utils/errors.js'
 
 interface TurnoverMetrics {
   itemId: string

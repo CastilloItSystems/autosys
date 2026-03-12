@@ -1,9 +1,9 @@
 // backend/src/shared/utils/index.ts
 
-export * from './apiResponse'
-export * from './apiError'
-export * from './logger'
-export * from './pagination'
-export * from './dateHelper'
-export * from './numberFormatter'
-export * from './fileUpload'
+export * from './apiResponse.js'
+export * from './apiError.js'
+export * from './logger.js'
+export * from './pagination.js'
+export * from './dateHelper.js'
+export * from './numberFormatter.js'
+export * from './fileUpload.js'

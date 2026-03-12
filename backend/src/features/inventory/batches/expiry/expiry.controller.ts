@@ -1,9 +1,9 @@
 // backend/src/features/inventory/batches/expiry/expiry.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import ExpiryService from './expiry.service'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import ExpiryService from './expiry.service.js'
 
 export class ExpiryController {
   /**

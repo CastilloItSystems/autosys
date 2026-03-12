@@ -1,7 +1,7 @@
 import { Server as HTTPServer } from 'http'
 import { Server as SocketIOServer } from 'socket.io'
-import { PrismaClient } from '../../generated/prisma/client'
-import { logger } from './logger'
+import { PrismaClient } from '../../generated/prisma/client.js'
+import { logger } from './logger.js'
 
 export const setupGracefulShutdown = (
   server: HTTPServer,

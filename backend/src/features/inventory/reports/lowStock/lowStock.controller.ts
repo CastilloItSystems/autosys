@@ -3,8 +3,8 @@
  */
 
 import { Request, Response } from 'express'
-import { getLowStockReport } from './lowStock.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { getLowStockReport } from './lowStock.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const getLowStockReportHandler = async (
   req: Request,

@@ -9,7 +9,7 @@ import {
   ICreateSearchIndexInput,
   IUpdateSearchIndexInput,
   ISearchIndex,
-} from './search.interface'
+} from './search.interface.js'
 
 export class SearchQueryDTO {
   query: string

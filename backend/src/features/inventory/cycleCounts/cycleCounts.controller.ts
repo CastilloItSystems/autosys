@@ -1,7 +1,7 @@
 // backend/src/features/inventory/cycleCounts/cycleCounts.controller.ts
 
 import { Request, Response } from 'express'
-import { CycleCountServiceInstance } from './cycleCounts.service'
+import { CycleCountServiceInstance } from './cycleCounts.service.js'
 import {
   CreateCycleCountDTO,
   UpdateCycleCountDTO,
@@ -10,10 +10,10 @@ import {
   ApproveCycleCountDTO,
   ApplyCycleCountDTO,
   CycleCountResponseDTO,
-} from './cycleCounts.dto'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
+} from './cycleCounts.dto.js'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 
 export const CycleCountController = {
   /**

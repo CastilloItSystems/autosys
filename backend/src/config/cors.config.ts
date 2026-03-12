@@ -1,5 +1,5 @@
 import { CorsOptions } from 'cors'
-import { logger } from '../shared/utils/logger'
+import { logger } from '../shared/utils/logger.js'
 
 // Pre-calcular orígenes permitidos usando Set para lookup O(1)
 const staticOrigins = new Set([

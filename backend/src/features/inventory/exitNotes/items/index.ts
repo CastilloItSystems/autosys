@@ -3,6 +3,6 @@
  * Exports router for sub-module integration
  */
 
-import itemsRouter from './items.routes'
+import itemsRouter from './items.routes.js'
 
 export default itemsRouter

@@ -3,17 +3,17 @@
  * Handles return item management and processing
  */
 
-import { prisma } from '../../../../config/database'
+import { prisma } from '../../../../config/database.js'
 import {
   EventService,
   EventType,
-} from '../../../../shared/services/event.service'
+} from '../../../../shared/services/event.service.js'
 import {
   BadRequestError,
   NotFoundError,
   ConflictError,
-} from '../../../../shared/utils/errors'
-import { logger } from '../../../../shared/utils/logger'
+} from '../../../../shared/utils/errors.js'
+import { logger } from '../../../../shared/utils/logger.js'
 
 interface ReturnItemDetail {
   itemId: string

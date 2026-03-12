@@ -1,10 +1,10 @@
 // backend/src/features/sales/reports/index.ts
 
 import { Router } from 'express'
-// import salesReportRoutes from './sales.routes'
-// import byPeriodRoutes from './byPeriod.routes'
-// import byCustomerRoutes from './byCustomer.routes'
-// import byProductRoutes from './byProduct.routes'
+// import salesReportRoutes from './sales.routes.js'
+// import byPeriodRoutes from './byPeriod.routes.js'
+// import byCustomerRoutes from './byCustomer.routes.js'
+// import byProductRoutes from './byProduct.routes.js'
 
 const router = Router()
 

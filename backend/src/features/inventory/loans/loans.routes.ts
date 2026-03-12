@@ -3,18 +3,18 @@
  */
 
 import { Router, Request, Response } from 'express'
-import * as controller from './loans.controller'
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+import * as controller from './loans.controller.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import {
   createLoanSchema,
   updateLoanSchema,
   approveLoanSchema,
   returnLoanSchema,
   cancelLoanSchema,
-} from './loans.validation'
+} from './loans.validation.js'
 
 const router = Router()
 

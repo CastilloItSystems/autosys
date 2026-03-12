@@ -9,7 +9,7 @@ export type {
   IReservationRecord,
   IBatchRecord,
   ISerialNumberRecord,
-} from './IInventoryRepository'
+} from './IInventoryRepository.js'
 
 export type {
   IMovementService,
@@ -19,7 +19,7 @@ export type {
   IReturnRequest,
   IAdjustmentRequest,
   IMovementValidation,
-} from './IMovementService'
+} from './IMovementService.js'
 
 export type {
   IStockService,
@@ -30,4 +30,4 @@ export type {
   IStockReconciliation,
   IReorderPoint,
   IStockLevel,
-} from './IStockService'
+} from './IStockService.js'

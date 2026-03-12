@@ -3,10 +3,10 @@
  * Generates alerts for low stock, no movement items, etc.
  */
 
-import { logger } from '../../../../shared/utils/logger'
-import prisma from '../../../../services/prisma.service'
-import { EventType } from '../../shared/events/event.types'
-import EventService from '../../shared/events/event.service'
+import { logger } from '../../../../shared/utils/logger.js'
+import prisma from '../../../../services/prisma.service.js'
+import { EventType } from '../../shared/events/event.types.js'
+import EventService from '../../shared/events/event.service.js'
 
 const eventService = EventService.getInstance()
 

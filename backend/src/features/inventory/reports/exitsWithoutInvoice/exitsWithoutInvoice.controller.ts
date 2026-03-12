@@ -3,8 +3,8 @@
  */
 
 import { Request, Response } from 'express'
-import { getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const getExitsWithoutInvoiceReportHandler = async (
   req: Request,

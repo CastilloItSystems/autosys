@@ -1,7 +1,7 @@
 // backend/src/features/inventory/reconciliations/index.ts
 
-export { ReconciliationController } from './reconciliations.controller'
-export { ReconciliationServiceInstance } from './reconciliations.service'
+export { ReconciliationController } from './reconciliations.controller.js'
+export { ReconciliationServiceInstance } from './reconciliations.service.js'
 export {
   ReconciliationStatus,
   ReconciliationSource,
@@ -10,13 +10,13 @@ export {
   type IReconciliationItem,
   type ICreateReconciliationInput,
   type IUpdateReconciliationInput,
-} from './reconciliations.interface'
+} from './reconciliations.interface.js'
 export {
   CreateReconciliationDTO,
   UpdateReconciliationDTO,
   ReconciliationResponseDTO,
   ReconciliationItemResponseDTO,
-} from './reconciliations.dto'
+} from './reconciliations.dto.js'
 export {
   createReconciliationSchema,
   updateReconciliationSchema,
@@ -25,5 +25,5 @@ export {
   approveReconciliationSchema,
   applyReconciliationSchema,
   addReconciliationItemSchema,
-} from './reconciliations.validation'
-export { default } from './reconciliations.routes'
+} from './reconciliations.validation.js'
+export { default } from './reconciliations.routes.js'

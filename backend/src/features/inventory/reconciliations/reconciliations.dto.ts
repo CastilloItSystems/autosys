@@ -5,7 +5,7 @@ import {
   IReconciliationItem,
   IReconciliationWithRelations,
   ReconciliationSource,
-} from './reconciliations.interface'
+} from './reconciliations.interface.js'
 
 export class CreateReconciliationDTO {
   warehouseId: string

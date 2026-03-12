@@ -1,7 +1,6 @@
 // backend/src/features/inventory/shared/utils/stockCalculator.ts
 
-import prisma from '../../../../services/prisma.service'
-
+import prisma from '../../../../services/prisma.service.js'
 
 export interface StockInfo {
   quantityReal: number

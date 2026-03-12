@@ -1,18 +1,18 @@
 // backend/src/features/inventory/returns/returns.service.ts
 
 import { v4 as uuidv4 } from 'uuid'
-import prisma from '../../../services/prisma.service'
-import { logger } from '../../../shared/utils/logger'
-import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError'
+import prisma from '../../../services/prisma.service.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
 import {
   IReturn,
   IReturnWithRelations,
   ICreateReturnInput,
   IUpdateReturnInput,
   ReturnStatus,
-} from './returns.interface'
-import { EventType } from '../shared/events/event.types'
-import EventService from '../shared/events/event.service'
+} from './returns.interface.js'
+import { EventType } from '../shared/events/event.types.js'
+import EventService from '../shared/events/event.service.js'
 
 const eventService = EventService.getInstance()
 

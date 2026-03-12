@@ -2,9 +2,9 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
-import app from '../../../app'
-import { getTestAuthToken } from '../../../shared/utils/test.utils'
-import prisma from '../../../services/prisma.service'
+import app from '../../../app.js'
+import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import prisma from '../../../services/prisma.service.js'
 
 describe('Stock API Tests', () => {
   let authToken: string

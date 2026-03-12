@@ -1,10 +1,10 @@
 // backend/src/features/inventory/shared/middleware/checkStock.middleware.ts
 
 import { Request, Response, NextFunction } from 'express'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { BadRequestError } from '../../../../shared/utils/apiError'
-import { StockCalculator } from '../utils/stockCalculator'
-import prisma from '../../../../services/prisma.service'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { BadRequestError } from '../../../../shared/utils/apiError.js'
+import { StockCalculator } from '../utils/stockCalculator.js'
+import prisma from '../../../../services/prisma.service.js'
 
 interface StockCheckItem {
   itemId: string

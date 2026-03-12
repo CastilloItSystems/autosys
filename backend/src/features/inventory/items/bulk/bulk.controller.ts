@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/bulk/bulk.controller.ts
 
 import { Request, Response } from 'express'
-import { BulkService } from './bulk.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
+import { BulkService } from './bulk.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 
 const bulkService = new BulkService()
 

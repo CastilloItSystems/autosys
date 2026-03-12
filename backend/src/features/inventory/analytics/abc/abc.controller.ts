@@ -3,8 +3,8 @@
  */
 
 import { Request, Response } from 'express'
-import { getABCAnalysis } from './abc.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { getABCAnalysis } from './abc.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const getABCAnalysisHandler = async (
   req: Request,

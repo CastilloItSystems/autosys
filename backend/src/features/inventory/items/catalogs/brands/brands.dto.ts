@@ -5,7 +5,7 @@ import {
   IBrand,
   IBrandWithStats,
   BRAND_TYPE_LABELS,
-} from './brands.interface'
+} from './brands.interface.js'
 
 // ============================================
 // CREATE DTO

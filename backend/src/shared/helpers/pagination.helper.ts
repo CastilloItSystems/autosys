@@ -1,2 +1,2 @@
 // Re-export from utils/pagination for compatibility
-export * from '../utils/pagination'
+export * from '../utils/pagination.js'

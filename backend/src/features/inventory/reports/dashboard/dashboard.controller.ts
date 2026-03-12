@@ -4,8 +4,8 @@
  */
 
 import { Request, Response } from 'express'
-import { getDashboardMetrics } from './dashboard.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { getDashboardMetrics } from './dashboard.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 /**
  * Get dashboard metrics

@@ -1,5 +1,5 @@
 // models.dto.ts - ACTUALIZADO
-import { ModelType } from './models.interface'
+import { ModelType } from './models.interface.js'
 
 export class CreateModelDTO {
   brandId: string

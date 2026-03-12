@@ -3,8 +3,8 @@
  */
 
 import Queue from 'bull'
-import { logger } from '../../../shared/utils/logger'
-import { EventType } from '../shared/events/event.types'
+import { logger } from '../../../shared/utils/logger.js'
+import { EventType } from '../shared/events/event.types.js'
 
 // Define job types
 export enum JobType {

@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/bulk/bulk.test.ts
 
 import request from 'supertest'
-import app from '../../../../app'
-import prisma from '../../../../services/prisma.service'
-import { getTestAuthToken } from '../../../../shared/utils/test.utils'
+import app from '../../../../app.js'
+import prisma from '../../../../services.prisma.service.js'
+import { getTestAuthToken } from '../../../../shared/utils/test.utils.js'
 
 describe('Bulk Operations Routes', () => {
   let token: string
@@ -43,17 +43,29 @@ describe('Bulk Operations Routes', () => {
     userId = user?.id || '550e8400-e29b-41d4-a716-446655440000'
 
     // Ensure there is an Empresa and the test user has access to it
-    let empresa = await prisma.empresa.findFirst({ where: { nombre: 'Test Empresa Bulk' } })
+    let empresa = await prisma.empresa.findFirst({
+      where: { nombre: 'Test Empresa Bulk' },
+    })
     if (!empresa) {
-      empresa = await prisma.empresa.create({ data: { nombre: 'Test Empresa Bulk' } })
+      empresa = await prisma.empresa.create({
+        data: { nombre: 'Test Empresa Bulk' },
+      })
     }
     empresaId = empresa.id_empresa
 
     // Connect empresa to user if not already connected
-    const userWithEmpresas = await prisma.user.findUnique({ where: { id: userId }, include: { empresas: true } })
-    const hasEmpresa = userWithEmpresas?.empresas?.some((e: any) => e.id_empresa === empresaId)
+    const userWithEmpresas = await prisma.user.findUnique({
+      where: { id: userId },
+      include: { empresas: true },
+    })
+    const hasEmpresa = userWithEmpresas?.empresas?.some(
+      (e: any) => e.id_empresa === empresaId
+    )
     if (!hasEmpresa) {
-      await prisma.user.update({ where: { id: userId }, data: { empresas: { connect: { id_empresa: empresaId } } } })
+      await prisma.user.update({
+        where: { id: userId },
+        data: { empresas: { connect: { id_empresa: empresaId } } },
+      })
     }
 
     // Create test catalogs for FK constraints

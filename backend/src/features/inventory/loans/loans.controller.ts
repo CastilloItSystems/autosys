@@ -3,10 +3,10 @@
  */
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import { BadRequestError } from '../../../shared/utils/apiError'
-import LoansService from './loans.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { BadRequestError } from '../../../shared/utils/apiError.js'
+import LoansService from './loans.service.js'
 import {
   CreateLoanDTO,
   UpdateLoanDTO,
@@ -14,9 +14,9 @@ import {
   ReturnLoanDTO,
   LoanResponseDTO,
   LoanWithItemsDTO,
-} from './loans.dto'
-import { returnLoanSchema } from './loans.validation'
-import { LoanStatus } from './loans.interface'
+} from './loans.dto.js'
+import { returnLoanSchema } from './loans.validation.js'
+import { LoanStatus } from './loans.interface.js'
 
 const service = LoansService.getInstance()
 

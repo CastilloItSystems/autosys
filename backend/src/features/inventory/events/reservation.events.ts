@@ -3,9 +3,9 @@
  * Listens for reservation events and manages reserved stock
  */
 
-import EventService from '../shared/events/event.service'
-import { EventType } from '../shared/events/event.types'
-import prisma from '../../../services/prisma.service'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
+import prisma from '../../../services/prisma.service.js'
 
 const eventService = EventService.getInstance()
 

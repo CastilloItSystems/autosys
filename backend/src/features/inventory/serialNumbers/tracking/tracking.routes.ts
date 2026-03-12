@@ -1,8 +1,8 @@
 // backend/src/features/inventory/serialNumbers/tracking/tracking.routes.ts
 
 import { Router } from 'express'
-import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
-import TrackingController from './tracking.controller'
+import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
+import TrackingController from './tracking.controller.js'
 
 const router = Router({ mergeParams: true })
 

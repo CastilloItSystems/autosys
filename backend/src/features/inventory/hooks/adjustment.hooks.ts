@@ -2,11 +2,11 @@
  * Adjustment Hooks - Behaviors for adjustment operations
  */
 
-import { logger } from '../../../shared/utils/logger'
-import { HookType, HookStage, IHookContext } from './hook.interface'
-import HookRegistry from './hook.registry'
-import { EventType } from '../shared/events/event.types'
-import EventService from '../shared/events/event.service'
+import { logger } from '../../../shared/utils/logger.js'
+import { HookType, HookStage, IHookContext } from './hook.interface.js'
+import HookRegistry from './hook.registry.js'
+import { EventType } from '../shared/events/event.types.js'
+import EventService from '../shared/events/event.service.js'
 
 const hookRegistry = HookRegistry.getInstance()
 const eventService = EventService.getInstance()

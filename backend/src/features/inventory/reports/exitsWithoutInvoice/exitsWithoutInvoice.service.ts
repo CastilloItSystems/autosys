@@ -2,10 +2,13 @@
  * Exits Without Invoice Report Service
  */
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 
-
-export async function getExitsWithoutInvoiceReport(page = 1, limit = 50, prismaClient?: any) {
+export async function getExitsWithoutInvoiceReport(
+  page = 1,
+  limit = 50,
+  prismaClient?: any
+) {
   const db = prismaClient || prisma
   try {
     const exitNotes = await db.exitNote.findMany({

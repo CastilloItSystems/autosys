@@ -3,9 +3,9 @@
  * Recalculates optimal stock levels and reorder points based on demand patterns
  */
 
-import prisma from '../../../../services/prisma.service'
-import { EventService } from '../../../shared/events/event.service'
-import { EventType } from '../../../shared/types/event.types'
+import prisma from '../../../../services/prisma.service.js'
+import { EventService } from '../../../shared/events/event.service.js'
+import { EventType } from '../../../shared/types/event.types.js'
 
 const eventService = EventService.getInstance()
 

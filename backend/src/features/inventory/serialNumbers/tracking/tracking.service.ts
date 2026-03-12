@@ -1,12 +1,12 @@
 // backend/src/features/inventory/serialNumbers/tracking/tracking.service.ts
 
-import prisma from '../../../../services/prisma.service'
-import { logger } from '../../../../shared/utils/logger'
-import { NotFoundError } from '../../../../shared/utils/apiError'
+import prisma from '../../../../services/prisma.service.js'
+import { logger } from '../../../../shared/utils/logger.js'
+import { NotFoundError } from '../../../../shared/utils/apiError.js'
 import {
   ISerialNumberTracking,
   ISerialMovement,
-} from '../serialNumbers.interface'
+} from '../serialNumbers.interface.js'
 
 class TrackingService {
   private static instance: TrackingService

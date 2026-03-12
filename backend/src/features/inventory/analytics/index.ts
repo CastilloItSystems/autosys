@@ -1,10 +1,10 @@
 // backend/src/features/inventory/analytics/index.ts
 
 import { Router } from 'express'
-import abcRoutes from './abc/abc.routes'
-import forecastingRoutes from './forecasting/forecasting.routes'
-import turnoverRoutes from './turnover/turnover.routes'
-import discrepancyRoutes from './discrepancies/discrepancies.routes'
+import abcRoutes from './abc/abc.routes.js'
+import forecastingRoutes from './forecasting/forecasting.routes.js'
+import turnoverRoutes from './turnover/turnover.routes.js'
+import discrepancyRoutes from './discrepancies/discrepancies.routes.js'
 
 const router = Router()
 

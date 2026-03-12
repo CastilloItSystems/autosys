@@ -3,8 +3,8 @@
  */
 
 import { Request, Response } from 'express'
-import { getStockValueReport } from './stockValue.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import { getStockValueReport } from './stockValue.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const getStockValueReportHandler = async (
   req: Request,

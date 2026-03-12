@@ -3,8 +3,11 @@
  */
 
 import { Router, Request, Response } from 'express'
-import { authenticate, asyncHandler } from '../../../../middleware'
-import { getLowStockReportHandler as getLowStockReport } from './lowStock.controller'
+import {
+  authenticate,
+  asyncHandler,
+} from '../../../../shared/middleware/index.js'
+import { getLowStockReportHandler as getLowStockReport } from './lowStock.controller.js'
 
 const router = Router()
 

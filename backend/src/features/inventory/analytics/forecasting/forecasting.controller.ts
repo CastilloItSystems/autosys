@@ -7,8 +7,8 @@ import {
   getDemandForecastForItem,
   getAllDemandForecasts,
   calculateForecastAccuracy,
-} from './forecasting.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+} from './forecasting.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const getForecastForItemHandler = async (
   req: Request,

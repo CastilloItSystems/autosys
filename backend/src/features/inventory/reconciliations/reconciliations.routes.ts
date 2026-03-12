@@ -1,10 +1,10 @@
 // backend/src/features/inventory/reconciliations/reconciliations.routes.ts
 
 import { Router } from 'express'
-import { ReconciliationController } from './reconciliations.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import { validateBody } from '../../../shared/middleware/validateRequest.middleware'
+import { ReconciliationController } from './reconciliations.controller.js'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { validateBody } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createReconciliationSchema,
   updateReconciliationSchema,
@@ -13,8 +13,8 @@ import {
   approveReconciliationSchema,
   applyReconciliationSchema,
   addReconciliationItemSchema,
-} from './reconciliations.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+} from './reconciliations.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
 

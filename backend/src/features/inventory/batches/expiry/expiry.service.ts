@@ -1,8 +1,8 @@
 // backend/src/features/inventory/batches/expiry/expiry.service.ts
 
-import { logger } from '../../../../shared/utils/logger'
-import BatchesService from '../batches.service'
-import { IBatchExpiryInfo, BatchStatus } from '../batches.interface'
+import { logger } from '../../../../shared/utils/logger.js'
+import BatchesService from '../batches.service.js'
+import { IBatchExpiryInfo, BatchStatus } from '../batches.interface.js'
 
 class ExpiryService {
   private static instance: ExpiryService

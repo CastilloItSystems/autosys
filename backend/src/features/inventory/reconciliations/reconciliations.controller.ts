@@ -1,7 +1,7 @@
 // backend/src/features/inventory/reconciliations/reconciliations.controller.ts
 
 import { Request, Response } from 'express'
-import { ReconciliationServiceInstance } from './reconciliations.service'
+import { ReconciliationServiceInstance } from './reconciliations.service.js'
 import {
   CreateReconciliationDTO,
   UpdateReconciliationDTO,
@@ -10,10 +10,10 @@ import {
   ApproveReconciliationDTO,
   ApplyReconciliationDTO,
   ReconciliationResponseDTO,
-} from './reconciliations.dto'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
+} from './reconciliations.dto.js'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 
 export const ReconciliationController = {
   /**

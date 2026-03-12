@@ -9,8 +9,8 @@ import {
   getReturnItems,
   getReturnAnalysisByItem,
   getAllReturnItems,
-} from './items.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+} from './items.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const addItemHandler = async (
   req: Request,

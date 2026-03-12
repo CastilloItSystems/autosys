@@ -8,7 +8,7 @@ import {
   IReturnLoanInput,
   ILoanResponseDTO,
   LoanStatus,
-} from './loans.interface'
+} from './loans.interface.js'
 
 export class CreateLoanDTO implements ICreateLoanInput {
   borrowerName: string

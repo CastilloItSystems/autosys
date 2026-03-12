@@ -9,8 +9,8 @@ import {
   checkMaterialRequirements,
   completeWorkOrder,
   getWorkOrderConsumptionHistory,
-} from './workshopIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+} from './workshopIntegration.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const recordConsumptionHandler = async (
   req: Request,

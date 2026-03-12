@@ -1,6 +1,6 @@
 // backend/src/features/inventory/serialNumbers/serialNumbers.dto.ts
 
-import { ISerialNumber, SerialStatus } from './serialNumbers.interface'
+import { ISerialNumber, SerialStatus } from './serialNumbers.interface.js'
 
 export class CreateSerialNumberDTO {
   serialNumber: string

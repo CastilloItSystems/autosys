@@ -8,8 +8,8 @@ import {
   allocateCostToCostCenters,
   getCostByCostCenter,
   getInventoryValuation,
-} from './accountingIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+} from './accountingIntegration.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const postMovementHandler = async (
   req: Request,

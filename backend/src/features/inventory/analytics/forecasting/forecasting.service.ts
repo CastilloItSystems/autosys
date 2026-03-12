@@ -2,9 +2,13 @@
  * Forecasting Service - Demand Forecasting using Time Series Analysis
  */
 
-import { prisma } from '../../../../config/database'
-import { EventService, EventType } from '../../shared/events/event.service'
-import { BadRequestError, NotFoundError } from '../../../../shared/utils/errors'
+import { EventType } from '@/shared/types/event.types.js'
+import { prisma } from '../../../../config/database.js'
+import {
+  BadRequestError,
+  NotFoundError,
+} from '../../../../shared/utils/errors.js'
+import EventService from '../../shared/events/event.service.js'
 
 interface ForecastData {
   date: string

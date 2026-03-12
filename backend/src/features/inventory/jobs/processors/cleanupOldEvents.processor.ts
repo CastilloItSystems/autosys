@@ -3,8 +3,8 @@
  * Removes old event records from the database to maintain performance
  */
 
-import { logger } from '../../../../shared/utils/logger'
-import EventService from '../../shared/events/event.service'
+import { logger } from '../../../../shared/utils/logger.js'
+import EventService from '../../shared/events/event.service.js'
 
 export interface ICleanupOldEventsJobData {
   daysOld?: number

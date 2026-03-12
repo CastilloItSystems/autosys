@@ -10,8 +10,8 @@ import {
   getPendingExitNotesForSalesOrders,
   confirmShipment,
   getSalesMetrics,
-} from './salesIntegration.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+} from './salesIntegration.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 
 export const linkToPreInvoiceHandler = async (
   req: Request,

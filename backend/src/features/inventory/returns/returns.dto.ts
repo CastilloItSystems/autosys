@@ -1,6 +1,6 @@
 // backend/src/features/inventory/returns/returns.dto.ts
 
-import { IReturn, ReturnStatus } from './returns.interface'
+import { IReturn, ReturnStatus } from './returns.interface.js'
 
 export class CreateReturnDTO {
   type: string

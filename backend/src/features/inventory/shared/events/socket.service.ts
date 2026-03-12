@@ -5,8 +5,8 @@
 
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
-import { logger } from '../../../../shared/utils/logger'
-import { IEvent, EventType, ISocketEventPayload } from './event.types'
+import { logger } from '../../../../shared/utils/logger.js'
+import { IEvent, EventType, ISocketEventPayload } from './event.types.js'
 
 class SocketService {
   private static instance: SocketService

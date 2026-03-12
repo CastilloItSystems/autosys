@@ -1,6 +1,6 @@
 // backend/src/features/inventory/batches/batches.dto.ts
 
-import { IBatch, BatchStatus } from './batches.interface'
+import { IBatch, BatchStatus } from './batches.interface.js'
 
 export class CreateBatchDTO {
   batchNumber: string

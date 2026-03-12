@@ -208,17 +208,17 @@
  */
 
 import { Router } from 'express'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
-import SerialNumbersController from './serialNumbers.controller'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
+import SerialNumbersController from './serialNumbers.controller.js'
 import {
   createSerialNumberSchema,
   updateSerialNumberSchema,
   assignSerialSchema,
   serialFiltersSchema,
   serialIdSchema,
-} from './serialNumbers.validation'
-import trackingRoutes from './tracking/tracking.routes'
+} from './serialNumbers.validation.js'
+import trackingRoutes from './tracking/tracking.routes.js'
 
 const router = Router()
 

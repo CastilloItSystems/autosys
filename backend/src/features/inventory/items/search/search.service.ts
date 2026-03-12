@@ -1,6 +1,6 @@
 // backend/src/features/inventory/items/search/search.service.ts
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 import {
   ISearchQuery,
   ISearchResult,
@@ -11,14 +11,14 @@ import {
   IUpdateSearchIndexInput,
   ISearchIndexFilters,
   ISearchIndex,
-} from './search.interface'
+} from './search.interface.js'
 import {
   NotFoundError,
   BadRequestError,
-} from '../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../shared/constants/messages'
-import { logger } from '../../../../shared/utils/logger'
+} from '../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
+import { logger } from '../../../../shared/utils/logger.js'
 
 export class SearchService {
   async search(searchQuery: ISearchQuery): Promise<IPaginatedSearchResult> {

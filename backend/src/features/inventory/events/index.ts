@@ -6,19 +6,19 @@
 import {
   registerStockEventHandlers,
   unregisterStockEventHandlers,
-} from './stock.events'
+} from './stock.events.js'
 import {
   registerMovementEventHandlers,
   unregisterMovementEventHandlers,
-} from './movement.events'
+} from './movement.events.js'
 import {
   registerPurchaseEventHandlers,
   unregisterPurchaseEventHandlers,
-} from './purchase.events'
+} from './purchase.events.js'
 import {
   registerReservationEventHandlers,
   unregisterReservationEventHandlers,
-} from './reservation.events'
+} from './reservation.events.js'
 
 /**
  * Register all inventory event handlers
@@ -75,19 +75,19 @@ export function unregisterAllEventHandlers(): void {
 export {
   registerStockEventHandlers,
   unregisterStockEventHandlers,
-} from './stock.events'
+} from './stock.events.js'
 export {
   registerMovementEventHandlers,
   unregisterMovementEventHandlers,
-} from './movement.events'
+} from './movement.events.js'
 export {
   registerPurchaseEventHandlers,
   unregisterPurchaseEventHandlers,
-} from './purchase.events'
+} from './purchase.events.js'
 export {
   registerReservationEventHandlers,
   unregisterReservationEventHandlers,
-} from './reservation.events'
+} from './reservation.events.js'
 
 export default {
   registerAllEventHandlers,

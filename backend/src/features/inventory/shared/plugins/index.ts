@@ -7,7 +7,7 @@ export {
   initializeAuditTracking,
   getAuditLog,
   exportAuditLogs,
-} from './auditPlugin'
+} from './auditPlugin.js'
 
 export {
   createSoftDeleteMiddleware,
@@ -16,7 +16,7 @@ export {
   restoreRecord,
   getSoftDeletedRecords,
   purgeSoftDeleted,
-} from './softDeletePlugin'
+} from './softDeletePlugin.js'
 
 export default {
   audit: require('./auditPlugin'),

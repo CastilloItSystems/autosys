@@ -5,16 +5,16 @@ import {
   IUpdateImageInput,
   IImageFilters,
   IItemImageWithItem,
-} from './images.interface'
+} from './images.interface.js'
 import {
   NotFoundError,
   BadRequestError,
-} from '../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../shared/constants/messages'
-import { logger } from '../../../../shared/utils/logger'
-import { FileUploadHelper } from '../../../../shared/utils/fileUpload'
-import prisma from '../../../../services/prisma.service'
+} from '../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
+import { logger } from '../../../../shared/utils/logger.js'
+import { FileUploadHelper } from '../../../../shared/utils/fileUpload.js'
+import prisma from '../../../../services/prisma.service.js'
 
 export class ImageService {
   async create(data: ICreateImageInput): Promise<IItemImageWithItem> {

@@ -1,6 +1,6 @@
 // backend/src/features/inventory/shared/utils/skuGenerator.ts
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 
 export class SKUGenerator {
   /**

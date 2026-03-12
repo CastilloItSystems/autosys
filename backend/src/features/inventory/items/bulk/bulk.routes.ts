@@ -181,14 +181,14 @@
  */
 
 import { Router } from 'express'
-import { BulkController } from './bulk.controller'
+import { BulkController } from './bulk.controller.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
-} from '../../../../shared/middleware/validateRequest.middleware'
-import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../shared/middleware/authorize.middleware'
+} from '../../../../shared/middleware/validateRequest.middleware.js'
+import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../../shared/middleware/authorize.middleware.js'
 import {
   bulkImportSchema,
   bulkExportSchema,
@@ -196,8 +196,8 @@ import {
   bulkDeleteSchema,
   operationIdSchema,
   getPaginationSchema,
-} from './bulk.validation'
-import { PERMISSIONS } from '../../../../shared/constants/permissions'
+} from './bulk.validation.js'
+import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
 
 const router = Router({ mergeParams: true })
 const controller = new BulkController()

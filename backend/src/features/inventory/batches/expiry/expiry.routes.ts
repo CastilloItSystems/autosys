@@ -46,8 +46,8 @@
  */
 
 import { Router } from 'express'
-import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
-import ExpiryController from './expiry.controller'
+import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
+import ExpiryController from './expiry.controller.js'
 
 const router = Router({ mergeParams: true })
 

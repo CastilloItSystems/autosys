@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/images/images.controller.ts
 
 import { Request, Response } from 'express'
-import { ImageService } from './images.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
+import { ImageService } from './images.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 
 const imageService = new ImageService()
 

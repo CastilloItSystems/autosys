@@ -1,18 +1,15 @@
 // backend/src/features/inventory/returns/returns.routes.ts
 
 import { Router } from 'express'
-import { authenticate } from '../../../shared/middleware/auth.middleware'
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
-import ReturnsController from './returns.controller'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
+import ReturnsController from './returns.controller.js'
 import {
   createReturnSchema,
   updateReturnSchema,
   returnFiltersSchema,
-} from './returns.validation'
+} from './returns.validation.js'
 
 const router = Router()
-
-router.use(authenticate)
 
 router.get(
   '/',

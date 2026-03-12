@@ -3,8 +3,8 @@
  */
 
 import { Prisma } from '@prisma/client'
-import { prisma } from '../../../config/database'
-import { logger } from '../../../shared/utils/logger'
+import { prisma } from '../../../config/database.js'
+import { logger } from '../../../shared/utils/logger.js'
 
 interface AuditLog {
   id: string

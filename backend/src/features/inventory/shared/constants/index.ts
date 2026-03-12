@@ -1,5 +1,5 @@
 // backend/src/features/inventory/shared/constants/index.ts
 
-export * from './inventory.constants'
-export * from './exitTypes'
-export * from './messages'
+export * from './inventory.constants.js'
+export * from './exitTypes.js'
+export * from './messages.js'

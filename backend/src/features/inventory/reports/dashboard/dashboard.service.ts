@@ -3,8 +3,7 @@
  * Generates comprehensive inventory dashboard metrics and KPIs
  */
 
-import prisma from '../../../../services/prisma.service'
-
+import prisma from '../../../../services/prisma.service.js'
 
 export interface DashboardMetrics {
   totalItems: number
@@ -47,7 +46,9 @@ export interface DashboardMetrics {
 /**
  * Get dashboard metrics
  */
-export async function getDashboardMetrics(prismaClient?: any): Promise<DashboardMetrics> {
+export async function getDashboardMetrics(
+  prismaClient?: any
+): Promise<DashboardMetrics> {
   const db = prismaClient || prisma
   try {
     const [items, warehouses, stocks, movements] = await Promise.all([

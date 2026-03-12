@@ -3,7 +3,7 @@
  * Handles database queries and aggregations for inventory movement reports
  */
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 
 interface MovementsFilter {
   page?: number
@@ -15,7 +15,10 @@ interface MovementsFilter {
   type?: string
 }
 
-export async function getMovementsReport(filters: MovementsFilter = {}, prismaClient?: any) {
+export async function getMovementsReport(
+  filters: MovementsFilter = {},
+  prismaClient?: any
+) {
   const db = prismaClient || prisma
   try {
     const page = filters.page || 1

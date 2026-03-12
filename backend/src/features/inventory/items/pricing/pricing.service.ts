@@ -1,6 +1,6 @@
 // backend/src/features/inventory/items/pricing/pricing.service.ts
 
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 import {
   ICreatePricingInput,
   IUpdatePricingInput,
@@ -11,15 +11,15 @@ import {
   IPricingCalculation,
   IPricingWithItem,
   IPricingTier,
-} from './pricing.interface'
+} from './pricing.interface.js'
 import {
   NotFoundError,
   BadRequestError,
   ConflictError,
-} from '../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../shared/constants/messages'
-import { logger } from '../../../../shared/utils/logger'
+} from '../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
+import { logger } from '../../../../shared/utils/logger.js'
 
 export class PricingService {
   async create(data: ICreatePricingInput): Promise<IPricingWithItem> {

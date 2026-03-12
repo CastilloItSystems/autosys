@@ -3,8 +3,7 @@
  * Classifies inventory by value contribution (Pareto principle)
  */
 
-import prisma from '../../../../services/prisma.service'
-
+import prisma from '../../../../services/prisma.service.js'
 
 export async function getABCAnalysis(page = 1, limit = 50, prismaClient?: any) {
   const db = prismaClient || prisma

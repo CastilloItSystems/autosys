@@ -185,16 +185,16 @@
  */
 
 import { Router, Request, Response, NextFunction } from 'express'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
-import BatchesController from './batches.controller'
+import { authenticate } from '../../../shared/middleware/authenticate.middleware.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
+import BatchesController from './batches.controller.js'
 import {
   createBatchSchema,
   updateBatchSchema,
   batchFiltersSchema,
   batchIdSchema,
-} from './batches.validation'
-import expiryRoutes from './expiry/expiry.routes'
+} from './batches.validation.js'
+import expiryRoutes from './expiry/expiry.routes.js'
 
 const router = Router()
 

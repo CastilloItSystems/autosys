@@ -3,8 +3,11 @@
  */
 
 import { Router, Request, Response } from 'express'
-import { authenticate, asyncHandler } from '../../../../middleware'
-import { getExitsWithoutInvoiceReportHandler as getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.controller'
+import {
+  authenticate,
+  asyncHandler,
+} from '../../../../shared/middleware/index.js'
+import { getExitsWithoutInvoiceReportHandler as getExitsWithoutInvoiceReport } from './exitsWithoutInvoice.controller.js'
 
 const router = Router()
 

@@ -1,5 +1,5 @@
 // backend/src/features/sales/shared/utils/index.ts
 
-export * from './orderNumberGenerator'
-export * from './invoiceNumberGenerator'
-export * from './taxCalculator'
+export * from './orderNumberGenerator.js'
+export * from './invoiceNumberGenerator.js'
+export * from './taxCalculator.js'

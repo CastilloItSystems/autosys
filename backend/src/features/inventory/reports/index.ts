@@ -1,16 +1,16 @@
 // backend/src/features/inventory/reports/index.ts
 
 import { Router } from 'express'
-import dashboardRoutes from './dashboard/dashboard.routes'
-import lowStockRoutes from './lowStock/lowStock.routes'
-import deadStockRoutes from './deadStock/deadStock.routes'
-import stockValueRoutes from './stockValue/stockValue.routes'
-import movementsRoutes from './movements/movements.routes'
-import exitsWithoutInvoiceRoutes from './exitsWithoutInvoice/exitsWithoutInvoice.routes'
-import exportRoutes from './exports/export.routes'
-import kardexRoutes from '../movements/reports/kardex.routes'
-import rotationRoutes from '../movements/reports/rotation.routes'
-import valuationRoutes from '../movements/reports/valuation.routes'
+import dashboardRoutes from './dashboard/dashboard.routes.js'
+import lowStockRoutes from './lowStock/lowStock.routes.js'
+import deadStockRoutes from './deadStock/deadStock.routes.js'
+import stockValueRoutes from './stockValue/stockValue.routes.js'
+import movementsRoutes from './movements/movements.routes.js'
+import exitsWithoutInvoiceRoutes from './exitsWithoutInvoice/exitsWithoutInvoice.routes.js'
+import exportRoutes from './exports/export.routes.js'
+import kardexRoutes from '../movements/reports/kardex.routes.js'
+import rotationRoutes from '../movements/reports/rotation.routes.js'
+import valuationRoutes from '../movements/reports/valuation.routes.js'
 
 const router = Router()
 

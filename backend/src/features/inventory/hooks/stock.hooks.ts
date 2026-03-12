@@ -2,9 +2,9 @@
  * Stock Hooks - Automatic behaviors for stock operations
  */
 
-import { logger } from '../../../shared/utils/logger'
-import { HookType, HookStage, IHookContext } from './hook.interface'
-import HookRegistry from './hook.registry'
+import { logger } from '../../../shared/utils/logger.js'
+import { HookType, HookStage, IHookContext } from './hook.interface.js'
+import HookRegistry from './hook.registry.js'
 
 const hookRegistry = HookRegistry.getInstance()
 

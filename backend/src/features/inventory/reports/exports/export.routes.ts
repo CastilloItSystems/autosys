@@ -4,8 +4,11 @@
  */
 
 import { Router, Request, Response } from 'express'
-import { authenticate, asyncHandler } from '../../../../middleware'
-import { exportReportHandler } from './export.controller'
+import {
+  authenticate,
+  asyncHandler,
+} from '../../../../shared/middleware/index.js'
+import { exportReportHandler } from './export.controller.js'
 
 const router = Router()
 

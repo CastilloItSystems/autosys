@@ -1,2 +1,2 @@
 // Re-export from ApiError for compatibility
-export * from './apiError'
+export * from './apiError.js'

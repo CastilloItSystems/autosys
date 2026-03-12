@@ -1,8 +1,7 @@
 // backend/src/features/inventory/shared/utils/batchHelper.ts
 
-import prisma from '../../../../services/prisma.service'
-import { DateHelper } from '../../../../shared/utils/dateHelper'
-
+import prisma from '../../../../services/prisma.service.js'
+import { DateHelper } from '../../../../shared/utils/dateHelper.js'
 
 export interface BatchInfo {
   id: string

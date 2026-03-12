@@ -4,15 +4,15 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import { logger } from '../../../../shared/utils/logger'
+import { logger } from '../../../../shared/utils/logger.js'
 import {
   IEvent,
   IEventListener,
   IEventPayload,
   EventType,
   EventPriority,
-} from './event.types'
-import prisma from '../../../../services/prisma.service'
+} from './event.types.js'
+import prisma from '../../../../services/prisma.service.js'
 
 class EventService {
   private static instance: EventService

@@ -4,7 +4,7 @@
  * Note: This will be fully implemented in PHASE 5.1 when Loan module is created
  */
 
-import { logger } from '../../../../shared/utils/logger';
+import { logger } from '../../../../shared/utils/logger.js';
 
 export interface ICheckLoansOverdueJobData {
   checkAll?: boolean;

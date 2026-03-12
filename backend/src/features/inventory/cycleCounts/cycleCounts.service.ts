@@ -1,6 +1,6 @@
 // backend/src/features/inventory/cycleCounts/cycleCounts.service.ts
 
-import prisma from '../../../services/prisma.service'
+import prisma from '../../../services/prisma.service.js'
 import {
   ICycleCountWithRelations,
   ICycleCountItem,
@@ -8,18 +8,18 @@ import {
   IUpdateCycleCountInput,
   ICycleCountFilters,
   CycleCountStatus,
-} from './cycleCounts.interface'
+} from './cycleCounts.interface.js'
 import {
   NotFoundError,
   ConflictError,
   BadRequestError,
   ForbiddenError,
-} from '../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../shared/utils/pagination'
-import { logger } from '../../../shared/utils/logger'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
-import EventService from '../shared/events/event.service'
-import { EventType } from '../shared/events/event.types'
+} from '../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
 import { v4 as uuidv4 } from 'uuid'
 
 export class CycleCountService {

@@ -3,7 +3,7 @@
  */
 
 import Joi from 'joi'
-import { commonValidators } from './common.validator'
+import { commonValidators } from './common.validator.js'
 
 export const stockValidators = {
   /**

@@ -329,14 +329,14 @@
  */
 
 import { Router } from 'express'
-import { PricingController } from './pricing.controller'
+import { PricingController } from './pricing.controller.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
-} from '../../../../shared/middleware/validateRequest.middleware'
-import { authenticate } from '../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../shared/middleware/authorize.middleware'
+} from '../../../../shared/middleware/validateRequest.middleware.js'
+import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../../../../shared/middleware/authorize.middleware.js'
 import {
   createPricingSchema,
   updatePricingSchema,
@@ -348,8 +348,8 @@ import {
   tierIdSchema,
   getPricingTierFiltersSchema,
   calculateMarginSchema,
-} from './pricing.validation'
-import { PERMISSIONS } from '../../../../shared/constants/permissions'
+} from './pricing.validation.js'
+import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
 
 const router = Router({ mergeParams: true })
 const controller = new PricingController()

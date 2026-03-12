@@ -4,7 +4,7 @@ import {
   ICreateCompatibilityInput,
   IUpdateCompatibilityInput,
   IModelCompatibilityWithRelations,
-} from './model-compatibility.interface'
+} from './model-compatibility.interface.js'
 
 export class CreateCompatibilityDTO implements ICreateCompatibilityInput {
   partModelId: string

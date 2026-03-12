@@ -1,7 +1,6 @@
 // backend/src/features/sales/shared/utils/orderNumberGenerator.ts
 
-import prisma from '../../../../services/prisma.service'
-
+import prisma from '../../../../services/prisma.service.js'
 
 export class OrderNumberGenerator {
   /**

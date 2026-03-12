@@ -3,9 +3,9 @@
  * Schedule batch expiry checks
  */
 
-import { logger } from '../../../shared/utils/logger'
-import QueueService from './queue.service'
-import { JobType } from './queue.service'
+import { logger } from '../../../shared/utils/logger.js'
+import QueueService from './queue.service.js'
+import { JobType } from './queue.service.js'
 
 export async function scheduleCheckExpiryJob(): Promise<void> {
   try {

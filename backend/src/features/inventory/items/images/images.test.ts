@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/images/images.test.ts
 
 import request from 'supertest'
-import app from '../../../../app'
-import prisma from '../../../../services/prisma.service'
-import { getTestAuthToken } from '../../../../shared/utils/test.utils'
+import app from '../../../../app.js'
+import prisma from '../../../../services/prisma.service.js'
+import { getTestAuthToken } from '../../../../shared/utils/test.utils.js'
 
 describe('Images Routes', () => {
   let token: string

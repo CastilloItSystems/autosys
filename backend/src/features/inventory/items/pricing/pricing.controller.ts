@@ -1,10 +1,10 @@
 // backend/src/features/inventory/items/pricing/pricing.controller.ts
 
 import { Request, Response } from 'express'
-import { PricingService } from './pricing.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
-import { PricingResponseDTO, PricingTierResponseDTO } from './pricing.dto'
+import { PricingService } from './pricing.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { PricingResponseDTO, PricingTierResponseDTO } from './pricing.dto.js'
 
 const pricingService = new PricingService()
 

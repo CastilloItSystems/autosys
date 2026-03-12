@@ -3,7 +3,7 @@
  */
 
 import { Prisma } from '@prisma/client'
-import { logger } from '../../../shared/utils/logger'
+import { logger } from '../../../shared/utils/logger.js'
 
 interface SoftDeleteConfig {
   models: string[]

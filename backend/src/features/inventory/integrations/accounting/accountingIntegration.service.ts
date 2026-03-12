@@ -3,10 +3,18 @@
  * Handles GL posting and cost allocation to accounting system
  */
 
-import { prisma } from '../../../../config/database'
-import { EventService, EventType } from '../../../shared/events/event.service'
-import { BadRequestError, NotFoundError } from '../../../../shared/utils/errors'
-import { logger } from '../../../../shared/utils/logger'
+import { EventType } from '@/shared/types/event.types.js'
+import { prisma } from '../../../../config/database.js'
+// import {
+//   EventService,
+//   EventType,
+// } from '../../../shared/events/event.service.js'
+import {
+  BadRequestError,
+  NotFoundError,
+} from '../../../../shared/utils/errors.js'
+import { logger } from '../../../../shared/utils/logger.js'
+import EventService from '../../shared/events/event.service.js'
 
 interface GLEntry {
   account: string

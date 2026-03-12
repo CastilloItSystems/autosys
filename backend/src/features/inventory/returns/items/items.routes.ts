@@ -3,14 +3,14 @@
  */
 
 import { Router, Request, Response } from 'express'
-import { authenticate, asyncHandler } from '../../../../shared/middleware'
+import { authenticate, asyncHandler } from '../../../../shared/middleware/index.js'
 import {
   addItemHandler,
   processItemHandler,
   getItemsHandler,
   getAnalysisHandler,
   getAllItemsHandler,
-} from './items.controller'
+} from './items.controller.js'
 
 const router = Router()
 

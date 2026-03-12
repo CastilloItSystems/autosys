@@ -3,10 +3,10 @@
  * Pre and post-processing hooks for inventory movements
  */
 
-import prisma from '../../../services/prisma.service'
-import { HookRegistry } from '../shared/hooks/hook.registry'
-import { EventService } from '../../../shared/events/event.service'
-import { EventType } from '../../../shared/types/event.types'
+import prisma from '../../../services/prisma.service.js'
+import { HookRegistry } from '../shared/hooks/hook.registry.js'
+import { EventService } from '../../../shared/events/event.service.js'
+import { EventType } from '../../../shared/types/event.types.js'
 
 const eventService = EventService.getInstance()
 const hookRegistry = HookRegistry.getInstance()

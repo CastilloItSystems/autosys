@@ -3,7 +3,10 @@
  */
 
 import { Router, Request, Response } from 'express'
-import { authenticate, asyncHandler } from '../../../../shared/middleware'
+import {
+  authenticate,
+  asyncHandler,
+} from '../../../../shared/middleware/index.js'
 import {
   linkToPreInvoiceHandler,
   linkToSalesOrderHandler,
@@ -11,7 +14,7 @@ import {
   getPendingExitsHandler,
   confirmShipmentHandler,
   getSalesMetricsHandler,
-} from './salesIntegration.controller'
+} from './salesIntegration.controller.js'
 
 const router = Router()
 

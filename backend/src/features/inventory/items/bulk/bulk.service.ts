@@ -9,16 +9,16 @@ import {
   IBulkValidationError,
   IBulkImportResult,
   IBulkImportData,
-} from './bulk.interface'
+} from './bulk.interface.js'
 import {
   BadRequestError,
   NotFoundError,
-} from '../../../../shared/utils/apiError'
+} from '../../../../shared/utils/apiError.js'
 import { v4 as uuid } from 'uuid'
-import prisma from '../../../../services/prisma.service'
-import { PaginationHelper } from '../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../shared/constants/messages'
-import { logger } from '../../../../shared/utils/logger'
+import prisma from '../../../../services/prisma.service.js'
+import { PaginationHelper } from '../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
+import { logger } from '../../../../shared/utils/logger.js'
 import ExcelJS from 'exceljs'
 
 export class BulkService {

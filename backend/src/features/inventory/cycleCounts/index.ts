@@ -1,7 +1,7 @@
 // backend/src/features/inventory/cycleCounts/index.ts
 
-export { CycleCountController } from './cycleCounts.controller'
-export { CycleCountServiceInstance } from './cycleCounts.service'
+export { CycleCountController } from './cycleCounts.controller.js'
+export { CycleCountServiceInstance } from './cycleCounts.service.js'
 export {
   CycleCountStatus,
   type ICycleCount,
@@ -9,13 +9,13 @@ export {
   type ICycleCountItem,
   type ICreateCycleCountInput,
   type IUpdateCycleCountInput,
-} from './cycleCounts.interface'
+} from './cycleCounts.interface.js'
 export {
   CreateCycleCountDTO,
   UpdateCycleCountDTO,
   CycleCountResponseDTO,
   CycleCountItemResponseDTO,
-} from './cycleCounts.dto'
+} from './cycleCounts.dto.js'
 export {
   createCycleCountSchema,
   updateCycleCountSchema,
@@ -24,5 +24,5 @@ export {
   approveCycleCountSchema,
   applyCycleCountSchema,
   addCycleCountItemSchema,
-} from './cycleCounts.validation'
-export { default } from './cycleCounts.routes'
+} from './cycleCounts.validation.js'
+export { default } from './cycleCounts.routes.js'

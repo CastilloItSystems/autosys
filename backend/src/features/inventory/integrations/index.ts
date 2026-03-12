@@ -3,9 +3,9 @@
  */
 
 import { Router } from 'express'
-import accountingRoutes from './accounting/accountingIntegration.routes'
-import salesRoutes from './sales/salesIntegration.routes'
-import workshopRoutes from './workshop/workshopIntegration.routes'
+import accountingRoutes from './accounting/accountingIntegration.routes.js'
+import salesRoutes from './sales/salesIntegration.routes.js'
+import workshopRoutes from './workshop/workshopIntegration.routes.js'
 
 const router = Router()
 

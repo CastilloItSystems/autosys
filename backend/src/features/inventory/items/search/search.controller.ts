@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/search/search.controller.ts
 
 import { Request, Response } from 'express'
-import { SearchService } from './search.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
+import { SearchService } from './search.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 
 const searchService = new SearchService()
 

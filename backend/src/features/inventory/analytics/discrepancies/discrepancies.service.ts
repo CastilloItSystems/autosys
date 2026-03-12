@@ -1,4 +1,4 @@
-import prisma from '../../../../services/prisma.service'
+import prisma from '../../../../services/prisma.service.js'
 import { startOfMonth, subMonths } from 'date-fns'
 
 export class DiscrepancyAnalyticsService {

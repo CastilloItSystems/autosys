@@ -7,7 +7,7 @@ import {
   IPricingTier,
   ICreatePricingTierInput,
   IUpdatePricingTierInput,
-} from './pricing.interface'
+} from './pricing.interface.js'
 
 export class CreatePricingDTO {
   itemId: string

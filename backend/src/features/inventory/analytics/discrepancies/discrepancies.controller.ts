@@ -1,7 +1,7 @@
 import { Request, Response } from 'express'
-import { DiscrepancyAnalyticsService } from './discrepancies.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware'
+import { DiscrepancyAnalyticsService } from './discrepancies.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 
 const service = new DiscrepancyAnalyticsService()
 

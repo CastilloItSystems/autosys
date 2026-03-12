@@ -1,16 +1,16 @@
 // backend/src/features/inventory/batches/batches.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import BatchesService from './batches.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import BatchesService from './batches.service.js'
 import {
   CreateBatchDTO,
   UpdateBatchDTO,
   BatchResponseDTO,
   BatchListResponseDTO,
-} from './batches.dto'
-import { IBatchFilters } from './batches.interface'
+} from './batches.dto.js'
+import { IBatchFilters } from './batches.interface.js'
 
 export class BatchesController {
   /**

@@ -1,17 +1,17 @@
 // backend/src/features/inventory/serialNumbers/serialNumbers.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import SerialNumbersService from './serialNumbers.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import SerialNumbersService from './serialNumbers.service.js'
 import {
   CreateSerialNumberDTO,
   UpdateSerialNumberDTO,
   AssignSerialDTO,
   SerialNumberResponseDTO,
   SerialNumberListResponseDTO,
-} from './serialNumbers.dto'
-import { ISerialNumberFilters } from './serialNumbers.interface'
+} from './serialNumbers.dto.js'
+import { ISerialNumberFilters } from './serialNumbers.interface.js'
 
 export class SerialNumbersController {
   /**

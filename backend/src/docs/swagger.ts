@@ -1,6 +1,6 @@
 import { Application } from 'express'
 import swaggerUi from 'swagger-ui-express'
-import { swaggerSpec } from './swagger.config'
+import { swaggerSpec } from './swagger.config.js'
 
 export const setupSwagger = (app: Application) => {
   // Ruta para servir la documentación Swagger

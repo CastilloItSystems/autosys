@@ -3,8 +3,8 @@
  */
 
 import { v4 as uuidv4 } from 'uuid'
-import { logger } from '../../../shared/utils/logger'
-import { IHook, IHookContext, HookType, HookStage } from './hook.interface'
+import { logger } from '../../../shared/utils/logger.js'
+import { IHook, IHookContext, HookType, HookStage } from './hook.interface.js'
 
 class HookRegistry {
   private static instance: HookRegistry

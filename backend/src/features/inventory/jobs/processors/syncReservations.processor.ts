@@ -3,8 +3,8 @@
  * Cleans up expired reservations and updates available quantities
  */
 
-import { logger } from '../../../../shared/utils/logger'
-import prisma from '../../../../services/prisma.service'
+import { logger } from '../../../../shared/utils/logger.js'
+import prisma from '../../../../services/prisma.service.js'
 
 export interface ISyncReservationsJobData {
   warehouseId?: string

@@ -2,9 +2,9 @@
  * Shared Validators Index
  */
 
-export { commonValidators } from './common.validator'
-export { movementValidators } from './movement.validator'
-export { stockValidators } from './stock.validator'
+export { commonValidators } from './common.validator.js'
+export { movementValidators } from './movement.validator.js'
+export { stockValidators } from './stock.validator.js'
 
 export default {
   common: require('./common.validator').commonValidators,

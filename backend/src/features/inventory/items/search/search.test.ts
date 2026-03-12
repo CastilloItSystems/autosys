@@ -1,9 +1,9 @@
 // backend/src/features/inventory/items/search/search.test.ts
 
 import request from 'supertest'
-import app from '../../../../app'
-import prisma from '../../../../services/prisma.service'
-import { getTestAuthToken } from '../../../../shared/utils/test.utils'
+import app from '../../../../app.js'
+import prisma from '../../../../services.prisma.service.js'
+import { getTestAuthToken } from '../../../../shared/utils/test.utils.js'
 
 describe('Search Routes', () => {
   let token: string

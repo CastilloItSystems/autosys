@@ -3,9 +3,9 @@
  * Generates alerts for low stock, overstock, and expiring items
  */
 
-import prisma from '../../../../services/prisma.service'
-import { EventService } from '../../../shared/events/event.service'
-import { EventType } from '../../../shared/types/event.types'
+import prisma from '../../../../services/prisma.service.js'
+import { EventService } from '../../../shared/events/event.service.js'
+import { EventType } from '../../../shared/types/event.types.js'
 
 const eventService = EventService.getInstance()
 
