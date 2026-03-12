@@ -1,25 +1,63 @@
 // backend/src/features/inventory/movements/movements.controller.ts
 
 import { Request, Response } from 'express'
-import { MovementService } from './movements.service'
+import movementService from './movements.service.js'
 import {
   CreateMovementDTO,
   UpdateMovementDTO,
   MovementResponseDTO,
-} from './movements.dto'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
-import { MovementType } from './movements.interface'
+} from './movements.dto.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { BadRequestError } from '../../../shared/utils/apiError.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { MovementType, IMovementFilters } from './movements.interface.js'
 
-const movementService = new MovementService()
+// ---------------------------------------------------------------------------
+// Typed request helpers
+// ---------------------------------------------------------------------------
+
+/** Extracts empresaId injected by extractEmpresa middleware. Throws if missing. */
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const VALID_SORT_FIELDS = new Set([
+  'movementDate',
+  'movementNumber',
+  'type',
+  'createdAt',
+])
+
+function parseSortBy(raw: unknown): string {
+  const val = typeof raw === 'string' ? raw : 'movementDate'
+  return VALID_SORT_FIELDS.has(val) ? val : 'movementDate'
+}
+
+function parseSortOrder(raw: unknown): 'asc' | 'desc' {
+  return raw === 'asc' ? 'asc' : 'desc'
+}
+
+function parseLimit(raw: unknown, fallback: number): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : fallback
+}
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
 export class MovementController {
   /**
    * GET /api/inventory/movements
-   * Obtener todos los movimientos con filtros
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const {
       page,
       limit,
@@ -35,30 +73,29 @@ export class MovementController {
       sortOrder,
     } = req.query
 
-    const filters: any = {}
-    if (type) filters.type = type as MovementType
-    if (itemId) filters.itemId = itemId as string
-    if (warehouseFromId) filters.warehouseFromId = warehouseFromId as string
-    if (warehouseToId) filters.warehouseToId = warehouseToId as string
-    if (createdBy) filters.createdBy = createdBy as string
-    if (reference) filters.reference = reference as string
-    if (dateFrom) filters.dateFrom = new Date(dateFrom as string)
-    if (dateTo) filters.dateTo = new Date(dateTo as string)
+    const filters: IMovementFilters = {}
+    if (type && Object.values(MovementType).includes(type as MovementType))
+      filters.type = type as MovementType
+    if (itemId) filters.itemId = String(itemId)
+    if (warehouseFromId) filters.warehouseFromId = String(warehouseFromId)
+    if (warehouseToId) filters.warehouseToId = String(warehouseToId)
+    if (createdBy) filters.createdBy = String(createdBy)
+    if (reference) filters.reference = String(reference)
+    if (dateFrom) filters.dateFrom = new Date(String(dateFrom))
+    if (dateTo) filters.dateTo = new Date(String(dateTo))
 
     const result = await movementService.findAll(
       filters,
       Number(page) || 1,
-      Number(limit) || 10,
-      (sortBy as string) || 'movementDate',
-      (sortOrder as 'asc' | 'desc') || 'desc',
-      req.prisma || undefined
+      parseLimit(limit, 10),
+      parseSortBy(sortBy),
+      parseSortOrder(sortOrder),
+      empresaId,
+      req.prisma
     )
 
     const movements = result.items.map(
-      (movement: any) =>
-        new MovementResponseDTO(movement, {
-          includeRelations: true,
-        })
+      (m) => new MovementResponseDTO(m, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
@@ -72,22 +109,44 @@ export class MovementController {
   })
 
   /**
+   * GET /api/inventory/movements/dashboard
+   */
+  getDashboard = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+
+    const metrics = await movementService.getDashboardMetrics(
+      empresaId,
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      metrics,
+      'Dashboard de movimientos obtenido'
+    )
+  })
+
+  /**
    * GET /api/inventory/movements/type/:type
-   * Obtener movimientos por tipo
    */
   getByType = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const { type } = req.params as { type: string }
     const { limit } = req.query
 
+    if (!Object.values(MovementType).includes(type as MovementType)) {
+      throw new BadRequestError(`Tipo de movimiento inválido: ${type}`)
+    }
+
     const movements = await movementService.findByType(
       type as MovementType,
-      Number(limit) || 100
+      empresaId,
+      parseLimit(limit, 100),
+      req.prisma
     )
+
     const response = movements.map(
-      (movement) =>
-        new MovementResponseDTO(movement, {
-          includeRelations: true,
-        })
+      (m) => new MovementResponseDTO(m, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
@@ -102,21 +161,21 @@ export class MovementController {
 
   /**
    * GET /api/inventory/movements/warehouse/:warehouseId
-   * Obtener movimientos por almacén
    */
   getByWarehouse = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const { warehouseId } = req.params as { warehouseId: string }
     const { limit } = req.query
 
     const movements = await movementService.findByWarehouse(
       warehouseId,
-      Number(limit) || 100
+      empresaId,
+      parseLimit(limit, 100),
+      req.prisma
     )
+
     const response = movements.map(
-      (movement) =>
-        new MovementResponseDTO(movement, {
-          includeRelations: true,
-        })
+      (m) => new MovementResponseDTO(m, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
@@ -131,21 +190,21 @@ export class MovementController {
 
   /**
    * GET /api/inventory/movements/item/:itemId
-   * Obtener movimientos por artículo
    */
   getByItem = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const { itemId } = req.params as { itemId: string }
     const { limit } = req.query
 
     const movements = await movementService.findByItem(
       itemId,
-      Number(limit) || 100
+      empresaId,
+      parseLimit(limit, 100),
+      req.prisma
     )
+
     const response = movements.map(
-      (movement) =>
-        new MovementResponseDTO(movement, {
-          includeRelations: true,
-        })
+      (m) => new MovementResponseDTO(m, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
@@ -160,12 +219,12 @@ export class MovementController {
 
   /**
    * GET /api/inventory/movements/:id
-   * Obtener movimiento por ID
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const { id } = req.params as { id: string }
 
-    const movement = await movementService.findById(id)
+    const movement = await movementService.findById(id, empresaId, req.prisma)
     const response = new MovementResponseDTO(movement, {
       includeRelations: true,
     })
@@ -179,13 +238,19 @@ export class MovementController {
 
   /**
    * POST /api/inventory/movements
-   * Crear un nuevo movimiento
    */
   create = asyncHandler(async (req: Request, res: Response) => {
-    const createDTO = new CreateMovementDTO(req.body)
+    const empresaId = getEmpresaId(req)
     const userId = req.user?.userId
+    const createDTO = new CreateMovementDTO(req.body)
 
-    const movement = await movementService.create(createDTO, userId)
+    const movement = await movementService.create(
+      createDTO,
+      userId,
+      empresaId,
+      req.prisma
+    )
+
     const response = new MovementResponseDTO(movement, {
       includeRelations: true,
     })
@@ -199,14 +264,21 @@ export class MovementController {
 
   /**
    * PUT /api/inventory/movements/:id
-   * Actualizar movimiento
    */
   update = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
     const { id } = req.params as { id: string }
     const updateDTO = new UpdateMovementDTO(req.body)
-    const userId = req.user?.userId
 
-    const movement = await movementService.update(id, updateDTO, userId)
+    const movement = await movementService.update(
+      id,
+      updateDTO,
+      userId,
+      empresaId,
+      req.prisma
+    )
+
     const response = new MovementResponseDTO(movement, {
       includeRelations: true,
     })
@@ -219,40 +291,20 @@ export class MovementController {
   })
 
   /**
-   * DELETE /api/inventory/movements/:id
-   * Eliminar movimiento
-   */
-  delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const userId = req.user?.userId
-
-    await movementService.delete(id, userId)
-
-    return ApiResponse.success(res, {}, 'Movimiento eliminado exitosamente')
-  })
-
-  /**
-   * GET /api/inventory/movements/dashboard
-   * Obtener métricas de dashboard
-   */
-  getDashboard = asyncHandler(async (_req: Request, res: Response) => {
-    const metrics = await movementService.getDashboardMetrics()
-    return ApiResponse.success(
-      res,
-      metrics,
-      'Dashboard de movimientos obtenido'
-    )
-  })
-
-  /**
    * PATCH /api/inventory/movements/:id/cancel
-   * Cancelar movimiento
    */
   cancel = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
+    const empresaId = getEmpresaId(req)
     const userId = req.user?.userId
+    const { id } = req.params as { id: string }
 
-    const movement = await movementService.cancel(id, userId)
+    const movement = await movementService.cancel(
+      id,
+      userId,
+      empresaId,
+      req.prisma
+    )
+
     const response = new MovementResponseDTO(movement, {
       includeRelations: true,
     })
@@ -262,6 +314,22 @@ export class MovementController {
       response,
       INVENTORY_MESSAGES.movement.cancelled
     )
+  })
+
+  /**
+   * DELETE /api/inventory/movements/:id
+   * Siempre rechaza — los movimientos no se eliminan físicamente.
+   * La ruta existe para devolver un error claro en vez de 404.
+   */
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
+    const empresaId = getEmpresaId(req)
+
+    // delegate to service which always throws BadRequestError
+    await movementService.delete(id, req.user?.userId, empresaId)
+
+    // unreachable — service always throws, here just for TS return type
+    return ApiResponse.success(res, {}, 'Movimiento eliminado')
   })
 }
 

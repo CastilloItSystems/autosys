@@ -1,8 +1,8 @@
 // backend/src/features/inventory/transfers/index.ts
 
-export { default as transfersRouter } from './transfers.routes'
-export { default as TransfersService } from './transfers.service'
-export { default as TransfersController } from './transfers.controller'
-export * from './transfers.interface'
-export * from './transfers.dto'
-export * from './transfers.validation'
+export { default as transfersRouter } from './transfers.routes.js'
+export { default as TransfersService } from './transfers.service.js'
+export { default as TransfersController } from './transfers.controller.js'
+export * from './transfers.interface.js'
+export * from './transfers.dto.js'
+export * from './transfers.validation.js'

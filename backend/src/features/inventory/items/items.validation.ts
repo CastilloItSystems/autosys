@@ -1,7 +1,7 @@
 // backend/src/features/inventory/items/items.validation.ts
 
 import Joi from 'joi'
-import { REGEX_PATTERNS } from '../../../config/constants'
+import { REGEX_PATTERNS } from '../../../config/constants.js'
 
 export const createItemSchema = Joi.object({
   sku: Joi.string()

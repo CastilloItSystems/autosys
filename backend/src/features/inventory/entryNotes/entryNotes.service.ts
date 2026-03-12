@@ -1,11 +1,15 @@
 // backend/src/features/inventory/entryNotes/entryNotes.service.ts
 
-import prisma from '../../../services/prisma.service'
-import { logger } from '../../../shared/utils/logger'
-import { PaginationHelper } from '../../../shared/utils/pagination'
-import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
-import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator'
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import prisma from '../../../services/prisma.service.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import {
+  NotFoundError,
+  BadRequestError,
+} from '../../../shared/utils/apiError.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import {
   IEntryNoteWithRelations,
   IEntryNoteItem,
@@ -15,7 +19,14 @@ import {
   ICreateEntryNoteItemInput,
   IEntryNoteListResult,
   EntryNoteStatus,
-} from './entryNotes.interface'
+  EntryType,
+} from './entryNotes.interface.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+// ---------------------------------------------------------------------------
+// Constants
+// ---------------------------------------------------------------------------
 
 const ENTRY_NOTE_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
@@ -27,7 +38,7 @@ const ENTRY_NOTE_INCLUDE = {
       serialNumber: { select: { id: true, serialNumber: true } },
     },
   },
-}
+} as const
 
 const ENTRY_NOTE_LIST_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
@@ -37,60 +48,135 @@ const ENTRY_NOTE_LIST_INCLUDE = {
       item: { select: { id: true, sku: true, name: true } },
     },
   },
+} as const
+
+/** Maps EntryType → MovementType */
+const MOVEMENT_TYPE_MAP: Record<EntryType, string> = {
+  PURCHASE: 'PURCHASE',
+  RETURN: 'SUPPLIER_RETURN',
+  TRANSFER: 'TRANSFER',
+  WARRANTY_RETURN: 'SUPPLIER_RETURN',
+  LOAN_RETURN: 'LOAN_RETURN',
+  ADJUSTMENT_IN: 'ADJUSTMENT_IN',
+  DONATION: 'ADJUSTMENT_IN',
+  SAMPLE: 'ADJUSTMENT_IN',
+  OTHER: 'ADJUSTMENT_IN',
 }
 
+const VALID_STATUS_TRANSITIONS: Record<EntryNoteStatus, EntryNoteStatus[]> = {
+  PENDING: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
+  COMPLETED: [],
+  CANCELLED: [],
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate an entry note number that avoids race conditions.
+ * Uses timestamp + random suffix instead of count().
+ */
+function generateEntryNoteNumber(): string {
+  const year = new Date().getFullYear()
+  const ts = Date.now().toString(36).toUpperCase()
+  const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `EN-${year}-${ts}${rnd}`
+}
+
+function validateStatusTransition(
+  current: EntryNoteStatus,
+  next: EntryNoteStatus
+): void {
+  const allowed = VALID_STATUS_TRANSITIONS[current]
+  if (!allowed.includes(next)) {
+    throw new BadRequestError(
+      INVENTORY_MESSAGES.entryNote.invalidStatusTransition
+        .replace('{{from}}', current)
+        .replace('{{to}}', next)
+    )
+  }
+}
+
+function mapEntryNoteItem(item: Record<string, unknown>): IEntryNoteItem {
+  return {
+    id: item.id as string,
+    entryNoteId: item.entryNoteId as string,
+    itemId: item.itemId as string,
+    quantityReceived: item.quantityReceived as number,
+    unitCost:
+      typeof item.unitCost === 'number'
+        ? item.unitCost
+        : parseFloat(String(item.unitCost)),
+    storedToLocation: (item.storedToLocation as string | null) ?? null,
+    batchId: (item.batchId as string | null) ?? null,
+    serialNumberId: (item.serialNumberId as string | null) ?? null,
+    batchNumber: (item.batchNumber as string | null) ?? null,
+    expiryDate: (item.expiryDate as Date | null) ?? null,
+    notes: (item.notes as string | null) ?? null,
+    createdAt: item.createdAt as Date,
+    item: (item.item as IEntryNoteItem['item']) ?? null,
+    batch: (item.batch as IEntryNoteItem['batch']) ?? null,
+    serialNumber: (item.serialNumber as IEntryNoteItem['serialNumber']) ?? null,
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
 export class EntryNoteService {
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
+
   /**
-   * Crear nota de entrada
+   * Crear nota de entrada.
+   * @param empresaId - REQUIRED: tenant safety via warehouse
    */
   async createEntryNote(
     data: ICreateEntryNoteInput,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    // Validar almacén
-    const warehouse = await prisma.warehouse.findUnique({
-      where: { id: data.warehouseId },
+    // TENANT-SAFE: validate warehouse belongs to this company
+    const warehouse = await db.warehouse.findFirst({
+      where: { id: data.warehouseId, empresaId },
     })
     if (!warehouse) {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.warehouseNotFound)
     }
 
-    // PURCHASE type requiere purchaseOrderId — usar receiveOrder() del PO service en su lugar
+    // PURCHASE type requires purchaseOrderId
     if (data.type === 'PURCHASE' && !data.purchaseOrderId) {
       throw new BadRequestError(
         'Las notas de entrada tipo PURCHASE requieren una orden de compra. Use el endpoint de recepción de OC.'
       )
     }
 
-    // Si tiene purchaseOrderId, validar que existe y está en estado válido
+    // Validate purchaseOrder if provided
     if (data.purchaseOrderId) {
-      const po = await prisma.purchaseOrder.findUnique({
-        where: { id: data.purchaseOrderId },
+      const po = await db.purchaseOrder.findFirst({
+        where: { id: data.purchaseOrderId, warehouse: { empresaId } },
       })
       if (!po) {
         throw new NotFoundError(
           INVENTORY_MESSAGES.entryNote.purchaseOrderNotFound
         )
       }
-      if (
-        po.status === 'COMPLETED' ||
-        po.status === 'CANCELLED' ||
-        po.status === 'DRAFT'
-      ) {
+      if (['COMPLETED', 'CANCELLED', 'DRAFT'].includes(po.status)) {
         throw new BadRequestError(
           `No se puede crear nota de entrada para una OC con estado ${po.status}. La OC debe estar en estado SENT o PARTIAL.`
         )
       }
     }
 
-    // Generar número de nota de entrada único
-    const entryNoteCount = await prisma.entryNote.count()
-    const entryNoteNumber = `EN-${new Date().getFullYear()}-${String(entryNoteCount + 1).padStart(5, '0')}`
-
-    const entryNote = await prisma.entryNote.create({
+    const entryNote = await db.entryNote.create({
       data: {
-        entryNoteNumber,
-        type: data.type || 'PURCHASE',
+        entryNoteNumber: generateEntryNoteNumber(),
+        type: data.type ?? 'PURCHASE',
         status: 'PENDING',
         purchaseOrderId: data.purchaseOrderId ?? null,
         warehouseId: data.warehouseId,
@@ -100,7 +186,7 @@ export class EntryNoteService {
         reason: data.reason ?? null,
         reference: data.reference ?? null,
         notes: data.notes ?? null,
-        receivedBy: data.receivedBy || userId || null,
+        receivedBy: data.receivedBy ?? userId ?? null,
         authorizedBy: data.authorizedBy ?? null,
       },
       include: ENTRY_NOTE_INCLUDE,
@@ -110,29 +196,36 @@ export class EntryNoteService {
       entryNoteId: entryNote.id,
       entryNoteNumber: entryNote.entryNoteNumber,
       type: entryNote.type,
+      empresaId,
+      userId,
     })
 
-    return this.enrichEntryNote(entryNote) as unknown as IEntryNoteWithRelations
+    return entryNote as unknown as IEntryNoteWithRelations
   }
 
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
+
   /**
-   * Obtener nota de entrada por ID
+   * Obtener nota de entrada por ID.
+   * @param empresaId - REQUIRED: tenant safety via warehouse
    */
   async getEntryNoteById(
     id: string,
-    includeItems: boolean = true
+    empresaId: string,
+    includeItems: boolean = true,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    const include: any = {
+    const include = {
       purchaseOrder: { include: { supplier: true } },
       warehouse: true,
+      ...(includeItems ? { items: ENTRY_NOTE_INCLUDE.items } : {}),
     }
 
-    if (includeItems) {
-      include.items = ENTRY_NOTE_INCLUDE.items
-    }
-
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
+    // TENANT-SAFE: scope via warehouse.empresaId
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
       include,
     })
 
@@ -140,20 +233,25 @@ export class EntryNoteService {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    return this.enrichEntryNote(entryNote) as unknown as IEntryNoteWithRelations
+    return entryNote as unknown as IEntryNoteWithRelations
   }
 
   /**
-   * Obtener todas las notas de entrada con filtros y paginación
+   * Obtener todas las notas de entrada con filtros y paginación.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async getEntryNotes(
-    filters: IEntryNoteFilters = {}
+    filters: IEntryNoteFilters = {},
+    empresaId: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteListResult> {
-    const page = filters.page || 1
-    const limit = filters.limit || 20
+    const page = filters.page ?? 1
+    const limit = filters.limit ?? 20
     const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-    const where: any = {}
+    // TENANT-SAFE: always scope via warehouse.empresaId
+    const where: Record<string, unknown> = { warehouse: { empresaId } }
+
     if (filters.type) where.type = filters.type
     if (filters.status) where.status = filters.status
     if (filters.purchaseOrderId) where.purchaseOrderId = filters.purchaseOrderId
@@ -161,17 +259,18 @@ export class EntryNoteService {
     if (filters.receivedBy) where.receivedBy = filters.receivedBy
 
     if (filters.receivedFrom || filters.receivedTo) {
-      where.createdAt = {}
-      if (filters.receivedFrom) where.createdAt.gte = filters.receivedFrom
-      if (filters.receivedTo) where.createdAt.lte = filters.receivedTo
+      const createdAt: Record<string, Date> = {}
+      if (filters.receivedFrom) createdAt.gte = filters.receivedFrom
+      if (filters.receivedTo) createdAt.lte = filters.receivedTo
+      where.createdAt = createdAt
     }
 
-    const sortBy = filters.sortBy || 'createdAt'
-    const sortOrder = filters.sortOrder || 'desc'
+    const sortBy = filters.sortBy ?? 'createdAt'
+    const sortOrder = filters.sortOrder ?? 'desc'
 
     const [total, entryNotes] = await Promise.all([
-      prisma.entryNote.count({ where }),
-      prisma.entryNote.findMany({
+      db.entryNote.count({ where }),
+      db.entryNote.findMany({
         where,
         include: ENTRY_NOTE_LIST_INCLUDE,
         skip,
@@ -180,42 +279,42 @@ export class EntryNoteService {
       }),
     ])
 
-    const enriched = await Promise.all(
-      entryNotes.map((en) => this.enrichEntryNote(en))
-    )
-
     return {
-      entryNotes: enriched as unknown as IEntryNoteWithRelations[],
+      entryNotes: entryNotes as unknown as IEntryNoteWithRelations[],
       total,
       page,
       limit,
     }
   }
 
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
+
   /**
-   * Actualizar nota de entrada
+   * Actualizar campos de la nota de entrada.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async updateEntryNote(
     id: string,
-    data: IUpdateEntryNoteInput
+    data: IUpdateEntryNoteInput,
+    empresaId: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
+    // TENANT-SAFE: verify via warehouse
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
     })
 
     if (!entryNote) {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    // Validar transiciones de estado
     if (data.status) {
-      this.validateStatusTransition(
-        entryNote.status as EntryNoteStatus,
-        data.status
-      )
+      validateStatusTransition(entryNote.status as EntryNoteStatus, data.status)
     }
 
-    const updateData: any = {}
+    const updateData: Record<string, unknown> = {}
     if (data.status !== undefined) {
       updateData.status = data.status
       if (data.status === 'COMPLETED') updateData.verifiedAt = new Date()
@@ -238,26 +337,34 @@ export class EntryNoteService {
     if (data.reference !== undefined)
       updateData.reference = data.reference ?? null
 
-    const updated = await prisma.entryNote.update({
+    const updated = await db.entryNote.update({
       where: { id },
       data: updateData,
       include: ENTRY_NOTE_INCLUDE,
     })
 
-    logger.info('Nota de entrada actualizada', { entryNoteId: id, data })
+    logger.info('Nota de entrada actualizada', { entryNoteId: id, empresaId })
 
-    return this.enrichEntryNote(updated) as unknown as IEntryNoteWithRelations
+    return updated as unknown as IEntryNoteWithRelations
   }
 
+  // -------------------------------------------------------------------------
+  // ITEMS
+  // -------------------------------------------------------------------------
+
   /**
-   * Agregar item a la nota de entrada
+   * Agregar item a la nota de entrada.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async addItem(
     entryNoteId: string,
-    data: ICreateEntryNoteItemInput
+    data: ICreateEntryNoteItemInput,
+    empresaId: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteItem> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id: entryNoteId },
+    // TENANT-SAFE: verify entry note via warehouse
+    const entryNote = await db.entryNote.findFirst({
+      where: { id: entryNoteId, warehouse: { empresaId } },
     })
 
     if (!entryNote) {
@@ -273,15 +380,17 @@ export class EntryNoteService {
       )
     }
 
-    // Validar que el item existe
-    const item = await prisma.item.findUnique({ where: { id: data.itemId } })
+    // TENANT-SAFE: validate item belongs to this company
+    const item = await db.item.findFirst({
+      where: { id: data.itemId, empresaId },
+    })
     if (!item) {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.itemNotFound)
     }
 
-    // Si la nota está vinculada a una OC, validar ítem pertenece a la OC y cantidad no excede pendiente
+    // If linked to a PO, validate item belongs to the PO and qty doesn't exceed pending
     if (entryNote.purchaseOrderId) {
-      const poItem = await prisma.purchaseOrderItem.findFirst({
+      const poItem = await db.purchaseOrderItem.findFirst({
         where: {
           purchaseOrderId: entryNote.purchaseOrderId,
           itemId: data.itemId,
@@ -301,7 +410,7 @@ export class EntryNoteService {
       }
     }
 
-    const entryNoteItem = await prisma.entryNoteItem.create({
+    const entryNoteItem = await db.entryNoteItem.create({
       data: {
         entryNoteId,
         itemId: data.itemId,
@@ -325,16 +434,30 @@ export class EntryNoteService {
       entryNoteId,
       itemId: data.itemId,
       quantity: data.quantityReceived,
+      empresaId,
     })
 
-    return this.mapEntryNoteItem(entryNoteItem)
+    return mapEntryNoteItem(entryNoteItem as unknown as Record<string, unknown>)
   }
 
   /**
-   * Obtener items de una nota de entrada
+   * Obtener items de una nota de entrada.
+   * @param empresaId - REQUIRED: tenant safety
    */
-  async getItems(entryNoteId: string): Promise<IEntryNoteItem[]> {
-    const items = await prisma.entryNoteItem.findMany({
+  async getItems(
+    entryNoteId: string,
+    empresaId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IEntryNoteItem[]> {
+    // TENANT-SAFE: verify entry note via warehouse before returning items
+    const entryNote = await db.entryNote.findFirst({
+      where: { id: entryNoteId, warehouse: { empresaId } },
+    })
+    if (!entryNote) {
+      throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
+    }
+
+    const items = await db.entryNoteItem.findMany({
       where: { entryNoteId },
       include: {
         item: { select: { id: true, sku: true, name: true } },
@@ -343,16 +466,28 @@ export class EntryNoteService {
       },
     })
 
-    return items.map((item) => this.mapEntryNoteItem(item))
+    return items.map((item) =>
+      mapEntryNoteItem(item as unknown as Record<string, unknown>)
+    )
   }
 
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
+
   /**
-   * Eliminar nota de entrada (solo si no está completada)
+   * Eliminar nota de entrada (solo PENDING o IN_PROGRESS).
+   * Items se eliminan automáticamente por onDelete: Cascade en schema.
+   * @param empresaId - REQUIRED: tenant safety
    */
-  async deleteEntryNote(id: string): Promise<void> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
-      include: { items: true },
+  async deleteEntryNote(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType = prisma
+  ): Promise<void> {
+    // TENANT-SAFE: verify via warehouse
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
     })
 
     if (!entryNote) {
@@ -363,25 +498,29 @@ export class EntryNoteService {
       throw new BadRequestError(INVENTORY_MESSAGES.entryNote.cannotDelete)
     }
 
-    // Eliminar items primero, luego la nota
-    if (entryNote.items.length > 0) {
-      await prisma.entryNoteItem.deleteMany({ where: { entryNoteId: id } })
-    }
+    // Items deleted automatically via onDelete: Cascade
+    await db.entryNote.delete({ where: { id } })
 
-    await prisma.entryNote.delete({ where: { id } })
-
-    logger.info('Nota de entrada eliminada', { entryNoteId: id })
+    logger.info('Nota de entrada eliminada', { entryNoteId: id, empresaId })
   }
 
+  // -------------------------------------------------------------------------
+  // STATE TRANSITIONS
+  // -------------------------------------------------------------------------
+
   /**
-   * Iniciar procesamiento de nota de entrada (PENDING → IN_PROGRESS)
+   * Iniciar procesamiento (PENDING → IN_PROGRESS).
+   * @param empresaId - REQUIRED: tenant safety
    */
   async startEntryNote(
     id: string,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
+    // TENANT-SAFE: verify via warehouse
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
       include: { items: true },
     })
 
@@ -389,10 +528,7 @@ export class EntryNoteService {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    this.validateStatusTransition(
-      entryNote.status as EntryNoteStatus,
-      'IN_PROGRESS'
-    )
+    validateStatusTransition(entryNote.status as EntryNoteStatus, 'IN_PROGRESS')
 
     if (!entryNote.items || entryNote.items.length === 0) {
       throw new BadRequestError(
@@ -400,12 +536,12 @@ export class EntryNoteService {
       )
     }
 
-    const updated = await prisma.entryNote.update({
+    const updated = await db.entryNote.update({
       where: { id },
       data: {
         status: 'IN_PROGRESS',
         receivedAt: new Date(),
-        receivedBy: userId || entryNote.receivedBy,
+        receivedBy: userId ?? entryNote.receivedBy ?? null,
       },
       include: ENTRY_NOTE_INCLUDE,
     })
@@ -413,21 +549,27 @@ export class EntryNoteService {
     logger.info('Nota de entrada iniciada', {
       entryNoteId: id,
       entryNoteNumber: updated.entryNoteNumber,
+      empresaId,
+      userId,
     })
 
-    return this.enrichEntryNote(updated) as unknown as IEntryNoteWithRelations
+    return updated as unknown as IEntryNoteWithRelations
   }
 
   /**
-   * Completar nota de entrada (IN_PROGRESS → COMPLETED)
-   * Actualiza stock y crea movimientos atómicamente
+   * Completar nota de entrada (IN_PROGRESS → COMPLETED).
+   * Actualiza stock y crea movimientos en una transacción atómica.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async completeEntryNote(
     id: string,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
+    // TENANT-SAFE: verify via warehouse — load full data before transaction
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
       include: {
         ...ENTRY_NOTE_INCLUDE,
         items: {
@@ -442,10 +584,7 @@ export class EntryNoteService {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    this.validateStatusTransition(
-      entryNote.status as EntryNoteStatus,
-      'COMPLETED'
-    )
+    validateStatusTransition(entryNote.status as EntryNoteStatus, 'COMPLETED')
 
     if (!entryNote.items || entryNote.items.length === 0) {
       throw new BadRequestError(
@@ -453,9 +592,9 @@ export class EntryNoteService {
       )
     }
 
-    // Para notas de TRANSFER: validar que la nota de salida ya fue entregada
+    // For TRANSFER type: validate the exit note was already delivered
     if (entryNote.type === 'TRANSFER') {
-      const transfer = await prisma.transfer.findFirst({
+      const transfer = await db.transfer.findFirst({
         where: { entryNoteId: id },
         include: {
           exitNote: {
@@ -466,45 +605,32 @@ export class EntryNoteService {
 
       if (transfer?.exitNote && transfer.exitNote.status !== 'DELIVERED') {
         throw new BadRequestError(
-          `No se puede completar la recepción. La nota de salida ${transfer.exitNote.exitNoteNumber} aún no ha sido entregada (estado: ${transfer.exitNote.status}). Primero debe realizarse la salida del almacén origen.`
+          `No se puede completar la recepción. La nota de salida ${transfer.exitNote.exitNoteNumber} aún no ha sido entregada (estado: ${transfer.exitNote.status}).`
         )
       }
     }
 
-    // Mapear EntryType → MovementType
-    const movementTypeMap: Record<string, string> = {
-      PURCHASE: 'PURCHASE',
-      RETURN: 'SUPPLIER_RETURN',
-      TRANSFER: 'TRANSFER',
-      WARRANTY_RETURN: 'SUPPLIER_RETURN',
-      LOAN_RETURN: 'LOAN_RETURN',
-      ADJUSTMENT_IN: 'ADJUSTMENT_IN',
-      DONATION: 'ADJUSTMENT_IN',
-      SAMPLE: 'ADJUSTMENT_IN',
-      OTHER: 'ADJUSTMENT_IN',
-    }
-    const movementType = movementTypeMap[entryNote.type] || 'ADJUSTMENT_IN'
+    const movementType =
+      MOVEMENT_TYPE_MAP[entryNote.type as EntryType] ?? 'ADJUSTMENT_IN'
 
-    // Ejecutar todo en transacción atómica
-    const result = await prisma.$transaction(async (tx) => {
-      // 1. Actualizar estado de la nota
-      const updated = await tx.entryNote.update({
+    // Atomic transaction: update status + upsert stock + create movements
+    const result = await (db as PrismaClient).$transaction(async (tx) => {
+      await tx.entryNote.update({
         where: { id },
         data: {
           status: 'COMPLETED',
           verifiedAt: new Date(),
-          verifiedBy: userId || null,
+          verifiedBy: userId ?? null,
         },
       })
 
-      // 2. Para cada item: upsert stock + crear movement
       for (const noteItem of entryNote.items) {
         const unitCost =
           typeof noteItem.unitCost === 'number'
             ? noteItem.unitCost
             : parseFloat(String(noteItem.unitCost))
 
-        // 2a. Upsert Stock
+        // Upsert stock with weighted average cost
         const existingStock = await tx.stock.findUnique({
           where: {
             itemId_warehouseId: {
@@ -518,14 +644,13 @@ export class EntryNoteService {
           const newReal = existingStock.quantityReal + noteItem.quantityReceived
           const newAvailable =
             existingStock.quantityAvailable + noteItem.quantityReceived
-
-          // Calcular costo promedio ponderado
           const existingTotal =
             existingStock.quantityReal *
             parseFloat(String(existingStock.averageCost))
-          const newTotal = noteItem.quantityReceived * unitCost
           const newAverageCost =
-            newReal > 0 ? (existingTotal + newTotal) / newReal : unitCost
+            newReal > 0
+              ? (existingTotal + noteItem.quantityReceived * unitCost) / newReal
+              : unitCost
 
           await tx.stock.update({
             where: { id: existingStock.id },
@@ -550,14 +675,13 @@ export class EntryNoteService {
           })
         }
 
-        // 2b. Crear Movement
-        const movementNumber =
-          await MovementNumberGenerator.generateMovementNumber(tx, 'MOV')
+        // Create movement
+        const movementNumber = MovementNumberGenerator.generate('MOV')
 
         await tx.movement.create({
           data: {
             movementNumber,
-            type: movementType as any,
+            type: movementType as never,
             itemId: noteItem.itemId,
             warehouseToId: entryNote.warehouseId,
             quantity: noteItem.quantityReceived,
@@ -565,14 +689,15 @@ export class EntryNoteService {
             totalCost: noteItem.quantityReceived * unitCost,
             reference: entryNote.entryNoteNumber,
             entryNoteId: entryNote.id,
-            purchaseOrderId: entryNote.purchaseOrderId || undefined,
-            notes: `Nota de entrada ${entryNote.entryNoteNumber} completada — ${noteItem.item?.name || noteItem.itemId}`,
-            createdBy: userId || null,
+            ...(entryNote.purchaseOrderId
+              ? { purchaseOrderId: entryNote.purchaseOrderId }
+              : {}),
+            notes: `Nota de entrada ${entryNote.entryNoteNumber} — ${noteItem.item?.name ?? noteItem.itemId}`,
+            createdBy: userId ?? null,
           },
         })
       }
 
-      // 3. Retornar nota actualizada
       return tx.entryNote.findUnique({
         where: { id },
         include: ENTRY_NOTE_INCLUDE,
@@ -581,116 +706,53 @@ export class EntryNoteService {
 
     if (!result) throw new Error('Error al completar la nota de entrada')
 
-    logger.info('Nota de entrada completada con stock actualizado', {
+    logger.info('Nota de entrada completada', {
       entryNoteId: id,
       entryNoteNumber: entryNote.entryNoteNumber,
       itemsProcessed: entryNote.items.length,
+      empresaId,
+      userId,
     })
 
-    return this.enrichEntryNote(result) as unknown as IEntryNoteWithRelations
+    return result as unknown as IEntryNoteWithRelations
   }
 
   /**
-   * Cancelar nota de entrada (PENDING|IN_PROGRESS → CANCELLED)
+   * Cancelar nota de entrada (PENDING | IN_PROGRESS → CANCELLED).
+   * @param empresaId - REQUIRED: tenant safety
    */
   async cancelEntryNote(
     id: string,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
-    const entryNote = await prisma.entryNote.findUnique({
-      where: { id },
+    // TENANT-SAFE: verify via warehouse
+    const entryNote = await db.entryNote.findFirst({
+      where: { id, warehouse: { empresaId } },
     })
 
     if (!entryNote) {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    this.validateStatusTransition(
-      entryNote.status as EntryNoteStatus,
-      'CANCELLED'
-    )
+    validateStatusTransition(entryNote.status as EntryNoteStatus, 'CANCELLED')
 
-    const updated = await prisma.entryNote.update({
+    const updated = await db.entryNote.update({
       where: { id },
-      data: {
-        status: 'CANCELLED',
-      },
+      data: { status: 'CANCELLED' },
       include: ENTRY_NOTE_INCLUDE,
     })
 
     logger.info('Nota de entrada cancelada', {
       entryNoteId: id,
       entryNoteNumber: updated.entryNoteNumber,
+      empresaId,
+      userId,
     })
 
-    return this.enrichEntryNote(updated) as unknown as IEntryNoteWithRelations
-  }
-
-  /**
-   * Validar transiciones de estado
-   */
-  private validateStatusTransition(
-    currentStatus: EntryNoteStatus,
-    newStatus: EntryNoteStatus
-  ): void {
-    const validTransitions: Record<EntryNoteStatus, EntryNoteStatus[]> = {
-      PENDING: ['IN_PROGRESS', 'CANCELLED'],
-      IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
-      COMPLETED: [],
-      CANCELLED: [],
-    }
-
-    const allowed = validTransitions[currentStatus]
-    if (!allowed || !allowed.includes(newStatus)) {
-      throw new BadRequestError(
-        INVENTORY_MESSAGES.entryNote.invalidStatusTransition
-          .replace('{{from}}', currentStatus)
-          .replace('{{to}}', newStatus)
-      )
-    }
-  }
-
-  /**
-   * Enriquecer nota de entrada con nombres de usuario
-   */
-  private async enrichEntryNote(entryNote: any): Promise<any> {
-    let receivedByName: string | null = null
-    if (entryNote.receivedBy) {
-      const user = await prisma.user.findUnique({
-        where: { id: entryNote.receivedBy },
-        select: { nombre: true, correo: true },
-      })
-      if (user) {
-        receivedByName = user.nombre || user.correo || entryNote.receivedBy
-      }
-    }
-
-    return { ...entryNote, receivedByName }
-  }
-
-  /**
-   * Mapear item de prisma a interface
-   */
-  private mapEntryNoteItem(item: any): IEntryNoteItem {
-    return {
-      id: item.id,
-      entryNoteId: item.entryNoteId,
-      itemId: item.itemId,
-      quantityReceived: item.quantityReceived,
-      unitCost:
-        typeof item.unitCost === 'number'
-          ? item.unitCost
-          : parseFloat(String(item.unitCost)),
-      storedToLocation: item.storedToLocation,
-      batchId: item.batchId,
-      serialNumberId: item.serialNumberId,
-      batchNumber: item.batchNumber,
-      expiryDate: item.expiryDate,
-      notes: item.notes,
-      createdAt: item.createdAt,
-      item: item.item,
-      batch: item.batch,
-      serialNumber: item.serialNumber,
-    }
+    return updated as unknown as IEntryNoteWithRelations
   }
 }
+
+export default new EntryNoteService()

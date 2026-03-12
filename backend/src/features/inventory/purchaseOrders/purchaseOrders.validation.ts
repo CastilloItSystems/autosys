@@ -1,7 +1,7 @@
 // backend/src/features/inventory/purchaseOrders/purchaseOrders.validation.ts
 
 import Joi from 'joi'
-import { PurchaseOrderStatus } from './purchaseOrders.interface'
+import { PurchaseOrderStatus } from './purchaseOrders.interface.js'
 
 export const createPurchaseOrderSchema = Joi.object({
   supplierId: Joi.string().uuid({ version: 'uuidv4' }).required().messages({

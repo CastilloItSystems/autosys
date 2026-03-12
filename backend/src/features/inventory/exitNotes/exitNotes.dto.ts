@@ -1,18 +1,12 @@
-/**
- * Exit Notes Module DTOs
- * Data Transfer Objects for API requests and responses
- */
+// backend/src/features/inventory/exitNotes/exitNotes.dto.ts
 
 import {
   ExitNoteStatus,
   ExitNoteType,
   IExitNoteItem,
   IExitNoteResponse,
-} from './exitNotes.interface'
+} from './exitNotes.interface.js'
 
-/**
- * Create Exit Note Item DTO
- */
 export class CreateExitNoteItemDTO {
   itemId: string
   quantity: number
@@ -21,20 +15,18 @@ export class CreateExitNoteItemDTO {
   serialNumberId?: string
   notes?: string
 
-  constructor(data: CreateExitNoteItemDTO) {
-    this.itemId = data.itemId
-    this.quantity = data.quantity
-    this.pickedFromLocation = data.pickedFromLocation
-    this.batchId = data.batchId
-    this.serialNumberId = data.serialNumberId
-    this.notes = data.notes
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.quantity = Number(data.quantity)
+    if (data.pickedFromLocation !== undefined)
+      this.pickedFromLocation = String(data.pickedFromLocation)
+    if (data.batchId !== undefined) this.batchId = String(data.batchId)
+    if (data.serialNumberId !== undefined)
+      this.serialNumberId = String(data.serialNumberId)
+    if (data.notes !== undefined) this.notes = String(data.notes)
   }
 }
 
-/**
- * Create Exit Note DTO
- * Used to create new exit notes of any type
- */
 export class CreateExitNoteDTO {
   type: ExitNoteType
   warehouseId: string
@@ -49,26 +41,32 @@ export class CreateExitNoteDTO {
   notes?: string
   authorizedBy?: string
 
-  constructor(data: CreateExitNoteDTO) {
-    this.type = data.type
-    this.warehouseId = data.warehouseId
-    this.preInvoiceId = data.preInvoiceId
-    this.recipientName = data.recipientName
-    this.recipientId = data.recipientId
-    this.recipientPhone = data.recipientPhone
-    this.reason = data.reason
-    this.reference = data.reference
-    this.expectedReturnDate = data.expectedReturnDate
-    this.items = data.items || []
-    this.notes = data.notes
-    this.authorizedBy = data.authorizedBy
+  constructor(data: Record<string, unknown>) {
+    this.type = data.type as ExitNoteType
+    this.warehouseId = String(data.warehouseId)
+    if (data.preInvoiceId !== undefined)
+      this.preInvoiceId = String(data.preInvoiceId)
+    if (data.recipientName !== undefined)
+      this.recipientName = String(data.recipientName)
+    if (data.recipientId !== undefined)
+      this.recipientId = String(data.recipientId)
+    if (data.recipientPhone !== undefined)
+      this.recipientPhone = String(data.recipientPhone)
+    if (data.reason !== undefined) this.reason = String(data.reason)
+    if (data.reference !== undefined) this.reference = String(data.reference)
+    if (data.expectedReturnDate !== undefined)
+      this.expectedReturnDate = new Date(data.expectedReturnDate as string)
+    if (data.notes !== undefined) this.notes = String(data.notes)
+    if (data.authorizedBy !== undefined)
+      this.authorizedBy = String(data.authorizedBy)
+    this.items = Array.isArray(data.items)
+      ? (data.items as Record<string, unknown>[]).map(
+          (i) => new CreateExitNoteItemDTO(i)
+        )
+      : []
   }
 }
 
-/**
- * Update Exit Note DTO
- * For modifying exit notes in PENDING or IN_PROGRESS status
- */
 export class UpdateExitNoteDTO {
   recipientName?: string
   recipientId?: string
@@ -78,69 +76,21 @@ export class UpdateExitNoteDTO {
   notes?: string
   expectedReturnDate?: Date
 
-  constructor(data: UpdateExitNoteDTO) {
-    this.recipientName = data.recipientName
-    this.recipientId = data.recipientId
-    this.recipientPhone = data.recipientPhone
-    this.reason = data.reason
-    this.reference = data.reference
-    this.notes = data.notes
-    this.expectedReturnDate = data.expectedReturnDate
+  constructor(data: Record<string, unknown>) {
+    if (data.recipientName !== undefined)
+      this.recipientName = String(data.recipientName)
+    if (data.recipientId !== undefined)
+      this.recipientId = String(data.recipientId)
+    if (data.recipientPhone !== undefined)
+      this.recipientPhone = String(data.recipientPhone)
+    if (data.reason !== undefined) this.reason = String(data.reason)
+    if (data.reference !== undefined) this.reference = String(data.reference)
+    if (data.notes !== undefined) this.notes = String(data.notes)
+    if (data.expectedReturnDate !== undefined)
+      this.expectedReturnDate = new Date(data.expectedReturnDate as string)
   }
 }
 
-/**
- * Mark As Ready DTO
- * Transition from IN_PROGRESS to READY
- */
-export class MarkAsReadyDTO {
-  preparedBy: string
-  preparedAt?: Date
-
-  constructor(data: MarkAsReadyDTO) {
-    this.preparedBy = data.preparedBy
-    this.preparedAt = data.preparedAt || new Date()
-  }
-}
-
-/**
- * Deliver Exit Note DTO
- * Complete delivery and mark as DELIVERED
- */
-export class DeliverExitNoteDTO {
-  deliveredBy: string
-  deliveredAt?: Date
-  reference?: string
-
-  constructor(data: DeliverExitNoteDTO) {
-    this.deliveredBy = data.deliveredBy
-    this.deliveredAt = data.deliveredAt || new Date()
-    this.reference = data.reference
-  }
-}
-
-/**
- * Return Loan Item DTO
- * For LOAN_RETURN exits - mark items as returned
- */
-export class ReturnLoanItemDTO {
-  exitNoteNumber: string
-  returnedAt?: Date
-  returnedBy: string
-  notes?: string
-
-  constructor(data: ReturnLoanItemDTO) {
-    this.exitNoteNumber = data.exitNoteNumber
-    this.returnedAt = data.returnedAt || new Date()
-    this.returnedBy = data.returnedBy
-    this.notes = data.notes
-  }
-}
-
-/**
- * Exit Note Response DTO
- * Standard response format for API endpoints
- */
 export class ExitNoteResponseDTO implements IExitNoteResponse {
   id: string
   exitNoteNumber: string
@@ -172,47 +122,27 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
     this.type = data.type
     this.status = data.status
     this.warehouseId = data.warehouseId
-    this.preInvoiceId = data.preInvoiceId
-    this.recipientName = data.recipientName
-    this.recipientId = data.recipientId
-    this.recipientPhone = data.recipientPhone
-    this.reason = data.reason
-    this.reference = data.reference
-    this.expectedReturnDate = data.expectedReturnDate
-    this.returnedAt = data.returnedAt
-    this.items = data.items
-    this.notes = data.notes
-    this.reservedAt = data.reservedAt
-    this.preparedAt = data.preparedAt
-    this.deliveredAt = data.deliveredAt
-    this.preparedBy = data.preparedBy
-    this.deliveredBy = data.deliveredBy
-    this.authorizedBy = data.authorizedBy
+    this.items = data.items ?? []
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
-  }
-}
-
-/**
- * Exit Note List Response DTO
- */
-export class ExitNoteListResponseDTO {
-  data: ExitNoteResponseDTO[]
-  total: number
-  page: number
-  limit: number
-  hasMore: boolean
-
-  constructor(
-    data: ExitNoteResponseDTO[],
-    total: number,
-    page: number,
-    limit: number
-  ) {
-    this.data = data
-    this.total = total
-    this.page = page
-    this.limit = limit
-    this.hasMore = page * limit < total
+    // Optional fields — only assign if present to satisfy exactOptionalPropertyTypes
+    if (data.preInvoiceId !== undefined) this.preInvoiceId = data.preInvoiceId
+    if (data.recipientName !== undefined)
+      this.recipientName = data.recipientName
+    if (data.recipientId !== undefined) this.recipientId = data.recipientId
+    if (data.recipientPhone !== undefined)
+      this.recipientPhone = data.recipientPhone
+    if (data.reason !== undefined) this.reason = data.reason
+    if (data.reference !== undefined) this.reference = data.reference
+    if (data.expectedReturnDate !== undefined)
+      this.expectedReturnDate = data.expectedReturnDate
+    if (data.returnedAt !== undefined) this.returnedAt = data.returnedAt
+    if (data.notes !== undefined) this.notes = data.notes
+    if (data.reservedAt !== undefined) this.reservedAt = data.reservedAt
+    if (data.preparedAt !== undefined) this.preparedAt = data.preparedAt
+    if (data.deliveredAt !== undefined) this.deliveredAt = data.deliveredAt
+    if (data.preparedBy !== undefined) this.preparedBy = data.preparedBy
+    if (data.deliveredBy !== undefined) this.deliveredBy = data.deliveredBy
+    if (data.authorizedBy !== undefined) this.authorizedBy = data.authorizedBy
   }
 }

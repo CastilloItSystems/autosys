@@ -10,6 +10,7 @@ export interface ISupplier {
   address?: string | null
   taxId?: string | null
   isActive: boolean
+  empresaId: string
   createdAt: Date
   updatedAt: Date
 }
@@ -17,22 +18,22 @@ export interface ISupplier {
 export interface ICreateSupplierInput {
   code: string
   name: string
-  contactName?: string | undefined
-  email?: string | undefined
-  phone?: string | undefined
-  address?: string | undefined
-  taxId?: string | undefined
+  contactName?: string
+  email?: string
+  phone?: string
+  address?: string
+  taxId?: string
 }
 
 export interface IUpdateSupplierInput {
-  code?: string | undefined
-  name?: string | undefined
-  contactName?: string | null | undefined
-  email?: string | null | undefined
-  phone?: string | null | undefined
-  address?: string | null | undefined
-  taxId?: string | null | undefined
-  isActive?: boolean | undefined
+  code?: string
+  name?: string
+  contactName?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  taxId?: string | null
+  isActive?: boolean
 }
 
 export interface ISupplierFilters {

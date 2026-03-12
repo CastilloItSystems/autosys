@@ -4,7 +4,7 @@
  */
 
 import Joi from 'joi'
-import { ExitNoteType } from './exitNotes.interface'
+import { ExitNoteType } from './exitNotes.interface.js'
 
 /**
  * Base item schema for all exit notes

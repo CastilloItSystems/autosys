@@ -2,12 +2,13 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
-import app from '../../../app'
-import { getTestAuthToken } from '../../../shared/utils/test.utils'
-import prisma from '../../../services/prisma.service'
+import app from '../../../app.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
+import prisma from '../../../services/prisma.service.js'
 
 describe('Items API Tests', () => {
   let authToken: string
+  let empresaId: string
   let brandId: string
   let categoryId: string
   let unitId: string
@@ -17,66 +18,72 @@ describe('Items API Tests', () => {
   const testBarcode = 'TEST-BC-001'
 
   beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
     // Limpiar datos de prueba anteriores
-    try {
-      await prisma.item.deleteMany({
-        where: { sku: { startsWith: 'TEST' } },
+    await prisma.item
+      .deleteMany({
+        where: { empresaId, sku: { startsWith: 'TEST' } },
       })
-      await prisma.item.deleteMany({
-        where: { sku: { startsWith: 'BULK' } },
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({
+        where: { empresaId, sku: { startsWith: 'BULK' } },
       })
-      await prisma.item.deleteMany({
-        where: { sku: { startsWith: 'HARD' } },
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({
+        where: { empresaId, sku: { startsWith: 'HARD' } },
       })
-      await prisma.item.deleteMany({
-        where: { sku: { startsWith: 'UNIQUE' } },
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({
+        where: { empresaId, sku: { startsWith: 'UNIQUE' } },
       })
-    } catch (e) {}
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({
+        where: { empresaId, sku: 'DUPLICATED-SKU-001' },
+      })
+      .catch(() => {})
 
-    try {
-      await prisma.brand.deleteMany({
-        where: { code: 'TESTBRAND' },
-      })
-    } catch (e) {}
+    await prisma.brand
+      .deleteMany({ where: { empresaId, code: 'TESTBRAND' } })
+      .catch(() => {})
+    await prisma.category
+      .deleteMany({ where: { empresaId, code: 'TESTCAT' } })
+      .catch(() => {})
+    await prisma.unit
+      .deleteMany({ where: { empresaId, code: 'TESTUNIT' } })
+      .catch(() => {})
 
-    try {
-      await prisma.category.deleteMany({
-        where: { code: 'TESTCAT' },
-      })
-    } catch (e) {}
-
-    try {
-      await prisma.unit.deleteMany({
-        where: { code: 'TESTUNIT' },
-      })
-    } catch (e) {}
-
-    authToken = await getTestAuthToken()
-
-    // Crear marca de prueba
-    const brandRes = await prisma.brand.create({
+    // Crear datos de prueba con empresaId
+    const brand = await prisma.brand.create({
       data: {
+        empresaId,
         code: 'TESTBRAND',
         name: 'Test Brand',
         type: 'PART',
         isActive: true,
       },
     })
-    brandId = brandRes.id
+    brandId = brand.id
 
-    // Crear categoría de prueba
-    const categoryRes = await prisma.category.create({
+    const category = await prisma.category.create({
       data: {
+        empresaId,
         code: 'TESTCAT',
         name: 'Test Category',
         isActive: true,
       },
     })
-    categoryId = categoryRes.id
+    categoryId = category.id
 
-    // Crear unidad de prueba
-    const unitRes = await prisma.unit.create({
+    const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: 'TESTUNIT',
         name: 'Test Unit',
         abbreviation: 'TU',
@@ -84,11 +91,12 @@ describe('Items API Tests', () => {
         isActive: true,
       },
     })
-    unitId = unitRes.id
+    unitId = unit.id
 
-    // Crear item de prueba directamente en DB
-    const itemRes = await prisma.item.create({
+    // Item base en DB para tests de lectura
+    const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: testSKU,
         barcode: testBarcode,
         name: 'Test Item',
@@ -101,49 +109,54 @@ describe('Items API Tests', () => {
         minStock: 10,
         maxStock: 100,
         reorderPoint: 20,
-        location: 'A-001',
         isActive: true,
         isSerialized: false,
         hasBatch: false,
         hasExpiry: false,
         allowNegativeStock: false,
+        tags: [],
       },
     })
-    itemId = itemRes.id
-  }, 20000) // Timeout for DB operations
+    itemId = item.id
+  }, 30000)
 
   afterAll(async () => {
-    // Limpiar datos de prueba
-    try {
-      // Items first (FK dependency)
-      await prisma.item
-        .deleteMany({
-          where: { sku: { startsWith: 'TEST-SKU' } },
-        })
-        .catch(() => {})
-
-      // Then units, categories, brands
-      if (unitId) {
-        await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
-      }
-      if (categoryId) {
-        await prisma.category
-          .delete({ where: { id: categoryId } })
-          .catch(() => {})
-      }
-      if (brandId) {
-        await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
-      }
-    } catch (error) {
-      console.log('Error en afterAll cleanup:', error)
-    }
+    await prisma.item
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST' } } })
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'BULK' } } })
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'HARD' } } })
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'UNIQUE' } } })
+      .catch(() => {})
+    await prisma.item
+      .deleteMany({ where: { empresaId, sku: 'DUPLICATED-SKU-001' } })
+      .catch(() => {})
+    await prisma.brand
+      .deleteMany({ where: { empresaId, code: 'TESTBRAND' } })
+      .catch(() => {})
+    await prisma.category
+      .deleteMany({ where: { empresaId, code: 'TESTCAT' } })
+      .catch(() => {})
+    await prisma.unit
+      .deleteMany({ where: { empresaId, code: 'TESTUNIT' } })
+      .catch(() => {})
   })
+
+  // ---------------------------------------------------------------------------
+  // POST /
+  // ---------------------------------------------------------------------------
 
   describe('POST /api/inventory/items', () => {
     test('Debe crear un artículo exitosamente', async () => {
       const res = await request(app)
         .post('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           sku: createTestSKU,
           barcode: 'UNIQUE-CREATE-BC',
@@ -157,7 +170,6 @@ describe('Items API Tests', () => {
           minStock: 5,
           maxStock: 100,
           reorderPoint: 15,
-          location: 'A1-B1-C1',
           isActive: true,
           isSerialized: false,
           hasBatch: false,
@@ -172,13 +184,14 @@ describe('Items API Tests', () => {
       itemId = res.body.data.id
     })
 
-    test('Debe fallar al crear artículo con SKU duplicado', async () => {
+    test('Debe fallar con SKU duplicado', async () => {
       const res = await request(app)
         .post('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           sku: testSKU,
-          barcode: 'UNIQUE-BC',
+          barcode: 'UNIQUE-BC-002',
           name: 'Another Item',
           brandId,
           categoryId,
@@ -197,6 +210,7 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           sku: 'UNIQUE-SKU-002',
           name: 'Test Item',
@@ -217,6 +231,7 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           sku: '',
           name: '',
@@ -232,11 +247,16 @@ describe('Items API Tests', () => {
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // GET /
+  // ---------------------------------------------------------------------------
+
   describe('GET /api/inventory/items', () => {
     test('Debe obtener lista de artículos', async () => {
       const res = await request(app)
         .get('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -249,6 +269,7 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ brandId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -259,6 +280,7 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ categoryId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -266,166 +288,61 @@ describe('Items API Tests', () => {
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // GET /active
+  // ---------------------------------------------------------------------------
+
   describe('GET /api/inventory/items/active', () => {
     test('Debe obtener solo artículos activos', async () => {
       const res = await request(app)
         .get('/api/inventory/items/active')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // GET /search
+  // ---------------------------------------------------------------------------
+
   describe('GET /api/inventory/items/search', () => {
-    test('Debe buscar artículos por query', async () => {
+    test('Debe buscar artículos por término', async () => {
       const res = await request(app)
         .get('/api/inventory/items/search')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ term: 'Test' })
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
     })
-  })
 
-  describe('GET /api/inventory/items/:id', () => {
-    test('Debe obtener un artículo por ID', async () => {
+    test('Debe fallar sin término de búsqueda', async () => {
       const res = await request(app)
-        .get(`/api/inventory/items/${itemId}`)
+        .get('/api/inventory/items/search')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
-      expect(res.body.data.id).toBe(itemId)
-      expect(res.body.data.sku).toBe(createTestSKU)
-    })
-
-    test('Debe fallar con ID inválido', async () => {
-      const res = await request(app)
-        .get('/api/inventory/items/invalid-id')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(422)
-    })
-
-    test('Debe fallar con artículo no encontrado', async () => {
-      const res = await request(app)
-        .get('/api/inventory/items/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(404)
-      expect(res.body.success).toBe(false)
+      expect(res.status).toBe(400)
     })
   })
 
-  describe('GET /api/inventory/items/sku/:sku', () => {
-    test('Debe obtener artículo por SKU', async () => {
-      const res = await request(app)
-        .get(`/api/inventory/items/sku/${testSKU}`)
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
-      expect(res.body.data.sku).toBe(testSKU)
-    })
-
-    test('Debe fallar con SKU no encontrado', async () => {
-      const res = await request(app)
-        .get('/api/inventory/items/sku/NONEXISTENT-SKU')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(404)
-      expect(res.body.success).toBe(false)
-    })
-  })
-
-  describe('GET /api/inventory/items/barcode/:barcode', () => {
-    test('Debe obtener artículo por código de barras', async () => {
-      const res = await request(app)
-        .get(`/api/inventory/items/barcode/${testBarcode}`)
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
-      expect(res.body.data.barcode).toBe(testBarcode)
-    })
-
-    test('Debe fallar con código de barras no encontrado', async () => {
-      const res = await request(app)
-        .get('/api/inventory/items/barcode/NONEXISTENT-BC')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(404)
-      expect(res.body.success).toBe(false)
-    })
-  })
-
-  describe('PUT /api/inventory/items/:id', () => {
-    test('Debe actualizar nombre del artículo', async () => {
-      if (!itemId) {
-        expect(itemId).toBeDefined()
-        return
-      }
-
-      const res = await request(app)
-        .put(`/api/inventory/items/${itemId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          name: 'Updated Item Name',
-          description: 'Updated description',
-        })
-
-      // Si el update funciona, debe retornar 200
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true)
-      }
-    })
-  })
-
-  describe('DELETE /api/inventory/items/:id', () => {
-    test('Debe fallar al eliminar artículo no encontrado', async () => {
-      const res = await request(app)
-        .delete('/api/inventory/items/00000000-0000-0000-0000-000000000000')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(404)
-      expect(res.body.success).toBe(false)
-    })
-  })
-
-  describe('GET /api/inventory/items/:id/stats', () => {
-    test('Debe obtener estadísticas del artículo', async () => {
-      const res = await request(app)
-        .get(`/api/inventory/items/${itemId}/stats`)
-        .set('Authorization', `Bearer ${authToken}`)
-
-      // Stats puede no estar implementado, acepta tanto 200 como 404
-      expect([200, 404]).toContain(res.status)
-    })
-  })
-
-  describe('GET /api/inventory/items/:id/history', () => {
-    test('Debe obtener historial del artículo', async () => {
-      const res = await request(app)
-        .get(`/api/inventory/items/${itemId}/history`)
-        .set('Authorization', `Bearer ${authToken}`)
-
-      // History puede no estar implementado, acepta tanto 200 como 404
-      expect([200, 404]).toContain(res.status)
-    })
-  })
+  // ---------------------------------------------------------------------------
+  // GET /low-stock, /out-of-stock
+  // ---------------------------------------------------------------------------
 
   describe('GET /api/inventory/items/low-stock', () => {
     test('Debe obtener artículos con stock bajo', async () => {
       const res = await request(app)
         .get('/api/inventory/items/low-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([200, 404, 400]).toContain(res.status)
-      if (res.status === 200) {
-        expect(Array.isArray(res.body.data)).toBe(true)
-      }
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
 
@@ -434,32 +351,146 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/items/out-of-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([200, 404, 400]).toContain(res.status)
-      if (res.status === 200) {
-        expect(Array.isArray(res.body.data)).toBe(true)
-      }
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // GET /category/:categoryId
+  // ---------------------------------------------------------------------------
 
   describe('GET /api/inventory/items/category/:categoryId', () => {
     test('Debe obtener artículos de una categoría', async () => {
       const res = await request(app)
         .get(`/api/inventory/items/category/${categoryId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
     })
 
-    test('Debe fallar con categoría no encontrada', async () => {
+    test('Debe fallar con categoría inexistente', async () => {
       const res = await request(app)
         .get(
           '/api/inventory/items/category/00000000-0000-0000-0000-000000000000'
         )
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([404, 200]).toContain(res.status)
+      expect(res.status).toBe(404)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // GET /sku/:sku, /barcode/:barcode
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/items/sku/:sku', () => {
+    test('Debe obtener artículo por SKU', async () => {
+      const res = await request(app)
+        .get(`/api/inventory/items/sku/${testSKU}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.sku).toBe(testSKU)
+    })
+
+    test('Debe retornar 404 con SKU inexistente', async () => {
+      const res = await request(app)
+        .get('/api/inventory/items/sku/NONEXISTENT-SKU')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(404)
+    })
+  })
+
+  describe('GET /api/inventory/items/barcode/:barcode', () => {
+    test('Debe obtener artículo por código de barras', async () => {
+      const res = await request(app)
+        .get(`/api/inventory/items/barcode/${testBarcode}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.barcode).toBe(testBarcode)
+    })
+
+    test('Debe retornar 404 con barcode inexistente', async () => {
+      const res = await request(app)
+        .get('/api/inventory/items/barcode/NONEXISTENT-BC')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(404)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // GET /:id
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/items/:id', () => {
+    test('Debe obtener artículo por ID', async () => {
+      const res = await request(app)
+        .get(`/api/inventory/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.id).toBe(itemId)
+    })
+
+    test('Debe retornar 422 con ID inválido', async () => {
+      const res = await request(app)
+        .get('/api/inventory/items/invalid-id')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(422)
+    })
+
+    test('Debe retornar 404 con artículo inexistente', async () => {
+      const res = await request(app)
+        .get('/api/inventory/items/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(404)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // GET /:id/stats, /:id/history, /:id/related
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/items/:id/stats', () => {
+    test('Debe obtener estadísticas del artículo', async () => {
+      const res = await request(app)
+        .get(`/api/inventory/items/${itemId}/stats`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.stock).toBeDefined()
+      expect(res.body.data.pricing).toBeDefined()
+    })
+  })
+
+  describe('GET /api/inventory/items/:id/history', () => {
+    test('Debe obtener historial del artículo', async () => {
+      const res = await request(app)
+        .get(`/api/inventory/items/${itemId}/history`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
 
@@ -468,46 +499,101 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/items/${itemId}/related`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([200, 404]).toContain(res.status)
-      if (res.status === 200) {
-        expect(Array.isArray(res.body.data)).toBe(true)
-      }
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // PUT /:id
+  // ---------------------------------------------------------------------------
+
+  describe('PUT /api/inventory/items/:id', () => {
+    test('Debe actualizar nombre del artículo', async () => {
+      const res = await request(app)
+        .put(`/api/inventory/items/${itemId}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({ name: 'Updated Item Name', description: 'Updated description' })
+
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      expect(res.body.data.name).toBe('Updated Item Name')
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // PUT /:id/pricing
+  // ---------------------------------------------------------------------------
+
+  describe('PUT /api/inventory/items/:id/pricing', () => {
+    test('Debe actualizar precios del artículo', async () => {
+      const res = await request(app)
+        .put(`/api/inventory/items/${itemId}/pricing`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({ costPrice: 120, salePrice: 180, wholesalePrice: 160 })
+
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // PATCH /:id/toggle
+  // ---------------------------------------------------------------------------
+
+  describe('PATCH /api/inventory/items/:id/toggle', () => {
+    test('Debe cambiar estado activo/inactivo', async () => {
+      const res = await request(app)
+        .patch(`/api/inventory/items/${itemId}/toggle`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
+      expect(res.body.data.isActive).toBeDefined()
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // POST /generate-sku, /check-availability, /:id/duplicate
+  // ---------------------------------------------------------------------------
 
   describe('POST /api/inventory/items/generate-sku', () => {
     test('Debe generar SKU automático', async () => {
       const res = await request(app)
         .post('/api/inventory/items/generate-sku')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          brandId,
-          categoryId,
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ categoryCode: 'CAT', brandCode: 'BRD' })
 
-      expect([200, 201, 400]).toContain(res.status)
-      if (res.status === 200 || res.status === 201) {
-        expect(res.body.data?.sku).toBeDefined()
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.sku).toBeDefined()
+      expect(typeof res.body.data.sku).toBe('string')
     })
   })
 
   describe('POST /api/inventory/items/check-availability', () => {
-    test('Debe verificar disponibilidad de artículo', async () => {
+    test('Debe verificar disponibilidad', async () => {
       const res = await request(app)
         .post('/api/inventory/items/check-availability')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           items: [
             {
-              sku: testSKU,
+              itemId,
               quantity: 1,
+              warehouseId: '00000000-0000-0000-0000-000000000001',
             },
           ],
         })
 
-      expect([200, 400, 404, 422]).toContain(res.status)
+      expect(res.status).toBe(200)
+      expect(res.body.data.available).toBeDefined()
+      expect(Array.isArray(res.body.data.details)).toBe(true)
     })
   })
 
@@ -516,35 +602,36 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/items/${itemId}/duplicate`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          sku: 'DUPLICATED-SKU-001',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ newSku: 'DUPLICATED-SKU-001' })
 
-      expect([200, 201, 400, 404]).toContain(res.status)
-      if (res.status === 200 || res.status === 201) {
-        expect(res.body.data?.sku).toBe('DUPLICATED-SKU-001')
-      }
+      expect(res.status).toBe(201)
+      expect(res.body.data.sku).toBe('DUPLICATED-SKU-001')
     })
 
-    test('Debe fallar duplicar artículo no encontrado', async () => {
+    test('Debe fallar duplicar artículo inexistente', async () => {
       const res = await request(app)
         .post(
           '/api/inventory/items/00000000-0000-0000-0000-000000000000/duplicate'
         )
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          sku: 'UNIQUE-DUP-SKU',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ newSku: 'UNIQUE-DUP-SKU' })
 
-      expect([404, 400]).toContain(res.status)
+      expect(res.status).toBe(404)
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // POST /bulk, PUT /bulk-update
+  // ---------------------------------------------------------------------------
 
   describe('POST /api/inventory/items/bulk', () => {
     test('Debe crear múltiples artículos', async () => {
       const res = await request(app)
         .post('/api/inventory/items/bulk')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           items: [
             {
@@ -572,25 +659,9 @@ describe('Items API Tests', () => {
           ],
         })
 
-      expect([200, 201, 400]).toContain(res.status)
-    })
-  })
-
-  describe('PUT /api/inventory/items/:id/pricing', () => {
-    test('Debe actualizar precios del artículo', async () => {
-      const res = await request(app)
-        .put(`/api/inventory/items/${itemId}/pricing`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          costPrice: 120,
-          salePrice: 180,
-          wholesalePrice: 160,
-        })
-
-      expect([200, 400, 404]).toContain(res.status)
-      if (res.status === 200) {
-        expect(res.body.data?.salePrice).toBe(180)
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.success).toBeDefined()
+      expect(Array.isArray(res.body.data.success)).toBe(true)
     })
   })
 
@@ -599,36 +670,35 @@ describe('Items API Tests', () => {
       const res = await request(app)
         .put('/api/inventory/items/bulk-update')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          itemIds: [itemId],
-          updates: {
-            isActive: false,
-          },
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ itemIds: [itemId], updates: { isActive: true } })
 
-      expect([200, 201, 400, 422]).toContain(res.status)
+      expect(res.status).toBe(200)
+      expect(res.body.data.success).toBeDefined()
     })
   })
 
-  describe('PATCH /api/inventory/items/:id/toggle', () => {
-    test('Debe cambiar estado activo/inactivo', async () => {
-      const res = await request(app)
-        .patch(`/api/inventory/items/${itemId}/toggle`)
-        .set('Authorization', `Bearer ${authToken}`)
+  // ---------------------------------------------------------------------------
+  // DELETE /:id, /:id/hard
+  // ---------------------------------------------------------------------------
 
-      expect([200, 400, 404]).toContain(res.status)
-      if (res.status === 200) {
-        expect(res.body.data?.isActive).toBeDefined()
-      }
+  describe('DELETE /api/inventory/items/:id', () => {
+    test('Debe retornar 404 con artículo inexistente', async () => {
+      const res = await request(app)
+        .delete('/api/inventory/items/00000000-0000-0000-0000-000000000000')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(404)
     })
   })
 
   describe('DELETE /api/inventory/items/:id/hard', () => {
-    test('Debe eliminar permanentemente un artículo', async () => {
-      // Primero crear un item para borrar
+    test('Debe eliminar permanentemente artículo sin stock ni movimientos', async () => {
       const createRes = await request(app)
         .post('/api/inventory/items')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           sku: 'HARD-DELETE-SKU',
           name: 'Item to Hard Delete',
@@ -641,27 +711,25 @@ describe('Items API Tests', () => {
           reorderPoint: 20,
         })
 
-      if (createRes.status !== 201 || !createRes.body.data) {
-        return
-      }
-
-      const itemToDelete = createRes.body.data.id
+      expect(createRes.status).toBe(201)
 
       const res = await request(app)
-        .delete(`/api/inventory/items/${itemToDelete}/hard`)
+        .delete(`/api/inventory/items/${createRes.body.data.id}/hard`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([200, 400, 404]).toContain(res.status)
+      expect(res.status).toBe(200)
     })
 
-    test('Debe fallar al eliminar permanentemente artículo no encontrado', async () => {
+    test('Debe retornar 404 con artículo inexistente', async () => {
       const res = await request(app)
         .delete(
           '/api/inventory/items/00000000-0000-0000-0000-000000000000/hard'
         )
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([404, 400]).toContain(res.status)
+      expect(res.status).toBe(404)
     })
   })
 })

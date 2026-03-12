@@ -11,44 +11,43 @@ import {
   getUserPermissions,
   setUserPermissions,
 } from '../controllers/userPermissions.controller.js'
-import {
-  authenticateToken,
-  requireRole,
-} from '../middleware/auth.middleware.js'
+import { authenticate } from '../shared/middleware/authenticate.middleware.js'
+import { authorize } from '../shared/middleware/authorize.middleware.js'
+import { PERMISSIONS } from '../shared/constants/permissions.js'
 
 const router = Router()
 
 // Todas las rutas requieren autenticación
-router.use(authenticateToken)
+router.use(authenticate)
 
-// Rutas que requieren rol admin o superior
-router.get('/', requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']), getAllUsers)
-router.post('/', requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']), createUser)
-router.put('/:id', requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']), updateUser)
-router.delete('/:id', requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']), deleteUser)
+// Usuarios
+router.get('/', authorize(PERMISSIONS.USERS_VIEW), getAllUsers)
+router.post('/', authorize(PERMISSIONS.USERS_CREATE), createUser)
 
-// Obtener usuario por ID (cualquier usuario autenticado puede ver su propio perfil)
-router.get('/:id', getUserById)
-
-// Obtener logs de auditoría de un usuario
+// Rutas específicas ANTES de /:id genérica
+// Auditoría
 router.get(
   '/:id/audit-logs',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.AUDIT_VIEW),
   getAuditLogsForUser
 )
 
-// ── Permisos individuales por usuario ──────────────────────────────────────
-// GET  /users/:id/permissions  → Ver overrides + efectivos del usuario
-// PUT  /users/:id/permissions  → Reemplazar overrides del usuario
+// Overrides de permisos por usuario
 router.get(
   '/:id/permissions',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.USER_PERMISSIONS_VIEW),
   getUserPermissions
 )
+
 router.put(
   '/:id/permissions',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.USER_PERMISSIONS_UPDATE),
   setUserPermissions
 )
+
+// Ruta genérica /:id DESPUÉS de rutas específicas
+router.get('/:id', authorize(PERMISSIONS.USERS_VIEW), getUserById)
+router.put('/:id', authorize(PERMISSIONS.USERS_UPDATE), updateUser)
+router.delete('/:id', authorize(PERMISSIONS.USERS_DELETE), deleteUser)
 
 export default router

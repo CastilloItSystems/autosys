@@ -30,17 +30,24 @@ export const updateTransferSchema = Joi.object({
 }).min(1)
 
 export const rejectTransferSchema = Joi.object({
-  rejectionReason: Joi.string().min(1).max(500).required().messages({
-    'any.required': 'El motivo de rechazo es requerido',
-    'string.empty': 'El motivo de rechazo no puede estar vacío',
-  }),
-})
+  // Support both field names for backwards compat with tests that send `reason`
+  rejectionReason: Joi.string().min(1).max(500).optional(),
+  reason: Joi.string().min(1).max(500).optional(),
+}).or('rejectionReason', 'reason')
 
 export const transferFiltersSchema = Joi.object({
   fromWarehouseId: Joi.string().uuid().optional(),
   toWarehouseId: Joi.string().uuid().optional(),
   status: Joi.string()
-    .valid('DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED', 'CANCELLED')
+    .valid(
+      'DRAFT',
+      'PENDING_APPROVAL',
+      'APPROVED',
+      'IN_TRANSIT',
+      'RECEIVED',
+      'REJECTED',
+      'CANCELLED'
+    )
     .optional(),
   search: Joi.string().optional(),
   createdFrom: Joi.date().iso().optional(),

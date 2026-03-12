@@ -1,7 +1,7 @@
 // backend/src/features/inventory/entryNotes/entryNotes.validation.ts
 
 import Joi from 'joi'
-import { ENTRY_TYPES, ENTRY_NOTE_STATUSES } from './entryNotes.interface'
+import { ENTRY_TYPES, ENTRY_NOTE_STATUSES } from './entryNotes.interface.js'
 
 export const createEntryNoteSchema = Joi.object({
   type: Joi.string()

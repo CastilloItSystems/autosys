@@ -4,7 +4,7 @@ import {
   ITransfer,
   ITransferNoteInfo,
   TransferStatus,
-} from './transfers.interface'
+} from './transfers.interface.js'
 
 export class CreateTransferDTO {
   fromWarehouseId: string
@@ -15,10 +15,10 @@ export class CreateTransferDTO {
   constructor(data: any) {
     this.fromWarehouseId = data.fromWarehouseId
     this.toWarehouseId = data.toWarehouseId
-    this.items = (data.items || []).map(
+    this.items = (data.items ?? []).map(
       (item: any) => new CreateTransferItemDTO(item)
     )
-    this.notes = data.notes ?? null
+    if (data.notes !== undefined) this.notes = data.notes ?? null
   }
 }
 
@@ -31,8 +31,8 @@ export class CreateTransferItemDTO {
   constructor(data: any) {
     this.itemId = data.itemId
     this.quantity = data.quantity
-    this.unitCost = data.unitCost ?? null
-    this.notes = data.notes ?? null
+    if (data.unitCost !== undefined) this.unitCost = data.unitCost ?? null
+    if (data.notes !== undefined) this.notes = data.notes ?? null
   }
 }
 
@@ -65,6 +65,8 @@ export class TransferResponseDTO {
   rejectedBy?: string | null
   rejectedAt?: Date | null
   rejectionReason?: string | null
+  sentAt?: Date | null
+  receivedAt?: Date | null
   exitNoteId?: string | null
   entryNoteId?: string | null
   exitNote?: ITransferNoteInfo | null
@@ -97,6 +99,8 @@ export class TransferResponseDTO {
     this.rejectedBy = data.rejectedBy ?? null
     this.rejectedAt = data.rejectedAt ?? null
     this.rejectionReason = data.rejectionReason ?? null
+    this.sentAt = data.sentAt ?? null
+    this.receivedAt = data.receivedAt ?? null
     this.exitNoteId = data.exitNoteId ?? null
     this.entryNoteId = data.entryNoteId ?? null
     this.exitNote = data.exitNote ?? null
@@ -104,9 +108,10 @@ export class TransferResponseDTO {
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
-    if (data.items) this.items = data.items
-    if (data.fromWarehouse) this.fromWarehouse = data.fromWarehouse
-    if (data.toWarehouse) this.toWarehouse = data.toWarehouse
+    if (data.items !== undefined) this.items = data.items
+    if (data.fromWarehouse !== undefined)
+      this.fromWarehouse = data.fromWarehouse
+    if (data.toWarehouse !== undefined) this.toWarehouse = data.toWarehouse
   }
 }
 
@@ -117,6 +122,8 @@ export class TransferListResponseDTO {
   toWarehouse?: string
   status: TransferStatus
   quantity: number
+  sentAt?: Date | null
+  receivedAt?: Date | null
   exitNote?: ITransferNoteInfo | null
   entryNote?: ITransferNoteInfo | null
   createdAt: Date
@@ -128,6 +135,8 @@ export class TransferListResponseDTO {
     this.toWarehouse = data.toWarehouse?.name
     this.status = data.status
     this.quantity = data.quantity
+    this.sentAt = data.sentAt ?? null
+    this.receivedAt = data.receivedAt ?? null
     this.exitNote = data.exitNote ?? null
     this.entryNote = data.entryNote ?? null
     this.createdAt = data.createdAt

@@ -199,129 +199,105 @@
  *       404:
  *         description: Marca no encontrada
  */
+// backend/src/features/inventory/items/catalogs/brands/brands.routes.ts
 
 import { Router } from 'express'
-import { BrandController } from './brands.controller'
-import { authenticate } from '../../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../../../shared/middleware/validateRequest.middleware'
+import controller from './brands.controller.js'
+import { authorize } from '../../../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../../../shared/middleware/validateRequest.middleware.js'
 import {
   createBrandSchema,
   updateBrandSchema,
   brandIdSchema,
   getBrandsQuerySchema,
-} from './brands.validation'
-import { PERMISSIONS } from '../../../../../shared/constants/permissions'
+} from './brands.validation.js'
+import { PERMISSIONS } from '../../../../../shared/constants/permissions.js'
 
 const router = Router()
-const brandController = new BrandController()
 
-/**
- * Rutas públicas (o con autenticación básica)
- */
-
-// GET /api/inventory/catalogs/brands/active
-router.get('/active', authenticate, brandController.getActive)
-
-// GET /api/inventory/catalogs/brands/search
-router.get('/search', authenticate, brandController.search)
-
-// GET /api/inventory/catalogs/brands/grouped
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
+router.get(
+  '/active',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getActive
+)
+router.get('/search', authorize(PERMISSIONS.INVENTORY_VIEW), controller.search)
 router.get(
   '/grouped',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  brandController.getGrouped
+  controller.getGrouped
 )
 
-/**
- * Rutas protegidas - Requieren autenticación y permisos
- */
-
-// GET /api/inventory/catalogs/brands
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateQuery(getBrandsQuerySchema),
-  brandController.getAll
+  validateRequest(getBrandsQuerySchema, 'query'),
+  controller.getAll
 )
 
-// GET /api/inventory/catalogs/brands/:id
-router.get(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(brandIdSchema),
-  brandController.getById
-)
-
-// GET /api/inventory/catalogs/brands/:id/stats
-router.get(
-  '/:id/stats',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(brandIdSchema),
-  brandController.getStats
-)
-
-// POST /api/inventory/catalogs/brands
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createBrandSchema),
-  brandController.create
+  validateRequest(createBrandSchema, 'body'),
+  controller.create
 )
 
-// PUT /api/inventory/catalogs/brands/:id
+// ---------------------------------------------------------------------------
+// Rutas con :id (después de rutas específicas)
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(brandIdSchema, 'params'),
+  controller.getById
+)
+
+router.get(
+  '/:id/stats',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(brandIdSchema, 'params'),
+  controller.getStats
+)
+
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(brandIdSchema),
-  validateBody(updateBrandSchema),
-  brandController.update
+  validateRequest(brandIdSchema, 'params'),
+  validateRequest(updateBrandSchema, 'body'),
+  controller.update
 )
 
-// PATCH /api/inventory/catalogs/brands/:id/toggle
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(brandIdSchema),
-  brandController.toggleActive
+  validateRequest(brandIdSchema, 'params'),
+  controller.toggleActive
 )
 
-// PATCH /api/inventory/catalogs/brands/:id/reactivate
 router.patch(
   '/:id/reactivate',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(brandIdSchema),
-  brandController.reactivate
+  validateRequest(brandIdSchema, 'params'),
+  controller.reactivate
 )
 
-// DELETE /api/inventory/catalogs/brands/:id/hard (DEBE IR ANTES DE /:id DELETE)
 router.delete(
   '/:id/hard',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(brandIdSchema),
-  brandController.hardDelete
+  validateRequest(brandIdSchema, 'params'),
+  controller.hardDelete
 )
 
-// DELETE /api/inventory/catalogs/brands/:id (soft delete)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(brandIdSchema),
-  brandController.delete
+  validateRequest(brandIdSchema, 'params'),
+  controller.delete
 )
 
 export default router

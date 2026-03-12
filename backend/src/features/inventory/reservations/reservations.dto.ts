@@ -3,55 +3,90 @@
 import {
   IReservation,
   IReservationAlert,
+  IReservationWithRelations,
   ReservationStatus,
-} from './reservations.interface'
+} from './reservations.interface.js'
+
+// ---------------------------------------------------------------------------
+// Input DTOs
+// ---------------------------------------------------------------------------
 
 export class CreateReservationDTO {
   itemId: string
   warehouseId: string
   quantity: number
-  workOrderId?: string | undefined
-  saleOrderId?: string | undefined
-  reference?: string | undefined
-  notes?: string | undefined
-  expiresAt?: Date | undefined
-  createdBy?: string | undefined
+  workOrderId?: string
+  saleOrderId?: string
+  reference?: string
+  notes?: string
+  expiresAt?: Date
+  createdBy?: string
 
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
     this.quantity = Number(data.quantity)
-    this.workOrderId = data.workOrderId
-    this.saleOrderId = data.saleOrderId
-    this.reference = data.reference
-    this.notes = data.notes
-    this.expiresAt = data.expiresAt ? new Date(data.expiresAt) : undefined
-    this.createdBy = data.createdBy
+    if (data.workOrderId) this.workOrderId = String(data.workOrderId)
+    if (data.saleOrderId) this.saleOrderId = String(data.saleOrderId)
+    if (data.reference) this.reference = String(data.reference)
+    if (data.notes) this.notes = String(data.notes)
+    if (data.expiresAt) this.expiresAt = new Date(data.expiresAt as string)
+    if (data.createdBy) this.createdBy = String(data.createdBy)
   }
 }
 
 export class UpdateReservationDTO {
-  quantity?: number | undefined
-  status?: ReservationStatus | undefined
-  workOrderId?: string | null | undefined
-  saleOrderId?: string | null | undefined
-  reference?: string | null | undefined
-  notes?: string | null | undefined
-  expiresAt?: Date | null | undefined
+  quantity?: number
+  status?: ReservationStatus
+  workOrderId?: string | null
+  saleOrderId?: string | null
+  reference?: string | null
+  notes?: string | null
+  expiresAt?: Date | null
 
-  constructor(data: any) {
+  constructor(data: Record<string, unknown>) {
     if (data.quantity !== undefined) this.quantity = Number(data.quantity)
-    if (data.status !== undefined) this.status = data.status
+    if (data.status !== undefined)
+      this.status = data.status as ReservationStatus
     if (data.workOrderId !== undefined)
-      this.workOrderId = data.workOrderId ?? null
+      this.workOrderId = data.workOrderId ? String(data.workOrderId) : null
     if (data.saleOrderId !== undefined)
-      this.saleOrderId = data.saleOrderId ?? null
-    if (data.reference !== undefined) this.reference = data.reference ?? null
-    if (data.notes !== undefined) this.notes = data.notes ?? null
+      this.saleOrderId = data.saleOrderId ? String(data.saleOrderId) : null
+    if (data.reference !== undefined)
+      this.reference = data.reference ? String(data.reference) : null
+    if (data.notes !== undefined)
+      this.notes = data.notes ? String(data.notes) : null
     if (data.expiresAt !== undefined)
-      this.expiresAt = data.expiresAt ? new Date(data.expiresAt) : null
+      this.expiresAt = data.expiresAt
+        ? new Date(data.expiresAt as string)
+        : null
   }
 }
+
+export class ConsumeReservationDTO {
+  reservationId: string
+  quantity?: number
+  deliveredBy?: string
+
+  constructor(data: Record<string, unknown>) {
+    this.reservationId = String(data.reservationId)
+    if (data.quantity) this.quantity = Number(data.quantity)
+    if (data.deliveredBy) this.deliveredBy = String(data.deliveredBy)
+  }
+}
+
+export class ReleaseReservationDTO {
+  // reservationId comes from req.params — not needed in body DTO
+  reason?: string
+
+  constructor(data: Record<string, unknown>) {
+    if (data.reason) this.reason = String(data.reason)
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Response DTOs
+// ---------------------------------------------------------------------------
 
 export class ReservationResponseDTO {
   id: string
@@ -60,27 +95,25 @@ export class ReservationResponseDTO {
   warehouseId: string
   quantity: number
   status: ReservationStatus
-  workOrderId?: string | null
-  saleOrderId?: string | null
-  exitNoteId?: string | null
-  reference?: string | null
-  notes?: string | null
+  workOrderId: string | null
+  saleOrderId: string | null
+  exitNoteId: string | null
+  reference: string | null
+  notes: string | null
   reservedAt: Date
-  expiresAt?: Date | null
-  deliveredAt?: Date | null
-  releasedAt?: Date | null
-  createdBy?: string | null
-  deliveredBy?: string | null
+  expiresAt: Date | null
+  deliveredAt: Date | null
+  releasedAt: Date | null
+  createdBy: string | null
+  deliveredBy: string | null
   createdAt: Date
   updatedAt: Date
-  item?: any
-  exitNote?: any
+  item?: unknown
+  exitNote?: unknown
 
   constructor(
-    reservation: IReservation,
-    options: {
-      includeRelations?: boolean
-    } = {}
+    reservation: IReservation | IReservationWithRelations,
+    options: { includeRelations?: boolean } = {}
   ) {
     this.id = reservation.id
     this.reservationNumber = reservation.reservationNumber
@@ -102,33 +135,12 @@ export class ReservationResponseDTO {
     this.createdAt = reservation.createdAt
     this.updatedAt = reservation.updatedAt
 
-    if (options.includeRelations && reservation) {
-      const relations = reservation as any
-      if (relations.item) this.item = relations.item
-      if (relations.exitNote) this.exitNote = relations.exitNote
+    if (options.includeRelations) {
+      const withRelations = reservation as IReservationWithRelations
+      if (withRelations.item !== undefined) this.item = withRelations.item
+      if (withRelations.exitNote !== undefined)
+        this.exitNote = withRelations.exitNote
     }
-  }
-}
-
-export class ConsumeReservationDTO {
-  reservationId: string
-  quantity?: number | undefined
-  deliveredBy?: string | undefined
-
-  constructor(data: any) {
-    this.reservationId = data.reservationId
-    this.quantity = data.quantity ? Number(data.quantity) : undefined
-    this.deliveredBy = data.deliveredBy
-  }
-}
-
-export class ReleaseReservationDTO {
-  reservationId: string
-  reason?: string | undefined
-
-  constructor(data: any) {
-    this.reservationId = data.reservationId
-    this.reason = data.reason
   }
 }
 

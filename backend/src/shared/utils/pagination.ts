@@ -55,11 +55,12 @@ export class PaginationHelper {
   }
 
   static getMeta(page: number, limit: number, total: number): PaginationMeta {
-    const totalPages = Math.ceil(total / limit)
+    const safeLimit = Math.max(1, limit)
+    const totalPages = Math.max(1, Math.ceil(total / safeLimit))
 
     return {
       page,
-      limit,
+      limit: safeLimit,
       total,
       totalPages,
       hasNext: page < totalPages,

@@ -64,9 +64,19 @@ export function createTenantPrisma(
           return query(args)
         },
 
+        // async createMany({ model, args, query }: any) {
+        //   if (tenantModels.has(model) && Array.isArray(args.data)) {
+        //     args.data = args.data.map((item: any) => ({ ...item, empresaId }))
+        //   }
+        //   return query(args)
+        // },
         async createMany({ model, args, query }: any) {
-          if (tenantModels.has(model) && Array.isArray(args.data)) {
-            args.data = args.data.map((item: any) => ({ ...item, empresaId }))
+          if (tenantModels.has(model)) {
+            if (Array.isArray(args.data)) {
+              args.data = args.data.map((item: any) => ({ ...item, empresaId }))
+            } else if (args.data && typeof args.data === 'object') {
+              args.data = { ...args.data, empresaId }
+            }
           }
           return query(args)
         },

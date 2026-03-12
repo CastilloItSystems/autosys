@@ -243,114 +243,69 @@
  *         description: El término de búsqueda es requerido
  */
 
+// backend/src/features/inventory/warehouses/warehouses.routes.ts
+
 import { Router } from 'express'
-import { WarehouseController } from './warehouses.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../shared/middleware/validateRequest.middleware'
+import controller from './warehouses.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createWarehouseSchema,
   updateWarehouseSchema,
-} from './warehouses.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+  warehouseIdSchema,
+} from './warehouses.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
-const warehouseController = new WarehouseController()
 
-/**
- * ============================================
- * RUTAS DE BÚSQUEDA Y CONSULTA (Sin parámetros)
- * ============================================
- */
-
-// GET /api/inventory/warehouses/active
+// Rutas específicas ANTES de /:id para evitar conflictos
 router.get(
   '/active',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_VIEW),
-  warehouseController.getActive
+  controller.getActive
 )
+router.get('/search', authorize(PERMISSIONS.WAREHOUSES_VIEW), controller.search)
 
-// GET /api/inventory/warehouses/search
-router.get(
-  '/search',
-  authenticate,
-  authorize(PERMISSIONS.WAREHOUSES_VIEW),
-  warehouseController.search
-)
-
-/**
- * ============================================
- * RUTAS PROTEGIDAS - Requieren permisos
- * ============================================
- */
-
-// GET /api/inventory/warehouses (Listar todos)
-router.get(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.WAREHOUSES_VIEW),
-  warehouseController.getAll
-)
-
-// POST /api/inventory/warehouses (Crear)
+// CRUD base
+router.get('/', authorize(PERMISSIONS.WAREHOUSES_VIEW), controller.getAll)
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_CREATE),
-  validateBody(createWarehouseSchema),
-  warehouseController.create
+  validateRequest(createWarehouseSchema, 'body'),
+  controller.create
 )
 
-/**
- * ============================================
- * RUTAS CON PARÁMETROS (después de query routes)
- * ============================================
- */
-
-// GET /api/inventory/warehouses/:id (Obtener uno)
+// Rutas con :id
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_VIEW),
-  warehouseController.getOne
+  validateRequest(warehouseIdSchema, 'params'),
+  controller.getOne
 )
-
-// PUT /api/inventory/warehouses/:id (Actualizar)
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_UPDATE),
-  validateBody(updateWarehouseSchema),
-  warehouseController.update
+  validateRequest(warehouseIdSchema, 'params'),
+  validateRequest(updateWarehouseSchema, 'body'),
+  controller.update
 )
-
-// DELETE /api/inventory/warehouses/:id (Eliminar)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_DELETE),
-  warehouseController.delete
+  validateRequest(warehouseIdSchema, 'params'),
+  controller.delete
 )
-
-// PATCH /api/inventory/warehouses/:id/deactivate (Desactivar)
 router.patch(
   '/:id/deactivate',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_UPDATE),
-  warehouseController.deactivate
+  validateRequest(warehouseIdSchema, 'params'),
+  controller.deactivate
 )
-
-// PATCH /api/inventory/warehouses/:id/activate (Activar)
 router.patch(
   '/:id/activate',
-  authenticate,
   authorize(PERMISSIONS.WAREHOUSES_UPDATE),
-  warehouseController.activate
+  validateRequest(warehouseIdSchema, 'params'),
+  controller.activate
 )
 
 export default router

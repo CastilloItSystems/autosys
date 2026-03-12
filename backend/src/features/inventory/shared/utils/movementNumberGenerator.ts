@@ -1,151 +1,66 @@
 // backend/src/features/inventory/shared/utils/movementNumberGenerator.ts
 
-import prisma from '../../../../services/prisma.service'
-
+/**
+ * Generador de números únicos para entidades de inventario.
+ *
+ * Patrón: PREFIX-YEAR-TIMESTAMP+RANDOM
+ * Ejemplo: MOV-2025-LB4K2QR
+ *
+ * SIN consultas a base de datos — elimina race conditions por completo.
+ * La unicidad viene de la combinación timestamp (base36) + random (3 chars).
+ * La probabilidad de colisión es 1 en ~46,000 por milisegundo.
+ */
 export class MovementNumberGenerator {
-  /**
-   * Genera número de movimiento: MOV-2024-00001
-   */
-  static async generateMovementNumber(
-    prefixOrClient: string | any = 'MOV',
-    prefixArg?: string
-  ): Promise<string> {
-    // Support two signatures:
-    //   generateMovementNumber('MOV')           — uses global prisma
-    //   generateMovementNumber(tx, 'MOV')       — uses transaction client
-    let db: any = prisma
-    let prefix = 'MOV'
-
-    if (typeof prefixOrClient === 'string') {
-      prefix = prefixOrClient
-    } else {
-      db = prefixOrClient
-      prefix = prefixArg || 'MOV'
-    }
-
+  private static build(prefix: string): string {
     const year = new Date().getFullYear()
-    const basePattern = `${prefix}-${year}-`
-
-    // Obtener el último número
-    const lastMovement = await db.movement.findFirst({
-      where: {
-        movementNumber: {
-          startsWith: basePattern,
-        },
-      },
-      orderBy: {
-        movementNumber: 'desc',
-      },
-    })
-
-    let nextNumber = 1
-
-    if (lastMovement) {
-      const lastNumber = parseInt(lastMovement.movementNumber.split('-')[2])
-      nextNumber = lastNumber + 1
-    }
-
-    return `${basePattern}${String(nextNumber).padStart(5, '0')}`
+    const ts = Date.now().toString(36).toUpperCase()
+    const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
+    return `${prefix}-${year}-${ts}${rnd}`
   }
 
-  /**
-   * Genera número de recepción: REC-2024-00001
-   */
-  static async generateReceiveNumber(): Promise<string> {
-    return this.generateMovementNumber('REC')
+  /** MOV-2025-LB4K2QR */
+  static generate(prefix: string = 'MOV'): string {
+    return this.build(prefix)
   }
 
-  /**
-   * Genera número de nota de salida: NS-2024-00001
-   */
-  static async generateExitNoteNumber(type?: string): Promise<string> {
+  /** MOV-2025-LB4K2QR */
+  static generateMovementNumber(): string {
+    return this.build('MOV')
+  }
+
+  /** REC-2025-LB4K2QR */
+  static generateReceiveNumber(): string {
+    return this.build('REC')
+  }
+
+  /** NS-2025-LB4K2QR */
+  static generateExitNoteNumber(type?: string): string {
     const prefix = type ? `NS-${type}` : 'NS'
-    return this.generateMovementNumber(prefix)
+    return this.build(prefix)
   }
 
-  /**
-   * Genera número de reserva: RSV-2024-00001
-   */
-  static async generateReservationNumber(): Promise<string> {
-    const year = new Date().getFullYear()
-    const basePattern = `RSV-${year}-`
-
-    const lastReservation = await prisma.reservation.findFirst({
-      where: {
-        reservationNumber: {
-          startsWith: basePattern,
-        },
-      },
-      orderBy: {
-        reservationNumber: 'desc',
-      },
-    })
-
-    let nextNumber = 1
-
-    if (lastReservation) {
-      const lastNumber = parseInt(
-        lastReservation.reservationNumber.split('-')[2]
-      )
-      nextNumber = lastNumber + 1
-    }
-
-    return `${basePattern}${String(nextNumber).padStart(5, '0')}`
+  /** RSV-2025-LB4K2QR */
+  static generateReservationNumber(): string {
+    return this.build('RSV')
   }
 
-  /**
-   * Genera número de préstamo: LOAN-2024-00001
-   */
-  static async generateLoanNumber(): Promise<string> {
-    const year = new Date().getFullYear()
-    const basePattern = `LOAN-${year}-`
-
-    const lastLoan = await prisma.loan.findFirst({
-      where: {
-        loanNumber: {
-          startsWith: basePattern,
-        },
-      },
-      orderBy: {
-        loanNumber: 'desc',
-      },
-    })
-
-    let nextNumber = 1
-
-    if (lastLoan) {
-      const lastNumber = parseInt(lastLoan.loanNumber.split('-')[2])
-      nextNumber = lastNumber + 1
-    }
-
-    return `${basePattern}${String(nextNumber).padStart(5, '0')}`
+  /** LOAN-2025-LB4K2QR */
+  static generateLoanNumber(): string {
+    return this.build('LOAN')
   }
 
-  /**
-   * Genera número de orden de compra: PO-2024-00001
-   */
-  static async generatePurchaseOrderNumber(): Promise<string> {
-    const year = new Date().getFullYear()
-    const basePattern = `PO-${year}-`
+  /** PO-2025-LB4K2QR */
+  static generatePurchaseOrderNumber(): string {
+    return this.build('PO')
+  }
 
-    const lastPO = await prisma.purchaseOrder.findFirst({
-      where: {
-        orderNumber: {
-          startsWith: basePattern,
-        },
-      },
-      orderBy: {
-        orderNumber: 'desc',
-      },
-    })
+  /** ADJ-2025-LB4K2QR */
+  static generateAdjustmentNumber(): string {
+    return this.build('ADJ')
+  }
 
-    let nextNumber = 1
-
-    if (lastPO) {
-      const lastNumber = parseInt(lastPO.orderNumber.split('-')[2])
-      nextNumber = lastNumber + 1
-    }
-
-    return `${basePattern}${String(nextNumber).padStart(5, '0')}`
+  /** TRF-2025-LB4K2QR */
+  static generateTransferNumber(): string {
+    return this.build('TRF')
   }
 }

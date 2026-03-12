@@ -67,6 +67,7 @@ export const INVENTORY_MESSAGES = {
   stock: {
     insufficient:
       'Stock insuficiente para el artículo {{name}}. Disponible: {{available}}, Requerido: {{required}}',
+    insufficientQuantity: 'Stock insuficiente para completar la operación',
     updated: 'Stock actualizado exitosamente',
     reserved: 'Stock reservado exitosamente',
     released: 'Stock liberado exitosamente',

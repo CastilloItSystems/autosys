@@ -140,15 +140,12 @@
  *     responses:
  *       201: { description: Duplicado }
  */
-// backend/src/features/inventory/items/items.routes.ts
+/// backend/src/features/inventory/items/items.routes.ts
+
 import { Router } from 'express'
-import itemController from './items.controller.js'
+import controller from './items.controller.js'
 import { authorize } from '../../../shared/middleware/authorize.middleware.js'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../shared/middleware/validateRequest.middleware.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createItemSchema,
   updateItemSchema,
@@ -161,148 +158,154 @@ import {
   checkAvailabilitySchema,
 } from './items.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
-import imagesRouter from './images/images.routes.js'
-import pricingRouter from './pricing/pricing.routes.js'
-import searchRouter from './search/search.routes.js'
-import bulkRouter from './bulk/bulk.routes.js'
 
 const router = Router()
 
-/**
- * IMPORTANTE:
- * authenticate + extractEmpresa ya se aplican en el mount padre (/api/inventory)
- * en src/routes/api.routes.ts
- */
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
+router.get('/active', authorize(PERMISSIONS.ITEMS_VIEW), controller.getActive)
+router.get('/search', authorize(PERMISSIONS.ITEMS_VIEW), controller.search)
+router.get(
+  '/low-stock',
+  authorize(PERMISSIONS.ITEMS_VIEW),
+  controller.getLowStock
+)
+router.get(
+  '/out-of-stock',
+  authorize(PERMISSIONS.ITEMS_VIEW),
+  controller.getOutOfStock
+)
+router.get(
+  '/category/:categoryId',
+  authorize(PERMISSIONS.ITEMS_VIEW),
+  controller.getByCategory
+)
+router.get('/sku/:sku', authorize(PERMISSIONS.ITEMS_VIEW), controller.getBySku)
+router.get(
+  '/barcode/:barcode',
+  authorize(PERMISSIONS.ITEMS_VIEW),
+  controller.getByBarcode
+)
 
-// Sub-módulos (primero)
-router.use('/images', imagesRouter)
-router.use('/pricing', pricingRouter)
-router.use('/search', searchRouter)
-router.use('/bulk', bulkRouter)
-
-// Rutas de consulta
-router.get('/active', itemController.getActive)
-router.get('/search', itemController.search)
-router.get('/low-stock', itemController.getLowStock)
-router.get('/out-of-stock', itemController.getOutOfStock)
-router.get('/category/:categoryId', itemController.getByCategory)
-router.get('/sku/:sku', itemController.getBySku)
-router.get('/barcode/:barcode', itemController.getByBarcode)
-
-// CRUD principal
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
 router.get(
   '/',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateQuery(getItemsQuerySchema),
-  itemController.getAll
+  validateRequest(getItemsQuerySchema, 'query'),
+  controller.getAll
 )
 
 router.post(
   '/',
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateBody(createItemSchema),
-  itemController.create
+  validateRequest(createItemSchema, 'body'),
+  controller.create
 )
 
 router.post(
   '/bulk',
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateBody(bulkCreateSchema),
-  itemController.bulkCreate
+  validateRequest(bulkCreateSchema, 'body'),
+  controller.bulkCreate
 )
 
 router.post(
   '/generate-sku',
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateBody(generateSkuSchema),
-  itemController.generateSku
+  validateRequest(generateSkuSchema, 'body'),
+  controller.generateSku
 )
 
 router.post(
   '/check-availability',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateBody(checkAvailabilitySchema),
-  itemController.checkAvailability
+  validateRequest(checkAvailabilitySchema, 'body'),
+  controller.checkAvailability
 )
 
 router.put(
   '/bulk-update',
   authorize(PERMISSIONS.ITEMS_UPDATE),
-  validateBody(bulkUpdateSchema),
-  itemController.bulkUpdate
+  validateRequest(bulkUpdateSchema, 'body'),
+  controller.bulkUpdate
 )
 
-// Rutas por ID (después de rutas específicas)
+// ---------------------------------------------------------------------------
+// Rutas con :id (después de rutas específicas)
+// ---------------------------------------------------------------------------
 router.get(
   '/:id',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateParams(itemIdSchema),
-  itemController.getById
+  validateRequest(itemIdSchema, 'params'),
+  controller.getById
 )
 
 router.get(
   '/:id/stats',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateParams(itemIdSchema),
-  itemController.getStats
+  validateRequest(itemIdSchema, 'params'),
+  controller.getStats
 )
 
 router.get(
   '/:id/history',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateParams(itemIdSchema),
-  itemController.getHistory
+  validateRequest(itemIdSchema, 'params'),
+  controller.getHistory
 )
 
 router.get(
   '/:id/related',
   authorize(PERMISSIONS.ITEMS_VIEW),
-  validateParams(itemIdSchema),
-  itemController.getRelatedItems
+  validateRequest(itemIdSchema, 'params'),
+  controller.getRelatedItems
 )
 
 router.post(
   '/:id/duplicate',
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateParams(itemIdSchema),
-  itemController.duplicate
+  validateRequest(itemIdSchema, 'params'),
+  controller.duplicate
 )
 
 router.put(
   '/:id',
   authorize(PERMISSIONS.ITEMS_UPDATE),
-  validateParams(itemIdSchema),
-  validateBody(updateItemSchema),
-  itemController.update
+  validateRequest(itemIdSchema, 'params'),
+  validateRequest(updateItemSchema, 'body'),
+  controller.update
 )
 
 router.put(
   '/:id/pricing',
   authorize(PERMISSIONS.ITEMS_UPDATE),
-  validateParams(itemIdSchema),
-  validateBody(updatePricingSchema),
-  itemController.updatePricing
+  validateRequest(itemIdSchema, 'params'),
+  validateRequest(updatePricingSchema, 'body'),
+  controller.updatePricing
 )
 
 router.patch(
   '/:id/toggle',
   authorize(PERMISSIONS.ITEMS_UPDATE),
-  validateParams(itemIdSchema),
-  itemController.toggleActive
+  validateRequest(itemIdSchema, 'params'),
+  controller.toggleActive
 )
 
 router.delete(
   '/:id',
   authorize(PERMISSIONS.ITEMS_DELETE),
-  validateParams(itemIdSchema),
-  itemController.delete
+  validateRequest(itemIdSchema, 'params'),
+  controller.delete
 )
 
 router.delete(
   '/:id/hard',
   authorize(PERMISSIONS.ITEMS_DELETE),
-  validateParams(itemIdSchema),
-  itemController.hardDelete
+  validateRequest(itemIdSchema, 'params'),
+  controller.hardDelete
 )
 
 export default router

@@ -1,6 +1,6 @@
 // backend/src/features/inventory/items/items.service.ts
-import prisma from '../../../services/prisma.service.js'
-import type { PrismaClient } from '../../../generated/prisma/client.js'
+
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import {
   ICreateItemInput,
   IUpdateItemInput,
@@ -18,49 +18,87 @@ import { logger } from '../../../shared/utils/logger.js'
 import { LocationValidator } from '../shared/utils/locationValidator.js'
 import { PriceCalculator } from '../shared/utils/priceCalculator.js'
 
-type DB = PrismaClient
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
-export class ItemService {
-  private getDB(db?: DB): DB {
-    return (db ?? prisma) as DB
-  }
+const MSG = INVENTORY_MESSAGES.item
 
-  private ensureEmpresaId(empresaId?: string): string {
-    if (!empresaId) throw new BadRequestError('empresaId es requerido')
-    return empresaId
-  }
+// ---------------------------------------------------------------------------
+// Includes reutilizables
+// ---------------------------------------------------------------------------
+
+const BASE_INCLUDE = {
+  brand: true,
+  category: true,
+  model: true,
+  unit: true,
+  images: { orderBy: { order: 'asc' as const } },
+  _count: { select: { stocks: true, movements: true, images: true } },
+} as const
+
+const FULL_INCLUDE = {
+  ...BASE_INCLUDE,
+  stocks: { include: { warehouse: true } },
+} as const
+
+const LIST_INCLUDE = {
+  ...BASE_INCLUDE,
+  stocks: {
+    select: {
+      quantityReal: true,
+      quantityReserved: true,
+      quantityAvailable: true,
+    },
+  },
+} as const
+
+const SEARCH_INCLUDE = {
+  brand: true,
+  category: true,
+  model: true,
+  unit: true,
+  images: { where: { isPrimary: true }, take: 1 },
+  stocks: { select: { quantityAvailable: true } },
+} as const
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+class ItemService {
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
 
   async create(
     empresaId: string,
     data: ICreateItemInput,
-    userId?: string,
-    db?: DB
+    userId: string,
+    db: PrismaClientType
   ): Promise<IItemWithRelations> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+    const sku = data.sku.toUpperCase()
 
-    const existingSku = await client.item.findFirst({
-      where: { empresaId: tenantEmpresaId, sku: data.sku.toUpperCase() },
+    const existingSku = await (db as PrismaClient).item.findFirst({
+      where: { empresaId, sku },
     })
-    if (existingSku) throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
+    if (existingSku) throw new ConflictError(MSG.skuExists)
 
     if (data.barcode) {
-      const existingBarcode = await client.item.findFirst({
-        where: { empresaId: tenantEmpresaId, barcode: data.barcode },
+      const existingBarcode = await (db as PrismaClient).item.findFirst({
+        where: { empresaId, barcode: data.barcode },
       })
-      if (existingBarcode)
-        throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
+      if (existingBarcode) throw new ConflictError(MSG.barcodeExists)
     }
 
+    // Validate catalog relations belong to empresa
     const [brand, category, unit] = await Promise.all([
-      client.brand.findFirst({
-        where: { id: data.brandId, empresaId: tenantEmpresaId },
+      (db as PrismaClient).brand.findFirst({
+        where: { id: data.brandId, empresaId },
       }),
-      client.category.findFirst({
-        where: { id: data.categoryId, empresaId: tenantEmpresaId },
+      (db as PrismaClient).category.findFirst({
+        where: { id: data.categoryId, empresaId },
       }),
-      client.unit.findFirst({
-        where: { id: data.unitId, empresaId: tenantEmpresaId },
+      (db as PrismaClient).unit.findFirst({
+        where: { id: data.unitId, empresaId },
       }),
     ])
 
@@ -72,8 +110,8 @@ export class ItemService {
     if (!unit) throw new NotFoundError('Unidad no encontrada')
 
     if (data.modelId) {
-      const model = await client.model.findFirst({
-        where: { id: data.modelId, empresaId: tenantEmpresaId },
+      const model = await (db as PrismaClient).model.findFirst({
+        where: { id: data.modelId, empresaId },
       })
       if (!model) throw new NotFoundError('Modelo no encontrado')
       if (model.brandId !== data.brandId) {
@@ -84,7 +122,7 @@ export class ItemService {
     }
 
     if (data.location && !LocationValidator.isValid(data.location)) {
-      throw new BadRequestError(INVENTORY_MESSAGES.item.invalidLocation)
+      throw new BadRequestError(MSG.invalidLocation)
     }
 
     if (data.salePrice < data.costPrice) {
@@ -93,16 +131,16 @@ export class ItemService {
       )
     }
 
-    const item = await client.item.create({
+    const item = await (db as PrismaClient).item.create({
       data: {
-        empresaId: tenantEmpresaId,
-        sku: data.sku.toUpperCase(),
+        empresaId,
+        sku,
         name: data.name,
         brandId: data.brandId,
         categoryId: data.categoryId,
         unitId: data.unitId,
-        costPrice: data.costPrice as any,
-        salePrice: data.salePrice as any,
+        costPrice: data.costPrice as never,
+        salePrice: data.salePrice as never,
         minStock: data.minStock ?? 5,
         maxStock: data.maxStock ?? 100,
         reorderPoint: data.reorderPoint ?? 10,
@@ -111,95 +149,59 @@ export class ItemService {
         hasBatch: data.hasBatch ?? false,
         hasExpiry: data.hasExpiry ?? false,
         allowNegativeStock: data.allowNegativeStock ?? false,
-        tags: data.tags || [],
+        tags: data.tags ?? [],
         historial: {
           action: 'CREATE',
           userId,
           timestamp: new Date().toISOString(),
-          changes: data,
-        } as any,
-
-        ...(data.barcode ? { barcode: data.barcode } : {}),
-        ...(data.description ? { description: data.description } : {}),
-        ...(data.modelId ? { modelId: data.modelId } : {}),
-        ...(data.location ? { location: data.location.toUpperCase() } : {}),
+        } as never,
+        ...(data.barcode != null ? { barcode: data.barcode } : {}),
+        ...(data.description != null ? { description: data.description } : {}),
+        ...(data.modelId != null ? { modelId: data.modelId } : {}),
+        ...(data.location != null
+          ? { location: data.location.toUpperCase() }
+          : {}),
         ...(data.wholesalePrice != null
-          ? { wholesalePrice: data.wholesalePrice as any }
+          ? { wholesalePrice: data.wholesalePrice as never }
           : {}),
         ...(data.technicalSpecs != null
-          ? { technicalSpecs: data.technicalSpecs as any }
+          ? { technicalSpecs: data.technicalSpecs as never }
           : {}),
       },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: true,
-        _count: { select: { stocks: true, movements: true, images: true } },
-      },
+      include: BASE_INCLUDE,
     })
 
-    logger.info('Item created', {
-      itemId: item.id,
-      empresaId: tenantEmpresaId,
-      userId,
-    })
+    logger.info('Item creado', { itemId: item.id, sku, empresaId, userId })
+
     return item as unknown as IItemWithRelations
   }
+
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
 
   async findById(
     empresaId: string,
     id: string,
-    includeStock = true,
-    db?: DB
+    includeStock: boolean,
+    db: PrismaClientType
   ): Promise<IItemWithRelations> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const item = await client.item.findFirst({
-      where: { id, empresaId: tenantEmpresaId },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: { orderBy: { order: 'asc' } },
-        stocks: includeStock ? { include: { warehouse: true } } : false,
-        _count: {
-          select: {
-            stocks: true,
-            movements: true,
-            images: true,
-            reservations: true,
-          },
-        },
-      },
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id, empresaId },
+      include: includeStock ? FULL_INCLUDE : BASE_INCLUDE,
     })
-
-    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+    if (!item) throw new NotFoundError(MSG.notFound)
     return item as unknown as IItemWithRelations
   }
 
   async findBySku(
     empresaId: string,
     sku: string,
-    db?: DB
+    db: PrismaClientType
   ): Promise<IItemWithRelations | null> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const item = await client.item.findFirst({
-      where: { empresaId: tenantEmpresaId, sku: sku.toUpperCase() },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: true,
-        stocks: true,
-        _count: { select: { stocks: true, movements: true, images: true } },
-      },
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { empresaId, sku: sku.toUpperCase() },
+      include: FULL_INCLUDE,
     })
     return item as unknown as IItemWithRelations | null
   }
@@ -207,117 +209,13 @@ export class ItemService {
   async findByBarcode(
     empresaId: string,
     barcode: string,
-    db?: DB
+    db: PrismaClientType
   ): Promise<IItemWithRelations | null> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const item = await client.item.findFirst({
-      where: { empresaId: tenantEmpresaId, barcode },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: true,
-        stocks: true,
-        _count: { select: { stocks: true, movements: true, images: true } },
-      },
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { empresaId, barcode },
+      include: FULL_INCLUDE,
     })
     return item as unknown as IItemWithRelations | null
-  }
-
-  async update(
-    empresaId: string,
-    id: string,
-    data: IUpdateItemInput,
-    userId?: string,
-    db?: DB
-  ): Promise<IItemWithRelations> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const existing = await this.findById(tenantEmpresaId, id, false, client)
-
-    if (data.sku && data.sku !== existing.sku) {
-      const existingSku = await client.item.findFirst({
-        where: {
-          empresaId: tenantEmpresaId,
-          sku: data.sku.toUpperCase(),
-          id: { not: id },
-        },
-      })
-      if (existingSku)
-        throw new ConflictError(INVENTORY_MESSAGES.item.skuExists)
-    }
-
-    if (data.barcode && data.barcode !== (existing as any).barcode) {
-      const existingBarcode = await client.item.findFirst({
-        where: {
-          empresaId: tenantEmpresaId,
-          barcode: data.barcode,
-          id: { not: id },
-        },
-      })
-      if (existingBarcode)
-        throw new ConflictError(INVENTORY_MESSAGES.item.barcodeExists)
-    }
-
-    const result = await client.item.updateMany({
-      where: { id, empresaId: tenantEmpresaId },
-      data: {
-        ...(data.sku && { sku: data.sku.toUpperCase() }),
-        ...(data.barcode !== undefined && { barcode: data.barcode }),
-        ...(data.name && { name: data.name }),
-        ...(data.description !== undefined && {
-          description: data.description,
-        }),
-        ...(data.brandId && { brandId: data.brandId }),
-        ...(data.categoryId && { categoryId: data.categoryId }),
-        ...(data.modelId !== undefined && { modelId: data.modelId }),
-        ...(data.unitId && { unitId: data.unitId }),
-        ...(data.location !== undefined && {
-          location: data.location?.toUpperCase(),
-        }),
-        ...(data.costPrice !== undefined && {
-          costPrice: data.costPrice as any,
-        }),
-        ...(data.salePrice !== undefined && {
-          salePrice: data.salePrice as any,
-        }),
-        ...(data.wholesalePrice !== undefined && {
-          wholesalePrice: data.wholesalePrice as any,
-        }),
-        ...(data.minStock !== undefined && { minStock: data.minStock }),
-        ...(data.maxStock !== undefined && { maxStock: data.maxStock }),
-        ...(data.reorderPoint !== undefined && {
-          reorderPoint: data.reorderPoint,
-        }),
-        ...(data.isActive !== undefined && { isActive: data.isActive }),
-        ...(data.isSerialized !== undefined && {
-          isSerialized: data.isSerialized,
-        }),
-        ...(data.hasBatch !== undefined && { hasBatch: data.hasBatch }),
-        ...(data.hasExpiry !== undefined && { hasExpiry: data.hasExpiry }),
-        ...(data.allowNegativeStock !== undefined && {
-          allowNegativeStock: data.allowNegativeStock,
-        }),
-        ...(data.technicalSpecs !== undefined && {
-          technicalSpecs: (data.technicalSpecs as any) || null,
-        }),
-        ...(data.tags && { tags: data.tags }),
-        historial: {
-          action: 'UPDATE',
-          userId,
-          timestamp: new Date().toISOString(),
-          changes: data,
-        } as any,
-      },
-    })
-
-    if (result.count === 0)
-      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-    return this.findById(tenantEmpresaId, id, true, client)
   }
 
   async findAll(
@@ -327,13 +225,26 @@ export class ItemService {
     limit = 10,
     sortBy = 'name',
     sortOrder: 'asc' | 'desc' = 'asc',
-    db?: DB
-  ) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+    db: PrismaClientType
+  ): Promise<{
+    items: IItemWithRelations[]
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }> {
     const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-    const where: any = { empresaId: tenantEmpresaId }
+    const SORT_WHITELIST = new Set([
+      'name',
+      'sku',
+      'createdAt',
+      'costPrice',
+      'salePrice',
+    ])
+    const orderField = SORT_WHITELIST.has(sortBy) ? sortBy : 'name'
+
+    const where: Prisma.ItemWhereInput = { empresaId }
 
     if (filters.search) {
       where.OR = [
@@ -349,43 +260,32 @@ export class ItemService {
     if (filters.categoryId) where.categoryId = filters.categoryId
     if (filters.modelId) where.modelId = filters.modelId
     if (filters.isActive !== undefined) where.isActive = filters.isActive
-
     if (filters.tags?.length) {
       where.tags = { hasSome: filters.tags.map((t) => t.toLowerCase()) }
     }
-
     if (filters.minPrice !== undefined || filters.maxPrice !== undefined) {
       where.salePrice = {}
-      if (filters.minPrice !== undefined) where.salePrice.gte = filters.minPrice
-      if (filters.maxPrice !== undefined) where.salePrice.lte = filters.maxPrice
+      if (filters.minPrice !== undefined)
+        (where.salePrice as Prisma.DecimalFilter).gte =
+          filters.minPrice as never
+      if (filters.maxPrice !== undefined)
+        (where.salePrice as Prisma.DecimalFilter).lte =
+          filters.maxPrice as never
     }
 
-    const [items, total] = await Promise.all([
-      client.item.findMany({
+    const [total, items] = await Promise.all([
+      (db as PrismaClient).item.count({ where }),
+      (db as PrismaClient).item.findMany({
         where,
         skip,
         take,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          brand: true,
-          category: true,
-          model: true,
-          unit: true,
-          images: { orderBy: { order: 'asc' } },
-          stocks: {
-            select: {
-              quantityReal: true,
-              quantityReserved: true,
-              quantityAvailable: true,
-            },
-          },
-          _count: { select: { stocks: true, movements: true, images: true } },
-        },
+        orderBy: { [orderField]: sortOrder },
+        include: LIST_INCLUDE,
       }),
-      client.item.count({ where }),
     ])
 
     const meta = PaginationHelper.getMeta(page, limit, total)
+
     return {
       items: items as unknown as IItemWithRelations[],
       page: meta.page,
@@ -395,119 +295,29 @@ export class ItemService {
     }
   }
 
-  async delete(
-    empresaId: string,
-    id: string,
-    userId?: string,
-    db?: DB
-  ): Promise<void> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const result = await client.item.updateMany({
-      where: { id, empresaId: tenantEmpresaId },
-      data: {
-        isActive: false,
-        historial: {
-          action: 'DELETE',
-          userId,
-          timestamp: new Date().toISOString(),
-        } as any,
-      },
-    })
-
-    if (result.count === 0)
-      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-  }
-
-  async hardDelete(
-    empresaId: string,
-    id: string,
-    userId?: string,
-    db?: DB
-  ): Promise<void> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const item = await client.item.findFirst({
-      where: { id, empresaId: tenantEmpresaId },
-      include: { _count: { select: { movements: true, stocks: true } } },
-    })
-    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-
-    if (item._count.movements > 0) {
-      throw new BadRequestError(INVENTORY_MESSAGES.item.hasMovements)
-    }
-
-    const activeStock = await client.stock.count({
-      where: { itemId: id, quantityReal: { gt: 0 } },
-    })
-    if (activeStock > 0)
-      throw new BadRequestError(INVENTORY_MESSAGES.item.hasStock)
-
-    await client.itemImage.deleteMany({ where: { itemId: id } })
-
-    const deleted = await client.item.deleteMany({
-      where: { id, empresaId: tenantEmpresaId },
-    })
-    if (deleted.count === 0)
-      throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-
-    logger.warn('Item hard deleted', {
-      itemId: id,
-      empresaId: tenantEmpresaId,
-      userId,
-    })
-  }
-
-  async toggleActive(
-    empresaId: string,
-    id: string,
-    userId?: string,
-    db?: DB
-  ): Promise<IItemWithRelations> {
-    const item = await this.findById(empresaId, id, false, db)
-    return this.update(empresaId, id, { isActive: !item.isActive }, userId, db)
-  }
-
   async findActive(
     empresaId: string,
-    limit = 100,
-    db?: DB
+    limit: number,
+    db: PrismaClientType
   ): Promise<IItemWithRelations[]> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const items = await client.item.findMany({
-      where: { empresaId: tenantEmpresaId, isActive: true },
+    const items = await (db as PrismaClient).item.findMany({
+      where: { empresaId, isActive: true },
       take: limit,
       orderBy: { name: 'asc' },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: true,
-        stocks: true,
-        _count: { select: { stocks: true, movements: true, images: true } },
-      },
+      include: FULL_INCLUDE,
     })
-
     return items as unknown as IItemWithRelations[]
   }
 
   async search(
     empresaId: string,
     term: string,
-    limit = 20,
-    db?: DB
+    limit: number,
+    db: PrismaClientType
   ): Promise<IItemWithRelations[]> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const items = await client.item.findMany({
+    const items = await (db as PrismaClient).item.findMany({
       where: {
-        empresaId: tenantEmpresaId,
+        empresaId,
         isActive: true,
         OR: [
           { sku: { contains: term, mode: 'insensitive' } },
@@ -518,25 +328,18 @@ export class ItemService {
       },
       take: limit,
       orderBy: { name: 'asc' },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: { where: { isPrimary: true }, take: 1 },
-        stocks: { select: { quantityAvailable: true } },
-      },
+      include: SEARCH_INCLUDE,
     })
-
     return items as unknown as IItemWithRelations[]
   }
 
-  async findLowStock(empresaId: string, warehouseId?: string, db?: DB) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const items = await client.item.findMany({
-      where: { empresaId: tenantEmpresaId, isActive: true },
+  async findLowStock(
+    empresaId: string,
+    db: PrismaClientType,
+    warehouseId?: string
+  ): Promise<IItemWithRelations[]> {
+    const items = await (db as PrismaClient).item.findMany({
+      where: { empresaId, isActive: true },
       include: {
         brand: true,
         category: true,
@@ -548,21 +351,21 @@ export class ItemService {
       },
     })
 
-    return items.filter((item: any) => {
-      const totalAvailable = item.stocks.reduce(
-        (sum: number, s: any) => sum + s.quantityAvailable,
-        0
-      )
+    return items.filter((item) => {
+      const totalAvailable = (
+        item.stocks as Array<{ quantityAvailable: number }>
+      ).reduce((sum, s) => sum + s.quantityAvailable, 0)
       return totalAvailable <= item.minStock
-    })
+    }) as unknown as IItemWithRelations[]
   }
 
-  async findOutOfStock(empresaId: string, warehouseId?: string, db?: DB) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const items = await client.item.findMany({
-      where: { empresaId: tenantEmpresaId, isActive: true },
+  async findOutOfStock(
+    empresaId: string,
+    db: PrismaClientType,
+    warehouseId?: string
+  ): Promise<IItemWithRelations[]> {
+    const items = await (db as PrismaClient).item.findMany({
+      where: { empresaId, isActive: true },
       include: {
         brand: true,
         category: true,
@@ -574,57 +377,115 @@ export class ItemService {
       },
     })
 
-    return items.filter((item: any) => {
-      const totalAvailable = item.stocks.reduce(
-        (sum: number, s: any) => sum + s.quantityAvailable,
-        0
-      )
+    return items.filter((item) => {
+      const totalAvailable = (
+        item.stocks as Array<{ quantityAvailable: number }>
+      ).reduce((sum, s) => sum + s.quantityAvailable, 0)
       return totalAvailable === 0
-    })
+    }) as unknown as IItemWithRelations[]
   }
 
   async findByCategory(
     empresaId: string,
     categoryId: string,
-    includeSubcategories = true,
-    db?: DB
+    includeSubcategories: boolean,
+    db: PrismaClientType
   ): Promise<IItemWithRelations[]> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const category = await client.category.findFirst({
-      where: { id: categoryId, empresaId: tenantEmpresaId },
+    const category = await (db as PrismaClient).category.findFirst({
+      where: { id: categoryId, empresaId },
     })
     if (!category) throw new NotFoundError('Categoría no encontrada')
 
     const categoryIds = [categoryId]
     if (includeSubcategories) {
-      const children = await client.category.findMany({
-        where: { empresaId: tenantEmpresaId, parentId: categoryId },
+      const children = await (db as PrismaClient).category.findMany({
+        where: { empresaId, parentId: categoryId },
         select: { id: true },
       })
       categoryIds.push(...children.map((c) => c.id))
     }
 
-    const items = await client.item.findMany({
-      where: {
-        empresaId: tenantEmpresaId,
-        categoryId: { in: categoryIds },
-        isActive: true,
-      },
+    const items = await (db as PrismaClient).item.findMany({
+      where: { empresaId, categoryId: { in: categoryIds }, isActive: true },
       orderBy: { name: 'asc' },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: true,
-        stocks: true,
-        _count: { select: { stocks: true, movements: true, images: true } },
-      },
+      include: FULL_INCLUDE,
     })
 
     return items as unknown as IItemWithRelations[]
+  }
+
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
+
+  async update(
+    empresaId: string,
+    id: string,
+    data: IUpdateItemInput,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IItemWithRelations> {
+    const existing = await this.findById(empresaId, id, false, db)
+
+    if (data.sku && data.sku !== existing.sku) {
+      const existingSku = await (db as PrismaClient).item.findFirst({
+        where: { empresaId, sku: data.sku.toUpperCase(), id: { not: id } },
+      })
+      if (existingSku) throw new ConflictError(MSG.skuExists)
+    }
+
+    if (data.barcode && data.barcode !== existing.barcode) {
+      const existingBarcode = await (db as PrismaClient).item.findFirst({
+        where: { empresaId, barcode: data.barcode, id: { not: id } },
+      })
+      if (existingBarcode) throw new ConflictError(MSG.barcodeExists)
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (data.sku !== undefined) updateData.sku = data.sku.toUpperCase()
+    if (data.barcode !== undefined) updateData.barcode = data.barcode ?? null
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.description !== undefined)
+      updateData.description = data.description ?? null
+    if (data.brandId !== undefined) updateData.brandId = data.brandId
+    if (data.categoryId !== undefined) updateData.categoryId = data.categoryId
+    if (data.modelId !== undefined) updateData.modelId = data.modelId ?? null
+    if (data.unitId !== undefined) updateData.unitId = data.unitId
+    if (data.location !== undefined)
+      updateData.location = data.location?.toUpperCase() ?? null
+    if (data.costPrice !== undefined) updateData.costPrice = data.costPrice
+    if (data.salePrice !== undefined) updateData.salePrice = data.salePrice
+    if (data.wholesalePrice !== undefined)
+      updateData.wholesalePrice = data.wholesalePrice ?? null
+    if (data.minStock !== undefined) updateData.minStock = data.minStock
+    if (data.maxStock !== undefined) updateData.maxStock = data.maxStock ?? null
+    if (data.reorderPoint !== undefined)
+      updateData.reorderPoint = data.reorderPoint
+    if (data.isActive !== undefined) updateData.isActive = data.isActive
+    if (data.isSerialized !== undefined)
+      updateData.isSerialized = data.isSerialized
+    if (data.hasBatch !== undefined) updateData.hasBatch = data.hasBatch
+    if (data.hasExpiry !== undefined) updateData.hasExpiry = data.hasExpiry
+    if (data.allowNegativeStock !== undefined)
+      updateData.allowNegativeStock = data.allowNegativeStock
+    if (data.technicalSpecs !== undefined)
+      updateData.technicalSpecs = data.technicalSpecs ?? null
+    if (data.tags !== undefined) updateData.tags = data.tags
+
+    updateData.historial = {
+      action: 'UPDATE',
+      userId,
+      timestamp: new Date().toISOString(),
+    }
+
+    const result = await (db as PrismaClient).item.updateMany({
+      where: { id, empresaId },
+      data: updateData as never,
+    })
+
+    if (result.count === 0) throw new NotFoundError(MSG.notFound)
+
+    return this.findById(empresaId, id, true, db)
   }
 
   async updatePricing(
@@ -637,18 +498,20 @@ export class ItemService {
       applyMargin?: boolean
       marginPercentage?: number
     },
-    userId?: string,
-    db?: DB
+    userId: string,
+    db: PrismaClientType
   ): Promise<IItemWithRelations> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+    const item = await this.findById(empresaId, id, false, db)
 
-    const item = await this.findById(tenantEmpresaId, id, false, client)
-
-    let costPrice = data.costPrice ?? Number((item as any).costPrice)
-    let salePrice = data.salePrice ?? Number((item as any).salePrice)
+    let costPrice =
+      data.costPrice ??
+      Number((item as never as Record<string, unknown>).costPrice)
+    let salePrice =
+      data.salePrice ??
+      Number((item as never as Record<string, unknown>).salePrice)
     const wholesalePrice =
-      data.wholesalePrice ?? Number((item as any).wholesalePrice ?? 0)
+      data.wholesalePrice ??
+      Number((item as never as Record<string, unknown>).wholesalePrice ?? 0)
 
     if (data.applyMargin && data.marginPercentage !== undefined) {
       salePrice = PriceCalculator.calculateSalePriceWithMargin(
@@ -663,28 +526,37 @@ export class ItemService {
       )
     }
 
-    await client.item.updateMany({
-      where: { id, empresaId: tenantEmpresaId },
+    await (db as PrismaClient).item.updateMany({
+      where: { id, empresaId },
       data: {
-        costPrice: costPrice as any,
-        salePrice: salePrice as any,
-        wholesalePrice: wholesalePrice as any,
+        costPrice: costPrice as never,
+        salePrice: salePrice as never,
+        wholesalePrice: wholesalePrice as never,
         historial: {
           action: 'UPDATE_PRICING',
           userId,
           timestamp: new Date().toISOString(),
-          previousPrices: {
-            costPrice: Number((item as any).costPrice),
-            salePrice: Number((item as any).salePrice),
-            wholesalePrice: Number((item as any).wholesalePrice ?? 0),
-          },
           newPrices: { costPrice, salePrice, wholesalePrice },
-        } as any,
+        } as never,
       },
     })
 
-    return this.findById(tenantEmpresaId, id, true, client)
+    return this.findById(empresaId, id, true, db)
   }
+
+  async toggleActive(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IItemWithRelations> {
+    const item = await this.findById(empresaId, id, false, db)
+    return this.update(empresaId, id, { isActive: !item.isActive }, userId, db)
+  }
+
+  // -------------------------------------------------------------------------
+  // BULK
+  // -------------------------------------------------------------------------
 
   async bulkUpdate(
     empresaId: string,
@@ -695,51 +567,46 @@ export class ItemService {
       tags?: string[]
       applyPriceIncrease?: number
     },
-    userId?: string,
-    db?: DB
-  ) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const results = { success: [] as any[], errors: [] as any[] }
+    userId: string,
+    db: PrismaClientType
+  ): Promise<{
+    success: Array<{ itemId: string }>
+    errors: Array<{ itemId: string; error: string }>
+  }> {
+    const results: {
+      success: Array<{ itemId: string }>
+      errors: Array<{ itemId: string; error: string }>
+    } = { success: [], errors: [] }
 
     for (const itemId of itemIds) {
       try {
-        const item = await this.findById(tenantEmpresaId, itemId, false, client)
+        const item = await this.findById(empresaId, itemId, false, db)
 
-        const updateData: any = {}
-        if (updates.categoryId) updateData.categoryId = updates.categoryId
+        const updateData: IUpdateItemInput = {}
+        if (updates.categoryId !== undefined)
+          updateData.categoryId = updates.categoryId
         if (updates.isActive !== undefined)
           updateData.isActive = updates.isActive
-        if (updates.tags)
+        if (updates.tags !== undefined)
           updateData.tags = updates.tags.map((t) => t.toLowerCase())
 
         if (updates.applyPriceIncrease !== undefined) {
           const inc = updates.applyPriceIncrease / 100
-          updateData.costPrice = Number((item as any).costPrice) * (1 + inc)
-          updateData.salePrice = Number((item as any).salePrice) * (1 + inc)
-          if ((item as any).wholesalePrice) {
-            updateData.wholesalePrice =
-              Number((item as any).wholesalePrice) * (1 + inc)
-          }
+          updateData.costPrice =
+            Number((item as never as Record<string, unknown>).costPrice) *
+            (1 + inc)
+          updateData.salePrice =
+            Number((item as never as Record<string, unknown>).salePrice) *
+            (1 + inc)
         }
 
-        await client.item.updateMany({
-          where: { id: itemId, empresaId: tenantEmpresaId },
-          data: {
-            ...updateData,
-            historial: {
-              action: 'BULK_UPDATE',
-              userId,
-              timestamp: new Date().toISOString(),
-              updates,
-            } as any,
-          },
+        await this.update(empresaId, itemId, updateData, userId, db)
+        results.success.push({ itemId })
+      } catch (error: unknown) {
+        results.errors.push({
+          itemId,
+          error: error instanceof Error ? error.message : 'Error desconocido',
         })
-
-        results.success.push({ itemId, ok: true })
-      } catch (error: any) {
-        results.errors.push({ itemId, error: error.message })
       }
     }
 
@@ -749,100 +616,161 @@ export class ItemService {
   async bulkCreate(
     empresaId: string,
     items: ICreateItemInput[],
-    userId?: string,
-    db?: DB
-  ) {
-    const results = { success: [] as any[], errors: [] as any[] }
+    userId: string,
+    db: PrismaClientType
+  ): Promise<{
+    success: IItemWithRelations[]
+    errors: Array<{ sku: string; name: string; error: string }>
+  }> {
+    const results: {
+      success: IItemWithRelations[]
+      errors: Array<{ sku: string; name: string; error: string }>
+    } = { success: [], errors: [] }
+
     for (const itemData of items) {
       try {
         const item = await this.create(empresaId, itemData, userId, db)
         results.success.push(item)
-      } catch (error: any) {
+      } catch (error: unknown) {
         results.errors.push({
           sku: itemData.sku,
           name: itemData.name,
-          error: error.message,
+          error: error instanceof Error ? error.message : 'Error desconocido',
         })
       }
     }
+
     return results
   }
 
-  async generateSKU(categoryCode: string, brandCode: string): Promise<string> {
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
+
+  async delete(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const result = await (db as PrismaClient).item.updateMany({
+      where: { id, empresaId },
+      data: {
+        isActive: false,
+        historial: {
+          action: 'DELETE',
+          userId,
+          timestamp: new Date().toISOString(),
+        } as never,
+      },
+    })
+    if (result.count === 0) throw new NotFoundError(MSG.notFound)
+  }
+
+  async hardDelete(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id, empresaId },
+      include: { _count: { select: { movements: true, stocks: true } } },
+    })
+    if (!item) throw new NotFoundError(MSG.notFound)
+
+    if (item._count.movements > 0) throw new BadRequestError(MSG.hasMovements)
+
+    const activeStock = await (db as PrismaClient).stock.count({
+      where: { itemId: id, quantityReal: { gt: 0 } },
+    })
+    if (activeStock > 0) throw new BadRequestError(MSG.hasStock)
+
+    await (db as PrismaClient).itemImage.deleteMany({ where: { itemId: id } })
+
+    const deleted = await (db as PrismaClient).item.deleteMany({
+      where: { id, empresaId },
+    })
+    if (deleted.count === 0) throw new NotFoundError(MSG.notFound)
+
+    logger.warn('Item eliminado permanentemente', {
+      itemId: id,
+      empresaId,
+      userId,
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // MISC
+  // -------------------------------------------------------------------------
+
+  generateSKU(categoryCode: string, brandCode: string): string {
     return `${categoryCode}-${brandCode}-${Date.now().toString().slice(-6)}`
   }
 
-  async getHistory(empresaId: string, id: string, db?: DB): Promise<any[]> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const item = await client.item.findFirst({
-      where: { id, empresaId: tenantEmpresaId },
+  async getHistory(
+    empresaId: string,
+    id: string,
+    db: PrismaClientType
+  ): Promise<unknown[]> {
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id, empresaId },
       select: { historial: true },
     })
-    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+    if (!item) throw new NotFoundError(MSG.notFound)
 
-    const historial = item.historial as any
+    const historial = item.historial as unknown
     return Array.isArray(historial) ? historial : []
   }
 
-  async getStats(empresaId: string, id: string, db?: DB) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+  async getStats(empresaId: string, id: string, db: PrismaClientType) {
+    const item = await this.findById(empresaId, id, true, db)
+    const raw = item as unknown as Record<string, unknown>
+    const stocks = (raw.stocks as Array<Record<string, number>>) ?? []
 
-    const item = await this.findById(tenantEmpresaId, id, true, client)
-    const stocks = (item as any).stocks || []
-
-    const totalStock = stocks.reduce(
-      (sum: number, s: any) => sum + s.quantityReal,
-      0
-    )
+    const totalStock = stocks.reduce((sum, s) => sum + (s.quantityReal ?? 0), 0)
     const availableStock = stocks.reduce(
-      (sum: number, s: any) => sum + s.quantityAvailable,
+      (sum, s) => sum + (s.quantityAvailable ?? 0),
       0
     )
     const reservedStock = stocks.reduce(
-      (sum: number, s: any) => sum + s.quantityReserved,
+      (sum, s) => sum + (s.quantityReserved ?? 0),
       0
     )
 
     const [recentMovements, totalMovements, lastSale, totalSales] =
       await Promise.all([
-        client.movement.findMany({
+        (db as PrismaClient).movement.findMany({
           where: { itemId: id },
           take: 10,
           orderBy: { movementDate: 'desc' },
         }),
-        client.movement.count({ where: { itemId: id } }),
-        client.movement.findFirst({
-          where: { itemId: id, type: 'SALE' },
+        (db as PrismaClient).movement.count({ where: { itemId: id } }),
+        (db as PrismaClient).movement.findFirst({
+          where: { itemId: id, type: 'SALE' as never },
           orderBy: { movementDate: 'desc' },
         }),
-        client.movement.count({ where: { itemId: id, type: 'SALE' } }),
+        (db as PrismaClient).movement.count({
+          where: { itemId: id, type: 'SALE' as never },
+        }),
       ])
 
     const margin = PriceCalculator.calculateMargin(
-      Number((item as any).costPrice),
-      Number((item as any).salePrice)
+      Number(raw.costPrice),
+      Number(raw.salePrice)
     )
 
     return {
-      item: {
-        id: (item as any).id,
-        sku: (item as any).sku,
-        name: (item as any).name,
-      },
+      item: { id: raw.id, sku: raw.sku, name: raw.name },
       stock: {
         total: totalStock,
         available: availableStock,
         reserved: reservedStock,
       },
       pricing: {
-        costPrice: Number((item as any).costPrice),
-        salePrice: Number((item as any).salePrice),
-        wholesalePrice: (item as any).wholesalePrice
-          ? Number((item as any).wholesalePrice)
-          : null,
+        costPrice: Number(raw.costPrice),
+        salePrice: Number(raw.salePrice),
+        wholesalePrice: raw.wholesalePrice ? Number(raw.wholesalePrice) : null,
         margin,
       },
       movements: {
@@ -857,35 +785,26 @@ export class ItemService {
   async getRelatedItems(
     empresaId: string,
     id: string,
-    limit = 10,
-    db?: DB
+    limit: number,
+    db: PrismaClientType
   ): Promise<IItemWithRelations[]> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+    const item = await this.findById(empresaId, id, false, db)
+    const raw = item as unknown as Record<string, unknown>
 
-    const item = await this.findById(tenantEmpresaId, id, false, client)
-
-    const related = await client.item.findMany({
+    const related = await (db as PrismaClient).item.findMany({
       where: {
-        empresaId: tenantEmpresaId,
+        empresaId,
         id: { not: id },
         isActive: true,
         OR: [
-          { categoryId: (item as any).categoryId },
-          { brandId: (item as any).brandId },
-          { modelId: (item as any).modelId || null },
+          { categoryId: raw.categoryId as string },
+          { brandId: raw.brandId as string },
+          ...(raw.modelId ? [{ modelId: raw.modelId as string }] : []),
         ],
       },
       take: limit,
       orderBy: { name: 'asc' },
-      include: {
-        brand: true,
-        category: true,
-        model: true,
-        unit: true,
-        images: { where: { isPrimary: true }, take: 1 },
-        stocks: { select: { quantityAvailable: true } },
-      },
+      include: SEARCH_INCLUDE,
     })
 
     return related as unknown as IItemWithRelations[]
@@ -895,94 +814,82 @@ export class ItemService {
     empresaId: string,
     id: string,
     newSku: string,
-    userId?: string,
-    db?: DB
+    userId: string,
+    db: PrismaClientType
   ): Promise<IItemWithRelations> {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
+    const original = await this.findById(empresaId, id, false, db)
+    const raw = original as unknown as Record<string, unknown>
 
-    const original = await this.findById(tenantEmpresaId, id, false, client)
-
-    const existingSku = await client.item.findFirst({
-      where: { empresaId: tenantEmpresaId, sku: newSku.toUpperCase() },
+    const existingSku = await (db as PrismaClient).item.findFirst({
+      where: { empresaId, sku: newSku.toUpperCase() },
     })
-    if (existingSku) throw new ConflictError('El nuevo SKU ya existe')
+    if (existingSku) throw new ConflictError(MSG.skuExists)
 
     const payload: ICreateItemInput = {
       sku: newSku,
-      name: `${(original as any).name} (Copia)`,
-      brandId: (original as any).brandId,
-      categoryId: (original as any).categoryId,
-      unitId: (original as any).unitId,
-      costPrice: Number((original as any).costPrice),
-      salePrice: Number((original as any).salePrice),
-      minStock: (original as any).minStock,
-      reorderPoint: (original as any).reorderPoint,
+      name: `${raw.name} (Copia)`,
+      brandId: raw.brandId as string,
+      categoryId: raw.categoryId as string,
+      unitId: raw.unitId as string,
+      costPrice: Number(raw.costPrice),
+      salePrice: Number(raw.salePrice),
+      minStock: raw.minStock as number,
+      reorderPoint: raw.reorderPoint as number,
       isActive: false,
-      isSerialized: (original as any).isSerialized,
-      hasBatch: (original as any).hasBatch,
-      hasExpiry: (original as any).hasExpiry,
-      allowNegativeStock: (original as any).allowNegativeStock,
-      tags: (original as any).tags ?? [],
-
-      ...((original as any).modelId
-        ? { modelId: (original as any).modelId }
+      isSerialized: raw.isSerialized as boolean,
+      hasBatch: raw.hasBatch as boolean,
+      hasExpiry: raw.hasExpiry as boolean,
+      allowNegativeStock: raw.allowNegativeStock as boolean,
+      tags: (raw.tags as string[]) ?? [],
+      ...(raw.modelId ? { modelId: raw.modelId as string } : {}),
+      ...(raw.description ? { description: raw.description as string } : {}),
+      ...(raw.location ? { location: raw.location as string } : {}),
+      ...(raw.wholesalePrice != null
+        ? { wholesalePrice: Number(raw.wholesalePrice) }
         : {}),
-      ...((original as any).description
-        ? { description: (original as any).description }
-        : {}),
-      ...((original as any).location
-        ? { location: (original as any).location }
-        : {}),
-      ...((original as any).wholesalePrice != null
-        ? { wholesalePrice: Number((original as any).wholesalePrice) }
-        : {}),
-      ...((original as any).maxStock != null
-        ? { maxStock: (original as any).maxStock }
-        : {}),
-      ...((original as any).technicalSpecs
-        ? { technicalSpecs: (original as any).technicalSpecs }
-        : {}),
+      ...(raw.maxStock != null ? { maxStock: raw.maxStock as number } : {}),
+      ...(raw.technicalSpecs ? { technicalSpecs: raw.technicalSpecs } : {}),
     }
 
-    const duplicated = await this.create(
-      tenantEmpresaId,
-      payload,
-      userId,
-      client
-    )
-    return duplicated
+    return this.create(empresaId, payload, userId, db)
   }
+
   async checkAvailability(
     empresaId: string,
     items: { itemId: string; quantity: number; warehouseId: string }[],
-    db?: DB
-  ) {
-    const tenantEmpresaId = this.ensureEmpresaId(empresaId)
-    const client = this.getDB(db)
-
-    const details: {
+    db: PrismaClientType
+  ): Promise<{
+    available: boolean
+    details: Array<{
       itemId: string
       itemName: string
       requested: number
       available: number
       sufficient: boolean
-    }[] = []
+    }>
+  }> {
+    const details: Array<{
+      itemId: string
+      itemName: string
+      requested: number
+      available: number
+      sufficient: boolean
+    }> = []
 
     let allAvailable = true
 
     for (const { itemId, quantity, warehouseId } of items) {
-      const item = await this.findById(tenantEmpresaId, itemId, true, client)
-      const stock = (item as any).stocks?.find(
-        (s: any) => s.warehouseId === warehouseId
-      )
-      const available = stock?.quantityAvailable || 0
+      const item = await this.findById(empresaId, itemId, true, db)
+      const raw = item as unknown as Record<string, unknown>
+      const stocks = (raw.stocks as Array<Record<string, unknown>>) ?? []
+      const stock = stocks.find((s) => s.warehouseId === warehouseId)
+      const available = Number(stock?.quantityAvailable ?? 0)
       const sufficient = available >= quantity
       if (!sufficient) allAvailable = false
 
       details.push({
         itemId,
-        itemName: (item as any).name,
+        itemName: raw.name as string,
         requested: quantity,
         available,
         sufficient,

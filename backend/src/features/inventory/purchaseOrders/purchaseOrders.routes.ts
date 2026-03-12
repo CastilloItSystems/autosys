@@ -1,326 +1,93 @@
 // backend/src/features/inventory/purchaseOrders/purchaseOrders.routes.ts
 
 import { Router } from 'express'
-import { PurchaseOrderController } from './purchaseOrders.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import { validateBody } from '../../../shared/middleware/validateRequest.middleware'
+import purchaseOrderController from './purchaseOrders.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { validateBody } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createPurchaseOrderSchema,
   updatePurchaseOrderSchema,
   approvePurchaseOrderSchema,
   addPurchaseOrderItemSchema,
   receiveOrderSchema,
-} from './purchaseOrders.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+} from './purchaseOrders.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
-const controller = new PurchaseOrderController()
 
-/**
- * @swagger
- * /api/inventory/purchase-orders:
- *   get:
- *     tags:
- *       - Purchase Orders
- *     summary: Obtener todas las órdenes de compra
- *     description: Obtiene un listado paginado de órdenes de compra con filtros opcionales
- *     parameters:
- *       - name: page
- *         in: query
- *         type: integer
- *         default: 1
- *       - name: limit
- *         in: query
- *         type: integer
- *         default: 20
- *       - name: status
- *         in: query
- *         type: string
- *         enum: [DRAFT, SENT, PARTIAL, COMPLETED, CANCELLED]
- *       - name: supplierId
- *         in: query
- *         type: string
- *         format: uuid
- *       - name: warehouseId
- *         in: query
- *         type: string
- *         format: uuid
- *     responses:
- *       200:
- *         description: Listado de órdenes de compra
- *       401:
- *         description: No autorizado
- */
+// GET /api/inventory/purchase-orders
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  controller.getAll
+  purchaseOrderController.getAll
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders:
- *   post:
- *     tags:
- *       - Purchase Orders
- *     summary: Crear nueva orden de compra
- *     parameters:
- *       - name: body
- *         in: body
- *         required: true
- *         schema:
- *           type: object
- *           required:
- *             - supplierId
- *             - warehouseId
- *           properties:
- *             supplierId:
- *               type: string
- *               format: uuid
- *             warehouseId:
- *               type: string
- *               format: uuid
- *     responses:
- *       201:
- *         description: Orden creatada
- */
+// POST /api/inventory/purchase-orders
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(createPurchaseOrderSchema),
-  controller.create
+  purchaseOrderController.create
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}:
- *   get:
- *     tags:
- *       - Purchase Orders
- *     summary: Obtener orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *         format: uuid
- *     responses:
- *       200:
- *         description: Orden encontrada
- *       404:
- *         description: Orden no encontrada
- */
-router.get(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  controller.getOne
-)
-
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}:
- *   put:
- *     tags:
- *       - Purchase Orders
- *     summary: Actualizar orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *       - name: body
- *         in: body
- *         schema:
- *           type: object
- *           properties:
- *             status:
- *               type: string
- *               enum: [DRAFT, SENT, PARTIAL, COMPLETED, CANCELLED]
- *     responses:
- *       200:
- *         description: Orden actualizada
- */
-router.put(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateBody(updatePurchaseOrderSchema),
-  controller.update
-)
-
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}/approve:
- *   patch:
- *     tags:
- *       - Purchase Orders
- *     summary: Aprobar orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Orden aprobada
- */
+// PATCH /api/inventory/purchase-orders/:id/approve
 router.patch(
   '/:id/approve',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateBody(approvePurchaseOrderSchema),
-  controller.approve
+  purchaseOrderController.approve
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}/cancel:
- *   patch:
- *     tags:
- *       - Purchase Orders
- *     summary: Cancelar orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Orden cancelada
- */
+// PATCH /api/inventory/purchase-orders/:id/cancel
 router.patch(
   '/:id/cancel',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  controller.cancel
+  purchaseOrderController.cancel
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}/receive:
- *   post:
- *     tags:
- *       - Purchase Orders
- *     summary: Recepcionar mercancía de una orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *       - name: body
- *         in: body
- *         required: true
- *         schema:
- *           type: object
- *           required:
- *             - items
- *           properties:
- *             warehouseId:
- *               type: string
- *               format: uuid
- *             notes:
- *               type: string
- *             items:
- *               type: array
- *               items:
- *                 type: object
- *                 required:
- *                   - itemId
- *                   - quantityReceived
- *                   - unitCost
- *     responses:
- *       201:
- *         description: Recepción registrada
- */
+// POST /api/inventory/purchase-orders/:id/receive
 router.post(
   '/:id/receive',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(receiveOrderSchema),
-  controller.receive
+  purchaseOrderController.receive
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}/items:
- *   post:
- *     tags:
- *       - Purchase Orders
- *     summary: Agregar item a orden
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *       - name: body
- *         in: body
- *         required: true
- *         schema:
- *           type: object
- *           required:
- *             - itemId
- *             - quantityOrdered
- *             - unitCost
- *     responses:
- *       201:
- *         description: Item agregado
- */
+// POST /api/inventory/purchase-orders/:id/items
 router.post(
   '/:id/items',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(addPurchaseOrderItemSchema),
-  controller.addItem
+  purchaseOrderController.addItem
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}/items:
- *   get:
- *     tags:
- *       - Purchase Orders
- *     summary: Obtener items de orden
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Items obtenidos
- */
+// GET /api/inventory/purchase-orders/:id/items
 router.get(
   '/:id/items',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  controller.getItems
+  purchaseOrderController.getItems
 )
 
-/**
- * @swagger
- * /api/inventory/purchase-orders/{id}:
- *   delete:
- *     tags:
- *       - Purchase Orders
- *     summary: Eliminar orden de compra
- *     parameters:
- *       - name: id
- *         in: path
- *         required: true
- *         type: string
- *     responses:
- *       200:
- *         description: Orden eliminada
- */
+// GET /api/inventory/purchase-orders/:id
+router.get(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  purchaseOrderController.getOne
+)
+
+// PUT /api/inventory/purchase-orders/:id
+router.put(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateBody(updatePurchaseOrderSchema),
+  purchaseOrderController.update
+)
+
+// DELETE /api/inventory/purchase-orders/:id
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  controller.delete
+  purchaseOrderController.delete
 )
 
 export default router

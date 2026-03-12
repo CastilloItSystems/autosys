@@ -23,8 +23,8 @@ export interface IExitNoteItemDetails {
   exitNoteId: string
   itemId: string
   quantity: number
-  quantityPicked: number
-  quantityVerified: number
+  quantityPicked?: number
+  quantityVerified?: number
   pickedFromLocation?: string
   batchId?: string
   serialNumberId?: string
@@ -35,7 +35,7 @@ export interface IExitNoteItemDetails {
   verifiedAt?: Date
   verifiedBy?: string
   createdAt: Date
-  updatedAt: Date
+  updatedAt?: Date
 }
 
 /**

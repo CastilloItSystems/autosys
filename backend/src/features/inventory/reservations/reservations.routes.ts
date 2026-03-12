@@ -287,20 +287,25 @@
  */
 
 import { Router } from 'express'
-import { ReservationController } from './reservations.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
+import { ReservationController } from './reservations.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
 import {
   validateBody,
   validateParams,
-} from '../../../shared/middleware/validateRequest.middleware'
+  validateQuery,
+} from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createReservationSchema,
   updateReservationSchema,
   consumeReservationSchema,
   releaseReservationSchema,
-} from './reservations.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+  reservationIdSchema,
+  itemIdSchema,
+  warehouseIdSchema,
+  getReservationsQuerySchema,
+  paginationQuerySchema,
+} from './reservations.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
 const controller = new ReservationController()
@@ -314,16 +319,16 @@ const controller = new ReservationController()
 // GET /api/inventory/reservations/active
 router.get(
   '/active',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateQuery(paginationQuerySchema),
   controller.getActive
 )
 
 // GET /api/inventory/reservations/expired
 router.get(
   '/expired',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateQuery(paginationQuerySchema),
   controller.getExpired
 )
 
@@ -336,16 +341,18 @@ router.get(
 // GET /api/inventory/reservations/item/:itemId
 router.get(
   '/item/:itemId',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateParams(itemIdSchema),
+  validateQuery(paginationQuerySchema),
   controller.getByItem
 )
 
 // GET /api/inventory/reservations/warehouse/:warehouseId
 router.get(
   '/warehouse/:warehouseId',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateParams(warehouseIdSchema),
+  validateQuery(paginationQuerySchema),
   controller.getByWarehouse
 )
 
@@ -358,8 +365,8 @@ router.get(
 // POST /api/inventory/reservations/:id/consume
 router.post(
   '/:id/consume',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(reservationIdSchema),
   validateBody(consumeReservationSchema),
   controller.consume
 )
@@ -367,8 +374,8 @@ router.post(
 // POST /api/inventory/reservations/:id/release
 router.post(
   '/:id/release',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(reservationIdSchema),
   validateBody(releaseReservationSchema),
   controller.release
 )
@@ -376,8 +383,8 @@ router.post(
 // PATCH /api/inventory/reservations/:id/pending-pickup
 router.patch(
   '/:id/pending-pickup',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(reservationIdSchema),
   controller.markAsPendingPickup
 )
 
@@ -390,15 +397,14 @@ router.patch(
 // GET /api/inventory/reservations (Listar todos)
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateQuery(getReservationsQuerySchema),
   controller.getAll
 )
 
 // POST /api/inventory/reservations (Crear)
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(createReservationSchema),
   controller.create
@@ -407,16 +413,16 @@ router.post(
 // GET /api/inventory/reservations/:id (Obtener uno)
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateParams(reservationIdSchema),
   controller.getOne
 )
 
 // PUT /api/inventory/reservations/:id (Actualizar)
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(reservationIdSchema),
   validateBody(updateReservationSchema),
   controller.update
 )
@@ -424,8 +430,8 @@ router.put(
 // DELETE /api/inventory/reservations/:id (Eliminar)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
+  validateParams(reservationIdSchema),
   controller.delete
 )
 

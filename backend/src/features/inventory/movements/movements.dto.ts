@@ -1,6 +1,6 @@
 // backend/src/features/inventory/movements/movements.dto.ts
 
-import { IMovement, MovementType } from './movements.interface'
+import { IMovement, MovementType } from './movements.interface.js'
 
 export class CreateMovementDTO {
   type: MovementType

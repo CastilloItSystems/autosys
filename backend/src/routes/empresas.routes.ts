@@ -8,59 +8,19 @@ import {
   getEmpresaPredeterminada,
   getAuditLogsForEmpresa,
 } from '../controllers/empresas.controller.js'
-import { authenticate } from '../shared/middleware/authenticate.middleware'
-import { authorize } from '../shared/middleware/authorize.middleware'
-import { PERMISSIONS } from '../shared/constants/permissions'
+import { authorize } from '../shared/middleware/authorize.middleware.js'
+import { PERMISSIONS } from '../shared/constants/permissions.js'
 
 const router = Router()
 
-// GET /api/empresas
-router.get(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.EMPRESA_VIEW),
-  getAllEmpresas
-)
-
-// POST /api/empresas
-router.post(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.EMPRESA_CREATE),
-  createEmpresa
-)
-
-// GET /api/empresas/predeterminada
-router.get('/predeterminada', authenticate, getEmpresaPredeterminada)
-
-// GET /api/empresas/:id
-router.get(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.EMPRESA_VIEW),
-  getEmpresaById
-)
-
-// PUT /api/empresas/:id
-router.put(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.EMPRESA_UPDATE),
-  updateEmpresa
-)
-
-// DELETE /api/empresas/:id
-router.delete(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.EMPRESA_DELETE),
-  deleteEmpresa
-)
-
-// GET /api/empresas/:id/audit-logs
+router.get('/', authorize(PERMISSIONS.EMPRESA_VIEW), getAllEmpresas)
+router.post('/', authorize(PERMISSIONS.EMPRESA_CREATE), createEmpresa)
+router.get('/predeterminada', getEmpresaPredeterminada)
+router.get('/:id', authorize(PERMISSIONS.EMPRESA_VIEW), getEmpresaById)
+router.put('/:id', authorize(PERMISSIONS.EMPRESA_UPDATE), updateEmpresa)
+router.delete('/:id', authorize(PERMISSIONS.EMPRESA_DELETE), deleteEmpresa)
 router.get(
   '/:id/audit-logs',
-  authenticate,
   authorize(PERMISSIONS.EMPRESA_VIEW),
   getAuditLogsForEmpresa
 )

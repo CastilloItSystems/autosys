@@ -4,6 +4,8 @@ export enum TransferStatus {
   DRAFT = 'DRAFT',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
   APPROVED = 'APPROVED',
+  IN_TRANSIT = 'IN_TRANSIT',
+  RECEIVED = 'RECEIVED',
   REJECTED = 'REJECTED',
   CANCELLED = 'CANCELLED',
 }
@@ -21,6 +23,8 @@ export interface ITransfer {
   rejectedBy?: string | null
   rejectedAt?: Date | null
   rejectionReason?: string | null
+  sentAt?: Date | null
+  receivedAt?: Date | null
   exitNoteId?: string | null
   entryNoteId?: string | null
   createdBy: string

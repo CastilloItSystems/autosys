@@ -1,173 +1,169 @@
-/**
- * Exit Notes Items Controller
- * Route handlers for item operations within exit notes
- */
+// backend/src/features/inventory/exitNotes/items/items.controller.ts
 
 import { Request, Response } from 'express'
-import { ExitNoteItemsService } from './items.service'
-import { ApiResponse } from '../../../../shared/utils/apiResponse'
+import itemsService from './items.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
 
-const itemsService = ExitNoteItemsService.getInstance()
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-/**
- * Get all items for an exit note
- */
-export const getItems = async (req: Request, res: Response): Promise<void> => {
-  const { exitNoteId } = req.params as { exitNoteId: string }
-
-  const items = await itemsService.getItems(exitNoteId)
-
-  ApiResponse.success(res, items, 'Exit note items retrieved successfully')
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
 }
 
-/**
- * Get a specific item
- */
-export const getItem = async (req: Request, res: Response): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
-  const item = await itemsService.getItem(itemId)
-  if (!item) {
-    ApiResponse.error(res, 'Item not found', 404)
-    return
-  }
+class ExitNoteItemsController {
+  /**
+   * GET /api/inventory/exit-notes/:exitNoteId/items
+   */
+  getItems = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { exitNoteId } = req.params as { exitNoteId: string }
 
-  ApiResponse.success(res, item, 'Item retrieved successfully')
+    const items = await itemsService.getItems(exitNoteId, empresaId, req.prisma)
+
+    return ApiResponse.success(res, items, 'Items obtenidos exitosamente')
+  })
+
+  /**
+   * GET /api/inventory/exit-notes/:exitNoteId/items/summary
+   */
+  getSummary = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { exitNoteId } = req.params as { exitNoteId: string }
+
+    const summary = await itemsService.getSummary(
+      exitNoteId,
+      empresaId,
+      req.prisma
+    )
+
+    return ApiResponse.success(res, summary, 'Resumen de items obtenido')
+  })
+
+  /**
+   * GET /api/inventory/exit-notes/:exitNoteId/items/:itemId
+   */
+  getItem = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { itemId } = req.params as { itemId: string }
+
+    const item = await itemsService.getItem(itemId, empresaId, req.prisma)
+
+    return ApiResponse.success(res, item, 'Item obtenido exitosamente')
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:exitNoteId/items/:itemId/pick
+   */
+  recordPicking = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId ?? ''
+    const { itemId } = req.params as { itemId: string }
+    const { location, notes } = req.body
+
+    const item = await itemsService.recordPicking(
+      itemId,
+      String(location),
+      empresaId,
+      userId,
+      notes !== undefined ? String(notes) : undefined,
+      req.prisma
+    )
+
+    return ApiResponse.success(res, item, 'Picking registrado exitosamente')
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:exitNoteId/items/:itemId/verify
+   */
+  verifyItem = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId ?? ''
+    const { itemId } = req.params as { itemId: string }
+    const { quantityVerified, notes } = req.body
+
+    const item = await itemsService.verifyItem(
+      itemId,
+      Number(quantityVerified),
+      empresaId,
+      userId,
+      notes !== undefined ? String(notes) : undefined,
+      req.prisma
+    )
+
+    return ApiResponse.success(res, item, 'Item verificado exitosamente')
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:exitNoteId/items/:itemId/reject
+   */
+  rejectItem = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId ?? ''
+    const { itemId } = req.params as { itemId: string }
+    const reason = String(req.body.reason ?? '')
+
+    const item = await itemsService.rejectItem(
+      itemId,
+      reason,
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.success(res, item, 'Item rechazado exitosamente')
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:exitNoteId/items/:itemId/batch
+   */
+  assignBatch = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId ?? ''
+    const { itemId } = req.params as { itemId: string }
+    const { batchId } = req.body
+
+    const item = await itemsService.assignBatch(
+      itemId,
+      String(batchId),
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.success(res, item, 'Batch asignado exitosamente')
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:exitNoteId/items/:itemId/serial
+   */
+  assignSerial = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId ?? ''
+    const { itemId } = req.params as { itemId: string }
+    const { serialNumberId } = req.body
+
+    const item = await itemsService.assignSerialNumber(
+      itemId,
+      String(serialNumberId),
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      item,
+      'Número de serie asignado exitosamente'
+    )
+  })
 }
 
-/**
- * Record item picking
- */
-export const recordPicking = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
-  const { quantityPicked, location, notes } = req.body
-  const userId = (req as any).user?.id
-
-  const item = await itemsService.recordPicking(
-    itemId,
-    quantityPicked,
-    location,
-    userId,
-    notes
-  )
-
-  ApiResponse.success(res, item, 'Item picking recorded successfully')
-}
-
-/**
- * Assign batch to item
- */
-export const assignBatch = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
-  const { batchId } = req.body
-  const userId = (req as any).user?.id
-
-  const item = await itemsService.assignBatch(itemId, batchId, userId)
-
-  ApiResponse.success(res, item, 'Batch assigned successfully')
-}
-
-/**
- * Assign serial number to item
- */
-export const assignSerial = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
-  const { serialNumberId } = req.body
-  const userId = (req as any).user?.id
-
-  const item = await itemsService.assignSerialNumber(
-    itemId,
-    serialNumberId,
-    userId
-  )
-
-  ApiResponse.success(res, item, 'Serial number assigned successfully')
-}
-
-/**
- * Verify item
- */
-export const verifyItem = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
-  const { quantityVerified, notes } = req.body
-  const userId = (req as any).user?.id
-
-  const item = await itemsService.verifyItem(
-    itemId,
-    quantityVerified,
-    userId,
-    notes
-  )
-
-  ApiResponse.success(res, item, 'Item verified successfully')
-}
-
-/**
- * Reject item
- */
-export const rejectItem = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { itemId } = req.params as { itemId: string }
-  const { reason } = req.body
-  const userId = (req as any).user?.id
-
-  const item = await itemsService.rejectItem(itemId, reason, userId)
-
-  ApiResponse.success(res, item, 'Item rejected successfully')
-}
-
-/**
- * Get items summary
- */
-export const getItemsSummary = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { exitNoteId } = req.params as { exitNoteId: string }
-
-  const summary = await itemsService.getItemsSummary(exitNoteId)
-
-  ApiResponse.success(res, summary, 'Items summary retrieved successfully')
-}
-
-/**
- * Get items by batch
- */
-export const getItemsByBatch = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { batchId } = req.params as { batchId: string }
-
-  const items = await itemsService.getItemsByBatch(batchId)
-
-  ApiResponse.success(res, items, 'Items retrieved successfully')
-}
-
-/**
- * Get items by serial number
- */
-export const getItemsBySerial = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  const { serialNumberId } = req.params as { serialNumberId: string }
-
-  const items = await itemsService.getItemsBySerial(serialNumberId)
-
-  ApiResponse.success(res, items, 'Items retrieved successfully')
-}
+export default new ExitNoteItemsController()

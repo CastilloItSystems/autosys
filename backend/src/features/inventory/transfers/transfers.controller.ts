@@ -1,23 +1,33 @@
 // backend/src/features/inventory/transfers/transfers.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import TransfersService from './transfers.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import TransfersService from './transfers.service.js'
 import {
   CreateTransferDTO,
   UpdateTransferDTO,
   RejectTransferDTO,
   TransferResponseDTO,
   TransferListResponseDTO,
-} from './transfers.dto'
-import { ITransferFilters } from './transfers.interface'
+} from './transfers.dto.js'
+import { ITransferFilters } from './transfers.interface.js'
+
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
+
+function getUserId(req: Request): string {
+  return req.user?.userId ?? 'system'
+}
 
 export class TransfersController {
   /**
    * GET /api/inventory/transfers
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const {
       page = 1,
       limit = 20,
@@ -41,12 +51,11 @@ export class TransfersController {
       filters,
       Number(page),
       Number(limit),
-      req.prisma || undefined
+      empresaId,
+      req.prisma
     )
 
-    const items = result.data.map(
-      (transfer) => new TransferListResponseDTO(transfer)
-    )
+    const items = result.data.map((t) => new TransferListResponseDTO(t))
 
     return ApiResponse.paginated(
       res,
@@ -61,91 +70,142 @@ export class TransfersController {
    * GET /api/inventory/transfers/:id
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const transfer = await TransfersService.findById(id)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.findById(
+      req.params.id as string,
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * POST /api/inventory/transfers
    */
   create = asyncHandler(async (req: Request, res: Response) => {
-    const createDTO = new CreateTransferDTO(req.body)
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.create(createDTO, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.created(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.create(
+      new CreateTransferDTO(req.body),
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.created(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * PUT /api/inventory/transfers/:id
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const updateDTO = new UpdateTransferDTO(req.body)
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.update(id, updateDTO, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.update(
+      req.params.id as string,
+      new UpdateTransferDTO(req.body),
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * PATCH /api/inventory/transfers/:id/submit
-   * Submit for approval (DRAFT → PENDING_APPROVAL)
    */
   submit = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.submitForApproval(id, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.submitForApproval(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * PATCH /api/inventory/transfers/:id/approve
-   * Approve transfer (PENDING_APPROVAL → APPROVED)
    */
   approve = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.approve(id, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.approve(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * PATCH /api/inventory/transfers/:id/reject
-   * Reject transfer (PENDING_APPROVAL → REJECTED)
    */
   reject = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const rejectDTO = new RejectTransferDTO(req.body)
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.reject(id, rejectDTO, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.reject(
+      req.params.id as string,
+      new RejectTransferDTO(req.body),
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
+  })
+
+  /**
+   * PATCH /api/inventory/transfers/:id/send
+   * APPROVED → IN_TRANSIT
+   */
+  send = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.send(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
+  })
+
+  /**
+   * PATCH /api/inventory/transfers/:id/receive
+   * IN_TRANSIT → RECEIVED
+   */
+  receive = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.receive(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * PATCH /api/inventory/transfers/:id/cancel
    */
   cancel = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = (req as any).user?.userId || 'system'
-    const transfer = await TransfersService.cancel(id, userId)
-    const dto = new TransferResponseDTO(transfer)
-    return ApiResponse.success(res, dto)
+    const empresaId = getEmpresaId(req)
+    const transfer = await TransfersService.cancel(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
+    return ApiResponse.success(res, new TransferResponseDTO(transfer))
   })
 
   /**
    * DELETE /api/inventory/transfers/:id
-   * Delete transfer (DRAFT only)
    */
   remove = asyncHandler(async (req: Request, res: Response) => {
-    const id = req.params.id as string
-    const userId = (req as any).user?.userId || 'system'
-    await TransfersService.delete(id, userId)
+    const empresaId = getEmpresaId(req)
+    await TransfersService.delete(
+      req.params.id as string,
+      getUserId(req),
+      empresaId,
+      req.prisma
+    )
     return ApiResponse.noContent(res)
   })
 }

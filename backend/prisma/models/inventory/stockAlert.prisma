@@ -10,18 +10,22 @@ enum AlertType {
 
 model StockAlert {
   id          String    @id @default(uuid())
+
+  // itemId      String
+  // item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+ itemId      String
+  item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
   
-  itemId      String
   warehouseId String
-  
+
   type        AlertType
   message     String
   severity    String    @default("MEDIUM") // LOW, MEDIUM, HIGH, CRITICAL
-  
+
   isRead      Boolean   @default(false)
   readBy      String?
   readAt      DateTime?
-  
+
   createdAt   DateTime  @default(now())
 
   @@map("stock_alerts")

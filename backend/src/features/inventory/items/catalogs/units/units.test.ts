@@ -2,242 +2,304 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
-import app from '../../../../../app'
-import prisma from '../../../../../services/prisma.service'
-import { getTestAuthToken } from '../../../../../shared/utils/test.utils'
+import app from '../../../../../app.js'
+import prisma from '../../../../../services/prisma.service.js'
+import { getTestCredentials } from '../../../../../shared/utils/test.utils.js'
 
-describe('Unit API Tests', () => {
-  let authToken: string = 'test-token'
+describe('Units API Tests', () => {
+  let authToken: string
+  let empresaId: string
   let createdUnitId: string
 
   beforeAll(async () => {
-    // Limpiar datos de prueba anteriores
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
+    // Limpiar datos de prueba anteriores scoped por empresa
     await prisma.unit
       .deleteMany({
-        where: { code: { in: ['TESTUN', 'KG', 'L'] } },
+        where: {
+          empresaId,
+          code: { in: ['TESTUN', 'BULK1', 'BULK2', 'ANOTHER'] },
+        },
       })
       .catch(() => {})
-
-    // Obtener token de autenticación
-    // authToken = await getTestAuthToken();
-    authToken = await getTestAuthToken()
   })
 
   afterAll(async () => {
-    // Limpiar datos de prueba
-    if (createdUnitId) {
-      await prisma.unit.delete({ where: { id: createdUnitId } }).catch(() => {})
-    }
+    await prisma.unit
+      .deleteMany({
+        where: {
+          empresaId,
+          code: { in: ['TESTUN', 'BULK1', 'BULK2', 'ANOTHER'] },
+        },
+      })
+      .catch(() => {})
   })
+
+  // ---------------------------------------------------------------------------
+  // POST /
+  // ---------------------------------------------------------------------------
 
   describe('POST /api/inventory/catalogs/units', () => {
     test('Debe crear una unidad exitosamente', async () => {
-      const unitData = {
-        code: 'TESTUN',
-        name: 'Test Unit',
-        abbreviation: 'tu',
-        type: 'COUNTABLE',
-        isActive: true,
-      }
-
-      const response = await request(app)
+      const res = await request(app)
         .post('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(unitData)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TESTUN',
+          name: 'Test Unit',
+          abbreviation: 'tu',
+          type: 'COUNTABLE',
+          isActive: true,
+        })
         .expect(201)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toHaveProperty('id')
-      expect(response.body.data.code).toBe(unitData.code)
-      expect(response.body.data.name).toBe(unitData.name)
-      expect(response.body.data.abbreviation).toBe(unitData.abbreviation)
-      expect(response.body.data.type).toBe(unitData.type)
-      expect(response.body.data.typeLabel).toBe('Contable')
+      expect(res.body.success).toBe(true)
+      expect(res.body.data).toHaveProperty('id')
+      expect(res.body.data.code).toBe('TESTUN')
+      expect(res.body.data.name).toBe('Test Unit')
+      expect(res.body.data.abbreviation).toBe('tu')
+      expect(res.body.data.type).toBe('COUNTABLE')
+      expect(res.body.data.typeLabel).toBe('Contable')
 
-      createdUnitId = response.body.data.id
+      createdUnitId = res.body.data.id
     })
 
-    test('Debe fallar al crear unidad con código duplicado', async () => {
-      const unitData = {
-        code: 'TESTUN',
-        name: 'Another Test Unit',
-        abbreviation: 'tu2',
-        type: 'COUNTABLE',
-      }
-
-      const response = await request(app)
+    test('Debe fallar con código duplicado en la misma empresa', async () => {
+      const res = await request(app)
         .post('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(unitData)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TESTUN',
+          name: 'Another Test Unit',
+          abbreviation: 'tu2',
+          type: 'COUNTABLE',
+        })
         .expect(409)
 
-      expect(response.body.success).toBe(false)
+      expect(res.body.success).toBe(false)
     })
 
     test('Debe fallar con tipo inválido', async () => {
-      const unitData = {
-        code: 'TESTUN2',
-        name: 'Invalid Type Unit',
-        abbreviation: 'itu',
-        type: 'INVALID_TYPE',
-      }
-
-      const response = await request(app)
+      const res = await request(app)
         .post('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(unitData)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TESTUN2',
+          name: 'Invalid Type Unit',
+          abbreviation: 'itu',
+          type: 'INVALID_TYPE',
+        })
         .expect(422)
 
-      expect(response.body.success).toBe(false)
+      expect(res.body.success).toBe(false)
     })
 
     test('Debe fallar con código que contiene caracteres inválidos', async () => {
-      const unitData = {
-        code: 'TEST-UNIT',
-        name: 'Invalid Code Unit',
-        abbreviation: 'icu',
-        type: 'WEIGHT',
-      }
-
-      const response = await request(app)
+      const res = await request(app)
         .post('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(unitData)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TEST-UNIT',
+          name: 'Invalid Code Unit',
+          abbreviation: 'icu',
+          type: 'WEIGHT',
+        })
         .expect(422)
 
-      expect(response.body.success).toBe(false)
+      expect(res.body.success).toBe(false)
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // GET /
+  // ---------------------------------------------------------------------------
+
   describe('GET /api/inventory/catalogs/units', () => {
     test('Debe obtener lista de unidades con paginación', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toBeInstanceOf(Array)
-      expect(response.body.meta).toHaveProperty('total')
-      expect(response.body.meta).toHaveProperty('page')
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(res.body.meta).toHaveProperty('total')
+      expect(res.body.meta).toHaveProperty('page')
     })
 
     test('Debe filtrar unidades por tipo', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ type: 'COUNTABLE' })
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toBeInstanceOf(Array)
-      response.body.data.forEach((unit: any) => {
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      res.body.data.forEach((unit: Record<string, unknown>) => {
         expect(unit.type).toBe('COUNTABLE')
       })
     })
 
     test('Debe buscar unidades por término', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get('/api/inventory/catalogs/units')
         .set('Authorization', `Bearer ${authToken}`)
-        .query({ search: 'TEST' })
+        .set('X-Empresa-Id', empresaId)
+        .query({ search: 'Test' })
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toBeInstanceOf(Array)
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
 
-  describe('GET /api/inventory/catalogs/units/grouped', () => {
-    test('Debe obtener unidades agrupadas por tipo', async () => {
-      const response = await request(app)
-        .get('/api/inventory/catalogs/units/grouped')
+  // ---------------------------------------------------------------------------
+  // GET /active
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/catalogs/units/active', () => {
+    test('Debe obtener solo unidades activas', async () => {
+      const res = await request(app)
+        .get('/api/inventory/catalogs/units/active')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toBeInstanceOf(Array)
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+    })
+  })
 
-      if (response.body.data.length > 0) {
-        const group = response.body.data[0]
+  // ---------------------------------------------------------------------------
+  // GET /grouped
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/catalogs/units/grouped', () => {
+    test('Debe obtener unidades agrupadas por tipo', async () => {
+      const res = await request(app)
+        .get('/api/inventory/catalogs/units/grouped')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .expect(200)
+
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+
+      if (res.body.data.length > 0) {
+        const group = res.body.data[0]
         expect(group).toHaveProperty('type')
         expect(group).toHaveProperty('typeLabel')
         expect(group).toHaveProperty('units')
         expect(group).toHaveProperty('count')
-        expect(group.units).toBeInstanceOf(Array)
+        expect(Array.isArray(group.units)).toBe(true)
       }
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // GET /type/:type
+  // ---------------------------------------------------------------------------
+
   describe('GET /api/inventory/catalogs/units/type/:type', () => {
     test('Debe obtener unidades de un tipo específico', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get('/api/inventory/catalogs/units/type/COUNTABLE')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toBeInstanceOf(Array)
-      response.body.data.forEach((unit: any) => {
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      res.body.data.forEach((unit: Record<string, unknown>) => {
         expect(unit.type).toBe('COUNTABLE')
       })
     })
 
     test('Debe fallar con tipo inválido', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get('/api/inventory/catalogs/units/type/INVALID')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(400)
 
-      expect(response.body.success).toBe(false)
+      expect(res.body.success).toBe(false)
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // GET /:id
+  // ---------------------------------------------------------------------------
 
   describe('GET /api/inventory/catalogs/units/:id', () => {
     test('Debe obtener una unidad por ID', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .get(`/api/inventory/catalogs/units/${createdUnitId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data.id).toBe(createdUnitId)
-      expect(response.body.data.typeLabel).toBeDefined()
+      expect(res.body.success).toBe(true)
+      expect(res.body.data.id).toBe(createdUnitId)
+      expect(res.body.data.typeLabel).toBeDefined()
     })
 
-    test('Debe fallar con ID inválido', async () => {
-      const response = await request(app)
+    test('Debe retornar 422 con ID inválido', async () => {
+      const res = await request(app)
         .get('/api/inventory/catalogs/units/invalid-id')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(422)
 
-      expect(response.body.success).toBe(false)
+      expect(res.body.success).toBe(false)
+    })
+
+    test('Debe retornar 404 con unidad inexistente', async () => {
+      const res = await request(app)
+        .get(
+          '/api/inventory/catalogs/units/00000000-0000-0000-0000-000000000000'
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .expect(404)
+
+      expect(res.body.success).toBe(false)
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // PUT /:id
+  // ---------------------------------------------------------------------------
+
   describe('PUT /api/inventory/catalogs/units/:id', () => {
     test('Debe actualizar una unidad', async () => {
-      const updateData = {
-        name: 'Updated Test Unit',
-        abbreviation: 'utu',
-      }
-
-      const response = await request(app)
+      const res = await request(app)
         .put(`/api/inventory/catalogs/units/${createdUnitId}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send(updateData)
+        .set('X-Empresa-Id', empresaId)
+        .send({ name: 'Updated Test Unit', abbreviation: 'utu' })
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data.name).toBe(updateData.name)
-      expect(response.body.data.abbreviation).toBe(updateData.abbreviation)
+      expect(res.body.success).toBe(true)
+      expect(res.body.data.name).toBe('Updated Test Unit')
+      expect(res.body.data.abbreviation).toBe('utu')
     })
 
-    test('Debe fallar al cambiar a código existente', async () => {
-      // Primero crear otra unidad
-      const anotherUnit = await prisma.unit.create({
+    test('Debe fallar al cambiar a código existente en la misma empresa', async () => {
+      // Crear otra unidad en la misma empresa
+      await prisma.unit.create({
         data: {
+          empresaId,
           code: 'ANOTHER',
           name: 'Another Unit',
           abbreviation: 'au',
@@ -245,79 +307,136 @@ describe('Unit API Tests', () => {
         },
       })
 
-      // Intentar actualizar con código existente
-      const response = await request(app)
+      const res = await request(app)
         .put(`/api/inventory/catalogs/units/${createdUnitId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ code: 'ANOTHER' })
         .expect(409)
 
-      expect(response.body.success).toBe(false)
-
-      // Limpiar
-      await prisma.unit.delete({ where: { id: anotherUnit.id } })
+      expect(res.body.success).toBe(false)
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // PATCH /:id/toggle
+  // ---------------------------------------------------------------------------
 
   describe('PATCH /api/inventory/catalogs/units/:id/toggle', () => {
     test('Debe cambiar el estado activo de una unidad', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .patch(`/api/inventory/catalogs/units/${createdUnitId}/toggle`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data).toHaveProperty('isActive')
+      expect(res.body.success).toBe(true)
+      expect(res.body.data).toHaveProperty('isActive')
     })
   })
+
+  // ---------------------------------------------------------------------------
+  // POST /bulk
+  // ---------------------------------------------------------------------------
 
   describe('POST /api/inventory/catalogs/units/bulk', () => {
     test('Debe importar unidades masivamente', async () => {
-      const units = [
-        {
-          code: 'BULK1',
-          name: 'Bulk Unit 1',
-          abbreviation: 'bu1',
-          type: 'VOLUME',
-        },
-        {
-          code: 'BULK2',
-          name: 'Bulk Unit 2',
-          abbreviation: 'bu2',
-          type: 'LENGTH',
-        },
-      ]
-
-      const response = await request(app)
+      const res = await request(app)
         .post('/api/inventory/catalogs/units/bulk')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({ units })
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          units: [
+            {
+              code: 'BULK1',
+              name: 'Bulk Unit 1',
+              abbreviation: 'bu1',
+              type: 'VOLUME',
+            },
+            {
+              code: 'BULK2',
+              name: 'Bulk Unit 2',
+              abbreviation: 'bu2',
+              type: 'LENGTH',
+            },
+          ],
+        })
         .expect(200)
 
-      expect(response.body.success).toBe(true)
-      expect(response.body.data.success.length).toBeGreaterThan(0)
+      expect(res.body.success).toBe(true)
+      expect(res.body.data.success.length).toBeGreaterThan(0)
+    })
 
-      // Limpiar
-      for (const unit of units) {
-        await prisma.unit.delete({ where: { code: unit.code } }).catch(() => {})
-      }
+    test('Debe fallar sin array de unidades', async () => {
+      const res = await request(app)
+        .post('/api/inventory/catalogs/units/bulk')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({ units: [] })
+        .expect(400)
+
+      expect(res.body.success).toBe(false)
     })
   })
 
+  // ---------------------------------------------------------------------------
+  // DELETE /:id (soft)
+  // ---------------------------------------------------------------------------
+
   describe('DELETE /api/inventory/catalogs/units/:id', () => {
     test('Debe eliminar una unidad (soft delete)', async () => {
-      const response = await request(app)
+      const res = await request(app)
         .delete(`/api/inventory/catalogs/units/${createdUnitId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .expect(200)
 
-      expect(response.body.success).toBe(true)
+      expect(res.body.success).toBe(true)
 
-      // Verificar que fue soft deleted
       const unit = await prisma.unit.findUnique({
         where: { id: createdUnitId },
       })
       expect(unit?.isActive).toBe(false)
+    })
+
+    test('Debe retornar 404 con unidad inexistente', async () => {
+      const res = await request(app)
+        .delete(
+          '/api/inventory/catalogs/units/00000000-0000-0000-0000-000000000000'
+        )
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .expect(404)
+
+      expect(res.body.success).toBe(false)
+    })
+  })
+
+  // ---------------------------------------------------------------------------
+  // GET /search
+  // ---------------------------------------------------------------------------
+
+  describe('GET /api/inventory/catalogs/units/search', () => {
+    test('Debe buscar unidades por término', async () => {
+      const res = await request(app)
+        .get('/api/inventory/catalogs/units/search')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .query({ term: 'Test' })
+        .expect(200)
+
+      expect(res.body.success).toBe(true)
+      expect(Array.isArray(res.body.data)).toBe(true)
+    })
+
+    test('Debe fallar sin término de búsqueda', async () => {
+      const res = await request(app)
+        .get('/api/inventory/catalogs/units/search')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .expect(400)
+
+      expect(res.body.success).toBe(false)
     })
   })
 })

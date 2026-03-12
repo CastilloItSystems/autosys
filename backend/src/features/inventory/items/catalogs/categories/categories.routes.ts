@@ -390,170 +390,140 @@
  */
 
 // backend/src/features/inventory/items/catalogs/categories/categories.routes.ts
+// backend/src/features/inventory/items/catalogs/categories/categories.routes.ts
 
 import { Router } from 'express'
-import categoryController from './categories.controller'
-import { authenticate } from '../../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../../../shared/middleware/validateRequest.middleware'
+import controller from './categories.controller.js'
+import { authorize } from '../../../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../../../shared/middleware/validateRequest.middleware.js'
 import {
   createCategorySchema,
   updateCategorySchema,
   categoryIdSchema,
   getCategoriesQuerySchema,
-} from './categories.validation'
-import { PERMISSIONS } from '../../../../../shared/constants/permissions'
+} from './categories.validation.js'
+import { PERMISSIONS } from '../../../../../shared/constants/permissions.js'
 
 const router = Router()
 
-/**
- * Rutas públicas (o con autenticación básica)
- */
-
-// GET /api/inventory/catalogs/categories/tree
-router.get('/tree', authenticate, categoryController.getTree)
-
-// GET /api/inventory/catalogs/categories/root
-router.get('/root', authenticate, categoryController.getRootCategories)
-
-// GET /api/inventory/catalogs/categories/active
-router.get('/active', authenticate, categoryController.getActive)
-
-// GET /api/inventory/catalogs/categories/search
-router.get('/search', authenticate, categoryController.search)
-
-/**
- * Rutas protegidas - Requieren autenticación y permisos
- */
-
-// GET /api/inventory/catalogs/categories
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
+router.get('/tree', authorize(PERMISSIONS.INVENTORY_VIEW), controller.getTree)
 router.get(
-  '/',
-  authenticate,
+  '/root',
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateQuery(getCategoriesQuerySchema),
-  categoryController.getAll
+  controller.getRootCategories
 )
-
-// GET /api/inventory/catalogs/categories/:id/tree
 router.get(
-  '/:id/tree',
-  authenticate,
+  '/active',
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getSubTree
+  controller.getActive
 )
+router.get('/search', authorize(PERMISSIONS.INVENTORY_VIEW), controller.search)
 
-// GET /api/inventory/catalogs/categories/:id/children
-router.get(
-  '/:id/children',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getChildren
-)
-
-// GET /api/inventory/catalogs/categories/:id/ancestors
-router.get(
-  '/:id/ancestors',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getAncestors
-)
-
-// GET /api/inventory/catalogs/categories/:id/path
-router.get(
-  '/:id/path',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getPath
-)
-
-// GET /api/inventory/catalogs/categories/:id/stats
-router.get(
-  '/:id/stats',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getStats
-)
-
-// GET /api/inventory/catalogs/categories/:id (DEBE IR DESPUÉS DE LAS RUTAS ESPECÍFICAS)
-router.get(
-  '/:id',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(categoryIdSchema),
-  categoryController.getById
-)
-
-// POST /api/inventory/catalogs/categories
-router.post(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createCategorySchema),
-  categoryController.create
-)
-
-// POST /api/inventory/catalogs/categories/bulk
 router.post(
   '/bulk',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  categoryController.bulkCreate
+  controller.bulkCreate
 )
 
-// PUT /api/inventory/catalogs/categories/:id
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
+router.get(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(getCategoriesQuerySchema, 'query'),
+  controller.getAll
+)
+
+router.post(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  validateRequest(createCategorySchema, 'body'),
+  controller.create
+)
+
+// ---------------------------------------------------------------------------
+// Rutas con :id — sub-rutas ANTES de /:id simple
+// ---------------------------------------------------------------------------
+router.get(
+  '/:id/tree',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getSubTree
+)
+
+router.get(
+  '/:id/children',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getChildren
+)
+
+router.get(
+  '/:id/ancestors',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getAncestors
+)
+
+router.get(
+  '/:id/path',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getPath
+)
+
+router.get(
+  '/:id/stats',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getStats
+)
+
+router.get(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(categoryIdSchema, 'params'),
+  controller.getById
+)
+
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(categoryIdSchema),
-  validateBody(updateCategorySchema),
-  categoryController.update
+  validateRequest(categoryIdSchema, 'params'),
+  validateRequest(updateCategorySchema, 'body'),
+  controller.update
 )
 
-// PATCH /api/inventory/catalogs/categories/:id/move
 router.patch(
   '/:id/move',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(categoryIdSchema),
-  categoryController.move
+  validateRequest(categoryIdSchema, 'params'),
+  controller.move
 )
 
-// PATCH /api/inventory/catalogs/categories/:id/toggle
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(categoryIdSchema),
-  categoryController.toggleActive
+  validateRequest(categoryIdSchema, 'params'),
+  controller.toggleActive
 )
 
-// DELETE /api/inventory/catalogs/categories/:id/hard (DEBE IR ANTES DE /:id DELETE)
 router.delete(
   '/:id/hard',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(categoryIdSchema),
-  categoryController.hardDelete
+  validateRequest(categoryIdSchema, 'params'),
+  controller.hardDelete
 )
 
-// DELETE /api/inventory/catalogs/categories/:id (soft delete)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(categoryIdSchema),
-  categoryController.delete
+  validateRequest(categoryIdSchema, 'params'),
+  controller.delete
 )
 
 export default router

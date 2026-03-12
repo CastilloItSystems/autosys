@@ -1,6 +1,6 @@
 // backend/src/features/inventory/items/catalogs/units/units.dto.ts
 
-import { UnitType } from './units.interface'
+import { UnitType } from './units.interface.js'
 
 export class CreateUnitDTO {
   code: string

@@ -1,19 +1,21 @@
 // backend/src/features/inventory/items/catalogs/model-compatibility/model-compatibility.service.ts
 
-import prisma from '../../../../../services/prisma.service'
-import { logger } from '../../../../../shared/utils/logger'
+import { PrismaClient, Prisma } from '../../../../../generated/prisma/client.js'
+import { logger } from '../../../../../shared/utils/logger.js'
 import {
   ConflictError,
   NotFoundError,
   BadRequestError,
-} from '../../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../../shared/utils/pagination'
+} from '../../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../../shared/utils/pagination.js'
 import {
   ICreateCompatibilityInput,
   IUpdateCompatibilityInput,
   ICompatibilityFilters,
   IModelCompatibilityWithRelations,
-} from './model-compatibility.interface'
+} from './model-compatibility.interface.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const MESSAGES = {
   alreadyExists: 'La compatibilidad entre estos modelos ya existe',
@@ -21,530 +23,278 @@ const MESSAGES = {
   partModelNotFound: 'Modelo de parte no encontrado',
   vehicleModelNotFound: 'Modelo de vehículo no encontrado',
   samePart: 'No se puede crear compatibilidad entre el mismo modelo',
+  alreadyVerified: 'Esta compatibilidad ya está verificada',
 }
 
+const COMPAT_INCLUDE = {
+  partModel: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: true,
+      brand: { select: { id: true, code: true, name: true } },
+    },
+  },
+  vehicleModel: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      type: true,
+      brand: { select: { id: true, code: true, name: true } },
+    },
+  },
+} as const
+
 class ModelCompatibilityService {
-  /**
-   * Crear nueva compatibilidad
-   */
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
+
   async create(
+    empresaId: string,
     data: ICreateCompatibilityInput,
-    userId?: string
+    userId: string,
+    db: PrismaClientType
   ): Promise<IModelCompatibilityWithRelations> {
-    try {
-      // Validar que no sea el mismo modelo
-      if (data.partModelId === data.vehicleModelId) {
-        throw new BadRequestError(MESSAGES.samePart)
-      }
+    if (data.partModelId === data.vehicleModelId) {
+      throw new BadRequestError(MESSAGES.samePart)
+    }
 
-      // Verificar que ambos modelos existen
-      const [partModel, vehicleModel] = await Promise.all([
-        prisma.model.findUnique({ where: { id: data.partModelId } }),
-        prisma.model.findUnique({ where: { id: data.vehicleModelId } }),
-      ])
+    // Verificar que ambos modelos existen Y pertenecen a la empresa
+    const [partModel, vehicleModel] = await Promise.all([
+      (db as PrismaClient).model.findFirst({
+        where: { id: data.partModelId, empresaId },
+      }),
+      (db as PrismaClient).model.findFirst({
+        where: { id: data.vehicleModelId, empresaId },
+      }),
+    ])
 
-      if (!partModel) {
-        throw new NotFoundError(MESSAGES.partModelNotFound)
-      }
+    if (!partModel) throw new NotFoundError(MESSAGES.partModelNotFound)
+    if (!vehicleModel) throw new NotFoundError(MESSAGES.vehicleModelNotFound)
 
-      if (!vehicleModel) {
-        throw new NotFoundError(MESSAGES.vehicleModelNotFound)
-      }
-
-      // Verificar que no ya existe la relación (en ambas direcciones)
-      const existing = await prisma.modelCompatibility.findFirst({
-        where: {
-          OR: [
-            {
-              partModelId: data.partModelId,
-              vehicleModelId: data.vehicleModelId,
-            },
-            {
-              partModelId: data.vehicleModelId,
-              vehicleModelId: data.partModelId,
-            },
-          ],
-        },
-      })
-
-      if (existing) {
-        throw new ConflictError(MESSAGES.alreadyExists)
-      }
-
-      // Crear compatibilidad
-      const compatibility = await prisma.modelCompatibility.create({
-        data: {
-          partModelId: data.partModelId,
-          vehicleModelId: data.vehicleModelId,
-          notes: data.notes ?? null,
-          isVerified: data.isVerified ?? false,
-        },
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
+    // Verificar unicidad (en ambas direcciones)
+    const existing = await (db as PrismaClient).modelCompatibility.findFirst({
+      where: {
+        OR: [
+          {
+            partModelId: data.partModelId,
+            vehicleModelId: data.vehicleModelId,
           },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
+          {
+            partModelId: data.vehicleModelId,
+            vehicleModelId: data.partModelId,
           },
-        },
-      })
+        ],
+      },
+    })
+    if (existing) throw new ConflictError(MESSAGES.alreadyExists)
 
-      logger.info('Model compatibility created', {
-        compatibilityId: compatibility.id,
+    const compatibility = await (db as PrismaClient).modelCompatibility.create({
+      data: {
         partModelId: data.partModelId,
         vehicleModelId: data.vehicleModelId,
-        userId,
-      })
+        notes: data.notes ?? null,
+        isVerified: data.isVerified ?? false,
+      },
+      include: COMPAT_INCLUDE,
+    })
 
-      return compatibility as IModelCompatibilityWithRelations
-    } catch (error) {
-      logger.error('Error creating model compatibility', {
-        error,
-        data,
-        userId,
-      })
-      throw error
-    }
+    logger.info('Compatibilidad creada', {
+      compatibilityId: compatibility.id,
+      partModelId: data.partModelId,
+      vehicleModelId: data.vehicleModelId,
+      empresaId,
+      userId,
+    })
+
+    return compatibility as unknown as IModelCompatibilityWithRelations
   }
 
-  /**
-   * Obtener todas las compatibilidades con filtros y paginación
-   */
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
+
   async findAll(
-    filters: ICompatibilityFilters = {},
+    empresaId: string,
+    filters: ICompatibilityFilters,
     page: number = 1,
-    limit: number = 10
-  ): Promise<{ data: IModelCompatibilityWithRelations[]; total: number }> {
-    try {
-      const where: any = {}
+    limit: number = 10,
+    db: PrismaClientType
+  ): Promise<{
+    data: IModelCompatibilityWithRelations[]
+    total: number
+    page: number
+    limit: number
+    totalPages: number
+  }> {
+    const {
+      skip,
+      take,
+      page: validPage,
+      limit: validLimit,
+    } = PaginationHelper.validateAndParse({ page, limit })
 
-      if (filters.partModelId) {
-        where.partModelId = filters.partModelId
-      }
+    // Tenant via relación con Model
+    const where: Prisma.ModelCompatibilityWhereInput = {
+      partModel: { empresaId },
+    }
 
-      if (filters.vehicleModelId) {
-        where.vehicleModelId = filters.vehicleModelId
-      }
+    if (filters.partModelId) where.partModelId = filters.partModelId
+    if (filters.vehicleModelId) where.vehicleModelId = filters.vehicleModelId
+    if (filters.isVerified !== undefined) where.isVerified = filters.isVerified
 
-      if (filters.isVerified !== undefined) {
-        where.isVerified = filters.isVerified
-      }
-
-      const {
+    const [total, compatibilities] = await Promise.all([
+      (db as PrismaClient).modelCompatibility.count({ where }),
+      (db as PrismaClient).modelCompatibility.findMany({
+        where,
         skip,
         take,
-        page: validPage,
-        limit: validLimit,
-      } = PaginationHelper.validateAndParse({ page, limit })
+        orderBy: { createdAt: 'desc' },
+        include: COMPAT_INCLUDE,
+      }),
+    ])
 
-      const [total, compatibilities] = await Promise.all([
-        prisma.modelCompatibility.count({ where }),
-        prisma.modelCompatibility.findMany({
-          where,
-          skip,
-          take,
-          orderBy: { createdAt: 'desc' },
-          include: {
-            partModel: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                type: true,
-                brand: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-            vehicleModel: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                type: true,
-                brand: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                  },
-                },
-              },
-            },
-          },
-        }),
-      ])
+    const meta = PaginationHelper.getMeta(validPage, validLimit, total)
 
-      const meta = PaginationHelper.getMeta(validPage, validLimit, total)
-
-      return {
-        data: compatibilities as IModelCompatibilityWithRelations[],
-        ...meta,
-      }
-    } catch (error) {
-      logger.error('Error finding model compatibilities', { error, filters })
-      throw error
+    return {
+      data: compatibilities as unknown as IModelCompatibilityWithRelations[],
+      ...meta,
     }
   }
 
-  /**
-   * Obtener compatibilidad por ID
-   */
-  async findById(id: string): Promise<IModelCompatibilityWithRelations> {
-    try {
-      const compatibility = await prisma.modelCompatibility.findUnique({
-        where: { id },
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      })
-
-      if (!compatibility) {
-        throw new NotFoundError(MESSAGES.notFound)
-      }
-
-      return compatibility as IModelCompatibilityWithRelations
-    } catch (error) {
-      logger.error('Error finding model compatibility by ID', { error, id })
-      throw error
-    }
+  async findById(
+    empresaId: string,
+    id: string,
+    db: PrismaClientType
+  ): Promise<IModelCompatibilityWithRelations> {
+    const compatibility = await (
+      db as PrismaClient
+    ).modelCompatibility.findFirst({
+      where: { id, partModel: { empresaId } },
+      include: COMPAT_INCLUDE,
+    })
+    if (!compatibility) throw new NotFoundError(MESSAGES.notFound)
+    return compatibility as unknown as IModelCompatibilityWithRelations
   }
 
-  /**
-   * Obtener compatibilidades de un modelo de parte
-   */
   async findByPartModel(
-    partModelId: string
+    empresaId: string,
+    partModelId: string,
+    db: PrismaClientType
   ): Promise<IModelCompatibilityWithRelations[]> {
-    try {
-      const model = await prisma.model.findUnique({
-        where: { id: partModelId },
-      })
-      if (!model) {
-        throw new NotFoundError(MESSAGES.partModelNotFound)
-      }
+    const model = await (db as PrismaClient).model.findFirst({
+      where: { id: partModelId, empresaId },
+    })
+    if (!model) throw new NotFoundError(MESSAGES.partModelNotFound)
 
-      const compatibilities = await prisma.modelCompatibility.findMany({
-        where: { partModelId },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      })
-
-      return compatibilities as IModelCompatibilityWithRelations[]
-    } catch (error) {
-      logger.error('Error finding compatibilities by part model', {
-        error,
-        partModelId,
-      })
-      throw error
-    }
+    const compatibilities = await (
+      db as PrismaClient
+    ).modelCompatibility.findMany({
+      where: { partModelId },
+      orderBy: { createdAt: 'desc' },
+      include: COMPAT_INCLUDE,
+    })
+    return compatibilities as unknown as IModelCompatibilityWithRelations[]
   }
 
-  /**
-   * Obtener compatibilidades de un modelo de vehículo
-   */
   async findByVehicleModel(
-    vehicleModelId: string
+    empresaId: string,
+    vehicleModelId: string,
+    db: PrismaClientType
   ): Promise<IModelCompatibilityWithRelations[]> {
-    try {
-      const model = await prisma.model.findUnique({
-        where: { id: vehicleModelId },
-      })
-      if (!model) {
-        throw new NotFoundError(MESSAGES.vehicleModelNotFound)
-      }
+    const model = await (db as PrismaClient).model.findFirst({
+      where: { id: vehicleModelId, empresaId },
+    })
+    if (!model) throw new NotFoundError(MESSAGES.vehicleModelNotFound)
 
-      const compatibilities = await prisma.modelCompatibility.findMany({
-        where: { vehicleModelId },
-        orderBy: { createdAt: 'desc' },
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      })
-
-      return compatibilities as IModelCompatibilityWithRelations[]
-    } catch (error) {
-      logger.error('Error finding compatibilities by vehicle model', {
-        error,
-        vehicleModelId,
-      })
-      throw error
-    }
+    const compatibilities = await (
+      db as PrismaClient
+    ).modelCompatibility.findMany({
+      where: { vehicleModelId },
+      orderBy: { createdAt: 'desc' },
+      include: COMPAT_INCLUDE,
+    })
+    return compatibilities as unknown as IModelCompatibilityWithRelations[]
   }
 
-  /**
-   * Actualizar compatibilidad
-   */
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
+
   async update(
+    empresaId: string,
     id: string,
     data: IUpdateCompatibilityInput,
-    userId?: string
+    userId: string,
+    db: PrismaClientType
   ): Promise<IModelCompatibilityWithRelations> {
-    try {
-      // Verificar que existe
-      await this.findById(id)
+    await this.findById(empresaId, id, db) // throws 404
 
-      const updateData: any = {}
-      if (data.notes !== undefined) {
-        updateData.notes = data.notes
-      }
-      if (data.isVerified !== undefined) {
-        updateData.isVerified = data.isVerified
-      }
+    const updateData: Record<string, unknown> = {}
+    if (data.notes !== undefined) updateData.notes = data.notes ?? null
+    if (data.isVerified !== undefined) updateData.isVerified = data.isVerified
 
-      const compatibility = await prisma.modelCompatibility.update({
-        where: { id },
-        data: updateData,
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      })
+    const compatibility = await (db as PrismaClient).modelCompatibility.update({
+      where: { id },
+      data: updateData as never,
+      include: COMPAT_INCLUDE,
+    })
 
-      logger.info('Model compatibility updated', {
-        compatibilityId: id,
-        userId,
-      })
-
-      return compatibility as IModelCompatibilityWithRelations
-    } catch (error) {
-      logger.error('Error updating model compatibility', {
-        error,
-        id,
-        data,
-        userId,
-      })
-      throw error
-    }
+    logger.info('Compatibilidad actualizada', {
+      compatibilityId: id,
+      empresaId,
+      userId,
+    })
+    return compatibility as unknown as IModelCompatibilityWithRelations
   }
 
-  /**
-   * Marcar compatibilidad como verificada
-   */
   async verify(
+    empresaId: string,
     id: string,
-    userId?: string
+    userId: string,
+    db: PrismaClientType
   ): Promise<IModelCompatibilityWithRelations> {
-    try {
-      const compatibility = await this.findById(id)
+    const compatibility = await this.findById(empresaId, id, db)
 
-      if (compatibility.isVerified) {
-        throw new BadRequestError('Esta compatibilidad ya está verificada')
-      }
+    if (compatibility.isVerified)
+      throw new BadRequestError(MESSAGES.alreadyVerified)
 
-      const updated = await prisma.modelCompatibility.update({
-        where: { id },
-        data: { isVerified: true },
-        include: {
-          partModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-          vehicleModel: {
-            select: {
-              id: true,
-              code: true,
-              name: true,
-              type: true,
-              brand: {
-                select: {
-                  id: true,
-                  code: true,
-                  name: true,
-                },
-              },
-            },
-          },
-        },
-      })
+    const updated = await (db as PrismaClient).modelCompatibility.update({
+      where: { id },
+      data: { isVerified: true },
+      include: COMPAT_INCLUDE,
+    })
 
-      logger.info('Model compatibility verified', {
-        compatibilityId: id,
-        userId,
-      })
-
-      return updated as IModelCompatibilityWithRelations
-    } catch (error) {
-      logger.error('Error verifying model compatibility', { error, id, userId })
-      throw error
-    }
+    logger.info('Compatibilidad verificada', {
+      compatibilityId: id,
+      empresaId,
+      userId,
+    })
+    return updated as unknown as IModelCompatibilityWithRelations
   }
 
-  /**
-   * Eliminar compatibilidad
-   */
-  async delete(id: string, userId?: string): Promise<void> {
-    try {
-      await this.findById(id)
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
 
-      await prisma.modelCompatibility.delete({
-        where: { id },
-      })
+  async delete(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    await this.findById(empresaId, id, db) // throws 404
 
-      logger.info('Model compatibility deleted', {
-        compatibilityId: id,
-        userId,
-      })
-    } catch (error) {
-      logger.error('Error deleting model compatibility', { error, id, userId })
-      throw error
-    }
+    await (db as PrismaClient).modelCompatibility.delete({ where: { id } })
+
+    logger.info('Compatibilidad eliminada', {
+      compatibilityId: id,
+      empresaId,
+      userId,
+    })
   }
 }
 

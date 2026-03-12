@@ -4,7 +4,7 @@
  */
 
 import { prisma } from '../../../../config/database'
-import { EventService, EventType } from '../../../../services/event.service'
+import { EventService, EventType } from '../../../shared/events/event.service'
 import { BadRequestError, NotFoundError } from '../../../../shared/utils/errors'
 import { logger } from '../../../../shared/utils/logger'
 

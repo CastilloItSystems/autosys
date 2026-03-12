@@ -1,6 +1,9 @@
 // backend/src/features/inventory/warehouses/warehouses.dto.ts
 
-import { IWarehouse, WarehouseType } from './warehouses.interface'
+import {
+  IWarehouseWithRelations,
+  WarehouseType,
+} from './warehouses.interface.js'
 
 export class CreateWarehouseDTO {
   code: string
@@ -8,11 +11,11 @@ export class CreateWarehouseDTO {
   type: WarehouseType
   address?: string
 
-  constructor(data: any) {
-    this.code = data.code?.toUpperCase()
-    this.name = data.name
-    this.type = data.type ?? WarehouseType.PRINCIPAL
-    this.address = data.address
+  constructor(data: Record<string, unknown>) {
+    this.code = (data.code as string)?.toUpperCase()
+    this.name = data.name as string
+    this.type = (data.type as WarehouseType) ?? WarehouseType.PRINCIPAL
+    if (data.address !== undefined) this.address = data.address as string
   }
 }
 
@@ -23,12 +26,13 @@ export class UpdateWarehouseDTO {
   address?: string | null
   isActive?: boolean
 
-  constructor(data: any) {
-    if (data.code) this.code = data.code.toUpperCase()
-    if (data.name) this.name = data.name
-    if (data.type) this.type = data.type
-    if (data.address !== undefined) this.address = data.address
-    if (data.isActive !== undefined) this.isActive = data.isActive
+  constructor(data: Record<string, unknown>) {
+    if (data.code !== undefined) this.code = (data.code as string).toUpperCase()
+    if (data.name !== undefined) this.name = data.name as string
+    if (data.type !== undefined) this.type = data.type as WarehouseType
+    if (data.address !== undefined)
+      this.address = (data.address as string | null) ?? null
+    if (data.isActive !== undefined) this.isActive = data.isActive as boolean
   }
 }
 
@@ -37,23 +41,21 @@ export class WarehouseResponseDTO {
   code: string
   name: string
   type: WarehouseType
-  address?: string | null
+  address: string | null
   isActive: boolean
+  empresaId: string
   createdAt: Date
   updatedAt: Date
-  stocks?: any[]
-  movementsFrom?: any[]
-  movementsTo?: any[]
-  orders?: any[]
-  preInvoices?: any[]
-  exitNotes?: any[]
-  purchaseOrders?: any[]
+  stocks?: Array<{
+    itemId: string
+    quantityReal: number
+    quantityAvailable: number
+  }>
+  _count?: Record<string, number>
 
   constructor(
-    warehouse: IWarehouse,
-    options: {
-      includeRelations?: boolean
-    } = {}
+    warehouse: IWarehouseWithRelations,
+    options: { includeRelations?: boolean } = {}
   ) {
     this.id = warehouse.id
     this.code = warehouse.code
@@ -61,19 +63,14 @@ export class WarehouseResponseDTO {
     this.type = warehouse.type
     this.address = warehouse.address ?? null
     this.isActive = warehouse.isActive
+    this.empresaId = warehouse.empresaId
     this.createdAt = warehouse.createdAt
     this.updatedAt = warehouse.updatedAt
 
-    if (options.includeRelations && warehouse) {
-      const relations = warehouse as any
-      if (relations.stocks) this.stocks = relations.stocks
-      if (relations.movementsFrom) this.movementsFrom = relations.movementsFrom
-      if (relations.movementsTo) this.movementsTo = relations.movementsTo
-      if (relations.orders) this.orders = relations.orders
-      if (relations.preInvoices) this.preInvoices = relations.preInvoices
-      if (relations.exitNotes) this.exitNotes = relations.exitNotes
-      if (relations.purchaseOrders)
-        this.purchaseOrders = relations.purchaseOrders
+    if (options.includeRelations) {
+      if (warehouse.stocks) this.stocks = warehouse.stocks
+      if (warehouse._count)
+        this._count = warehouse._count as Record<string, number>
     }
   }
 }

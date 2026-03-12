@@ -4,6 +4,8 @@ enum TransferStatus {
   DRAFT
   PENDING_APPROVAL
   APPROVED
+  IN_TRANSIT
+  RECEIVED
   REJECTED
   CANCELLED
 }
@@ -30,6 +32,10 @@ model Transfer {
   rejectedBy       String?
   rejectedAt       DateTime?
   rejectionReason  String?        @db.Text
+
+  // Transit fields
+  sentAt           DateTime?
+  receivedAt       DateTime?
 
   createdBy        String
 

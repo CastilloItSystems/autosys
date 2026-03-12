@@ -1,7 +1,4 @@
 // backend/src/routes/companyRoles.routes.ts
-// Rutas para gestión de roles dinámicos por empresa
-// Montado en: /api/empresas/:id/roles
-
 import { Router } from 'express'
 import {
   getCompanyRoles,
@@ -11,49 +8,40 @@ import {
   assignUserRole,
   removeUserRole,
 } from '../controllers/companyRoles.controller.js'
-import { authenticateToken, requireRole } from '../middleware/auth.middleware.js'
+import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 import { authorize } from '../shared/middleware/authorize.middleware.js'
 import { PERMISSIONS } from '../shared/constants/permissions.js'
 
-const router = Router({ mergeParams: true }) // mergeParams para acceder a :id del padre
+const router = Router({ mergeParams: true })
 
-router.use(authenticateToken)
+// Si ya autenticas en api.routes para /empresas/:id/roles, esto es opcional.
+// Déjalo si quieres que el router sea autónomo.
+router.use(authenticate)
 
-// CRUD de roles de empresa — requiere permiso de actualizar empresa o ser admin
-router.get(
-  '/',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
-  getCompanyRoles
-)
-
-router.post(
-  '/',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
-  createCompanyRole
-)
-
+// CRUD de roles dinámicos por empresa
+router.get('/', authorize(PERMISSIONS.COMPANY_ROLES_VIEW), getCompanyRoles)
+router.post('/', authorize(PERMISSIONS.COMPANY_ROLES_MANAGE), createCompanyRole)
 router.put(
   '/:roleId',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
   updateCompanyRole
 )
-
 router.delete(
   '/:roleId',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
   deleteCompanyRole
 )
 
 // Asignación de roles a usuarios dentro de la empresa
 router.put(
   '/users/:userId/role',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
   assignUserRole
 )
 
 router.delete(
   '/users/:userId/role',
-  requireRole(['admin', 'superAdmin', 'ADMIN', 'SUPER_ADMIN']),
+  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
   removeUserRole
 )
 

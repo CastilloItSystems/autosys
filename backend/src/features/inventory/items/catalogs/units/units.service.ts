@@ -1,6 +1,6 @@
 // backend/src/features/inventory/items/catalogs/units/units.service.ts
-import prisma from '../../../../../services/prisma.service'
 
+import { PrismaClient, Prisma } from '../../../../../generated/prisma/client.js'
 import {
   ICreateUnitInput,
   IUpdateUnitInput,
@@ -8,479 +8,359 @@ import {
   IUnitWithRelations,
   IUnitGroupedByType,
   UnitType,
-} from './units.interface'
+} from './units.interface.js'
 import {
   NotFoundError,
   ConflictError,
   BadRequestError,
-} from '../../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
-import { UNIT_TYPE_LABELS } from '../../../shared/constants/inventory.constants'
-import { logger } from '../../../../../shared/utils/logger'
+} from '../../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../../shared/constants/messages.js'
+import { UNIT_TYPE_LABELS } from '../../../shared/constants/inventory.constants.js'
+import { logger } from '../../../../../shared/utils/logger.js'
 
-export class UnitService {
-  /**
-   * Crear una nueva unidad
-   */
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+const MSG = INVENTORY_MESSAGES.unit
+
+const UNIT_INCLUDE = {
+  _count: { select: { items: true } },
+} as const
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+class UnitService {
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
+
   async create(
+    empresaId: string,
     data: ICreateUnitInput,
-    userId?: string
+    userId: string,
+    db: PrismaClientType
   ): Promise<IUnitWithRelations> {
-    try {
-      // Verificar si el código ya existe
-      const existingByCode = await prisma.unit.findUnique({
-        where: { code: data.code.toUpperCase() },
-      })
+    const code = data.code.toUpperCase()
 
-      if (existingByCode) {
-        throw new ConflictError(INVENTORY_MESSAGES.unit.codeExists)
-      }
+    const existingCode = await (db as PrismaClient).unit.findFirst({
+      where: { empresaId, code },
+    })
+    if (existingCode) throw new ConflictError(MSG.codeExists)
 
-      // Verificar si la abreviación ya existe
-      const existingByAbbr = await prisma.unit.findUnique({
-        where: { abbreviation: data.abbreviation },
-      })
+    const existingAbbr = await (db as PrismaClient).unit.findFirst({
+      where: { empresaId, abbreviation: data.abbreviation },
+    })
+    if (existingAbbr) throw new ConflictError('La abreviación ya existe')
 
-      if (existingByAbbr) {
-        throw new ConflictError('La abreviación ya existe')
-      }
+    const unit = await (db as PrismaClient).unit.create({
+      data: {
+        empresaId,
+        code,
+        name: data.name,
+        abbreviation: data.abbreviation,
+        type: data.type,
+        isActive: data.isActive ?? true,
+      },
+      include: UNIT_INCLUDE,
+    })
 
-      // Crear unidad
-      const unit = await prisma.unit.create({
-        data: {
-          code: data.code.toUpperCase(),
-          name: data.name,
-          abbreviation: data.abbreviation,
-          type: data.type,
-          isActive: data.isActive ?? true,
-        },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
+    logger.info('Unidad creada', { unitId: unit.id, code, empresaId, userId })
 
-      logger.info('Unit created', {
-        unitId: unit.id,
-        code: unit.code,
-        type: unit.type,
-        userId,
-      })
-
-      return unit
-    } catch (error) {
-      logger.error('Error creating unit', { error, data, userId })
-      throw error
-    }
+    return unit as unknown as IUnitWithRelations
   }
 
-  /**
-   * Obtener todas las unidades con paginación y filtros
-   */
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
+
   async findAll(
+    empresaId: string,
     filters: IUnitFilters,
-    page: number = 1,
-    limit: number = 10,
-    prismaClient?: any
-  ) {
-    try {
-      const db = prismaClient || prisma
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
+    page: number,
+    limit: number,
+    db: PrismaClientType
+  ): Promise<{
+    units: IUnitWithRelations[]
+    page: number
+    limit: number
+    total: number
+    totalPages: number
+  }> {
+    const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-      // Construir filtros
-      const where: any = {}
+    const where: Prisma.UnitWhereInput = { empresaId }
 
-      if (filters.search) {
-        where.OR = [
-          { code: { contains: filters.search, mode: 'insensitive' } },
-          { name: { contains: filters.search, mode: 'insensitive' } },
-          { abbreviation: { contains: filters.search, mode: 'insensitive' } },
-        ]
-      }
+    if (filters.search) {
+      where.OR = [
+        { code: { contains: filters.search, mode: 'insensitive' } },
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { abbreviation: { contains: filters.search, mode: 'insensitive' } },
+      ]
+    }
+    if (filters.type) where.type = filters.type
+    if (filters.isActive !== undefined) where.isActive = filters.isActive
 
-      if (filters.type) {
-        where.type = filters.type
-      }
+    const [total, units] = await Promise.all([
+      (db as PrismaClient).unit.count({ where }),
+      (db as PrismaClient).unit.findMany({
+        where,
+        skip,
+        take,
+        orderBy: [{ type: 'asc' }, { name: 'asc' }],
+        include: UNIT_INCLUDE,
+      }),
+    ])
 
-      if (filters.isActive !== undefined) {
-        where.isActive = filters.isActive
-      }
+    const meta = PaginationHelper.getMeta(page, limit, total)
 
-      // Ejecutar consultas en paralelo
-      const [units, total] = await Promise.all([
-        db.unit.findMany({
-          where,
-          skip,
-          take,
-          orderBy: [{ type: 'asc' }, { name: 'asc' }],
-          include: {
-            _count: {
-              select: {
-                items: true,
-              },
-            },
-          },
-        }),
-        db.unit.count({ where }),
-      ])
-
-      const meta = PaginationHelper.getMeta(page, limit, total)
-
-      return {
-        units,
-        ...meta,
-      }
-    } catch (error) {
-      logger.error('Error finding units', { error, filters })
-      throw error
+    return {
+      units: units as unknown as IUnitWithRelations[],
+      page: meta.page,
+      limit: meta.limit,
+      total: meta.total,
+      totalPages: meta.totalPages,
     }
   }
 
-  /**
-   * Obtener unidad por ID
-   */
-  async findById(id: string): Promise<IUnitWithRelations> {
-    try {
-      const unit = await prisma.unit.findUnique({
-        where: { id },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
+  async findById(
+    empresaId: string,
+    id: string,
+    db: PrismaClientType
+  ): Promise<IUnitWithRelations> {
+    const unit = await (db as PrismaClient).unit.findFirst({
+      where: { id, empresaId },
+      include: UNIT_INCLUDE,
+    })
+    if (!unit) throw new NotFoundError(MSG.notFound)
+    return unit as unknown as IUnitWithRelations
+  }
 
-      if (!unit) {
-        throw new NotFoundError(INVENTORY_MESSAGES.unit.notFound)
+  async findByType(
+    empresaId: string,
+    type: UnitType,
+    db: PrismaClientType
+  ): Promise<IUnitWithRelations[]> {
+    const units = await (db as PrismaClient).unit.findMany({
+      where: { empresaId, type },
+      orderBy: { name: 'asc' },
+      include: UNIT_INCLUDE,
+    })
+    return units as unknown as IUnitWithRelations[]
+  }
+
+  async findGroupedByType(
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IUnitGroupedByType[]> {
+    const types: UnitType[] = ['COUNTABLE', 'WEIGHT', 'VOLUME', 'LENGTH']
+    const grouped: IUnitGroupedByType[] = []
+
+    for (const type of types) {
+      const units = await this.findByType(empresaId, type, db)
+      if (units.length > 0) {
+        grouped.push({
+          type,
+          typeLabel: UNIT_TYPE_LABELS[type],
+          units,
+          count: units.length,
+        })
       }
-
-      return unit
-    } catch (error) {
-      logger.error('Error finding unit by ID', { error, id })
-      throw error
     }
+
+    return grouped
   }
 
-  /**
-   * Obtener unidad por código
-   */
-  async findByCode(code: string): Promise<IUnitWithRelations | null> {
-    try {
-      const unit = await prisma.unit.findUnique({
-        where: { code: code.toUpperCase() },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      return unit
-    } catch (error) {
-      logger.error('Error finding unit by code', { error, code })
-      throw error
-    }
+  async findActive(
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IUnitWithRelations[]> {
+    const units = await (db as PrismaClient).unit.findMany({
+      where: { empresaId, isActive: true },
+      orderBy: [{ type: 'asc' }, { name: 'asc' }],
+      include: UNIT_INCLUDE,
+    })
+    return units as unknown as IUnitWithRelations[]
   }
 
-  /**
-   * Obtener unidades por tipo
-   */
-  async findByType(type: UnitType): Promise<IUnitWithRelations[]> {
-    try {
-      const units = await prisma.unit.findMany({
-        where: { type },
-        orderBy: { name: 'asc' },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      return units
-    } catch (error) {
-      logger.error('Error finding units by type', { error, type })
-      throw error
-    }
+  async search(
+    empresaId: string,
+    term: string,
+    limit: number,
+    db: PrismaClientType
+  ): Promise<IUnitWithRelations[]> {
+    const units = await (db as PrismaClient).unit.findMany({
+      where: {
+        empresaId,
+        isActive: true,
+        OR: [
+          { code: { contains: term, mode: 'insensitive' } },
+          { name: { contains: term, mode: 'insensitive' } },
+          { abbreviation: { contains: term, mode: 'insensitive' } },
+        ],
+      },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: UNIT_INCLUDE,
+    })
+    return units as unknown as IUnitWithRelations[]
   }
 
-  /**
-   * Obtener unidades agrupadas por tipo
-   */
-  async findGroupedByType(): Promise<IUnitGroupedByType[]> {
-    try {
-      const types: UnitType[] = ['COUNTABLE', 'WEIGHT', 'VOLUME', 'LENGTH']
-      const grouped: IUnitGroupedByType[] = []
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
 
-      for (const type of types) {
-        const units = await this.findByType(type)
-
-        if (units.length > 0) {
-          grouped.push({
-            type,
-            typeLabel: UNIT_TYPE_LABELS[type],
-            units,
-            count: units.length,
-          })
-        }
-      }
-
-      return grouped
-    } catch (error) {
-      logger.error('Error finding units grouped by type', { error })
-      throw error
-    }
-  }
-
-  /**
-   * Actualizar unidad
-   */
   async update(
+    empresaId: string,
     id: string,
     data: IUpdateUnitInput,
-    userId?: string
+    userId: string,
+    db: PrismaClientType
   ): Promise<IUnitWithRelations> {
-    try {
-      // Verificar que existe
-      await this.findById(id)
+    await this.findById(empresaId, id, db) // throws 404 if not found
 
-      // Si se actualiza el código, verificar que no exista otro
-      if (data.code) {
-        const existingByCode = await prisma.unit.findUnique({
-          where: { code: data.code.toUpperCase() },
+    if (data.code) {
+      const existing = await (db as PrismaClient).unit.findFirst({
+        where: { empresaId, code: data.code.toUpperCase(), id: { not: id } },
+      })
+      if (existing) throw new ConflictError(MSG.codeExists)
+    }
+
+    if (data.abbreviation) {
+      const existing = await (db as PrismaClient).unit.findFirst({
+        where: { empresaId, abbreviation: data.abbreviation, id: { not: id } },
+      })
+      if (existing) throw new ConflictError('La abreviación ya existe')
+    }
+
+    const updateData: Record<string, unknown> = {}
+    if (data.code !== undefined) updateData.code = data.code.toUpperCase()
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.abbreviation !== undefined)
+      updateData.abbreviation = data.abbreviation
+    if (data.type !== undefined) updateData.type = data.type
+    if (data.isActive !== undefined) updateData.isActive = data.isActive
+
+    const unit = await (db as PrismaClient).unit.update({
+      where: { id },
+      data: updateData as never,
+      include: UNIT_INCLUDE,
+    })
+
+    logger.info('Unidad actualizada', { unitId: id, empresaId, userId })
+
+    return unit as unknown as IUnitWithRelations
+  }
+
+  async toggleActive(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IUnitWithRelations> {
+    const unit = await this.findById(empresaId, id, db)
+
+    const updated = await (db as PrismaClient).unit.update({
+      where: { id },
+      data: { isActive: !unit.isActive },
+      include: UNIT_INCLUDE,
+    })
+
+    logger.info('Estado de unidad cambiado', {
+      unitId: id,
+      isActive: updated.isActive,
+      empresaId,
+      userId,
+    })
+
+    return updated as unknown as IUnitWithRelations
+  }
+
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
+
+  async delete(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const unit = await this.findById(empresaId, id, db)
+
+    if (unit._count && unit._count.items > 0) {
+      throw new BadRequestError(MSG.hasItems)
+    }
+
+    await (db as PrismaClient).unit.update({
+      where: { id },
+      data: { isActive: false },
+    })
+
+    logger.info('Unidad eliminada (soft)', { unitId: id, empresaId, userId })
+  }
+
+  async hardDelete(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const unit = await this.findById(empresaId, id, db)
+
+    if (unit._count && unit._count.items > 0) {
+      throw new BadRequestError(MSG.hasItems)
+    }
+
+    await (db as PrismaClient).unit.delete({ where: { id } })
+
+    logger.warn('Unidad eliminada permanentemente', {
+      unitId: id,
+      empresaId,
+      userId,
+    })
+  }
+
+  // -------------------------------------------------------------------------
+  // BULK
+  // -------------------------------------------------------------------------
+
+  async bulkCreate(
+    empresaId: string,
+    units: ICreateUnitInput[],
+    userId: string,
+    db: PrismaClientType
+  ): Promise<{
+    success: IUnitWithRelations[]
+    errors: Array<{ code: string; error: string }>
+  }> {
+    const results: {
+      success: IUnitWithRelations[]
+      errors: Array<{ code: string; error: string }>
+    } = { success: [], errors: [] }
+
+    for (const unitData of units) {
+      try {
+        const unit = await this.create(empresaId, unitData, userId, db)
+        results.success.push(unit)
+      } catch (error: unknown) {
+        results.errors.push({
+          code: unitData.code,
+          error: error instanceof Error ? error.message : 'Error desconocido',
         })
-
-        if (existingByCode && existingByCode.id !== id) {
-          throw new ConflictError(INVENTORY_MESSAGES.unit.codeExists)
-        }
       }
-
-      // Si se actualiza la abreviación, verificar que no exista otra
-      if (data.abbreviation) {
-        const existingByAbbr = await prisma.unit.findUnique({
-          where: { abbreviation: data.abbreviation },
-        })
-
-        if (existingByAbbr && existingByAbbr.id !== id) {
-          throw new ConflictError('La abreviación ya existe')
-        }
-      }
-
-      // Actualizar
-      const unit = await prisma.unit.update({
-        where: { id },
-        data: {
-          ...(data.code && { code: data.code.toUpperCase() }),
-          ...(data.name && { name: data.name }),
-          ...(data.abbreviation && { abbreviation: data.abbreviation }),
-          ...(data.type && { type: data.type }),
-          ...(data.isActive !== undefined && { isActive: data.isActive }),
-        },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      logger.info('Unit updated', { unitId: id, userId })
-
-      return unit
-    } catch (error) {
-      logger.error('Error updating unit', { error, id, data, userId })
-      throw error
     }
-  }
 
-  /**
-   * Eliminar unidad (soft delete)
-   */
-  async delete(id: string, userId?: string): Promise<void> {
-    try {
-      const unit = await this.findById(id)
+    logger.info('Bulk creación de unidades', {
+      total: units.length,
+      success: results.success.length,
+      errors: results.errors.length,
+      empresaId,
+      userId,
+    })
 
-      // Verificar que no tenga items asociados
-      if (unit._count && unit._count.items > 0) {
-        throw new BadRequestError(INVENTORY_MESSAGES.unit.hasItems)
-      }
-
-      // Soft delete (marcar como inactivo)
-      await prisma.unit.update({
-        where: { id },
-        data: { isActive: false },
-      })
-
-      logger.info('Unit soft deleted', { unitId: id, userId })
-    } catch (error) {
-      logger.error('Error deleting unit', { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Eliminar unidad permanentemente
-   */
-  async hardDelete(id: string, userId?: string): Promise<void> {
-    try {
-      const unit = await this.findById(id)
-
-      // Verificar que no tenga items asociados
-      if (unit._count && unit._count.items > 0) {
-        throw new BadRequestError(INVENTORY_MESSAGES.unit.hasItems)
-      }
-
-      // Eliminar permanentemente
-      await prisma.unit.delete({
-        where: { id },
-      })
-
-      logger.info('Unit hard deleted', { unitId: id, userId })
-    } catch (error) {
-      logger.error('Error hard deleting unit', { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Activar/Desactivar unidad
-   */
-  async toggleActive(id: string, userId?: string): Promise<IUnitWithRelations> {
-    try {
-      const unit = await this.findById(id)
-
-      const updated = await prisma.unit.update({
-        where: { id },
-        data: { isActive: !unit.isActive },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      logger.info('Unit active status toggled', {
-        unitId: id,
-        newStatus: updated.isActive,
-        userId,
-      })
-
-      return updated
-    } catch (error) {
-      logger.error('Error toggling unit active status', { error, id, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener unidades activas
-   */
-  async findActive(prismaClient?: any): Promise<IUnitWithRelations[]> {
-    try {
-      const db = prismaClient || prisma
-      const units = await db.unit.findMany({
-        where: { isActive: true },
-        orderBy: [{ type: 'asc' }, { name: 'asc' }],
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      return units
-    } catch (error) {
-      logger.error('Error finding active units', { error })
-      throw error
-    }
-  }
-
-  /**
-   * Buscar unidades
-   */
-  async search(
-    term: string,
-    limit: number = 10,
-    prismaClient?: any
-  ): Promise<IUnitWithRelations[]> {
-    try {
-      const db = prismaClient || prisma
-      const units = await db.unit.findMany({
-        where: {
-          OR: [
-            { code: { contains: term, mode: 'insensitive' } },
-            { name: { contains: term, mode: 'insensitive' } },
-            { abbreviation: { contains: term, mode: 'insensitive' } },
-          ],
-          isActive: true,
-        },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          _count: {
-            select: {
-              items: true,
-            },
-          },
-        },
-      })
-
-      return units
-    } catch (error) {
-      logger.error('Error searching units', { error, term })
-      throw error
-    }
-  }
-
-  /**
-   * Importación masiva de unidades
-   */
-  async bulkCreate(units: ICreateUnitInput[], userId?: string) {
-    try {
-      const results = {
-        success: [] as any[],
-        errors: [] as any[],
-      }
-
-      for (const unitData of units) {
-        try {
-          const unit = await this.create(unitData, userId)
-          results.success.push(unit)
-        } catch (error: any) {
-          results.errors.push({
-            code: unitData.code,
-            error: error.message,
-          })
-        }
-      }
-
-      logger.info('Bulk unit creation completed', {
-        total: units.length,
-        success: results.success.length,
-        errors: results.errors.length,
-        userId,
-      })
-
-      return results
-    } catch (error) {
-      logger.error('Error in bulk unit creation', { error, userId })
-      throw error
-    }
+    return results
   }
 }
 

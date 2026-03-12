@@ -1,377 +1,340 @@
 // backend/src/features/inventory/items/catalogs/categories/categories.controller.ts
 
 import { Request, Response } from 'express'
-import { CategoryService } from './categories.service'
+import categoryService from './categories.service.js'
 import {
   CreateCategoryDTO,
   UpdateCategoryDTO,
   CategoryResponseDTO,
   CategoryTreeResponseDTO,
-} from './categories.dto'
-import { ApiResponse } from '../../../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../../../shared/middleware/asyncHandler.middleware'
-import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
+} from './categories.dto.js'
+import { ApiResponse } from '../../../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../../../shared/middleware/asyncHandler.middleware.js'
+import { INVENTORY_MESSAGES } from '../../../shared/constants/messages.js'
 
-const categoryService = new CategoryService()
+const MSG = INVENTORY_MESSAGES.category
 
-export class CategoryController {
-  /**
-   * GET /api/inventory/catalogs/categories
-   * Obtener todas las categorías
-   */
-  getAll = asyncHandler(async (req: Request, res: Response) => {
-    const { page, limit, search, isActive, parentId, hasParent } = req.query
-
-    const filters: any = {}
-    if (search) filters.search = search as string
-    if (isActive === 'true') filters.isActive = true
-    if (isActive === 'false') filters.isActive = false
-    if (parentId) filters.parentId = parentId as string
-    if (hasParent === 'true') filters.hasParent = true
-    if (hasParent === 'false') filters.hasParent = false
-
-    const result = await categoryService.findAll(
-      filters,
-      Number(page) || 1,
-      Number(limit) || 10,
-      req.prisma || undefined
-    )
-
-    const categories = result.categories.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: true })
-    )
-
-    return ApiResponse.paginated(
-      res,
-      categories,
-      result.page,
-      result.limit,
-      result.total,
-      'Categorías obtenidas exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/tree
-   * Obtener árbol completo de categorías
-   */
-  getTree = asyncHandler(async (req: Request, res: Response) => {
-    const tree = await categoryService.getTree()
-    const response = tree.map((cat) => new CategoryTreeResponseDTO(cat))
-
-    return ApiResponse.paginated(
-      res,
-      response,
-      1,
-      response.length,
-      response.length,
-      'Árbol de categorías obtenido exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/root
-   * Obtener categorías raíz (sin padre)
-   */
-  getRootCategories = asyncHandler(async (req: Request, res: Response) => {
-    const categories = await categoryService.getRootCategories()
-    const response = categories.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: true })
-    )
-
-    return ApiResponse.paginated(
-      res,
-      response,
-      1,
-      response.length,
-      response.length,
-      'Categorías raíz obtenidas exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/active
-   * Obtener categorías activas
-   */
-  getActive = asyncHandler(async (req: Request, res: Response) => {
-    const categories = await categoryService.findActive(req.prisma || undefined)
-    const response = categories.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: false })
-    )
-
-    return ApiResponse.paginated(
-      res,
-      response,
-      1,
-      response.length,
-      response.length,
-      'Categorías activas obtenidas exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/search
-   * Buscar categorías
-   */
-  search = asyncHandler(async (req: Request, res: Response) => {
-    const { term, limit } = req.query
-
-    if (!term) {
-      return ApiResponse.badRequest(res, 'El término de búsqueda es requerido')
-    }
-
-    const categories = await categoryService.search(
-      term as string,
-      Number(limit) || 10,
-      req.prisma || undefined
-    )
-    const response = categories.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: true })
-    )
-
-    return ApiResponse.paginated(
-      res,
-      response,
-      1,
-      response.length,
-      response.length,
-      'Búsqueda completada'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id
-   * Obtener categoría por ID
-   */
-  getById = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const category = await categoryService.findById(id)
-    const response = new CategoryResponseDTO(category, {
-      includeRelations: true,
-    })
-
-    return ApiResponse.success(res, response, 'Categoría obtenida exitosamente')
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id/tree
-   * Obtener subárbol de una categoría
-   */
-  getSubTree = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const tree = await categoryService.getSubTree(id)
-    const response = new CategoryTreeResponseDTO(tree)
-
-    return ApiResponse.success(
-      res,
-      response,
-      'Subárbol de categoría obtenido exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id/children
-   * Obtener hijos directos de una categoría
-   */
-  getChildren = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const children = await categoryService.getChildren(id)
-    const response = children.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: false })
-    )
-
-    return ApiResponse.success(
-      res,
-      response,
-      'Subcategorías obtenidas exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id/ancestors
-   * Obtener ancestros de una categoría
-   */
-  getAncestors = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const ancestors = await categoryService.getAncestors(id)
-    const response = ancestors.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: false })
-    )
-
-    return ApiResponse.success(
-      res,
-      response,
-      'Ancestros obtenidos exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id/path
-   * Obtener path completo de una categoría
-   */
-  getPath = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const path = await categoryService.getPath(id)
-    const response = path.map(
-      (cat) => new CategoryResponseDTO(cat, { includeRelations: false })
-    )
-
-    return ApiResponse.success(
-      res,
-      response,
-      'Path de categoría obtenido exitosamente'
-    )
-  })
-
-  /**
-   * GET /api/inventory/catalogs/categories/:id/stats
-   * Obtener estadísticas de una categoría
-   */
-  getStats = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-
-    const stats = await categoryService.getStats(id)
-
-    return ApiResponse.success(
-      res,
-      stats,
-      'Estadísticas obtenidas exitosamente'
-    )
-  })
-
-  /**
-   * POST /api/inventory/catalogs/categories
-   * Crear nueva categoría
-   */
-  create = asyncHandler(async (req: Request, res: Response) => {
-    const dto = new CreateCategoryDTO(req.body)
-    const userId = req.user?.userId
-
-    const category = await categoryService.create(dto, userId)
-    const response = new CategoryResponseDTO(category, {
-      includeRelations: true,
-    })
-
-    return ApiResponse.created(
-      res,
-      response,
-      INVENTORY_MESSAGES.category.created
-    )
-  })
-
-  /**
-   * POST /api/inventory/catalogs/categories/bulk
-   * Importación masiva de categorías
-   */
-  bulkCreate = asyncHandler(async (req: Request, res: Response) => {
-    const { categories } = req.body
-    const userId = req.user?.userId
-
-    if (!categories || !Array.isArray(categories) || categories.length === 0) {
-      return ApiResponse.badRequest(
-        res,
-        'Debe proporcionar un array de categorías'
-      )
-    }
-
-    const dtos = categories.map((c) => new CreateCategoryDTO(c))
-    const result = await categoryService.bulkCreate(dtos, userId)
-
-    return ApiResponse.success(
-      res,
-      result,
-      `Importación completada. Éxitos: ${result.success.length}, Errores: ${result.errors.length}`
-    )
-  })
-
-  /**
-   * PUT /api/inventory/catalogs/categories/:id
-   * Actualizar categoría
-   */
-  update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const dto = new UpdateCategoryDTO(req.body)
-    const userId = req.user?.userId
-
-    const category = await categoryService.update(id, dto, userId)
-    const response = new CategoryResponseDTO(category, {
-      includeRelations: true,
-    })
-
-    return ApiResponse.success(
-      res,
-      response,
-      INVENTORY_MESSAGES.category.updated
-    )
-  })
-
-  /**
-   * PATCH /api/inventory/catalogs/categories/:id/move
-   * Mover categoría a otro padre
-   */
-  move = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const { parentId } = req.body
-    const userId = req.user?.userId
-
-    const category = await categoryService.move(id, parentId || null, userId)
-    const response = new CategoryResponseDTO(category, {
-      includeRelations: true,
-    })
-
-    return ApiResponse.success(res, response, 'Categoría movida exitosamente')
-  })
-
-  /**
-   * PATCH /api/inventory/catalogs/categories/:id/toggle
-   * Activar/Desactivar categoría
-   */
-  toggleActive = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const userId = req.user?.userId
-
-    const category = await categoryService.toggleActive(id, userId)
-    const response = new CategoryResponseDTO(category, {
-      includeRelations: true,
-    })
-
-    const message = category.isActive
-      ? 'Categoría activada exitosamente'
-      : 'Categoría desactivada exitosamente'
-
-    return ApiResponse.success(res, response, message)
-  })
-
-  /**
-   * DELETE /api/inventory/catalogs/categories/:id
-   * Eliminar categoría (soft delete)
-   */
-  delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const userId = req.user?.userId
-
-    await categoryService.delete(id, userId)
-
-    return ApiResponse.success(res, null, INVENTORY_MESSAGES.category.deleted)
-  })
-
-  /**
-   * DELETE /api/inventory/catalogs/categories/:id/hard
-   * Eliminar categoría permanentemente
-   */
-  hardDelete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params as { id: string }
-    const userId = req.user?.userId
-
-    await categoryService.hardDelete(id, userId)
-
-    return ApiResponse.success(res, null, 'Categoría eliminada permanentemente')
-  })
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
 }
 
-export default new CategoryController()
+function getUserId(req: Request): string {
+  return req.user?.userId ?? 'system'
+}
+
+// ---------------------------------------------------------------------------
+// GET
+// ---------------------------------------------------------------------------
+
+const getAll = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const { page, limit, search, isActive, parentId, hasParent } = req.query
+
+  const filters: {
+    search?: string
+    isActive?: boolean
+    parentId?: string
+    hasParent?: boolean
+  } = {}
+  if (search) filters.search = search as string
+  if (isActive === 'true') filters.isActive = true
+  if (isActive === 'false') filters.isActive = false
+  if (parentId) filters.parentId = parentId as string
+  if (hasParent === 'true') filters.hasParent = true
+  if (hasParent === 'false') filters.hasParent = false
+
+  const result = await categoryService.findAll(
+    empresaId,
+    filters,
+    Number(page) || 1,
+    Number(limit) || 10,
+    req.prisma
+  )
+  const categories = result.categories.map(
+    (c) => new CategoryResponseDTO(c, { includeRelations: true })
+  )
+
+  return ApiResponse.paginated(
+    res,
+    categories,
+    result.page,
+    result.limit,
+    result.total
+  )
+})
+
+const getTree = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const tree = await categoryService.getTree(empresaId, req.prisma)
+  return ApiResponse.success(
+    res,
+    tree.map((c) => new CategoryTreeResponseDTO(c))
+  )
+})
+
+const getRootCategories = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const categories = await categoryService.getRootCategories(
+    empresaId,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    categories.map(
+      (c) => new CategoryResponseDTO(c, { includeRelations: true })
+    )
+  )
+})
+
+const getActive = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const categories = await categoryService.findActive(empresaId, req.prisma)
+  return ApiResponse.success(
+    res,
+    categories.map(
+      (c) => new CategoryResponseDTO(c, { includeRelations: false })
+    )
+  )
+})
+
+const search = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const { term, limit } = req.query
+
+  if (!term)
+    return ApiResponse.badRequest(res, 'El término de búsqueda es requerido')
+
+  const categories = await categoryService.search(
+    empresaId,
+    term as string,
+    req.prisma,
+    Number(limit) || 10
+  )
+  return ApiResponse.success(
+    res,
+    categories.map(
+      (c) => new CategoryResponseDTO(c, { includeRelations: true })
+    )
+  )
+})
+
+const getById = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const category = await categoryService.findById(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    new CategoryResponseDTO(category, { includeRelations: true })
+  )
+})
+
+const getSubTree = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const tree = await categoryService.getSubTree(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(res, new CategoryTreeResponseDTO(tree))
+})
+
+const getChildren = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const children = await categoryService.getChildren(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    children.map((c) => new CategoryResponseDTO(c, { includeRelations: false }))
+  )
+})
+
+const getAncestors = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const ancestors = await categoryService.getAncestors(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    ancestors.map(
+      (c) => new CategoryResponseDTO(c, { includeRelations: false })
+    )
+  )
+})
+
+const getPath = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const path = await categoryService.getPath(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    path.map((c) => new CategoryResponseDTO(c, { includeRelations: false }))
+  )
+})
+
+const getStats = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const stats = await categoryService.getStats(
+    empresaId,
+    req.params.id as string,
+    req.prisma
+  )
+  return ApiResponse.success(res, stats)
+})
+
+// ---------------------------------------------------------------------------
+// POST
+// ---------------------------------------------------------------------------
+
+const create = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const category = await categoryService.create(
+    empresaId,
+    new CreateCategoryDTO(req.body) as never,
+    getUserId(req),
+    req.prisma
+  )
+  return ApiResponse.created(
+    res,
+    new CategoryResponseDTO(category, { includeRelations: true }),
+    MSG.created
+  )
+})
+
+const bulkCreate = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const { categories } = req.body
+
+  if (!categories || !Array.isArray(categories) || categories.length === 0) {
+    return ApiResponse.badRequest(
+      res,
+      'Debe proporcionar un array de categorías'
+    )
+  }
+
+  const result = await categoryService.bulkCreate(
+    empresaId,
+    categories.map((c: unknown) => new CreateCategoryDTO(c) as never),
+    getUserId(req),
+    req.prisma
+  )
+
+  return ApiResponse.success(
+    res,
+    result,
+    `Importación completada. Éxitos: ${result.success.length}, Errores: ${result.errors.length}`
+  )
+})
+
+// ---------------------------------------------------------------------------
+// PUT / PATCH
+// ---------------------------------------------------------------------------
+
+const update = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const category = await categoryService.update(
+    empresaId,
+    req.params.id as string,
+    new UpdateCategoryDTO(req.body) as never,
+    getUserId(req),
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    new CategoryResponseDTO(category, { includeRelations: true }),
+    MSG.updated
+  )
+})
+
+const move = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const { parentId } = req.body
+  const category = await categoryService.move(
+    empresaId,
+    req.params.id as string,
+    parentId ?? null,
+    getUserId(req),
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    new CategoryResponseDTO(category, { includeRelations: true }),
+    'Categoría movida exitosamente'
+  )
+})
+
+const toggleActive = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const category = await categoryService.toggleActive(
+    empresaId,
+    req.params.id as string,
+    getUserId(req),
+    req.prisma
+  )
+  const message = category.isActive
+    ? 'Categoría activada exitosamente'
+    : 'Categoría desactivada exitosamente'
+  return ApiResponse.success(
+    res,
+    new CategoryResponseDTO(category, { includeRelations: true }),
+    message
+  )
+})
+
+// ---------------------------------------------------------------------------
+// DELETE
+// ---------------------------------------------------------------------------
+
+const deleteCategory = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  await categoryService.delete(
+    empresaId,
+    req.params.id as string,
+    getUserId(req),
+    req.prisma
+  )
+  return ApiResponse.success(res, null, MSG.deleted)
+})
+
+const hardDelete = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  await categoryService.hardDelete(
+    empresaId,
+    req.params.id as string,
+    getUserId(req),
+    req.prisma
+  )
+  return ApiResponse.success(res, null, 'Categoría eliminada permanentemente')
+})
+
+export default {
+  getAll,
+  getTree,
+  getRootCategories,
+  getActive,
+  search,
+  getById,
+  getSubTree,
+  getChildren,
+  getAncestors,
+  getPath,
+  getStats,
+  create,
+  bulkCreate,
+  update,
+  move,
+  toggleActive,
+  delete: deleteCategory,
+  hardDelete,
+}

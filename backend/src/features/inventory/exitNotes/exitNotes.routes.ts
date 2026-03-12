@@ -1,320 +1,112 @@
-/**
- * Exit Notes Routes
- * Express router for exit note management endpoints
- */
+// backend/src/features/inventory/exitNotes/exitNotes.routes.ts
 
 import { Router } from 'express'
-import { validateRequest } from '../../../shared/middleware/validateRequest.middleware'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import exitNotesController from './exitNotes.controller'
+import exitNotesController from './exitNotes.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import {
+  validateBody,
+  validateQuery,
+} from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createExitNoteSchema,
   updateExitNoteSchema,
-  markAsReadySchema,
-  deliverExitNoteSchema,
   cancelExitNoteSchema,
   exitNoteFiltersSchema,
-  exitNoteIdSchema,
-} from './exitNotes.validation'
+} from './exitNotes.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import itemsRouter from './items/items.routes.js'
 
-const router = Router({ mergeParams: true })
+const router = Router()
 
-// Apply authentication middleware to all routes
-router.use(authenticate)
-
-/**
- * @swagger
- * /inventory/exit-notes:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get all exit notes
- *     description: Retrieve exit notes with optional filters
- *     parameters:
- *       - in: query
- *         name: type
- *         schema:
- *           type: string
- *           enum: [SALE, WARRANTY, LOAN, INTERNAL_USE, SAMPLE, DONATION, OWNER_PICKUP, DEMO, TRANSFER, LOAN_RETURN, OTHER]
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [PENDING, IN_PROGRESS, READY, DELIVERED, CANCELLED]
- *       - in: query
- *         name: warehouseId
- *         schema:
- *           type: string
- *       - in: query
- *         name: recipientId
- *         schema:
- *           type: string
- *       - in: query
- *         name: startDate
- *         schema:
- *           type: string
- *           format: date-time
- *       - in: query
- *         name: endDate
- *         schema:
- *           type: string
- *           format: date-time
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           default: 20
- *     responses:
- *       200:
- *         description: Exit notes retrieved successfully
- */
+// -- Specialized reads (before /:id to avoid param conflicts) --
 router.get(
-  '/',
-  validateRequest(exitNoteFiltersSchema),
-  exitNotesController.getAll
+  '/number/:exitNoteNumber',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getByNumber
+)
+router.get(
+  '/warehouse/:warehouseId',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getByWarehouse
+)
+router.get(
+  '/type/:type',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getByType
+)
+router.get(
+  '/status/:status',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getByStatus
 )
 
-/**
- * @swagger
- * /inventory/exit-notes/number/{exitNoteNumber}:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit note by number
- *     parameters:
- *       - in: path
- *         name: exitNoteNumber
- *         required: true
- *         schema:
- *           type: string
- */
-router.get('/number/:exitNoteNumber', exitNotesController.getByNumber)
-
-/**
- * @swagger
- * /inventory/exit-notes/warehouse/{warehouseId}:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit notes by warehouse
- *     parameters:
- *       - in: path
- *         name: warehouseId
- *         required: true
- *         schema:
- *           type: string
- */
-router.get('/warehouse/:warehouseId', exitNotesController.getByWarehouse)
-
-/**
- * @swagger
- * /inventory/exit-notes/type/{type}:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit notes by type
- *     parameters:
- *       - in: path
- *         name: type
- *         required: true
- *         schema:
- *           type: string
- *           enum: [SALE, WARRANTY, LOAN, INTERNAL_USE, SAMPLE, DONATION, OWNER_PICKUP, DEMO, TRANSFER, LOAN_RETURN, OTHER]
- */
-router.get('/type/:type', exitNotesController.getByType)
-
-/**
- * @swagger
- * /inventory/exit-notes/status/{status}:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit notes by status
- *     parameters:
- *       - in: path
- *         name: status
- *         required: true
- *         schema:
- *           type: string
- *           enum: [PENDING, IN_PROGRESS, READY, DELIVERED, CANCELLED]
- */
-router.get('/status/:status', exitNotesController.getByStatus)
-
-/**
- * @swagger
- * /inventory/exit-notes:
- *   post:
- *     tags:
- *       - Exit Notes
- *     summary: Create new exit note
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [type, warehouseId, items]
- *             properties:
- *               type:
- *                 type: string
- *                 enum: [SALE, WARRANTY, LOAN, INTERNAL_USE, SAMPLE, DONATION, OWNER_PICKUP, DEMO, TRANSFER, LOAN_RETURN, OTHER]
- *               warehouseId:
- *                 type: string
- *               preInvoiceId:
- *                 type: string
- *               recipientName:
- *                 type: string
- *               recipientId:
- *                 type: string
- *               items:
- *                 type: array
- *                 minItems: 1
- */
-router.post(
-  '/',
-  validateRequest(createExitNoteSchema),
-  exitNotesController.create
+// -- Actions (before /:id) --
+router.patch(
+  '/:id/start',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  exitNotesController.startPreparing
 )
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit note by ID
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.get('/:id', exitNotesController.getOne)
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}:
- *   put:
- *     tags:
- *       - Exit Notes
- *     summary: Update exit note
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.put(
-  '/:id',
-  validateRequest(updateExitNoteSchema),
-  exitNotesController.update
+router.patch(
+  '/:id/ready',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  exitNotesController.markAsReady
 )
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}/start:
- *   patch:
- *     tags:
- *       - Exit Notes
- *     summary: Start preparing exit note
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.patch('/:id/start', exitNotesController.startPreparing)
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}/ready:
- *   patch:
- *     tags:
- *       - Exit Notes
- *     summary: Mark exit note as ready
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.patch('/:id/ready', exitNotesController.markAsReady)
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}/deliver:
- *   patch:
- *     tags:
- *       - Exit Notes
- *     summary: Deliver exit note
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.patch('/:id/deliver', exitNotesController.deliver)
-
-/**
- * @swagger
- * /inventory/exit-notes/{id}/cancel:
- *   patch:
- *     tags:
- *       - Exit Notes
- *     summary: Cancel exit note
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
+router.patch(
+  '/:id/deliver',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  exitNotesController.deliver
+)
 router.patch(
   '/:id/cancel',
-  validateRequest(cancelExitNoteSchema),
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateBody(cancelExitNoteSchema),
   exitNotesController.cancel
 )
 
-/**
- * @swagger
- * /inventory/exit-notes/{id}/status:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit note status info
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.get('/:id/status', exitNotesController.getStatusInfo)
+// -- Status/summary reads (before generic /:id) --
+router.get(
+  '/:id/tracking',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getTracking
+)
+router.get(
+  '/:id/status',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getStatusInfo
+)
+router.get(
+  '/:id/summary',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getSummary
+)
 
-/**
- * @swagger
- * /inventory/exit-notes/{id}/summary:
- *   get:
- *     tags:
- *       - Exit Notes
- *     summary: Get exit note summary
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- */
-router.get('/:id/summary', exitNotesController.getSummary)
+// -- CRUD --
+router.get(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateQuery(exitNoteFiltersSchema),
+  exitNotesController.getAll
+)
+router.post(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  validateBody(createExitNoteSchema),
+  exitNotesController.create
+)
+router.get(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  exitNotesController.getOne
+)
+router.put(
+  '/:id',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateBody(updateExitNoteSchema),
+  exitNotesController.update
+)
+
+// -- Sub-router: items de la nota de salida --
+// Mounted at: /api/inventory/exit-notes/:exitNoteId/items
+router.use('/:exitNoteId/items', itemsRouter)
 
 export default router

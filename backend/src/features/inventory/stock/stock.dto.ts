@@ -2,43 +2,122 @@
 
 import {
   IStock,
+  IStockWithRelations,
   AlertType,
   AlertSeverity,
   IStockAlert,
-} from './stock.interface'
+} from './stock.interface.js'
 
 export class CreateStockDTO {
   itemId: string
   warehouseId: string
-  quantityReal?: number | undefined
-  quantityReserved?: number | undefined
-  averageCost?: number | undefined
+  quantityReal?: number
+  quantityReserved?: number
+  averageCost?: number
 
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
-    this.quantityReal = data.quantityReal
-      ? Number(data.quantityReal)
-      : undefined
-    this.quantityReserved = data.quantityReserved
-      ? Number(data.quantityReserved)
-      : undefined
-    this.averageCost = data.averageCost ? Number(data.averageCost) : undefined
-  }
-}
-
-export class UpdateStockDTO {
-  quantityReal?: number | undefined
-  quantityReserved?: number | undefined
-  averageCost?: number | undefined
-
-  constructor(data: any) {
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
     if (data.quantityReal !== undefined)
       this.quantityReal = Number(data.quantityReal)
     if (data.quantityReserved !== undefined)
       this.quantityReserved = Number(data.quantityReserved)
     if (data.averageCost !== undefined)
       this.averageCost = Number(data.averageCost)
+  }
+}
+
+export class UpdateStockDTO {
+  quantityReal?: number
+  quantityReserved?: number
+  averageCost?: number
+
+  constructor(data: Record<string, unknown>) {
+    if (data.quantityReal !== undefined)
+      this.quantityReal = Number(data.quantityReal)
+    if (data.quantityReserved !== undefined)
+      this.quantityReserved = Number(data.quantityReserved)
+    if (data.averageCost !== undefined)
+      this.averageCost = Number(data.averageCost)
+  }
+}
+
+export class AdjustStockDTO {
+  itemId: string
+  warehouseId: string
+  quantityChange: number
+  reason: string
+  movementId?: string
+
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
+    this.quantityChange = Number(data.quantityChange)
+    this.reason = String(data.reason)
+    if (data.movementId !== undefined) this.movementId = String(data.movementId)
+  }
+}
+
+export class ReserveStockDTO {
+  itemId: string
+  warehouseId: string
+  quantity: number
+  reservationId?: string
+
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
+    this.quantity = Number(data.quantity)
+    if (data.reservationId !== undefined)
+      this.reservationId = String(data.reservationId)
+  }
+}
+
+export class ReleaseStockDTO {
+  itemId: string
+  warehouseId: string
+  quantity: number
+  reservationId?: string
+
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
+    this.quantity = Number(data.quantity)
+    if (data.reservationId !== undefined)
+      this.reservationId = String(data.reservationId)
+  }
+}
+
+export class TransferStockDTO {
+  itemId: string
+  warehouseFromId: string
+  warehouseToId: string
+  quantity: number
+  movementId?: string
+
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseFromId = String(data.warehouseFromId)
+    this.warehouseToId = String(data.warehouseToId)
+    this.quantity = Number(data.quantity)
+    if (data.movementId !== undefined) this.movementId = String(data.movementId)
+  }
+}
+
+export class CreateStockAlertDTO {
+  itemId: string
+  warehouseId: string
+  type: AlertType
+  message: string
+  severity?: AlertSeverity
+
+  constructor(data: Record<string, unknown>) {
+    this.itemId = String(data.itemId)
+    this.warehouseId = String(data.warehouseId)
+    this.type = data.type as AlertType
+    this.message = String(data.message)
+    if (data.severity !== undefined)
+      this.severity = data.severity as AlertSeverity
   }
 }
 
@@ -50,18 +129,13 @@ export class StockResponseDTO {
   quantityReserved: number
   quantityAvailable: number
   averageCost: number
-  lastMovementAt?: Date | null
+  lastMovementAt: Date | null
   createdAt: Date
   updatedAt: Date
-  item?: any
-  warehouse?: any
+  item?: unknown
+  warehouse?: unknown
 
-  constructor(
-    stock: IStock,
-    options: {
-      includeRelations?: boolean
-    } = {}
-  ) {
+  constructor(stock: IStock, options: { includeRelations?: boolean } = {}) {
     this.id = stock.id
     this.itemId = stock.itemId
     this.warehouseId = stock.warehouseId
@@ -73,87 +147,11 @@ export class StockResponseDTO {
     this.createdAt = stock.createdAt
     this.updatedAt = stock.updatedAt
 
-    if (options.includeRelations && stock) {
-      const relations = stock as any
-      if (relations.item) this.item = relations.item
-      if (relations.warehouse) this.warehouse = relations.warehouse
+    if (options.includeRelations) {
+      const r = stock as IStockWithRelations
+      if (r.item !== undefined) this.item = r.item
+      if (r.warehouse !== undefined) this.warehouse = r.warehouse
     }
-  }
-}
-
-export class AdjustStockDTO {
-  itemId: string
-  warehouseId: string
-  quantityChange: number
-  reason: string
-  movementId?: string
-
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
-    this.quantityChange = Number(data.quantityChange)
-    this.reason = data.reason
-    this.movementId = data.movementId
-  }
-}
-
-export class ReserveStockDTO {
-  itemId: string
-  warehouseId: string
-  quantity: number
-  reservationId?: string
-
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
-    this.quantity = Number(data.quantity)
-    this.reservationId = data.reservationId
-  }
-}
-
-export class ReleaseStockDTO {
-  itemId: string
-  warehouseId: string
-  quantity: number
-  reservationId?: string
-
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
-    this.quantity = Number(data.quantity)
-    this.reservationId = data.reservationId
-  }
-}
-
-export class TransferStockDTO {
-  itemId: string
-  warehouseFromId: string
-  warehouseToId: string
-  quantity: number
-  movementId?: string
-
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseFromId = data.warehouseFromId
-    this.warehouseToId = data.warehouseToId
-    this.quantity = Number(data.quantity)
-    this.movementId = data.movementId
-  }
-}
-
-export class CreateStockAlertDTO {
-  itemId: string
-  warehouseId: string
-  type: AlertType
-  message: string
-  severity?: AlertSeverity | undefined
-
-  constructor(data: any) {
-    this.itemId = data.itemId
-    this.warehouseId = data.warehouseId
-    this.type = data.type
-    this.message = data.message
-    this.severity = data.severity ? data.severity : undefined
   }
 }
 
@@ -165,8 +163,8 @@ export class StockAlertResponseDTO {
   message: string
   severity: AlertSeverity
   isRead: boolean
-  readBy?: string | null
-  readAt?: Date | null
+  readBy: string | null
+  readAt: Date | null
   createdAt: Date
 
   constructor(alert: IStockAlert) {

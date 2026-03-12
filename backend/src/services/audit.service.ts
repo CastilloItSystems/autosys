@@ -3,16 +3,17 @@
  * Logs all actions for compliance and debugging
  */
 
-import prisma from './prisma.service.js'
 import { Request } from 'express'
+import prisma from './prisma.service.js'
+import { logger } from '../shared/utils/logger.js'
 
 export interface AuditLogInput {
   entity: string // e.g., "Report", "User", "Inventory"
   entityId: string // ID of the affected record
   action: string // e.g., "EXPORT", "CREATE", "UPDATE", "DELETE"
   userId?: string // User performing action
-  changes?: Record<string, any> // { format: 'excel', filters: {...} }
-  metadata?: Record<string, any> // { ip, userAgent, duration }
+  changes?: Record<string, unknown> // { format: 'excel', filters: {...} }
+  metadata?: Record<string, unknown> // { ip, userAgent, duration }
 }
 
 /**
@@ -20,25 +21,22 @@ export interface AuditLogInput {
  */
 export async function createAuditLog(input: AuditLogInput): Promise<void> {
   try {
-    const dataToCreate: any = {
-      entity: input.entity,
-      entityId: input.entityId,
-      action: input.action,
-      changes: input.changes || {},
-      metadata: input.metadata || {},
-    }
-
-    // Only add userId if it exists (otherwise Prisma will complain)
-    if (input.userId) {
-      dataToCreate.userId = input.userId
-    }
-
     await prisma.auditLog.create({
-      data: dataToCreate,
+      data: {
+        entity: input.entity,
+        entityId: input.entityId,
+        action: input.action,
+        changes: (input.changes ?? {}) as any,
+        ...(input.metadata !== undefined
+          ? { metadata: input.metadata as any }
+          : {}),
+        ...(input.userId ? { userId: input.userId } : {}),
+      },
     })
-  } catch (error) {
-    // Don't throw - audit logging should not break the application
-    console.error('Error creating audit log:', error)
+  } catch (error: unknown) {
+    logger.error('Error creating audit log', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
@@ -49,40 +47,31 @@ export async function logReportExport(
   reportType: string,
   format: string,
   req: Request,
-  filters?: Record<string, any>
+  filters?: Record<string, unknown>
 ): Promise<void> {
   try {
-    // Extract user ID from JWT (assuming decoded in middleware)
-    const userId = (req as any).user?.id
-
-    // Extract IP address
+    const userId = req.user?.userId
     const ip =
-      (req.headers['x-forwarded-for'] as string)?.split(',')[0] ||
+      (req.headers['x-forwarded-for'] as string)?.split(',')[0]?.trim() ||
       req.socket.remoteAddress ||
       'unknown'
 
-    // Build metadata
-    const metadata = {
-      ip,
-      userAgent: req.get('user-agent') || 'unknown',
-      timestamp: new Date().toISOString(),
-    }
-
-    // Log the export
     await createAuditLog({
       entity: 'Report',
       entityId: reportType,
       action: 'EXPORT',
       userId,
-      changes: {
-        format,
-        filters: filters || {},
+      changes: { format, filters: filters || {} },
+      metadata: {
+        ip,
+        userAgent: req.get('user-agent') || 'unknown',
+        timestamp: new Date().toISOString(),
       },
-      metadata,
     })
-  } catch (error) {
-    // Don't throw - audit logging should not break the application
-    console.error('Error logging report export:', error)
+  } catch (error: unknown) {
+    logger.error('Error logging report export', {
+      error: error instanceof Error ? error.message : String(error),
+    })
   }
 }
 
@@ -95,7 +84,10 @@ export async function getAuditLogs(
   limit: number = 50
 ) {
   try {
-    const where: any = { entity }
+    const where: {
+      entity: string
+      entityId?: string
+    } = { entity }
     if (entityId) {
       where.entityId = entityId
     }
@@ -116,8 +108,10 @@ export async function getAuditLogs(
     })
 
     return logs
-  } catch (error) {
-    console.error('Error fetching audit logs:', error)
+  } catch (error: unknown) {
+    logger.error('Error fetching audit logs', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     throw error
   }
 }
@@ -138,8 +132,10 @@ export async function getUserExportHistory(userId: string, limit: number = 20) {
     })
 
     return logs
-  } catch (error) {
-    console.error('Error fetching user export history:', error)
+  } catch (error: unknown) {
+    logger.error('Error fetching user export history', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     throw error
   }
 }

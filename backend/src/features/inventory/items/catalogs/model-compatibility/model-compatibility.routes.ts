@@ -207,16 +207,12 @@
  *       409:
  *         description: La compatibilidad ya está verificada
  */
+// backend/src/features/inventory/items/catalogs/model-compatibility/model-compatibility.routes.ts
 
 import { Router } from 'express'
-import { ModelCompatibilityController } from './model-compatibility.controller'
-import { authenticate } from '../../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../../../shared/middleware/validateRequest.middleware'
+import controller from './model-compatibility.controller.js'
+import { authorize } from '../../../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../../../shared/middleware/validateRequest.middleware.js'
 import {
   createCompatibilitySchema,
   updateCompatibilitySchema,
@@ -224,89 +220,75 @@ import {
   modelIdSchema,
   vehicleModelIdSchema,
   getCompatibilityFiltersSchema,
-} from './model-compatibility.validation'
-import { PERMISSIONS } from '../../../../../shared/constants/permissions'
+} from './model-compatibility.validation.js'
+import { PERMISSIONS } from '../../../../../shared/constants/permissions.js'
 
 const router = Router()
-const controller = new ModelCompatibilityController()
 
-/**
- * RUTAS GET ESPECÍFICAS (DEBEN IR ANTES DE /:id)
- */
-
-// GET /api/inventory/catalogs/model-compatibility/part/:partModelId
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
 router.get(
   '/part/:partModelId',
-  authenticate,
-  validateParams(modelIdSchema),
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(modelIdSchema, 'params'),
   controller.getByPartModel
 )
 
-// GET /api/inventory/catalogs/model-compatibility/vehicle/:vehicleModelId
 router.get(
   '/vehicle/:vehicleModelId',
-  authenticate,
-  validateParams(vehicleModelIdSchema),
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(vehicleModelIdSchema, 'params'),
   controller.getByVehicleModel
 )
 
-/**
- * RUTAS CON :id
- */
-
-// POST /api/inventory/catalogs/model-compatibility
-router.post(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createCompatibilitySchema),
-  controller.create
-)
-
-// GET /api/inventory/catalogs/model-compatibility
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateQuery(getCompatibilityFiltersSchema),
+  validateRequest(getCompatibilityFiltersSchema, 'query'),
   controller.getAll
 )
 
-// GET /api/inventory/catalogs/model-compatibility/:id
+router.post(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  validateRequest(createCompatibilitySchema, 'body'),
+  controller.create
+)
+
+// ---------------------------------------------------------------------------
+// Rutas con :id
+// ---------------------------------------------------------------------------
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(compatibilityIdSchema),
+  validateRequest(compatibilityIdSchema, 'params'),
   controller.getById
 )
 
-// PUT /api/inventory/catalogs/model-compatibility/:id
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(compatibilityIdSchema),
-  validateBody(updateCompatibilitySchema),
+  validateRequest(compatibilityIdSchema, 'params'),
+  validateRequest(updateCompatibilitySchema, 'body'),
   controller.update
 )
 
-// PATCH /api/inventory/catalogs/model-compatibility/:id/verify
 router.patch(
   '/:id/verify',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(compatibilityIdSchema),
+  validateRequest(compatibilityIdSchema, 'params'),
   controller.verify
 )
 
-// DELETE /api/inventory/catalogs/model-compatibility/:id
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(compatibilityIdSchema),
+  validateRequest(compatibilityIdSchema, 'params'),
   controller.delete
 )
 
-export { router as modelCompatibilityRoutes }
+export default router

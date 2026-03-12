@@ -257,120 +257,102 @@
  *       400:
  *         description: Datos inválidos
  */
+// backend/src/features/inventory/items/catalogs/units/units.routes.ts
 
 import { Router } from 'express'
-import unitController from './units.controller'
-import { authenticate } from '../../../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../../../shared/middleware/validateRequest.middleware'
+import controller from './units.controller.js'
+import { authorize } from '../../../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../../../shared/middleware/validateRequest.middleware.js'
 import {
   createUnitSchema,
   updateUnitSchema,
   unitIdSchema,
   getUnitsQuerySchema,
-} from './units.validation'
-import { PERMISSIONS } from '../../../../../shared/constants/permissions'
+} from './units.validation.js'
+import { PERMISSIONS } from '../../../../../shared/constants/permissions.js'
 
 const router = Router()
 
-/**
- * GET Specific routes (must be before generic /:id routes)
- */
-
-// GET /api/inventory/catalogs/units/active
-router.get('/active', authenticate, unitController.getActive)
-
-// GET /api/inventory/catalogs/units/grouped
-router.get('/grouped', authenticate, unitController.getGroupedByType)
-
-// GET /api/inventory/catalogs/units/search
-router.get('/search', authenticate, unitController.search)
-
-// GET /api/inventory/catalogs/units/type/:type
-router.get('/type/:type', authenticate, unitController.getByType)
-
-/**
- * POST routes
- */
-
-// POST /api/inventory/catalogs/units
-router.post(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createUnitSchema),
-  unitController.create
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
+router.get(
+  '/active',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getActive
+)
+router.get(
+  '/grouped',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getGroupedByType
+)
+router.get('/search', authorize(PERMISSIONS.INVENTORY_VIEW), controller.search)
+router.get(
+  '/type/:type',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getByType
 )
 
-// POST /api/inventory/catalogs/units/bulk
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
+router.get(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(getUnitsQuerySchema, 'query'),
+  controller.getAll
+)
+
+router.post(
+  '/',
+  authorize(PERMISSIONS.INVENTORY_CREATE),
+  validateRequest(createUnitSchema, 'body'),
+  controller.create
+)
+
 router.post(
   '/bulk',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  unitController.bulkCreate
+  controller.bulkCreate
 )
 
-/**
- * Generic routes (/:id and derivatives)
- */
-
-// GET /api/inventory/catalogs/units
-router.get(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateQuery(getUnitsQuerySchema),
-  unitController.getAll
-)
-
-// GET /api/inventory/catalogs/units/:id
+// ---------------------------------------------------------------------------
+// Rutas con :id (después de rutas específicas)
+// ---------------------------------------------------------------------------
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(unitIdSchema),
-  unitController.getById
+  validateRequest(unitIdSchema, 'params'),
+  controller.getById
 )
 
-// PUT /api/inventory/catalogs/units/:id
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(unitIdSchema),
-  validateBody(updateUnitSchema),
-  unitController.update
+  validateRequest(unitIdSchema, 'params'),
+  validateRequest(updateUnitSchema, 'body'),
+  controller.update
 )
 
-// PATCH /api/inventory/catalogs/units/:id/toggle
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(unitIdSchema),
-  unitController.toggleActive
+  validateRequest(unitIdSchema, 'params'),
+  controller.toggleActive
 )
 
-// DELETE /api/inventory/catalogs/units/:id/hard (hard delete - must be before soft delete)
 router.delete(
   '/:id/hard',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(unitIdSchema),
-  unitController.hardDelete
+  validateRequest(unitIdSchema, 'params'),
+  controller.hardDelete
 )
 
-// DELETE /api/inventory/catalogs/units/:id (soft delete)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(unitIdSchema),
-  unitController.delete
+  validateRequest(unitIdSchema, 'params'),
+  controller.delete
 )
 
 export default router

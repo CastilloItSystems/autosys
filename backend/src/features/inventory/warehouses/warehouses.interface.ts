@@ -13,6 +13,7 @@ export interface IWarehouse {
   type: WarehouseType
   address?: string | null
   isActive: boolean
+  empresaId: string
 
   // Auditoría
   createdAt: Date
@@ -20,13 +21,20 @@ export interface IWarehouse {
 }
 
 export interface IWarehouseWithRelations extends IWarehouse {
-  stocks?: any[]
-  movementsFrom?: any[]
-  movementsTo?: any[]
-  orders?: any[]
-  preInvoices?: any[]
-  exitNotes?: any[]
-  purchaseOrders?: any[]
+  stocks?: Array<{
+    itemId: string
+    quantityReal: number
+    quantityAvailable: number
+  }>
+  _count?: {
+    movementsFrom?: number
+    movementsTo?: number
+    exitNotes?: number
+    entryNotes?: number
+    purchaseOrders?: number
+    adjustments?: number
+    stocks?: number
+  }
 }
 
 export interface ICreateWarehouseInput {

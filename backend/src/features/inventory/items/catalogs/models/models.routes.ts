@@ -310,134 +310,116 @@
  *       400:
  *         description: Datos inválidos
  */
+// backend/src/features/inventory/items/catalogs/models/models.routes.ts
 
 import { Router } from 'express'
-import { ModelController } from './models.controller'
-import { authenticate } from '../../../../../shared/middleware/authenticate.middleware'
-
-const modelController = new ModelController()
-import { authorize } from '../../../../../shared/middleware/authorize.middleware'
-import {
-  validateBody,
-  validateParams,
-  validateQuery,
-} from '../../../../../shared/middleware/validateRequest.middleware'
+import controller from './models.controller.js'
+import { authorize } from '../../../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../../../shared/middleware/validateRequest.middleware.js'
 import {
   createModelSchema,
   updateModelSchema,
   modelIdSchema,
   getModelsQuerySchema,
   getModelsByBrandSchema,
-} from './models.validation'
-import { PERMISSIONS } from '../../../../../shared/constants/permissions'
+} from './models.validation.js'
+import { PERMISSIONS } from '../../../../../shared/constants/permissions.js'
 
 const router = Router()
 
-/**
- * RUTAS GET ESPECÍFICAS (DEBEN IR ANTES DE /:id)
- */
+// ---------------------------------------------------------------------------
+// Rutas específicas ANTES de /:id
+// ---------------------------------------------------------------------------
+router.get(
+  '/active',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getActive
+)
+router.get(
+  '/grouped',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getGroupedByBrand
+)
+router.get(
+  '/years',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getAvailableYears
+)
+router.get('/search', authorize(PERMISSIONS.INVENTORY_VIEW), controller.search)
 
-// GET /api/inventory/catalogs/models/active
-router.get('/active', authenticate, modelController.getActive)
-
-// GET /api/inventory/catalogs/models/grouped
-router.get('/grouped', authenticate, modelController.getGroupedByBrand)
-
-// GET /api/inventory/catalogs/models/years
-router.get('/years', authenticate, modelController.getAvailableYears)
-
-// GET /api/inventory/catalogs/models/search
-router.get('/search', authenticate, modelController.search)
-
-// GET /api/inventory/catalogs/models/brand/:brandId
 router.get(
   '/brand/:brandId',
-  authenticate,
-  validateParams(getModelsByBrandSchema),
-  modelController.getByBrand
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(getModelsByBrandSchema, 'params'),
+  controller.getByBrand
 )
 
-// GET /api/inventory/catalogs/models/year/:year
-router.get('/year/:year', authenticate, modelController.getByYear)
+router.get(
+  '/year/:year',
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  controller.getByYear
+)
 
-/**
- * RUTAS POST ESPECÍFICAS (DEBEN IR ANTES DE /:id)
- */
-
-// POST /api/inventory/catalogs/models/bulk
 router.post(
   '/bulk',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  modelController.bulkCreate
+  controller.bulkCreate
 )
 
-/**
- * RUTAS GENÉRICAS CON :id
- */
-
-// GET /api/inventory/catalogs/models
+// ---------------------------------------------------------------------------
+// CRUD base
+// ---------------------------------------------------------------------------
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateQuery(getModelsQuerySchema),
-  modelController.getAll
+  validateRequest(getModelsQuerySchema, 'query'),
+  controller.getAll
 )
 
-// POST /api/inventory/catalogs/models
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createModelSchema),
-  modelController.create
+  validateRequest(createModelSchema, 'body'),
+  controller.create
 )
 
-// GET /api/inventory/catalogs/models/:id
+// ---------------------------------------------------------------------------
+// Rutas con :id
+// ---------------------------------------------------------------------------
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
-  validateParams(modelIdSchema),
-  modelController.getById
+  validateRequest(modelIdSchema, 'params'),
+  controller.getById
 )
 
-// PUT /api/inventory/catalogs/models/:id
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(modelIdSchema),
-  validateBody(updateModelSchema),
-  modelController.update
+  validateRequest(modelIdSchema, 'params'),
+  validateRequest(updateModelSchema, 'body'),
+  controller.update
 )
 
-// PATCH /api/inventory/catalogs/models/:id/toggle
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateParams(modelIdSchema),
-  modelController.toggleActive
+  validateRequest(modelIdSchema, 'params'),
+  controller.toggleActive
 )
 
-// DELETE /api/inventory/catalogs/models/:id/hard (DEBE IR ANTES DE /:id DELETE)
 router.delete(
   '/:id/hard',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(modelIdSchema),
-  modelController.hardDelete
+  validateRequest(modelIdSchema, 'params'),
+  controller.hardDelete
 )
 
-// DELETE /api/inventory/catalogs/models/:id (soft delete)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
-  validateParams(modelIdSchema),
-  modelController.delete
+  validateRequest(modelIdSchema, 'params'),
+  controller.delete
 )
 
 export default router

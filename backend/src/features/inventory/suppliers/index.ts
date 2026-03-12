@@ -1,5 +1,3 @@
 // backend/src/features/inventory/suppliers/index.ts
 
-import supplierRoutes from './suppliers.routes'
-
-export default supplierRoutes
+export { default } from './suppliers.routes.js'

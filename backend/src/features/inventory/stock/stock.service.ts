@@ -1,6 +1,6 @@
 // backend/src/features/inventory/stock/stock.service.ts
 
-import prisma from '../../../services/prisma.service'
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import {
   ICreateStockInput,
   IUpdateStockInput,
@@ -10,497 +10,394 @@ import {
   IStockReservation,
   IStockRelease,
   IStockTransfer,
-  AlertType,
   AlertSeverity,
   ICreateStockAlertInput,
   IStockAlertFilters,
-} from './stock.interface'
+} from './stock.interface.js'
 import {
   NotFoundError,
   ConflictError,
   BadRequestError,
-} from '../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../shared/utils/pagination'
-import { logger } from '../../../shared/utils/logger'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
+} from '../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+const MSG = INVENTORY_MESSAGES.stock
+
+const STOCK_INCLUDE = { item: true, warehouse: true } as const
+
+// ---------------------------------------------------------------------------
+// Internal helpers
+// ---------------------------------------------------------------------------
+
+async function assertItemBelongsToEmpresa(
+  db: PrismaClientType,
+  itemId: string,
+  empresaId: string
+): Promise<void> {
+  const item = await (db as PrismaClient).item.findFirst({
+    where: { id: itemId, empresaId },
+  })
+  if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+}
+
+async function assertWarehouseBelongsToEmpresa(
+  db: PrismaClientType,
+  warehouseId: string,
+  empresaId: string
+): Promise<void> {
+  const wh = await (db as PrismaClient).warehouse.findFirst({
+    where: { id: warehouseId, empresaId },
+  })
+  if (!wh) throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 export class StockService {
-  /**
-   * Crear nuevo registro de stock
-   */
-  async create(data: ICreateStockInput): Promise<IStockWithRelations> {
-    try {
-      // Verificar que el artículo existe
-      const item = await prisma.item.findUnique({
-        where: { id: data.itemId },
-      })
-      if (!item) {
-        throw new NotFoundError('Artículo no encontrado')
-      }
+  // -------------------------------------------------------------------------
+  // CRUD básico
+  // -------------------------------------------------------------------------
 
-      // Verificar que el almacén existe
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id: data.warehouseId },
-      })
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
+  async create(
+    data: ICreateStockInput,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations> {
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
+    await assertWarehouseBelongsToEmpresa(db, data.warehouseId, empresaId)
 
-      // Verificar que no exista ya un registro de stock para este item/warehouse
-      const existing = await prisma.stock.findUnique({
-        where: {
-          itemId_warehouseId: {
-            itemId: data.itemId,
-            warehouseId: data.warehouseId,
-          },
-        },
-      })
-      if (existing) {
-        throw new ConflictError(
-          'Ya existe un registro de stock para este artículo en este almacén'
-        )
-      }
-
-      const quantityReal = data.quantityReal ?? 0
-      const quantityReserved = data.quantityReserved ?? 0
-      const quantityAvailable = quantityReal - quantityReserved
-
-      const stock = await prisma.stock.create({
-        data: {
+    const existing = await (db as PrismaClient).stock.findUnique({
+      where: {
+        itemId_warehouseId: {
           itemId: data.itemId,
           warehouseId: data.warehouseId,
-          quantityReal,
-          quantityReserved,
-          quantityAvailable,
-          averageCost: data.averageCost
-            ? parseFloat(String(data.averageCost))
-            : 0,
         },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock creado: ${stock.id}`, {
-        itemId: stock.itemId,
-        warehouseId: stock.warehouseId,
-      })
-
-      return stock as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al crear stock', { error, data })
-      throw error
+      },
+    })
+    if (existing) {
+      throw new ConflictError(
+        'Ya existe un registro de stock para este artículo en este almacén'
+      )
     }
+
+    const quantityReal = data.quantityReal ?? 0
+    const quantityReserved = data.quantityReserved ?? 0
+
+    const stock = await (db as PrismaClient).stock.create({
+      data: {
+        itemId: data.itemId,
+        warehouseId: data.warehouseId,
+        quantityReal,
+        quantityReserved,
+        quantityAvailable: quantityReal - quantityReserved,
+        averageCost: data.averageCost
+          ? parseFloat(String(data.averageCost))
+          : 0,
+      },
+      include: STOCK_INCLUDE,
+    })
+
+    logger.info(`Stock creado: ${stock.id}`, {
+      itemId: stock.itemId,
+      warehouseId: stock.warehouseId,
+      empresaId,
+    })
+
+    return stock as unknown as IStockWithRelations
   }
 
-  /**
-   * Obtener stock por ID
-   */
-  async findById(id: string): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: { id },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
-
-      return stock as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al obtener stock', { error, id })
-      throw error
-    }
+  async findById(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations> {
+    const stock = await (db as PrismaClient).stock.findFirst({
+      where: { id, item: { empresaId } },
+      include: STOCK_INCLUDE,
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
+    return stock as unknown as IStockWithRelations
   }
 
-  /**
-   * Obtener stock de item en almacén específico
-   */
   async findByItemAndWarehouse(
     itemId: string,
-    warehouseId: string
+    warehouseId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: {
-          itemId_warehouseId: {
-            itemId,
-            warehouseId,
-          },
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
-
-      return stock as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al obtener stock', { error, itemId, warehouseId })
-      throw error
-    }
+    const stock = await (db as PrismaClient).stock.findFirst({
+      where: { itemId, warehouseId, item: { empresaId } },
+      include: STOCK_INCLUDE,
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
+    return stock as unknown as IStockWithRelations
   }
 
-  /**
-   * Obtener todos los stocks con filtros
-   */
   async findAll(
     filters: IStockFilters = {},
     page: number = 1,
     limit: number = 10,
     sortBy: string = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc',
-    prismaClient?: any
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<{
     items: IStockWithRelations[]
     page: number
     limit: number
     total: number
   }> {
-    try {
-      const db = prismaClient || prisma
-      const where: any = {}
+    const where: Prisma.StockWhereInput = { item: { empresaId } }
 
-      if (filters.itemId) {
-        where.itemId = filters.itemId
-      }
+    if (filters.itemId) where.itemId = filters.itemId
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId
 
-      if (filters.warehouseId) {
-        where.warehouseId = filters.warehouseId
-      }
-
-      if (filters.lowStock) {
-        // Buscar items con bajo stock (requiere relación con Item para obtener minQuantity)
-        // Por ahora solo filtrar por cantidad disponible
-        where.quantityAvailable = { lt: 10 }
-      }
-
-      if (filters.outOfStock) {
-        where.quantityAvailable = 0
-      }
-
+    if (filters.outOfStock) {
+      where.quantityAvailable = 0
+    } else if (filters.lowStock) {
+      where.quantityAvailable = { lt: 10 }
+    } else {
       if (filters.minQuantity !== undefined) {
         where.quantityAvailable = { gte: filters.minQuantity }
       }
-
       if (filters.maxQuantity !== undefined) {
         where.quantityAvailable = { lte: filters.maxQuantity }
       }
+    }
 
-      const total = await db.stock.count({ where })
+    const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
-
-      const stocks = await db.stock.findMany({
+    const [total, stocks] = await Promise.all([
+      (db as PrismaClient).stock.count({ where }),
+      (db as PrismaClient).stock.findMany({
         where,
         skip,
         take,
         orderBy: { [sortBy]: sortOrder },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
+        include: STOCK_INCLUDE,
+      }),
+    ])
 
-      return {
-        items: stocks as unknown as IStockWithRelations[],
-        page,
-        limit,
-        total,
-      }
-    } catch (error) {
-      logger.error('Error al obtener stocks', { error, filters })
-      throw error
+    return {
+      items: stocks as unknown as IStockWithRelations[],
+      page,
+      limit,
+      total,
     }
   }
 
-  /**
-   * Obtener stock de un artículo en todos los almacenes
-   */
-  async findByItem(itemId: string): Promise<IStockWithRelations[]> {
-    try {
-      const stocks = await prisma.stock.findMany({
-        where: { itemId },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      return stocks as unknown as IStockWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener stocks del artículo', { error, itemId })
-      throw error
-    }
+  async findByItem(
+    itemId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations[]> {
+    const stocks = await (db as PrismaClient).stock.findMany({
+      where: { itemId, item: { empresaId } },
+      orderBy: { createdAt: 'asc' },
+      include: STOCK_INCLUDE,
+    })
+    return stocks as unknown as IStockWithRelations[]
   }
 
-  /**
-   * Obtener todos los stocks en un almacén
-   */
-  async findByWarehouse(warehouseId: string): Promise<IStockWithRelations[]> {
-    try {
-      const stocks = await prisma.stock.findMany({
-        where: { warehouseId },
-        orderBy: { createdAt: 'asc' },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      return stocks as unknown as IStockWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener stocks del almacén', {
-        error,
-        warehouseId,
-      })
-      throw error
-    }
+  async findByWarehouse(
+    warehouseId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations[]> {
+    const stocks = await (db as PrismaClient).stock.findMany({
+      where: { warehouseId, item: { empresaId } },
+      orderBy: { createdAt: 'asc' },
+      include: STOCK_INCLUDE,
+    })
+    return stocks as unknown as IStockWithRelations[]
   }
 
-  /**
-   * Obtener items con bajo stock
-   */
-  async findLowStock(warehouseId?: string): Promise<IStockWithRelations[]> {
-    try {
-      const where: any = {}
-      if (warehouseId) where.warehouseId = warehouseId
-
-      const stocks = await prisma.stock.findMany({
-        where: {
-          ...where,
-          quantityAvailable: { lt: 10 },
-        },
-        orderBy: { quantityAvailable: 'asc' },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      return stocks as unknown as IStockWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener stocks bajos', { error, warehouseId })
-      throw error
-    }
+  async findLowStock(
+    empresaId: string,
+    db: PrismaClientType,
+    warehouseId?: string
+  ): Promise<IStockWithRelations[]> {
+    const stocks = await (db as PrismaClient).stock.findMany({
+      where: {
+        item: { empresaId },
+        ...(warehouseId ? { warehouseId } : {}),
+        quantityAvailable: { lt: 10 },
+      },
+      orderBy: { quantityAvailable: 'asc' },
+      include: STOCK_INCLUDE,
+    })
+    return stocks as unknown as IStockWithRelations[]
   }
 
-  /**
-   * Obtener items sin stock
-   */
-  async findOutOfStock(warehouseId?: string): Promise<IStockWithRelations[]> {
-    try {
-      const where: any = { quantityAvailable: 0 }
-      if (warehouseId) where.warehouseId = warehouseId
-
-      const stocks = await prisma.stock.findMany({
-        where,
-        orderBy: { createdAt: 'desc' },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      return stocks as unknown as IStockWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener stocks sin existencia', {
-        error,
-        warehouseId,
-      })
-      throw error
-    }
+  async findOutOfStock(
+    empresaId: string,
+    db: PrismaClientType,
+    warehouseId?: string
+  ): Promise<IStockWithRelations[]> {
+    const stocks = await (db as PrismaClient).stock.findMany({
+      where: {
+        item: { empresaId },
+        ...(warehouseId ? { warehouseId } : {}),
+        quantityAvailable: 0,
+      },
+      orderBy: { createdAt: 'desc' },
+      include: STOCK_INCLUDE,
+    })
+    return stocks as unknown as IStockWithRelations[]
   }
 
-  /**
-   * Ajustar stock (entrada/salida)
-   */
+  // -------------------------------------------------------------------------
+  // Operaciones de stock
+  // -------------------------------------------------------------------------
+
   async adjust(
     data: IStockAdjustment,
-    userId?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: {
-          itemId_warehouseId: {
-            itemId: data.itemId,
-            warehouseId: data.warehouseId,
-          },
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
+
+    const stock = await (db as PrismaClient).stock.findUnique({
+      where: {
+        itemId_warehouseId: {
+          itemId: data.itemId,
+          warehouseId: data.warehouseId,
         },
-      })
+      },
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
 
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
+    const newQuantityReal = stock.quantityReal + data.quantityChange
+    if (newQuantityReal < 0) throw new BadRequestError(MSG.negative)
 
-      const newQuantityReal = stock.quantityReal + data.quantityChange
+    const updated = await (db as PrismaClient).stock.update({
+      where: { id: stock.id },
+      data: {
+        quantityReal: newQuantityReal,
+        quantityAvailable: newQuantityReal - stock.quantityReserved,
+        lastMovementAt: new Date(),
+      },
+      include: STOCK_INCLUDE,
+    })
 
-      if (newQuantityReal < 0) {
-        throw new BadRequestError(INVENTORY_MESSAGES.stock.negative)
-      }
+    logger.info(`Stock ajustado: ${stock.id}`, {
+      userId,
+      empresaId,
+      itemId: data.itemId,
+      reason: data.reason,
+      change: data.quantityChange,
+    })
 
-      // Recalcular disponible
-      const newQuantityAvailable = newQuantityReal - stock.quantityReserved
-
-      const updated = await prisma.stock.update({
-        where: { id: stock.id },
-        data: {
-          quantityReal: newQuantityReal,
-          quantityAvailable: newQuantityAvailable,
-          lastMovementAt: new Date(),
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock ajustado: ${stock.id}`, {
-        userId,
-        itemId: data.itemId,
-        reason: data.reason,
-        change: data.quantityChange,
-      })
-
-      return updated as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al ajustar stock', { error, data })
-      throw error
-    }
+    return updated as unknown as IStockWithRelations
   }
 
-  /**
-   * Reservar stock
-   */
   async reserve(
     data: IStockReservation,
-    userId?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: {
-          itemId_warehouseId: {
-            itemId: data.itemId,
-            warehouseId: data.warehouseId,
-          },
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
+
+    const stock = await (db as PrismaClient).stock.findUnique({
+      where: {
+        itemId_warehouseId: {
+          itemId: data.itemId,
+          warehouseId: data.warehouseId,
         },
-      })
+      },
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
 
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
-
-      if (stock.quantityAvailable < data.quantity) {
-        throw new BadRequestError(
-          `Stock insuficiente. Disponible: ${stock.quantityAvailable}, Requerido: ${data.quantity}`
-        )
-      }
-
-      const newQuantityReserved = stock.quantityReserved + data.quantity
-      const newQuantityAvailable = stock.quantityReal - newQuantityReserved
-
-      const updated = await prisma.stock.update({
-        where: { id: stock.id },
-        data: {
-          quantityReserved: newQuantityReserved,
-          quantityAvailable: newQuantityAvailable,
-          lastMovementAt: new Date(),
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock reservado: ${stock.id}`, {
-        userId,
-        itemId: data.itemId,
-        quantity: data.quantity,
-      })
-
-      return updated as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al reservar stock', { error, data })
-      throw error
+    if (stock.quantityAvailable < data.quantity) {
+      throw new BadRequestError(MSG.insufficient)
     }
+
+    const newQuantityReserved = stock.quantityReserved + data.quantity
+
+    const updated = await (db as PrismaClient).stock.update({
+      where: { id: stock.id },
+      data: {
+        quantityReserved: newQuantityReserved,
+        quantityAvailable: stock.quantityReal - newQuantityReserved,
+        lastMovementAt: new Date(),
+      },
+      include: STOCK_INCLUDE,
+    })
+
+    logger.info(`Stock reservado: ${stock.id}`, {
+      userId,
+      empresaId,
+      itemId: data.itemId,
+      quantity: data.quantity,
+    })
+
+    return updated as unknown as IStockWithRelations
   }
 
-  /**
-   * Liberar reserva
-   */
   async releaseReservation(
     data: IStockRelease,
-    userId?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: {
-          itemId_warehouseId: {
-            itemId: data.itemId,
-            warehouseId: data.warehouseId,
-          },
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
+
+    const stock = await (db as PrismaClient).stock.findUnique({
+      where: {
+        itemId_warehouseId: {
+          itemId: data.itemId,
+          warehouseId: data.warehouseId,
         },
-      })
+      },
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
 
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
-
-      if (stock.quantityReserved < data.quantity) {
-        throw new BadRequestError(
-          'No hay suficiente stock reservado para liberar'
-        )
-      }
-
-      const newQuantityReserved = stock.quantityReserved - data.quantity
-      const newQuantityAvailable = stock.quantityReal - newQuantityReserved
-
-      const updated = await prisma.stock.update({
-        where: { id: stock.id },
-        data: {
-          quantityReserved: newQuantityReserved,
-          quantityAvailable: newQuantityAvailable,
-          lastMovementAt: new Date(),
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock liberado: ${stock.id}`, {
-        userId,
-        itemId: data.itemId,
-        quantity: data.quantity,
-      })
-
-      return updated as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al liberar stock', { error, data })
-      throw error
+    if (stock.quantityReserved < data.quantity) {
+      throw new BadRequestError(MSG.released)
     }
+
+    const newQuantityReserved = stock.quantityReserved - data.quantity
+
+    const updated = await (db as PrismaClient).stock.update({
+      where: { id: stock.id },
+      data: {
+        quantityReserved: newQuantityReserved,
+        quantityAvailable: stock.quantityReal - newQuantityReserved,
+        lastMovementAt: new Date(),
+      },
+      include: STOCK_INCLUDE,
+    })
+
+    logger.info(`Stock liberado: ${stock.id}`, {
+      userId,
+      empresaId,
+      itemId: data.itemId,
+      quantity: data.quantity,
+    })
+
+    return updated as unknown as IStockWithRelations
   }
 
-  /**
-   * Transferir stock entre almacenes
-   */
   async transfer(
     data: IStockTransfer,
-    userId?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<{ from: IStockWithRelations; to: IStockWithRelations }> {
-    try {
-      // Obtener stocks origen y destino
-      const stockFrom = await prisma.stock.findUnique({
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
+    await assertWarehouseBelongsToEmpresa(db, data.warehouseFromId, empresaId)
+    await assertWarehouseBelongsToEmpresa(db, data.warehouseToId, empresaId)
+
+    const result = await (db as PrismaClient).$transaction(async (tx) => {
+      const stockFrom = await tx.stock.findUnique({
         where: {
           itemId_warehouseId: {
             itemId: data.itemId,
@@ -508,8 +405,12 @@ export class StockService {
           },
         },
       })
+      if (!stockFrom) throw new NotFoundError(MSG.notFound)
+      if (stockFrom.quantityAvailable < data.quantity) {
+        throw new BadRequestError(MSG.insufficient)
+      }
 
-      const stockTo = await prisma.stock.findUnique({
+      const stockTo = await tx.stock.findUnique({
         where: {
           itemId_warehouseId: {
             itemId: data.itemId,
@@ -517,210 +418,175 @@ export class StockService {
           },
         },
       })
+      if (!stockTo) throw new NotFoundError(MSG.notFound)
 
-      if (!stockFrom) {
-        throw new NotFoundError('Stock no encontrado en almacén origen')
-      }
+      const [updatedFrom, updatedTo] = await Promise.all([
+        tx.stock.update({
+          where: { id: stockFrom.id },
+          data: {
+            quantityReal: stockFrom.quantityReal - data.quantity,
+            quantityAvailable: stockFrom.quantityAvailable - data.quantity,
+            lastMovementAt: new Date(),
+          },
+          include: STOCK_INCLUDE,
+        }),
+        tx.stock.update({
+          where: { id: stockTo.id },
+          data: {
+            quantityReal: stockTo.quantityReal + data.quantity,
+            quantityAvailable: stockTo.quantityAvailable + data.quantity,
+            lastMovementAt: new Date(),
+          },
+          include: STOCK_INCLUDE,
+        }),
+      ])
 
-      if (!stockTo) {
-        throw new NotFoundError('Stock no encontrado en almacén destino')
-      }
+      return { from: updatedFrom, to: updatedTo }
+    })
 
-      if (stockFrom.quantityAvailable < data.quantity) {
-        throw new BadRequestError(INVENTORY_MESSAGES.stock.insufficient)
-      }
+    logger.info(`Stock transferido: ${data.itemId}`, {
+      userId,
+      empresaId,
+      from: data.warehouseFromId,
+      to: data.warehouseToId,
+      quantity: data.quantity,
+    })
 
-      // Realizar transferencia
-      const updatedFrom = await prisma.stock.update({
-        where: { id: stockFrom.id },
-        data: {
-          quantityReal: stockFrom.quantityReal - data.quantity,
-          quantityAvailable: stockFrom.quantityAvailable - data.quantity,
-          lastMovementAt: new Date(),
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      const updatedTo = await prisma.stock.update({
-        where: { id: stockTo.id },
-        data: {
-          quantityReal: stockTo.quantityReal + data.quantity,
-          quantityAvailable: stockTo.quantityAvailable + data.quantity,
-          lastMovementAt: new Date(),
-        },
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock transferido: ${data.itemId}`, {
-        userId,
-        from: data.warehouseFromId,
-        to: data.warehouseToId,
-        quantity: data.quantity,
-      })
-
-      return {
-        from: updatedFrom as unknown as IStockWithRelations,
-        to: updatedTo as unknown as IStockWithRelations,
-      }
-    } catch (error) {
-      logger.error('Error al transferir stock', { error, data })
-      throw error
+    return {
+      from: result.from as unknown as IStockWithRelations,
+      to: result.to as unknown as IStockWithRelations,
     }
   }
 
-  /**
-   * Actualizar stock
-   */
   async update(
     id: string,
     data: IUpdateStockInput,
-    userId?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IStockWithRelations> {
-    try {
-      const stock = await prisma.stock.findUnique({
-        where: { id },
-      })
+    const stock = await (db as PrismaClient).stock.findFirst({
+      where: { id, item: { empresaId } },
+    })
+    if (!stock) throw new NotFoundError(MSG.notFound)
 
-      if (!stock) {
-        throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
-      }
+    const updateData: Record<string, unknown> = {}
+    let newQuantityReal = stock.quantityReal
+    let newQuantityReserved = stock.quantityReserved
 
-      const updateData: any = {}
-      let newQuantityReal = stock.quantityReal
-      let newQuantityReserved = stock.quantityReserved
-
-      if (data.quantityReal !== undefined) {
-        newQuantityReal = data.quantityReal
-        updateData.quantityReal = data.quantityReal
-      }
-
-      if (data.quantityReserved !== undefined) {
-        newQuantityReserved = data.quantityReserved
-        updateData.quantityReserved = data.quantityReserved
-      }
-
-      if (data.averageCost !== undefined) {
-        updateData.averageCost = parseFloat(String(data.averageCost))
-      }
-
-      // Recalcular disponible
-      const newQuantityAvailable = newQuantityReal - newQuantityReserved
-      updateData.quantityAvailable = newQuantityAvailable
-
-      const updated = await prisma.stock.update({
-        where: { id },
-        data: updateData,
-        include: {
-          item: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Stock actualizado: ${id}`, { userId, changes: data })
-
-      return updated as unknown as IStockWithRelations
-    } catch (error) {
-      logger.error('Error al actualizar stock', { error, id, data })
-      throw error
+    if (data.quantityReal !== undefined) {
+      newQuantityReal = data.quantityReal
+      updateData.quantityReal = data.quantityReal
     }
+    if (data.quantityReserved !== undefined) {
+      newQuantityReserved = data.quantityReserved
+      updateData.quantityReserved = data.quantityReserved
+    }
+    if (data.averageCost !== undefined) {
+      updateData.averageCost = parseFloat(String(data.averageCost))
+    }
+    updateData.quantityAvailable = newQuantityReal - newQuantityReserved
+
+    const updated = await (db as PrismaClient).stock.update({
+      where: { id },
+      data: updateData,
+      include: STOCK_INCLUDE,
+    })
+
+    logger.info(`Stock actualizado: ${id}`, {
+      userId,
+      empresaId,
+      changes: data,
+    })
+
+    return updated as unknown as IStockWithRelations
   }
 
-  /**
-   * Crear alerta de stock
-   */
+  // -------------------------------------------------------------------------
+  // Alertas
+  // -------------------------------------------------------------------------
+
   async createAlert(
     data: ICreateStockAlertInput,
-    userId?: string
-  ): Promise<any> {
-    try {
-      const alert = await prisma.stockAlert.create({
-        data: {
-          itemId: data.itemId,
-          warehouseId: data.warehouseId,
-          type: data.type,
-          message: data.message,
-          severity: data.severity ?? AlertSeverity.MEDIUM,
-        },
-      })
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<unknown> {
+    await assertItemBelongsToEmpresa(db, data.itemId, empresaId)
 
-      logger.info(`Alerta de stock creada: ${alert.id}`, {
-        userId,
+    const alert = await (db as PrismaClient).stockAlert.create({
+      data: {
         itemId: data.itemId,
+        warehouseId: data.warehouseId,
         type: data.type,
-      })
+        message: data.message,
+        severity: data.severity ?? AlertSeverity.MEDIUM,
+      },
+    })
 
-      return alert
-    } catch (error) {
-      logger.error('Error al crear alerta de stock', { error, data })
-      throw error
-    }
+    logger.info(`Alerta de stock creada: ${alert.id}`, {
+      userId,
+      empresaId,
+      itemId: data.itemId,
+      type: data.type,
+    })
+
+    return alert
   }
 
-  /**
-   * Obtener alertas de stock
-   */
   async getAlerts(
     filters: IStockAlertFilters = {},
+    empresaId: string,
     page: number = 1,
-    limit: number = 20
-  ): Promise<{
-    items: any[]
-    page: number
-    limit: number
-    total: number
-  }> {
-    try {
-      const where: any = {}
+    limit: number = 20,
+    db: PrismaClientType
+  ): Promise<{ items: unknown[]; page: number; limit: number; total: number }> {
+    const where: Prisma.StockAlertWhereInput = { item: { empresaId } }
 
-      if (filters.type) where.type = filters.type
-      if (filters.itemId) where.itemId = filters.itemId
-      if (filters.warehouseId) where.warehouseId = filters.warehouseId
-      if (filters.isRead !== undefined) where.isRead = filters.isRead
-      if (filters.severity) where.severity = filters.severity
+    if (filters.type) where.type = filters.type as any
+    if (filters.itemId) where.itemId = filters.itemId
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId
+    if (filters.isRead !== undefined) where.isRead = filters.isRead
+    if (filters.severity) where.severity = filters.severity as any
 
-      const total = await prisma.stockAlert.count({ where })
+    const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
-
-      const alerts = await prisma.stockAlert.findMany({
+    const [total, alerts] = await Promise.all([
+      (db as PrismaClient).stockAlert.count({ where }),
+      (db as PrismaClient).stockAlert.findMany({
         where,
         skip,
         take,
         orderBy: { createdAt: 'desc' },
-      })
+      }),
+    ])
 
-      return { items: alerts, page, limit, total }
-    } catch (error) {
-      logger.error('Error al obtener alertas de stock', { error, filters })
-      throw error
-    }
+    return { items: alerts, page, limit, total }
   }
 
-  /**
-   * Marcar alerta como leída
-   */
-  async markAlertAsRead(alertId: string, userId?: string): Promise<any> {
-    try {
-      const alert = await prisma.stockAlert.update({
-        where: { id: alertId },
-        data: {
-          isRead: true,
-          readBy: userId ?? null,
-          readAt: new Date(),
-        },
-      })
+  async markAlertAsRead(
+    alertId: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<unknown> {
+    const existing = await (db as PrismaClient).stockAlert.findFirst({
+      where: { id: alertId, item: { empresaId } },
+    })
+    if (!existing) throw new NotFoundError(MSG.notFound)
 
-      return alert
-    } catch (error) {
-      logger.error('Error al marcar alerta como leída', { error, alertId })
-      throw error
-    }
+    const alert = await (db as PrismaClient).stockAlert.update({
+      where: { id: alertId },
+      data: {
+        isRead: true,
+        readBy: userId,
+        readAt: new Date(),
+      },
+    })
+
+    logger.info(`Alerta marcada como leída: ${alertId}`, { userId, empresaId })
+
+    return alert
   }
 }
 

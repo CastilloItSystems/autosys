@@ -1,223 +1,277 @@
 // backend/src/features/inventory/purchaseOrders/purchaseOrders.controller.ts
 
 import { Request, Response } from 'express'
-import PurchaseOrderService from './purchaseOrders.service'
-import { CreatePurchaseOrderDTO } from './purchaseOrders.dto'
-import { UpdatePurchaseOrderDTO } from './purchaseOrders.dto'
-import { ApprovePurchaseOrderDTO } from './purchaseOrders.dto'
-import { CreatePurchaseOrderItemDTO } from './purchaseOrders.dto'
-import { PurchaseOrderResponseDTO } from './purchaseOrders.dto'
-import { PurchaseOrderItemResponseDTO } from './purchaseOrders.dto'
-import { ReceiveOrderDTO } from './purchaseOrders.dto'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
+import purchaseOrderService from './purchaseOrders.service.js'
+import {
+  CreatePurchaseOrderDTO,
+  UpdatePurchaseOrderDTO,
+  ApprovePurchaseOrderDTO,
+  CreatePurchaseOrderItemDTO,
+  PurchaseOrderResponseDTO,
+  PurchaseOrderItemResponseDTO,
+  ReceiveOrderDTO,
+} from './purchaseOrders.dto.js'
+import { IPurchaseOrderFilters, PurchaseOrderStatus } from './purchaseOrders.interface.js'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
+
+const VALID_SORT_FIELDS = new Set([
+  'orderDate',
+  'orderNumber',
+  'status',
+  'total',
+  'createdAt',
+])
+
+function parseSortBy(raw: unknown): string {
+  const val = typeof raw === 'string' ? raw : 'orderDate'
+  return VALID_SORT_FIELDS.has(val) ? val : 'orderDate'
+}
+
+function parseSortOrder(raw: unknown): 'asc' | 'desc' {
+  return raw === 'asc' ? 'asc' : 'desc'
+}
+
+function parseLimit(raw: unknown, fallback: number): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : fallback
+}
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
 class PurchaseOrderController {
   /**
    * GET /api/inventory/purchase-orders
-   * Obtener todas las órdenes de compra con paginación
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       status,
       supplierId,
       warehouseId,
       createdBy,
       orderFrom,
       orderTo,
-      sortBy = 'orderDate',
-      sortOrder = 'desc',
+      sortBy,
+      sortOrder,
     } = req.query
 
-    const filters: any = {}
-    if (status) filters.status = status as string
-    if (supplierId) filters.supplierId = supplierId as string
-    if (warehouseId) filters.warehouseId = warehouseId as string
-    if (createdBy) filters.createdBy = createdBy as string
-    if (orderFrom) filters.orderFrom = new Date(orderFrom as string)
-    if (orderTo) filters.orderTo = new Date(orderTo as string)
+    const filters: IPurchaseOrderFilters = {}
+    if (status && Object.values(PurchaseOrderStatus).includes(status as PurchaseOrderStatus))
+      filters.status = status as PurchaseOrderStatus
+    if (supplierId) filters.supplierId = String(supplierId)
+    if (warehouseId) filters.warehouseId = String(warehouseId)
+    if (createdBy) filters.createdBy = String(createdBy)
+    if (orderFrom) filters.orderFrom = new Date(String(orderFrom))
+    if (orderTo) filters.orderTo = new Date(String(orderTo))
 
-    const result = await PurchaseOrderService.findAll(
+    const result = await purchaseOrderService.findAll(
       filters,
-      Number(page),
-      Number(limit),
-      sortBy as string,
-      (sortOrder as string).toLowerCase() as 'asc' | 'desc',
-      req.prisma || undefined
+      Number(page) || 1,
+      parseLimit(limit, 20),
+      parseSortBy(sortBy),
+      parseSortOrder(sortOrder),
+      empresaId,
+      req.prisma
     )
 
     const items = result.items.map((po) => new PurchaseOrderResponseDTO(po))
 
-    return res.json({
-      success: true,
-      data: items,
-      meta: {
-        page: result.page,
-        limit: result.limit,
-        total: result.total,
-      },
-    })
+    return ApiResponse.paginated(
+      res,
+      items,
+      result.page,
+      result.limit,
+      result.total,
+      'Órdenes de compra obtenidas exitosamente'
+    )
   })
 
   /**
    * GET /api/inventory/purchase-orders/:id
-   * Obtener una orden de compra por ID
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const { includeItems = true } = req.query
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const includeItems = req.query.includeItems !== 'false'
 
-    const po = await PurchaseOrderService.findById(
-      String(id),
-      includeItems === 'true'
-    )
+    const po = await purchaseOrderService.findById(id, empresaId, includeItems, req.prisma)
 
-    const dto = new PurchaseOrderResponseDTO(po)
-    return res.json({ success: true, data: dto })
+    return ApiResponse.success(res, new PurchaseOrderResponseDTO(po), 'Orden de compra obtenida')
   })
 
   /**
    * POST /api/inventory/purchase-orders
-   * Crear nueva orden de compra (con o sin items)
    */
   create = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id
-
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
     const dto = new CreatePurchaseOrderDTO(req.body)
 
     let result
     if (dto.items && dto.items.length > 0) {
-      // Batch create con items
-      result = await PurchaseOrderService.createWithItems(
+      result = await purchaseOrderService.createWithItems(
         {
           supplierId: dto.supplierId,
           warehouseId: dto.warehouseId,
-          notes: dto.notes,
-          expectedDate: dto.expectedDate,
-          createdBy: dto.createdBy,
-          items: dto.items,
+          notes: dto.notes as any,
+          expectedDate: dto.expectedDate as any,
+          createdBy: dto.createdBy as any,
+          items: dto.items as any,
         },
-        userId
+        empresaId,
+        userId,
+        req.prisma
       )
     } else {
-      // Crear solo la PO
-      result = await PurchaseOrderService.create(dto, userId)
+      result = await purchaseOrderService.create(dto, empresaId, userId, req.prisma)
     }
 
-    const response = new PurchaseOrderResponseDTO(result)
-    return res
-      .status(201)
-      .json({ success: true, message: 'Orden creada', data: response })
+    return ApiResponse.created(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.created
+    )
   })
 
   /**
    * PUT /api/inventory/purchase-orders/:id
-   * Actualizar orden de compra
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
     const dto = new UpdatePurchaseOrderDTO(req.body)
-    const result = await PurchaseOrderService.update(String(id), dto)
 
-    const response = new PurchaseOrderResponseDTO(result)
-    return res.json({ success: true, data: response })
+    const result = await purchaseOrderService.update(id, dto, empresaId, req.prisma)
+
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.updated
+    )
   })
 
   /**
    * PATCH /api/inventory/purchase-orders/:id/approve
-   * Aprobar orden de compra
    */
   approve = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const userId = (req as any).user?.id
-
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
     const dto = new ApprovePurchaseOrderDTO(req.body)
-    const result = await PurchaseOrderService.approve(
-      String(id),
-      dto.approvedBy || userId
+
+    const result = await purchaseOrderService.approve(
+      id,
+      empresaId,
+      dto.approvedBy ?? userId ?? '',
+      req.prisma
     )
 
-    const response = new PurchaseOrderResponseDTO(result)
-    return res.json({ success: true, data: response })
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.sent
+    )
   })
 
   /**
    * PATCH /api/inventory/purchase-orders/:id/cancel
-   * Cancelar orden de compra
    */
   cancel = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const result = await PurchaseOrderService.cancel(String(id))
+    const result = await purchaseOrderService.cancel(id, empresaId, req.prisma)
 
-    const response = new PurchaseOrderResponseDTO(result)
-    return res.json({ success: true, data: response })
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.cancelled
+    )
   })
 
   /**
    * POST /api/inventory/purchase-orders/:id/items
-   * Agregar item a orden de compra
    */
   addItem = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
     const dto = new CreatePurchaseOrderItemDTO(req.body)
-    const result = await PurchaseOrderService.addItem(String(id), dto)
 
-    const response = new PurchaseOrderItemResponseDTO(result)
-    return res
-      .status(201)
-      .json({ success: true, message: 'Item agregado', data: response })
+    const result = await purchaseOrderService.addItem(id, dto, empresaId, req.prisma)
+
+    return ApiResponse.created(
+      res,
+      new PurchaseOrderItemResponseDTO(result),
+      'Item agregado a la orden de compra'
+    )
   })
 
   /**
    * GET /api/inventory/purchase-orders/:id/items
-   * Obtener items de una orden de compra
    */
   getItems = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const items = await PurchaseOrderService.getItems(String(id))
+    const items = await purchaseOrderService.getItems(id, empresaId, req.prisma)
 
-    const response = items.map((item) => new PurchaseOrderItemResponseDTO(item))
-    return res.json({ success: true, data: response })
+    return ApiResponse.success(
+      res,
+      items.map((item) => new PurchaseOrderItemResponseDTO(item)),
+      'Items obtenidos exitosamente'
+    )
   })
 
   /**
    * POST /api/inventory/purchase-orders/:id/receive
-   * Recepcionar mercancía de una orden de compra
    */
   receive = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const userId = (req as any).user?.id
-
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
     const dto = new ReceiveOrderDTO(req.body)
-    const result = await PurchaseOrderService.receiveOrder(
-      String(id),
+
+    const result = await purchaseOrderService.receiveOrder(
+      id,
       dto,
-      userId
+      empresaId,
+      userId,
+      req.prisma
     )
 
-    const response = new PurchaseOrderResponseDTO(result)
-    return res
-      .status(201)
-      .json({ success: true, message: 'Recepción registrada', data: response })
+    return ApiResponse.created(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.received
+    )
   })
 
   /**
    * DELETE /api/inventory/purchase-orders/:id
-   * Eliminar orden de compra
    */
   delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const result = await PurchaseOrderService.delete(String(id))
+    const result = await purchaseOrderService.delete(id, empresaId, req.prisma)
 
-    return res.json({ success: true, data: result })
+    return ApiResponse.success(res, result, 'Orden de compra eliminada exitosamente')
   })
 }
 
-export { PurchaseOrderController }
+export default new PurchaseOrderController()

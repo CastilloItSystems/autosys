@@ -289,19 +289,24 @@
  */
 
 import { Router } from 'express'
-import { MovementController } from './movements.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
+import { MovementController } from './movements.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
-} from '../../../shared/middleware/validateRequest.middleware'
+} from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createMovementSchema,
   updateMovementSchema,
-} from './movements.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+  movementIdSchema,
+  getMovementsQuerySchema,
+  getMovementByTypeParamsSchema,
+  getMovementByWarehouseParamsSchema,
+  getMovementByItemParamsSchema,
+  paginationQuerySchema,
+} from './movements.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
 const movementController = new MovementController()
@@ -315,31 +320,33 @@ const movementController = new MovementController()
 // GET /api/inventory/movements/type/:type
 router.get(
   '/type/:type',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  validateParams(getMovementByTypeParamsSchema),
+  validateQuery(paginationQuerySchema),
   movementController.getByType
 )
 
 // GET /api/inventory/movements/warehouse/:warehouseId
 router.get(
   '/warehouse/:warehouseId',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  validateParams(getMovementByWarehouseParamsSchema),
+  validateQuery(paginationQuerySchema),
   movementController.getByWarehouse
 )
 
 // GET /api/inventory/movements/item/:itemId
 router.get(
   '/item/:itemId',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  validateParams(getMovementByItemParamsSchema),
+  validateQuery(paginationQuerySchema),
   movementController.getByItem
 )
 
 // GET /api/inventory/movements/dashboard
 router.get(
   '/dashboard',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
   movementController.getDashboard
 )
@@ -353,15 +360,14 @@ router.get(
 // GET /api/inventory/movements (Listar todos)
 router.get(
   '/',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  validateQuery(getMovementsQuerySchema),
   movementController.getAll
 )
 
 // POST /api/inventory/movements (Crear)
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_CREATE),
   validateBody(createMovementSchema),
   movementController.create
@@ -376,16 +382,16 @@ router.post(
 // GET /api/inventory/movements/:id (Obtener uno)
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_VIEW),
+  validateParams(movementIdSchema),
   movementController.getOne
 )
 
 // PUT /api/inventory/movements/:id (Actualizar)
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_UPDATE),
+  validateParams(movementIdSchema),
   validateBody(updateMovementSchema),
   movementController.update
 )
@@ -393,16 +399,16 @@ router.put(
 // DELETE /api/inventory/movements/:id (Eliminar)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_DELETE),
+  validateParams(movementIdSchema),
   movementController.delete
 )
 
 // PATCH /api/inventory/movements/:id/cancel (Cancelar)
 router.patch(
   '/:id/cancel',
-  authenticate,
   authorize(PERMISSIONS.MOVEMENTS_UPDATE),
+  validateParams(movementIdSchema),
   movementController.cancel
 )
 

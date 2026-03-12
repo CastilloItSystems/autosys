@@ -1,22 +1,41 @@
+// backend/src/features/inventory/exitNotes/exitNotes.controller.ts
+
 import { Request, Response } from 'express'
-import { ExitNotesService } from './exitNotes.service'
+import exitNotesService from './exitNotes.service.js'
 import {
   CreateExitNoteDTO,
   UpdateExitNoteDTO,
   ExitNoteResponseDTO,
-} from './exitNotes.dto'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ExitNoteStatus, ExitNoteType } from './exitNotes.interface'
+} from './exitNotes.dto.js'
+import { ExitNoteStatus, ExitNoteType } from './exitNotes.interface.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 
-const exitNotesService = ExitNotesService.getInstance()
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 
-export class ExitNotesController {
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
+
+function parseLimit(raw: unknown, fallback: number): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : fallback
+}
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
+
+class ExitNotesController {
   /**
    * GET /api/inventory/exit-notes
-   * Obtener todas las notas de salida con filtros
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const {
       type,
       status,
@@ -26,32 +45,46 @@ export class ExitNotesController {
       endDate,
       page,
       limit,
-      search,
     } = req.query
 
-    const filters: any = {}
-    if (type) filters.type = type as ExitNoteType
-    if (status) filters.status = status as ExitNoteStatus
-    if (warehouseId) filters.warehouseId = warehouseId as string
-    if (recipientId) filters.recipientId = recipientId as string
-    if (startDate) filters.startDate = new Date(startDate as string)
-    if (endDate) filters.endDate = new Date(endDate as string)
-    // Add search if implemented in service, currently service doesn't seem to support generic 'search' param in filters object directly based on previous read, but I'll leave it out or map it if service supports it.
-    // Based on previous read of service.findAll, it supports specific fields. I'll stick to those.
+    const filters: {
+      type?: ExitNoteType
+      status?: ExitNoteStatus
+      warehouseId?: string
+      recipientId?: string
+      startDate?: Date
+      endDate?: Date
+    } = {}
+
+    if (type && Object.values(ExitNoteType).includes(type as ExitNoteType))
+      filters.type = type as ExitNoteType
+    if (
+      status &&
+      Object.values(ExitNoteStatus).includes(status as ExitNoteStatus)
+    )
+      filters.status = status as ExitNoteStatus
+    if (warehouseId) filters.warehouseId = String(warehouseId)
+    if (recipientId) filters.recipientId = String(recipientId)
+    if (startDate) filters.startDate = new Date(String(startDate))
+    if (endDate) filters.endDate = new Date(String(endDate))
+
+    const pageNum = Number(page) || 1
+    const limitNum = parseLimit(limit, 20)
 
     const result = await exitNotesService.findAll(
       filters,
-      Number(page) || 1,
-      Number(limit) || 20
+      pageNum,
+      limitNum,
+      empresaId,
+      req.prisma
     )
-
     const items = result.data.map((note) => new ExitNoteResponseDTO(note))
 
     return ApiResponse.paginated(
       res,
       items,
-      Number(page) || 1,
-      Number(limit) || 20,
+      pageNum,
+      limitNum,
       result.total,
       'Notas de salida obtenidas exitosamente'
     )
@@ -59,69 +92,63 @@ export class ExitNotesController {
 
   /**
    * GET /api/inventory/exit-notes/:id
-   * Obtener nota de salida por ID
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const exitNote = await exitNotesService.findById(id)
-    if (!exitNote) {
-      return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    }
+    const exitNote = await exitNotesService.findById(id, empresaId, req.prisma)
 
-    const response = new ExitNoteResponseDTO(exitNote)
     return ApiResponse.success(
       res,
-      response,
+      new ExitNoteResponseDTO(exitNote),
       'Nota de salida obtenida exitosamente'
     )
   })
 
   /**
    * GET /api/inventory/exit-notes/number/:exitNoteNumber
-   * Obtener nota de salida por número
    */
   getByNumber = asyncHandler(async (req: Request, res: Response) => {
-    let { exitNoteNumber } = req.params
-    if (Array.isArray(exitNoteNumber)) exitNoteNumber = exitNoteNumber[0]
-    if (!exitNoteNumber)
-      return ApiResponse.badRequest(res, 'Número de nota de salida requerido')
+    const empresaId = getEmpresaId(req)
+    const { exitNoteNumber } = req.params as { exitNoteNumber: string }
 
-    const exitNote = await exitNotesService.findByNumber(exitNoteNumber)
-    if (!exitNote) {
-      return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    }
+    const exitNote = await exitNotesService.findByNumber(
+      exitNoteNumber,
+      empresaId,
+      req.prisma
+    )
 
-    const response = new ExitNoteResponseDTO(exitNote)
     return ApiResponse.success(
       res,
-      response,
+      new ExitNoteResponseDTO(exitNote),
       'Nota de salida obtenida exitosamente'
     )
   })
 
   /**
    * GET /api/inventory/exit-notes/warehouse/:warehouseId
-   * Obtener notas de salida por almacén
    */
   getByWarehouse = asyncHandler(async (req: Request, res: Response) => {
-    const { warehouseId } = req.params
-    const { page, limit } = req.query
+    const empresaId = getEmpresaId(req)
+    const { warehouseId } = req.params as { warehouseId: string }
+    const pageNum = Number(req.query.page) || 1
+    const limitNum = parseLimit(req.query.limit, 20)
 
     const result = await exitNotesService.findAll(
       { warehouseId },
-      Number(page) || 1,
-      Number(limit) || 20
+      pageNum,
+      limitNum,
+      empresaId,
+      req.prisma
     )
-
     const items = result.data.map((note) => new ExitNoteResponseDTO(note))
+
     return ApiResponse.paginated(
       res,
       items,
-      Number(page) || 1,
-      Number(limit) || 20,
+      pageNum,
+      limitNum,
       result.total,
       'Notas de salida obtenidas exitosamente'
     )
@@ -129,24 +156,31 @@ export class ExitNotesController {
 
   /**
    * GET /api/inventory/exit-notes/type/:type
-   * Obtener notas de salida por tipo
    */
   getByType = asyncHandler(async (req: Request, res: Response) => {
-    const { type } = req.params
-    const { page, limit } = req.query
+    const empresaId = getEmpresaId(req)
+    const { type } = req.params as { type: string }
+    const pageNum = Number(req.query.page) || 1
+    const limitNum = parseLimit(req.query.limit, 20)
+
+    if (!Object.values(ExitNoteType).includes(type as ExitNoteType)) {
+      return ApiResponse.badRequest(res, `Tipo inválido: ${type}`)
+    }
 
     const result = await exitNotesService.findAll(
       { type: type as ExitNoteType },
-      Number(page) || 1,
-      Number(limit) || 20
+      pageNum,
+      limitNum,
+      empresaId,
+      req.prisma
     )
-
     const items = result.data.map((note) => new ExitNoteResponseDTO(note))
+
     return ApiResponse.paginated(
       res,
       items,
-      Number(page) || 1,
-      Number(limit) || 20,
+      pageNum,
+      limitNum,
       result.total,
       'Notas de salida obtenidas exitosamente'
     )
@@ -154,24 +188,31 @@ export class ExitNotesController {
 
   /**
    * GET /api/inventory/exit-notes/status/:status
-   * Obtener notas de salida por estado
    */
   getByStatus = asyncHandler(async (req: Request, res: Response) => {
-    const { status } = req.params
-    const { page, limit } = req.query
+    const empresaId = getEmpresaId(req)
+    const { status } = req.params as { status: string }
+    const pageNum = Number(req.query.page) || 1
+    const limitNum = parseLimit(req.query.limit, 20)
+
+    if (!Object.values(ExitNoteStatus).includes(status as ExitNoteStatus)) {
+      return ApiResponse.badRequest(res, `Estado inválido: ${status}`)
+    }
 
     const result = await exitNotesService.findAll(
       { status: status as ExitNoteStatus },
-      Number(page) || 1,
-      Number(limit) || 20
+      pageNum,
+      limitNum,
+      empresaId,
+      req.prisma
     )
-
     const items = result.data.map((note) => new ExitNoteResponseDTO(note))
+
     return ApiResponse.paginated(
       res,
       items,
-      Number(page) || 1,
-      Number(limit) || 20,
+      pageNum,
+      limitNum,
       result.total,
       'Notas de salida obtenidas exitosamente'
     )
@@ -179,149 +220,228 @@ export class ExitNotesController {
 
   /**
    * POST /api/inventory/exit-notes
-   * Crear nueva nota de salida
    */
   create = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
     const dto = new CreateExitNoteDTO(req.body)
-    const userId = req.user?.userId || (req as any).user?.id
 
-    const exitNote = await exitNotesService.create(dto, userId)
-    const response = new ExitNoteResponseDTO(exitNote)
+    const exitNote = await exitNotesService.create(
+      dto,
+      empresaId,
+      userId,
+      req.prisma
+    )
 
     return ApiResponse.created(
       res,
-      response,
-      'Nota de salida creada exitosamente'
+      new ExitNoteResponseDTO(exitNote),
+      INVENTORY_MESSAGES.exitNote.created
     )
   })
 
   /**
    * PUT /api/inventory/exit-notes/:id
-   * Actualizar nota de salida (solo PENDING)
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
     const dto = new UpdateExitNoteDTO(req.body)
 
-    const exitNote = await exitNotesService.update(id, dto)
-    const response = new ExitNoteResponseDTO(exitNote)
+    const exitNote = await exitNotesService.update(
+      id,
+      dto,
+      empresaId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
-      response,
-      'Nota de salida actualizada exitosamente'
+      new ExitNoteResponseDTO(exitNote),
+      INVENTORY_MESSAGES.exitNote.updated
     )
   })
 
   /**
-   * PATCH /api/inventory/exit-notes/:id/prepare
-   * Iniciar preparación
+   * PATCH /api/inventory/exit-notes/:id/start
    */
   startPreparing = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    const userId = req.user?.userId || (req as any).user?.id
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
 
-    const exitNote = await exitNotesService.startPreparing(id, userId)
-    const response = new ExitNoteResponseDTO(exitNote)
+    const exitNote = await exitNotesService.startPreparing(
+      id,
+      empresaId,
+      userId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
-      response,
+      new ExitNoteResponseDTO(exitNote),
       'Preparación iniciada exitosamente'
     )
   })
 
   /**
    * PATCH /api/inventory/exit-notes/:id/ready
-   * Marcar como listo
    */
   markAsReady = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    const userId = req.user?.userId || (req as any).user?.id
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
 
-    const exitNote = await exitNotesService.markAsReady(id, userId)
-    const response = new ExitNoteResponseDTO(exitNote)
+    const exitNote = await exitNotesService.markAsReady(
+      id,
+      empresaId,
+      userId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
-      response,
+      new ExitNoteResponseDTO(exitNote),
       'Nota de salida marcada como lista'
     )
   })
 
   /**
    * PATCH /api/inventory/exit-notes/:id/deliver
-   * Registrar entrega
    */
   deliver = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    const userId = req.user?.userId || (req as any).user?.id
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
 
-    const exitNote = await exitNotesService.deliver(id, userId)
-    const response = new ExitNoteResponseDTO(exitNote)
-
-    return ApiResponse.success(res, response, 'Entrega registrada exitosamente')
-  })
-
-  /**
-   * POST /api/inventory/exit-notes/:id/cancel
-   * Cancelar nota de salida
-   */
-  cancel = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
-    const { reason } = req.body
-    const userId = req.user?.userId || (req as any).user?.id
-
-    const exitNote = await exitNotesService.cancel(id, userId, reason)
-    const response = new ExitNoteResponseDTO(exitNote)
+    const exitNote = await exitNotesService.deliver(
+      id,
+      empresaId,
+      userId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
-      response,
+      new ExitNoteResponseDTO(exitNote),
+      'Entrega registrada exitosamente'
+    )
+  })
+
+  /**
+   * PATCH /api/inventory/exit-notes/:id/cancel
+   */
+  cancel = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
+    const reason = String(req.body.reason ?? '')
+
+    const exitNote = await exitNotesService.cancel(
+      id,
+      empresaId,
+      reason,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      new ExitNoteResponseDTO(exitNote),
       'Nota de salida cancelada exitosamente'
     )
   })
 
   /**
+   * GET /api/inventory/exit-notes/:id/tracking
+   * Timeline de estados: cuándo pasó de PENDING → IN_PROGRESS → READY → DELIVERED
+   */
+  getTracking = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+
+    const exitNote = await exitNotesService.findById(id, empresaId, req.prisma)
+
+    const STATUS_ORDER = [
+      ExitNoteStatus.PENDING,
+      ExitNoteStatus.IN_PROGRESS,
+      ExitNoteStatus.READY,
+      ExitNoteStatus.DELIVERED,
+    ]
+
+    const timeline: Array<{ status: string; timestamp: Date; by?: string }> = [
+      { status: 'PENDING', timestamp: exitNote.createdAt },
+    ]
+    if (exitNote.reservedAt)
+      timeline.push({ status: 'IN_PROGRESS', timestamp: exitNote.reservedAt })
+    if (exitNote.preparedAt)
+      timeline.push({
+        status: 'READY',
+        timestamp: exitNote.preparedAt,
+        ...(exitNote.preparedBy ? { by: exitNote.preparedBy } : {}),
+      })
+    if (exitNote.deliveredAt)
+      timeline.push({
+        status: 'DELIVERED',
+        timestamp: exitNote.deliveredAt,
+        ...(exitNote.deliveredBy ? { by: exitNote.deliveredBy } : {}),
+      })
+
+    const currentIndex = STATUS_ORDER.indexOf(exitNote.status as ExitNoteStatus)
+    const progress =
+      exitNote.status === ExitNoteStatus.CANCELLED
+        ? 0
+        : Math.round(((currentIndex + 1) / STATUS_ORDER.length) * 100)
+
+    return ApiResponse.success(
+      res,
+      {
+        id: exitNote.id,
+        exitNoteNumber: exitNote.exitNoteNumber,
+        currentStatus: exitNote.status,
+        progress,
+        timeline,
+        estimatedDeliveryDate: exitNote.expectedReturnDate,
+        actualDeliveryDate: exitNote.deliveredAt,
+      },
+      'Tracking de nota de salida obtenido'
+    )
+  })
+
+  /**
    * GET /api/inventory/exit-notes/:id/status
-   * Get exit note status info
    */
   getStatusInfo = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const statusInfo = await exitNotesService.getStatusInfo(id)
+    const statusInfo = await exitNotesService.getStatusInfo(
+      id,
+      empresaId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
       statusInfo,
-      'Exit note status info retrieved'
+      'Estado de nota de salida obtenido'
     )
   })
 
   /**
    * GET /api/inventory/exit-notes/:id/summary
-   * Get exit note summary
    */
   getSummary = asyncHandler(async (req: Request, res: Response) => {
-    let { id } = req.params
-    if (Array.isArray(id)) id = id[0]
-    if (!id) return ApiResponse.notFound(res, 'Nota de salida no encontrada')
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
 
-    const summary = await exitNotesService.getSummary(id)
+    const summary = await exitNotesService.getSummary(id, empresaId, req.prisma)
 
-    return ApiResponse.success(res, summary, 'Exit note summary retrieved')
+    return ApiResponse.success(
+      res,
+      summary,
+      'Resumen de nota de salida obtenido'
+    )
   })
 }
 

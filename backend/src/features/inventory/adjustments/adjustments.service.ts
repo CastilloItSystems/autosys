@@ -1,13 +1,14 @@
 // backend/src/features/inventory/adjustments/adjustments.service.ts
 
-import prisma from '../../../services/prisma.service'
-import { logger } from '../../../shared/utils/logger'
-import { PaginationHelper } from '../../../shared/utils/pagination'
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import { logger } from '../../../shared/utils/logger.js'
 import {
   NotFoundError,
   BadRequestError,
-  ConflictError,
-} from '../../../shared/utils/apiError'
+} from '../../../shared/utils/apiError.js'
+import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import {
   IAdjustmentWithRelations,
   IAdjustmentItem,
@@ -16,626 +17,466 @@ import {
   IAdjustmentFilters,
   ICreateAdjustmentItemInput,
   AdjustmentStatus,
-} from './adjustments.interface'
-import EventService from '../shared/events/event.service'
-import { EventType } from '../shared/events/event.types'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
-import { v4 as uuidv4 } from 'uuid'
+} from './adjustments.interface.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+const MSG = INVENTORY_MESSAGES.adjustment
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+const ADJUSTMENT_INCLUDE = {
+  items: { include: { item: true } },
+  warehouse: { select: { id: true, name: true, empresaId: true } },
+} as const
+
+function generateAdjustmentNumber(): string {
+  return MovementNumberGenerator.generate('ADJ')
+}
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 class AdjustmentService {
-  /**
-   * Crear ajuste de inventario
-   */
-  async create(
-    data: ICreateAdjustmentInput,
-    userId?: string
-  ): Promise<IAdjustmentWithRelations> {
-    try {
-      // Validar que el almacén existe
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id: data.warehouseId },
-      })
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
 
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
-
-      // Validar que todos los items existen
-      const itemIds = data.items.map((item) => item.itemId)
-      const existingItems = await prisma.item.findMany({
-        where: { id: { in: itemIds } },
-      })
-
-      if (existingItems.length !== itemIds.length) {
-        throw new BadRequestError('Uno o más items no existen')
-      }
-
-      // Generar número de ajuste
-      const adjustmentCount = await prisma.adjustment.count()
-      const adjustmentNumber = `ADJ-${new Date().getFullYear()}-${String(adjustmentCount + 1).padStart(5, '0')}`
-
-      // Crear ajuste
-      const adjustment = await prisma.adjustment.create({
-        data: {
-          adjustmentNumber,
-          warehouseId: data.warehouseId,
-          status: AdjustmentStatus.DRAFT,
-          reason: data.reason,
-          notes: data.notes ?? null,
-          createdBy: userId || 'system',
-          items: {
-            create: data.items.map((item) => ({
-              itemId: item.itemId,
-              quantityChange: item.quantityChange,
-              unitCost: item.unitCost ?? null,
-              notes: item.notes ?? null,
-            })),
-          },
-        },
-        include: {
-          items: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Ajuste creado: ${adjustment.id}`, {
-        adjustmentNumber: adjustment.adjustmentNumber,
-        warehouseId: adjustment.warehouseId,
-        itemsCount: data.items.length,
-      })
-
-      // Emit event
-      const eventService = EventService.getInstance()
-      await eventService.emit({
-        type: EventType.ADJUSTMENT_CREATED,
-        entityId: adjustment.id,
-        entityType: 'adjustment',
-        userId: userId || 'system',
-        data: {
-          adjustmentNumber: adjustment.adjustmentNumber,
-          reason: adjustment.reason,
-          itemsCount: data.items.length,
-        },
-      })
-
-      return adjustment as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al crear ajuste', { error, data, userId })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener ajuste por ID
-   */
   async findById(
     id: string,
-    includeItems: boolean = true
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IAdjustmentWithRelations> {
-    try {
-      const include: any = {
-        warehouse: true,
-      }
-      if (includeItems) {
-        include.items = {
-          include: {
-            item: true,
-          },
-        }
-      }
-
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-        include,
-      })
-
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      return adjustment as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al obtener ajuste', { error, id })
-      throw error
-    }
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+      include: ADJUSTMENT_INCLUDE,
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    return adjustment as unknown as IAdjustmentWithRelations
   }
 
-  /**
-   * Obtener todos los ajustes con filtros
-   */
   async findAll(
-    filters: IAdjustmentFilters = {},
-    page: number = 1,
-    limit: number = 20,
+    filters: IAdjustmentFilters,
+    page: number,
+    limit: number,
+    empresaId: string,
     sortBy: string = 'createdAt',
     sortOrder: 'asc' | 'desc' = 'desc',
-    prismaClient?: any
+    db: PrismaClientType
   ): Promise<{
     items: IAdjustmentWithRelations[]
     total: number
     page: number
     limit: number
   }> {
-    try {
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
+    const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
-      const where: any = {}
-      if (filters.warehouseId) where.warehouseId = filters.warehouseId
-      if (filters.status) where.status = filters.status
-      if (filters.reason)
-        where.reason = { contains: filters.reason, mode: 'insensitive' }
+    const SORT_WHITELIST = new Set([
+      'createdAt',
+      'updatedAt',
+      'adjustmentNumber',
+      'status',
+      'appliedAt',
+    ])
+    const orderField = SORT_WHITELIST.has(sortBy) ? sortBy : 'createdAt'
 
-      if (filters.createdFrom || filters.createdTo) {
-        where.createdAt = {}
-        if (filters.createdFrom) where.createdAt.gte = filters.createdFrom
-        if (filters.createdTo) where.createdAt.lte = filters.createdTo
-      }
+    const where: Prisma.AdjustmentWhereInput = { warehouse: { empresaId } }
+    if (filters.warehouseId) where.warehouseId = filters.warehouseId
+    if (filters.status) where.status = filters.status
+    if (filters.reason)
+      where.reason = { contains: filters.reason, mode: 'insensitive' }
+    if (filters.createdFrom || filters.createdTo) {
+      where.createdAt = {}
+      if (filters.createdFrom)
+        (where.createdAt as Prisma.DateTimeFilter).gte = filters.createdFrom
+      if (filters.createdTo)
+        (where.createdAt as Prisma.DateTimeFilter).lte = filters.createdTo
+    }
+    if (filters.approvedFrom || filters.approvedTo) {
+      where.approvedAt = {}
+      if (filters.approvedFrom)
+        (where.approvedAt as Prisma.DateTimeNullableFilter).gte =
+          filters.approvedFrom
+      if (filters.approvedTo)
+        (where.approvedAt as Prisma.DateTimeNullableFilter).lte =
+          filters.approvedTo
+    }
 
-      if (filters.approvedFrom || filters.approvedTo) {
-        where.approvedAt = {}
-        if (filters.approvedFrom) where.approvedAt.gte = filters.approvedFrom
-        if (filters.approvedTo) where.approvedAt.lte = filters.approvedTo
-      }
+    const [total, adjustments] = await Promise.all([
+      (db as PrismaClient).adjustment.count({ where }),
+      (db as PrismaClient).adjustment.findMany({
+        where,
+        include: ADJUSTMENT_INCLUDE,
+        skip,
+        take,
+        orderBy: { [orderField]: sortOrder },
+      }),
+    ])
 
-      const [total, adjustments] = await Promise.all([
-        prisma.adjustment.count({ where }),
-        prisma.adjustment.findMany({
-          where,
-          include: {
-            items: true,
-            warehouse: true,
-          },
-          skip,
-          take,
-          orderBy: { [sortBy]: sortOrder },
-        }),
-      ])
-
-      return {
-        items: adjustments as unknown as IAdjustmentWithRelations[],
-        total,
-        page,
-        limit,
-      }
-    } catch (error) {
-      logger.error('Error al obtener ajustes', { error, filters })
-      throw error
+    return {
+      items: adjustments as unknown as IAdjustmentWithRelations[],
+      total,
+      page,
+      limit,
     }
   }
 
-  /**
-   * Actualizar ajuste
-   */
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
+
+  async create(
+    data: ICreateAdjustmentInput,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IAdjustmentWithRelations> {
+    const warehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { id: data.warehouseId, empresaId },
+    })
+    if (!warehouse)
+      throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
+
+    const itemIds = data.items.map((i) => i.itemId)
+    const existingItems = await (db as PrismaClient).item.findMany({
+      where: { id: { in: itemIds }, empresaId },
+      select: { id: true },
+    })
+    if (existingItems.length !== itemIds.length) {
+      throw new BadRequestError(INVENTORY_MESSAGES.item.notFound)
+    }
+
+    const adjustment = await (db as PrismaClient).adjustment.create({
+      data: {
+        adjustmentNumber: generateAdjustmentNumber(),
+        warehouseId: data.warehouseId,
+        status: AdjustmentStatus.DRAFT,
+        reason: data.reason,
+        ...(data.notes != null ? { notes: data.notes } : {}),
+        createdBy: userId,
+        items: {
+          create: data.items.map((item) => ({
+            itemId: item.itemId,
+            quantityChange: item.quantityChange,
+            ...(item.unitCost != null ? { unitCost: item.unitCost } : {}),
+            ...(item.notes != null ? { notes: item.notes } : {}),
+          })),
+        },
+      },
+      include: ADJUSTMENT_INCLUDE,
+    })
+
+    logger.info(`Ajuste creado: ${adjustment.adjustmentNumber}`, {
+      empresaId,
+      userId,
+    })
+    return adjustment as unknown as IAdjustmentWithRelations
+  }
+
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
+
   async update(
     id: string,
-    data: IUpdateAdjustmentInput
+    data: IUpdateAdjustmentInput,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IAdjustmentWithRelations> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-      })
-
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      if (adjustment.status !== AdjustmentStatus.DRAFT) {
-        throw new BadRequestError(
-          'Solo se pueden actualizar ajustes en estado DRAFT'
-        )
-      }
-
-      const updateData: any = {}
-      if (data.reason !== undefined) updateData.reason = data.reason
-      if (data.notes !== undefined) updateData.notes = data.notes ?? null
-
-      const updated = await prisma.adjustment.update({
-        where: { id },
-        data: updateData,
-        include: {
-          items: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Ajuste actualizado: ${id}`, { data })
-
-      return updated as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al actualizar ajuste', { error, id, data })
-      throw error
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.DRAFT) {
+      throw new BadRequestError(MSG.invalidStatus)
     }
+
+    const updateData: Record<string, unknown> = {}
+    if (data.reason !== undefined) updateData.reason = data.reason
+    if (data.notes !== undefined) updateData.notes = data.notes ?? null
+
+    const updated = await (db as PrismaClient).adjustment.update({
+      where: { id },
+      data: updateData,
+      include: ADJUSTMENT_INCLUDE,
+    })
+
+    logger.info(`Ajuste actualizado: ${id}`, { empresaId })
+    return updated as unknown as IAdjustmentWithRelations
   }
 
-  /**
-   * Aprobar ajuste
-   */
+  // -------------------------------------------------------------------------
+  // LIFECYCLE TRANSITIONS
+  // -------------------------------------------------------------------------
+
   async approve(
     id: string,
-    approvedBy?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IAdjustmentWithRelations> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-      })
-
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      if (adjustment.status !== AdjustmentStatus.DRAFT) {
-        throw new BadRequestError(
-          'Solo se pueden aprobar ajustes en estado DRAFT'
-        )
-      }
-
-      const updated = await prisma.adjustment.update({
-        where: { id },
-        data: {
-          status: AdjustmentStatus.APPROVED,
-          approvedBy,
-          approvedAt: new Date(),
-        },
-        include: {
-          items: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Ajuste aprobado: ${id}`, { approvedBy })
-
-      // Emit event
-      const eventService = EventService.getInstance()
-      await eventService.emit({
-        type: EventType.ADJUSTMENT_APPROVED,
-        entityId: updated.id,
-        entityType: 'adjustment',
-        userId: approvedBy || 'system',
-      })
-
-      return updated as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al aprobar ajuste', { error, id, approvedBy })
-      throw error
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.DRAFT) {
+      throw new BadRequestError(MSG.invalidStatus)
     }
+
+    const updated = await (db as PrismaClient).adjustment.update({
+      where: { id },
+      data: {
+        status: AdjustmentStatus.APPROVED,
+        approvedBy: userId,
+        approvedAt: new Date(),
+      },
+      include: ADJUSTMENT_INCLUDE,
+    })
+
+    logger.info(`Ajuste aprobado: ${id}`, { empresaId, userId })
+    return updated as unknown as IAdjustmentWithRelations
   }
 
   /**
-   * Aplicar ajuste al inventario
+   * Aplica el ajuste al inventario.
+   * Operación completamente atómica: stock + movements + status en una sola transacción.
    */
   async apply(
     id: string,
-    appliedBy?: string
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
   ): Promise<IAdjustmentWithRelations> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-        include: { items: true },
-      })
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+      include: { items: true },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.APPROVED) {
+      throw new BadRequestError(MSG.invalidStatus)
+    }
+    if (adjustment.items.length === 0) {
+      throw new BadRequestError(MSG.invalidStatus)
+    }
 
-      if (!adjustment) {
-        throw new NotFoundError(INVENTORY_MESSAGES.adjustment.notFound)
-      }
-
-      if (adjustment.status !== AdjustmentStatus.APPROVED) {
-        throw new BadRequestError(INVENTORY_MESSAGES.adjustment.invalidStatus)
-      }
-
-      if (adjustment.items.length === 0) {
-        throw new BadRequestError('El ajuste no tiene items')
-      }
-
-      // Use transaction to ensure atomicity
-      await prisma.$transaction(async (tx) => {
-        // Aplicar cambios al stock y crear movimientos
-        for (const item of adjustment.items) {
-          const stock = await tx.stock.findUnique({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: adjustment.warehouseId,
-              },
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      for (const item of adjustment.items) {
+        const stock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: adjustment.warehouseId,
             },
-          })
+          },
+        })
 
-          if (!stock) {
-            throw new NotFoundError(
-              `Stock no encontrado para item ${item.itemId}`
-            )
-          }
-
-          const newQuantity = stock.quantityReal + item.quantityChange
-
-          if (newQuantity < 0) {
-            throw new BadRequestError(
-              `Cantidad insuficiente para item ${item.itemId}. Disponible: ${stock.quantityReal}, Cambio: ${item.quantityChange}`
-            )
-          }
-
-          // Update stock
-          await tx.stock.update({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: adjustment.warehouseId,
-              },
-            },
-            data: {
-              quantityReal: newQuantity,
-              lastMovementAt: new Date(),
-            },
-          })
-
-          // Update adjustment item with snapshot values
-          await tx.adjustmentItem.update({
-            where: { id: item.id },
-            data: {
-              currentQuantity: stock.quantityReal,
-              newQuantity: newQuantity,
-            },
-          })
-
-          // Create movement record for audit trail
-          if (item.quantityChange !== 0) {
-            const movementType =
-              item.quantityChange > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT'
-            await tx.movement.create({
-              data: {
-                id: uuidv4(),
-                movementNumber: `MOV-ADJ-${uuidv4().substring(0, 8)}`,
-                type: movementType as any,
-                itemId: item.itemId,
-                quantity: Math.abs(item.quantityChange),
-                unitCost: item.unitCost || 0,
-                totalCost: Math.abs(item.quantityChange) * (item.unitCost || 0),
-                warehouseToId:
-                  item.quantityChange > 0 ? adjustment.warehouseId : undefined,
-                warehouseFromId:
-                  item.quantityChange < 0 ? adjustment.warehouseId : undefined,
-                reference: adjustment.adjustmentNumber,
-                notes: `Ajuste: ${item.notes || adjustment.reason}`,
-                createdBy: appliedBy || 'system',
-              },
-            })
-          }
+        if (!stock) {
+          throw new NotFoundError(
+            `Stock no encontrado para ítem ${item.itemId}`
+          )
         }
-      })
 
-      const updated = await prisma.adjustment.update({
+        const newQuantity = stock.quantityReal + item.quantityChange
+        if (newQuantity < 0) {
+          throw new BadRequestError(
+            `Stock insuficiente para ítem ${item.itemId}. Disponible: ${stock.quantityReal}, Cambio: ${item.quantityChange}`
+          )
+        }
+
+        await tx.stock.update({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: adjustment.warehouseId,
+            },
+          },
+          data: {
+            quantityReal: newQuantity,
+            quantityAvailable: stock.quantityAvailable + item.quantityChange,
+            lastMovementAt: new Date(),
+          },
+        })
+
+        await tx.adjustmentItem.update({
+          where: { id: item.id },
+          data: {
+            currentQuantity: stock.quantityReal,
+            newQuantity,
+          },
+        })
+
+        if (item.quantityChange !== 0) {
+          const movementType =
+            item.quantityChange > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT'
+          const movementData: Record<string, unknown> = {
+            movementNumber: MovementNumberGenerator.generate('MOV'),
+            type: movementType,
+            itemId: item.itemId,
+            quantity: Math.abs(item.quantityChange),
+            unitCost: item.unitCost ?? 0,
+            totalCost:
+              Math.abs(item.quantityChange) * Number(item.unitCost ?? 0),
+            reference: adjustment.adjustmentNumber,
+            notes: item.notes ?? adjustment.reason,
+            createdBy: userId,
+          }
+          if (item.quantityChange > 0) {
+            movementData.warehouseToId = adjustment.warehouseId
+          } else {
+            movementData.warehouseFromId = adjustment.warehouseId
+          }
+
+          await tx.movement.create({ data: movementData as never })
+        }
+      }
+
+      return tx.adjustment.update({
         where: { id },
         data: {
           status: AdjustmentStatus.APPLIED,
-          appliedBy,
+          appliedBy: userId,
           appliedAt: new Date(),
         },
-        include: {
-          items: true,
-          warehouse: true,
-        },
+        include: ADJUSTMENT_INCLUDE,
       })
+    })
 
-      logger.info(`Ajuste aplicado: ${id}`, { appliedBy })
-
-      // Emit event
-      const eventService = EventService.getInstance()
-      await eventService.emit({
-        type: EventType.ADJUSTMENT_APPLIED,
-        entityId: updated.id,
-        entityType: 'adjustment',
-        userId: appliedBy || 'system',
-      })
-
-      return updated as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al aplicar ajuste', { error, id, appliedBy })
-      throw error
-    }
+    logger.info(`Ajuste aplicado: ${id}`, { empresaId, userId })
+    return updated as unknown as IAdjustmentWithRelations
   }
 
-  /**
-   * Rechazar ajuste
-   */
-  async reject(id: string, reason: string): Promise<IAdjustmentWithRelations> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-      })
-
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      if (adjustment.status !== AdjustmentStatus.DRAFT) {
-        throw new BadRequestError(
-          'Solo se pueden rechazar ajustes en estado DRAFT'
-        )
-      }
-
-      const updated = await prisma.adjustment.update({
-        where: { id },
-        data: {
-          status: AdjustmentStatus.REJECTED,
-          notes: `Rechazado: ${reason}`,
-        },
-        include: {
-          items: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Ajuste rechazado: ${id}`, { reason })
-
-      // Emit event
-      const eventService = EventService.getInstance()
-      await eventService.emit({
-        type: EventType.ADJUSTMENT_REJECTED,
-        entityId: updated.id,
-        entityType: 'adjustment',
-        userId: 'system',
-      })
-
-      return updated as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al rechazar ajuste', { error, id })
-      throw error
+  async reject(
+    id: string,
+    reason: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IAdjustmentWithRelations> {
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.DRAFT) {
+      throw new BadRequestError(MSG.invalidStatus)
     }
+
+    const updated = await (db as PrismaClient).adjustment.update({
+      where: { id },
+      data: {
+        status: AdjustmentStatus.REJECTED,
+        notes: `Rechazado: ${reason}`,
+      },
+      include: ADJUSTMENT_INCLUDE,
+    })
+
+    logger.info(`Ajuste rechazado: ${id}`, { reason, empresaId })
+    return updated as unknown as IAdjustmentWithRelations
   }
 
-  /**
-   * Cancelar ajuste
-   */
-  async cancel(id: string): Promise<IAdjustmentWithRelations> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-      })
-
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      if (adjustment.status === AdjustmentStatus.APPLIED) {
-        throw new BadRequestError(
-          INVENTORY_MESSAGES.adjustment.cannotDeleteApplied
-        )
-      }
-
-      const updated = await prisma.adjustment.update({
-        where: { id },
-        data: { status: AdjustmentStatus.CANCELLED },
-        include: {
-          items: true,
-          warehouse: true,
-        },
-      })
-
-      logger.info(`Ajuste cancelado: ${id}`)
-
-      // Emit event
-      const eventService = EventService.getInstance()
-      await eventService.emit({
-        type: EventType.ADJUSTMENT_CANCELLED,
-        entityId: updated.id,
-        entityType: 'adjustment',
-        userId: 'system',
-      })
-
-      return updated as unknown as IAdjustmentWithRelations
-    } catch (error) {
-      logger.error('Error al cancelar ajuste', { error, id })
-      throw error
+  async cancel(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IAdjustmentWithRelations> {
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status === AdjustmentStatus.APPLIED) {
+      throw new BadRequestError(MSG.cannotApplyAlreadyApplied)
     }
+    if (adjustment.status === AdjustmentStatus.CANCELLED) {
+      throw new BadRequestError(MSG.invalidStatus)
+    }
+
+    const updated = await (db as PrismaClient).adjustment.update({
+      where: { id },
+      data: { status: AdjustmentStatus.CANCELLED },
+      include: ADJUSTMENT_INCLUDE,
+    })
+
+    logger.info(`Ajuste cancelado: ${id}`, { empresaId })
+    return updated as unknown as IAdjustmentWithRelations
   }
 
-  /**
-   * Agregar item a ajuste
-   */
+  // -------------------------------------------------------------------------
+  // ITEMS
+  // -------------------------------------------------------------------------
+
   async addItem(
     adjustmentId: string,
-    data: ICreateAdjustmentItemInput
+    data: ICreateAdjustmentItemInput,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IAdjustmentItem> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id: adjustmentId },
-      })
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id: adjustmentId, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.DRAFT) {
+      throw new BadRequestError(MSG.invalidStatus)
+    }
 
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id: data.itemId, empresaId },
+    })
+    if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
 
-      if (adjustment.status !== AdjustmentStatus.DRAFT) {
-        throw new BadRequestError(
-          'Solo se pueden agregar items a ajustes en estado DRAFT'
-        )
-      }
-
-      // Validar que el item existe
-      const item = await prisma.item.findUnique({
-        where: { id: data.itemId },
-      })
-
-      if (!item) {
-        throw new NotFoundError('Item no encontrado')
-      }
-
-      const adjustmentItem = await prisma.adjustmentItem.create({
-        data: {
-          adjustmentId,
-          itemId: data.itemId,
-          quantityChange: data.quantityChange,
-          unitCost: data.unitCost ?? null,
-          notes: data.notes ?? null,
-        },
-      })
-
-      logger.info(`Item agregado a ajuste: ${adjustmentId}`, {
+    const adjustmentItem = await (db as PrismaClient).adjustmentItem.create({
+      data: {
+        adjustmentId,
         itemId: data.itemId,
         quantityChange: data.quantityChange,
-      })
+        ...(data.unitCost != null ? { unitCost: data.unitCost } : {}),
+        ...(data.notes != null ? { notes: data.notes } : {}),
+      },
+    })
 
-      return adjustmentItem
-    } catch (error) {
-      logger.error('Error al agregar item a ajuste', {
-        error,
-        adjustmentId,
-        data,
-      })
-      throw error
-    }
+    logger.info(`Ítem agregado a ajuste: ${adjustmentId}`, {
+      itemId: data.itemId,
+    })
+    return adjustmentItem as unknown as IAdjustmentItem
   }
 
-  /**
-   * Obtener items de un ajuste
-   */
-  async getItems(adjustmentId: string): Promise<IAdjustmentItem[]> {
-    try {
-      const items = await prisma.adjustmentItem.findMany({
-        where: { adjustmentId },
-      })
+  async getItems(
+    adjustmentId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IAdjustmentItem[]> {
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id: adjustmentId, warehouse: { empresaId } },
+      select: { id: true },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
 
-      return items
-    } catch (error) {
-      logger.error('Error al obtener items de ajuste', { error, adjustmentId })
-      throw error
-    }
+    const items = await (db as PrismaClient).adjustmentItem.findMany({
+      where: { adjustmentId },
+      include: { item: true },
+    })
+    return items as unknown as IAdjustmentItem[]
   }
 
-  /**
-   * Eliminar ajuste
-   */
-  async delete(id: string): Promise<any> {
-    try {
-      const adjustment = await prisma.adjustment.findUnique({
-        where: { id },
-        include: { items: true },
-      })
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
 
-      if (!adjustment) {
-        throw new NotFoundError('Ajuste no encontrado')
-      }
-
-      if (adjustment.status !== AdjustmentStatus.DRAFT) {
-        throw new BadRequestError(
-          'Solo se pueden eliminar ajustes en estado DRAFT'
-        )
-      }
-
-      // Eliminar items primero
-      if (adjustment.items.length > 0) {
-        await prisma.adjustmentItem.deleteMany({
-          where: { adjustmentId: id },
-        })
-      }
-
-      await prisma.adjustment.delete({ where: { id } })
-
-      logger.info(`Ajuste eliminado: ${id}`)
-
-      return { success: true, id }
-    } catch (error) {
-      logger.error('Error al eliminar ajuste', { error, id })
-      throw error
+  async delete(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const adjustment = await (db as PrismaClient).adjustment.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!adjustment) throw new NotFoundError(MSG.notFound)
+    if (adjustment.status !== AdjustmentStatus.DRAFT) {
+      throw new BadRequestError(MSG.invalidStatus)
     }
+
+    await (db as PrismaClient).adjustment.delete({ where: { id } })
+    logger.info(`Ajuste eliminado: ${id}`, { empresaId })
   }
 }
 

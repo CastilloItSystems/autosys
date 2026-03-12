@@ -1,7 +1,7 @@
 // backend/src/features/inventory/movements/movements.validation.ts
 
 import Joi from 'joi'
-import { MovementType } from './movements.interface'
+import { MovementType } from './movements.interface.js'
 
 export const createMovementSchema = Joi.object({
   type: Joi.string()
@@ -209,3 +209,66 @@ export const updateMovementSchema = Joi.object({
       }
     }
   })
+
+export const movementIdSchema = Joi.object({
+  id: Joi.string().uuid().required().messages({
+    'string.guid': 'El ID del movimiento debe ser un UUID válido',
+    'any.required': 'El ID del movimiento es obligatorio',
+  }),
+})
+
+export const getMovementsQuerySchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1),
+  limit: Joi.number().integer().min(1).max(100).default(20),
+  type: Joi.string().valid(
+    'PURCHASE',
+    'SALE',
+    'ADJUSTMENT_IN',
+    'ADJUSTMENT_OUT',
+    'TRANSFER',
+    'SUPPLIER_RETURN',
+    'WORKSHOP_RETURN',
+    'RESERVATION_RELEASE'
+  ),
+  itemId: Joi.string().uuid(),
+  warehouseFromId: Joi.string().uuid(),
+  warehouseToId: Joi.string().uuid(),
+  createdBy: Joi.string(),
+  reference: Joi.string(),
+  dateFrom: Joi.date(),
+  dateTo: Joi.date(),
+  sortBy: Joi.string().valid(
+    'movementDate',
+    'movementNumber',
+    'type',
+    'createdAt'
+  ),
+  sortOrder: Joi.string().valid('asc', 'desc'),
+})
+
+export const getMovementByTypeParamsSchema = Joi.object({
+  type: Joi.string()
+    .valid(
+      'PURCHASE',
+      'SALE',
+      'ADJUSTMENT_IN',
+      'ADJUSTMENT_OUT',
+      'TRANSFER',
+      'SUPPLIER_RETURN',
+      'WORKSHOP_RETURN',
+      'RESERVATION_RELEASE'
+    )
+    .required(),
+})
+
+export const getMovementByWarehouseParamsSchema = Joi.object({
+  warehouseId: Joi.string().uuid().required(),
+})
+
+export const getMovementByItemParamsSchema = Joi.object({
+  itemId: Joi.string().uuid().required(),
+})
+
+export const paginationQuerySchema = Joi.object({
+  limit: Joi.number().integer().min(1).max(100).default(100),
+})

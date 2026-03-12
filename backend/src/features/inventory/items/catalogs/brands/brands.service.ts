@@ -1,8 +1,7 @@
 // backend/src/features/inventory/items/catalogs/brands/brands.service.ts
 
-import prisma from '../../../../../services/prisma.service'
+import { PrismaClient, Prisma } from '../../../../../generated/prisma/client.js'
 import {
-  IBrand,
   IBrandWithStats,
   ICreateBrandInput,
   IUpdateBrandInput,
@@ -11,101 +10,82 @@ import {
   IBrandGroupedByType,
   BrandType,
   BRAND_TYPE_LABELS,
-} from './brands.interface'
+} from './brands.interface.js'
 import {
   BadRequestError,
   NotFoundError,
   ConflictError,
-} from '../../../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../../../shared/utils/pagination'
-import { INVENTORY_MESSAGES } from '../../../shared/constants/messages'
-import { logger } from '../../../../../shared/utils/logger'
+} from '../../../../../shared/utils/apiError.js'
+import { PaginationHelper } from '../../../../../shared/utils/pagination.js'
+import { INVENTORY_MESSAGES } from '../../../shared/constants/messages.js'
+import { logger } from '../../../../../shared/utils/logger.js'
 
-export class BrandService {
-  // ============================================
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+const MSG = INVENTORY_MESSAGES.brand
+
+const BRAND_INCLUDE = {
+  _count: { select: { items: true, models: true } },
+} as const
+
+class BrandService {
+  // -------------------------------------------------------------------------
   // CREATE
-  // ============================================
-  async createBrand(data: ICreateBrandInput): Promise<IBrandWithStats> {
-    // Verificar si el código ya existe
-    const existingBrand = await prisma.brand.findUnique({
-      where: { code: data.code },
+  // -------------------------------------------------------------------------
+
+  async createBrand(
+    empresaId: string,
+    data: ICreateBrandInput,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IBrandWithStats> {
+    const code = data.code.toUpperCase()
+
+    const existing = await (db as PrismaClient).brand.findFirst({
+      where: { empresaId, code },
     })
+    if (existing) throw new ConflictError(MSG.codeExists)
 
-    if (existingBrand) {
-      throw new ConflictError(INVENTORY_MESSAGES.brand.codeExists)
-    }
-
-    const brand = await prisma.brand.create({
-      data,
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
+    const brand = await (db as PrismaClient).brand.create({
+      data: {
+        empresaId,
+        code,
+        name: data.name,
+        type: data.type,
+        isActive: data.isActive ?? true,
+        ...(data.description != null ? { description: data.description } : {}),
       },
+      include: BRAND_INCLUDE,
     })
 
-    logger.info('Brand created', { brandId: brand.id, code: brand.code })
+    logger.info('Marca creada', { brandId: brand.id, code, empresaId, userId })
 
-    return brand
+    return brand as unknown as IBrandWithStats
   }
 
-  // ============================================
-  // GET BY ID
-  // ============================================
-  async getBrandById(id: string): Promise<IBrandWithStats> {
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
+
+  async getBrandById(
+    empresaId: string,
+    id: string,
+    db: PrismaClientType
+  ): Promise<IBrandWithStats> {
+    const brand = await (db as PrismaClient).brand.findFirst({
+      where: { id, empresaId },
+      include: BRAND_INCLUDE,
     })
-
-    if (!brand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
-    }
-
-    return brand
+    if (!brand) throw new NotFoundError(MSG.notFound)
+    return brand as unknown as IBrandWithStats
   }
 
-  // ============================================
-  // GET ALL CON FILTROS Y PAGINACIÓN
-  // ============================================
   async getBrands(
+    empresaId: string,
     filters: IBrandFilters,
-    prismaClient?: any
+    db: PrismaClientType
   ): Promise<IBrandListResult> {
-    const db = prismaClient || prisma
     const { search, type, isActive, page = 1, limit = 10 } = filters
-
-    const where: any = {}
-
-    // Filtro de búsqueda
-    if (search) {
-      where.OR = [
-        { code: { contains: search, mode: 'insensitive' } },
-        { name: { contains: search, mode: 'insensitive' } },
-        { description: { contains: search, mode: 'insensitive' } },
-      ]
-    }
-
-    // Filtro por tipo
-    if (type) {
-      where.type = type
-    }
-
-    // Filtro por estado
-    if (isActive !== undefined) {
-      where.isActive = isActive
-    }
-
     const {
       skip,
       take,
@@ -113,84 +93,69 @@ export class BrandService {
       limit: validLimit,
     } = PaginationHelper.validateAndParse({ page, limit })
 
-    const [brands, total] = await Promise.all([
-      db.brand.findMany({
+    const where: Prisma.BrandWhereInput = { empresaId }
+
+    if (search) {
+      where.OR = [
+        { code: { contains: search, mode: 'insensitive' } },
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+    if (type) where.type = type
+    if (isActive !== undefined) where.isActive = isActive
+
+    const [total, brands] = await Promise.all([
+      (db as PrismaClient).brand.count({ where }),
+      (db as PrismaClient).brand.findMany({
         where,
-        include: {
-          _count: {
-            select: {
-              items: true,
-              models: true,
-            },
-          },
-        },
+        include: BRAND_INCLUDE,
         orderBy: [{ type: 'asc' }, { name: 'asc' }],
         skip,
         take,
       }),
-      db.brand.count({ where }),
     ])
 
     const meta = PaginationHelper.getMeta(validPage, validLimit, total)
 
     return {
-      brands,
+      brands: brands as unknown as IBrandWithStats[],
       ...meta,
     }
   }
 
-  // ============================================
-  // GET ALL AGRUPADO POR TIPO
-  // ============================================
   async getBrandsGroupedByType(
-    filters?: {
-      search?: string
-      isActive?: boolean
-    },
-    prismaClient?: any
+    empresaId: string,
+    filters: { search?: string; isActive?: boolean } = {},
+    db: PrismaClientType
   ): Promise<IBrandGroupedByType[]> {
-    const db = prismaClient || prisma
-    const where: any = {}
+    const where: Prisma.BrandWhereInput = { empresaId }
 
-    if (filters?.search) {
+    if (filters.search) {
       where.OR = [
         { code: { contains: filters.search, mode: 'insensitive' } },
         { name: { contains: filters.search, mode: 'insensitive' } },
       ]
     }
+    if (filters.isActive !== undefined) where.isActive = filters.isActive
 
-    if (filters?.isActive !== undefined) {
-      where.isActive = filters.isActive
-    }
-
-    const brands = await db.brand.findMany({
+    const brands = await (db as PrismaClient).brand.findMany({
       where,
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
+      include: BRAND_INCLUDE,
       orderBy: [{ type: 'asc' }, { name: 'asc' }],
     })
 
-    // Agrupar por tipo
     const grouped: Record<BrandType, IBrandWithStats[]> = {
       VEHICLE: [],
       PART: [],
       BOTH: [],
     }
-
-    brands.forEach((brand: IBrandWithStats) => {
+    for (const brand of brands as unknown as IBrandWithStats[]) {
       grouped[brand.type].push(brand)
-    })
+    }
 
-    // Convertir a array de grupos
     const result: IBrandGroupedByType[] = []
-
-    ;(['VEHICLE', 'PART', 'BOTH'] as BrandType[]).forEach((type) => {
+    for (const type of ['VEHICLE', 'PART', 'BOTH'] as BrandType[]) {
       if (grouped[type].length > 0) {
         result.push({
           type,
@@ -199,185 +164,76 @@ export class BrandService {
           count: grouped[type].length,
         })
       }
-    })
+    }
 
     return result
   }
 
-  // ============================================
-  // UPDATE
-  // ============================================
-  async updateBrand(
-    id: string,
-    data: IUpdateBrandInput
-  ): Promise<IBrandWithStats> {
-    // Verificar que existe
-    const existingBrand = await prisma.brand.findUnique({
-      where: { id },
+  async getActiveBrands(
+    empresaId: string,
+    db: PrismaClientType,
+    type?: BrandType
+  ): Promise<IBrandWithStats[]> {
+    const where: Prisma.BrandWhereInput = { empresaId, isActive: true }
+    if (type) where.type = type
+
+    const brands = await (db as PrismaClient).brand.findMany({
+      where,
+      include: BRAND_INCLUDE,
+      orderBy: { name: 'asc' },
     })
 
-    if (!existingBrand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
-    }
-
-    // Si se cambia el código, verificar que no exista otro con ese código
-    if (data.code && data.code !== existingBrand.code) {
-      const brandWithCode = await prisma.brand.findUnique({
-        where: { code: data.code },
-      })
-
-      if (brandWithCode) {
-        throw new ConflictError(INVENTORY_MESSAGES.brand.codeExists)
-      }
-    }
-
-    const updatedBrand = await prisma.brand.update({
-      where: { id },
-      data,
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
-    })
-
-    logger.info('Brand updated', { brandId: id })
-
-    return updatedBrand
+    return brands as unknown as IBrandWithStats[]
   }
 
-  // ============================================
-  // TOGGLE - Activar/Desactivar
-  // ============================================
-  async toggleBrand(id: string): Promise<IBrandWithStats> {
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-    })
-
-    if (!brand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
+  async searchBrands(
+    empresaId: string,
+    query: string,
+    db: PrismaClientType,
+    type?: BrandType
+  ): Promise<IBrandWithStats[]> {
+    const where: Prisma.BrandWhereInput = {
+      empresaId,
+      isActive: true,
+      OR: [
+        { code: { contains: query, mode: 'insensitive' } },
+        { name: { contains: query, mode: 'insensitive' } },
+      ],
     }
+    if (type) where.type = type
 
-    const toggled = await prisma.brand.update({
-      where: { id },
-      data: { isActive: !brand.isActive },
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
+    const brands = await (db as PrismaClient).brand.findMany({
+      where,
+      include: BRAND_INCLUDE,
+      take: 10,
+      orderBy: { name: 'asc' },
     })
 
-    logger.info('Brand toggled', { brandId: id, isActive: toggled.isActive })
-
-    return toggled
+    return brands as unknown as IBrandWithStats[]
   }
 
-  // ============================================
-  // DELETE (SOFT) - Desactivar
-  // ============================================
-  async deleteBrand(id: string): Promise<void> {
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-    })
-
-    if (!brand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
-    }
-
-    await prisma.brand.update({
-      where: { id },
-      data: { isActive: false },
-    })
-
-    logger.info('Brand soft deleted', { brandId: id })
-  }
-
-  // ============================================
-  // DELETE (HARD) - Eliminación permanente
-  // ============================================
-  async deleteBrandPermanently(id: string): Promise<void> {
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
-    })
-
-    if (!brand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
-    }
-
-    // Verificar que no tenga relaciones
-    if (brand._count.items > 0 || brand._count.models > 0) {
-      throw new BadRequestError(INVENTORY_MESSAGES.brand.hasItems)
-    }
-
-    await prisma.brand.delete({
-      where: { id },
-    })
-
-    logger.info('Brand hard deleted', { brandId: id })
-  }
-
-  // ============================================
-  // REACTIVAR MARCA
-  // ============================================
-  async reactivateBrand(id: string): Promise<IBrandWithStats> {
-    const brand = await prisma.brand.findUnique({
-      where: { id },
-    })
-
-    if (!brand) {
-      throw new NotFoundError(INVENTORY_MESSAGES.brand.notFound)
-    }
-
-    const reactivated = await prisma.brand.update({
-      where: { id },
-      data: { isActive: true },
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
-    })
-
-    logger.info('Brand reactivated', { brandId: id })
-
-    return reactivated
-  }
-
-  // ============================================
-  // GET ESTADÍSTICAS GENERALES
-  // ============================================
-  async getBrandStats(): Promise<{
+  async getBrandStats(
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<{
     total: number
     byType: Record<BrandType, number>
     active: number
     inactive: number
   }> {
     const [total, byType, active, inactive] = await Promise.all([
-      prisma.brand.count(),
-      prisma.brand.groupBy({
+      (db as PrismaClient).brand.count({ where: { empresaId } }),
+      (db as PrismaClient).brand.groupBy({
         by: ['type'],
+        where: { empresaId },
         _count: true,
       }),
-      prisma.brand.count({ where: { isActive: true } }),
-      prisma.brand.count({ where: { isActive: false } }),
+      (db as PrismaClient).brand.count({
+        where: { empresaId, isActive: true },
+      }),
+      (db as PrismaClient).brand.count({
+        where: { empresaId, isActive: false },
+      }),
     ])
 
     const byTypeObj: Record<BrandType, number> = {
@@ -385,98 +241,135 @@ export class BrandService {
       PART: 0,
       BOTH: 0,
     }
-
-    byType.forEach((item: { type: BrandType; _count: number }) => {
+    for (const item of byType as Array<{ type: BrandType; _count: number }>) {
       byTypeObj[item.type] = item._count
-    })
-
-    return {
-      total,
-      byType: byTypeObj,
-      active,
-      inactive,
     }
+
+    return { total, byType: byTypeObj, active, inactive }
   }
 
-  // ============================================
-  // BUSCAR MARCAS ACTIVAS (PARA SELECTS)
-  // ============================================
-  async getActiveBrands(
-    type?: BrandType,
-    prismaClient?: any
-  ): Promise<IBrandWithStats[]> {
-    const db = prismaClient || prisma
-    const where: any = { isActive: true }
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
 
-    if (type) {
-      where.type = type
+  async updateBrand(
+    empresaId: string,
+    id: string,
+    data: IUpdateBrandInput,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IBrandWithStats> {
+    await this.getBrandById(empresaId, id, db) // throws 404
+
+    if (data.code) {
+      const conflict = await (db as PrismaClient).brand.findFirst({
+        where: { empresaId, code: data.code.toUpperCase(), id: { not: id } },
+      })
+      if (conflict) throw new ConflictError(MSG.codeExists)
     }
 
-    const brands = await db.brand.findMany({
-      where,
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
-      orderBy: { name: 'asc' },
+    const updateData: Record<string, unknown> = {}
+    if (data.code !== undefined) updateData.code = data.code.toUpperCase()
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.description !== undefined)
+      updateData.description = data.description ?? null
+    if (data.type !== undefined) updateData.type = data.type
+    if (data.isActive !== undefined) updateData.isActive = data.isActive
+
+    const brand = await (db as PrismaClient).brand.update({
+      where: { id },
+      data: updateData as never,
+      include: BRAND_INCLUDE,
     })
 
-    return brands
+    logger.info('Marca actualizada', { brandId: id, empresaId, userId })
+
+    return brand as unknown as IBrandWithStats
   }
 
-  // ============================================
-  // VERIFICAR SI EXISTE POR CODE
-  // ============================================
-  async existsByCode(code: string, excludeId?: string): Promise<boolean> {
-    const where: any = { code }
+  async toggleBrand(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IBrandWithStats> {
+    const brand = await this.getBrandById(empresaId, id, db)
 
-    if (excludeId) {
-      where.id = { not: excludeId }
-    }
-
-    const count = await prisma.brand.count({ where })
-    return count > 0
-  }
-
-  // ============================================
-  // BUSCAR POR NOMBRE O CÓDIGO
-  // ============================================
-  async searchBrands(
-    query: string,
-    type?: BrandType,
-    prismaClient?: any
-  ): Promise<IBrandWithStats[]> {
-    const db = prismaClient || prisma
-    const where: any = {
-      isActive: true,
-      OR: [
-        { code: { contains: query, mode: 'insensitive' } },
-        { name: { contains: query, mode: 'insensitive' } },
-      ],
-    }
-
-    if (type) {
-      where.type = type
-    }
-
-    const brands = await db.brand.findMany({
-      where,
-      include: {
-        _count: {
-          select: {
-            items: true,
-            models: true,
-          },
-        },
-      },
-      take: 10,
-      orderBy: { name: 'asc' },
+    const toggled = await (db as PrismaClient).brand.update({
+      where: { id },
+      data: { isActive: !brand.isActive },
+      include: BRAND_INCLUDE,
     })
 
-    return brands
+    logger.info('Estado de marca cambiado', {
+      brandId: id,
+      isActive: toggled.isActive,
+      empresaId,
+      userId,
+    })
+
+    return toggled as unknown as IBrandWithStats
+  }
+
+  async reactivateBrand(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IBrandWithStats> {
+    await this.getBrandById(empresaId, id, db) // throws 404
+
+    const brand = await (db as PrismaClient).brand.update({
+      where: { id },
+      data: { isActive: true },
+      include: BRAND_INCLUDE,
+    })
+
+    logger.info('Marca reactivada', { brandId: id, empresaId, userId })
+
+    return brand as unknown as IBrandWithStats
+  }
+
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
+
+  async deleteBrand(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    await this.getBrandById(empresaId, id, db) // throws 404
+
+    await (db as PrismaClient).brand.update({
+      where: { id },
+      data: { isActive: false },
+    })
+
+    logger.info('Marca eliminada (soft)', { brandId: id, empresaId, userId })
+  }
+
+  async deleteBrandPermanently(
+    empresaId: string,
+    id: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const brand = await this.getBrandById(empresaId, id, db)
+
+    if (brand._count && (brand._count.items > 0 || brand._count.models > 0)) {
+      throw new BadRequestError(MSG.hasItems)
+    }
+
+    await (db as PrismaClient).brand.delete({ where: { id } })
+
+    logger.warn('Marca eliminada permanentemente', {
+      brandId: id,
+      empresaId,
+      userId,
+    })
   }
 }
+
+export default new BrandService()

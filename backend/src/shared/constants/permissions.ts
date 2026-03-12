@@ -78,12 +78,21 @@ export const PERMISSIONS = {
   USERS_CREATE: 'users:create',
   USERS_UPDATE: 'users:update',
   USERS_DELETE: 'users:delete',
+  USER_PERMISSIONS_VIEW: 'user_permissions:view',
+  USER_PERMISSIONS_UPDATE: 'user_permissions:update',
+
+  // Audit
+  AUDIT_VIEW: 'audit:view',
 
   // Empresas
   EMPRESA_VIEW: 'empresa:view',
   EMPRESA_CREATE: 'empresa:create',
   EMPRESA_UPDATE: 'empresa:update',
   EMPRESA_DELETE: 'empresa:delete',
+
+  // Company Roles
+  COMPANY_ROLES_VIEW: 'company_roles:view',
+  COMPANY_ROLES_MANAGE: 'company_roles:manage',
 
   // Settings
   SETTINGS_VIEW: 'settings:view',
@@ -129,10 +138,16 @@ export const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     PERMISSIONS.USERS_VIEW,
     PERMISSIONS.USERS_CREATE,
     PERMISSIONS.USERS_UPDATE,
+    PERMISSIONS.USERS_DELETE,
+    PERMISSIONS.USER_PERMISSIONS_VIEW,
+    PERMISSIONS.USER_PERMISSIONS_UPDATE,
+    PERMISSIONS.AUDIT_VIEW,
     PERMISSIONS.EMPRESA_VIEW,
     PERMISSIONS.EMPRESA_CREATE,
     PERMISSIONS.EMPRESA_UPDATE,
     PERMISSIONS.EMPRESA_DELETE,
+    PERMISSIONS.COMPANY_ROLES_VIEW,
+    PERMISSIONS.COMPANY_ROLES_MANAGE,
   ],
 
   GERENTE: [

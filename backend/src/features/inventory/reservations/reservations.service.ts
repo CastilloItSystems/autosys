@@ -1,111 +1,161 @@
 // backend/src/features/inventory/reservations/reservations.service.ts
 
-import prisma from '../../../services/prisma.service'
-import { logger } from '../../../shared/utils/logger'
-import { PaginationHelper } from '../../../shared/helpers/pagination.helper'
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import prisma from '../../../services/prisma.service.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import {
   NotFoundError,
-  ConflictError,
   BadRequestError,
-} from '../../../shared/exceptions/api.error'
+} from '../../../shared/utils/apiError.js'
 import {
-  IReservation,
   IReservationWithRelations,
   ICreateReservationInput,
   IUpdateReservationInput,
   IReservationFilters,
   ReservationStatus,
-} from './reservations.interface'
-import { INVENTORY_MESSAGES } from '../../../config/messages'
+} from './reservations.interface.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Generate a reservation number that is unique within the transaction.
+ * Uses a timestamp + random suffix to avoid race conditions from count()-based numbering.
+ */
+function generateReservationNumber(): string {
+  const year = new Date().getFullYear()
+  const ts = Date.now().toString(36).toUpperCase()
+  const rnd = Math.random().toString(36).substring(2, 6).toUpperCase()
+  return `RES-${year}-${ts}${rnd}`
+}
+
+const RESERVATION_INCLUDE = {
+  item: true,
+  exitNote: true,
+} as const
+
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
 
 class ReservationService {
+  // -------------------------------------------------------------------------
+  // CREATE
+  // -------------------------------------------------------------------------
+
   /**
-   * Crear reserva
+   * Crear reserva y reservar stock en una transacción atómica.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async create(
     data: ICreateReservationInput,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
-      // Validar que el item existe
-      const item = await prisma.item.findUnique({
-        where: { id: data.itemId },
-      })
+      const reservation = await (db as PrismaClient).$transaction(
+        async (tx) => {
+          // TENANT-SAFE: validate item belongs to this company
+          const item = await tx.item.findFirst({
+            where: { id: data.itemId, empresaId },
+          })
+          if (!item) {
+            throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
+          }
 
-      if (!item) {
-        throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
-      }
+          // TENANT-SAFE: validate warehouse belongs to this company
+          const warehouse = await tx.warehouse.findFirst({
+            where: { id: data.warehouseId, empresaId },
+          })
+          if (!warehouse) {
+            throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
+          }
 
-      // Validar que el almacén existe
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id: data.warehouseId },
-      })
+          // Lock stock row and validate availability
+          const stock = await tx.stock.findUnique({
+            where: {
+              itemId_warehouseId: {
+                itemId: data.itemId,
+                warehouseId: data.warehouseId,
+              },
+            },
+          })
 
-      if (!warehouse) {
-        throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
-      }
+          if (!stock || stock.quantityAvailable < data.quantity) {
+            throw new BadRequestError(
+              INVENTORY_MESSAGES.stock.insufficientQuantity
+            )
+          }
 
-      // Validar que hay suficiente stock disponible
-      const stock = await prisma.stock.findFirst({
-        where: {
-          itemId: data.itemId,
-          warehouseId: data.warehouseId,
-        },
-      })
+          // Reserve stock atomically
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: {
+              quantityReserved: stock.quantityReserved + data.quantity,
+              quantityAvailable: stock.quantityAvailable - data.quantity,
+              lastMovementAt: new Date(),
+            },
+          })
 
-      if (!stock || stock.quantityAvailable < data.quantity) {
-        throw new BadRequestError(INVENTORY_MESSAGES.stock.insufficientQuantity)
-      }
-
-      // Generar número de reserva único
-      const reservationCount = await prisma.reservation.count()
-      const reservationNumber = `RES-${new Date().getFullYear()}-${String(reservationCount + 1).padStart(5, '0')}`
-
-      // Crear reserva
-      const reservation = await prisma.reservation.create({
-        data: {
-          reservationNumber,
-          itemId: data.itemId,
-          warehouseId: data.warehouseId,
-          quantity: data.quantity,
-          workOrderId: data.workOrderId,
-          saleOrderId: data.saleOrderId,
-          exitNoteId: data.exitNoteId,
-          reference: data.reference,
-          notes: data.notes,
-          expiresAt: data.expiresAt,
-          createdBy: userId || data.createdBy,
-        },
-        include: {
-          item: true,
-          exitNote: true,
-        },
-      })
+          // Create reservation
+          return tx.reservation.create({
+            data: {
+              reservationNumber: generateReservationNumber(),
+              itemId: data.itemId,
+              warehouseId: data.warehouseId,
+              quantity: data.quantity,
+              ...(data.workOrderId ? { workOrderId: data.workOrderId } : {}),
+              ...(data.saleOrderId ? { saleOrderId: data.saleOrderId } : {}),
+              ...(data.exitNoteId ? { exitNoteId: data.exitNoteId } : {}),
+              ...(data.reference ? { reference: data.reference } : {}),
+              ...(data.notes ? { notes: data.notes } : {}),
+              ...(data.expiresAt ? { expiresAt: data.expiresAt } : {}),
+              createdBy: userId ?? data.createdBy ?? null,
+            },
+            include: RESERVATION_INCLUDE,
+          })
+        }
+      )
 
       logger.info(`Reserva creada: ${reservation.id}`, {
         reservationNumber: reservation.reservationNumber,
         itemId: reservation.itemId,
         quantity: reservation.quantity,
+        empresaId,
+        userId,
       })
 
       return reservation as unknown as IReservationWithRelations
     } catch (error) {
-      logger.error('Error al crear reserva', { error, data })
+      logger.error('Error al crear reserva', { error, data, empresaId })
       throw error
     }
   }
 
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
+
   /**
-   * Obtener reserva por ID
+   * Obtener reserva por ID.
+   * @param empresaId - REQUIRED: tenant safety via item
    */
-  async findById(id: string): Promise<IReservationWithRelations> {
+  async findById(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IReservationWithRelations> {
     try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+      // TENANT-SAFE: scope via item.empresaId
+      const reservation = await db.reservation.findFirst({
+        where: { id, item: { empresaId } },
+        include: RESERVATION_INCLUDE,
       })
 
       if (!reservation) {
@@ -114,13 +164,14 @@ class ReservationService {
 
       return reservation as unknown as IReservationWithRelations
     } catch (error) {
-      logger.error('Error al obtener reserva', { error, id })
+      logger.error('Error al obtener reserva', { error, id, empresaId })
       throw error
     }
   }
 
   /**
-   * Obtener todas las reservas con filtros y paginación
+   * Obtener todas las reservas con filtros y paginación.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async findAll(
     filters: IReservationFilters = {},
@@ -128,7 +179,8 @@ class ReservationService {
     limit: number = 20,
     sortBy: string = 'reservedAt',
     sortOrder: 'asc' | 'desc' = 'desc',
-    prismaClient?: any
+    empresaId: string,
+    db: PrismaClientType = prisma
   ): Promise<{
     items: IReservationWithRelations[]
     total: number
@@ -136,9 +188,9 @@ class ReservationService {
     limit: number
   }> {
     try {
-      const { skip, take } = PaginationHelper.validateAndParse(page, limit)
+      // TENANT-SAFE: always scope via item.empresaId
+      const where: Record<string, unknown> = { item: { empresaId } }
 
-      const where: any = {}
       if (filters.status) where.status = filters.status
       if (filters.itemId) where.itemId = filters.itemId
       if (filters.warehouseId) where.warehouseId = filters.warehouseId
@@ -147,19 +199,19 @@ class ReservationService {
       if (filters.createdBy) where.createdBy = filters.createdBy
 
       if (filters.reservedFrom || filters.reservedTo) {
-        where.reservedAt = {}
-        if (filters.reservedFrom) where.reservedAt.gte = filters.reservedFrom
-        if (filters.reservedTo) where.reservedAt.lte = filters.reservedTo
+        const reservedAt: Record<string, Date> = {}
+        if (filters.reservedFrom) reservedAt.gte = filters.reservedFrom
+        if (filters.reservedTo) reservedAt.lte = filters.reservedTo
+        where.reservedAt = reservedAt
       }
 
+      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
+
       const [total, reservations] = await Promise.all([
-        prisma.reservation.count({ where }),
-        prisma.reservation.findMany({
+        db.reservation.count({ where }),
+        db.reservation.findMany({
           where,
-          include: {
-            item: true,
-            exitNote: true,
-          },
+          include: RESERVATION_INCLUDE,
           skip,
           take,
           orderBy: { [sortBy]: sortOrder },
@@ -173,26 +225,27 @@ class ReservationService {
         limit,
       }
     } catch (error) {
-      logger.error('Error al obtener reservas', { error, filters })
+      logger.error('Error al obtener reservas', { error, filters, empresaId })
       throw error
     }
   }
 
   /**
-   * Obtener reservas por item
+   * Obtener reservas por artículo.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async findByItem(
     itemId: string,
-    limit: number = 20
+    empresaId: string,
+    limit: number = 20,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations[]> {
     try {
-      const reservations = await prisma.reservation.findMany({
-        where: { itemId },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+      const reservations = await db.reservation.findMany({
+        where: { itemId, item: { empresaId } },
+        include: RESERVATION_INCLUDE,
         take: limit,
+        orderBy: { reservedAt: 'desc' },
       })
 
       return reservations as unknown as IReservationWithRelations[]
@@ -200,26 +253,28 @@ class ReservationService {
       logger.error('Error al obtener reservas del artículo', {
         error,
         itemId,
+        empresaId,
       })
       throw error
     }
   }
 
   /**
-   * Obtener reservas por almacén
+   * Obtener reservas por almacén.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async findByWarehouse(
     warehouseId: string,
-    limit: number = 20
+    empresaId: string,
+    limit: number = 20,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations[]> {
     try {
-      const reservations = await prisma.reservation.findMany({
-        where: { warehouseId },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+      const reservations = await db.reservation.findMany({
+        where: { warehouseId, item: { empresaId } },
+        include: RESERVATION_INCLUDE,
         take: limit,
+        orderBy: { reservedAt: 'desc' },
       })
 
       return reservations as unknown as IReservationWithRelations[]
@@ -227,233 +282,388 @@ class ReservationService {
       logger.error('Error al obtener reservas del almacén', {
         error,
         warehouseId,
+        empresaId,
       })
       throw error
     }
   }
 
   /**
-   * Obtener reservas activas
+   * Obtener reservas activas.
+   * @param empresaId - REQUIRED: tenant safety
    */
-  async findActive(limit: number = 20): Promise<IReservationWithRelations[]> {
+  async findActive(
+    empresaId: string,
+    limit: number = 20,
+    db: PrismaClientType = prisma
+  ): Promise<IReservationWithRelations[]> {
     try {
-      const reservations = await prisma.reservation.findMany({
-        where: { status: ReservationStatus.ACTIVE },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+      const reservations = await db.reservation.findMany({
+        where: { status: ReservationStatus.ACTIVE, item: { empresaId } },
+        include: RESERVATION_INCLUDE,
         take: limit,
+        orderBy: { reservedAt: 'desc' },
       })
 
       return reservations as unknown as IReservationWithRelations[]
     } catch (error) {
-      logger.error('Error al obtener reservas activas', { error })
+      logger.error('Error al obtener reservas activas', { error, empresaId })
       throw error
     }
   }
 
   /**
-   * Obtener reservas expiradas
+   * Obtener reservas expiradas (ACTIVE + expiresAt < now).
+   * @param empresaId - REQUIRED: tenant safety
    */
-  async findExpired(limit: number = 20): Promise<IReservationWithRelations[]> {
+  async findExpired(
+    empresaId: string,
+    limit: number = 20,
+    db: PrismaClientType = prisma
+  ): Promise<IReservationWithRelations[]> {
     try {
-      const now = new Date()
-      const reservations = await prisma.reservation.findMany({
+      const reservations = await db.reservation.findMany({
         where: {
           status: ReservationStatus.ACTIVE,
-          expiresAt: { lt: now },
+          expiresAt: { lt: new Date() },
+          item: { empresaId },
         },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+        include: RESERVATION_INCLUDE,
         take: limit,
+        orderBy: { expiresAt: 'asc' },
       })
 
       return reservations as unknown as IReservationWithRelations[]
     } catch (error) {
-      logger.error('Error al obtener reservas expiradas', { error })
+      logger.error('Error al obtener reservas expiradas', { error, empresaId })
       throw error
     }
   }
 
+  // -------------------------------------------------------------------------
+  // UPDATE
+  // -------------------------------------------------------------------------
+
   /**
-   * Actualizar reserva
+   * Actualizar campos de la reserva. Si cambia quantity, recalcula stock.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async update(
     id: string,
     data: IUpdateReservationInput,
-    userId?: string
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id },
-      })
-
-      if (!reservation) {
-        throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
-      }
-
-      // Si se cambia la cantidad, validar stock
-      if (data.quantity && data.quantity !== reservation.quantity) {
-        const stock = await prisma.stock.findFirst({
-          where: {
-            itemId: reservation.itemId,
-            warehouseId: reservation.warehouseId,
-          },
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // TENANT-SAFE: verify reservation belongs to this company via item
+        const reservation = await tx.reservation.findFirst({
+          where: { id, item: { empresaId } },
         })
 
-        const currentReservedQuantity = await prisma.reservation.aggregate({
-          where: {
-            itemId: reservation.itemId,
-            warehouseId: reservation.warehouseId,
-            id: { not: id },
-            status: ReservationStatus.ACTIVE,
-          },
-          _sum: { quantity: true },
-        })
-
-        const reservedSum = currentReservedQuantity._sum.quantity || 0
-        const availableForThisReservation =
-          (stock?.quantityAvailable || 0) + reservation.quantity
-
-        if (data.quantity > availableForThisReservation) {
-          throw new BadRequestError(
-            INVENTORY_MESSAGES.stock.insufficientQuantity
-          )
+        if (!reservation) {
+          throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
         }
-      }
 
-      const updated = await prisma.reservation.update({
-        where: { id },
-        data,
-        include: {
-          item: true,
-          exitNote: true,
-        },
+        // If quantity changes, validate and adjust stock
+        if (
+          data.quantity !== undefined &&
+          data.quantity !== reservation.quantity
+        ) {
+          const stock = await tx.stock.findUnique({
+            where: {
+              itemId_warehouseId: {
+                itemId: reservation.itemId,
+                warehouseId: reservation.warehouseId,
+              },
+            },
+          })
+
+          const delta = data.quantity - reservation.quantity // positive = more reserved
+
+          // Available stock from current stock + what this reservation holds
+          const effectiveAvailable = stock?.quantityAvailable ?? 0
+
+          if (delta > 0 && delta > effectiveAvailable) {
+            throw new BadRequestError(
+              INVENTORY_MESSAGES.stock.insufficientQuantity
+            )
+          }
+
+          if (stock) {
+            await tx.stock.update({
+              where: { id: stock.id },
+              data: {
+                quantityReserved: stock.quantityReserved + delta,
+                quantityAvailable: stock.quantityAvailable - delta,
+                lastMovementAt: new Date(),
+              },
+            })
+          }
+        }
+
+        const updateData: Record<string, unknown> = {}
+        if (data.quantity !== undefined) updateData.quantity = data.quantity
+        if (data.status !== undefined) updateData.status = data.status
+        if (data.workOrderId !== undefined)
+          updateData.workOrderId = data.workOrderId
+        if (data.saleOrderId !== undefined)
+          updateData.saleOrderId = data.saleOrderId
+        if (data.reference !== undefined) updateData.reference = data.reference
+        if (data.notes !== undefined) updateData.notes = data.notes
+        if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt
+
+        return tx.reservation.update({
+          where: { id },
+          data: updateData,
+          include: RESERVATION_INCLUDE,
+        })
       })
 
-      logger.info(`Reserva actualizada: ${id}`, { data })
+      logger.info(`Reserva actualizada: ${id}`, { userId, empresaId, data })
 
       return updated as unknown as IReservationWithRelations
     } catch (error) {
-      logger.error('Error al actualizar reserva', { error, id, data })
+      logger.error('Error al actualizar reserva', {
+        error,
+        id,
+        data,
+        empresaId,
+      })
       throw error
     }
   }
 
+  // -------------------------------------------------------------------------
+  // OPERATIONS
+  // -------------------------------------------------------------------------
+
   /**
-   * Consumir reserva (marcar como entregada)
+   * Consumir reserva (entregar stock). Atómico.
+   * Si quantity < reservation.quantity, crea una reserva nueva para el resto.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async consume(
     reservationId: string,
+    empresaId: string,
     quantity?: number,
     deliveredBy?: string,
-    userId?: string
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id: reservationId },
-      })
-
-      if (!reservation) {
-        throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
-      }
-
-      if (reservation.status !== ReservationStatus.ACTIVE) {
-        throw new BadRequestError(
-          `No se puede consumir una reserva con estado ${reservation.status}`
-        )
-      }
-
-      const consumedQuantity = quantity || reservation.quantity
-      if (consumedQuantity > reservation.quantity) {
-        throw new BadRequestError(
-          `Cantidad a consumir (${consumedQuantity}) no puede ser mayor a la reserva (${reservation.quantity})`
-        )
-      }
-
-      // Si se consume parte de la reserva, crear una nueva para el resto
-      if (consumedQuantity < reservation.quantity) {
-        const remainingQuantity = reservation.quantity - consumedQuantity
-        const count = (await prisma.reservation.count()) + 1
-        await prisma.reservation.create({
-          data: {
-            reservationNumber: `RES-${new Date().getFullYear()}-${String(count).padStart(5, '0')}`,
-            itemId: reservation.itemId,
-            warehouseId: reservation.warehouseId,
-            quantity: remainingQuantity,
-            status: ReservationStatus.ACTIVE,
-            workOrderId: reservation.workOrderId,
-            saleOrderId: reservation.saleOrderId,
-            reference: reservation.reference,
-            notes: reservation.notes,
-            expiresAt: reservation.expiresAt,
-            createdBy: userId,
-          },
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // TENANT-SAFE: verify reservation belongs to this company via item
+        const reservation = await tx.reservation.findFirst({
+          where: { id: reservationId, item: { empresaId } },
         })
-      }
 
-      // FASE 3: Update Stock quantities
-      try {
-        await prisma.stock.update({
+        if (!reservation) {
+          throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
+        }
+
+        if (
+          reservation.status !== ReservationStatus.ACTIVE &&
+          reservation.status !== ReservationStatus.PENDING_PICKUP
+        ) {
+          throw new BadRequestError(
+            `No se puede consumir una reserva con estado ${reservation.status}`
+          )
+        }
+
+        const consumedQty = quantity ?? reservation.quantity
+
+        if (consumedQty > reservation.quantity) {
+          throw new BadRequestError(
+            `Cantidad a consumir (${consumedQty}) no puede ser mayor a la reserva (${reservation.quantity})`
+          )
+        }
+
+        // Adjust stock: decrement reserved, decrement real (items leave warehouse)
+        const stock = await tx.stock.findUnique({
           where: {
             itemId_warehouseId: {
               itemId: reservation.itemId,
               warehouseId: reservation.warehouseId,
             },
           },
+        })
+
+        if (!stock) {
+          throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
+        }
+
+        await tx.stock.update({
+          where: { id: stock.id },
           data: {
-            quantityReserved: { decrement: consumedQuantity }, // Free up reserved quantity
-            quantityConsumed: { increment: consumedQuantity }, // Track consumed quantity
-            updatedAt: new Date(),
+            quantityReal: stock.quantityReal - consumedQty,
+            quantityReserved: stock.quantityReserved - consumedQty,
+            quantityConsumed: stock.quantityConsumed + consumedQty,
+            // quantityAvailable stays the same: real - reserved is unchanged
+            lastMovementAt: new Date(),
           },
         })
-      } catch (stockError) {
-        logger.warn('Error updating stock on consumption', {
-          reservationId,
-          stockError: (stockError as Error).message,
-        })
-        // Non-blocking: continue even if stock update fails
-      }
 
-      const updated = await prisma.reservation.update({
-        where: { id: reservationId },
-        data: {
-          quantity: consumedQuantity,
-          status: ReservationStatus.CONSUMED,
-          deliveredAt: new Date(),
-          deliveredBy: deliveredBy || userId,
-        },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+        // If partial consumption, create a new reservation for the remainder
+        if (consumedQty < reservation.quantity) {
+          const remaining = reservation.quantity - consumedQty
+          await tx.reservation.create({
+            data: {
+              reservationNumber: generateReservationNumber(),
+              itemId: reservation.itemId,
+              warehouseId: reservation.warehouseId,
+              quantity: remaining,
+              status: ReservationStatus.ACTIVE,
+              ...(reservation.workOrderId
+                ? { workOrderId: reservation.workOrderId }
+                : {}),
+              ...(reservation.saleOrderId
+                ? { saleOrderId: reservation.saleOrderId }
+                : {}),
+              ...(reservation.reference
+                ? { reference: reservation.reference }
+                : {}),
+              ...(reservation.notes ? { notes: reservation.notes } : {}),
+              ...(reservation.expiresAt
+                ? { expiresAt: reservation.expiresAt }
+                : {}),
+              createdBy: userId ?? null,
+            },
+          })
+        }
+
+        return tx.reservation.update({
+          where: { id: reservationId },
+          data: {
+            quantity: consumedQty,
+            status: ReservationStatus.CONSUMED,
+            deliveredAt: new Date(),
+            deliveredBy: deliveredBy ?? userId ?? null,
+          },
+          include: RESERVATION_INCLUDE,
+        })
       })
 
       logger.info(`Reserva consumida: ${reservationId}`, {
-        quantity: consumedQuantity,
+        quantity,
+        empresaId,
+        userId,
       })
 
       return updated as unknown as IReservationWithRelations
     } catch (error) {
-      logger.error('Error al consumir reserva', { error, reservationId })
+      logger.error('Error al consumir reserva', {
+        error,
+        reservationId,
+        empresaId,
+      })
       throw error
     }
   }
 
   /**
-   * Liberar reserva
+   * Liberar reserva: devuelve stock reservado como disponible. Atómico.
+   * @param empresaId - REQUIRED: tenant safety
    */
   async release(
     reservationId: string,
+    empresaId: string,
     reason?: string,
-    userId?: string
+    userId?: string,
+    db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id: reservationId },
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // TENANT-SAFE: verify reservation belongs to this company via item
+        const reservation = await tx.reservation.findFirst({
+          where: { id: reservationId, item: { empresaId } },
+        })
+
+        if (!reservation) {
+          throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
+        }
+
+        if (
+          reservation.status !== ReservationStatus.ACTIVE &&
+          reservation.status !== ReservationStatus.PENDING_PICKUP
+        ) {
+          throw new BadRequestError(
+            `No se puede liberar una reserva con estado ${reservation.status}`
+          )
+        }
+
+        // Return reserved stock to available
+        const stock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: reservation.itemId,
+              warehouseId: reservation.warehouseId,
+            },
+          },
+        })
+
+        if (!stock) {
+          throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
+        }
+
+        await tx.stock.update({
+          where: { id: stock.id },
+          data: {
+            quantityReserved: stock.quantityReserved - reservation.quantity,
+            quantityAvailable: stock.quantityAvailable + reservation.quantity,
+            lastMovementAt: new Date(),
+          },
+        })
+
+        const releaseNote = reason ? `[LIBERADO: ${reason}]` : '[LIBERADO]'
+
+        const notes = reservation.notes
+          ? `${reservation.notes}\n${releaseNote}`
+          : releaseNote
+
+        return tx.reservation.update({
+          where: { id: reservationId },
+          data: {
+            status: ReservationStatus.RELEASED,
+            releasedAt: new Date(),
+            notes,
+          },
+          include: RESERVATION_INCLUDE,
+        })
+      })
+
+      logger.info(`Reserva liberada: ${reservationId}`, {
+        reason,
+        empresaId,
+        userId,
+      })
+
+      return updated as unknown as IReservationWithRelations
+    } catch (error) {
+      logger.error('Error al liberar reserva', {
+        error,
+        reservationId,
+        empresaId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Marcar reserva como pendiente de entrega.
+   * @param empresaId - REQUIRED: tenant safety
+   */
+  async markAsPendingPickup(
+    reservationId: string,
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
+  ): Promise<IReservationWithRelations> {
+    try {
+      // TENANT-SAFE: verify reservation belongs to this company via item
+      const reservation = await db.reservation.findFirst({
+        where: { id: reservationId, item: { empresaId } },
       })
 
       if (!reservation) {
@@ -462,127 +672,95 @@ class ReservationService {
 
       if (reservation.status !== ReservationStatus.ACTIVE) {
         throw new BadRequestError(
-          `No se puede liberar una reserva con estado ${reservation.status}`
+          `Solo se pueden marcar como pendientes reservas ACTIVE. Estado actual: ${reservation.status}`
         )
       }
 
-      // FASE 3: Update Stock quantities
-      try {
-        await prisma.stock.update({
-          where: {
-            itemId_warehouseId: {
-              itemId: reservation.itemId,
-              warehouseId: reservation.warehouseId,
-            },
-          },
-          data: {
-            quantityReserved: { decrement: reservation.quantity }, // Free up reserved quantity
-            quantityAvailable: { increment: reservation.quantity }, // Make available again
-            updatedAt: new Date(),
-          },
-        })
-      } catch (stockError) {
-        logger.warn('Error updating stock on release', {
-          reservationId,
-          stockError: (stockError as Error).message,
-        })
-        // Non-blocking: continue even if stock update fails
-      }
-
-      const notes = reason
-        ? `${reservation.notes || ''}\n[RELEASED] ${reason}`
-        : `${reservation.notes || ''}\n[RELEASED]`
-
-      const updated = await prisma.reservation.update({
+      const updated = await db.reservation.update({
         where: { id: reservationId },
-        data: {
-          status: ReservationStatus.RELEASED,
-          releasedAt: new Date(),
-          notes: notes.trim(),
-        },
-        include: {
-          item: true,
-          exitNote: true,
-        },
+        data: { status: ReservationStatus.PENDING_PICKUP },
+        include: RESERVATION_INCLUDE,
       })
 
-      logger.info(`Reserva liberada: ${reservationId}`, { reason })
-
-      return updated as unknown as IReservationWithRelations
-    } catch (error) {
-      logger.error('Error al liberar reserva', { error, reservationId })
-      throw error
-    }
-  }
-
-  /**
-   * Marcar como pendiente de entrega
-   */
-  async markAsPendingPickup(
-    reservationId: string,
-    userId?: string
-  ): Promise<IReservationWithRelations> {
-    try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id: reservationId },
+      logger.info(`Reserva marcada como pendiente: ${reservationId}`, {
+        userId,
+        empresaId,
       })
-
-      if (!reservation) {
-        throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
-      }
-
-      const updated = await prisma.reservation.update({
-        where: { id: reservationId },
-        data: {
-          status: ReservationStatus.PENDING_PICKUP,
-        },
-        include: {
-          item: true,
-          exitNote: true,
-        },
-      })
-
-      logger.info(`Reserva marcada como pendiente: ${reservationId}`)
 
       return updated as unknown as IReservationWithRelations
     } catch (error) {
       logger.error('Error al marcar reserva como pendiente', {
         error,
         reservationId,
+        empresaId,
       })
       throw error
     }
   }
 
+  // -------------------------------------------------------------------------
+  // DELETE
+  // -------------------------------------------------------------------------
+
   /**
-   * Eliminar reserva (solo si no está consumida)
+   * Eliminar reserva (solo ACTIVE o PENDING_PICKUP). Libera stock atómicamente.
+   * @param empresaId - REQUIRED: tenant safety
    */
-  async delete(id: string, userId?: string): Promise<any> {
+  async delete(
+    id: string,
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
+  ): Promise<{ success: boolean; id: string }> {
     try {
-      const reservation = await prisma.reservation.findUnique({
-        where: { id },
+      await (db as PrismaClient).$transaction(async (tx) => {
+        // TENANT-SAFE: verify reservation belongs to this company via item
+        const reservation = await tx.reservation.findFirst({
+          where: { id, item: { empresaId } },
+        })
+
+        if (!reservation) {
+          throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
+        }
+
+        if (
+          reservation.status === ReservationStatus.CONSUMED ||
+          reservation.status === ReservationStatus.RELEASED
+        ) {
+          throw new BadRequestError(
+            `No se puede eliminar una reserva con estado ${reservation.status}`
+          )
+        }
+
+        // Return reserved stock before deleting
+        const stock = await tx.stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: reservation.itemId,
+              warehouseId: reservation.warehouseId,
+            },
+          },
+        })
+
+        if (stock) {
+          await tx.stock.update({
+            where: { id: stock.id },
+            data: {
+              quantityReserved: stock.quantityReserved - reservation.quantity,
+              quantityAvailable: stock.quantityAvailable + reservation.quantity,
+              lastMovementAt: new Date(),
+            },
+          })
+        }
+
+        await tx.reservation.delete({ where: { id } })
       })
 
-      if (!reservation) {
-        throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
-      }
-
-      if (
-        reservation.status === ReservationStatus.CONSUMED ||
-        reservation.status === ReservationStatus.RELEASED
-      ) {
-        throw new BadRequestError(
-          `No se puede eliminar una reserva con estado ${reservation.status}`
-        )
-      }
-
-      await prisma.reservation.delete({ where: { id } })
-
-      logger.info(`Reserva eliminada: ${id}`, { userId })
+      logger.info(`Reserva eliminada: ${id}`, { userId, empresaId })
 
       return { success: true, id }
     } catch (error) {
-      logger.error('Error al eliminar reserva', { error, id })
+      logger.error('Error al eliminar reserva', { error, id, empresaId })
       throw error
     }
   }

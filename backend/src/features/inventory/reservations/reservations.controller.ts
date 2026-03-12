@@ -1,55 +1,98 @@
 // backend/src/features/inventory/reservations/reservations.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import ReservationService from './reservations.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import reservationService from './reservations.service.js'
 import {
   CreateReservationDTO,
   UpdateReservationDTO,
   ReservationResponseDTO,
   ConsumeReservationDTO,
   ReleaseReservationDTO,
-} from './reservations.dto.ts'
+} from './reservations.dto.js'
 import {
   IReservationFilters,
   ReservationStatus,
-} from './reservations.interface'
+} from './reservations.interface.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/** Extracts empresaId injected by extractEmpresa middleware. Throws if missing. */
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
+
+const VALID_SORT_FIELDS = new Set([
+  'reservedAt',
+  'expiresAt',
+  'deliveredAt',
+  'createdAt',
+  'quantity',
+  'status',
+])
+
+function parseSortBy(raw: unknown): string {
+  const val = typeof raw === 'string' ? raw : 'reservedAt'
+  return VALID_SORT_FIELDS.has(val) ? val : 'reservedAt'
+}
+
+function parseSortOrder(raw: unknown): 'asc' | 'desc' {
+  return raw === 'asc' ? 'asc' : 'desc'
+}
+
+function parseLimit(raw: unknown, fallback: number): number {
+  const n = Number(raw)
+  return Number.isFinite(n) && n > 0 ? Math.min(n, 500) : fallback
+}
+
+// ---------------------------------------------------------------------------
+// Controller
+// ---------------------------------------------------------------------------
 
 export class ReservationController {
   /**
    * GET /api/inventory/reservations
-   * Obtener todas las reservas con paginación y filtros
    */
   getAll = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
     const {
-      page = 1,
-      limit = 20,
+      page,
+      limit,
       status,
       itemId,
       warehouseId,
       workOrderId,
       saleOrderId,
       createdBy,
-      sortBy = 'reservedAt',
-      sortOrder = 'desc',
+      sortBy,
+      sortOrder,
     } = req.query
 
     const filters: IReservationFilters = {}
-    if (status) filters.status = status as ReservationStatus
-    if (itemId) filters.itemId = itemId as string
-    if (warehouseId) filters.warehouseId = warehouseId as string
-    if (workOrderId) filters.workOrderId = workOrderId as string
-    if (saleOrderId) filters.saleOrderId = saleOrderId as string
-    if (createdBy) filters.createdBy = createdBy as string
+    if (
+      status &&
+      Object.values(ReservationStatus).includes(status as ReservationStatus)
+    )
+      filters.status = status as ReservationStatus
+    if (itemId) filters.itemId = String(itemId)
+    if (warehouseId) filters.warehouseId = String(warehouseId)
+    if (workOrderId) filters.workOrderId = String(workOrderId)
+    if (saleOrderId) filters.saleOrderId = String(saleOrderId)
+    if (createdBy) filters.createdBy = String(createdBy)
 
-    const result = await ReservationService.findAll(
+    const result = await reservationService.findAll(
       filters,
-      Number(page),
-      Number(limit),
-      sortBy as string,
-      (sortOrder as string).toLowerCase() as 'asc' | 'desc',
-      req.prisma || undefined
+      Number(page) || 1,
+      parseLimit(limit, 20),
+      parseSortBy(sortBy),
+      parseSortOrder(sortOrder),
+      empresaId,
+      req.prisma
     )
 
     const items = result.items.map(
@@ -59,185 +102,265 @@ export class ReservationController {
     return ApiResponse.paginated(
       res,
       items,
-      Number(page),
-      Number(limit),
-      result.total
+      result.page,
+      result.limit,
+      result.total,
+      'Reservas obtenidas exitosamente'
     )
-  })
-
-  /**
-   * GET /api/inventory/reservations/:id
-   * Obtener una reserva por ID
-   */
-  getOne = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const reservation = await ReservationService.findById(id)
-    const dto = new ReservationResponseDTO(reservation, {
-      includeRelations: true,
-    })
-    return ApiResponse.success(res, dto)
-  })
-
-  /**
-   * GET /api/inventory/reservations/item/:itemId
-   * Obtener reservas de un artículo
-   */
-  getByItem = asyncHandler(async (req: Request, res: Response) => {
-    const { itemId } = req.params
-    const { limit = 20 } = req.query
-    const reservations = await ReservationService.findByItem(
-      itemId,
-      Number(limit)
-    )
-    const dtos = reservations.map(
-      (r) => new ReservationResponseDTO(r, { includeRelations: false })
-    )
-    return ApiResponse.success(res, dtos)
-  })
-
-  /**
-   * GET /api/inventory/reservations/warehouse/:warehouseId
-   * Obtener reservas de un almacén
-   */
-  getByWarehouse = asyncHandler(async (req: Request, res: Response) => {
-    const { warehouseId } = req.params
-    const { limit = 20 } = req.query
-    const reservations = await ReservationService.findByWarehouse(
-      warehouseId,
-      Number(limit)
-    )
-    const dtos = reservations.map(
-      (r) => new ReservationResponseDTO(r, { includeRelations: false })
-    )
-    return ApiResponse.success(res, dtos)
   })
 
   /**
    * GET /api/inventory/reservations/active
-   * Obtener reservas activas
    */
   getActive = asyncHandler(async (req: Request, res: Response) => {
-    const { limit = 20 } = req.query
-    const reservations = await ReservationService.findActive(Number(limit))
+    const empresaId = getEmpresaId(req)
+    const { limit } = req.query
+
+    const reservations = await reservationService.findActive(
+      empresaId,
+      parseLimit(limit, 20),
+      req.prisma
+    )
+
     const dtos = reservations.map(
       (r) => new ReservationResponseDTO(r, { includeRelations: false })
     )
-    return ApiResponse.success(res, dtos)
+
+    return ApiResponse.success(res, dtos, 'Reservas activas obtenidas')
   })
 
   /**
    * GET /api/inventory/reservations/expired
-   * Obtener reservas expiradas
    */
   getExpired = asyncHandler(async (req: Request, res: Response) => {
-    const { limit = 20 } = req.query
-    const reservations = await ReservationService.findExpired(Number(limit))
+    const empresaId = getEmpresaId(req)
+    const { limit } = req.query
+
+    const reservations = await reservationService.findExpired(
+      empresaId,
+      parseLimit(limit, 20),
+      req.prisma
+    )
+
     const dtos = reservations.map(
       (r) => new ReservationResponseDTO(r, { includeRelations: false })
     )
-    return ApiResponse.success(res, dtos)
+
+    return ApiResponse.success(res, dtos, 'Reservas expiradas obtenidas')
+  })
+
+  /**
+   * GET /api/inventory/reservations/item/:itemId
+   */
+  getByItem = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { itemId } = req.params as { itemId: string }
+    const { limit } = req.query
+
+    const reservations = await reservationService.findByItem(
+      itemId,
+      empresaId,
+      parseLimit(limit, 20),
+      req.prisma
+    )
+
+    const dtos = reservations.map(
+      (r) => new ReservationResponseDTO(r, { includeRelations: false })
+    )
+
+    return ApiResponse.success(res, dtos, 'Reservas del artículo obtenidas')
+  })
+
+  /**
+   * GET /api/inventory/reservations/warehouse/:warehouseId
+   */
+  getByWarehouse = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { warehouseId } = req.params as { warehouseId: string }
+    const { limit } = req.query
+
+    const reservations = await reservationService.findByWarehouse(
+      warehouseId,
+      empresaId,
+      parseLimit(limit, 20),
+      req.prisma
+    )
+
+    const dtos = reservations.map(
+      (r) => new ReservationResponseDTO(r, { includeRelations: false })
+    )
+
+    return ApiResponse.success(res, dtos, 'Reservas del almacén obtenidas')
+  })
+
+  /**
+   * GET /api/inventory/reservations/:id
+   */
+  getOne = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+
+    const reservation = await reservationService.findById(
+      id,
+      empresaId,
+      req.prisma
+    )
+    const dto = new ReservationResponseDTO(reservation, {
+      includeRelations: true,
+    })
+
+    return ApiResponse.success(res, dto, 'Reserva obtenida exitosamente')
   })
 
   /**
    * POST /api/inventory/reservations
-   * Crear nueva reserva
    */
   create = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
     const createDTO = new CreateReservationDTO(req.body)
-    const reservation = await ReservationService.create(
+
+    const reservation = await reservationService.create(
       createDTO,
-      (req.user as any)?.userId
+      empresaId,
+      userId,
+      req.prisma
     )
+
     const dto = new ReservationResponseDTO(reservation, {
       includeRelations: true,
     })
-    return ApiResponse.created(res, dto)
+
+    return ApiResponse.created(res, dto, INVENTORY_MESSAGES.reservation.created)
   })
 
   /**
    * PUT /api/inventory/reservations/:id
-   * Actualizar reserva
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
     const updateDTO = new UpdateReservationDTO(req.body)
-    const reservation = await ReservationService.update(
+
+    const reservation = await reservationService.update(
       id,
       updateDTO,
-      (req.user as any)?.userId
+      empresaId,
+      userId,
+      req.prisma
     )
+
     const dto = new ReservationResponseDTO(reservation, {
       includeRelations: true,
     })
-    return ApiResponse.success(res, dto)
+
+    return ApiResponse.success(res, dto, 'Reserva actualizada exitosamente')
   })
 
   /**
    * POST /api/inventory/reservations/:id/consume
-   * Consumir reserva (marcar como entregada)
    */
   consume = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
     const consumeDTO = new ConsumeReservationDTO({
       ...req.body,
       reservationId: id,
     })
-    const reservation = await ReservationService.consume(
+
+    const reservation = await reservationService.consume(
       consumeDTO.reservationId,
+      empresaId,
       consumeDTO.quantity,
       consumeDTO.deliveredBy,
-      (req.user as any)?.userId
+      userId,
+      req.prisma
     )
+
     const dto = new ReservationResponseDTO(reservation, {
       includeRelations: true,
     })
-    return ApiResponse.success(res, dto)
+
+    return ApiResponse.success(
+      res,
+      dto,
+      INVENTORY_MESSAGES.reservation.consumed
+    )
   })
 
   /**
    * POST /api/inventory/reservations/:id/release
-   * Liberar reserva
    */
   release = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
     const releaseDTO = new ReleaseReservationDTO(req.body)
-    const reservation = await ReservationService.release(
+
+    const reservation = await reservationService.release(
       id,
+      empresaId,
       releaseDTO.reason,
-      (req.user as any)?.userId
+      userId,
+      req.prisma
     )
+
     const dto = new ReservationResponseDTO(reservation, {
       includeRelations: true,
     })
-    return ApiResponse.success(res, dto)
+
+    return ApiResponse.success(
+      res,
+      dto,
+      INVENTORY_MESSAGES.reservation.released
+    )
   })
 
   /**
    * PATCH /api/inventory/reservations/:id/pending-pickup
-   * Marcar como pendiente de entrega
    */
   markAsPendingPickup = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const reservation = await ReservationService.markAsPendingPickup(
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
+
+    const reservation = await reservationService.markAsPendingPickup(
       id,
-      (req.user as any)?.userId
+      empresaId,
+      userId,
+      req.prisma
     )
+
     const dto = new ReservationResponseDTO(reservation, {
       includeRelations: true,
     })
-    return ApiResponse.success(res, dto)
+
+    return ApiResponse.success(
+      res,
+      dto,
+      'Reserva marcada como pendiente de entrega'
+    )
   })
 
   /**
    * DELETE /api/inventory/reservations/:id
-   * Eliminar reserva
    */
   delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const result = await ReservationService.delete(
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { id } = req.params as { id: string }
+
+    const result = await reservationService.delete(
       id,
-      (req.user as any)?.userId
+      empresaId,
+      userId,
+      req.prisma
     )
-    return ApiResponse.success(res, result)
+
+    return ApiResponse.success(res, result, 'Reserva eliminada exitosamente')
   })
 }
+
+export default new ReservationController()

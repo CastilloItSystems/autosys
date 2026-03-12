@@ -1,7 +1,14 @@
 // backend/src/features/inventory/warehouses/warehouses.validation.ts
 
 import Joi from 'joi'
-import { REGEX_PATTERNS } from '../../../config/constants'
+import { REGEX_PATTERNS } from '../../../config/constants.js'
+
+export const warehouseIdSchema = Joi.object({
+  id: Joi.string().uuid().required().messages({
+    'string.guid': 'El ID del almacén debe ser un UUID válido',
+    'any.required': 'El ID del almacén es requerido',
+  }),
+})
 
 export const createWarehouseSchema = Joi.object({
   code: Joi.string()

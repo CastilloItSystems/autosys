@@ -1,47 +1,52 @@
 // backend/src/features/inventory/suppliers/suppliers.dto.ts
 
-import { ISupplier } from './suppliers.interface'
+import { ISupplier } from './suppliers.interface.js'
 
 export class CreateSupplierDTO {
   code: string
   name: string
-  contactName?: string | undefined
-  email?: string | undefined
-  phone?: string | undefined
-  address?: string | undefined
-  taxId?: string | undefined
+  contactName?: string
+  email?: string
+  phone?: string
+  address?: string
+  taxId?: string
 
-  constructor(data: any) {
-    this.code = data.code
-    this.name = data.name
-    this.contactName = data.contactName
-    this.email = data.email
-    this.phone = data.phone
-    this.address = data.address
-    this.taxId = data.taxId
+  constructor(data: Record<string, unknown>) {
+    this.code = (data.code as string).toUpperCase()
+    this.name = data.name as string
+    if (data.contactName !== undefined)
+      this.contactName = data.contactName as string
+    if (data.email !== undefined) this.email = data.email as string
+    if (data.phone !== undefined) this.phone = data.phone as string
+    if (data.address !== undefined) this.address = data.address as string
+    if (data.taxId !== undefined) this.taxId = data.taxId as string
   }
 }
 
 export class UpdateSupplierDTO {
-  code?: string | undefined
-  name?: string | undefined
-  contactName?: string | null | undefined
-  email?: string | null | undefined
-  phone?: string | null | undefined
-  address?: string | null | undefined
-  taxId?: string | null | undefined
-  isActive?: boolean | undefined
+  code?: string
+  name?: string
+  contactName?: string | null
+  email?: string | null
+  phone?: string | null
+  address?: string | null
+  taxId?: string | null
+  isActive?: boolean
 
-  constructor(data: any) {
-    if (data.code !== undefined) this.code = data.code
-    if (data.name !== undefined) this.name = data.name
+  constructor(data: Record<string, unknown>) {
+    if (data.code !== undefined) this.code = (data.code as string).toUpperCase()
+    if (data.name !== undefined) this.name = data.name as string
     if (data.contactName !== undefined)
-      this.contactName = data.contactName ?? null
-    if (data.email !== undefined) this.email = data.email ?? null
-    if (data.phone !== undefined) this.phone = data.phone ?? null
-    if (data.address !== undefined) this.address = data.address ?? null
-    if (data.taxId !== undefined) this.taxId = data.taxId ?? null
-    if (data.isActive !== undefined) this.isActive = data.isActive
+      this.contactName = (data.contactName as string | null) ?? null
+    if (data.email !== undefined)
+      this.email = (data.email as string | null) ?? null
+    if (data.phone !== undefined)
+      this.phone = (data.phone as string | null) ?? null
+    if (data.address !== undefined)
+      this.address = (data.address as string | null) ?? null
+    if (data.taxId !== undefined)
+      this.taxId = (data.taxId as string | null) ?? null
+    if (data.isActive !== undefined) this.isActive = data.isActive as boolean
   }
 }
 
@@ -49,12 +54,13 @@ export class SupplierResponseDTO {
   id: string
   code: string
   name: string
-  contactName?: string | null
-  email?: string | null
-  phone?: string | null
-  address?: string | null
-  taxId?: string | null
+  contactName: string | null
+  email: string | null
+  phone: string | null
+  address: string | null
+  taxId: string | null
   isActive: boolean
+  empresaId: string
   createdAt: Date
   updatedAt: Date
 
@@ -68,6 +74,7 @@ export class SupplierResponseDTO {
     this.address = supplier.address ?? null
     this.taxId = supplier.taxId ?? null
     this.isActive = supplier.isActive
+    this.empresaId = supplier.empresaId
     this.createdAt = supplier.createdAt
     this.updatedAt = supplier.updatedAt
   }

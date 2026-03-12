@@ -195,102 +195,68 @@
  *       200:
  *         description: Estado actualizado
  */
+// backend/src/features/inventory/suppliers/suppliers.routes.ts
 
 import { Router } from 'express'
-import { SupplierController } from './suppliers.controller'
-import { authenticate } from '../../../shared/middleware/authenticate.middleware'
-import { authorize } from '../../../shared/middleware/authorize.middleware'
-import { validateBody } from '../../../shared/middleware/validateRequest.middleware'
+import controller from './suppliers.controller.js'
+import { authorize } from '../../../shared/middleware/authorize.middleware.js'
+import { validateRequest } from '../../../shared/middleware/validateRequest.middleware.js'
 import {
   createSupplierSchema,
   updateSupplierSchema,
-} from './suppliers.validation'
-import { PERMISSIONS } from '../../../shared/constants/permissions'
+  supplierIdSchema,
+  supplierCodeSchema,
+} from './suppliers.validation.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
 const router = Router()
-const controller = new SupplierController()
 
-/**
- * ============================================
- * RUTAS DE CONSULTA ESPECIALIZADAS
- * ============================================
- */
-
-// GET /api/inventory/suppliers/active
+// Rutas específicas ANTES de /:id
 router.get(
   '/active',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
   controller.getActive
 )
-
-/**
- * ============================================
- * RUTAS DE FILTROS POR REFERENCIA
- * ============================================
- */
-
-// GET /api/inventory/suppliers/code/:code
 router.get(
   '/code/:code',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(supplierCodeSchema, 'params'),
   controller.getByCode
 )
 
-/**
- * ============================================
- * RUTAS GENERALES - CRUD
- * ============================================
- */
-
-// GET /api/inventory/suppliers (Listar todos)
-router.get(
-  '/',
-  authenticate,
-  authorize(PERMISSIONS.INVENTORY_VIEW),
-  controller.getAll
-)
-
-// POST /api/inventory/suppliers (Crear)
+// CRUD base
+router.get('/', authorize(PERMISSIONS.INVENTORY_VIEW), controller.getAll)
 router.post(
   '/',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_CREATE),
-  validateBody(createSupplierSchema),
+  validateRequest(createSupplierSchema, 'body'),
   controller.create
 )
 
-// GET /api/inventory/suppliers/:id (Obtener uno)
+// Rutas con :id
 router.get(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_VIEW),
+  validateRequest(supplierIdSchema, 'params'),
   controller.getOne
 )
-
-// PUT /api/inventory/suppliers/:id (Actualizar)
 router.put(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
-  validateBody(updateSupplierSchema),
+  validateRequest(supplierIdSchema, 'params'),
+  validateRequest(updateSupplierSchema, 'body'),
   controller.update
 )
-
-// PATCH /api/inventory/suppliers/:id/toggle (Cambiar estado)
 router.patch(
   '/:id/toggle',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateRequest(supplierIdSchema, 'params'),
   controller.toggleActive
 )
-
-// DELETE /api/inventory/suppliers/:id (Eliminar)
 router.delete(
   '/:id',
-  authenticate,
   authorize(PERMISSIONS.INVENTORY_DELETE),
+  validateRequest(supplierIdSchema, 'params'),
   controller.delete
 )
 

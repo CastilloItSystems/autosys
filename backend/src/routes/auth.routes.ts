@@ -37,32 +37,33 @@
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
  *                   example: "Login exitoso"
- *                 token:
- *                   type: string
- *                   example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
- *                 user:
+ *                 data:
  *                   type: object
  *                   properties:
- *                     id:
+ *                     token:
  *                       type: string
- *                       example: "clx1234567890"
- *                     nombre:
- *                       type: string
- *                       example: "Juan Pérez"
- *                     correo:
- *                       type: string
- *                       example: "juan@example.com"
- *                     rol:
- *                       type: string
- *                       enum: [SUPER_ADMIN, ADMIN, GERENTE, VENDEDOR, ALMACENISTA, MECANICO, CAJERO, CONTADOR, ASESOR, VIEWER]
- *                       example: "ADMIN"
- *                     estado:
- *                       type: string
- *                       enum: [pendiente, activo, suspendido]
- *                       example: "activo"
+ *                       example: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+ *                     user:
+ *                       type: object
+ *                       properties:
+ *                         id:
+ *                           type: string
+ *                         nombre:
+ *                           type: string
+ *                         correo:
+ *                           type: string
+ *                         empresaIds:
+ *                           type: array
+ *                           items:
+ *                             type: string
+ *                         activeEmpresaId:
+ *                           type: string
  *       401:
  *         description: Credenciales inválidas
  *         content:
@@ -128,13 +129,19 @@
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
  *                   example: "Usuario registrado exitosamente"
- *                 token:
- *                   type: string
- *                 user:
+ *                 data:
  *                   type: object
+ *                   properties:
+ *                     token:
+ *                       type: string
+ *                     user:
+ *                       type: object
  *       400:
  *         description: Datos inválidos o incompletos
  *       409:
@@ -156,19 +163,28 @@
  *             schema:
  *               type: object
  *               properties:
- *                 id:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
  *                   type: string
- *                 nombre:
- *                   type: string
- *                 correo:
- *                   type: string
- *                 rol:
- *                   type: string
- *                 estado:
- *                   type: string
- *                 createdAt:
- *                   type: string
- *                   format: date-time
+ *                   example: "Perfil obtenido exitosamente"
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     id:
+ *                       type: string
+ *                     nombre:
+ *                       type: string
+ *                     correo:
+ *                       type: string
+ *                     rol:
+ *                       type: string
+ *                     estado:
+ *                       type: string
+ *                     createdAt:
+ *                       type: string
+ *                       format: date-time
  *       401:
  *         description: No autorizado - Token no válido o expirado
  *       500:
@@ -188,9 +204,14 @@
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
  *                   example: "Logout exitoso"
+ *                 data:
+ *                   type: "null"
  *       401:
  *         description: No autorizado
  *       500:
@@ -233,9 +254,14 @@
  *             schema:
  *               type: object
  *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
  *                 message:
  *                   type: string
  *                   example: "Contraseña cambiada exitosamente"
+ *                 data:
+ *                   type: "null"
  *       400:
  *         description: Las contraseñas no coinciden o contraseña actual incorrecta
  *       401:

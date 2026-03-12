@@ -68,7 +68,7 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
-
+  stockAlerts         StockAlert[]       
   // Auditoría con historial de cambios
   historial      Json?
 

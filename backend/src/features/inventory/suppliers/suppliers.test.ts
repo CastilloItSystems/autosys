@@ -2,21 +2,24 @@
 
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
-import app from '../../../app'
-import { getTestAuthToken } from '../../../shared/utils/test.utils'
-import prisma from '../../../services/prisma.service'
+import app from '../../../app.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
+import prisma from '../../../services/prisma.service.js'
 
 describe('Suppliers API Tests', () => {
   let authToken: string
+  let empresaId: string
   let supplierId: string
   const testCode = 'TEST-SUP-001'
 
   beforeAll(async () => {
-    await prisma.supplier
-      .deleteMany({ where: { code: { startsWith: 'TEST-SUP' } } })
-      .catch(() => {})
+    const credentials = await getTestCredentials()
+    authToken = credentials.authToken
+    empresaId = credentials.empresaId
 
-    authToken = await getTestAuthToken()
+    await prisma.supplier
+      .deleteMany({ where: { code: { startsWith: 'TEST-SUP' }, empresaId } })
+      .catch(() => {})
 
     const supplier = await prisma.supplier.create({
       data: {
@@ -28,19 +31,16 @@ describe('Suppliers API Tests', () => {
         address: 'Supplier St 123',
         taxId: 'TAX-001',
         isActive: true,
+        empresaId,
       },
     })
     supplierId = supplier.id
   }, 20000)
 
   afterAll(async () => {
-    try {
-      await prisma.supplier
-        .deleteMany({ where: { code: { startsWith: 'TEST-SUP' } } })
-        .catch(() => {})
-    } catch (error) {
-      console.log('Error en afterAll cleanup:', error)
-    }
+    await prisma.supplier
+      .deleteMany({ where: { code: { startsWith: 'TEST-SUP' }, empresaId } })
+      .catch(() => {})
   })
 
   // ── POST /api/inventory/suppliers ──
@@ -49,6 +49,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/suppliers')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           code: 'TEST-SUP-CREATE',
           name: 'Created Supplier',
@@ -67,22 +68,19 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/suppliers')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          code: testCode,
-          name: 'Duplicate Supplier',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ code: testCode, name: 'Duplicate Supplier' })
 
       expect(res.status).toBe(409)
       expect(res.body.success).toBe(false)
     })
 
-    test('Debe fallar con validación incorrecta', async () => {
+    test('Debe fallar con validación incorrecta (sin code)', async () => {
       const res = await request(app)
         .post('/api/inventory/suppliers')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          name: 'No Code Supplier',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ name: 'No Code Supplier' })
 
       expect(res.status).toBe(422)
       expect(res.body.success).toBe(false)
@@ -95,6 +93,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/suppliers')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -109,6 +108,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/suppliers/active')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -121,6 +121,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/suppliers/code/${testCode}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -131,6 +132,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/suppliers/code/NONEXISTENT')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
       expect(res.body.success).toBe(false)
@@ -143,6 +145,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/suppliers/${supplierId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -153,6 +156,7 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/suppliers/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
       expect(res.body.success).toBe(false)
@@ -165,15 +169,12 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .put(`/api/inventory/suppliers/${supplierId}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          name: 'Updated Supplier Name',
-          email: 'updated@test.com',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ name: 'Updated Supplier Name', email: 'updated@test.com' })
 
-      if (res.status === 200) {
-        expect(res.body.success).toBe(true)
-        expect(res.body.data.name).toBe('Updated Supplier Name')
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
+      expect(res.body.data.name).toBe('Updated Supplier Name')
     })
   })
 
@@ -183,20 +184,20 @@ describe('Suppliers API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/suppliers/${supplierId}/toggle`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect([200, 400]).toContain(res.status)
-      if (res.status === 200) {
-        expect(res.body.data.isActive).toBeDefined()
-      }
+      expect(res.status).toBe(200)
+      expect(res.body.data.isActive).toBeDefined()
     })
   })
 
   // ── DELETE /api/inventory/suppliers/:id ──
   describe('DELETE /api/inventory/suppliers/:id', () => {
-    test('Debe fallar al eliminar proveedor no encontrado', async () => {
+    test('Debe fallar con proveedor no encontrado', async () => {
       const res = await request(app)
         .delete('/api/inventory/suppliers/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
       expect(res.body.success).toBe(false)
@@ -206,19 +207,17 @@ describe('Suppliers API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/suppliers')
         .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          code: 'TEST-SUP-DEL',
-          name: 'Supplier to Delete',
-        })
+        .set('X-Empresa-Id', empresaId)
+        .send({ code: 'TEST-SUP-DEL', name: 'Supplier to Delete' })
 
-      if (createRes.status === 201) {
-        const deleteId = createRes.body.data.id
-        const res = await request(app)
-          .delete(`/api/inventory/suppliers/${deleteId}`)
-          .set('Authorization', `Bearer ${authToken}`)
+      expect(createRes.status).toBe(201)
 
-        expect([200, 400, 409]).toContain(res.status)
-      }
+      const res = await request(app)
+        .delete(`/api/inventory/suppliers/${createRes.body.data.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(res.status).toBe(200)
     })
   })
 })

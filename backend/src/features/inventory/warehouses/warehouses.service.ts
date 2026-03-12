@@ -1,485 +1,307 @@
 // backend/src/features/inventory/warehouses/warehouses.service.ts
 
-import prisma from '../../../services/prisma.service'
+import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import {
+  NotFoundError,
+  ConflictError,
+  BadRequestError,
+} from '../../../shared/utils/apiError.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+
+const MSG = INVENTORY_MESSAGES.warehouse
 import {
   ICreateWarehouseInput,
   IUpdateWarehouseInput,
   IWarehouseFilters,
   IWarehouseWithRelations,
   WarehouseType,
-} from './warehouses.interface'
-import {
-  NotFoundError,
-  ConflictError,
-  BadRequestError,
-} from '../../../shared/utils/apiError'
-import { PaginationHelper } from '../../../shared/utils/pagination'
-import { logger } from '../../../shared/utils/logger'
-import { INVENTORY_MESSAGES } from '../shared/constants/messages'
+} from './warehouses.interface.js'
 
-export class WarehouseService {
-  /**
-   * Crear un nuevo almacén
-   */
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
+
+// Include liviano para listas
+const LIST_INCLUDE = {
+  _count: {
+    select: { stocks: true, exitNotes: true, entryNotes: true },
+  },
+}
+
+// Include completo para getOne
+const FULL_INCLUDE = {
+  stocks: {
+    select: { itemId: true, quantityReal: true, quantityAvailable: true },
+  },
+  _count: {
+    select: {
+      movementsFrom: true,
+      movementsTo: true,
+      exitNotes: true,
+      entryNotes: true,
+      purchaseOrders: true,
+      adjustments: true,
+    },
+  },
+}
+
+class WarehouseService {
   async create(
     data: ICreateWarehouseInput,
-    userId?: string
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IWarehouseWithRelations> {
-    try {
-      // Verificar si el código ya existe
-      const existingCode = await prisma.warehouse.findUnique({
-        where: { code: data.code.toUpperCase() },
-      })
+    const code = data.code.toUpperCase()
 
-      if (existingCode) {
-        throw new ConflictError('El código del almacén ya existe')
-      }
+    const existing = await (db as PrismaClient).warehouse.findFirst({
+      where: { code, empresaId },
+    })
+    if (existing) throw new ConflictError(MSG.codeExists)
 
-      // Crear el almacén
-      const warehouse = await prisma.warehouse.create({
-        data: {
-          code: data.code.toUpperCase(),
-          name: data.name,
-          type: data.type ?? WarehouseType.PRINCIPAL,
-          address: data.address ?? null,
-          isActive: data.isActive ?? true,
-        },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+    const warehouse = await (db as PrismaClient).warehouse.create({
+      data: {
+        code,
+        name: data.name,
+        type: data.type ?? WarehouseType.PRINCIPAL,
+        address: data.address ?? null,
+        isActive: data.isActive ?? true,
+        empresaId,
+      },
+      include: FULL_INCLUDE,
+    })
 
-      logger.info(`Almacén creado: ${warehouse.id}`, {
-        userId,
-        warehouseId: warehouse.id,
-        code: warehouse.code,
-      })
+    logger.info('Almacén creado', { userId, warehouseId: warehouse.id, code })
 
-      return warehouse as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al crear almacén', { error, data })
-      throw error
-    }
+    return warehouse as IWarehouseWithRelations
   }
 
-  /**
-   * Obtener almacén por ID
-   */
-  async findById(id: string): Promise<IWarehouseWithRelations> {
-    try {
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+  async findById(
+    id: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IWarehouseWithRelations> {
+    const warehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { id, empresaId },
+      include: FULL_INCLUDE,
+    })
 
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
+    if (!warehouse) throw new NotFoundError(MSG.notFound)
 
-      return warehouse as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al obtener almacén', { error, id })
-      throw error
-    }
+    return warehouse as IWarehouseWithRelations
   }
 
-  /**
-   * Obtener almacén por código
-   */
-  async findByCode(code: string): Promise<IWarehouseWithRelations> {
-    try {
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { code: code.toUpperCase() },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
-
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
-
-      return warehouse as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al obtener almacén por código', { error, code })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener todos los almacenes con filtros
-   */
   async findAll(
-    filters: IWarehouseFilters = {},
-    page: number = 1,
-    limit: number = 10,
-    sortBy: string = 'name',
-    sortOrder: 'asc' | 'desc' = 'asc',
-    prismaClient?: any
+    filters: IWarehouseFilters,
+    page: number,
+    limit: number,
+    sortBy: string,
+    sortOrder: 'asc' | 'desc',
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<{
     items: IWarehouseWithRelations[]
     page: number
     limit: number
     total: number
   }> {
-    try {
-      const db = prismaClient || prisma
-      const where: any = {}
+    const where: Prisma.WarehouseWhereInput = { empresaId }
 
-      if (filters.search) {
-        where.OR = [
-          { name: { contains: filters.search, mode: 'insensitive' } },
-          { code: { contains: filters.search, mode: 'insensitive' } },
-          { address: { contains: filters.search, mode: 'insensitive' } },
-        ]
-      }
+    if (filters.search) {
+      where.OR = [
+        { name: { contains: filters.search, mode: 'insensitive' } },
+        { code: { contains: filters.search, mode: 'insensitive' } },
+        { address: { contains: filters.search, mode: 'insensitive' } },
+      ]
+    }
 
-      if (filters.type) {
-        where.type = filters.type
-      }
+    if (filters.type) where.type = filters.type as any
+    if (filters.isActive !== undefined) where.isActive = filters.isActive
+    if (filters.code) where.code = filters.code.toUpperCase()
 
-      if (filters.isActive !== undefined) {
-        where.isActive = filters.isActive
-      }
+    const validSortFields = ['name', 'code', 'type', 'createdAt']
+    const orderBy = validSortFields.includes(sortBy)
+      ? { [sortBy]: sortOrder }
+      : { name: sortOrder }
 
-      if (filters.code) {
-        where.code = filters.code.toUpperCase()
-      }
+    const skip = PaginationHelper.getOffset(page, limit)
 
-      const total = await db.warehouse.count({ where })
-
-      const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
-
-      const warehouses = await db.warehouse.findMany({
+    const [total, warehouses] = await Promise.all([
+      (db as PrismaClient).warehouse.count({ where }),
+      (db as PrismaClient).warehouse.findMany({
         where,
         skip,
-        take,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
-
-      return {
-        items: warehouses as IWarehouseWithRelations[],
-        page,
-        limit,
-        total,
-      }
-    } catch (error) {
-      logger.error('Error al obtener almacenes', { error, filters })
-      throw error
-    }
-  }
-
-  /**
-   * Obtener almacenes activos
-   */
-  async findActive(limit: number = 100): Promise<IWarehouseWithRelations[]> {
-    try {
-      const warehouses = await prisma.warehouse.findMany({
-        where: { isActive: true },
         take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+        orderBy,
+        include: LIST_INCLUDE,
+      }),
+    ])
 
-      return warehouses as IWarehouseWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener almacenes activos', { error })
-      throw error
+    return {
+      items: warehouses as IWarehouseWithRelations[],
+      page,
+      limit,
+      total,
     }
   }
 
-  /**
-   * Obtener almacenes por tipo
-   */
-  async findByType(
-    type: WarehouseType,
+  async findActive(
+    empresaId: string,
+    db: PrismaClientType,
     limit: number = 100
   ): Promise<IWarehouseWithRelations[]> {
-    try {
-      const warehouses = await prisma.warehouse.findMany({
-        where: { type, isActive: true },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+    const warehouses = await (db as PrismaClient).warehouse.findMany({
+      where: { isActive: true, empresaId },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: LIST_INCLUDE,
+    })
 
-      return warehouses as IWarehouseWithRelations[]
-    } catch (error) {
-      logger.error('Error al obtener almacenes por tipo', { error, type })
-      throw error
-    }
+    return warehouses as IWarehouseWithRelations[]
   }
 
-  /**
-   * Buscar almacenes
-   */
   async search(
     term: string,
+    empresaId: string,
+    db: PrismaClientType,
     limit: number = 20
   ): Promise<IWarehouseWithRelations[]> {
-    try {
-      const warehouses = await prisma.warehouse.findMany({
-        where: {
-          OR: [
-            { name: { contains: term, mode: 'insensitive' } },
-            { code: { contains: term, mode: 'insensitive' } },
-            { address: { contains: term, mode: 'insensitive' } },
-          ],
-        },
-        take: limit,
-        orderBy: { name: 'asc' },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+    const warehouses = await (db as PrismaClient).warehouse.findMany({
+      where: {
+        empresaId,
+        OR: [
+          { name: { contains: term, mode: 'insensitive' } },
+          { code: { contains: term, mode: 'insensitive' } },
+          { address: { contains: term, mode: 'insensitive' } },
+        ],
+      },
+      take: limit,
+      orderBy: { name: 'asc' },
+      include: LIST_INCLUDE,
+    })
 
-      return warehouses as IWarehouseWithRelations[]
-    } catch (error) {
-      logger.error('Error al buscar almacenes', { error, term })
-      throw error
-    }
+    return warehouses as IWarehouseWithRelations[]
   }
 
-  /**
-   * Actualizar almacén
-   */
   async update(
     id: string,
     data: IUpdateWarehouseInput,
-    userId?: string
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IWarehouseWithRelations> {
-    try {
-      // Verificar que el almacén existe
-      const existing = await prisma.warehouse.findUnique({
-        where: { id },
+    const existing = await (db as PrismaClient).warehouse.findFirst({
+      where: { id, empresaId },
+    })
+    if (!existing) throw new NotFoundError(MSG.notFound)
+
+    if (data.code && data.code.toUpperCase() !== existing.code) {
+      const duplicate = await (db as PrismaClient).warehouse.findFirst({
+        where: { code: data.code.toUpperCase(), empresaId },
       })
-
-      if (!existing) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
-
-      // Si se va a actualizar el código, verificar que no exista otro con ese código
-      if (data.code && data.code !== existing.code) {
-        const existingCode = await prisma.warehouse.findUnique({
-          where: { code: data.code.toUpperCase() },
-        })
-
-        if (existingCode) {
-          throw new ConflictError('El código del almacén ya existe')
-        }
-      }
-
-      // Actualizar
-      const updateData: any = {}
-      if (data.code) updateData.code = data.code.toUpperCase()
-      if (data.name) updateData.name = data.name
-      if (data.type) updateData.type = data.type
-      if (data.address !== undefined) updateData.address = data.address
-      if (data.isActive !== undefined) updateData.isActive = data.isActive
-
-      const warehouse = await prisma.warehouse.update({
-        where: { id },
-        data: updateData,
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
-
-      logger.info(`Almacén actualizado: ${warehouse.id}`, {
-        userId,
-        warehouseId: warehouse.id,
-        changes: data,
-      })
-
-      return warehouse as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al actualizar almacén', { error, id, data })
-      throw error
+      if (duplicate) throw new ConflictError(MSG.codeExists)
     }
+
+    const updateData: Prisma.WarehouseUpdateInput = {}
+    if (data.code !== undefined) updateData.code = data.code.toUpperCase()
+    if (data.name !== undefined) updateData.name = data.name
+    if (data.type !== undefined) updateData.type = data.type as any
+    if (data.address !== undefined) updateData.address = data.address ?? null
+    if (data.isActive !== undefined) updateData.isActive = data.isActive
+
+    const warehouse = await (db as PrismaClient).warehouse.update({
+      where: { id },
+      data: updateData,
+      include: FULL_INCLUDE,
+    })
+
+    logger.info('Almacén actualizado', { userId, warehouseId: id })
+
+    return warehouse as IWarehouseWithRelations
   }
 
-  /**
-   * Eliminar almacén (solo si no tiene movimientos)
-   */
-  async delete(id: string, userId?: string): Promise<void> {
-    try {
-      // Verificar que el almacén existe
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
+  async delete(
+    id: string,
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const warehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { id, empresaId },
+      include: {
+        _count: {
+          select: {
+            stocks: true,
+            movementsFrom: true,
+            movementsTo: true,
+            exitNotes: true,
+            entryNotes: true,
+            purchaseOrders: true,
+            adjustments: true,
+          },
         },
-      })
+      },
+    })
 
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
+    if (!warehouse) throw new NotFoundError(MSG.notFound)
 
-      // Verificar que no tenga movimientos relacionados
-      if (
-        (warehouse.stocks && warehouse.stocks.length > 0) ||
-        (warehouse.movementsFrom && warehouse.movementsFrom.length > 0) ||
-        (warehouse.movementsTo && warehouse.movementsTo.length > 0) ||
-        (warehouse.orders && warehouse.orders.length > 0) ||
-        (warehouse.preInvoices && warehouse.preInvoices.length > 0) ||
-        (warehouse.exitNotes && warehouse.exitNotes.length > 0) ||
-        (warehouse.purchaseOrders && warehouse.purchaseOrders.length > 0)
-      ) {
-        throw new BadRequestError(
-          'No se puede eliminar un almacén que tenga movimientos associados. Intente desactivarlo en su lugar.'
-        )
-      }
+    const counts = (warehouse as any)._count
+    const hasData = Object.values(counts as Record<string, number>).some(
+      (n) => n > 0
+    )
 
-      // Eliminar
-      await prisma.warehouse.delete({
-        where: { id },
-      })
-
-      logger.info(`Almacén eliminado: ${id}`, { userId })
-    } catch (error) {
-      logger.error('Error al eliminar almacén', { error, id })
-      throw error
+    if (hasData) {
+      throw new BadRequestError(MSG.hasStock)
     }
+
+    await (db as PrismaClient).warehouse.delete({ where: { id } })
+
+    logger.info('Almacén eliminado', { userId, warehouseId: id })
   }
 
-  /**
-   * Desactivar almacén
-   */
   async deactivate(
     id: string,
-    userId?: string
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IWarehouseWithRelations> {
-    try {
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id },
-      })
+    const existing = await (db as PrismaClient).warehouse.findFirst({
+      where: { id, empresaId },
+    })
+    if (!existing) throw new NotFoundError(MSG.notFound)
 
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
+    const warehouse = await (db as PrismaClient).warehouse.update({
+      where: { id },
+      data: { isActive: false },
+      include: FULL_INCLUDE,
+    })
 
-      const updated = await prisma.warehouse.update({
-        where: { id },
-        data: { isActive: false },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+    logger.info('Almacén desactivado', { userId, warehouseId: id })
 
-      logger.info(`Almacén desactivado: ${id}`, { userId })
-
-      return updated as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al desactivar almacén', { error, id })
-      throw error
-    }
+    return warehouse as IWarehouseWithRelations
   }
 
-  /**
-   * Activar almacén
-   */
   async activate(
     id: string,
-    userId?: string
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<IWarehouseWithRelations> {
-    try {
-      const warehouse = await prisma.warehouse.findUnique({
-        where: { id },
-      })
+    const existing = await (db as PrismaClient).warehouse.findFirst({
+      where: { id, empresaId },
+    })
+    if (!existing) throw new NotFoundError(MSG.notFound)
 
-      if (!warehouse) {
-        throw new NotFoundError('Almacén no encontrado')
-      }
+    const warehouse = await (db as PrismaClient).warehouse.update({
+      where: { id },
+      data: { isActive: true },
+      include: FULL_INCLUDE,
+    })
 
-      const updated = await prisma.warehouse.update({
-        where: { id },
-        data: { isActive: true },
-        include: {
-          stocks: true,
-          movementsFrom: true,
-          movementsTo: true,
-          orders: true,
-          preInvoices: true,
-          exitNotes: true,
-          purchaseOrders: true,
-        },
-      })
+    logger.info('Almacén activado', { userId, warehouseId: id })
 
-      logger.info(`Almacén activado: ${id}`, { userId })
-
-      return updated as IWarehouseWithRelations
-    } catch (error) {
-      logger.error('Error al activar almacén', { error, id })
-      throw error
-    }
+    return warehouse as IWarehouseWithRelations
   }
 }
+
+export default new WarehouseService()

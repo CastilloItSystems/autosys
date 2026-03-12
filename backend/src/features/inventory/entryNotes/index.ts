@@ -5,6 +5,6 @@
  * Exports the router for inventory module integration
  */
 
-import entryNotesRouter from './entryNotes.routes'
+import entryNotesRouter from './entryNotes.routes.js'
 
 export default entryNotesRouter

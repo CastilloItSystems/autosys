@@ -1,133 +1,166 @@
 // backend/src/features/inventory/suppliers/suppliers.controller.ts
 
 import { Request, Response } from 'express'
-import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware'
-import { ApiResponse } from '../../../shared/utils/apiResponse'
-import SupplierService from './suppliers.service'
+import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import supplierService from './suppliers.service.js'
 import {
   CreateSupplierDTO,
   UpdateSupplierDTO,
   SupplierResponseDTO,
-} from './suppliers.dto'
-import { ISupplierFilters } from './suppliers.interface'
+} from './suppliers.dto.js'
+import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 
-export class SupplierController {
-  /**
-   * GET /api/inventory/suppliers
-   * Obtener todos los proveedores con paginación
-   */
-  getAll = asyncHandler(async (req: Request, res: Response) => {
-    const {
-      page = 1,
-      limit = 20,
-      code,
-      name,
-      isActive,
-      sortBy = 'name',
-      sortOrder = 'asc',
-    } = req.query
+const MSG = INVENTORY_MESSAGES.supplier
 
-    const filters: ISupplierFilters = {}
-    if (code) filters.code = code as string
-    if (name) filters.name = name as string
-    if (isActive !== undefined) filters.isActive = isActive === 'true'
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  return req.empresaId
+}
 
-    const result = await SupplierService.findAll(
-      filters,
-      Number(page),
-      Number(limit),
-      sortBy as string,
-      (sortOrder as string).toLowerCase() as 'asc' | 'desc',
-      req.prisma || undefined
-    )
+function getUserId(req: Request): string {
+  return req.user?.userId ?? 'system'
+}
 
-    const items = result.items.map(
-      (supplier) => new SupplierResponseDTO(supplier)
-    )
+const getAll = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const {
+    page = 1,
+    limit = 20,
+    code,
+    name,
+    isActive,
+    sortBy = 'name',
+    sortOrder = 'asc',
+  } = req.query
 
-    return ApiResponse.paginated(
-      res,
-      items,
-      Number(page),
-      Number(limit),
-      result.total
-    )
-  })
+  const filters: { code?: string; name?: string; isActive?: boolean } = {}
+  if (code) filters.code = code as string
+  if (name) filters.name = name as string
+  if (isActive !== undefined) filters.isActive = isActive === 'true'
 
-  /**
-   * GET /api/inventory/suppliers/:id
-   * Obtener un proveedor por ID
-   */
-  getOne = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const supplier = await SupplierService.findById(id)
-    const dto = new SupplierResponseDTO(supplier)
-    return ApiResponse.success(res, dto)
-  })
+  const result = await supplierService.findAll(
+    filters,
+    Number(page),
+    Number(limit),
+    sortBy as string,
+    (sortOrder as string).toLowerCase() as 'asc' | 'desc',
+    empresaId,
+    req.prisma
+  )
 
-  /**
-   * GET /api/inventory/suppliers/code/:code
-   * Obtener un proveedor por código
-   */
-  getByCode = asyncHandler(async (req: Request, res: Response) => {
-    const { code } = req.params
-    const supplier = await SupplierService.findByCode(code)
-    const dto = new SupplierResponseDTO(supplier)
-    return ApiResponse.success(res, dto)
-  })
+  const items = result.items.map((s) => new SupplierResponseDTO(s))
 
-  /**
-   * GET /api/inventory/suppliers/active
-   * Obtener solo proveedores activos
-   */
-  getActive = asyncHandler(async (req: Request, res: Response) => {
-    const { limit = 20 } = req.query
-    const suppliers = await SupplierService.findActive(Number(limit))
-    const dtos = suppliers.map((supplier) => new SupplierResponseDTO(supplier))
-    return ApiResponse.success(res, dtos)
-  })
+  return ApiResponse.paginated(
+    res,
+    items,
+    result.page,
+    result.limit,
+    result.total
+  )
+})
 
-  /**
-   * POST /api/inventory/suppliers
-   * Crear nuevo proveedor
-   */
-  create = asyncHandler(async (req: Request, res: Response) => {
-    const createDTO = new CreateSupplierDTO(req.body)
-    const supplier = await SupplierService.create(createDTO)
-    const dto = new SupplierResponseDTO(supplier)
-    return ApiResponse.created(res, dto)
-  })
+const getOne = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const id = req.params.id as string
 
-  /**
-   * PUT /api/inventory/suppliers/:id
-   * Actualizar proveedor
-   */
-  update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const updateDTO = new UpdateSupplierDTO(req.body)
-    const supplier = await SupplierService.update(id, updateDTO)
-    const dto = new SupplierResponseDTO(supplier)
-    return ApiResponse.success(res, dto)
-  })
+  const supplier = await supplierService.findById(id, empresaId, req.prisma)
+  return ApiResponse.success(res, new SupplierResponseDTO(supplier))
+})
 
-  /**
-   * DELETE /api/inventory/suppliers/:id
-   * Eliminar proveedor
-   */
-  delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const result = await SupplierService.delete(id)
-    return ApiResponse.success(res, result)
-  })
+const getByCode = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const code = req.params.code as string
 
-  /**
-   * PATCH /api/inventory/suppliers/:id/toggle
-   * Cambiar estado activo/inactivo
-   */
-  toggleActive = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
-    const supplier = await SupplierService.toggleActive(id)
-    const dto = new SupplierResponseDTO(supplier)
-    return ApiResponse.success(res, dto)
-  })
+  const supplier = await supplierService.findByCode(code, empresaId, req.prisma)
+  return ApiResponse.success(res, new SupplierResponseDTO(supplier))
+})
+
+const getActive = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const { limit = 20 } = req.query
+
+  const suppliers = await supplierService.findActive(
+    empresaId,
+    req.prisma,
+    Number(limit)
+  )
+  return ApiResponse.success(
+    res,
+    suppliers.map((s) => new SupplierResponseDTO(s))
+  )
+})
+
+const create = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const userId = getUserId(req)
+
+  const supplier = await supplierService.create(
+    new CreateSupplierDTO(req.body),
+    empresaId,
+    userId,
+    req.prisma
+  )
+  return ApiResponse.created(
+    res,
+    new SupplierResponseDTO(supplier),
+    MSG.created
+  )
+})
+
+const update = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const userId = getUserId(req)
+  const id = req.params.id as string
+
+  const supplier = await supplierService.update(
+    id,
+    new UpdateSupplierDTO(req.body),
+    userId,
+    empresaId,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    new SupplierResponseDTO(supplier),
+    MSG.updated
+  )
+})
+
+const deleteSupplier = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const userId = getUserId(req)
+  const id = req.params.id as string
+
+  await supplierService.delete(id, userId, empresaId, req.prisma)
+  return ApiResponse.success(res, {}, MSG.deleted)
+})
+
+const toggleActive = asyncHandler(async (req: Request, res: Response) => {
+  const empresaId = getEmpresaId(req)
+  const userId = getUserId(req)
+  const id = req.params.id as string
+
+  const supplier = await supplierService.toggleActive(
+    id,
+    userId,
+    empresaId,
+    req.prisma
+  )
+  return ApiResponse.success(
+    res,
+    new SupplierResponseDTO(supplier),
+    MSG.updated
+  )
+})
+
+export default {
+  getAll,
+  getOne,
+  getByCode,
+  getActive,
+  create,
+  update,
+  delete: deleteSupplier,
+  toggleActive,
 }

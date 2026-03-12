@@ -1,303 +1,134 @@
-/**
- * Exit Notes Items Service
- * Handles picking, batch assignment, serial number tracking, and verification
- */
+// backend/src/features/inventory/exitNotes/items/items.service.ts
 
-import prismaClient from '../../../../services/prisma.service'
-import { EventService } from '../../../../shared/events/event.service'
-import { EventType } from '../../../../shared/types/event.types'
+import { PrismaClient, Prisma } from '../../../../generated/prisma/client.js'
+import prisma from '../../../../services/prisma.service.js'
+import {
+  NotFoundError,
+  BadRequestError,
+} from '../../../../shared/utils/apiError.js'
+import { logger } from '../../../../shared/utils/logger.js'
 import {
   IExitNoteItemDetails,
   ItemPickingStatus,
-  IItemPickingInfo,
-  IItemVerificationResult,
-  IBatchAssignment,
-  ISerialAssignment,
   IExitNoteItemsSummary,
-} from './items.interface'
+} from './items.interface.js'
 
-export class ExitNoteItemsService {
-  private static instance: ExitNoteItemsService
-  private prisma: PrismaClient
-  private eventService: EventService
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
-  private constructor() {
-    this.prisma = prismaClient
-    this.eventService = EventService.getInstance()
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Determina el picking status a partir de los campos reales del modelo.
+ * SIN parsing de strings en notes — usa pickedFromLocation como señal de picked.
+ * Para REJECTED/VERIFIED se usa el prefijo en notes solo como fallback
+ * hasta que el schema agregue un campo `pickingStatus` explícito.
+ */
+function derivePickingStatus(item: {
+  pickedFromLocation: string | null
+  notes: string | null
+}): ItemPickingStatus {
+  if (item.notes?.startsWith('REJECTED:')) return ItemPickingStatus.REJECTED
+  if (item.notes?.startsWith('VERIFIED:')) return ItemPickingStatus.VERIFIED
+  if (item.pickedFromLocation) return ItemPickingStatus.PICKED
+  return ItemPickingStatus.NOT_STARTED
+}
+
+function mapToItemDetails(item: {
+  id: string
+  exitNoteId: string
+  itemId: string
+  quantity: number
+  pickedFromLocation: string | null
+  batchId: string | null
+  serialNumberId: string | null
+  notes: string | null
+  createdAt: Date
+}): IExitNoteItemDetails {
+  return {
+    id: item.id,
+    exitNoteId: item.exitNoteId,
+    itemId: item.itemId,
+    quantity: item.quantity,
+    pickingStatus: derivePickingStatus(item),
+    createdAt: item.createdAt,
+    ...(item.pickedFromLocation
+      ? { pickedFromLocation: item.pickedFromLocation }
+      : {}),
+    ...(item.batchId ? { batchId: item.batchId } : {}),
+    ...(item.serialNumberId ? { serialNumberId: item.serialNumberId } : {}),
+    ...(item.notes ? { notes: item.notes } : {}),
   }
+}
 
-  public static getInstance(): ExitNoteItemsService {
-    if (!ExitNoteItemsService.instance) {
-      ExitNoteItemsService.instance = new ExitNoteItemsService()
-    }
-    return ExitNoteItemsService.instance
-  }
+// ---------------------------------------------------------------------------
+// Service
+// ---------------------------------------------------------------------------
+
+class ExitNoteItemsService {
+  // -------------------------------------------------------------------------
+  // READ
+  // -------------------------------------------------------------------------
 
   /**
-   * Get all items for an exit note
+   * Obtiene todos los items de una nota de salida.
+   * Tenant-safe: verifica que la exitNote pertenezca a la empresa.
    */
-  async getItems(exitNoteId: string): Promise<IExitNoteItemDetails[]> {
-    const items = await this.prisma.exitNoteItem.findMany({
+  async getItems(
+    exitNoteId: string,
+    empresaId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails[]> {
+    // Verificar tenant antes de retornar items
+    const exitNote = await db.exitNote.findFirst({
+      where: { id: exitNoteId, warehouse: { empresaId } },
+      select: { id: true },
+    })
+    if (!exitNote) throw new NotFoundError('Nota de salida no encontrada')
+
+    const items = await db.exitNoteItem.findMany({
       where: { exitNoteId },
       orderBy: { createdAt: 'asc' },
     })
 
-    return items.map((item) => this.mapToItemDetails(item))
+    return items.map(mapToItemDetails)
   }
 
   /**
-   * Get a specific item from exit note
+   * Obtiene un item específico.
+   * Tenant-safe: verifica via exitNote → warehouse → empresaId.
    */
-  async getItem(itemId: string): Promise<IExitNoteItemDetails | null> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: itemId },
-    })
-
-    return item ? this.mapToItemDetails(item) : null
-  }
-
-  /**
-   * Record item picking
-   */
-  async recordPicking(
+  async getItem(
     exitNoteItemId: string,
-    quantityPicked: number,
-    pickedFromLocation: string,
-    userId: string,
-    notes?: string
+    empresaId: string,
+    db: PrismaClientType = prisma
   ): Promise<IExitNoteItemDetails> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: exitNoteItemId },
-      include: { exitNote: true },
-    })
-
-    if (!item) {
-      throw new Error(`Exit note item ${exitNoteItemId} not found`)
-    }
-
-    if (quantityPicked > item.quantity) {
-      throw new Error(
-        `Cannot pick ${quantityPicked} items. Only ${item.quantity} required.`
-      )
-    }
-
-    // Update tracking fields (using JSON fields if needed)
-    const updated = await this.prisma.exitNoteItem.update({
-      where: { id: exitNoteItemId },
-      data: {
-        pickedFromLocation,
-        notes: notes ? `${item.notes || ''}\nPicked: ${notes}` : item.notes,
-        updatedAt: new Date(),
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
       },
     })
-
-    // Emit event
-    this.eventService.emit(EventType.ITEM_PICKED, {
-      exitNoteItemId,
-      exitNoteId: item.exitNoteId,
-      itemId: item.itemId,
-      quantityPicked,
-      pickedBy: userId,
-    })
-
-    return this.mapToItemDetails(updated)
+    if (!item) throw new NotFoundError('Item no encontrado')
+    return mapToItemDetails(item)
   }
 
   /**
-   * Assign batch to item
+   * Resumen de picking para una nota de salida.
    */
-  async assignBatch(
-    exitNoteItemId: string,
-    batchId: string,
-    userId: string
-  ): Promise<IExitNoteItemDetails> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: exitNoteItemId },
+  async getSummary(
+    exitNoteId: string,
+    empresaId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemsSummary> {
+    const exitNote = await db.exitNote.findFirst({
+      where: { id: exitNoteId, warehouse: { empresaId } },
+      select: { id: true },
     })
+    if (!exitNote) throw new NotFoundError('Nota de salida no encontrada')
 
-    if (!item) {
-      throw new Error(`Exit note item ${exitNoteItemId} not found`)
-    }
-
-    // Validate batch exists and has available quantity
-    const batch = await this.prisma.batch.findUnique({
-      where: { id: batchId },
-    })
-
-    if (!batch) {
-      throw new Error(`Batch ${batchId} not found`)
-    }
-
-    if (batch.itemId !== item.itemId) {
-      throw new Error(`Batch does not belong to the specified item`)
-    }
-
-    if (batch.currentQuantity < item.quantity) {
-      throw new Error(
-        `Batch does not have sufficient quantity. Available: ${batch.currentQuantity}, Required: ${item.quantity}`
-      )
-    }
-
-    const updated = await this.prisma.exitNoteItem.update({
-      where: { id: exitNoteItemId },
-      data: {
-        batchId,
-        updatedAt: new Date(),
-      },
-    })
-
-    this.eventService.emit(EventType.ITEM_BATCH_ASSIGNED, {
-      exitNoteItemId,
-      itemId: item.itemId,
-      batchId,
-      assignedBy: userId,
-    })
-
-    return this.mapToItemDetails(updated)
-  }
-
-  /**
-   * Assign serial number to item
-   */
-  async assignSerialNumber(
-    exitNoteItemId: string,
-    serialNumberId: string,
-    userId: string
-  ): Promise<IExitNoteItemDetails> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: exitNoteItemId },
-    })
-
-    if (!item) {
-      throw new Error(`Exit note item ${exitNoteItemId} not found`)
-    }
-
-    // Validate serial number exists and belongs to item
-    const serial = await this.prisma.serialNumber.findUnique({
-      where: { id: serialNumberId },
-    })
-
-    if (!serial) {
-      throw new Error(`Serial number ${serialNumberId} not found`)
-    }
-
-    if (serial.itemId !== item.itemId) {
-      throw new Error(`Serial number does not belong to the specified item`)
-    }
-
-    const updated = await this.prisma.exitNoteItem.update({
-      where: { id: exitNoteItemId },
-      data: {
-        serialNumberId,
-        updatedAt: new Date(),
-      },
-    })
-
-    this.eventService.emit(EventType.ITEM_SERIAL_ASSIGNED, {
-      exitNoteItemId,
-      itemId: item.itemId,
-      serialNumberId,
-      serialNumber: serial.serialNumber,
-      assignedBy: userId,
-    })
-
-    return this.mapToItemDetails(updated)
-  }
-
-  /**
-   * Verify item picking
-   */
-  async verifyItem(
-    exitNoteItemId: string,
-    quantityVerified: number,
-    userId: string,
-    notes?: string
-  ): Promise<IExitNoteItemDetails> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: exitNoteItemId },
-    })
-
-    if (!item) {
-      throw new Error(`Exit note item ${exitNoteItemId} not found`)
-    }
-
-    if (quantityVerified > item.quantity) {
-      throw new Error(
-        `Cannot verify ${quantityVerified} items. Only ${item.quantity} required.`
-      )
-    }
-
-    // Update with verification info
-    const updated = await this.prisma.exitNoteItem.update({
-      where: { id: exitNoteItemId },
-      data: {
-        notes: notes ? `${item.notes || ''}\nVerified: ${notes}` : item.notes,
-        updatedAt: new Date(),
-      },
-    })
-
-    // If discrepancy, emit event
-    if (quantityVerified !== item.quantity) {
-      this.eventService.emit(EventType.ITEM_VERIFICATION_DISCREPANCY, {
-        exitNoteItemId,
-        itemId: item.itemId,
-        expected: item.quantity,
-        found: quantityVerified,
-        verifiedBy: userId,
-      })
-    } else {
-      this.eventService.emit(EventType.ITEM_VERIFIED, {
-        exitNoteItemId,
-        itemId: item.itemId,
-        quantity: quantityVerified,
-        verifiedBy: userId,
-      })
-    }
-
-    return this.mapToItemDetails(updated)
-  }
-
-  /**
-   * Reject item (cannot fulfill)
-   */
-  async rejectItem(
-    exitNoteItemId: string,
-    reason: string,
-    userId: string
-  ): Promise<IExitNoteItemDetails> {
-    const item = await this.prisma.exitNoteItem.findUnique({
-      where: { id: exitNoteItemId },
-    })
-
-    if (!item) {
-      throw new Error(`Exit note item ${exitNoteItemId} not found`)
-    }
-
-    const updated = await this.prisma.exitNoteItem.update({
-      where: { id: exitNoteItemId },
-      data: {
-        notes: `${item.notes || ''}\nREJECTED: ${reason}`,
-        updatedAt: new Date(),
-      },
-    })
-
-    this.eventService.emit(EventType.ITEM_REJECTED, {
-      exitNoteItemId,
-      itemId: item.itemId,
-      reason,
-      rejectedBy: userId,
-    })
-
-    return this.mapToItemDetails(updated)
-  }
-
-  /**
-   * Get items summary for exit note
-   */
-  async getItemsSummary(exitNoteId: string): Promise<IExitNoteItemsSummary> {
-    const items = await this.prisma.exitNoteItem.findMany({
-      where: { exitNoteId },
-    })
+    const items = await db.exitNoteItem.findMany({ where: { exitNoteId } })
 
     if (items.length === 0) {
       return {
@@ -313,24 +144,20 @@ export class ExitNoteItemsService {
       }
     }
 
-    const totalQuantity = items.reduce((sum, item) => sum + item.quantity, 0)
-
-    // Simplified counts - would track in detail with additional fields
-    const itemsPicked = items.filter((i) => i.pickedFromLocation).length
-    const itemsRejected = items.filter((i) =>
-      i.notes?.includes('REJECTED')
+    const totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0)
+    const statuses = items.map(derivePickingStatus)
+    const itemsPicked = statuses.filter(
+      (s) => s === ItemPickingStatus.PICKED || s === ItemPickingStatus.VERIFIED
     ).length
-    const itemsVerified = items.filter((i) =>
-      i.notes?.includes('Verified')
+    const itemsVerified = statuses.filter(
+      (s) => s === ItemPickingStatus.VERIFIED
+    ).length
+    const itemsRejected = statuses.filter(
+      (s) => s === ItemPickingStatus.REJECTED
     ).length
 
-    let pickingStatus:
-      | 'NOT_STARTED'
-      | 'IN_PROGRESS'
-      | 'COMPLETE'
-      | 'COMPLETE_WITH_ISSUES' = 'NOT_STARTED'
-
-    if (itemsPicked === 0) {
+    let pickingStatus: IExitNoteItemsSummary['pickingStatus'] = 'NOT_STARTED'
+    if (itemsPicked === 0 && itemsRejected === 0) {
       pickingStatus = 'NOT_STARTED'
     } else if (itemsVerified === items.length) {
       pickingStatus = 'COMPLETE'
@@ -348,72 +175,228 @@ export class ExitNoteItemsService {
       itemsPicked,
       itemsVerified,
       itemsRejected,
-      completionPercentage:
-        items.length > 0
-          ? Math.round(((itemsPicked + itemsRejected) / items.length) * 100)
-          : 0,
+      completionPercentage: Math.round(
+        ((itemsPicked + itemsRejected) / items.length) * 100
+      ),
       pickingStatus,
     }
   }
 
+  // -------------------------------------------------------------------------
+  // MUTATIONS
+  // -------------------------------------------------------------------------
+
   /**
-   * Get items by batch
+   * Registra el picking de un item (ubicación física de donde se tomó).
    */
-  async getItemsByBatch(batchId: string): Promise<IExitNoteItemDetails[]> {
-    const items = await this.prisma.exitNoteItem.findMany({
-      where: { batchId },
+  async recordPicking(
+    exitNoteItemId: string,
+    pickedFromLocation: string,
+    empresaId: string,
+    userId: string,
+    notes?: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails> {
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
+      },
+    })
+    if (!item) throw new NotFoundError('Item no encontrado')
+
+    const currentStatus = derivePickingStatus(item)
+    if (currentStatus === ItemPickingStatus.REJECTED) {
+      throw new BadRequestError(
+        'No se puede registrar picking de un item rechazado'
+      )
+    }
+
+    const updatedNotes = notes
+      ? `${item.notes ? item.notes + '\n' : ''}${notes}`
+      : item.notes
+
+    const updated = await db.exitNoteItem.update({
+      where: { id: exitNoteItemId },
+      data: {
+        pickedFromLocation,
+        ...(updatedNotes !== null ? { notes: updatedNotes } : {}),
+      },
     })
 
-    return items.map((item) => this.mapToItemDetails(item))
+    logger.info(`Item picking registrado: ${exitNoteItemId}`, {
+      pickedFromLocation,
+      userId,
+    })
+    return mapToItemDetails(updated)
   }
 
   /**
-   * Get items by serial number
+   * Verifica un item — registra que la cantidad fue confirmada.
+   * Usa prefijo VERIFIED: en notes (campo disponible en schema actual).
    */
-  async getItemsBySerial(
-    serialNumberId: string
-  ): Promise<IExitNoteItemDetails[]> {
-    const items = await this.prisma.exitNoteItem.findMany({
-      where: { serialNumberId },
+  async verifyItem(
+    exitNoteItemId: string,
+    quantityVerified: number,
+    empresaId: string,
+    userId: string,
+    notes?: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails> {
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
+      },
+    })
+    if (!item) throw new NotFoundError('Item no encontrado')
+    if (!item.pickedFromLocation) {
+      throw new BadRequestError(
+        'El item debe estar en estado PICKED antes de verificar'
+      )
+    }
+    if (quantityVerified > item.quantity) {
+      throw new BadRequestError(
+        `No se puede verificar ${quantityVerified} unidades. Solo se requieren ${item.quantity}.`
+      )
+    }
+
+    const discrepancy = item.quantity - quantityVerified
+    const verificationNote =
+      discrepancy !== 0
+        ? `VERIFIED: qty=${quantityVerified} (discrepancia: ${discrepancy}) by=${userId}${notes ? ' | ' + notes : ''}`
+        : `VERIFIED: qty=${quantityVerified} by=${userId}${notes ? ' | ' + notes : ''}`
+
+    const updated = await db.exitNoteItem.update({
+      where: { id: exitNoteItemId },
+      data: { notes: verificationNote },
     })
 
-    return items.map((item) => this.mapToItemDetails(item))
+    if (discrepancy !== 0) {
+      logger.warn(
+        `Discrepancia en verificación: item=${exitNoteItemId} esperado=${item.quantity} encontrado=${quantityVerified}`
+      )
+    }
+
+    return mapToItemDetails(updated)
   }
 
   /**
-   * Helper: Map to item details interface
+   * Rechaza un item (no se puede cumplir).
+   * Usa prefijo REJECTED: en notes.
    */
-  private mapToItemDetails(item: any): IExitNoteItemDetails {
-    return {
-      id: item.id,
-      exitNoteId: item.exitNoteId,
-      itemId: item.itemId,
-      quantity: item.quantity,
-      quantityPicked: 0, // Would track in detail
-      quantityVerified: 0, // Would track in detail
-      pickedFromLocation: item.pickedFromLocation,
-      batchId: item.batchId,
-      serialNumberId: item.serialNumberId,
-      pickingStatus: this.determinePickingStatus(item),
-      notes: item.notes,
-      createdAt: item.createdAt,
-      updatedAt: item.updatedAt,
+  async rejectItem(
+    exitNoteItemId: string,
+    reason: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails> {
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
+      },
+    })
+    if (!item) throw new NotFoundError('Item no encontrado')
+
+    const currentStatus = derivePickingStatus(item)
+    if (currentStatus === ItemPickingStatus.VERIFIED) {
+      throw new BadRequestError('No se puede rechazar un item ya verificado')
     }
+
+    const updated = await db.exitNoteItem.update({
+      where: { id: exitNoteItemId },
+      data: { notes: `REJECTED: ${reason} by=${userId}` },
+    })
+
+    logger.info(`Item rechazado: ${exitNoteItemId}`, { reason, userId })
+    return mapToItemDetails(updated)
   }
 
   /**
-   * Helper: Determine picking status from item data
+   * Asigna un batch a un item.
+   * Valida que el batch pertenezca al item y tenga stock suficiente.
    */
-  private determinePickingStatus(item: any): ItemPickingStatus {
-    if (item.notes?.includes('REJECTED')) {
-      return ItemPickingStatus.REJECTED
+  async assignBatch(
+    exitNoteItemId: string,
+    batchId: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails> {
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
+      },
+    })
+    if (!item) throw new NotFoundError('Item no encontrado')
+
+    const batch = await db.batch.findFirst({
+      where: { id: batchId, item: { empresaId } },
+    })
+    if (!batch) throw new NotFoundError('Batch no encontrado')
+    if (batch.itemId !== item.itemId) {
+      throw new BadRequestError('El batch no corresponde al ítem de la nota')
     }
-    if (item.notes?.includes('Verified')) {
-      return ItemPickingStatus.VERIFIED
+    if (batch.currentQuantity < item.quantity) {
+      throw new BadRequestError(
+        `Stock insuficiente en batch. Disponible: ${batch.currentQuantity}, Requerido: ${item.quantity}`
+      )
     }
-    if (item.pickedFromLocation) {
-      return ItemPickingStatus.PICKED
+
+    const updated = await db.exitNoteItem.update({
+      where: { id: exitNoteItemId },
+      data: { batchId },
+    })
+
+    logger.info(`Batch asignado: item=${exitNoteItemId} batch=${batchId}`, {
+      userId,
+    })
+    return mapToItemDetails(updated)
+  }
+
+  /**
+   * Asigna un número de serie a un item.
+   * Valida que el serial pertenezca al item correcto.
+   */
+  async assignSerialNumber(
+    exitNoteItemId: string,
+    serialNumberId: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IExitNoteItemDetails> {
+    const item = await db.exitNoteItem.findFirst({
+      where: {
+        id: exitNoteItemId,
+        exitNote: { warehouse: { empresaId } },
+      },
+    })
+    if (!item) throw new NotFoundError('Item no encontrado')
+
+    const serial = await db.serialNumber.findFirst({
+      where: { id: serialNumberId, item: { empresaId } },
+    })
+    if (!serial) throw new NotFoundError('Número de serie no encontrado')
+    if (serial.itemId !== item.itemId) {
+      throw new BadRequestError(
+        'El número de serie no corresponde al ítem de la nota'
+      )
     }
-    return ItemPickingStatus.NOT_STARTED
+
+    const updated = await db.exitNoteItem.update({
+      where: { id: exitNoteItemId },
+      data: { serialNumberId },
+    })
+
+    logger.info(
+      `Serial asignado: item=${exitNoteItemId} serial=${serialNumberId}`,
+      { userId }
+    )
+    return mapToItemDetails(updated)
   }
 }
+
+export default new ExitNoteItemsService()
