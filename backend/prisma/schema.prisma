@@ -29,83 +29,74 @@ model AuditLog {
 }
 
 
-// backend/prisma/models/companyRole.prisma
-// Roles dinámicos por empresa. Reemplazan el enum Role estático.
-
 model CompanyRole {
-  id          String   @id @default(cuid())
-  name        String
-  description String?
+  id              String            @id @default(cuid())
+  name            String
+  description     String?
 
-  // Empresa dueña de este rol
-  empresaId   String
-  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+  empresaId       String
+  empresa         Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
 
-  // Permisos que tiene este rol (strings del catálogo de 47 permisos)
-  permissions String[]
+  isSystem        Boolean           @default(false)
 
-  // isSystem: true en roles creados desde ROLE_PERMISSIONS base.
-  // Protege contra borrado accidental, pero el admin puede editar sus permisos.
-  isSystem    Boolean  @default(false)
+  memberships     Membership[]
+  permissions     RolePermission[]
 
-  userEmpresaRoles UserEmpresaRole[]
-
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
 
   @@unique([name, empresaId])
-  @@map("company_roles")
   @@index([empresaId])
+  @@map("company_roles")
 }
 
-
 model Empresa {
-  id_empresa    String   @id @default(cuid())
-  nombre        String
-  direccion     String?
-  telefonos     String?
-  fax           String?
-  numerorif     String?
-  numeronit     String?
-  website       String?
-  email         String?
-  contacto      String?
-  predeter      Boolean  @default(false)
-  soporte1      String?
-  soporte2      String?
-  soporte3      String?
-  data_usaweb   Boolean  @default(false)
-  data_servidor String?
-  data_usuario  String?
-  data_password String?
-  data_port     String?
-  licencia      String?
-  historizada   Boolean  @default(false)
-  masinfo       String?
-  usa_prefijo   Boolean  @default(false)
-  name_prefijo  String?
-  dprefijobd    String?
-  dprefijosrv   String?
-  dprefijousr   String?
-  eliminado     Boolean  @default(false)
-  users            User[]
-  companyRoles     CompanyRole[]     // NEW: roles dinámicos de esta empresa
-  userEmpresaRoles UserEmpresaRole[] // NEW: asignaciones usuario-rol en esta empresa
+  id_empresa      String       @id @default(cuid())
+  nombre          String
+  direccion       String?
+  telefonos       String?
+  fax             String?
+  numerorif       String?
+  numeronit       String?
+  website         String?
+  email           String?
+  contacto        String?
+  predeter        Boolean      @default(false)
+  soporte1        String?
+  soporte2        String?
+  soporte3        String?
+  data_usaweb     Boolean      @default(false)
+  data_servidor   String?
+  data_usuario    String?
+  data_password   String?
+  data_port       String?
+  licencia        String?
+  historizada     Boolean      @default(false)
+  masinfo         String?
+  usa_prefijo     Boolean      @default(false)
+  name_prefijo    String?
+  dprefijobd      String?
+  dprefijosrv     String?
+  dprefijousr     String?
+  eliminado       Boolean      @default(false)
 
-  warehouses    Warehouse[]
-  items         Item[]
-  customers     Customer[]
-  suppliers     Supplier[]
-  orders        Order[]
-  preInvoices   PreInvoice[]
-  invoices      Invoice[]
-  brands        Brand[]
-  categories    Category[]
-  units         Unit[]
-  models        Model[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  memberships     Membership[]
+  companyRoles    CompanyRole[]
+
+  warehouses      Warehouse[]
+  items           Item[]
+  customers       Customer[]
+  suppliers       Supplier[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  brands          Brand[]
+  categories      Category[]
+  units           Unit[]
+  models          Model[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }
 
 // backend/prisma/models/inventory/adjustment.prisma
@@ -1703,6 +1694,88 @@ model Warehouse {
   @@index([empresaId])
 }
 
+enum MembershipStatus {
+  invited
+  active
+  suspended
+}
+
+model Membership {
+  id          String               @id @default(cuid())
+
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  empresaId   String
+  empresa     Empresa              @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  roleId      String
+  role        CompanyRole          @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  status      MembershipStatus     @default(active)
+
+  assignedBy  String?
+  assignedAt  DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  permissions MembershipPermission[]
+
+  @@unique([userId, empresaId])
+  @@index([userId])
+  @@index([empresaId])
+  @@index([roleId])
+  @@map("memberships")
+}
+
+enum PermissionAction {
+  GRANT
+  REVOKE
+}
+
+model MembershipPermission {
+  id            String            @id @default(cuid())
+
+  membershipId  String
+  membership    Membership        @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  permissionId  String
+  permission    Permission        @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  action        PermissionAction  @default(GRANT)
+  reason        String?
+  grantedBy     String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([membershipId, permissionId])
+  @@index([permissionId])
+  @@map("membership_permissions")
+}
+
+model Permission {
+  id                    String                  @id @default(cuid())
+  code                  String                  @unique
+  description           String?
+  createdAt             DateTime                @default(now())
+
+  rolePermissions       RolePermission[]
+  membershipPermissions MembershipPermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId        String
+  permissionId  String
+
+  role          CompanyRole  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission    Permission   @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([permissionId])
+  @@map("role_permissions")
+}
+
 // backend/prisma/models/sales/customer.prisma
 
 enum CustomerType {
@@ -2066,26 +2139,28 @@ model PreInvoiceItem {
 }
 
 model User {
-  id              String           @id @default(cuid())
-  img             String?
-  nombre          String
-  correo          String           @unique
-  telefono        String?
-  password        String
-  rol             Role             @default(VIEWER)
-  departamento    String[]
-  acceso          Access           @default(ninguno)
-  empresas        Empresa[]
-  estado          UserStatus       @default(activo)
-  eliminado       Boolean          @default(false)
-  online          Boolean          @default(false)
-  fcmTokens       String[]
-  google          Boolean          @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  auditLogs        AuditLog[]
-  userPermissions  UserPermission[]
-  userEmpresaRoles UserEmpresaRole[] // NEW: reemplazará rol + empresas tras seed
+  id            String       @id @default(cuid())
+  img           String?
+  nombre        String
+  correo        String       @unique
+  telefono      String?
+  password      String
+  departamento  String[]
+  acceso        Access       @default(ninguno)
+  estado        UserStatus   @default(activo)
+  eliminado     Boolean      @default(false)
+  online        Boolean      @default(false)
+  fcmTokens     String[]
+  google        Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  auditLogs     AuditLog[]
+  memberships   Membership[]
+
+  @@index([eliminado])
+  @@index([estado])
+  @@index([nombre])
 }
 
 enum UserStatus {
@@ -2094,78 +2169,8 @@ enum UserStatus {
   suspendido
 }
 
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  GERENTE
-  VENDEDOR
-  ALMACENISTA
-  MECANICO
-  CAJERO
-  CONTADOR
-  ASESOR
-  VIEWER
-}
-
 enum Access {
   limitado
   completo
   ninguno
-}
-
-
-// backend/prisma/models/userEmpresaRole.prisma
-// Tabla de unión: usuario + empresa + rol dinámico.
-// Un usuario tiene UN solo rol por empresa.
-// Reemplaza la relación implícita User.empresas (many-to-many) y el campo User.rol.
-
-model UserEmpresaRole {
-  id         String      @id @default(cuid())
-
-  userId     String
-  user       User        @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  empresaId  String
-  empresa    Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
-
-  roleId     String
-  role       CompanyRole @relation(fields: [roleId], references: [id], onDelete: Restrict)
-
-  // Trazabilidad de asignación
-  assignedBy String?     // ID del admin que asignó el rol
-  assignedAt DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
-
-  // Un usuario solo puede tener UN rol por empresa
-  @@unique([userId, empresaId])
-  @@map("user_empresa_roles")
-  @@index([userId])
-  @@index([empresaId])
-  @@index([roleId])
-}
-
-
-// backend/prisma/models/userPermission.prisma
-// Permisos individuales por usuario (overrides sobre el rol base)
-
-enum PermissionAction {
-  GRANT   // Agrega el permiso aunque el rol no lo tenga
-  REVOKE  // Quita el permiso aunque el rol lo tenga
-}
-
-model UserPermission {
-  id         String           @id @default(cuid())
-  userId     String
-  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permission String           // Ej: "inventory:view", "reports:export"
-  action     PermissionAction @default(GRANT)
-  reason     String?          // Nota del admin sobre por qué se asignó
-  grantedBy  String?          // ID del admin que lo asignó
-  createdAt  DateTime         @default(now())
-  updatedAt  DateTime         @updatedAt
-
-  @@unique([userId, permission])
-  @@map("user_permissions")
-  @@index([userId])
-  @@index([permission])
 }

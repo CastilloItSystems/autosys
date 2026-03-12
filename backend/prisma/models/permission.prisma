@@ -1,0 +1,11 @@
+model Permission {
+  id                    String                  @id @default(cuid())
+  code                  String                  @unique
+  description           String?
+  createdAt             DateTime                @default(now())
+
+  rolePermissions       RolePermission[]
+  membershipPermissions MembershipPermission[]
+
+  @@map("permissions")
+}

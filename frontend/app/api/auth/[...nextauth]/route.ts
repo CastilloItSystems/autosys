@@ -26,26 +26,28 @@ const handler = NextAuth({
       },
       authorize: async (credentials) => {
         try {
-          // console.log("credentials", credentials);
-          let user = null;
+          const response = await loginUser(credentials);
+          console.log("lo que envia el backend", response);
 
-          user = await loginUser(credentials);
-          // console.log(user);
-
-          if (!user) {
-            // No user found, so this is their first attempt to login
-            // Optionally, this is also the place you could do a user registration
-            throw new Error("Datos invalidos.");
+          // Verificamos si la respuesta fue exitosa y si contiene la propiedad data.user
+          if (
+            !response ||
+            !response.success ||
+            !response.data ||
+            !response.data.user
+          ) {
+            throw new Error("Datos inválidos.");
           }
-          // Return only the user object, not the full response
-          // Add the token to the user object so it's available in callbacks
-          (user.user as any).token = user.token;
-          return user.user;
+
+          // Extraemos el usuario y el token de la propiedad "data"
+          const userData = response.data.user;
+          userData.token = response.data.token;
+
+          return userData;
         } catch (error) {
-          // console.log("errordeauth", error.response.data);
+          console.error("Error de auth:", error);
           return null;
         }
-        // return user object with their profile data
       },
     }),
   ],

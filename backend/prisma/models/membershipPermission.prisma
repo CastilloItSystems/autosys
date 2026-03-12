@@ -1,0 +1,24 @@
+enum PermissionAction {
+  GRANT
+  REVOKE
+}
+
+model MembershipPermission {
+  id            String            @id @default(cuid())
+
+  membershipId  String
+  membership    Membership        @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  permissionId  String
+  permission    Permission        @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  action        PermissionAction  @default(GRANT)
+  reason        String?
+  grantedBy     String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([membershipId, permissionId])
+  @@index([permissionId])
+  @@map("membership_permissions")
+}

@@ -11,11 +11,6 @@ if (!JWT_SECRET) {
 export interface JWTPayload {
   userId: string
   email: string
-  role: string
-  access: string
-  permissions: string[]
-  empresaIds?: string[]
-  activeEmpresaId?: string
   iat?: number
   exp?: number
 }
@@ -23,7 +18,9 @@ export interface JWTPayload {
 export const generateToken = (
   payload: Omit<JWTPayload, 'iat' | 'exp'>
 ): string => {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: JWT_EXPIRES_IN })
+  return jwt.sign(payload, JWT_SECRET, {
+    expiresIn: JWT_EXPIRES_IN,
+  })
 }
 
 export const verifyToken = (token: string): JWTPayload | null => {
@@ -37,6 +34,9 @@ export const verifyToken = (token: string): JWTPayload | null => {
 export const extractTokenFromHeader = (
   authHeader: string | undefined
 ): string | null => {
-  if (!authHeader || !authHeader.startsWith('Bearer ')) return null
+  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+    return null
+  }
+
   return authHeader.slice(7).trim() || null
 }

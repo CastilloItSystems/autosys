@@ -4,18 +4,14 @@ import { ApiResponse } from '../utils/apiResponse.js'
 import { createTenantPrisma } from '../../services/prisma-tenant.service.js'
 import { logger } from '../utils/logger.js'
 
-/**
- * Middleware para extraer y validar empresaId del header X-Empresa-Id
- * Debe ejecutarse DESPUÉS del middleware de autenticación
- */
 export const extractEmpresa = async (
   req: Request,
-  _res: Response,
+  res: Response,
   next: NextFunction
 ) => {
   try {
     if (!req.user?.userId) {
-      return ApiResponse.unauthorized(_res, 'Usuario no autenticado')
+      return ApiResponse.unauthorized(res, 'Usuario no autenticado')
     }
 
     const rawEmpresaId = req.headers['x-empresa-id']
@@ -27,36 +23,46 @@ export const extractEmpresa = async (
           : undefined
 
     if (!empresaId) {
-      return ApiResponse.badRequest(_res, 'El header X-Empresa-Id es requerido')
+      return ApiResponse.badRequest(res, 'El header X-Empresa-Id es requerido')
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: req.user.userId },
-      include: { empresas: { select: { id_empresa: true } } },
+    const membership = await prisma.membership.findUnique({
+      where: {
+        userId_empresaId: {
+          userId: req.user.userId,
+          empresaId,
+        },
+      },
+      include: {
+        role: true,
+      },
     })
 
-    if (!user) {
-      return ApiResponse.unauthorized(_res, 'Usuario no encontrado')
+    if (!membership) {
+      return ApiResponse.forbidden(res, 'No tienes acceso a esta empresa')
     }
 
-    const hasAccess = user.empresas.some(
-      (empresa: { id_empresa: string }) => empresa.id_empresa === empresaId
-    )
-    if (!hasAccess) {
-      return ApiResponse.forbidden(_res, 'No tienes acceso a esta empresa')
+    if (membership.status !== 'active') {
+      return ApiResponse.forbidden(
+        res,
+        'Tu membresía en esta empresa no está activa'
+      )
     }
 
     req.empresaId = empresaId
     req.prisma = createTenantPrisma(empresaId)
+    req.membership = membership
 
     return next()
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error))
+
     logger.error('[extractEmpresa] Error', {
       message: err.message,
       stack: err.stack,
       userId: req.user?.userId,
     })
-    return ApiResponse.serverError(_res, 'Error al validar acceso a empresa')
+
+    return ApiResponse.serverError(res, 'Error al validar acceso a empresa')
   }
 }

@@ -1,0 +1,32 @@
+enum MembershipStatus {
+  invited
+  active
+  suspended
+}
+
+model Membership {
+  id          String               @id @default(cuid())
+
+  userId      String
+  user        User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  empresaId   String
+  empresa     Empresa              @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  roleId      String
+  role        CompanyRole          @relation(fields: [roleId], references: [id], onDelete: Restrict)
+
+  status      MembershipStatus     @default(active)
+
+  assignedBy  String?
+  assignedAt  DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  permissions MembershipPermission[]
+
+  @@unique([userId, empresaId])
+  @@index([userId])
+  @@index([empresaId])
+  @@index([roleId])
+  @@map("memberships")
+}

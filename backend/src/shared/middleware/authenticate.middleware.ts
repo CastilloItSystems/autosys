@@ -8,11 +8,13 @@ import prisma from '../../services/prisma.service.js'
 export const authenticate = asyncHandler(
   async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       throw new UnauthorizedError('Token no proporcionado')
     }
 
     const token = authHeader.split(' ')[1]
+
     if (!token) {
       throw new UnauthorizedError('Formato de token inválido')
     }
@@ -24,7 +26,7 @@ export const authenticate = asyncHandler(
       throw new UnauthorizedError('Token inválido o expirado')
     }
 
-    if (!decoded) {
+    if (!decoded?.userId) {
       throw new UnauthorizedError('Token inválido o expirado')
     }
 
@@ -33,7 +35,6 @@ export const authenticate = asyncHandler(
       select: {
         id: true,
         correo: true,
-        rol: true,
         acceso: true,
         estado: true,
         eliminado: true,
@@ -44,7 +45,12 @@ export const authenticate = asyncHandler(
       throw new UnauthorizedError('Usuario no autorizado o inactivo')
     }
 
-    req.user = decoded
+    req.user = {
+      userId: user.id,
+      correo: user.correo,
+      acceso: user.acceso,
+    }
+
     next()
   }
 )
@@ -52,6 +58,7 @@ export const authenticate = asyncHandler(
 export const optionalAuthenticate = asyncHandler(
   async (req: Request, _res: Response, next: NextFunction) => {
     const authHeader = req.headers.authorization
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return next()
     }
@@ -66,19 +73,25 @@ export const optionalAuthenticate = asyncHandler(
       return next()
     }
 
-    if (!decoded) return next()
+    if (!decoded?.userId) return next()
 
     const user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
         id: true,
+        correo: true,
+        acceso: true,
         eliminado: true,
         estado: true,
       },
     })
 
     if (user && !user.eliminado && user.estado === 'activo') {
-      req.user = decoded
+      req.user = {
+        userId: user.id,
+        correo: user.correo,
+        acceso: user.acceso,
+      }
     }
 
     next()

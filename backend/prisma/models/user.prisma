@@ -1,43 +1,32 @@
 model User {
-  id              String           @id @default(cuid())
-  img             String?
-  nombre          String
-  correo          String           @unique
-  telefono        String?
-  password        String
-  rol             Role             @default(VIEWER)
-  departamento    String[]
-  acceso          Access           @default(ninguno)
-  empresas        Empresa[]
-  estado          UserStatus       @default(activo)
-  eliminado       Boolean          @default(false)
-  online          Boolean          @default(false)
-  fcmTokens       String[]
-  google          Boolean          @default(false)
-  createdAt       DateTime         @default(now())
-  updatedAt       DateTime         @updatedAt
-  auditLogs        AuditLog[]
-  userPermissions  UserPermission[]
-  userEmpresaRoles UserEmpresaRole[] // NEW: reemplazará rol + empresas tras seed
+  id            String       @id @default(cuid())
+  img           String?
+  nombre        String
+  correo        String       @unique
+  telefono      String?
+  password      String
+  departamento  String[]
+  acceso        Access       @default(ninguno)
+  estado        UserStatus   @default(activo)
+  eliminado     Boolean      @default(false)
+  online        Boolean      @default(false)
+  fcmTokens     String[]
+  google        Boolean      @default(false)
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  auditLogs     AuditLog[]
+  memberships   Membership[]
+
+  @@index([eliminado])
+  @@index([estado])
+  @@index([nombre])
 }
 
 enum UserStatus {
   pendiente
   activo
   suspendido
-}
-
-enum Role {
-  SUPER_ADMIN
-  ADMIN
-  GERENTE
-  VENDEDOR
-  ALMACENISTA
-  MECANICO
-  CAJERO
-  CONTADOR
-  ASESOR
-  VIEWER
 }
 
 enum Access {

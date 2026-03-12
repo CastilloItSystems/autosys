@@ -1,30 +1,81 @@
 // backend/src/shared/middleware/authorize.middleware.ts
-
 import { Request, Response, NextFunction } from 'express'
 import { ForbiddenError, UnauthorizedError } from '../utils/apiError.js'
-import { Permission } from '../constants/permissions.js'
-import { Role } from '../constants/roles.js'
+import prisma from '../../services/prisma.service.js'
 
 const skipAuthzInTests = process.env.SKIP_AUTHZ_IN_TESTS === 'true'
 
-/**
- * Middleware de autorización: requiere TODOS los permisos indicados.
- * Los permisos ya vienen resueltos en el JWT (req.user.permissions).
- */
-export const authorize = (...requiredPermissions: Permission[]) => {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+async function getEffectivePermissions(
+  membershipId: string
+): Promise<Set<string>> {
+  const membership = await prisma.membership.findUnique({
+    where: { id: membershipId },
+    include: {
+      role: {
+        include: {
+          permissions: {
+            include: {
+              permission: true,
+            },
+          },
+        },
+      },
+      permissions: {
+        include: {
+          permission: true,
+        },
+      },
+    },
+  })
+
+  if (!membership) {
+    return new Set()
+  }
+
+  const effectivePermissions = new Set<string>()
+
+  for (const rp of membership.role.permissions) {
+    effectivePermissions.add(rp.permission.code)
+  }
+
+  for (const mp of membership.permissions) {
+    if (mp.action === 'GRANT') {
+      effectivePermissions.add(mp.permission.code)
+    }
+
+    if (mp.action === 'REVOKE') {
+      effectivePermissions.delete(mp.permission.code)
+    }
+  }
+
+  return effectivePermissions
+}
+
+export const authorize = (...requiredPermissions: string[]) => {
+  return async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
 
     if (!req.user) {
       throw new UnauthorizedError('Usuario no autenticado')
     }
 
-    const userPermissions: string[] = req.user.permissions ?? []
-    const hasPermission = requiredPermissions.every((permission) =>
-      userPermissions.includes(permission)
+    if (!req.membership?.id) {
+      throw new ForbiddenError(
+        'No se encontró la membresía activa para esta empresa'
+      )
+    }
+
+    const userPermissions = await getEffectivePermissions(req.membership.id)
+
+    const hasAllPermissions = requiredPermissions.every((permission) =>
+      userPermissions.has(permission)
     )
 
-    if (!hasPermission) {
+    if (!hasAllPermissions) {
       throw new ForbiddenError('No tienes permisos para realizar esta acción')
     }
 
@@ -32,20 +83,28 @@ export const authorize = (...requiredPermissions: Permission[]) => {
   }
 }
 
-/**
- * Middleware de autorización: requiere AL MENOS UNO de los permisos indicados.
- */
-export const authorizeAny = (...requiredPermissions: Permission[]) => {
-  return (req: Request, _res: Response, next: NextFunction): void => {
+export const authorizeAny = (...requiredPermissions: string[]) => {
+  return async (
+    req: Request,
+    _res: Response,
+    next: NextFunction
+  ): Promise<void> => {
     if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
 
     if (!req.user) {
       throw new UnauthorizedError('Usuario no autenticado')
     }
 
-    const userPermissions: string[] = req.user.permissions ?? []
+    if (!req.membership?.id) {
+      throw new ForbiddenError(
+        'No se encontró la membresía activa para esta empresa'
+      )
+    }
+
+    const userPermissions = await getEffectivePermissions(req.membership.id)
+
     const hasAnyPermission = requiredPermissions.some((permission) =>
-      userPermissions.includes(permission)
+      userPermissions.has(permission)
     )
 
     if (!hasAnyPermission) {
@@ -56,10 +115,7 @@ export const authorizeAny = (...requiredPermissions: Permission[]) => {
   }
 }
 
-/**
- * Middleware de autorización: requiere estar en alguno de los roles indicados.
- */
-export const authorizeRoles = (...allowedRoles: Role[]) => {
+export const authorizeRoles = (...allowedRoles: string[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
     if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
 
@@ -67,8 +123,9 @@ export const authorizeRoles = (...allowedRoles: Role[]) => {
       throw new UnauthorizedError('Usuario no autenticado')
     }
 
-    const userRole = req.user.role as Role | undefined
-    if (!userRole || !allowedRoles.includes(userRole)) {
+    const roleName = req.membership?.role?.name
+
+    if (!roleName || !allowedRoles.includes(roleName)) {
       throw new ForbiddenError(
         'No tienes el rol necesario para realizar esta acción'
       )

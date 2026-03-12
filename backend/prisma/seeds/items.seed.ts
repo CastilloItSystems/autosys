@@ -29,7 +29,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
 
     // Item 1: Filtro de Aire
     await prisma.item.upsert({
-      where: { sku: 'FLT-AIR-001' },
+      where: { empresaId_sku: { empresaId, sku: 'FLT-AIR-001' } },
       update: {
         name: 'Filtro de Aire Bosch BA-2015',
         description: 'Filtro de aire de alta calidad para motores de gasolina',
@@ -62,7 +62,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
 
     // Item 2: Filtro de Aceite
     await prisma.item.upsert({
-      where: { sku: 'FLT-OIL-001' },
+      where: { empresaId_sku: { empresaId, sku: 'FLT-OIL-001' } },
       update: {
         name: 'Filtro de Aceite Bosch OB-2016',
         description: 'Filtro de aceite para cambios regulares',
@@ -95,7 +95,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
 
     // Item 3: Aceite 10W40
     await prisma.item.upsert({
-      where: { sku: 'OIL-10W40-001' },
+      where: { empresaId_sku: { empresaId, sku: 'OIL-10W40-001' } },
       update: {
         name: 'Aceite Castrol 10W40 1L',
         description: 'Aceite multigrado sintético 10W40 para motores gasolina',
@@ -128,7 +128,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
 
     // Item 4: Aceite 15W40
     await prisma.item.upsert({
-      where: { sku: 'OIL-15W40-001' },
+      where: { empresaId_sku: { empresaId, sku: 'OIL-15W40-001' } },
       update: {
         name: 'Aceite Castrol 15W40 1L',
         description: 'Aceite multigrado 15W40 para motores diesel',
@@ -161,7 +161,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
 
     // Item 5: Filtro de Cabina
     await prisma.item.upsert({
-      where: { sku: 'FLT-CAB-001' },
+      where: { empresaId_sku: { empresaId, sku: 'FLT-CAB-001' } },
       update: {
         name: 'Filtro de Cabina Bosch CF-2017',
         description: 'Filtro de cabina con carbón activado',
@@ -205,7 +205,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       const price = (1000 + i * 50).toFixed(2)
 
       await prisma.item.upsert({
-        where: { sku },
+        where: { empresaId_sku: { empresaId, sku } },
         update: {
           name,
           description: `Descripción generada para el item ${i}`,

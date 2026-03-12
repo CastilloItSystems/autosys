@@ -1,48 +1,48 @@
 model Empresa {
-  id_empresa    String   @id @default(cuid())
-  nombre        String
-  direccion     String?
-  telefonos     String?
-  fax           String?
-  numerorif     String?
-  numeronit     String?
-  website       String?
-  email         String?
-  contacto      String?
-  predeter      Boolean  @default(false)
-  soporte1      String?
-  soporte2      String?
-  soporte3      String?
-  data_usaweb   Boolean  @default(false)
-  data_servidor String?
-  data_usuario  String?
-  data_password String?
-  data_port     String?
-  licencia      String?
-  historizada   Boolean  @default(false)
-  masinfo       String?
-  usa_prefijo   Boolean  @default(false)
-  name_prefijo  String?
-  dprefijobd    String?
-  dprefijosrv   String?
-  dprefijousr   String?
-  eliminado     Boolean  @default(false)
-  users            User[]
-  companyRoles     CompanyRole[]     // NEW: roles dinámicos de esta empresa
-  userEmpresaRoles UserEmpresaRole[] // NEW: asignaciones usuario-rol en esta empresa
+  id_empresa      String       @id @default(cuid())
+  nombre          String
+  direccion       String?
+  telefonos       String?
+  fax             String?
+  numerorif       String?
+  numeronit       String?
+  website         String?
+  email           String?
+  contacto        String?
+  predeter        Boolean      @default(false)
+  soporte1        String?
+  soporte2        String?
+  soporte3        String?
+  data_usaweb     Boolean      @default(false)
+  data_servidor   String?
+  data_usuario    String?
+  data_password   String?
+  data_port       String?
+  licencia        String?
+  historizada     Boolean      @default(false)
+  masinfo         String?
+  usa_prefijo     Boolean      @default(false)
+  name_prefijo    String?
+  dprefijobd      String?
+  dprefijosrv     String?
+  dprefijousr     String?
+  eliminado       Boolean      @default(false)
 
-  warehouses    Warehouse[]
-  items         Item[]
-  customers     Customer[]
-  suppliers     Supplier[]
-  orders        Order[]
-  preInvoices   PreInvoice[]
-  invoices      Invoice[]
-  brands        Brand[]
-  categories    Category[]
-  units         Unit[]
-  models        Model[]
-  
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  memberships     Membership[]
+  companyRoles    CompanyRole[]
+
+  warehouses      Warehouse[]
+  items           Item[]
+  customers       Customer[]
+  suppliers       Supplier[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  brands          Brand[]
+  categories      Category[]
+  units           Unit[]
+  models          Model[]
+
+  createdAt       DateTime     @default(now())
+  updatedAt       DateTime     @updatedAt
 }

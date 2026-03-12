@@ -2,7 +2,7 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import prisma from '../services/prisma.service.js'
 import { generateToken } from '../services/jwt.service.js'
-import { resolvePermissionsFromBase } from '../shared/utils/resolvePermissions.js'
+import { resolveMembershipPermissions } from '../shared/utils/resolvePermissions.js'
 import { ApiResponse } from '../shared/utils/apiResponse.js'
 import { logger } from '../shared/utils/logger.js'
 
@@ -23,14 +23,39 @@ export const login = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: { correo },
       include: {
-        userEmpresaRoles: {
+        memberships: {
           include: {
-            empresa: { select: { id_empresa: true } },
-            role: { select: { name: true, permissions: true } },
+            empresa: {
+              select: {
+                id_empresa: true,
+                nombre: true,
+              },
+            },
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: {
+                      select: {
+                        code: true,
+                        description: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            permissions: {
+              include: {
+                permission: {
+                  select: {
+                    code: true,
+                    description: true,
+                  },
+                },
+              },
+            },
           },
-        },
-        userPermissions: {
-          select: { permission: true, action: true },
         },
       },
     })
@@ -47,65 +72,69 @@ export const login = async (req: Request, res: Response) => {
     }
 
     const isValidPassword = await bcrypt.compare(password, user.password)
+
     if (!isValidPassword) {
       return ApiResponse.unauthorized(res, 'Credenciales inválidas')
     }
 
-    const basePermissions = user.userEmpresaRoles.flatMap(
-      (uer) => uer.role.permissions
-    )
-    const permissions = resolvePermissionsFromBase(
-      basePermissions,
-      user.userPermissions
+    const activeMemberships = user.memberships.filter(
+      (membership) => membership.status === 'active'
     )
 
-    const isSuperAdmin = user.userEmpresaRoles.some(
-      (uer) => uer.role.name === 'SUPER_ADMIN'
-    )
+    const empresas = activeMemberships.map((membership) => ({
+      membershipId: membership.id,
+      empresaId: membership.empresa.id_empresa,
+      nombre: membership.empresa.nombre,
+      role: {
+        id: membership.role.id,
+        name: membership.role.name,
+        description: membership.role.description,
+      },
+      permissions: resolveMembershipPermissions(
+        membership.role.permissions,
+        membership.permissions
+      ),
+    }))
 
-    const jwtRole = isSuperAdmin
-      ? 'SUPER_ADMIN'
-      : (user.userEmpresaRoles[0]?.role.name ?? user.rol)
-
-    const empresaIds = user.userEmpresaRoles.map(
-      (uer) => uer.empresa.id_empresa
-    )
-    const activeEmpresaId = empresaIds[0]
-
-    const tokenPayload = {
+    const token = generateToken({
       userId: user.id,
       email: user.correo,
-      role: jwtRole,
-      access: user.acceso,
-      permissions,
-      empresaIds,
-      ...(activeEmpresaId ? { activeEmpresaId } : {}),
+    })
+
+    const { password: _password, ...userWithoutSensitive } = user
+    const userResponse = {
+      id: user.id,
+      img: user.img,
+      nombre: user.nombre,
+      correo: user.correo,
+      telefono: user.telefono,
+      departamento: user.departamento,
+      acceso: user.acceso,
+      estado: user.estado,
+      eliminado: user.eliminado,
+      online: user.online,
+      fcmTokens: user.fcmTokens,
+      google: user.google,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     }
-
-    const token = generateToken(tokenPayload)
-
-    const {
-      password: _password,
-      userPermissions: _userPermissions,
-      userEmpresaRoles: _userEmpresaRoles,
-      ...userWithoutSensitive
-    } = user
-
     return ApiResponse.success(
       res,
       {
         token,
         user: {
-          ...userWithoutSensitive,
-          empresaIds,
-          activeEmpresaId,
+          ...userResponse,
+          empresas,
         },
       },
       'Login exitoso'
     )
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error))
-    logger.error('Error en login', { message: err.message, stack: err.stack })
+    logger.error('Error en login', {
+      message: err.message,
+      stack: err.stack,
+    })
     return ApiResponse.serverError(res, 'Error interno del servidor')
   }
 }
@@ -117,8 +146,7 @@ export const register = async (req: Request, res: Response) => {
       correo?: string
       password?: string
       telefono?: string
-      departamento?: string
-      rol?: string
+      departamento?: string | string[]
       acceso?: string
     }
 
@@ -126,25 +154,25 @@ export const register = async (req: Request, res: Response) => {
     const correo = body.correo?.trim().toLowerCase()
     const password = body.password
     const telefono = body.telefono
-    const departamento = body.departamento?.trim()
-    const rol = body.rol
     const acceso = body.acceso
 
-    if (!nombre || !correo || !password || !departamento) {
+    const departamentoInput = Array.isArray(body.departamento)
+      ? body.departamento.map((d) => d.trim()).filter(Boolean)
+      : body.departamento
+        ? [body.departamento.trim()]
+        : []
+
+    if (!nombre || !correo || !password || departamentoInput.length === 0) {
       return ApiResponse.badRequest(
         res,
         'Nombre, correo, contraseña y departamento son requeridos'
       )
     }
 
-    // Convertir departamento a array (acepta string o array)
-    const departamentoInput = Array.isArray(body.departamento)
-      ? body.departamento
-      : body.departamento
-        ? [body.departamento.trim()]
-        : []
+    const existingUser = await prisma.user.findUnique({
+      where: { correo },
+    })
 
-    const existingUser = await prisma.user.findUnique({ where: { correo } })
     if (existingUser) {
       return ApiResponse.conflict(res, 'El correo ya está registrado')
     }
@@ -156,21 +184,15 @@ export const register = async (req: Request, res: Response) => {
         nombre,
         correo,
         password: hashedPassword,
-        telefono,
+        telefono: telefono || null,
         departamento: departamentoInput,
-        rol: rol || 'VIEWER',
-        acceso: acceso || 'ninguno',
+        acceso: (acceso as any) || 'ninguno',
       },
     })
 
-    // Nota: si prefieres no emitir token hasta asignar empresa/roles, quítalo aquí.
     const token = generateToken({
       userId: newUser.id,
       email: newUser.correo,
-      role: newUser.rol,
-      access: newUser.acceso,
-      permissions: [],
-      empresaIds: [],
     })
 
     const { password: _password, ...userWithoutPassword } = newUser
@@ -179,7 +201,10 @@ export const register = async (req: Request, res: Response) => {
       res,
       {
         token,
-        user: userWithoutPassword,
+        user: {
+          ...userWithoutPassword,
+          empresas: [],
+        },
       },
       'Usuario registrado exitosamente'
     )
@@ -202,14 +227,39 @@ export const getProfile = async (req: Request, res: Response) => {
     const user = await prisma.user.findUnique({
       where: { id: req.user.userId },
       include: {
-        userEmpresaRoles: {
+        memberships: {
           include: {
-            empresa: { select: { id_empresa: true, nombre: true } },
-            role: { select: { id: true, name: true, permissions: true } },
+            empresa: {
+              select: {
+                id_empresa: true,
+                nombre: true,
+              },
+            },
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: {
+                      select: {
+                        code: true,
+                        description: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+            permissions: {
+              include: {
+                permission: {
+                  select: {
+                    code: true,
+                    description: true,
+                  },
+                },
+              },
+            },
           },
-        },
-        userPermissions: {
-          select: { permission: true, action: true, reason: true },
         },
       },
     })
@@ -218,23 +268,46 @@ export const getProfile = async (req: Request, res: Response) => {
       return ApiResponse.notFound(res, 'Usuario no encontrado')
     }
 
-    const basePermissions = user.userEmpresaRoles.flatMap(
-      (uer) => uer.role.permissions
-    )
-    const effectivePermissions = resolvePermissionsFromBase(
-      basePermissions,
-      user.userPermissions
-    )
+    const empresas = user.memberships.map((membership) => ({
+      membershipId: membership.id,
+      status: membership.status,
+      assignedAt: membership.assignedAt,
+      empresa: membership.empresa,
+      role: {
+        id: membership.role.id,
+        name: membership.role.name,
+        description: membership.role.description,
+      },
+      permissions: resolveMembershipPermissions(
+        membership.role.permissions,
+        membership.permissions
+      ),
+    }))
 
     const { password: _password, ...userWithoutPassword } = user
-
+    const userResponse = {
+      id: user.id,
+      img: user.img,
+      nombre: user.nombre,
+      correo: user.correo,
+      telefono: user.telefono,
+      departamento: user.departamento,
+      acceso: user.acceso,
+      estado: user.estado,
+      eliminado: user.eliminado,
+      online: user.online,
+      fcmTokens: user.fcmTokens,
+      google: user.google,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+    }
     return ApiResponse.success(
       res,
       {
-        ...userWithoutPassword,
-        effectivePermissions,
+        ...userResponse,
+        empresas,
       },
-      'Perfil obtenido exitosamente'
+      'Perfil obtenido exitosamente esta funcionando? '
     )
   } catch (error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error))
@@ -290,6 +363,7 @@ export const changePassword = async (req: Request, res: Response) => {
       currentPassword,
       user.password
     )
+
     if (!isValidCurrentPassword) {
       return ApiResponse.badRequest(res, 'Contraseña actual incorrecta')
     }
