@@ -27,14 +27,14 @@ router.patch(
 
 router.patch(
   '/:id/approve',
-  authorize(PERMISSIONS.TRANSFER_APPROVE),
+  authorize(PERMISSIONS.TRANSFERS_APPROVE),
   validateRequest(transferIdSchema, 'params'),
   TransfersController.approve
 )
 
 router.patch(
   '/:id/reject',
-  authorize(PERMISSIONS.TRANSFER_APPROVE),
+  authorize(PERMISSIONS.TRANSFERS_APPROVE),
   validateRequest(transferIdSchema, 'params'),
   validateRequest(rejectTransferSchema, 'body'),
   TransfersController.reject

@@ -1,74 +1,111 @@
 import type { PrismaClient } from '../../src/generated/prisma/client.js'
 
 export const PERMISSIONS = [
-  { code: 'empresas.read', description: 'Ver empresas' },
-  { code: 'empresas.create', description: 'Crear empresas' },
-  { code: 'empresas.update', description: 'Actualizar empresas' },
-  { code: 'empresas.delete', description: 'Eliminar empresas' },
-  { code: 'empresas.approve', description: 'Aprobar empresas' },
-
-  { code: 'users.read', description: 'Ver usuarios' },
+  // Usuarios
+  { code: 'users.view', description: 'Ver usuarios' },
   { code: 'users.create', description: 'Crear usuarios' },
   { code: 'users.update', description: 'Actualizar usuarios' },
   { code: 'users.delete', description: 'Eliminar usuarios' },
-  { code: 'users.approve', description: 'Aprobar usuarios' },
+  { code: 'users.approve', description: 'Aprobar acciones de usuarios' },
 
-  { code: 'roles.read', description: 'Ver roles' },
-  { code: 'roles.create', description: 'Crear roles' },
-  { code: 'roles.update', description: 'Actualizar roles' },
-  { code: 'roles.delete', description: 'Eliminar roles' },
-  { code: 'roles.approve', description: 'Aprobar roles' },
-
-  { code: 'inventory.read', description: 'Ver inventario' },
-  { code: 'inventory.create', description: 'Crear inventario' },
+  // Inventario (catálogos, notas entrada/salida, ajustes, conteos cíclicos)
+  { code: 'inventory.view', description: 'Ver inventario' },
+  { code: 'inventory.create', description: 'Crear registros de inventario' },
   { code: 'inventory.update', description: 'Actualizar inventario' },
-  { code: 'inventory.delete', description: 'Eliminar inventario' },
-  { code: 'inventory.approve', description: 'Aprobar inventario' },
+  { code: 'inventory.delete', description: 'Eliminar registros de inventario' },
+  {
+    code: 'inventory.approve',
+    description: 'Aprobar movimientos de inventario',
+  },
 
-  { code: 'customers.read', description: 'Ver clientes' },
+  // Artículos
+  { code: 'items.view', description: 'Ver artículos' },
+  { code: 'items.create', description: 'Crear artículos' },
+  { code: 'items.update', description: 'Actualizar artículos' },
+  { code: 'items.delete', description: 'Eliminar artículos' },
+  { code: 'items.approve', description: 'Aprobar cambios en artículos' },
+
+  // Almacenes
+  { code: 'warehouses.view', description: 'Ver almacenes' },
+  { code: 'warehouses.create', description: 'Crear almacenes' },
+  { code: 'warehouses.update', description: 'Actualizar almacenes' },
+  { code: 'warehouses.delete', description: 'Eliminar almacenes' },
+  { code: 'warehouses.approve', description: 'Aprobar cambios en almacenes' },
+
+  // Stock
+  { code: 'stock.view', description: 'Ver stock' },
+  { code: 'stock.adjust', description: 'Ajustar stock manualmente' },
+  { code: 'stock.transfer', description: 'Transferir stock entre almacenes' },
+  { code: 'stock.approve', description: 'Aprobar ajustes de stock' },
+
+  // Movimientos
+  { code: 'movements.view', description: 'Ver movimientos' },
+  { code: 'movements.create', description: 'Registrar movimientos' },
+  { code: 'movements.update', description: 'Corregir movimientos' },
+  { code: 'movements.delete', description: 'Eliminar movimientos' },
+  { code: 'movements.approve', description: 'Aprobar movimientos' },
+
+  // Préstamos
+  { code: 'loans.view', description: 'Ver préstamos de inventario' },
+  { code: 'loans.create', description: 'Crear préstamos' },
+  { code: 'loans.update', description: 'Actualizar préstamos' },
+  { code: 'loans.delete', description: 'Eliminar préstamos' },
+  { code: 'loans.approve', description: 'Aprobar/rechazar préstamos' },
+
+  // Transferencias
+  { code: 'transfers.view', description: 'Ver transferencias de stock' },
+  { code: 'transfers.create', description: 'Crear transferencias' },
+  { code: 'transfers.update', description: 'Actualizar transferencias' },
+  { code: 'transfers.delete', description: 'Eliminar transferencias' },
+  { code: 'transfers.approve', description: 'Aprobar/rechazar transferencias' },
+
+  // Clientes
+  { code: 'customers.view', description: 'Ver clientes' },
   { code: 'customers.create', description: 'Crear clientes' },
   { code: 'customers.update', description: 'Actualizar clientes' },
   { code: 'customers.delete', description: 'Eliminar clientes' },
-  { code: 'customers.approve', description: 'Aprobar clientes' },
+  { code: 'customers.approve', description: 'Aprobar cambios en clientes' },
 
-  { code: 'suppliers.read', description: 'Ver proveedores' },
-  { code: 'suppliers.create', description: 'Crear proveedores' },
-  { code: 'suppliers.update', description: 'Actualizar proveedores' },
-  { code: 'suppliers.delete', description: 'Eliminar proveedores' },
-  { code: 'suppliers.approve', description: 'Aprobar proveedores' },
+  // Órdenes de venta
+  { code: 'orders.view', description: 'Ver órdenes' },
+  { code: 'orders.create', description: 'Crear órdenes' },
+  { code: 'orders.update', description: 'Actualizar órdenes' },
+  { code: 'orders.delete', description: 'Eliminar órdenes' },
+  { code: 'orders.approve', description: 'Aprobar/rechazar órdenes' },
 
-  { code: 'orders.read', description: 'Ver pedidos' },
-  { code: 'orders.create', description: 'Crear pedidos' },
-  { code: 'orders.update', description: 'Actualizar pedidos' },
-  { code: 'orders.delete', description: 'Eliminar pedidos' },
-  { code: 'orders.approve', description: 'Aprobar pedidos' },
-
-  { code: 'invoices.read', description: 'Ver facturas' },
+  // Facturas
+  { code: 'invoices.view', description: 'Ver facturas' },
   { code: 'invoices.create', description: 'Crear facturas' },
   { code: 'invoices.update', description: 'Actualizar facturas' },
   { code: 'invoices.delete', description: 'Eliminar facturas' },
-  { code: 'invoices.approve', description: 'Aprobar facturas' },
+  { code: 'invoices.approve', description: 'Aprobar/rechazar facturas' },
 
-  { code: 'reports.read', description: 'Ver reportes' },
+  // Cotizaciones
+  { code: 'quotes.view', description: 'Ver cotizaciones' },
+  { code: 'quotes.create', description: 'Crear cotizaciones' },
+  { code: 'quotes.update', description: 'Actualizar cotizaciones' },
+  { code: 'quotes.delete', description: 'Eliminar cotizaciones' },
+  { code: 'quotes.approve', description: 'Aprobar cotizaciones' },
+
+  // Pagos
+  { code: 'payments.view', description: 'Ver pagos' },
+  { code: 'payments.create', description: 'Registrar pagos' },
+  { code: 'payments.update', description: 'Actualizar pagos' },
+  { code: 'payments.delete', description: 'Eliminar pagos' },
+  { code: 'payments.approve', description: 'Aprobar pagos' },
+
+  // Reportes
+  { code: 'reports.view', description: 'Ver reportes' },
   { code: 'reports.export', description: 'Exportar reportes' },
-  { code: 'reports.approve', description: 'Aprobar reportes' },
-
-  { code: 'settings.read', description: 'Ver configuración' },
-  { code: 'settings.update', description: 'Actualizar configuración' },
-  { code: 'settings.approve', description: 'Aprobar configuración' },
+  { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
 ]
 
 export default async function seedPermissions(prisma: PrismaClient) {
   for (const permission of PERMISSIONS) {
     await prisma.permission.upsert({
       where: { code: permission.code },
-      update: {
-        description: permission.description,
-      },
-      create: {
-        code: permission.code,
-        description: permission.description,
-      },
+      update: { description: permission.description },
+      create: permission,
     })
   }
 

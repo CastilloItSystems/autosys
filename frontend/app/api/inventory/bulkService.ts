@@ -182,7 +182,7 @@ export const getOperation = async (
 export const downloadTemplate = async (): Promise<Blob> => {
   // The template file is served from the frontend `public/templates` folder.
   // In Next.js files placed in `public/` are available at the site root: `/templates/...`.
-  const resp = await fetch('/templates/items-import-template.csv');
+  const resp = await fetch("/templates/items-import-template.csv");
   if (!resp.ok) {
     throw new Error(`Plantilla no encontrada (${resp.status})`);
   }

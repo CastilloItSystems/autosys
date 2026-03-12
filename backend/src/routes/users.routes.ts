@@ -19,11 +19,11 @@ router.post('/', authorize(PERMISSIONS.USERS_CREATE), createUser)
 
 // router.get(
 //   '/:id/audit-logs',
-//   authorize(PERMISSIONS.USERS_READ),
+//   authorize(PERMISSIONS.USERS_VIEW),
 //   getAuditLogsForUser
 // )
 
-router.get('/:id', authorize(PERMISSIONS.USERS_READ), getUserById)
+router.get('/:id', authorize(PERMISSIONS.USERS_VIEW), getUserById)
 router.put('/:id', authorize(PERMISSIONS.USERS_UPDATE), updateUser)
 router.delete('/:id', authorize(PERMISSIONS.USERS_DELETE), deleteUser)
 

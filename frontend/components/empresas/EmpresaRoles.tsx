@@ -17,43 +17,106 @@ import {
   CompanyRole,
 } from "@/app/api/roleService";
 
-// ── Los mismos grupos/labels que UsuarioPermisos.tsx ──────────────────────
+// Permisos del catálogo — formato punto (alineado con PERMISSIONS constant y DB)
 const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[] = [
+  { label: "Usuarios", icon: "pi pi-users", prefix: "users" },
   { label: "Inventario", icon: "pi pi-box", prefix: "inventory" },
   { label: "Artículos", icon: "pi pi-tag", prefix: "items" },
-  { label: "Almacenes", icon: "pi pi-building", prefix: "warehouses" },
-  { label: "Movimientos", icon: "pi pi-arrows-v", prefix: "movements" },
+  { label: "Almacenes", icon: "pi pi-database", prefix: "warehouses" },
   { label: "Stock", icon: "pi pi-chart-bar", prefix: "stock" },
-  { label: "Órdenes de Compra", icon: "pi pi-shopping-cart", prefix: "purchase_orders" },
-  { label: "Ventas", icon: "pi pi-dollar", prefix: "sales" },
-  { label: "Notas de Salida", icon: "pi pi-external-link", prefix: "exit_notes" },
-  { label: "Pagos", icon: "pi pi-credit-card", prefix: "payments" },
+  { label: "Movimientos", icon: "pi pi-arrows-h", prefix: "movements" },
+  { label: "Préstamos", icon: "pi pi-share-alt", prefix: "loans" },
+  { label: "Transferencias", icon: "pi pi-send", prefix: "transfers" },
+  { label: "Clientes", icon: "pi pi-id-card", prefix: "customers" },
+  { label: "Órdenes", icon: "pi pi-shopping-cart", prefix: "orders" },
   { label: "Facturas", icon: "pi pi-file", prefix: "invoices" },
-  { label: "Préstamos", icon: "pi pi-arrow-right-arrow-left", prefix: "loans" },
+  { label: "Cotizaciones", icon: "pi pi-file-edit", prefix: "quotes" },
+  { label: "Pagos", icon: "pi pi-credit-card", prefix: "payments" },
   { label: "Reportes", icon: "pi pi-chart-line", prefix: "reports" },
-  { label: "Usuarios", icon: "pi pi-users", prefix: "users" },
-  { label: "Empresa", icon: "pi pi-briefcase", prefix: "empresa" },
-  { label: "Configuración", icon: "pi pi-cog", prefix: "settings" },
 ];
 
 const PERMISSION_LABELS: Record<string, string> = {
-  "inventory:view": "Ver", "inventory:create": "Crear", "inventory:update": "Editar", "inventory:delete": "Eliminar",
-  "items:view": "Ver", "items:create": "Crear", "items:update": "Editar", "items:delete": "Eliminar",
-  "warehouses:view": "Ver", "warehouses:create": "Crear", "warehouses:update": "Editar", "warehouses:delete": "Eliminar",
-  "movements:view": "Ver", "movements:create": "Registrar", "movements:update": "Editar", "movements:delete": "Eliminar",
-  "stock:view": "Ver", "stock:adjust": "Ajustar", "stock:transfer": "Transferir",
-  "purchase_orders:view": "Ver", "purchase_orders:create": "Crear", "purchase_orders:approve": "Aprobar",
-  "purchase_orders:receive": "Recibir", "purchase_orders:cancel": "Cancelar",
-  "sales:view": "Ver", "sales:create": "Crear", "sales:approve": "Aprobar", "sales:cancel": "Cancelar",
-  "exit_notes:view": "Ver", "exit_notes:create": "Crear", "exit_notes:prepare": "Preparar", "exit_notes:deliver": "Entregar",
-  "payments:view": "Ver", "payments:create": "Registrar", "payments:cancel": "Cancelar",
-  "invoices:view": "Ver", "invoices:create": "Crear", "invoices:cancel": "Cancelar",
-  "loans:view": "Ver", "loans:create": "Crear", "loans:approve": "Aprobar",
-  "loans:activate": "Activar", "loans:return": "Devolver", "loans:cancel": "Cancelar",
-  "reports:view": "Ver", "reports:export": "Exportar",
-  "users:view": "Ver", "users:create": "Crear", "users:update": "Editar", "users:delete": "Eliminar",
-  "empresa:view": "Ver", "empresa:create": "Crear", "empresa:update": "Editar", "empresa:delete": "Eliminar",
-  "settings:view": "Ver", "settings:update": "Editar",
+  // Usuarios
+  "users.view": "Ver",
+  "users.create": "Crear",
+  "users.update": "Editar",
+  "users.delete": "Eliminar",
+  "users.approve": "Aprobar",
+  // Inventario
+  "inventory.view": "Ver",
+  "inventory.create": "Crear",
+  "inventory.update": "Editar",
+  "inventory.delete": "Eliminar",
+  "inventory.approve": "Aprobar",
+  // Artículos
+  "items.view": "Ver",
+  "items.create": "Crear",
+  "items.update": "Editar",
+  "items.delete": "Eliminar",
+  "items.approve": "Aprobar",
+  // Almacenes
+  "warehouses.view": "Ver",
+  "warehouses.create": "Crear",
+  "warehouses.update": "Editar",
+  "warehouses.delete": "Eliminar",
+  "warehouses.approve": "Aprobar",
+  // Stock
+  "stock.view": "Ver",
+  "stock.adjust": "Ajustar",
+  "stock.transfer": "Transferir",
+  "stock.approve": "Aprobar",
+  // Movimientos
+  "movements.view": "Ver",
+  "movements.create": "Crear",
+  "movements.update": "Editar",
+  "movements.delete": "Eliminar",
+  "movements.approve": "Aprobar",
+  // Préstamos
+  "loans.view": "Ver",
+  "loans.create": "Crear",
+  "loans.update": "Editar",
+  "loans.delete": "Eliminar",
+  "loans.approve": "Aprobar",
+  // Transferencias
+  "transfers.view": "Ver",
+  "transfers.create": "Crear",
+  "transfers.update": "Editar",
+  "transfers.delete": "Eliminar",
+  "transfers.approve": "Aprobar",
+  // Clientes
+  "customers.view": "Ver",
+  "customers.create": "Crear",
+  "customers.update": "Editar",
+  "customers.delete": "Eliminar",
+  "customers.approve": "Aprobar",
+  // Órdenes
+  "orders.view": "Ver",
+  "orders.create": "Crear",
+  "orders.update": "Editar",
+  "orders.delete": "Eliminar",
+  "orders.approve": "Aprobar",
+  // Facturas
+  "invoices.view": "Ver",
+  "invoices.create": "Crear",
+  "invoices.update": "Editar",
+  "invoices.delete": "Eliminar",
+  "invoices.approve": "Aprobar",
+  // Cotizaciones
+  "quotes.view": "Ver",
+  "quotes.create": "Crear",
+  "quotes.update": "Editar",
+  "quotes.delete": "Eliminar",
+  "quotes.approve": "Aprobar",
+  // Pagos
+  "payments.view": "Ver",
+  "payments.create": "Crear",
+  "payments.update": "Editar",
+  "payments.delete": "Eliminar",
+  "payments.approve": "Aprobar",
+  // Reportes
+  "reports.view": "Ver",
+  "reports.export": "Exportar",
+  "reports.approve": "Aprobar",
 };
 
 // Todos los permisos posibles
@@ -70,7 +133,11 @@ interface EmpresaRolesProps {
 }
 
 const EmpresaRoles = ({
-  visible, onHide, empresaId, empresaNombre, toast,
+  visible,
+  onHide,
+  empresaId,
+  empresaNombre,
+  toast,
 }: EmpresaRolesProps) => {
   const [roles, setRoles] = useState<CompanyRole[]>([]);
   const [loading, setLoading] = useState(true);
@@ -82,7 +149,9 @@ const EmpresaRoles = ({
   // Form state
   const [formName, setFormName] = useState("");
   const [formDescription, setFormDescription] = useState("");
-  const [formPermissions, setFormPermissions] = useState<Set<string>>(new Set());
+  const [formPermissions, setFormPermissions] = useState<Set<string>>(
+    new Set(),
+  );
   const [permSearch, setPermSearch] = useState("");
 
   const loadRoles = useCallback(async () => {
@@ -92,14 +161,22 @@ const EmpresaRoles = ({
       const data = await getCompanyRoles(empresaId);
       setRoles(data);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron cargar los roles", life: 3000 });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los roles",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
   }, [empresaId]);
 
   useEffect(() => {
-    if (visible) { loadRoles(); setViewMode("list"); }
+    if (visible) {
+      loadRoles();
+      setViewMode("list");
+    }
   }, [visible, loadRoles]);
 
   const openCreate = () => {
@@ -123,31 +200,56 @@ const EmpresaRoles = ({
   const togglePermission = (perm: string) => {
     setFormPermissions((prev) => {
       const next = new Set(prev);
-      if (next.has(perm)) next.delete(perm); else next.add(perm);
+      if (next.has(perm)) next.delete(perm);
+      else next.add(perm);
       return next;
     });
   };
 
   const handleSave = async () => {
     if (!formName.trim()) {
-      toast.current?.show({ severity: "warn", summary: "Validación", detail: "El nombre del rol es obligatorio", life: 3000 });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Validación",
+        detail: "El nombre del rol es obligatorio",
+        life: 3000,
+      });
       return;
     }
     setSaving(true);
     try {
-      const payload = { name: formName.trim(), description: formDescription.trim() || undefined, permissions: Array.from(formPermissions) };
+      const payload = {
+        name: formName.trim(),
+        description: formDescription.trim() || undefined,
+        permissionCodes: Array.from(formPermissions),
+      };
       if (viewMode === "create") {
         await createCompanyRole(empresaId, payload);
-        toast.current?.show({ severity: "success", summary: "Rol creado", detail: `Rol "${formName}" creado exitosamente`, life: 3000 });
+        toast.current?.show({
+          severity: "success",
+          summary: "Rol creado",
+          detail: `Rol "${formName}" creado exitosamente`,
+          life: 3000,
+        });
       } else if (editingRole) {
         await updateCompanyRole(empresaId, editingRole.id, payload);
-        toast.current?.show({ severity: "success", summary: "Rol actualizado", detail: `Rol "${formName}" actualizado`, life: 3000 });
+        toast.current?.show({
+          severity: "success",
+          summary: "Rol actualizado",
+          detail: `Rol "${formName}" actualizado`,
+          life: 3000,
+        });
       }
       await loadRoles();
       setViewMode("list");
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo guardar el rol";
-      toast.current?.show({ severity: "error", summary: "Error", detail: msg, life: 4000 });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: msg,
+        life: 4000,
+      });
     } finally {
       setSaving(false);
     }
@@ -155,17 +257,32 @@ const EmpresaRoles = ({
 
   const handleDelete = async (role: CompanyRole) => {
     if (role.isSystem) {
-      toast.current?.show({ severity: "warn", summary: "No permitido", detail: "Los roles de sistema no se pueden eliminar", life: 3000 });
+      toast.current?.show({
+        severity: "warn",
+        summary: "No permitido",
+        detail: "Los roles de sistema no se pueden eliminar",
+        life: 3000,
+      });
       return;
     }
     setDeleting(role.id);
     try {
       await deleteCompanyRole(empresaId, role.id);
-      toast.current?.show({ severity: "success", summary: "Rol eliminado", detail: `Rol "${role.name}" eliminado`, life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Rol eliminado",
+        detail: `Rol "${role.name}" eliminado`,
+        life: 3000,
+      });
       await loadRoles();
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo eliminar el rol";
-      toast.current?.show({ severity: "error", summary: "Error", detail: msg, life: 4000 });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: msg,
+        life: 4000,
+      });
     } finally {
       setDeleting(null);
     }
@@ -175,8 +292,14 @@ const EmpresaRoles = ({
   const filteredGroups = PERMISSION_GROUPS.filter((g) => {
     if (!permSearch) return true;
     const t = permSearch.toLowerCase();
-    return g.label.toLowerCase().includes(t) || ALL_PERMISSIONS.some(
-      (p) => p.startsWith(g.prefix + ":") && (p.includes(t) || (PERMISSION_LABELS[p] ?? "").toLowerCase().includes(t))
+    return (
+      g.label.toLowerCase().includes(t) ||
+      ALL_PERMISSIONS.some(
+        (p) =>
+          p.startsWith(g.prefix + ".") &&
+          (p.includes(t) ||
+            (PERMISSION_LABELS[p] ?? "").toLowerCase().includes(t)),
+      )
     );
   });
 
@@ -184,35 +307,74 @@ const EmpresaRoles = ({
     <div className="flex flex-column gap-3">
       <div className="grid">
         <div className="col-12 md:col-6">
-          <label className="block text-sm font-medium mb-1">Nombre del rol *</label>
-          <InputText value={formName} onChange={(e) => setFormName(e.target.value)} className="w-full" placeholder="Ej: Vendedor Senior" />
+          <label className="block text-sm font-medium mb-1">
+            Nombre del rol *
+          </label>
+          <InputText
+            value={formName}
+            onChange={(e) => setFormName(e.target.value)}
+            className="w-full"
+            placeholder="Ej: Vendedor Senior"
+          />
         </div>
         <div className="col-12 md:col-6">
           <label className="block text-sm font-medium mb-1">Descripción</label>
-          <InputText value={formDescription} onChange={(e) => setFormDescription(e.target.value)} className="w-full" placeholder="Descripción opcional" />
+          <InputText
+            value={formDescription}
+            onChange={(e) => setFormDescription(e.target.value)}
+            className="w-full"
+            placeholder="Descripción opcional"
+          />
         </div>
       </div>
 
       <div className="flex align-items-center justify-content-between">
         <div className="font-semibold text-900">
-          Permisos <Tag value={`${formPermissions.size}/${ALL_PERMISSIONS.length}`} severity={formPermissions.size > 0 ? "success" : "secondary"} />
+          Permisos{" "}
+          <Tag
+            value={`${formPermissions.size}/${ALL_PERMISSIONS.length}`}
+            severity={formPermissions.size > 0 ? "success" : "secondary"}
+          />
         </div>
         <div className="flex gap-2">
-          <Button label="Marcar todo" size="small" text onClick={() => setFormPermissions(new Set(ALL_PERMISSIONS))} />
-          <Button label="Limpiar todo" size="small" text severity="secondary" onClick={() => setFormPermissions(new Set())} />
+          <Button
+            label="Marcar todo"
+            size="small"
+            text
+            onClick={() => setFormPermissions(new Set(ALL_PERMISSIONS))}
+          />
+          <Button
+            label="Limpiar todo"
+            size="small"
+            text
+            severity="secondary"
+            onClick={() => setFormPermissions(new Set())}
+          />
         </div>
       </div>
 
       <span className="p-input-icon-left w-full">
         <i className="pi pi-search" />
-        <InputText value={permSearch} onChange={(e) => setPermSearch(e.target.value)} placeholder="Buscar permisos..." className="w-full" />
+        <InputText
+          value={permSearch}
+          onChange={(e) => setPermSearch(e.target.value)}
+          placeholder="Buscar permisos..."
+          className="w-full"
+        />
       </span>
 
-      <div className="flex flex-column gap-2" style={{ maxHeight: "380px", overflowY: "auto" }}>
+      <div
+        className="flex flex-column gap-2"
+        style={{ maxHeight: "380px", overflowY: "auto" }}
+      >
         {filteredGroups.map((group) => {
-          const groupPerms = ALL_PERMISSIONS.filter((p) => p.startsWith(group.prefix + ":"));
+          const groupPerms = ALL_PERMISSIONS.filter((p) =>
+            p.startsWith(group.prefix + "."),
+          );
           if (groupPerms.length === 0) return null;
-          const activeCount = groupPerms.filter((p) => formPermissions.has(p)).length;
+          const activeCount = groupPerms.filter((p) =>
+            formPermissions.has(p),
+          ).length;
           const allSelected = activeCount === groupPerms.length;
 
           return (
@@ -220,17 +382,30 @@ const EmpresaRoles = ({
               <div className="flex align-items-center justify-content-between mb-2">
                 <div className="flex align-items-center gap-2">
                   <i className={`${group.icon} text-primary`} />
-                  <span className="font-semibold text-900 text-sm">{group.label}</span>
+                  <span className="font-semibold text-900 text-sm">
+                    {group.label}
+                  </span>
                 </div>
                 <div className="flex align-items-center gap-2">
-                  <Tag value={`${activeCount}/${groupPerms.length}`} severity={activeCount === groupPerms.length ? "success" : activeCount === 0 ? "secondary" : "warning"} />
+                  <Tag
+                    value={`${activeCount}/${groupPerms.length}`}
+                    severity={
+                      activeCount === groupPerms.length
+                        ? "success"
+                        : activeCount === 0
+                        ? "secondary"
+                        : "warning"
+                    }
+                  />
                   <Button
                     label={allSelected ? "Quitar todos" : "Marcar todos"}
-                    size="small" text
+                    size="small"
+                    text
                     onClick={() => {
                       setFormPermissions((prev) => {
                         const next = new Set(prev);
-                        if (allSelected) groupPerms.forEach((p) => next.delete(p));
+                        if (allSelected)
+                          groupPerms.forEach((p) => next.delete(p));
                         else groupPerms.forEach((p) => next.add(p));
                         return next;
                       });
@@ -244,9 +419,13 @@ const EmpresaRoles = ({
                   return (
                     <Button
                       key={perm}
-                      label={PERMISSION_LABELS[perm] ?? perm.split(":")[1]}
+                      label={PERMISSION_LABELS[perm] ?? perm.split(".")[1]}
                       icon={active ? "pi pi-check-circle" : "pi pi-circle"}
-                      className={`p-button-sm ${active ? "p-button-success" : "p-button-outlined p-button-secondary"}`}
+                      className={`p-button-sm ${
+                        active
+                          ? "p-button-success"
+                          : "p-button-outlined p-button-secondary"
+                      }`}
                       onClick={() => togglePermission(perm)}
                       size="small"
                     />
@@ -270,19 +449,32 @@ const EmpresaRoles = ({
     </div>
   );
 
-  const dialogFooter = viewMode === "list" ? (
-    <Button label="Cerrar" icon="pi pi-times" text onClick={onHide} />
-  ) : (
-    <div className="flex justify-content-end gap-2">
-      <Button label="Cancelar" icon="pi pi-times" text onClick={() => setViewMode("list")} disabled={saving} />
-      <Button
-        label={saving ? "Guardando..." : (viewMode === "create" ? "Crear Rol" : "Guardar Cambios")}
-        icon={saving ? "pi pi-spin pi-spinner" : "pi pi-save"}
-        onClick={handleSave}
-        loading={saving}
-      />
-    </div>
-  );
+  const dialogFooter =
+    viewMode === "list" ? (
+      <Button label="Cerrar" icon="pi pi-times" text onClick={onHide} />
+    ) : (
+      <div className="flex justify-content-end gap-2">
+        <Button
+          label="Cancelar"
+          icon="pi pi-times"
+          text
+          onClick={() => setViewMode("list")}
+          disabled={saving}
+        />
+        <Button
+          label={
+            saving
+              ? "Guardando..."
+              : viewMode === "create"
+              ? "Crear Rol"
+              : "Guardar Cambios"
+          }
+          icon={saving ? "pi pi-spin pi-spinner" : "pi pi-save"}
+          onClick={handleSave}
+          loading={saving}
+        />
+      </div>
+    );
 
   return (
     <Dialog
@@ -303,11 +495,22 @@ const EmpresaRoles = ({
         ) : (
           <div className="flex flex-column gap-3">
             <div className="flex justify-content-between align-items-center">
-              <span className="text-500 text-sm">{roles.length} rol(es) configurados para esta empresa</span>
-              <Button label="Nuevo Rol" icon="pi pi-plus" onClick={openCreate} size="small" />
+              <span className="text-500 text-sm">
+                {roles.length} rol(es) configurados para esta empresa
+              </span>
+              <Button
+                label="Nuevo Rol"
+                icon="pi pi-plus"
+                onClick={openCreate}
+                size="small"
+              />
             </div>
 
-            <DataTable value={roles} size="small" emptyMessage="No hay roles configurados.">
+            <DataTable
+              value={roles}
+              size="small"
+              emptyMessage="No hay roles configurados."
+            >
               <Column
                 header="Nombre"
                 body={(row: CompanyRole) => (
@@ -317,13 +520,21 @@ const EmpresaRoles = ({
                   </div>
                 )}
               />
-              <Column header="Descripción" field="description" body={(row: CompanyRole) => row.description || <span className="text-400">—</span>} />
+              <Column
+                header="Descripción"
+                field="description"
+                body={(row: CompanyRole) =>
+                  row.description || <span className="text-400">—</span>
+                }
+              />
               <Column
                 header="Permisos"
                 body={(row: CompanyRole) => (
                   <Tag
                     value={`${row.permissions.length} permisos`}
-                    severity={row.permissions.length > 0 ? "success" : "secondary"}
+                    severity={
+                      row.permissions.length > 0 ? "success" : "secondary"
+                    }
                   />
                 )}
               />
@@ -332,7 +543,11 @@ const EmpresaRoles = ({
                 body={(row: CompanyRole) => (
                   <Tag
                     value={`${row._count?.userEmpresaRoles ?? 0} usuarios`}
-                    severity={(row._count?.userEmpresaRoles ?? 0) > 0 ? "warning" : "secondary"}
+                    severity={
+                      (row._count?.userEmpresaRoles ?? 0) > 0
+                        ? "warning"
+                        : "secondary"
+                    }
                   />
                 )}
               />
@@ -351,11 +566,17 @@ const EmpresaRoles = ({
                     <Button
                       icon="pi pi-trash"
                       className="p-button-rounded p-button-text p-button-danger"
-                      tooltip={row.isSystem ? "No se puede eliminar un rol de sistema" : "Eliminar rol"}
+                      tooltip={
+                        row.isSystem
+                          ? "No se puede eliminar un rol de sistema"
+                          : "Eliminar rol"
+                      }
                       tooltipOptions={{ position: "top" }}
                       onClick={() => handleDelete(row)}
                       loading={deleting === row.id}
-                      disabled={row.isSystem || (row._count?.userEmpresaRoles ?? 0) > 0}
+                      disabled={
+                        row.isSystem || (row._count?.userEmpresaRoles ?? 0) > 0
+                      }
                       size="small"
                     />
                   </div>
@@ -365,16 +586,24 @@ const EmpresaRoles = ({
 
             <div className="text-xs text-400 mt-1">
               <i className="pi pi-info-circle mr-1" />
-              Los roles de sistema no se pueden eliminar. Los roles con usuarios asignados tampoco.
+              Los roles de sistema no se pueden eliminar. Los roles con usuarios
+              asignados tampoco.
             </div>
           </div>
         )
       ) : (
         <div>
           <div className="flex align-items-center gap-2 mb-3">
-            <Button icon="pi pi-arrow-left" text size="small" onClick={() => setViewMode("list")} />
+            <Button
+              icon="pi pi-arrow-left"
+              text
+              size="small"
+              onClick={() => setViewMode("list")}
+            />
             <span className="font-bold text-lg">
-              {viewMode === "create" ? "Crear Nuevo Rol" : `Editar: ${editingRole?.name}`}
+              {viewMode === "create"
+                ? "Crear Nuevo Rol"
+                : `Editar: ${editingRole?.name}`}
             </span>
           </div>
           <Divider className="mt-0 mb-3" />

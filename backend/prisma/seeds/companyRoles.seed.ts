@@ -1,186 +1,212 @@
 import type { PrismaClient } from '../../src/generated/prisma/client.js'
 
+const ALL_USERS = [
+  'users.view',
+  'users.create',
+  'users.update',
+  'users.delete',
+  'users.approve',
+]
+const ALL_INVENTORY = [
+  'inventory.view',
+  'inventory.create',
+  'inventory.update',
+  'inventory.delete',
+  'inventory.approve',
+]
+const ALL_ITEMS = [
+  'items.view',
+  'items.create',
+  'items.update',
+  'items.delete',
+  'items.approve',
+]
+const ALL_WAREHOUSES = [
+  'warehouses.view',
+  'warehouses.create',
+  'warehouses.update',
+  'warehouses.delete',
+  'warehouses.approve',
+]
+const ALL_STOCK = [
+  'stock.view',
+  'stock.adjust',
+  'stock.transfer',
+  'stock.approve',
+]
+const ALL_MOVEMENTS = [
+  'movements.view',
+  'movements.create',
+  'movements.update',
+  'movements.delete',
+  'movements.approve',
+]
+const ALL_LOANS = [
+  'loans.view',
+  'loans.create',
+  'loans.update',
+  'loans.delete',
+  'loans.approve',
+]
+const ALL_TRANSFERS = [
+  'transfers.view',
+  'transfers.create',
+  'transfers.update',
+  'transfers.delete',
+  'transfers.approve',
+]
+const ALL_CUSTOMERS = [
+  'customers.view',
+  'customers.create',
+  'customers.update',
+  'customers.delete',
+  'customers.approve',
+]
+const ALL_ORDERS = [
+  'orders.view',
+  'orders.create',
+  'orders.update',
+  'orders.delete',
+  'orders.approve',
+]
+const ALL_INVOICES = [
+  'invoices.view',
+  'invoices.create',
+  'invoices.update',
+  'invoices.delete',
+  'invoices.approve',
+]
+const ALL_QUOTES = [
+  'quotes.view',
+  'quotes.create',
+  'quotes.update',
+  'quotes.delete',
+  'quotes.approve',
+]
+const ALL_PAYMENTS = [
+  'payments.view',
+  'payments.create',
+  'payments.update',
+  'payments.delete',
+  'payments.approve',
+]
+const ALL_REPORTS = ['reports.view', 'reports.export', 'reports.approve']
+
 const ROLE_PERMISSIONS: Record<string, string[]> = {
+  // Acceso total
   OWNER: [
-    'empresas.read',
-    'empresas.create',
-    'empresas.update',
-    'empresas.delete',
-    'empresas.approve',
-
-    'users.read',
-    'users.create',
-    'users.update',
-    'users.delete',
-    'users.approve',
-
-    'roles.read',
-    'roles.create',
-    'roles.update',
-    'roles.delete',
-    'roles.approve',
-
-    'inventory.read',
-    'inventory.create',
-    'inventory.update',
-    'inventory.delete',
-    'inventory.approve',
-
-    'customers.read',
-    'customers.create',
-    'customers.update',
-    'customers.delete',
-    'customers.approve',
-
-    'suppliers.read',
-    'suppliers.create',
-    'suppliers.update',
-    'suppliers.delete',
-    'suppliers.approve',
-
-    'orders.read',
-    'orders.create',
-    'orders.update',
-    'orders.delete',
-    'orders.approve',
-
-    'invoices.read',
-    'invoices.create',
-    'invoices.update',
-    'invoices.delete',
-    'invoices.approve',
-
-    'reports.read',
-    'reports.export',
-    'reports.approve',
-
-    'settings.read',
-    'settings.update',
-    'settings.approve',
+    ...ALL_USERS,
+    ...ALL_INVENTORY,
+    ...ALL_ITEMS,
+    ...ALL_WAREHOUSES,
+    ...ALL_STOCK,
+    ...ALL_MOVEMENTS,
+    ...ALL_LOANS,
+    ...ALL_TRANSFERS,
+    ...ALL_CUSTOMERS,
+    ...ALL_ORDERS,
+    ...ALL_INVOICES,
+    ...ALL_QUOTES,
+    ...ALL_PAYMENTS,
+    ...ALL_REPORTS,
   ],
 
+  // Como OWNER pero sin eliminar usuarios
   ADMIN: [
-    'empresas.read',
-    'empresas.create',
-    'empresas.update',
-    'empresas.approve',
-
-    'users.read',
+    'users.view',
     'users.create',
     'users.update',
     'users.approve',
-
-    'roles.read',
-    'roles.create',
-    'roles.update',
-
-    'inventory.read',
-    'inventory.create',
-    'inventory.update',
-    'inventory.delete',
-    'inventory.approve',
-
-    'customers.read',
-    'customers.create',
-    'customers.update',
-    'customers.delete',
-    'customers.approve',
-
-    'suppliers.read',
-    'suppliers.create',
-    'suppliers.update',
-    'suppliers.delete',
-    'suppliers.approve',
-
-    'orders.read',
-    'orders.create',
-    'orders.update',
-    'orders.delete',
-    'orders.approve',
-
-    'invoices.read',
-    'invoices.create',
-    'invoices.update',
-    'invoices.delete',
-    'invoices.approve',
-
-    'reports.read',
-    'reports.export',
-    'reports.approve',
-
-    'settings.read',
-    'settings.update',
+    ...ALL_INVENTORY,
+    ...ALL_ITEMS,
+    ...ALL_WAREHOUSES,
+    ...ALL_STOCK,
+    ...ALL_MOVEMENTS,
+    ...ALL_LOANS,
+    ...ALL_TRANSFERS,
+    ...ALL_CUSTOMERS,
+    ...ALL_ORDERS,
+    ...ALL_INVOICES,
+    ...ALL_QUOTES,
+    ...ALL_PAYMENTS,
+    ...ALL_REPORTS,
   ],
 
+  // Gerencia operativa: inventario completo + ventas completo
   GERENTE: [
-    'users.read',
-
-    'inventory.read',
-    'inventory.create',
-    'inventory.update',
-    'inventory.approve',
-
-    'customers.read',
-    'customers.create',
-    'customers.update',
-    'customers.approve',
-
-    'suppliers.read',
-    'suppliers.create',
-    'suppliers.update',
-    'suppliers.approve',
-
-    'orders.read',
-    'orders.create',
-    'orders.update',
-    'orders.approve',
-
-    'invoices.read',
-    'invoices.create',
-    'invoices.update',
-    'invoices.approve',
-
-    'reports.read',
-    'reports.export',
+    'users.view',
+    ...ALL_INVENTORY,
+    ...ALL_ITEMS,
+    'warehouses.view',
+    'warehouses.create',
+    'warehouses.update',
+    'warehouses.approve',
+    ...ALL_STOCK,
+    ...ALL_MOVEMENTS,
+    ...ALL_LOANS,
+    ...ALL_TRANSFERS,
+    ...ALL_CUSTOMERS,
+    ...ALL_ORDERS,
+    ...ALL_INVOICES,
+    ...ALL_QUOTES,
+    ...ALL_PAYMENTS,
+    ...ALL_REPORTS,
   ],
 
-  VENDEDOR: [
-    'inventory.read',
-
-    'customers.read',
-    'customers.create',
-    'customers.update',
-
-    'orders.read',
-    'orders.create',
-    'orders.update',
-
-    'invoices.read',
-    'invoices.create',
-    'invoices.update',
-  ],
-
+  // Almacenista: operaciones de inventario y stock, sin ventas
   ALMACENISTA: [
-    'inventory.read',
+    'inventory.view',
     'inventory.create',
     'inventory.update',
     'inventory.approve',
-
-    'suppliers.read',
-    'suppliers.create',
-    'suppliers.update',
+    'items.view',
+    'items.create',
+    'items.update',
+    'warehouses.view',
+    'stock.view',
+    'stock.adjust',
+    'stock.transfer',
+    'movements.view',
+    'movements.create',
+    'movements.update',
+    'loans.view',
+    'loans.create',
+    'loans.update',
+    'transfers.view',
+    'transfers.create',
+    'transfers.update',
   ],
 
+  // Vendedor: módulos de ventas + inventario en modo lectura
+  VENDEDOR: [
+    'inventory.view',
+    'items.view',
+    'warehouses.view',
+    'stock.view',
+    ...ALL_CUSTOMERS,
+    ...ALL_ORDERS,
+    ...ALL_INVOICES,
+    ...ALL_QUOTES,
+    ...ALL_PAYMENTS,
+    'reports.view',
+  ],
+
+  // Solo lectura en todo
   VIEWER: [
-    'users.read',
-    'roles.read',
-    'inventory.read',
-    'customers.read',
-    'suppliers.read',
-    'orders.read',
-    'invoices.read',
-    'reports.read',
-    'settings.read',
+    'users.view',
+    'inventory.view',
+    'items.view',
+    'warehouses.view',
+    'stock.view',
+    'movements.view',
+    'loans.view',
+    'transfers.view',
+    'customers.view',
+    'orders.view',
+    'invoices.view',
+    'quotes.view',
+    'payments.view',
+    'reports.view',
   ],
 }
 

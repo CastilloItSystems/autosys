@@ -214,7 +214,7 @@ router.put(
 router.patch(
   '/:id/approve',
   authenticate,
-  authorize(PERMISSIONS.LOAN_APPROVE),
+  authorize(PERMISSIONS.LOANS_APPROVE),
   controller.approveLoan
 )
 

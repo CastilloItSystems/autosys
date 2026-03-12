@@ -202,6 +202,44 @@ export const deleteMembership = async (id: string): Promise<void> => {
   await apiClient.delete(`/memberships/${id}`);
 };
 
+// ── Membership Permission Overrides ─────────────────────────────────────────
+
+export type PermissionAction = "GRANT" | "REVOKE";
+
+export interface MembershipPermissionOverride {
+  permissionCode: string;
+  action: PermissionAction;
+  reason?: string | null;
+}
+
+export interface MembershipPermissionsResponse {
+  membershipId: string;
+  user: { id: string; nombre: string; correo: string };
+  empresa: { id_empresa: string; nombre: string };
+  roleName: string;
+  rolePermissions: string[];
+  overrides: MembershipPermissionOverride[];
+  effectivePermissions: string[];
+}
+
+export const getMembershipPermissions = async (
+  membershipId: string,
+): Promise<MembershipPermissionsResponse> => {
+  const response = await apiClient.get(
+    `/memberships/${membershipId}/permissions`,
+  );
+  return response.data;
+};
+
+export const setMembershipPermissions = async (
+  membershipId: string,
+  overrides: MembershipPermissionOverride[],
+): Promise<void> => {
+  await apiClient.put(`/memberships/${membershipId}/permissions`, {
+    overrides,
+  });
+};
+
 // ── Auth ────────────────────────────────────────────────────────────────────
 
 export interface LoginRequest {

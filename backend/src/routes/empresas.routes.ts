@@ -7,22 +7,19 @@ import {
   deleteEmpresa,
   getEmpresaPredeterminada,
   getAuditLogsForEmpresa,
+  seedDefaultsForEmpresa,
 } from '../controllers/empresas.controller.js'
-import { authorize } from '../shared/middleware/authorize.middleware.js'
-import { PERMISSIONS } from '../shared/constants/permissions.js'
+import { authorizeGlobal } from '../shared/middleware/authorizeGlobal.middleware.js'
 
 const router = Router()
 
-router.get('/', authorize(PERMISSIONS.EMPRESAS_READ), getAllEmpresas)
-router.post('/', authorize(PERMISSIONS.EMPRESAS_CREATE), createEmpresa)
+router.get('/', authorizeGlobal(), getAllEmpresas)
+router.post('/', authorizeGlobal(), createEmpresa)
 router.get('/predeterminada', getEmpresaPredeterminada)
-router.get('/:id', authorize(PERMISSIONS.EMPRESAS_READ), getEmpresaById)
-router.put('/:id', authorize(PERMISSIONS.EMPRESAS_UPDATE), updateEmpresa)
-router.delete('/:id', authorize(PERMISSIONS.EMPRESAS_DELETE), deleteEmpresa)
-router.get(
-  '/:id/audit-logs',
-  authorize(PERMISSIONS.EMPRESAS_READ),
-  getAuditLogsForEmpresa
-)
+router.get('/:id', authorizeGlobal(), getEmpresaById)
+router.put('/:id', authorizeGlobal(), updateEmpresa)
+router.delete('/:id', authorizeGlobal(), deleteEmpresa)
+router.get('/:id/audit-logs', authorizeGlobal(), getAuditLogsForEmpresa)
+router.post('/:id/seed-defaults', authorizeGlobal(), seedDefaultsForEmpresa)
 
 export default router

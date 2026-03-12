@@ -12,6 +12,7 @@ import { Tag } from "primereact/tag";
 
 import UsuarioForm from "./UsuarioForm";
 import UsuarioChangePasswordForm from "./UsuarioChangePasswordForm";
+import UsuarioMemberships from "./UsuarioMemberships";
 
 import {
   deleteUser,
@@ -34,6 +35,10 @@ const UsuarioList = () => {
   const [usuarioPasswordFormDialog, setUsuarioPasswordFormDialog] =
     useState(false);
   const [auditDialogVisible, setAuditDialogVisible] = useState(false);
+
+  const [membershipDialogVisible, setMembershipDialogVisible] = useState(false);
+  const [selectedMembershipUser, setSelectedMembershipUser] =
+    useState<User | null>(null);
 
   const [selectedAuditUsuario, setSelectedAuditUsuario] = useState<User | null>(
     null,
@@ -132,6 +137,11 @@ const UsuarioList = () => {
     }
   };
 
+  const handleManageMemberships = (usuario: User) => {
+    setSelectedMembershipUser(usuario);
+    setMembershipDialogVisible(true);
+  };
+
   const handleViewAudit = async (usuario: User) => {
     try {
       setSelectedAuditUsuario(usuario);
@@ -225,6 +235,14 @@ const UsuarioList = () => {
           severity="help"
           tooltip="Cambiar contraseña"
           onClick={() => confirmChangePassword(rowData)}
+        />
+        <Button
+          icon="pi pi-sitemap"
+          rounded
+          outlined
+          severity="secondary"
+          tooltip="Memberships"
+          onClick={() => handleManageMemberships(rowData)}
         />
         <Button
           icon="pi pi-history"
@@ -439,6 +457,20 @@ const UsuarioList = () => {
           </div>
         )}
       </Dialog>
+
+      {/* Memberships por usuario */}
+      {selectedMembershipUser && (
+        <UsuarioMemberships
+          visible={membershipDialogVisible}
+          onHide={() => {
+            setMembershipDialogVisible(false);
+            setSelectedMembershipUser(null);
+          }}
+          userId={selectedMembershipUser.id}
+          userName={selectedMembershipUser.nombre}
+          toast={toast}
+        />
+      )}
     </motion.div>
   );
 };

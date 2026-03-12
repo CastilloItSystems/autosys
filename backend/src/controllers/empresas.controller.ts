@@ -1,5 +1,9 @@
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
+import {
+  ensurePermissionCatalog,
+  seedDefaultRolesForEmpresa,
+} from '../services/empresa-setup.service.js'
 
 export const getAllEmpresas = async (_req: Request, res: Response) => {
   try {
@@ -54,6 +58,10 @@ export const createEmpresa = async (req: Request, res: Response) => {
 
       return empresa
     })
+
+    // Inicializar permisos globales (idempotente) y roles predeterminados
+    await ensurePermissionCatalog()
+    await seedDefaultRolesForEmpresa(newEmpresa.id_empresa)
 
     return res.status(201).json(newEmpresa)
   } catch (error) {
@@ -170,6 +178,36 @@ export const deleteEmpresa = async (req: Request, res: Response) => {
     return res.json({ message: 'Empresa eliminada exitosamente' })
   } catch (error) {
     console.error('Error eliminando empresa:', error)
+    return res.status(500).json({ error: 'Error interno del servidor' })
+  }
+}
+
+/**
+ * POST /empresas/:id/seed-defaults
+ * (Re)creates the default system roles for an existing empresa.
+ * Useful for empresas created before the auto-seeding was in place.
+ * Requires OWNER or ADMIN via authorizeGlobal.
+ */
+export const seedDefaultsForEmpresa = async (req: Request, res: Response) => {
+  const { id } = req.params
+
+  try {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id_empresa: String(id), eliminado: false },
+    })
+    if (!empresa) {
+      return res.status(404).json({ error: 'Empresa no encontrada' })
+    }
+
+    await ensurePermissionCatalog()
+    await seedDefaultRolesForEmpresa(String(id))
+
+    return res.json({
+      ok: true,
+      message: 'Roles predeterminados sincronizados',
+    })
+  } catch (error) {
+    console.error('Error sincronizando roles predeterminados:', error)
     return res.status(500).json({ error: 'Error interno del servidor' })
   }
 }

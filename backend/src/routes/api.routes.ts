@@ -28,8 +28,8 @@ router.use('/memberships', authenticate, extractEmpresa, membershipRoutes)
 // Roles dinámicos por empresa
 router.use('/empresas/:id/roles', authenticate, companyRoleRoutes)
 
-// Empresas
-router.use('/empresas', authenticate, extractEmpresa, empresaRoutes)
+// Empresas (entidad global del SaaS — no requiere extractEmpresa)
+router.use('/empresas', authenticate, empresaRoutes)
 
 // Token de notificaciones
 // router.post('/save-token', authenticate, saveToken)

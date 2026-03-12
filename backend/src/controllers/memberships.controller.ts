@@ -288,3 +288,141 @@ export const deleteMembership = async (req: Request, res: Response) => {
     })
   }
 }
+
+/**
+ * GET /memberships/:id/permissions
+ * Retorna los permisos del rol base, los overrides individuales y el set efectivo.
+ */
+export const getMembershipPermissions = async (req: Request, res: Response) => {
+  const { id } = req.params
+
+  try {
+    const membership = await prisma.membership.findUnique({
+      where: { id: String(id) },
+      include: {
+        user: { select: { id: true, nombre: true, correo: true } },
+        empresa: { select: { id_empresa: true, nombre: true } },
+        role: {
+          include: {
+            permissions: {
+              include: { permission: { select: { id: true, code: true } } },
+            },
+          },
+        },
+        permissions: {
+          include: { permission: { select: { id: true, code: true } } },
+        },
+      },
+    })
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Membership no encontrada.' })
+    }
+
+    const rolePermissions = membership.role.permissions.map(
+      (rp) => rp.permission.code
+    )
+
+    const overrides = membership.permissions.map((mp) => ({
+      permissionCode: mp.permission.code,
+      action: mp.action,
+      reason: mp.reason,
+    }))
+
+    // Calcular permisos efectivos
+    const effective = new Set(rolePermissions)
+    for (const o of overrides) {
+      if (o.action === 'GRANT') effective.add(o.permissionCode)
+      if (o.action === 'REVOKE') effective.delete(o.permissionCode)
+    }
+
+    return res.json({
+      membershipId: membership.id,
+      user: membership.user,
+      empresa: membership.empresa,
+      roleName: membership.role.name,
+      rolePermissions,
+      overrides,
+      effectivePermissions: Array.from(effective),
+    })
+  } catch (error) {
+    console.error('Error obteniendo permisos de membership:', error)
+    return res
+      .status(500)
+      .json({ error: 'Hubo un error al obtener los permisos.' })
+  }
+}
+
+/**
+ * PUT /memberships/:id/permissions
+ * Reemplaza todos los overrides de permiso para una membership.
+ * Body: { overrides: [{ permissionCode: string, action: 'GRANT'|'REVOKE', reason?: string }] }
+ */
+export const setMembershipPermissions = async (req: Request, res: Response) => {
+  const { id } = req.params
+  const { overrides } = req.body
+  const grantedBy = req.user?.userId || null
+
+  if (!Array.isArray(overrides)) {
+    return res.status(400).json({ error: 'overrides debe ser un array.' })
+  }
+
+  // Validar actions
+  for (const o of overrides) {
+    if (!['GRANT', 'REVOKE'].includes(o.action)) {
+      return res
+        .status(400)
+        .json({
+          error: `Acción inválida: ${o.action}. Debe ser GRANT o REVOKE.`,
+        })
+    }
+  }
+
+  try {
+    const membership = await prisma.membership.findUnique({
+      where: { id: String(id) },
+    })
+
+    if (!membership) {
+      return res.status(404).json({ error: 'Membership no encontrada.' })
+    }
+
+    // Resolver Permission IDs a partir de los códigos
+    const codes: string[] = overrides.map((o: any) => o.permissionCode)
+    const found =
+      codes.length > 0
+        ? await prisma.permission.findMany({ where: { code: { in: codes } } })
+        : []
+
+    if (found.length !== codes.length) {
+      const missing = codes.filter((c) => !found.find((p) => p.code === c))
+      return res.status(400).json({ error: 'Permisos inválidos', missing })
+    }
+
+    // Reemplazar overrides en una transacción
+    await prisma.$transaction(async (tx) => {
+      await tx.membershipPermission.deleteMany({
+        where: { membershipId: String(id) },
+      })
+
+      if (overrides.length > 0) {
+        await tx.membershipPermission.createMany({
+          data: overrides.map((o: any) => ({
+            membershipId: String(id),
+            permissionId: found.find((p) => p.code === o.permissionCode)!.id,
+            action: o.action as 'GRANT' | 'REVOKE',
+            reason: o.reason || null,
+            grantedBy,
+          })),
+        })
+      }
+    })
+
+    return res.json({ message: 'Permisos actualizados exitosamente.' })
+  } catch (error) {
+    console.error('Error actualizando permisos de membership:', error)
+    return res
+      .status(500)
+      .json({ error: 'Hubo un error al actualizar los permisos.' })
+  }
+}

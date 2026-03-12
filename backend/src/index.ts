@@ -5,6 +5,7 @@ import prisma from './services/prisma.service.js'
 import { logger } from './shared/utils/logger.js'
 import { setupGracefulShutdown } from './shared/utils/shutdown.js'
 import { initSocket } from './socket/index.js'
+import { ensurePermissionCatalog } from './services/empresa-setup.service.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -38,6 +39,10 @@ export const startServer = async (): Promise<void> => {
     // Verificar conexión
     await prisma.$queryRaw`SELECT 1`
     logger.info('✅ Base de datos respondiendo correctamente')
+
+    // Asegurar catálogo de permisos globales
+    await ensurePermissionCatalog()
+    logger.info('✅ Catálogo de permisos sincronizado')
 
     // Iniciar servidor HTTP
     await listenServer(port)
