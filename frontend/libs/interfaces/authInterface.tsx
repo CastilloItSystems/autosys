@@ -30,25 +30,66 @@ export interface UserEmpresaRoleInfo {
   role: { id: string; name: string; permissions: string[] };
 }
 
+// export interface Usuario {
+//   id: string;
+//   nombre: string;
+//   correo: string;
+//   rol?: string; // campo legacy — se mantiene durante transición
+//   acceso: string;
+//   estado: string;
+//   createdBy: UserReference;
+//   modificadoPor: UserReference;
+//   createdAt: string;
+//   historial: HistorialCambio[];
+//   idWorkshop?: Workshop[];
+//   idRefineria?: Refineria[];
+//   idAutoSys?: AutoSys[];
+//   empresas?: Empresa[];
+//   userEmpresaRoles?: UserEmpresaRoleInfo[]; // NEW: roles dinámicos por empresa
+
+//   departamento?: string[];
+
+//   img?: string;
+//   telefono: string;
+// }
+export interface MembershipRole {
+  id: string;
+  name: string;
+  description?: string | null;
+}
+
+export interface MembershipEmpresa {
+  id_empresa: string;
+  nombre: string;
+}
+
+export interface Membership {
+  id: string;
+  userId: string;
+  empresaId: string;
+  roleId: string;
+  status: "invited" | "active" | "suspended";
+  assignedBy?: string | null;
+  assignedAt: string;
+  updatedAt: string;
+  empresa?: MembershipEmpresa;
+  role?: MembershipRole;
+}
+
 export interface Usuario {
   id: string;
+  img?: string | null;
   nombre: string;
   correo: string;
-  rol?: string; // campo legacy — se mantiene durante transición
-  acceso: string;
-  estado: string;
-  createdBy: UserReference;
-  modificadoPor: UserReference;
+  telefono?: string | null;
+  departamento: string[];
+  acceso: "limitado" | "completo" | "ninguno";
+  estado: "pendiente" | "activo" | "suspendido";
+  eliminado: boolean;
+  online: boolean;
+  fcmTokens: string[];
+  google: boolean;
   createdAt: string;
-  historial: HistorialCambio[];
-  idWorkshop?: Workshop[];
-  idRefineria?: Refineria[];
-  idAutoSys?: AutoSys[];
-  empresas?: Empresa[];
-  userEmpresaRoles?: UserEmpresaRoleInfo[]; // NEW: roles dinámicos por empresa
-
-  departamento?: string[];
-
-  img?: string;
-  telefono: string;
+  updatedAt: string;
+  memberships?: Membership[];
 }

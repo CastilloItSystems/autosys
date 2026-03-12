@@ -19,29 +19,29 @@ const router = Router({ mergeParams: true })
 router.use(authenticate)
 
 // CRUD de roles dinámicos por empresa
-router.get('/', authorize(PERMISSIONS.COMPANY_ROLES_VIEW), getCompanyRoles)
-router.post('/', authorize(PERMISSIONS.COMPANY_ROLES_MANAGE), createCompanyRole)
+router.get('/', authorize(PERMISSIONS.EMPRESAS_READ), getCompanyRoles)
+router.post('/', authorize(PERMISSIONS.EMPRESAS_CREATE), createCompanyRole)
 router.put(
   '/:roleId',
-  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
+  authorize(PERMISSIONS.EMPRESAS_UPDATE),
   updateCompanyRole
 )
 router.delete(
   '/:roleId',
-  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
+  authorize(PERMISSIONS.EMPRESAS_DELETE),
   deleteCompanyRole
 )
 
 // Asignación de roles a usuarios dentro de la empresa
 router.put(
   '/users/:userId/role',
-  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
+  authorize(PERMISSIONS.EMPRESAS_UPDATE),
   assignUserRole
 )
 
 router.delete(
   '/users/:userId/role',
-  authorize(PERMISSIONS.COMPANY_ROLES_MANAGE),
+  authorize(PERMISSIONS.EMPRESAS_UPDATE),
   removeUserRole
 )
 

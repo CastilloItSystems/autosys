@@ -57,6 +57,9 @@ export const authorize = (...requiredPermissions: string[]) => {
     _res: Response,
     next: NextFunction
   ): Promise<void> => {
+    console.log('--- DEPURACIÓN AUTHZ ---')
+    console.log('Permisos que pide la ruta:', requiredPermissions)
+
     if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
 
     if (!req.user) {
@@ -70,11 +73,14 @@ export const authorize = (...requiredPermissions: string[]) => {
     }
 
     const userPermissions = await getEffectivePermissions(req.membership.id)
-
+    console.log(
+      'Permisos que tiene el usuario en BD:',
+      Array.from(userPermissions)
+    )
     const hasAllPermissions = requiredPermissions.every((permission) =>
       userPermissions.has(permission)
     )
-
+    console.log('bug', hasAllPermissions)
     if (!hasAllPermissions) {
       throw new ForbiddenError('No tienes permisos para realizar esta acción')
     }

@@ -1,6 +1,12 @@
 import type { PrismaClient } from '../../src/generated/prisma/client.js'
 
 export const PERMISSIONS = [
+  { code: 'empresas.read', description: 'Ver empresas' },
+  { code: 'empresas.create', description: 'Crear empresas' },
+  { code: 'empresas.update', description: 'Actualizar empresas' },
+  { code: 'empresas.delete', description: 'Eliminar empresas' },
+  { code: 'empresas.approve', description: 'Aprobar empresas' },
+
   { code: 'users.read', description: 'Ver usuarios' },
   { code: 'users.create', description: 'Crear usuarios' },
   { code: 'users.update', description: 'Actualizar usuarios' },

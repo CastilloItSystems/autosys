@@ -3,6 +3,11 @@ import type { PrismaClient } from '../../src/generated/prisma/client.js'
 
 const ROLE_DEFINITIONS = {
   OWNER: [
+    'empresas.read',
+    'empresas.create',
+    'empresas.update',
+    'empresas.delete',
+    'empresas.approve',
     'users.read',
     'users.create',
     'users.update',
@@ -46,6 +51,10 @@ const ROLE_DEFINITIONS = {
     'settings.approve',
   ],
   ADMIN: [
+    'empresas.read',
+    'empresas.create',
+    'empresas.update',
+    'empresas.approve',
     'users.read',
     'users.create',
     'users.update',

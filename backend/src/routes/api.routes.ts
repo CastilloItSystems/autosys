@@ -3,7 +3,8 @@ import userRoutes from './users.routes.js'
 import authRoutes from './auth.routes.js'
 import empresaRoutes from './empresas.routes.js'
 import companyRoleRoutes from './companyRoles.routes.js'
-import { saveToken } from '../controllers/users.controller.js'
+import membershipRoutes from './memberships.routes.js'
+// import { saveToken } from '../controllers/users.controller.js'
 
 // Módulos
 import inventoryRoutes from '../features/inventory/index.js'
@@ -18,15 +19,20 @@ const router = Router()
 // Públicas
 router.use('/auth', authRoutes)
 
-// Privadas (ajusta según tu negocio)
+// Usuarios globales del SaaS
 router.use('/users', authenticate, userRoutes)
 
-// Roles dinámicos: antes de /empresas general
-router.use('/empresas/:id/roles', authenticate, companyRoleRoutes)
-router.use('/empresas', authenticate, empresaRoutes)
+// Memberships por empresa
+router.use('/memberships', authenticate, extractEmpresa, membershipRoutes)
 
-// Token de notificaciones (usuario autenticado)
-router.post('/save-token', authenticate, extractEmpresa, saveToken)
+// Roles dinámicos por empresa
+router.use('/empresas/:id/roles', authenticate, companyRoleRoutes)
+
+// Empresas
+router.use('/empresas', authenticate, extractEmpresa, empresaRoutes)
+
+// Token de notificaciones
+// router.post('/save-token', authenticate, saveToken)
 
 // Módulo Inventario
 router.use('/inventory', authenticate, extractEmpresa, inventoryRoutes)

@@ -1,85 +1,76 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import { FilterMatchMode } from "primereact/api";
+
+import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { Button } from "primereact/button";
-import { Column } from "primereact/column";
 import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
-import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
-import { motion } from "framer-motion";
-import { ProgressSpinner } from "primereact/progressspinner";
 
 import UsuarioForm from "./UsuarioForm";
 import UsuarioChangePasswordForm from "./UsuarioChangePasswordForm";
-import UsuarioPermisos from "./UsuarioPermisos";
-import CustomActionButtons from "../common/CustomActionButtons";
-import AuditHistoryDialog from "../common/AuditHistoryDialog";
-import { Usuario } from "@/libs/interfaces";
+
 import {
   deleteUser,
   getUsers,
   getAuditLogsForUser,
+  User,
+  AuditLog,
 } from "@/app/api/userService";
 
 const UsuarioList = () => {
-  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
-  const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [usuarios, setUsuarios] = useState<User[]>([]);
+  const [usuario, setUsuario] = useState<User | null>(null);
 
   const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
-  // Dialog states
   const [deleteUsuarioDialog, setDeleteUsuarioDialog] = useState(false);
   const [usuarioFormDialog, setUsuarioFormDialog] = useState(false);
   const [usuarioPasswordFormDialog, setUsuarioPasswordFormDialog] =
     useState(false);
   const [auditDialogVisible, setAuditDialogVisible] = useState(false);
 
-  const [selectedAuditUsuario, setSelectedAuditUsuario] =
-    useState<Usuario | null>(null);
-
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
+  const [selectedAuditUsuario, setSelectedAuditUsuario] = useState<User | null>(
+    null,
+  );
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
   const [auditLogsLoading, setAuditLogsLoading] = useState(false);
 
-  // Estado para el panel de permisos
-  const [permisosDialogVisible, setPermisosDialogVisible] = useState(false);
-  const [selectedPermisosUsuario, setSelectedPermisosUsuario] =
-    useState<Usuario | null>(null);
-
-  const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
 
-  const initFilters = () => {
-    setFilters({
-      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  const showToast = (
+    severity: "success" | "info" | "warn" | "error",
+    summary: string,
+    detail: string,
+  ) => {
+    toast.current?.show({
+      severity,
+      summary,
+      detail,
+      life: 3000,
     });
-    setGlobalFilterValue("");
   };
 
-  const fetchUsers = async () => {
+  const loadUsuarios = async () => {
     try {
       setLoading(true);
-      const usuariosDB = await getUsers();
-      setUsuarios(usuariosDB.users || []);
+      const response = await getUsers();
+      setUsuarios(response.users ?? []);
     } catch (error) {
-      console.error("Error loading users:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar usuarios",
-        life: 3000,
-      });
+      console.error("Error cargando usuarios:", error);
+      showToast("error", "Error", "No se pudieron cargar los usuarios");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    fetchUsers();
-    initFilters();
+    loadUsuarios();
   }, []);
 
   const openNew = () => {
@@ -89,146 +80,167 @@ const UsuarioList = () => {
 
   const hideUsuarioFormDialog = () => {
     setUsuarioFormDialog(false);
-    setUsuario(null);
   };
 
   const hideUsuarioPasswordFormDialog = () => {
     setUsuarioPasswordFormDialog(false);
-    setUsuario(null);
   };
 
   const hideDeleteUsuarioDialog = () => {
     setDeleteUsuarioDialog(false);
-    setUsuario(null);
   };
 
-  const handleSave = () => {
-    fetchUsers();
-    hideUsuarioFormDialog();
-  };
-
-  const handlePasswordChanged = () => {
-    fetchUsers();
-    hideUsuarioPasswordFormDialog();
-  };
-
-  const editUsuario = (usuario: Usuario) => {
-    setUsuario({ ...usuario });
+  const editUsuario = (usuario: User) => {
+    setUsuario(usuario);
     setUsuarioFormDialog(true);
   };
 
-  const changePassword = (usuario: Usuario) => {
-    setUsuario({ ...usuario });
-    setUsuarioPasswordFormDialog(true);
-  };
-
-  const confirmDeleteUsuario = (usuario: Usuario) => {
+  const confirmDeleteUsuario = (usuario: User) => {
     setUsuario(usuario);
     setDeleteUsuarioDialog(true);
   };
 
-  const deleteUsuarioAction = async () => {
-    if (usuario?.id) {
-      try {
-        await deleteUser(usuario.id);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Usuario Eliminado",
-          life: 3000,
-        });
-        fetchUsers();
-      } catch (error) {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudo eliminar el usuario",
-          life: 3000,
-        });
-      } finally {
-        setDeleteUsuarioDialog(false);
-        setUsuario(null);
-      }
+  const confirmChangePassword = (usuario: User) => {
+    setUsuario(usuario);
+    setUsuarioPasswordFormDialog(true);
+  };
+
+  const handleSave = async () => {
+    await loadUsuarios();
+    setUsuarioFormDialog(false);
+    setUsuario(null);
+  };
+
+  const handlePasswordChanged = async () => {
+    await loadUsuarios();
+    setUsuarioPasswordFormDialog(false);
+    setUsuario(null);
+  };
+
+  const handleDeleteUsuario = async () => {
+    if (!usuario) return;
+
+    try {
+      await deleteUser(usuario.id);
+      showToast("success", "Éxito", "Usuario eliminado correctamente");
+      await loadUsuarios();
+      setDeleteUsuarioDialog(false);
+      setUsuario(null);
+    } catch (error) {
+      console.error("Error eliminando usuario:", error);
+      showToast("error", "Error", "No se pudo eliminar el usuario");
+    }
+  };
+
+  const handleViewAudit = async (usuario: User) => {
+    try {
+      setSelectedAuditUsuario(usuario);
+      setAuditDialogVisible(true);
+      setAuditLogsLoading(true);
+
+      const response = await getAuditLogsForUser(usuario.id);
+      setAuditLogs(response.auditLogs ?? []);
+    } catch (error) {
+      console.error("Error cargando auditoría:", error);
+      showToast("error", "Error", "No se pudo cargar la auditoría");
+    } finally {
+      setAuditLogsLoading(false);
     }
   };
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    let _filters = { ...filters };
-    (_filters["global"] as any).value = value;
-    setFilters(_filters);
+    const value = e.target.value;
     setGlobalFilterValue(value);
   };
 
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string,
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
+  const estadoBodyTemplate = (rowData: User) => {
+    const severityMap: Record<
+      string,
+      "success" | "warning" | "danger" | "info"
+    > = {
+      activo: "success",
+      pendiente: "warning",
+      suspendido: "danger",
+    };
+
+    return (
+      <Tag
+        value={rowData.estado}
+        severity={severityMap[rowData.estado] || "info"}
+      />
+    );
   };
 
-  const header = (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <h4 className="m-0">Gestión de Usuarios</h4>
-      <div className="flex gap-2">
-        <span className="p-input-icon-left">
-          <i className="pi pi-search" />
-          <InputText
-            value={globalFilterValue}
-            onChange={onGlobalFilterChange}
-            placeholder="Buscar..."
-          />
-        </span>
-        <Button label="Nuevo Usuario" icon="pi pi-plus" onClick={openNew} />
-      </div>
-    </div>
-  );
+  const accesoBodyTemplate = (rowData: User) => {
+    const severityMap: Record<string, "success" | "warning" | "secondary"> = {
+      completo: "success",
+      limitado: "warning",
+      ninguno: "secondary",
+    };
 
-  const actionBodyTemplate = (rowData: any) => {
     return (
-      <div className="flex align-items-center gap-2">
-        <CustomActionButtons
-          rowData={rowData}
-          onInfo={async (data) => {
-            setSelectedAuditUsuario(data);
-            setAuditLogsLoading(true);
-            try {
-              const result = await getAuditLogsForUser(data.id);
-              setAuditLogs(result.auditLogs || []);
-            } catch (error) {
-              console.error("Error loading audit logs:", error);
-              toast.current?.show({
-                severity: "error",
-                summary: "Error",
-                detail: "Error al cargar el historial de auditoría",
-                life: 3000,
-              });
-              setAuditLogs([]);
-            } finally {
-              setAuditLogsLoading(false);
-            }
-            setAuditDialogVisible(true);
-          }}
-          onEdit={() => editUsuario(rowData)}
-          onDelete={() => confirmDeleteUsuario(rowData)}
+      <Tag
+        value={rowData.acceso}
+        severity={severityMap[rowData.acceso] || "secondary"}
+      />
+    );
+  };
+
+  const empresasBodyTemplate = (rowData: User) => {
+    const memberships = rowData.memberships ?? [];
+
+    if (memberships.length === 0) {
+      return <span className="text-500">Sin empresas</span>;
+    }
+
+    return (
+      <div className="flex flex-column gap-1">
+        {memberships.map((membership) => (
+          <div key={membership.id} className="text-sm">
+            <strong>
+              {membership.empresa?.nombre ?? membership.empresaId}
+            </strong>
+            {membership.role?.name ? ` — ${membership.role.name}` : ""}
+          </div>
+        ))}
+      </div>
+    );
+  };
+
+  const actionBodyTemplate = (rowData: User) => {
+    return (
+      <div className="flex gap-2">
+        <Button
+          icon="pi pi-pencil"
+          rounded
+          outlined
+          severity="success"
+          tooltip="Editar"
+          onClick={() => editUsuario(rowData)}
         />
         <Button
           icon="pi pi-key"
-          className="p-button-rounded p-button-text p-button-secondary"
-          onClick={() => changePassword(rowData)}
-          tooltip="Cambiar Contraseña"
-          tooltipOptions={{ position: "top" }}
+          rounded
+          outlined
+          severity="help"
+          tooltip="Cambiar contraseña"
+          onClick={() => confirmChangePassword(rowData)}
         />
         <Button
-          icon="pi pi-shield"
-          className="p-button-rounded p-button-text p-button-warning"
-          onClick={() => {
-            setSelectedPermisosUsuario(rowData);
-            setPermisosDialogVisible(true);
-          }}
-          tooltip="Gestionar Permisos"
-          tooltipOptions={{ position: "top" }}
+          icon="pi pi-history"
+          rounded
+          outlined
+          severity="info"
+          tooltip="Ver auditoría"
+          onClick={() => handleViewAudit(rowData)}
+        />
+        <Button
+          icon="pi pi-trash"
+          rounded
+          outlined
+          severity="danger"
+          tooltip="Eliminar"
+          onClick={() => confirmDeleteUsuario(rowData)}
         />
       </div>
     );
@@ -246,144 +258,82 @@ const UsuarioList = () => {
         label="Sí"
         icon="pi pi-check"
         severity="danger"
-        onClick={deleteUsuarioAction}
+        onClick={handleDeleteUsuario}
       />
     </>
   );
 
+  const header = (
+    <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center gap-3">
+      <h4 className="m-0">Usuarios</h4>
+      <div className="flex gap-2">
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            value={globalFilterValue}
+            onChange={onGlobalFilterChange}
+            placeholder="Buscar..."
+          />
+        </span>
+        <Button
+          label="Nuevo"
+          icon="pi pi-plus"
+          severity="success"
+          onClick={openNew}
+        />
+      </div>
+    </div>
+  );
+
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      transition={{ duration: 0.25 }}
     >
       <Toast ref={toast} />
 
       <div className="card">
         <DataTable
-          ref={dt}
           value={usuarios}
-          header={header}
           paginator
           rows={10}
-          scrollable
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
-          globalFilterFields={["nombre", "correo", "rol", "telefono"]}
+          dataKey="id"
           loading={loading}
-          emptyMessage="No se encontraron usuarios."
-          size="small"
+          filters={filters}
+          globalFilter={globalFilterValue}
+          header={header}
+          emptyMessage="No se encontraron usuarios"
+          responsiveLayout="scroll"
         >
+          <Column field="nombre" header="Nombre" sortable />
+          <Column field="correo" header="Correo" sortable />
+          <Column field="telefono" header="Teléfono" />
+          <Column
+            field="departamento"
+            header="Departamento"
+            body={(rowData: User) => rowData.departamento?.join(", ")}
+          />
+          <Column field="acceso" header="Acceso" body={accesoBodyTemplate} />
+          <Column field="estado" header="Estado" body={estadoBodyTemplate} />
+          <Column header="Empresas" body={empresasBodyTemplate} />
           <Column
             body={actionBodyTemplate}
-            style={{ minWidth: "180px" }}
-          ></Column>
-          <Column
-            field="nombre"
-            header="Nombre"
-            sortable
-            style={{ minWidth: "200px" }}
-          ></Column>
-          <Column
-            field="correo"
-            header="Correo"
-            sortable
-            style={{ minWidth: "250px" }}
-          ></Column>
-          <Column
-            field="telefono"
-            header="Teléfono"
-            sortable
-            style={{ minWidth: "150px" }}
-          ></Column>
-          <Column
-            header="Empresa / Rol"
-            body={(rowData) => {
-              if (rowData.userEmpresaRoles?.length > 0) {
-                return (
-                  <div className="flex flex-column gap-1">
-                    {rowData.userEmpresaRoles.map((uer: any) => (
-                      <div key={uer.empresaId} className="flex align-items-center gap-2">
-                        <span className="text-500 text-xs">{uer.empresa?.nombre}</span>
-                        <Tag value={uer.role?.name} severity="info" />
-                      </div>
-                    ))}
-                  </div>
-                );
-              }
-              return <Tag value={rowData.rol || "Sin rol"} severity="secondary" />;
-            }}
-            style={{ minWidth: "220px" }}
-          ></Column>
-          <Column
-            field="acceso"
-            header="Acceso"
-            sortable
-            body={(rowData) => {
-              const severity =
-                rowData.acceso === "completo" ? "success" :
-                rowData.acceso === "limitado" ? "warning" : "secondary";
-              return <Tag value={rowData.acceso} severity={severity} />;
-            }}
-            style={{ minWidth: "110px" }}
-          ></Column>
-          <Column
-            field="estado"
-            header="Estado"
-            sortable
-            body={(rowData) => {
-              const getSeverity = (status: string) => {
-                switch (status) {
-                  case "activo":
-                    return "success";
-                  case "pendiente":
-                    return "warning";
-                  case "suspendido":
-                    return "danger";
-                  default:
-                    return "info";
-                }
-              };
-              return (
-                <Tag
-                  value={rowData.estado}
-                  severity={getSeverity(rowData.estado)}
-                />
-              );
-            }}
-            style={{ minWidth: "100px", textAlign: "center" }}
-          ></Column>
+            exportable={false}
+            style={{ minWidth: "14rem" }}
+          />
         </DataTable>
       </div>
-
-      <AuditHistoryDialog
-        visible={auditDialogVisible}
-        onHide={() => setAuditDialogVisible(false)}
-        title={
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-user mr-3 text-primary text-3xl"></i>
-                Historial de Auditoría - {selectedAuditUsuario?.nombre}
-              </h2>
-            </div>
-          </div>
-        }
-        auditLogs={auditLogs}
-        loading={auditLogsLoading}
-      />
 
       <Dialog
         visible={usuarioFormDialog}
         style={{ width: "850px" }}
         header={
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-user-edit mr-3 text-primary text-3xl"></i>
-                {usuario ? "Editar Usuario" : "Crear Usuario"}
-              </h2>
-            </div>
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-user" />
+            <h2 className="m-0 text-xl">
+              {usuario ? "Editar Usuario" : "Nuevo Usuario"}
+            </h2>
           </div>
         }
         modal
@@ -434,19 +384,61 @@ const UsuarioList = () => {
         </div>
       </Dialog>
 
-      {/* ── Panel de gestión de permisos ── */}
-      {selectedPermisosUsuario && (
-        <UsuarioPermisos
-          visible={permisosDialogVisible}
-          onHide={() => {
-            setPermisosDialogVisible(false);
-            setSelectedPermisosUsuario(null);
-          }}
-          userId={selectedPermisosUsuario.id}
-          userName={selectedPermisosUsuario.nombre}
-          toast={toast}
-        />
-      )}
+      <Dialog
+        visible={auditDialogVisible}
+        style={{ width: "900px" }}
+        header={`Auditoría${
+          selectedAuditUsuario ? ` - ${selectedAuditUsuario.nombre}` : ""
+        }`}
+        modal
+        onHide={() => {
+          setAuditDialogVisible(false);
+          setSelectedAuditUsuario(null);
+          setAuditLogs([]);
+        }}
+      >
+        {auditLogsLoading ? (
+          <div className="text-center p-4">Cargando auditoría...</div>
+        ) : (
+          <div className="flex flex-column gap-3">
+            {auditLogs.length === 0 ? (
+              <div className="text-center text-500 p-4">
+                No hay registros de auditoría
+              </div>
+            ) : (
+              auditLogs.map((log) => (
+                <div
+                  key={log.id}
+                  className="border-1 surface-border border-round p-3"
+                >
+                  <div className="flex justify-content-between align-items-center mb-2">
+                    <div className="font-semibold">
+                      {log.action} - {log.entity}
+                    </div>
+                    <small className="text-500">
+                      {new Date(log.createdAt).toLocaleString()}
+                    </small>
+                  </div>
+
+                  {log.user && (
+                    <div className="mb-2 text-sm">
+                      <strong>Usuario:</strong> {log.user.nombre} (
+                      {log.user.correo})
+                    </div>
+                  )}
+
+                  <pre
+                    className="text-sm p-2 border-round surface-100 overflow-auto"
+                    style={{ maxHeight: "250px" }}
+                  >
+                    {JSON.stringify(log.changes, null, 2)}
+                  </pre>
+                </div>
+              ))
+            )}
+          </div>
+        )}
+      </Dialog>
     </motion.div>
   );
 };
