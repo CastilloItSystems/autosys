@@ -7,8 +7,14 @@ import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import { handleFormError } from "@/utils/errorHandlers";
 import { motion } from "framer-motion";
-import warehouseService, { Warehouse } from "@/app/api/inventory/warehouseService";
+import warehouseService, {
+  Warehouse,
+} from "@/app/api/inventory/warehouseService";
 import WarehouseForm from "./WarehouseForm";
 import CreateButton from "@/components/common/CreateButton";
 
@@ -31,6 +37,12 @@ export default function WarehouseList() {
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [actionWarehouse, setActionWarehouse] = useState<Warehouse | null>(
+    null,
+  );
+  const menuRef = useRef<Menu | null>(null);
 
   // Cargar almacenes cuando cambien los filtros
   useEffect(() => {
@@ -40,17 +52,12 @@ export default function WarehouseList() {
   const loadWarehouses = async () => {
     try {
       setLoading(true);
-      let response: any;
-
-      if (showActive) {
-        response = await warehouseService.getActive();
-      } else {
-        response = await warehouseService.getAll({
-          page: page + 1,
-          limit: rows,
-          search: searchQuery || undefined,
-        });
-      }
+      const response = await warehouseService.getAll({
+        page: page + 1,
+        limit: rows,
+        search: searchQuery || undefined,
+        isActive: showActive ? "true" : undefined,
+      });
 
       // Estructura consistente en todos los endpoints
       const warehousesData = response.data || [];
@@ -60,12 +67,7 @@ export default function WarehouseList() {
       setTotalRecords(total);
     } catch (error) {
       console.error("Error loading warehouses:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar almacenes",
-        life: 3000,
-      });
+      handleFormError(error, toast);
       setWarehouses([]);
     } finally {
       setLoading(false);
@@ -105,7 +107,7 @@ export default function WarehouseList() {
 
   const handleDelete = async () => {
     if (!selectedWarehouse?.id) return;
-
+    setIsDeleting(true);
     try {
       await warehouseService.delete(selectedWarehouse.id);
       toast.current?.show({
@@ -114,16 +116,13 @@ export default function WarehouseList() {
         detail: "Almacén eliminado correctamente",
         life: 3000,
       });
-      loadWarehouses();
+      await loadWarehouses();
       setDeleteDialog(false);
+      setSelectedWarehouse(null);
     } catch (error) {
-      console.error("Error deleting warehouse:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al eliminar el almacén",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -142,57 +141,44 @@ export default function WarehouseList() {
         } correctamente`,
         life: 3000,
       });
-      loadWarehouses();
+      await loadWarehouses();
     } catch (error) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cambiar estado del almacén",
-        life: 3000,
-      });
+      handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    toast.current?.show({
-      severity: "success",
-      summary: "Éxito",
-      detail: selectedWarehouse?.id
-        ? "Almacén actualizado correctamente"
-        : "Almacén creado correctamente",
-      life: 3000,
-    });
-    loadWarehouses();
-    setFormDialog(false);
+    (async () => {
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: selectedWarehouse?.id
+          ? "Almacén actualizado correctamente"
+          : "Almacén creado correctamente",
+        life: 3000,
+      });
+      await loadWarehouses();
+      setFormDialog(false);
+      setSelectedWarehouse(null);
+    })();
   };
 
   // Templates
   const actionBodyTemplate = (rowData: Warehouse) => {
     return (
-      <div className="flex gap-2">
+      <div>
         <Button
-          icon="pi pi-pencil"
+          icon="pi pi-cog"
           rounded
-          severity="info"
           text
-          onClick={() => editWarehouse(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleWarehouse(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteWarehouse(rowData)}
-          tooltip="Eliminar"
+          aria-controls="popup_menu"
+          aria-haspopup
+          onClick={(e) => {
+            setActionWarehouse(rowData);
+            menuRef.current?.toggle(e);
+          }}
+          tooltip="Opciones"
+          tooltipOptions={{ position: "left" }}
         />
       </div>
     );
@@ -323,9 +309,13 @@ export default function WarehouseList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -346,36 +336,63 @@ export default function WarehouseList() {
         modal
         className="p-fluid"
         onHide={() => setFormDialog(false)}
+        footer={
+          <FormActionButtons
+            formId="warehouse-form"
+            isUpdate={!!selectedWarehouse?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
       >
         <WarehouseForm
           warehouse={selectedWarehouse}
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          formId="warehouse-form"
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedWarehouse && (
-            <span>
-              ¿Está seguro de eliminar el almacén{" "}
-              <b>{selectedWarehouse.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedWarehouse(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedWarehouse?.name}
+        isDeleting={isDeleting}
+      />
+
+      <Menu
+        model={
+          actionWarehouse
+            ? [
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editWarehouse(actionWarehouse),
+                },
+                {
+                  label: actionWarehouse.isActive ? "Desactivar" : "Activar",
+                  icon: actionWarehouse.isActive ? "pi pi-pause" : "pi pi-play",
+                  command: () => handleToggleWarehouse(actionWarehouse),
+                },
+                { separator: true },
+                {
+                  label: "Eliminar",
+                  icon: "pi pi-trash",
+                  className: "p-menuitem-danger",
+                  command: () => confirmDeleteWarehouse(actionWarehouse),
+                },
+              ]
+            : []
+        }
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 }

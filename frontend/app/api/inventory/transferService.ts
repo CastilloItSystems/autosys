@@ -49,21 +49,22 @@ const transferService = {
 
     if (filters) {
       if (filters.status) params.status = filters.status;
-      if (filters.fromWarehouseId) params.fromWarehouseId = filters.fromWarehouseId;
+      if (filters.fromWarehouseId)
+        params.fromWarehouseId = filters.fromWarehouseId;
       if (filters.toWarehouseId) params.toWarehouseId = filters.toWarehouseId;
       if (filters.search) params.search = filters.search;
     }
 
     const response = await apiClient.get<PaginatedResponse<Transfer>>(
       `/inventory/transfers`,
-      { params }
+      { params },
     );
     return response.data;
   },
 
   async getById(id: string): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.get<ApiResponse<Transfer>>(
-      `/inventory/transfers/${id}`
+      `/inventory/transfers/${id}`,
     );
     return response.data;
   },
@@ -71,7 +72,7 @@ const transferService = {
   async create(data: CreateTransferRequest): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.post<ApiResponse<Transfer>>(
       "/inventory/transfers",
-      data
+      data,
     );
     return response.data;
   },
@@ -82,7 +83,7 @@ const transferService = {
   ): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.put<ApiResponse<Transfer>>(
       `/inventory/transfers/${id}`,
-      data
+      data,
     );
     return response.data;
   },
@@ -91,14 +92,14 @@ const transferService = {
 
   async submit(id: string): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.patch<ApiResponse<Transfer>>(
-      `/inventory/transfers/${id}/submit`
+      `/inventory/transfers/${id}/submit`,
     );
     return response.data;
   },
 
   async approve(id: string): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.patch<ApiResponse<Transfer>>(
-      `/inventory/transfers/${id}/approve`
+      `/inventory/transfers/${id}/approve`,
     );
     return response.data;
   },
@@ -109,7 +110,7 @@ const transferService = {
   ): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.patch<ApiResponse<Transfer>>(
       `/inventory/transfers/${id}/reject`,
-      data
+      data,
     );
     return response.data;
   },
@@ -118,7 +119,7 @@ const transferService = {
 
   async cancel(id: string): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.patch<ApiResponse<Transfer>>(
-      `/inventory/transfers/${id}/cancel`
+      `/inventory/transfers/${id}/cancel`,
     );
     return response.data;
   },

@@ -8,7 +8,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 // PrimeReact components
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
-import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
@@ -22,18 +21,21 @@ import {
   updateSupplierSchema,
   CreateSupplier,
 } from "@/libs/zods/inventory/supplierZod";
+import { handleFormError } from "@/utils/errorHandlers";
 
 interface SupplierFormProps {
   supplier: Supplier | null;
-  onSave: () => void;
-  onCancel: () => void;
+  onSave: () => void | Promise<void>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
 
 export default function SupplierForm({
   supplier,
   onSave,
-  onCancel,
+  formId,
+  onSubmittingChange,
   toast,
 }: SupplierFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -47,6 +49,7 @@ export default function SupplierForm({
     resolver: zodResolver(
       supplier ? updateSupplierSchema : createSupplierSchema,
     ),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -95,6 +98,7 @@ export default function SupplierForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: CreateSupplier) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       // Normalize empty strings to undefined
       const submitData = {
@@ -111,21 +115,16 @@ export default function SupplierForm({
       } else {
         await supplierService.create(submitData);
       }
-      onSave();
+      await onSave();
     } catch (error: any) {
-      console.error("Error saving supplier:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail:
-          error.response?.data?.message || "Error al guardar el proveedor",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId || "supplier-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -334,23 +333,7 @@ export default function SupplierForm({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={onCancel}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={supplier?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
-          </div>
+          {/* Action buttons moved to parent dialog footer via FormActionButtons */}
         </>
       )}
     </form>

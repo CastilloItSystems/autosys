@@ -6,11 +6,15 @@ import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
+import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import supplierService, {
   type Supplier,
 } from "@/app/api/inventory/supplierService";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import { handleFormError } from "@/utils/errorHandlers";
 import SupplierForm from "./SupplierForm";
 import CreateButton from "@/components/common/CreateButton";
 
@@ -33,6 +37,10 @@ export default function SupplierList() {
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [actionSupplier, setActionSupplier] = useState<Supplier | null>(null);
+  const menuRef = useRef<Menu | null>(null);
 
   // Cargar proveedores cuando cambien los filtros
   useEffect(() => {
@@ -42,21 +50,16 @@ export default function SupplierList() {
   const loadSuppliers = async () => {
     try {
       setLoading(true);
-      let response: any;
-
-      if (showActive) {
-        response = await supplierService.getActive();
-      } else {
-        response = await supplierService.getAll({
-          page: page + 1,
-          limit: rows,
-          name: searchQuery || undefined,
-        });
-      }
+      const response = await supplierService.getAll({
+        page: page + 1,
+        limit: rows,
+        name: searchQuery || undefined,
+        isActive: showActive ? "true" : undefined,
+      });
 
       // Estructura consistente en todos los endpoints
       const suppliersData = response.data || [];
-      const total = response.pagination?.total || 0;
+      const total = response.meta?.total || 0;
 
       setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
       setTotalRecords(total);
@@ -105,7 +108,7 @@ export default function SupplierList() {
 
   const handleDelete = async () => {
     if (!selectedSupplier?.id) return;
-
+    setIsDeleting(true);
     try {
       await supplierService.delete(selectedSupplier.id);
       toast.current?.show({
@@ -114,16 +117,13 @@ export default function SupplierList() {
         detail: "Proveedor eliminado correctamente",
         life: 3000,
       });
-      loadSuppliers();
+      await loadSuppliers();
       setDeleteDialog(false);
+      setSelectedSupplier(null);
     } catch (error) {
-      console.error("Error deleting supplier:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al eliminar el proveedor",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -138,57 +138,44 @@ export default function SupplierList() {
         } correctamente`,
         life: 3000,
       });
-      loadSuppliers();
+      await loadSuppliers();
     } catch (error) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cambiar estado del proveedor",
-        life: 3000,
-      });
+      handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    toast.current?.show({
-      severity: "success",
-      summary: "Éxito",
-      detail: selectedSupplier?.id
-        ? "Proveedor actualizado correctamente"
-        : "Proveedor creado correctamente",
-      life: 3000,
-    });
-    loadSuppliers();
-    setFormDialog(false);
+    (async () => {
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: selectedSupplier?.id
+          ? "Proveedor actualizado correctamente"
+          : "Proveedor creado correctamente",
+        life: 3000,
+      });
+      await loadSuppliers();
+      setFormDialog(false);
+      setSelectedSupplier(null);
+    })();
   };
 
   // Templates
   const actionBodyTemplate = (rowData: Supplier) => {
     return (
-      <div className="flex gap-2">
+      <div>
         <Button
-          icon="pi pi-pencil"
+          icon="pi pi-cog"
           rounded
-          severity="info"
           text
-          onClick={() => editSupplier(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleSupplier(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteSupplier(rowData)}
-          tooltip="Eliminar"
+          aria-controls="popup_menu"
+          aria-haspopup
+          onClick={(e) => {
+            setActionSupplier(rowData);
+            menuRef.current?.toggle(e);
+          }}
+          tooltip="Opciones"
+          tooltipOptions={{ position: "left" }}
         />
       </div>
     );
@@ -239,23 +226,6 @@ export default function SupplierList() {
     </div>
   );
 
-  const deleteDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={() => setDeleteDialog(false)}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDelete}
-      />
-    </>
-  );
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -278,6 +248,7 @@ export default function SupplierList() {
           emptyMessage="No se encontraron proveedores"
           sortMode="multiple"
           lazy
+          scrollable
         >
           <Column
             field="code"
@@ -327,9 +298,13 @@ export default function SupplierList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -352,36 +327,63 @@ export default function SupplierList() {
         modal
         className="p-fluid"
         onHide={() => setFormDialog(false)}
+        footer={
+          <FormActionButtons
+            formId="supplier-form"
+            isUpdate={!!selectedSupplier?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
       >
         <SupplierForm
           supplier={selectedSupplier}
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          formId="supplier-form"
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedSupplier && (
-            <span>
-              ¿Está seguro de eliminar el proveedor{" "}
-              <b>{selectedSupplier.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedSupplier(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedSupplier?.name}
+        isDeleting={isDeleting}
+      />
+
+      <Menu
+        model={
+          actionSupplier
+            ? [
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editSupplier(actionSupplier),
+                },
+                {
+                  label: actionSupplier.isActive ? "Desactivar" : "Activar",
+                  icon: actionSupplier.isActive ? "pi pi-pause" : "pi pi-play",
+                  command: () => handleToggleSupplier(actionSupplier),
+                },
+                { separator: true },
+                {
+                  label: "Eliminar",
+                  icon: "pi pi-trash",
+                  className: "p-menuitem-danger",
+                  command: () => confirmDeleteSupplier(actionSupplier),
+                },
+              ]
+            : []
+        }
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 }

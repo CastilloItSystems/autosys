@@ -199,7 +199,7 @@ export default function WorkOrderForm({
         ]);
       console.log(vehiclesRes);
       setCustomers(
-        Array.isArray(customersRes.data) ? customersRes.data : [],
+        Array.isArray(customersRes.customers) ? customersRes.customers : [],
       );
       setVehicles(
         Array.isArray(vehiclesRes.vehicles) ? vehiclesRes.vehicles : [],

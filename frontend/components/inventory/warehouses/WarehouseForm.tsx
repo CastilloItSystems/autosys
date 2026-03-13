@@ -8,11 +8,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 // PrimeReact components
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
-import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
 import warehouseService, { Warehouse, WarehouseType } from "@/app/api/inventory/warehouseService";
+import { handleFormError } from "@/utils/errorHandlers";
 
 // Schema de validación
 import {
@@ -23,8 +23,9 @@ import {
 
 interface WarehouseFormProps {
   warehouse: Warehouse | null;
-  onSave: () => void;
-  onCancel: () => void;
+  onSave: () => void | Promise<void>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
 
@@ -38,7 +39,8 @@ const WAREHOUSE_TYPE_OPTIONS = [
 export default function WarehouseForm({
   warehouse,
   onSave,
-  onCancel,
+  formId,
+  onSubmittingChange,
   toast,
 }: WarehouseFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -52,6 +54,7 @@ export default function WarehouseForm({
     resolver: zodResolver(
       warehouse ? updateWarehouseSchema : createWarehouseSchema,
     ),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -91,6 +94,7 @@ export default function WarehouseForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: CreateWarehouse) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       // Normalize address: convert null/empty to undefined
       const submitData = {
@@ -103,20 +107,16 @@ export default function WarehouseForm({
       } else {
         await warehouseService.create(submitData);
       }
-      onSave();
+      await onSave();
     } catch (error: any) {
-      console.error("Error saving warehouse:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar el almacén",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId || "warehouse-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -239,23 +239,7 @@ export default function WarehouseForm({
             </div>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={onCancel}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={warehouse?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
-          </div>
+          {/* Action buttons moved to parent dialog footer via FormActionButtons */}
         </>
       )}
     </form>

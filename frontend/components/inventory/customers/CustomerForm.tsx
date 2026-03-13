@@ -98,20 +98,20 @@ const CustomerForm = ({
           customer.id,
           payload,
         );
-        console.log(updatedCustomer.data.id);
+        console.log(updatedCustomer.customer.id);
         const updatedCustomers = customers.map((c) =>
-          c.id === updatedCustomer.data.id ? updatedCustomer.data : c,
+          c.id === updatedCustomer.customer.id ? updatedCustomer.customer : c,
         );
         setCustomers(updatedCustomers);
         showToast("success", "Éxito", "Cliente actualizado");
       } else {
         const newCustomer = await customerService.create(payload);
         console.log(newCustomer);
-        setCustomers([newCustomer.data, ...customers]);
+        setCustomers([newCustomer.customer, ...customers]);
         showToast("success", "Éxito", "Cliente creado");
         // Llamar al callback si existe
         if (onCustomerCreated) {
-          onCustomerCreated(newCustomer.data);
+          onCustomerCreated(newCustomer.customer);
         }
       }
       hideFormDialog();

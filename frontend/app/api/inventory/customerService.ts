@@ -9,6 +9,11 @@ import { CustomerFormData } from "@/libs/zods/inventory/customerZod";
 
 export type CustomerType = "persona" | "empresa";
 
+export interface CustomerResponse {
+  msg: string;
+  customer: Customer;
+}
+
 // ============================================================================
 // REQUEST PARAMS & DTOs
 // ============================================================================
@@ -25,22 +30,22 @@ export interface GetCustomersParams {
 const customerService = {
   async getAll(
     params?: GetCustomersParams,
-  ): Promise<ApiResponse<Customer[]>> {
+  ): Promise<{ customers: Customer[] }> {
     const res = await apiClient.get("/customers", { params });
     return res.data;
   },
 
-  async getById(id: string): Promise<ApiResponse<Customer>> {
+  async getById(id: string): Promise<Customer> {
     const res = await apiClient.get(`/customers/${id}`);
     return res.data;
   },
 
-  async create(data: CustomerFormData): Promise<ApiResponse<Customer>> {
+  async create(data: CustomerFormData): Promise<CustomerResponse> {
     const res = await apiClient.post("/customers", data);
     return res.data;
   },
 
-  async update(id: string, data: CustomerFormData): Promise<ApiResponse<Customer>> {
+  async update(id: string, data: CustomerFormData): Promise<CustomerResponse> {
     const res = await apiClient.put(`/customers/${id}`, data);
     return res.data;
   },
@@ -49,14 +54,14 @@ const customerService = {
     await apiClient.delete(`/customers/${id}`);
   },
 
-  async search(query: string): Promise<ApiResponse<Customer[]>> {
+  async search(query: string): Promise<{ customers: Customer[] }> {
     const res = await apiClient.get("/customers/search", {
       params: { q: query },
     });
     return res.data;
   },
 
-  async getByType(type: CustomerType): Promise<ApiResponse<Customer[]>> {
+  async getByType(type: CustomerType): Promise<{ customers: Customer[] }> {
     const res = await apiClient.get(`/customers/type/${type}`);
     return res.data;
   },

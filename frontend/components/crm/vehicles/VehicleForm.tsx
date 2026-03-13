@@ -104,9 +104,9 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
   const fetchCustomers = async () => {
     try {
       setLoadingCustomers(true);
-      const customersRes = await customerService.getAll();
-      if (customersRes && Array.isArray(customersRes.data)) {
-        setCustomers(customersRes.data);
+      const customersDB = await customerService.getAll();
+      if (customersDB && Array.isArray(customersDB.customers)) {
+        setCustomers(customersDB.customers);
       }
     } catch (error) {
       console.error("Error al obtener los clientes:", error);
