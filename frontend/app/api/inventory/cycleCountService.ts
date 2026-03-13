@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // Enums
 export enum CycleCountStatus {
@@ -46,22 +47,8 @@ export interface CycleCount {
   };
 }
 
-export interface CycleCountsResponse {
-  data: CycleCount[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-interface CycleCountResponse {
-  data: CycleCount;
-}
-
 // DTOs
-interface CreateCycleCountRequest {
+export interface CreateCycleCountRequest {
   warehouseId: string;
   items: Array<{
     itemId: string;
@@ -72,7 +59,7 @@ interface CreateCycleCountRequest {
   notes?: string;
 }
 
-interface UpdateCycleCountRequest {
+export interface UpdateCycleCountRequest {
   warehouseId?: string;
   items?: Array<{
     itemId: string;
@@ -83,179 +70,140 @@ interface UpdateCycleCountRequest {
   notes?: string;
 }
 
-interface StartCycleCountRequest {
-  startedBy: string;
+interface CycleCountParams {
+  status?: string;
+  warehouseId?: string;
+  search?: string;
+  page?: number;
+  limit?: number;
 }
 
-interface CompleteCycleCountRequest {
-  completedBy: string;
+interface CycleCountItemParams {
+  itemId: string;
+  expectedQuantity: number;
+  location?: string;
+  notes?: string;
 }
 
-interface ApproveCycleCountRequest {
-  approvedBy: string;
-}
-
-interface ApplyCycleCountRequest {
-  appliedBy: string;
-}
-
-// API Methods
-export const getCycleCounts = async (
-  page = 1,
-  limit = 20,
-  filters?: {
-    status?: string;
-    warehouseId?: string;
-    search?: string;
+// Service
+const cycleCountService = {
+  async getAll(
+    params?: CycleCountParams,
+  ): Promise<PaginatedResponse<CycleCount>> {
+    const { page = 1, limit = 20, ...filters } = params || {};
+    const res = await apiClient.get("/inventory/cycle-counts", {
+      params: {
+        page,
+        limit,
+        ...filters,
+      },
+    });
+    return res.data;
   },
-): Promise<CycleCountsResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
 
-  if (filters) {
-    if (filters.status) params.append("status", filters.status);
-    if (filters.warehouseId) params.append("warehouseId", filters.warehouseId);
-    if (filters.search) params.append("search", filters.search);
-  }
+  async getById(id: string): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.get(`/inventory/cycle-counts/${id}`);
+    return res.data;
+  },
 
-  const response = await apiClient.get(`/inventory/cycle-counts?${params}`);
-  return response.data;
-};
+  async create(
+    data: CreateCycleCountRequest,
+  ): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.post("/inventory/cycle-counts", data);
+    return res.data;
+  },
 
-export const getCycleCount = async (
-  id: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.get(`/inventory/cycle-counts/${id}`);
-  return response.data;
-};
+  async update(
+    id: string,
+    data: UpdateCycleCountRequest,
+  ): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.put(`/inventory/cycle-counts/${id}`, data);
+    return res.data;
+  },
 
-export const createCycleCount = async (
-  data: CreateCycleCountRequest,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.post("/inventory/cycle-counts", data);
-  return response.data;
-};
-
-export const updateCycleCount = async (
-  id: string,
-  data: UpdateCycleCountRequest,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.put(`/inventory/cycle-counts/${id}`, data);
-  return response.data;
-};
-
-export const startCycleCount = async (
-  id: string,
-  startedBy: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/start`,
-    {
+  async start(id: string, startedBy: string): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(`/inventory/cycle-counts/${id}/start`, {
       startedBy,
-    },
-  );
-  return response.data;
-};
-
-export const completeCycleCount = async (
-  id: string,
-  completedBy: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/complete`,
-    {
-      completedBy,
-    },
-  );
-  return response.data;
-};
-
-export const approveCycleCount = async (
-  id: string,
-  approvedBy: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/approve`,
-    {
-      approvedBy,
-    },
-  );
-  return response.data;
-};
-
-export const applyCycleCount = async (
-  id: string,
-  appliedBy: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/apply`,
-    {
-      appliedBy,
-    },
-  );
-  return response.data;
-};
-
-export const rejectCycleCount = async (
-  id: string,
-  reason: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/reject`,
-    {
-      reason,
-    },
-  );
-  return response.data;
-};
-
-export const cancelCycleCount = async (
-  id: string,
-): Promise<CycleCountResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/cancel`,
-    {},
-  );
-  return response.data;
-};
-
-export const addItemToCycleCount = async (
-  id: string,
-  item: {
-    itemId: string;
-    expectedQuantity: number;
-    location?: string;
-    notes?: string;
+    });
+    return res.data;
   },
-): Promise<CycleCountItem> => {
-  const response = await apiClient.post(
-    `/inventory/cycle-counts/${id}/items`,
-    item,
-  );
-  return response.data;
+
+  async complete(
+    id: string,
+    completedBy: string,
+  ): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(
+      `/inventory/cycle-counts/${id}/complete`,
+      {
+        completedBy,
+      },
+    );
+    return res.data;
+  },
+
+  async approve(
+    id: string,
+    approvedBy: string,
+  ): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(`/inventory/cycle-counts/${id}/approve`, {
+      approvedBy,
+    });
+    return res.data;
+  },
+
+  async apply(id: string, appliedBy: string): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(`/inventory/cycle-counts/${id}/apply`, {
+      appliedBy,
+    });
+    return res.data;
+  },
+
+  async reject(id: string, reason: string): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(`/inventory/cycle-counts/${id}/reject`, {
+      reason,
+    });
+    return res.data;
+  },
+
+  async cancel(id: string): Promise<ApiResponse<CycleCount>> {
+    const res = await apiClient.patch(
+      `/inventory/cycle-counts/${id}/cancel`,
+      {},
+    );
+    return res.data;
+  },
+
+  async addItem(
+    id: string,
+    item: CycleCountItemParams,
+  ): Promise<ApiResponse<CycleCountItem>> {
+    const res = await apiClient.post(
+      `/inventory/cycle-counts/${id}/items`,
+      item,
+    );
+    return res.data;
+  },
+
+  async getItems(id: string): Promise<ApiResponse<CycleCountItem[]>> {
+    const res = await apiClient.get(`/inventory/cycle-counts/${id}/items`);
+    return res.data;
+  },
+
+  async updateItemQuantity(
+    id: string,
+    itemId: string,
+    countedQuantity: number,
+  ): Promise<ApiResponse<CycleCountItem>> {
+    const res = await apiClient.patch(
+      `/inventory/cycle-counts/${id}/items/${itemId}`,
+      { countedQuantity },
+    );
+    return res.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/inventory/cycle-counts/${id}`);
+  },
 };
 
-export const getCycleCountItems = async (
-  id: string,
-): Promise<CycleCountItem[]> => {
-  const response = await apiClient.get(`/inventory/cycle-counts/${id}/items`);
-  return response.data;
-};
-
-export const updateItemCountedQuantity = async (
-  id: string,
-  itemId: string,
-  countedQuantity: number,
-): Promise<CycleCountItem> => {
-  const response = await apiClient.patch(
-    `/inventory/cycle-counts/${id}/items/${itemId}`,
-    { countedQuantity },
-  );
-  return response.data;
-};
-
-export const deleteCycleCount = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/cycle-counts/${id}`);
-};
+export default cycleCountService;

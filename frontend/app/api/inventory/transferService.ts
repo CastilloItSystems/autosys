@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 import type {
   Transfer,
   TransferItem,
@@ -8,22 +9,6 @@ import type {
 // Re-export for backwards compatibility
 export { TransferStatus } from "@/libs/interfaces/inventory/transfer.interface";
 export type { Transfer, TransferItem, TransferNoteInfo };
-
-// ─── Response types ─────────────────────────────────────────────────
-
-export interface TransfersResponse {
-  data: Transfer[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-interface TransferResponse {
-  data: Transfer;
-}
 
 // ─── Request DTOs ───────────────────────────────────────────────────
 
@@ -47,88 +32,100 @@ interface RejectTransferRequest {
   reason: string;
 }
 
-// ─── API Methods ────────────────────────────────────────────────────
+// ─── API Service ────────────────────────────────────────────────────
 
-export const getTransfers = async (
-  page = 1,
-  limit = 20,
-  filters?: {
-    status?: string;
-    fromWarehouseId?: string;
-    toWarehouseId?: string;
-    search?: string;
+const transferService = {
+  async getAll(
+    page = 1,
+    limit = 20,
+    filters?: {
+      status?: string;
+      fromWarehouseId?: string;
+      toWarehouseId?: string;
+      search?: string;
+    },
+  ): Promise<PaginatedResponse<Transfer>> {
+    const params: Record<string, any> = { page, limit };
+
+    if (filters) {
+      if (filters.status) params.status = filters.status;
+      if (filters.fromWarehouseId) params.fromWarehouseId = filters.fromWarehouseId;
+      if (filters.toWarehouseId) params.toWarehouseId = filters.toWarehouseId;
+      if (filters.search) params.search = filters.search;
+    }
+
+    const response = await apiClient.get<PaginatedResponse<Transfer>>(
+      `/inventory/transfers`,
+      { params }
+    );
+    return response.data;
   },
-): Promise<TransfersResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
 
-  if (filters) {
-    if (filters.status) params.append("status", filters.status);
-    if (filters.fromWarehouseId)
-      params.append("fromWarehouseId", filters.fromWarehouseId);
-    if (filters.toWarehouseId)
-      params.append("toWarehouseId", filters.toWarehouseId);
-    if (filters.search) params.append("search", filters.search);
-  }
+  async getById(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.get<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}`
+    );
+    return response.data;
+  },
 
-  const response = await apiClient.get(`/inventory/transfers?${params}`);
-  return response.data;
+  async create(data: CreateTransferRequest): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.post<ApiResponse<Transfer>>(
+      "/inventory/transfers",
+      data
+    );
+    return response.data;
+  },
+
+  async update(
+    id: string,
+    data: UpdateTransferRequest,
+  ): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.put<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}`,
+      data
+    );
+    return response.data;
+  },
+
+  // ─── Approval flow ──────────────────────────────────────────────────
+
+  async submit(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/submit`
+    );
+    return response.data;
+  },
+
+  async approve(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/approve`
+    );
+    return response.data;
+  },
+
+  async reject(
+    id: string,
+    data: RejectTransferRequest,
+  ): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/reject`,
+      data
+    );
+    return response.data;
+  },
+
+  // ─── State transitions ───────────────────────────────────────────────
+
+  async cancel(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/cancel`
+    );
+    return response.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/inventory/transfers/${id}`);
+  },
 };
 
-export const getTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.get(`/inventory/transfers/${id}`);
-  return response.data;
-};
-
-export const createTransfer = async (
-  data: CreateTransferRequest,
-): Promise<TransferResponse> => {
-  const response = await apiClient.post("/inventory/transfers", data);
-  return response.data;
-};
-
-export const updateTransfer = async (
-  id: string,
-  data: UpdateTransferRequest,
-): Promise<TransferResponse> => {
-  const response = await apiClient.put(`/inventory/transfers/${id}`, data);
-  return response.data;
-};
-
-// ─── Approval flow ──────────────────────────────────────────────────
-
-export const submitTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.patch(`/inventory/transfers/${id}/submit`);
-  return response.data;
-};
-
-export const approveTransfer = async (
-  id: string,
-): Promise<TransferResponse> => {
-  const response = await apiClient.patch(`/inventory/transfers/${id}/approve`);
-  return response.data;
-};
-
-export const rejectTransfer = async (
-  id: string,
-  data: RejectTransferRequest,
-): Promise<TransferResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/transfers/${id}/reject`,
-    data,
-  );
-  return response.data;
-};
-
-// ─── State transitions ─────────────────────────────────────────────
-
-export const cancelTransfer = async (id: string): Promise<TransferResponse> => {
-  const response = await apiClient.patch(`/inventory/transfers/${id}/cancel`);
-  return response.data;
-};
-
-export const deleteTransfer = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/transfers/${id}`);
-};
+export default transferService;

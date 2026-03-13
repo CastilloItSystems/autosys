@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ── Movement Types ───────────────────────────────────────────────────────
 
@@ -91,18 +92,6 @@ export interface Movement {
   warehouseTo?: MovementWarehouseSummary;
 }
 
-export interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface MovementsResponse {
-  data: Movement[];
-  meta: Pagination;
-}
-
 export interface CreateMovementRequest {
   type: MovementType;
   itemId: string;
@@ -114,113 +103,6 @@ export interface CreateMovementRequest {
   notes?: string;
 }
 
-// ── CRUD Operations ──────────────────────────────────────────────────────
-
-export const getMovements = async (
-  page: number = 1,
-  limit: number = 20,
-  filters?: {
-    type?: MovementType;
-    itemId?: string;
-    warehouseFromId?: string;
-    warehouseToId?: string;
-    createdBy?: string;
-    reference?: string;
-    dateFrom?: string;
-    dateTo?: string;
-  },
-): Promise<MovementsResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-
-  if (filters?.type) params.append("type", filters.type);
-  if (filters?.itemId) params.append("itemId", filters.itemId);
-  if (filters?.warehouseFromId)
-    params.append("warehouseFromId", filters.warehouseFromId);
-  if (filters?.warehouseToId)
-    params.append("warehouseToId", filters.warehouseToId);
-  if (filters?.createdBy) params.append("createdBy", filters.createdBy);
-  if (filters?.reference) params.append("reference", filters.reference);
-  if (filters?.dateFrom) params.append("dateFrom", filters.dateFrom);
-  if (filters?.dateTo) params.append("dateTo", filters.dateTo);
-
-  const response = await apiClient.get(`/inventory/movements?${params}`);
-  const payload = response.data as {
-    data?: Movement[];
-    meta?: Pagination;
-    pagination?: Pagination;
-  };
-
-  const resolvedMeta = payload.meta ||
-    payload.pagination || {
-      page,
-      limit,
-      total: payload.data?.length || 0,
-      totalPages: Math.ceil((payload.data?.length || 0) / limit) || 1,
-    };
-
-  return {
-    data: payload.data || [],
-    meta: resolvedMeta,
-  };
-};
-
-export const getMovement = async (id: string): Promise<{ data: Movement }> => {
-  const response = await apiClient.get(`/inventory/movements/${id}`);
-  return response.data;
-};
-
-export const getMovementsByType = async (
-  type: MovementType,
-  limit: number = 100,
-): Promise<MovementsResponse> => {
-  const response = await apiClient.get(
-    `/inventory/movements/type/${type}?limit=${limit}`,
-  );
-  return response.data;
-};
-
-export const getMovementsByItem = async (
-  itemId: string,
-  limit: number = 100,
-): Promise<MovementsResponse> => {
-  const response = await apiClient.get(
-    `/inventory/movements/item/${itemId}?limit=${limit}`,
-  );
-  return response.data;
-};
-
-export const getMovementsByWarehouse = async (
-  warehouseId: string,
-  limit: number = 100,
-): Promise<MovementsResponse> => {
-  const response = await apiClient.get(
-    `/inventory/movements/warehouse/${warehouseId}?limit=${limit}`,
-  );
-  return response.data;
-};
-
-export const createMovement = async (
-  data: CreateMovementRequest,
-): Promise<{ data: Movement }> => {
-  const response = await apiClient.post("/inventory/movements", data);
-  return response.data;
-};
-
-export const cancelMovement = async (
-  id: string,
-): Promise<{ data: Movement }> => {
-  const response = await apiClient.patch(
-    `/inventory/movements/${id}/cancel`,
-    {},
-  );
-  return response.data;
-};
-
-// ── Dashboard Metrics ────────────────────────────────────────────────────
-
 export interface MovementDashboardMetrics {
   totalMovements: number;
   totalEntries: number;
@@ -229,9 +111,77 @@ export interface MovementDashboardMetrics {
   byType: { type: string; _count: number }[];
 }
 
-export const getMovementDashboard = async (): Promise<{
-  data: MovementDashboardMetrics;
-}> => {
-  const response = await apiClient.get("/inventory/movements/dashboard");
-  return response.data;
+// ============================================
+// SERVICE
+// ============================================
+const BASE_ROUTE = "/inventory/movements";
+
+const movementService = {
+  async getAll(params?: {
+    page?: number;
+    limit?: number;
+    type?: MovementType;
+    itemId?: string;
+    warehouseFromId?: string;
+    warehouseToId?: string;
+    createdBy?: string;
+    reference?: string;
+    dateFrom?: string;
+    dateTo?: string;
+  }): Promise<PaginatedResponse<Movement>> {
+    const res = await apiClient.get(BASE_ROUTE, { params });
+    return res.data;
+  },
+
+  async getById(id: string): Promise<ApiResponse<Movement>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
+
+  async getByType(
+    type: MovementType,
+    limit: number = 100,
+  ): Promise<PaginatedResponse<Movement>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/type/${type}`, {
+      params: { limit },
+    });
+    return res.data;
+  },
+
+  async getByItem(
+    itemId: string,
+    limit: number = 100,
+  ): Promise<PaginatedResponse<Movement>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/item/${itemId}`, {
+      params: { limit },
+    });
+    return res.data;
+  },
+
+  async getByWarehouse(
+    warehouseId: string,
+    limit: number = 100,
+  ): Promise<PaginatedResponse<Movement>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/warehouse/${warehouseId}`, {
+      params: { limit },
+    });
+    return res.data;
+  },
+
+  async create(payload: CreateMovementRequest): Promise<ApiResponse<Movement>> {
+    const res = await apiClient.post(BASE_ROUTE, payload);
+    return res.data;
+  },
+
+  async cancel(id: string): Promise<ApiResponse<Movement>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/cancel`);
+    return res.data;
+  },
+
+  async getDashboard(): Promise<ApiResponse<MovementDashboardMetrics>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/dashboard`);
+    return res.data;
+  },
 };
+
+export default movementService;

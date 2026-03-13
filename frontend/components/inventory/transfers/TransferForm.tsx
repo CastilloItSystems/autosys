@@ -14,12 +14,9 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { Message } from "primereact/message";
 
 // API functions
-import {
-  createTransfer,
-  updateTransfer,
-} from "@/app/api/inventory/transferService";
+import transferService from "@/app/api/inventory/transferService";
 import type { Transfer } from "@/libs/interfaces";
-import { getStockByWarehouse, Stock } from "@/app/api/inventory/stockService";
+import stockService, { Stock } from "@/app/api/inventory/stockService";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
 
 // Zod schema
@@ -149,9 +146,9 @@ export default function TransferForm({
   const onSubmit = async (data: CreateTransferInput) => {
     try {
       if (isEditing) {
-        await updateTransfer(transfer!.id, { notes: data.notes });
+        await transferService.update(transfer!.id, { notes: data.notes });
       } else {
-        await createTransfer(data);
+        await transferService.create(data);
       }
       onSave();
     } catch (error: any) {

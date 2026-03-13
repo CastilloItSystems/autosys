@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ============================================================================
 // ENUMS
@@ -53,21 +54,6 @@ export interface ReturnOrder {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface ReturnsResponse {
-  success: boolean;
-  data: ReturnOrder[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-  };
-}
-
-export interface ReturnResponse {
-  success: boolean;
-  data: ReturnOrder;
 }
 
 export interface CreateReturnInput {
@@ -150,16 +136,14 @@ export const RETURN_TYPE_CONFIG = {
 };
 
 // ============================================================================
-// SERVICE CLASS
+// SERVICE
 // ============================================================================
 
-class ReturnService {
-  private baseUrl = "/inventory/returns";
-
+const returnService = {
   /**
    * Get all returns with pagination and filters
    */
-  async getReturns(
+  async getAll(
     page: number = 1,
     limit: number = 20,
     filters?: {
@@ -167,178 +151,133 @@ class ReturnService {
       type?: ReturnType;
       warehouseId?: string;
     },
-  ): Promise<ReturnsResponse> {
-    try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-      });
+  ): Promise<PaginatedResponse<ReturnOrder>> {
+    const params: Record<string, any> = { page, limit };
+    if (filters?.status) params.status = filters.status;
+    if (filters?.type) params.type = filters.type;
+    if (filters?.warehouseId) params.warehouseId = filters.warehouseId;
 
-      if (filters?.status) params.append("status", filters.status);
-      if (filters?.type) params.append("type", filters.type);
-      if (filters?.warehouseId)
-        params.append("warehouseId", filters.warehouseId);
-
-      const response = await apiClient.get<ReturnsResponse>(
-        `${this.baseUrl}?${params.toString()}`,
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error fetching returns:", error);
-      throw error;
-    }
-  }
+    const response = await apiClient.get<PaginatedResponse<ReturnOrder>>(
+      `/inventory/returns`,
+      { params },
+    );
+    return response.data;
+  },
 
   /**
    * Get a single return by ID
    */
-  async getReturnById(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.get<ReturnResponse>(
-        `${this.baseUrl}/${id}`,
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error fetching return ${id}:`, error);
-      throw error;
-    }
-  }
+  async getById(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.get<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}`,
+    );
+    return response.data;
+  },
 
   /**
    * Create a new return
    */
-  async createReturn(input: CreateReturnInput): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.post<ReturnResponse>(
-        this.baseUrl,
-        input,
-      );
-      return response.data;
-    } catch (error) {
-      console.error("Error creating return:", error);
-      throw error;
-    }
-  }
+  async create(input: CreateReturnInput): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.post<ApiResponse<ReturnOrder>>(
+      `/inventory/returns`,
+      input,
+    );
+    return response.data;
+  },
 
   /**
    * Update an existing return (only draft returns)
    */
-  async updateReturn(
+  async update(
     id: string,
     input: UpdateReturnInput,
-  ): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.put<ReturnResponse>(
-        `${this.baseUrl}/${id}`,
-        input,
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error updating return ${id}:`, error);
-      throw error;
-    }
-  }
+  ): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.put<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}`,
+      input,
+    );
+    return response.data;
+  },
 
   /**
    * Submit a draft return for approval
    */
-  async submitReturn(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.patch<ReturnResponse>(
-        `${this.baseUrl}/${id}/submit`,
-        {},
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error submitting return ${id}:`, error);
-      throw error;
-    }
-  }
+  async submit(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.patch<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}/submit`,
+      {},
+    );
+    return response.data;
+  },
 
   /**
    * Approve a pending return
    */
-  async approveReturn(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.patch<ReturnResponse>(
-        `${this.baseUrl}/${id}/approve`,
-        {},
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error approving return ${id}:`, error);
-      throw error;
-    }
-  }
+  async approve(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.patch<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}/approve`,
+      {},
+    );
+    return response.data;
+  },
 
   /**
    * Process an approved return (add items back to stock)
    */
-  async processReturn(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.patch<ReturnResponse>(
-        `${this.baseUrl}/${id}/process`,
-        {},
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error processing return ${id}:`, error);
-      throw error;
-    }
-  }
+  async process(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.patch<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}/process`,
+      {},
+    );
+    return response.data;
+  },
 
   /**
    * Reject a pending return
    */
-  async rejectReturn(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.patch<ReturnResponse>(
-        `${this.baseUrl}/${id}/reject`,
-        {},
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error rejecting return ${id}:`, error);
-      throw error;
-    }
-  }
+  async reject(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.patch<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}/reject`,
+      {},
+    );
+    return response.data;
+  },
 
   /**
    * Cancel a return (except processed or rejected)
    */
-  async cancelReturn(id: string): Promise<ReturnResponse> {
-    try {
-      const response = await apiClient.patch<ReturnResponse>(
-        `${this.baseUrl}/${id}/cancel`,
-        {},
-      );
-      return response.data;
-    } catch (error) {
-      console.error(`Error cancelling return ${id}:`, error);
-      throw error;
-    }
-  }
+  async cancel(id: string): Promise<ApiResponse<ReturnOrder>> {
+    const response = await apiClient.patch<ApiResponse<ReturnOrder>>(
+      `/inventory/returns/${id}/cancel`,
+      {},
+    );
+    return response.data;
+  },
 
   /**
    * Get returns by status
    */
-  async getReturnsByStatus(status: ReturnStatus): Promise<ReturnsResponse> {
-    return this.getReturns(1, 50, { status });
-  }
+  async getByStatus(
+    status: ReturnStatus,
+  ): Promise<PaginatedResponse<ReturnOrder>> {
+    return this.getAll(1, 50, { status });
+  },
 
   /**
    * Get returns by type
    */
-  async getReturnsByType(type: ReturnType): Promise<ReturnsResponse> {
-    return this.getReturns(1, 50, { type });
-  }
+  async getByType(type: ReturnType): Promise<PaginatedResponse<ReturnOrder>> {
+    return this.getAll(1, 50, { type });
+  },
 
   /**
    * Get returns by warehouse
    */
-  async getReturnsByWarehouse(warehouseId: string): Promise<ReturnsResponse> {
-    return this.getReturns(1, 50, { warehouseId });
-  }
-}
+  async getByWarehouse(
+    warehouseId: string,
+  ): Promise<PaginatedResponse<ReturnOrder>> {
+    return this.getAll(1, 50, { warehouseId });
+  },
+};
 
-export default new ReturnService();
+export default returnService;

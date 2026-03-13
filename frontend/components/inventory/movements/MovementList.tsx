@@ -13,21 +13,17 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { Sidebar } from "primereact/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "primereact/skeleton";
-import {
-  getMovements,
-  getMovement,
-  getMovementDashboard,
+import movementService, {
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_SEVERITY,
   Movement,
   MovementType,
   MovementDashboardMetrics,
 } from "@/app/api/inventory/movementService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
-import { getActiveItems, Item } from "@/app/api/inventory/itemService";
+import itemService, { Item } from "@/app/api/inventory/itemService";
 import MovementDetailForm from "./MovementDetailForm";
 
 const MOVEMENT_TYPES: { label: string; value: MovementType | null }[] = [
@@ -105,7 +101,9 @@ const MovementList = () => {
   const fetchMovements = async () => {
     try {
       setLoading(true);
-      const response = await getMovements(page, limit, {
+      const response = await movementService.getAll({
+        page,
+        limit,
         type: filterType || undefined,
         warehouseToId: filterWarehouse || undefined,
         warehouseFromId: filterWarehouse || undefined,
@@ -143,7 +141,7 @@ const MovementList = () => {
   const fetchDashboard = async () => {
     try {
       setDashboardLoading(true);
-      const response = await getMovementDashboard();
+      const response = await movementService.getDashboard();
       setDashboardMetrics(response.data);
     } catch (error) {
       console.error("Error fetching dashboard metrics:", error);
@@ -154,7 +152,7 @@ const MovementList = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await getActiveWarehouses();
+      const response = await warehouseService.getActive();
       setWarehouses(response.data);
     } catch (error) {
       console.error("Error fetching warehouses:", error);
@@ -163,7 +161,7 @@ const MovementList = () => {
 
   const fetchItems = async () => {
     try {
-      const response = await getActiveItems();
+      const response = await itemService.getActive();
       setItems(response.data);
     } catch (error) {
       console.error("Error fetching items:", error);
@@ -300,7 +298,7 @@ const MovementList = () => {
     setDetailLoading(true);
     setDetailDialog(true);
     try {
-      const res = await getMovement(id);
+      const res = await movementService.getById(id);
       setSelectedMovement(res.data);
     } catch {
       toast.current?.show({

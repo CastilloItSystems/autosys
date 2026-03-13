@@ -1,6 +1,9 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
-// Tipos
+// ============================================
+// ENTITY
+// ============================================
 export type WarehouseType = "PRINCIPAL" | "SUCURSAL" | "TRANSITO";
 
 export interface Warehouse {
@@ -14,27 +17,22 @@ export interface Warehouse {
   updatedAt: string;
 }
 
-// Response con paginación estándar
-export interface WarehousesResponse {
-  data: Warehouse[];
-  meta: {
-    total: number;
-    page: number;
-    limit: number;
-  };
-}
-
-// Single warehouse response
-interface WarehouseResponse {
-  data: Warehouse;
-}
-
-// DTOs
-export interface CreateWarehouseRequest {
-  code: string;
-  name: string;
+// ============================================
+// REQUEST PARAMS & DTOs
+// ============================================
+export interface GetWarehouseParams {
+  page?: number;
+  limit?: number;
+  search?: string;
   type?: WarehouseType;
-  address?: string;
+  isActive?: "true" | "false";
+}
+
+export interface CreateWarehouseRequest {
+  code: string; // Requerido
+  name: string; // Requerido
+  type?: WarehouseType; // Opcional
+  address?: string; // Opcional
 }
 
 export interface UpdateWarehouseRequest {
@@ -45,94 +43,68 @@ export interface UpdateWarehouseRequest {
   isActive?: boolean;
 }
 
-// Métodos estándar
-export const getWarehouses = async (
-  page = 1,
-  limit = 20,
-  search?: string,
-  type?: WarehouseType,
-  isActive?: boolean,
-): Promise<WarehousesResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  if (search) params.append("search", search);
-  if (type) params.append("type", type);
-  if (isActive !== undefined) params.append("isActive", String(isActive));
+// ============================================
+// SERVICE
+// ============================================
+const BASE_ROUTE = "/inventory/warehouses";
 
-  const response = await apiClient.get(`/inventory/warehouses?${params}`);
-  return response.data;
+const warehouseService = {
+  async getAll(
+    params?: GetWarehouseParams,
+  ): Promise<PaginatedResponse<Warehouse>> {
+    const res = await apiClient.get(BASE_ROUTE, { params });
+    return res.data;
+  },
+
+  async getById(id: string): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
+
+  async getActive(): Promise<PaginatedResponse<Warehouse>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/active`);
+    return res.data;
+  },
+
+  async search(query: string): Promise<PaginatedResponse<Warehouse>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/search`, {
+      params: { term: query },
+    });
+    return res.data;
+  },
+
+  async getByType(type: WarehouseType): Promise<PaginatedResponse<Warehouse>> {
+    const res = await apiClient.get(BASE_ROUTE, { params: { type } });
+    return res.data;
+  },
+
+  async create(data: CreateWarehouseRequest): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.post(BASE_ROUTE, data);
+    return res.data;
+  },
+
+  async update(
+    id: string,
+    data: UpdateWarehouseRequest,
+  ): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.put(`${BASE_ROUTE}/${id}`, data);
+    return res.data;
+  },
+
+  async activate(id: string): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/activate`);
+    return res.data;
+  },
+
+  async deactivate(id: string): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/deactivate`);
+    return res.data;
+  },
+
+  async delete(id: string): Promise<ApiResponse<Warehouse>> {
+    const res = await apiClient.delete(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
 };
 
-export const getActiveWarehouses = async (): Promise<WarehousesResponse> => {
-  const response = await apiClient.get("/inventory/warehouses/active");
-  return response.data;
-};
-
-export const searchWarehouses = async (
-  query: string,
-): Promise<WarehousesResponse> => {
-  const response = await apiClient.get(
-    `/inventory/warehouses/search?term=${encodeURIComponent(query)}`,
-  );
-  return response.data;
-};
-
-export const getWarehouse = async (id: string): Promise<WarehouseResponse> => {
-  const response = await apiClient.get(`/inventory/warehouses/${id}`);
-  return response.data;
-};
-
-export const createWarehouse = async (
-  data: CreateWarehouseRequest,
-): Promise<WarehouseResponse> => {
-  const response = await apiClient.post("/inventory/warehouses", data);
-  return response.data;
-};
-
-export const updateWarehouse = async (
-  id: string,
-  data: UpdateWarehouseRequest,
-): Promise<WarehouseResponse> => {
-  const response = await apiClient.put(`/inventory/warehouses/${id}`, data);
-  return response.data;
-};
-
-export const activateWarehouse = async (
-  id: string,
-): Promise<WarehouseResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/warehouses/${id}/activate`,
-  );
-  return response.data;
-};
-
-export const deactivateWarehouse = async (
-  id: string,
-): Promise<WarehouseResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/warehouses/${id}/deactivate`,
-  );
-  return response.data;
-};
-
-export const deleteWarehouse = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/warehouses/${id}`);
-};
-
-// Legacy functions para backward compatibility
-export const getWarehousesByType = async (tipo: string) => {
-  const response = await apiClient.get(`/inventory/warehouses?type=${tipo}`);
-  return response.data;
-};
-
-export const getWarehouseInventory = async (warehouseId: string) => {
-  const response = await apiClient.get(`/inventory/warehouses/${warehouseId}`);
-  return response.data;
-};
-
-export const getWarehouseCapacity = async (warehouseId: string) => {
-  const response = await apiClient.get(`/inventory/warehouses/${warehouseId}`);
-  return response.data;
-};
+export default warehouseService;

@@ -21,7 +21,9 @@ export function DiscrepancyWidget() {
       try {
         setLoading(true);
         setError(null);
-        const response = await analyticsService.getTopDiscrepancies(10);
+        const response = await analyticsService.getTopDiscrepancies({
+          limit: 10,
+        });
         setDiscrepancies(response.data || []);
       } catch (err: any) {
         console.error("Error fetching discrepancies:", err);

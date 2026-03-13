@@ -11,20 +11,13 @@ import { Calendar } from "primereact/calendar";
 import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
-import {
-  getAdjustments,
-  getAdjustment,
-  approveAdjustment,
-  applyAdjustment,
-  rejectAdjustment,
-  cancelAdjustment,
+import adjustmentService, {
   ADJUSTMENT_STATUS_LABELS,
   ADJUSTMENT_STATUS_SEVERITY,
   Adjustment,
   AdjustmentStatus,
 } from "@/app/api/inventory/adjustmentService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import AdjustmentForm from "@/components/inventory/adjustments/AdjustmentForm";
@@ -81,7 +74,9 @@ const AdjustmentList = () => {
   const fetchAdjustments = async () => {
     try {
       setLoading(true);
-      const response = await getAdjustments(page, limit, {
+      const response = await adjustmentService.getAll({
+        page,
+        limit,
         status: filterStatus || undefined,
         warehouseId: filterWarehouse || undefined,
         dateFrom: filterDateFrom
@@ -114,7 +109,7 @@ const AdjustmentList = () => {
 
   const fetchWarehouses = async () => {
     try {
-      const response = await getActiveWarehouses();
+      const response = await warehouseService.getActive();
       setWarehouses(response.data);
     } catch (error) {
       console.error("Error fetching warehouses:", error);
@@ -186,7 +181,7 @@ const AdjustmentList = () => {
           tooltip="Ver detalles"
           onClick={async () => {
             try {
-              const resp = await getAdjustment(rowData.id);
+              const resp = await adjustmentService.getById(rowData.id);
               setSelectedAdjustment(resp.data);
               setDetailDialog(true);
             } catch (error) {
@@ -255,7 +250,7 @@ const AdjustmentList = () => {
       icon: "pi pi-exclamation-triangle",
       accept: async () => {
         try {
-          await approveAdjustment(adjustment.id);
+          await adjustmentService.approve(adjustment.id);
           fetchAdjustments();
           toast.current?.show({
             severity: "success",
@@ -282,7 +277,7 @@ const AdjustmentList = () => {
       icon: "pi pi-exclamation-triangle",
       accept: async () => {
         try {
-          await applyAdjustment(adjustment.id);
+          await adjustmentService.apply(adjustment.id);
           fetchAdjustments();
           toast.current?.show({
             severity: "success",
@@ -309,7 +304,7 @@ const AdjustmentList = () => {
       icon: "pi pi-exclamation-triangle",
       accept: async () => {
         try {
-          await rejectAdjustment(adjustment.id);
+          await adjustmentService.reject(adjustment.id);
           fetchAdjustments();
           toast.current?.show({
             severity: "success",
@@ -336,7 +331,7 @@ const AdjustmentList = () => {
       icon: "pi pi-exclamation-triangle",
       accept: async () => {
         try {
-          await cancelAdjustment(adjustment.id);
+          await adjustmentService.cancel(adjustment.id);
           fetchAdjustments();
           toast.current?.show({
             severity: "success",

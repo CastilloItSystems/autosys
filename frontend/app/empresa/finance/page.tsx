@@ -168,7 +168,7 @@ const FinanceDashboard = () => {
       (sum, po) =>
         sum +
         (po.items?.reduce(
-          (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
+          (itemSum, item) => itemSum + item.quantityOrdered * item.unitCost,
           0
         ) || 0),
       0

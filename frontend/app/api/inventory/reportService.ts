@@ -1,13 +1,14 @@
-import apiClient from '../apiClient';
+import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ============================================================================
 // ENUMS & TYPES
 // ============================================================================
 
 export enum ReportFormat {
-  CSV = 'csv',
-  EXCEL = 'excel',
-  PDF = 'pdf',
+  CSV = "csv",
+  EXCEL = "excel",
+  PDF = "pdf",
 }
 
 // ============================================================================
@@ -27,17 +28,6 @@ export interface LowStockItem {
   lastMovementAt?: string;
 }
 
-export interface LowStockResponse {
-  success: boolean;
-  data: LowStockItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export interface DeadStockItem {
   itemId: string;
   itemName: string;
@@ -49,17 +39,6 @@ export interface DeadStockItem {
   daysInactive: number;
   stockValue: number;
   costPerUnit: number;
-}
-
-export interface DeadStockResponse {
-  success: boolean;
-  data: DeadStockItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 export interface StockValueItem {
@@ -74,20 +53,6 @@ export interface StockValueItem {
   percentageOfTotal: number;
 }
 
-export interface StockValueResponse {
-  success: boolean;
-  data: StockValueItem[];
-  summary: {
-    totalInventoryValue: number;
-  };
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export interface ExitWithoutInvoice {
   exitNoteId: string;
   exitNoteNumber: string;
@@ -97,17 +62,6 @@ export interface ExitWithoutInvoice {
   itemCount: number;
   totalQuantity: number;
   notes?: string;
-}
-
-export interface ExitsWithoutInvoiceResponse {
-  success: boolean;
-  data: ExitWithoutInvoice[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 export interface MovementReportItem {
@@ -122,17 +76,6 @@ export interface MovementReportItem {
   warehouseTo?: string;
   reference?: string;
   userName: string;
-}
-
-export interface MovementReportResponse {
-  success: boolean;
-  data: MovementReportItem[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
 }
 
 export interface MovementSummary {
@@ -151,218 +94,206 @@ export interface MovementSummary {
   };
 }
 
-export interface MovementSummaryResponse {
-  success: boolean;
-  data: MovementSummary[];
+export interface StockValueReportResponse
+  extends PaginatedResponse<StockValueItem> {
+  summary: {
+    totalInventoryValue: number;
+  };
 }
 
 // ============================================================================
-// SERVICE FUNCTIONS
+// SERVICE
 // ============================================================================
 
-/**
- * Get low stock report
- */
-export const getLowStockReport = async (
-  page: number = 1,
-  limit: number = 20
-): Promise<LowStockResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<LowStockResponse>(
-    `/inventory/reports/low-stock?${params.toString()}`
-  );
-  return response.data;
-};
+const reportService = {
+  /**
+   * Get low stock report
+   */
+  async getLowStock(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<PaginatedResponse<LowStockItem>> {
+    const response = await apiClient.get<PaginatedResponse<LowStockItem>>(
+      `/inventory/reports/low-stock`,
+      { params: { page, limit } },
+    );
+    return response.data;
+  },
 
-/**
- * Get dead stock report
- */
-export const getDeadStockReport = async (
-  page: number = 1,
-  limit: number = 20
-): Promise<DeadStockResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<DeadStockResponse>(
-    `/inventory/reports/dead-stock?${params.toString()}`
-  );
-  return response.data;
-};
+  /**
+   * Get dead stock report
+   */
+  async getDeadStock(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<PaginatedResponse<DeadStockItem>> {
+    const response = await apiClient.get<PaginatedResponse<DeadStockItem>>(
+      `/inventory/reports/dead-stock`,
+      { params: { page, limit } },
+    );
+    return response.data;
+  },
 
-/**
- * Get stock value report
- */
-export const getStockValueReport = async (
-  page: number = 1,
-  limit: number = 20
-): Promise<StockValueResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<StockValueResponse>(
-    `/inventory/reports/stock-value?${params.toString()}`
-  );
-  return response.data;
-};
+  /**
+   * Get stock value report
+   */
+  async getStockValue(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<StockValueReportResponse> {
+    const response = await apiClient.get<StockValueReportResponse>(
+      `/inventory/reports/stock-value`,
+      { params: { page, limit } },
+    );
+    return response.data;
+  },
 
-/**
- * Get exits without invoice report
- */
-export const getExitsWithoutInvoice = async (
-  page: number = 1,
-  limit: number = 20
-): Promise<ExitsWithoutInvoiceResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<ExitsWithoutInvoiceResponse>(
-    `/inventory/reports/exits-without-invoice?${params.toString()}`
-  );
-  return response.data;
-};
+  /**
+   * Get exits without invoice report
+   */
+  async getExitsWithoutInvoice(
+    page: number = 1,
+    limit: number = 20,
+  ): Promise<PaginatedResponse<ExitWithoutInvoice>> {
+    const response = await apiClient.get<PaginatedResponse<ExitWithoutInvoice>>(
+      `/inventory/reports/exits-without-invoice`,
+      { params: { page, limit } },
+    );
+    return response.data;
+  },
 
-/**
- * Get movements report
- */
-export const getMovementsReport = async (
-  page: number = 1,
-  limit: number = 20,
-  filters?: {
+  /**
+   * Get movements report
+   */
+  async getMovements(
+    page: number = 1,
+    limit: number = 20,
+    filters?: {
+      dateFrom?: string;
+      dateTo?: string;
+      type?: string;
+      warehouseId?: string;
+      itemId?: string;
+    },
+  ): Promise<PaginatedResponse<MovementReportItem>> {
+    const params: Record<string, any> = { page, limit };
+    if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
+    if (filters?.dateTo) params.dateTo = filters.dateTo;
+    if (filters?.type) params.type = filters.type;
+    if (filters?.warehouseId) params.warehouseId = filters.warehouseId;
+    if (filters?.itemId) params.itemId = filters.itemId;
+
+    const response = await apiClient.get<PaginatedResponse<MovementReportItem>>(
+      `/inventory/reports/movements`,
+      { params },
+    );
+    return response.data;
+  },
+
+  /**
+   * Get movements summary (grouped by date/type/warehouse)
+   */
+  async getMovementsSummary(filters?: {
     dateFrom?: string;
     dateTo?: string;
-    type?: string;
+    groupBy?: "day" | "week" | "month";
     warehouseId?: string;
-    itemId?: string;
-  }
-): Promise<MovementReportResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
-  if (filters?.dateTo) params.append('dateTo', filters.dateTo);
-  if (filters?.type) params.append('type', filters.type);
-  if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
-  if (filters?.itemId) params.append('itemId', filters.itemId);
+  }): Promise<ApiResponse<MovementSummary[]>> {
+    const params: Record<string, any> = {};
+    if (filters?.dateFrom) params.dateFrom = filters.dateFrom;
+    if (filters?.dateTo) params.dateTo = filters.dateTo;
+    if (filters?.groupBy) params.groupBy = filters.groupBy;
+    if (filters?.warehouseId) params.warehouseId = filters.warehouseId;
 
-  const response = await apiClient.get<MovementReportResponse>(
-    `/inventory/reports/movements?${params.toString()}`
-  );
-  return response.data;
-};
+    const response = await apiClient.get<ApiResponse<MovementSummary[]>>(
+      `/inventory/reports/movements/summary`,
+      { params },
+    );
+    return response.data;
+  },
 
-/**
- * Get movements summary (grouped by date/type/warehouse)
- */
-export const getMovementsSummary = async (filters?: {
-  dateFrom?: string;
-  dateTo?: string;
-  groupBy?: 'day' | 'week' | 'month';
-  warehouseId?: string;
-}): Promise<MovementSummaryResponse> => {
-  const params = new URLSearchParams();
-  if (filters?.dateFrom) params.append('dateFrom', filters.dateFrom);
-  if (filters?.dateTo) params.append('dateTo', filters.dateTo);
-  if (filters?.groupBy) params.append('groupBy', filters.groupBy);
-  if (filters?.warehouseId) params.append('warehouseId', filters.warehouseId);
+  /**
+   * Export report to specified format
+   * Returns a Blob that triggers browser download
+   */
+  async export(
+    reportType:
+      | "stock-value"
+      | "movements"
+      | "abc"
+      | "turnover"
+      | "low-stock"
+      | "dead-stock",
+    format: ReportFormat,
+    filters?: Record<string, any>,
+  ): Promise<Blob> {
+    const params: Record<string, any> = { format };
 
-  const response = await apiClient.get<MovementSummaryResponse>(
-    `/inventory/reports/movements/summary?${params.toString()}`
-  );
-  return response.data;
-};
+    if (filters) {
+      Object.entries(filters).forEach(([key, value]) => {
+        if (value) {
+          params[key] = value;
+        }
+      });
+    }
 
-/**
- * Export report to specified format
- * Returns a Blob that triggers browser download
- */
-export const exportReport = async (
-  reportType:
-    | 'stock-value'
-    | 'movements'
-    | 'abc'
-    | 'turnover'
-    | 'low-stock'
-    | 'dead-stock',
-  format: ReportFormat,
-  filters?: Record<string, any>
-): Promise<Blob> => {
-  const params = new URLSearchParams({
-    format: format,
-  });
+    const response = await apiClient.get(
+      `/inventory/reports/export/${reportType}`,
+      {
+        params,
+        responseType: "blob",
+      },
+    );
 
-  if (filters) {
-    Object.entries(filters).forEach(([key, value]) => {
-      if (value) {
-        params.append(key, String(value));
+    return response.data;
+  },
+
+  /**
+   * Download a report blob with proper filename
+   */
+  async download(
+    reportType:
+      | "stock-value"
+      | "movements"
+      | "abc"
+      | "turnover"
+      | "low-stock"
+      | "dead-stock",
+    format: ReportFormat,
+    filters?: Record<string, any>,
+  ): Promise<void> {
+    try {
+      const blob = await this.export(reportType, format, filters);
+
+      // Determine file extension
+      let extension = "csv";
+      let mimeType = "text/csv";
+      if (format === ReportFormat.EXCEL) {
+        extension = "xlsx";
+        mimeType =
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+      } else if (format === ReportFormat.PDF) {
+        extension = "pdf";
+        mimeType = "application/pdf";
       }
-    });
-  }
 
-  const response = await apiClient.get(
-    `/inventory/reports/export/${reportType}?${params.toString()}`,
-    {
-      responseType: 'blob',
+      // Create blob with correct mime type
+      const typedBlob = new Blob([blob], { type: mimeType });
+
+      // Create download link
+      const url = window.URL.createObjectURL(typedBlob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `${reportType}_${new Date().getTime()}.${extension}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error("Error downloading report:", error);
+      throw error;
     }
-  );
-
-  return response.data;
+  },
 };
 
-/**
- * Download a report blob with proper filename
- */
-export const downloadReport = async (
-  reportType: 'stock-value' | 'movements' | 'abc' | 'turnover' | 'low-stock' | 'dead-stock',
-  format: ReportFormat,
-  filters?: Record<string, any>
-): Promise<void> => {
-  try {
-    const blob = await exportReport(reportType, format, filters);
-
-    // Determine file extension
-    let extension = 'csv';
-    let mimeType = 'text/csv';
-    if (format === ReportFormat.EXCEL) {
-      extension = 'xlsx';
-      mimeType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-    } else if (format === ReportFormat.PDF) {
-      extension = 'pdf';
-      mimeType = 'application/pdf';
-    }
-
-    // Create blob with correct mime type
-    const typedBlob = new Blob([blob], { type: mimeType });
-
-    // Create download link
-    const url = window.URL.createObjectURL(typedBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${reportType}_${new Date().getTime()}.${extension}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    window.URL.revokeObjectURL(url);
-  } catch (error) {
-    console.error('Error downloading report:', error);
-    throw error;
-  }
-};
-
-export default {
-  getLowStockReport,
-  getDeadStockReport,
-  getStockValueReport,
-  getExitsWithoutInvoice,
-  getMovementsReport,
-  getMovementsSummary,
-  exportReport,
-  downloadReport,
-};
+export default reportService;

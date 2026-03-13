@@ -7,11 +7,8 @@ import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { classNames } from "primereact/utils";
 import { salesOrderSchema } from "@/libs/zods/inventory/salesOrderZod";
-import {
-  createSalesOrder,
-  updateSalesOrder,
-} from "@/app/api/inventory/salesOrderService";
-import { getCustomers } from "@/app/api/inventory/customerService";
+import salesOrderService from "@/app/api/inventory/salesOrderService";
+import customerService from "@/app/api/inventory/customerService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
@@ -34,7 +31,7 @@ interface SalesOrderFormProps {
   showToast: (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => void;
   toast: React.RefObject<Toast> | null;
   items: Item[];
@@ -105,9 +102,9 @@ const SalesOrderForm = ({
   useEffect(() => {
     const loadCustomers = async () => {
       try {
-        const customersRes = await getCustomers();
+        const customersRes = await customerService.getAll();
         setCustomers(
-          Array.isArray(customersRes.customers) ? customersRes.customers : []
+          Array.isArray(customersRes.customers) ? customersRes.customers : [],
         );
       } catch (error) {
         console.error("Error loading customers:", error);
@@ -169,7 +166,7 @@ const SalesOrderForm = ({
             key as keyof FormData,
             typeof salesOrder.customer === "object"
               ? salesOrder.customer._id
-              : salesOrder.customer
+              : salesOrder.customer,
           );
         } else if (key === "items") {
           // Handle items that might be populated objects
@@ -195,19 +192,18 @@ const SalesOrderForm = ({
 
       if (salesOrder) {
         const orderId = salesOrder._id || salesOrder.id;
-        const updatedSalesOrder = await updateSalesOrder(
-          orderId,
-          formattedData
-        );
+        const result = await salesOrderService.update(orderId, formattedData);
+        const updatedSalesOrder = result.data;
         const updatedSalesOrders = salesOrders.map((t) =>
           (t._id || t.id) === (updatedSalesOrder._id || updatedSalesOrder.id)
             ? updatedSalesOrder
-            : t
+            : t,
         );
         setSalesOrders(updatedSalesOrders);
         showToast("success", "Éxito", "Orden de venta actualizada");
       } else {
-        const newSalesOrder = await createSalesOrder(formattedData);
+        const result = await salesOrderService.create(formattedData);
+        const newSalesOrder = result.data;
         setSalesOrders([...salesOrders, newSalesOrder]);
         showToast("success", "Éxito", "Orden de venta creada");
       }
@@ -548,7 +544,7 @@ const SalesOrderForm = ({
                         (sum, field) =>
                           sum +
                           (field.cantidad || 0) * (field.precioUnitario || 0),
-                        0
+                        0,
                       )
                       .toFixed(2)}
                   </div>

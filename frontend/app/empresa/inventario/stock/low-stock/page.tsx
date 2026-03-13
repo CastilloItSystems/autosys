@@ -9,9 +9,8 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { getLowStock, Stock } from "@/app/api/inventory/stockService";
-import {
-  getActiveWarehouses,
+import stockService, { Stock } from "@/app/api/inventory/stockService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 
@@ -36,7 +35,7 @@ export default function LowStockPage() {
 
   const loadWarehouses = async () => {
     try {
-      const response = await getActiveWarehouses();
+      const response = await warehouseService.getActive();
       setWarehouses(Array.isArray(response.data) ? response.data : []);
     } catch (error) {
       console.error("Error loading warehouses:", error);

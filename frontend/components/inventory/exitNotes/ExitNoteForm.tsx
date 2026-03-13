@@ -23,10 +23,7 @@ import {
 } from "@/libs/interfaces/inventory/exitNote.interface";
 import { Item } from "@/app/api/inventory/itemService";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
-import {
-  createExitNote,
-  updateExitNote,
-} from "@/app/api/inventory/exitNoteService";
+import exitNoteService from "@/app/api/inventory/exitNoteService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 interface ExitNoteFormProps {
@@ -140,7 +137,7 @@ export default function ExitNoteForm({
       } as CreateExitNote;
 
       if (exitNote) {
-        const result = await updateExitNote(exitNote.id, cleanedData);
+        const result = await exitNoteService.update(exitNote.id, cleanedData);
         setExitNotes(
           exitNotes.map((note) =>
             note.id === result.data.id ? result.data : note,
@@ -148,7 +145,7 @@ export default function ExitNoteForm({
         );
         showToast("success", "Éxito", "Nota de Salida actualizada");
       } else {
-        const result = await createExitNote(cleanedData);
+        const result = await exitNoteService.create(cleanedData);
         setExitNotes([result.data, ...exitNotes]);
         showToast("success", "Éxito", "Nota de Salida creada");
       }

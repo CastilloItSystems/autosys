@@ -1,7 +1,9 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
-// ── Adjustment Types ───────────────────────────────────────────────────────
-
+// ============================================
+// ENUMS & CONSTANTS
+// ============================================
 export type AdjustmentType = "ADJUSTMENT_IN" | "ADJUSTMENT_OUT";
 
 export const ADJUSTMENT_TYPE_LABELS: Record<AdjustmentType, string> = {
@@ -43,8 +45,9 @@ export const ADJUSTMENT_STATUS_SEVERITY: Record<
   CANCELLED: "secondary",
 };
 
-// ── Interfaces ───────────────────────────────────────────────────────────
-
+// ============================================
+// ENTITY
+// ============================================
 export interface AdjustmentItemSummary {
   id: string;
   sku: string;
@@ -87,107 +90,74 @@ export interface Adjustment {
   items?: AdjustmentItem[];
 }
 
-export interface Pagination {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-}
-
-export interface AdjustmentsResponse {
-  data: Adjustment[];
-  meta: Pagination;
+// ============================================
+// REQUEST PARAMS & DTOs
+// ============================================
+export interface GetAdjustmentsParams {
+  page?: number;
+  limit?: number;
+  status?: AdjustmentStatus;
+  warehouseId?: string;
+  createdBy?: string;
+  dateFrom?: string;
+  dateTo?: string;
 }
 
 export interface CreateAdjustmentRequest {
-  warehouseId: string;
-  reason: string;
-  notes?: string;
+  warehouseId: string; // Requerido
+  reason: string; // Requerido
+  notes?: string; // Opcional
   items: Array<{
-    itemId: string;
-    quantityChange: number;
-    reason?: string;
+    itemId: string; // Requerido
+    quantityChange: number; // Requerido
+    reason?: string; // Opcional
   }>;
 }
 
-// ── CRUD Operations ──────────────────────────────────────────────────────
+// ============================================
+// SERVICE
+// ============================================
+const BASE_ROUTE = "/inventory/adjustments";
 
-export const getAdjustments = async (
-  page: number = 1,
-  limit: number = 20,
-  filters?: {
-    status?: AdjustmentStatus;
-    warehouseId?: string;
-    createdBy?: string;
-    dateFrom?: string;
-    dateTo?: string;
+const adjustmentService = {
+  async getAll(
+    params?: GetAdjustmentsParams,
+  ): Promise<PaginatedResponse<Adjustment>> {
+    const res = await apiClient.get(BASE_ROUTE, { params });
+    return res.data;
   },
-): Promise<AdjustmentsResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
 
-  if (filters?.status) params.append("status", filters.status);
-  if (filters?.warehouseId) params.append("warehouseId", filters.warehouseId);
-  if (filters?.createdBy) params.append("createdBy", filters.createdBy);
-  if (filters?.dateFrom) params.append("dateFrom", filters.dateFrom);
-  if (filters?.dateTo) params.append("dateTo", filters.dateTo);
+  async getById(id: string): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
 
-  const response = await apiClient.get(`/inventory/adjustments?${params}`);
-  return response.data;
+  async create(
+    data: CreateAdjustmentRequest,
+  ): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.post(BASE_ROUTE, data);
+    return res.data;
+  },
+
+  async approve(id: string): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/approve`, {});
+    return res.data;
+  },
+
+  async apply(id: string): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/apply`, {});
+    return res.data;
+  },
+
+  async reject(id: string): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/reject`, {});
+    return res.data;
+  },
+
+  async cancel(id: string): Promise<ApiResponse<Adjustment>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/cancel`, {});
+    return res.data;
+  },
 };
 
-export const getAdjustment = async (
-  id: string,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.get(`/inventory/adjustments/${id}`);
-  return response.data;
-};
-
-export const createAdjustment = async (
-  data: CreateAdjustmentRequest,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.post("/inventory/adjustments", data);
-  return response.data;
-};
-
-export const approveAdjustment = async (
-  id: string,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.patch(
-    `/inventory/adjustments/${id}/approve`,
-    {},
-  );
-  return response.data;
-};
-
-export const applyAdjustment = async (
-  id: string,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.patch(
-    `/inventory/adjustments/${id}/apply`,
-    {},
-  );
-  return response.data;
-};
-
-export const rejectAdjustment = async (
-  id: string,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.patch(
-    `/inventory/adjustments/${id}/reject`,
-    {},
-  );
-  return response.data;
-};
-
-export const cancelAdjustment = async (
-  id: string,
-): Promise<{ data: Adjustment }> => {
-  const response = await apiClient.patch(
-    `/inventory/adjustments/${id}/cancel`,
-    {},
-  );
-  return response.data;
-};
+export default adjustmentService;

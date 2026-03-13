@@ -6,7 +6,7 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getExitsWithoutInvoice } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const ExitsWithoutInvoicePage = () => {
   const toast = useRef<Toast>(null);
@@ -23,9 +23,9 @@ const ExitsWithoutInvoicePage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getExitsWithoutInvoice(page, rows);
+      const response = await reportService.getExitsWithoutInvoice(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -96,7 +96,13 @@ const ExitsWithoutInvoicePage = () => {
       body: (row: any) => (
         <Tag
           value={`${row.daysWithoutInvoice}d`}
-          severity={row.daysWithoutInvoice > 30 ? "danger" : row.daysWithoutInvoice > 7 ? "warning" : "info"}
+          severity={
+            row.daysWithoutInvoice > 30
+              ? "danger"
+              : row.daysWithoutInvoice > 7
+              ? "warning"
+              : "info"
+          }
         />
       ),
     },

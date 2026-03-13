@@ -12,13 +12,7 @@ import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
-import {
-  getEntryNotes,
-  deleteEntryNote,
-  startEntryNote,
-  completeEntryNote,
-  cancelEntryNote,
-} from "@/app/api/inventory/entryNoteService";
+import entryNoteService from "@/app/api/inventory/entryNoteService";
 import type {
   EntryNote,
   EntryNoteItem,
@@ -29,9 +23,8 @@ import {
   ENTRY_NOTE_STATUS_CONFIG,
   ENTRY_TYPE_LABELS,
 } from "@/libs/interfaces/inventory/entryNote.interface";
-import { getActiveItems, Item } from "@/app/api/inventory/itemService";
-import {
-  getActiveWarehouses,
+import itemService, { Item } from "@/app/api/inventory/itemService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import EntryNoteForm from "./EntryNoteForm";
@@ -64,8 +57,8 @@ const EntryNoteList = () => {
   const loadFormData = async () => {
     try {
       const [whRes, itemRes] = await Promise.all([
-        getActiveWarehouses(),
-        getActiveItems(),
+        warehouseService.getActive(),
+        itemService.getActive(),
       ]);
       setWarehouses(whRes.data || []);
       setItems(itemRes.data || []);
@@ -76,7 +69,7 @@ const EntryNoteList = () => {
 
   const fetchData = async () => {
     try {
-      const res = await getEntryNotes();
+      const res = await entryNoteService.getAll();
       setEntryNotes(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Error al obtener notas de entrada:", error);
@@ -93,7 +86,7 @@ const EntryNoteList = () => {
   const handleDelete = async () => {
     try {
       if (selectedEntryNote?.id) {
-        await deleteEntryNote(selectedEntryNote.id);
+        await entryNoteService.delete(selectedEntryNote.id);
         setEntryNotes(entryNotes.filter((n) => n.id !== selectedEntryNote.id));
         toast.current?.show({
           severity: "success",
@@ -111,7 +104,7 @@ const EntryNoteList = () => {
 
   const handleStart = async (note: EntryNote) => {
     try {
-      const result = await startEntryNote(note.id);
+      const result = await entryNoteService.start(note.id);
       const updated = result.data;
       setEntryNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -130,7 +123,7 @@ const EntryNoteList = () => {
   const handleComplete = async () => {
     if (!selectedEntryNote) return;
     try {
-      const result = await completeEntryNote(selectedEntryNote.id);
+      const result = await entryNoteService.complete(selectedEntryNote.id);
       const updated = result.data;
       setEntryNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -152,7 +145,7 @@ const EntryNoteList = () => {
   const handleCancel = async () => {
     if (!selectedEntryNote) return;
     try {
-      const result = await cancelEntryNote(selectedEntryNote.id);
+      const result = await entryNoteService.cancel(selectedEntryNote.id);
       const updated = result.data;
       setEntryNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),

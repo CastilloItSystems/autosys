@@ -8,14 +8,7 @@ import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
-import {
-  getWarehouses,
-  deleteWarehouse,
-  activateWarehouse,
-  deactivateWarehouse,
-  getActiveWarehouses,
-  Warehouse,
-} from "@/app/api/inventory/warehouseService";
+import warehouseService, { Warehouse } from "@/app/api/inventory/warehouseService";
 import WarehouseForm from "./WarehouseForm";
 import CreateButton from "@/components/common/CreateButton";
 
@@ -50,13 +43,13 @@ export default function WarehouseList() {
       let response: any;
 
       if (showActive) {
-        response = await getActiveWarehouses();
+        response = await warehouseService.getActive();
       } else {
-        response = await getWarehouses(
-          page + 1,
-          rows,
-          searchQuery || undefined,
-        );
+        response = await warehouseService.getAll({
+          page: page + 1,
+          limit: rows,
+          search: searchQuery || undefined,
+        });
       }
 
       // Estructura consistente en todos los endpoints
@@ -114,7 +107,7 @@ export default function WarehouseList() {
     if (!selectedWarehouse?.id) return;
 
     try {
-      await deleteWarehouse(selectedWarehouse.id);
+      await warehouseService.delete(selectedWarehouse.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -137,9 +130,9 @@ export default function WarehouseList() {
   const handleToggleWarehouse = async (warehouse: Warehouse) => {
     try {
       if (warehouse.isActive) {
-        await deactivateWarehouse(warehouse.id);
+        await warehouseService.deactivate(warehouse.id);
       } else {
-        await activateWarehouse(warehouse.id);
+        await warehouseService.activate(warehouse.id);
       }
       toast.current?.show({
         severity: "success",

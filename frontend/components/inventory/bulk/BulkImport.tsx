@@ -14,7 +14,7 @@ import { ProgressBar } from "primereact/progressbar";
 import { Toast } from "primereact/toast";
 import { Checkbox } from "primereact/checkbox";
 import { Card } from "primereact/card";
-import * as bulkService from "@/app/api/inventory/bulkService";
+import bulkService from "@/app/api/inventory/bulkService";
 import type {
   IBulkValidationError,
   IBulkOperation,
@@ -285,7 +285,9 @@ export const BulkImport = () => {
 
       {/* Preview Section */}
       {previewRows.length > 0 && !uploading && (
-        <Card header={<h3 className="m-0 p-3">Vista previa (primeras 10 filas)</h3>}>
+        <Card
+          header={<h3 className="m-0 p-3">Vista previa (primeras 10 filas)</h3>}
+        >
           <div className="overflow-x-auto">
             <DataTable value={previewRows} scrollable size="small">
               {headers.map((header) => (
@@ -387,7 +389,11 @@ export const BulkImport = () => {
                         header="Campo"
                         style={{ width: "100px" }}
                       />
-                      <Column field="error" header="Mensaje" style={{ minWidth: "200px" }} />
+                      <Column
+                        field="error"
+                        header="Mensaje"
+                        style={{ minWidth: "200px" }}
+                      />
                       <Column
                         field="value"
                         header="Valor"

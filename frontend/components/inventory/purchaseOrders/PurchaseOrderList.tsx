@@ -7,23 +7,16 @@ import { DataTable, DataTableFilterMeta } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import {
-  deletePurchaseOrder,
-  getPurchaseOrders,
-  approvePurchaseOrder,
-  cancelPurchaseOrder,
-} from "@/app/api/inventory/purchaseOrderService";
+import purchaseOrderService from "@/app/api/inventory/purchaseOrderService";
 import PurchaseOrderForm from "./PurchaseOrderForm";
 import PurchaseOrderStepper from "./PurchaseOrderStepper";
 import ReceiveOrderDialog from "./ReceiveOrderDialog";
 import { PurchaseOrder, PO_STATUS_CONFIG } from "@/libs/interfaces/inventory";
-import { getActiveItems, type Item } from "@/app/api/inventory/itemService";
-import {
-  getActiveSuppliers,
+import itemService, { type Item } from "@/app/api/inventory/itemService";
+import supplierService, {
   type Supplier,
 } from "@/app/api/inventory/supplierService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   type Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import { ProgressSpinner } from "primereact/progressspinner";
@@ -59,17 +52,17 @@ const PurchaseOrderList = () => {
   const fetchData = async () => {
     try {
       const [poRes, itemsRes, suppliersRes, warehousesRes] = await Promise.all([
-        getPurchaseOrders(),
-        getActiveItems(),
-        getActiveSuppliers(),
-        getActiveWarehouses(),
+        purchaseOrderService.getAll(),
+        itemService.getActive(),
+        supplierService.getActive(),
+        warehouseService.getActive(),
       ]);
 
       // getPurchaseOrders → { data: PurchaseOrder[], meta: {...} }
-      const poList = poRes?.data ?? poRes?.purchaseOrders ?? [];
+      const poList = poRes?.data ?? [];
       setPurchaseOrders(Array.isArray(poList) ? poList : []);
 
-      // getActiveItems → { data: Item[] }
+      // itemService.getActive → { data: Item[] }
       const itemList = itemsRes?.data ?? [];
       setItems(Array.isArray(itemList) ? itemList : []);
 
@@ -118,7 +111,7 @@ const PurchaseOrderList = () => {
   const handleDelete = async () => {
     try {
       if (purchaseOrder?.id) {
-        await deletePurchaseOrder(purchaseOrder.id);
+        await purchaseOrderService.delete(purchaseOrder.id);
         setPurchaseOrders(
           purchaseOrders.filter((val) => val.id !== purchaseOrder.id),
         );
@@ -139,7 +132,7 @@ const PurchaseOrderList = () => {
 
   const handleApprove = async (po: PurchaseOrder) => {
     try {
-      const result = await approvePurchaseOrder(po.id);
+      const result = await purchaseOrderService.approve(po.id);
       const updated = result.data || result;
       setPurchaseOrders((prev) =>
         prev.map((p) => (p.id === updated.id ? updated : p)),
@@ -157,7 +150,7 @@ const PurchaseOrderList = () => {
 
   const handleCancel = async (po: PurchaseOrder) => {
     try {
-      const result = await cancelPurchaseOrder(po.id);
+      const result = await purchaseOrderService.cancel(po.id);
       const updated = result.data || result;
       setPurchaseOrders((prev) =>
         prev.map((p) => (p.id === updated.id ? updated : p)),

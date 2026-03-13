@@ -22,9 +22,7 @@ import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 
 // API functions
-import {
-  createItem,
-  updateItem,
+import itemService, {
   Item,
   IPricing,
   IPricingTier,
@@ -32,8 +30,9 @@ import {
 } from "@/app/api/inventory/itemService";
 import brandsService from "@/app/api/inventory/brandService";
 import categoriesService from "@/app/api/inventory/categoryService";
-import { getItemModels } from "@/app/api/inventory/itemModelService";
+import itemModelService from "@/app/api/inventory/itemModelService";
 import unitsService from "@/app/api/inventory/unitService";
+import { handleFormError } from "@/utils/errorHandlers";
 
 // ============================================
 // SCHEMA VALIDATION
@@ -100,16 +99,18 @@ const itemSchema = z.object({
 type FormData = z.infer<typeof itemSchema>;
 
 interface ItemFormProps {
-  item: Item | null;
-  onSave: () => void;
-  onCancel: () => void;
+  model: Item | null;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
 
 export default function ItemForm({
-  item,
+  model: item,
+  formId,
   onSave,
-  onCancel,
+  onSubmittingChange,
   toast,
 }: ItemFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -136,6 +137,7 @@ export default function ItemForm({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(itemSchema),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -178,7 +180,7 @@ export default function ItemForm({
           await Promise.all([
             brandsService.getAll({ page: 1, limit: 100 }),
             categoriesService.getAll({ page: 1, limit: 100 }),
-            getItemModels(),
+            itemModelService.getAll(),
             unitsService.getAll({ page: 1, limit: 100 }),
           ]);
 
@@ -280,6 +282,7 @@ export default function ItemForm({
   }, [item, reset, isLoading]);
 
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload: any = { ...data };
 
@@ -304,7 +307,7 @@ export default function ItemForm({
       payload.images = images;
 
       if (item?.id) {
-        await updateItem(item.id, payload);
+        await itemService.update(item.id, payload);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -312,7 +315,7 @@ export default function ItemForm({
           life: 3000,
         });
       } else {
-        await createItem(payload);
+        await itemService.create(payload);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -1113,7 +1116,7 @@ export default function ItemForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form id={formId || "item-form"} onSubmit={handleSubmit(onSubmit)}>
       <TabView
         activeIndex={activeTab}
         onTabChange={(e) => setActiveTab(e.index)}
@@ -1134,24 +1137,6 @@ export default function ItemForm({
           <ImagenesTab />
         </TabPanel>
       </TabView>
-
-      {/* Action Buttons */}
-      <div className="flex justify-content-end gap-2 mt-4 p-4 border-t-1 border-surface-200">
-        <Button
-          label="Cancelar"
-          icon="pi pi-times"
-          severity="secondary"
-          onClick={onCancel}
-          type="button"
-          disabled={isSubmitting}
-        />
-        <Button
-          label={item?.id ? "Actualizar" : "Crear"}
-          icon="pi pi-check"
-          type="submit"
-          loading={isSubmitting}
-        />
-      </div>
     </form>
   );
 }

@@ -1,6 +1,9 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
-// Tipos
+// ============================================
+// ENTITY
+// ============================================
 export interface Supplier {
   id: string;
   code: string;
@@ -15,23 +18,16 @@ export interface Supplier {
   updatedAt: string;
 }
 
-// Response con paginación estándar
-export interface SuppliersResponse {
-  data: Supplier[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
+// ============================================
+// REQUEST PARAMS & DTOs
+// ============================================
+export interface GetSuppliersParams {
+  page?: number;
+  limit?: number;
+  name?: string; // search by name
+  isActive?: "true" | "false";
 }
 
-// Single supplier response
-interface SupplierResponse {
-  data: Supplier;
-}
-
-// DTOs
 export interface CreateSupplierRequest {
   code: string;
   name: string;
@@ -53,81 +49,61 @@ export interface UpdateSupplierRequest {
   isActive?: boolean;
 }
 
-// Métodos estándar
-export const getSuppliers = async (
-  page = 1,
-  limit = 20,
-  search?: string,
-  isActive?: boolean,
-): Promise<SuppliersResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  if (search) params.append("name", search);
-  if (isActive !== undefined) params.append("isActive", String(isActive));
+// ============================================
+// SERVICE
+// ============================================
+const BASE_ROUTE = "/inventory/suppliers";
 
-  const response = await apiClient.get(`/inventory/suppliers?${params}`);
-  return response.data;
+const supplierService = {
+  async getAll(
+    params?: GetSuppliersParams,
+  ): Promise<PaginatedResponse<Supplier>> {
+    const res = await apiClient.get(BASE_ROUTE, { params });
+    return res.data;
+  },
+
+  async getActive(): Promise<ApiResponse<Supplier[]>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/active`);
+    return res.data;
+  },
+
+  async search(query: string): Promise<PaginatedResponse<Supplier>> {
+    const res = await apiClient.get(BASE_ROUTE, { params: { name: query } });
+    return res.data;
+  },
+
+  async getById(id: string): Promise<ApiResponse<Supplier>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
+
+  async getByCode(code: string): Promise<ApiResponse<Supplier>> {
+    const res = await apiClient.get(`${BASE_ROUTE}/code/${code}`);
+    return res.data;
+  },
+
+  async create(payload: CreateSupplierRequest): Promise<ApiResponse<Supplier>> {
+    const res = await apiClient.post(BASE_ROUTE, payload);
+    return res.data;
+  },
+
+  async update(
+    id: string,
+    payload: UpdateSupplierRequest,
+  ): Promise<ApiResponse<Supplier>> {
+    const res = await apiClient.put(`${BASE_ROUTE}/${id}`, payload);
+    return res.data;
+  },
+
+  async toggle(id: string): Promise<ApiResponse<Supplier>> {
+    const res = await apiClient.patch(`${BASE_ROUTE}/${id}/toggle`);
+    return res.data;
+  },
+
+  async delete(id: string): Promise<ApiResponse<null>> {
+    const res = await apiClient.delete(`${BASE_ROUTE}/${id}`);
+    return res.data;
+  },
 };
 
-export const getActiveSuppliers = async (): Promise<SuppliersResponse> => {
-  const response = await apiClient.get("/inventory/suppliers/active");
-  // getActive retorna ApiResponse.success → { data: [...] } sin pagination
-  const data = response.data;
-  const items = data.data || [];
-  return {
-    data: items,
-    pagination: {
-      total: items.length,
-      page: 1,
-      limit: items.length,
-      totalPages: 1,
-    },
-  };
-};
-
-export const searchSuppliers = async (
-  query: string,
-): Promise<SuppliersResponse> => {
-  const response = await apiClient.get(
-    `/inventory/suppliers?name=${encodeURIComponent(query)}`,
-  );
-  return response.data;
-};
-
-export const getSupplier = async (id: string): Promise<SupplierResponse> => {
-  const response = await apiClient.get(`/inventory/suppliers/${id}`);
-  return response.data;
-};
-
-export const getSupplierByCode = async (
-  code: string,
-): Promise<SupplierResponse> => {
-  const response = await apiClient.get(`/inventory/suppliers/code/${code}`);
-  return response.data;
-};
-
-export const createSupplier = async (
-  data: CreateSupplierRequest,
-): Promise<SupplierResponse> => {
-  const response = await apiClient.post("/inventory/suppliers", data);
-  return response.data;
-};
-
-export const updateSupplier = async (
-  id: string,
-  data: UpdateSupplierRequest,
-): Promise<SupplierResponse> => {
-  const response = await apiClient.put(`/inventory/suppliers/${id}`, data);
-  return response.data;
-};
-
-export const toggleSupplier = async (id: string): Promise<SupplierResponse> => {
-  const response = await apiClient.patch(`/inventory/suppliers/${id}/toggle`);
-  return response.data;
-};
-
-export const deleteSupplier = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/suppliers/${id}`);
-};
+export default supplierService;

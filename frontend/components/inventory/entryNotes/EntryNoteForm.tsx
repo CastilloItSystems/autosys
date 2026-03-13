@@ -24,9 +24,7 @@ import type {
 import { ENTRY_TYPE_LABELS } from "@/libs/interfaces/inventory/entryNote.interface";
 import { Item } from "@/app/api/inventory/itemService";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
-import {
-  createEntryNote,
-  updateEntryNote,
+import entryNoteService, {
   CreateEntryNotePayload,
 } from "@/app/api/inventory/entryNoteService";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -157,7 +155,7 @@ export default function EntryNoteForm({
       if (isEditing) {
         // Update: only header fields
         const { items: _, ...headerData } = data;
-        const result = await updateEntryNote(entryNote!.id, headerData);
+        const result = await entryNoteService.update(entryNote!.id, headerData);
         setEntryNotes(
           entryNotes.map((n) => (n.id === result.data.id ? result.data : n)),
         );
@@ -180,14 +178,11 @@ export default function EntryNoteForm({
           authorizedBy: headerData.authorizedBy || null,
         };
 
-        const result = await createEntryNote(payload);
+        const result = await entryNoteService.create(payload);
         const createdNote = result.data;
 
-        const { addEntryNoteItem } = await import(
-          "@/app/api/inventory/entryNoteService"
-        );
         for (const item of itemsData) {
-          await addEntryNoteItem(createdNote.id, {
+          await entryNoteService.addItem(createdNote.id, {
             itemId: item.itemId,
             quantityReceived: item.quantityReceived,
             unitCost: item.unitCost,
@@ -198,10 +193,7 @@ export default function EntryNoteForm({
           });
         }
 
-        const { getEntryNote } = await import(
-          "@/app/api/inventory/entryNoteService"
-        );
-        const fresh = await getEntryNote(createdNote.id);
+        const fresh = await entryNoteService.getById(createdNote.id);
         setEntryNotes([fresh.data, ...entryNotes]);
         showToast("success", "Éxito", "Nota de Entrada creada");
       }

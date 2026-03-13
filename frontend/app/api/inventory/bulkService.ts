@@ -4,6 +4,60 @@
  */
 
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
+
+// ============================================================================
+// ENTITY
+// ============================================================================
+
+export type BulkOperationType = "IMPORT" | "EXPORT" | "UPDATE" | "DELETE";
+export type BulkOperationStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "COMPLETED"
+  | "FAILED"
+  | "CANCELLED";
+
+export interface IBulkValidationError {
+  rowNumber: number;
+  field: string;
+  error: string;
+  value: any;
+}
+
+export interface IBulkOperationResult {
+  operationId: string;
+  imported: number;
+  updated: number;
+  failed: number;
+  errors?: Array<{
+    rowNumber: number;
+    field: string;
+    value: any;
+    error: string;
+  }>;
+}
+
+export interface IBulkOperation {
+  id: string;
+  operationType: BulkOperationType;
+  status: BulkOperationStatus;
+  fileName?: string;
+  fileUrl?: string;
+  totalRecords: number;
+  processedRecords: number;
+  errorRecords: number;
+  errorDetails?: string | IBulkValidationError[];
+  startDate?: string;
+  endDate?: string;
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+}
+
+// ============================================================================
+// REQUEST PARAMS & DTOs
+// ============================================================================
 
 export interface IBulkImportRequest {
   fileName: string;
@@ -43,45 +97,16 @@ export interface IBulkDeleteRequest {
   permanent?: boolean;
 }
 
-export interface IBulkValidationError {
-  rowNumber: number;
-  field: string;
-  error: string;
-  value: any;
+export interface GetOperationsParams {
+  page?: number;
+  limit?: number;
 }
 
-export interface IBulkOperationResult {
-  operationId: string;
-  imported: number;
-  updated: number;
-  failed: number;
-  errors?: Array<{
-    rowNumber: number;
-    field: string;
-    value: any;
-    error: string;
-  }>;
-}
+// ============================================================================
+// RESPONSE TYPES
+// ============================================================================
 
-export interface IBulkOperation {
-  id: string;
-  operationType: "IMPORT" | "EXPORT" | "UPDATE" | "DELETE";
-  status: "PENDING" | "PROCESSING" | "COMPLETED" | "FAILED" | "CANCELLED";
-  fileName?: string;
-  fileUrl?: string;
-  totalRecords: number;
-  processedRecords: number;
-  errorRecords: number;
-  errorDetails?: string | IBulkValidationError[];
-  startDate?: string;
-  endDate?: string;
-  createdAt: string;
-  updatedAt: string;
-  createdBy?: string;
-}
-
-export interface IBulkOperationsResponse {
-  data: IBulkOperation[];
+interface BulkOperationsResponse extends PaginatedResponse<IBulkOperation> {
   meta: {
     page: number;
     limit: number;
@@ -90,127 +115,95 @@ export interface IBulkOperationsResponse {
   };
 }
 
-/**
- * Import items from CSV
- */
-export const importItems = async (
-  request: IBulkImportRequest,
-): Promise<IBulkOperationResult> => {
-  const response = await apiClient.post<{ data: IBulkOperationResult }>(
-    `/inventory/items/bulk/import`,
-    request,
-  );
-  return response.data.data;
+// ============================================================================
+// SERVICE
+// ============================================================================
+
+const bulkService = {
+  // Import items from CSV
+  async importItems(
+    request: IBulkImportRequest,
+  ): Promise<IBulkOperationResult> {
+    const res = await apiClient.post<{ data: IBulkOperationResult }>(
+      `/inventory/items/bulk/import`,
+      request,
+    );
+    return res.data.data;
+  },
+
+  // Export items to CSV/JSON/Excel
+  async exportItems(request: IBulkExportRequest): Promise<Blob> {
+    const res = await apiClient.post<Blob>(
+      `/inventory/items/bulk/export`,
+      request,
+      {
+        responseType: "blob",
+      },
+    );
+    return res.data;
+  },
+
+  // Bulk update items
+  async bulkUpdate(request: IBulkUpdateRequest): Promise<IBulkOperationResult> {
+    const res = await apiClient.patch<{ data: IBulkOperationResult }>(
+      `/inventory/items/bulk/update`,
+      request,
+    );
+    return res.data.data;
+  },
+
+  // Bulk delete items
+  async bulkDelete(request: IBulkDeleteRequest): Promise<IBulkOperationResult> {
+    const res = await apiClient.delete<{ data: IBulkOperationResult }>(
+      `/inventory/items/bulk/delete`,
+      {
+        data: request,
+      },
+    );
+    return res.data.data;
+  },
+
+  // Get bulk operations history
+  async getOperations(
+    params?: GetOperationsParams,
+  ): Promise<BulkOperationsResponse> {
+    const res = await apiClient.get<{ data: BulkOperationsResponse }>(
+      `/inventory/items/bulk/operations`,
+      { params },
+    );
+    return res.data.data;
+  },
+
+  // Get single operation details
+  async getOperation(operationId: string): Promise<{ data: IBulkOperation }> {
+    const res = await apiClient.get<{ data: IBulkOperation }>(
+      `/inventory/items/bulk/operations/${operationId}`,
+    );
+    return res.data;
+  },
+
+  // Download CSV template
+  async downloadTemplate(): Promise<Blob> {
+    // The template file is served from the frontend `public/templates` folder.
+    // In Next.js files placed in `public/` are available at the site root: `/templates/...`.
+    const resp = await fetch("/templates/items-import-template.csv");
+    if (!resp.ok) {
+      throw new Error(`Plantilla no encontrada (${resp.status})`);
+    }
+    return await resp.blob();
+  },
+
+  // Helper: Convert Blob to download link
+  downloadBlob(blob: Blob, filename: string): void {
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    window.URL.revokeObjectURL(url);
+  },
 };
 
-/**
- * Export items to CSV/JSON/Excel
- */
-export const exportItems = async (
-  request: IBulkExportRequest,
-): Promise<Blob> => {
-  const response = await apiClient.post<Blob>(
-    `/inventory/items/bulk/export`,
-    request,
-    {
-      responseType: "blob",
-    },
-  );
-  return response.data;
-};
-
-/**
- * Bulk update items
- */
-export const bulkUpdate = async (
-  request: IBulkUpdateRequest,
-): Promise<IBulkOperationResult> => {
-  const response = await apiClient.patch<{ data: IBulkOperationResult }>(
-    `/inventory/items/bulk/update`,
-    request,
-  );
-  return response.data.data;
-};
-
-/**
- * Bulk delete items
- */
-export const bulkDelete = async (
-  request: IBulkDeleteRequest,
-): Promise<IBulkOperationResult> => {
-  const response = await apiClient.delete<{ data: IBulkOperationResult }>(
-    `/inventory/items/bulk/delete`,
-    {
-      data: request,
-    },
-  );
-  return response.data.data;
-};
-
-/**
- * Get bulk operations history
- */
-export const getOperations = async (
-  page: number = 1,
-  limit: number = 20,
-): Promise<IBulkOperationsResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<{ data: IBulkOperationsResponse }>(
-    `/inventory/items/bulk/operations?${params.toString()}`,
-  );
-  return response.data.data;
-};
-
-/**
- * Get single operation details
- */
-export const getOperation = async (
-  operationId: string,
-): Promise<{ data: IBulkOperation }> => {
-  const response = await apiClient.get<{ data: { data: IBulkOperation } }>(
-    `/inventory/items/bulk/operations/${operationId}`,
-  );
-  return response.data.data;
-};
-
-/**
- * Download CSV template
- */
-export const downloadTemplate = async (): Promise<Blob> => {
-  // The template file is served from the frontend `public/templates` folder.
-  // In Next.js files placed in `public/` are available at the site root: `/templates/...`.
-  const resp = await fetch("/templates/items-import-template.csv");
-  if (!resp.ok) {
-    throw new Error(`Plantilla no encontrada (${resp.status})`);
-  }
-  const blob = await resp.blob();
-  return blob;
-};
-
-/**
- * Helper: Convert Blob to download link
- */
-export const downloadBlob = (blob: Blob, filename: string) => {
-  const url = window.URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  window.URL.revokeObjectURL(url);
-};
-
-export default {
-  importItems,
-  exportItems,
-  bulkUpdate,
-  bulkDelete,
-  getOperations,
-  getOperation,
-  downloadTemplate,
-  downloadBlob,
-};
+export default bulkService;

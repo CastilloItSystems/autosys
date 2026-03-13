@@ -10,6 +10,7 @@ import {
   getDashboardMetrics,
   DashboardMetrics,
 } from "@/app/api/inventory/stockService";
+import stockService from "@/app/api/inventory/stockService";
 import { DiscrepancyWidget } from "./DiscrepancyWidget";
 
 export default function InventoryDashboard() {

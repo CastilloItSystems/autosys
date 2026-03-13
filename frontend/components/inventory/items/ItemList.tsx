@@ -14,15 +14,19 @@ import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import { TabView, TabPanel } from "primereact/tabview";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { Divider } from "primereact/divider";
 import { Image } from "primereact/image";
 import { Sidebar } from "primereact/sidebar";
 import { motion } from "framer-motion";
 import itemService, { Item } from "@/app/api/inventory/itemService";
-import * as searchService from "@/app/api/inventory/searchService";
+import searchService from "@/app/api/inventory/searchService";
 import type { ISearchFilters } from "@/app/api/inventory/searchService";
 import ItemForm from "./ItemForm";
 import CreateButton from "@/components/common/CreateButton";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
 import { AdvancedSearchPanel } from "@/components/inventory/search/AdvancedSearchPanel";
 
 const ItemList = () => {
@@ -42,10 +46,14 @@ const ItemList = () => {
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [detailsDialog, setDetailsDialog] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [actionItem, setActionItem] = useState<Item | null>(null);
   const [filterSidebar, setFilterSidebar] = useState<boolean>(false);
   const [layout, setLayout] = useState<"grid" | "list" | "table">("table");
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [advancedFilters, setAdvancedFilters] = useState<ISearchFilters>({});
+  const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
@@ -65,14 +73,11 @@ const ItemList = () => {
   const loadItems = async () => {
     try {
       setLoading(true);
-      const response = await itemService.getAll(
-        page + 1,
-        rows,
-        undefined, // No mandamos query aquí porque lo maneja searchService
-        undefined,
-        undefined,
-        showActive,
-      );
+      const response = await itemService.getAll({
+        page: page + 1,
+        limit: rows,
+        isActive: showActive,
+      });
 
       const itemsData = response.data || [];
       const total = response.meta?.total || 0;
@@ -245,8 +250,10 @@ const ItemList = () => {
   };
 
   const handleDelete = async () => {
+    if (!selectedItem?.id) return;
+    setIsDeleting(true);
     try {
-      await itemService.delete(selectedItem!.id);
+      await itemService.delete(selectedItem.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -255,6 +262,7 @@ const ItemList = () => {
       });
       loadItems();
       setDeleteDialog(false);
+      setSelectedItem(null);
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -262,6 +270,8 @@ const ItemList = () => {
         detail: "Error al eliminar artículo",
         life: 3000,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -278,43 +288,52 @@ const ItemList = () => {
     setFormDialog(false);
   };
 
+  const getMenuItems = (item: Item | null): MenuItem[] => {
+    if (!item) return [];
+    return [
+      {
+        label: "Ver detalles",
+        icon: "pi pi-eye",
+        command: () => showDetails(item),
+      },
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editItem(item),
+      },
+      {
+        label: item.isActive ? "Desactivar" : "Activar",
+        icon: item.isActive ? "pi pi-pause" : "pi pi-play",
+        command: () => handleToggleItem(item),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => confirmDeleteItem(item),
+      },
+    ];
+  };
+
   // Templates for DataTable
   const actionBodyTemplate = (rowData: Item) => {
     return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-eye"
-          rounded
-          severity="secondary"
-          text
-          onClick={() => showDetails(rowData)}
-          tooltip="Ver detalles"
-        />
-        <Button
-          icon="pi pi-pencil"
-          rounded
-          severity="info"
-          text
-          onClick={() => editItem(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleItem(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteItem(rowData)}
-          tooltip="Eliminar"
-        />
-      </div>
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        aria-controls="popup_menu"
+        aria-haspopup
+        onClick={(e) => {
+          setActionItem(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        tooltip="Opciones"
+        tooltipOptions={{ position: "left" }}
+      />
     );
   };
 
@@ -553,46 +572,17 @@ const ItemList = () => {
             {/* Actions */}
             <div className="flex justify-content-center border-top-1 surface-border px-2 py-1 gap-0">
               <Button
-                icon="pi pi-eye"
+                icon="pi pi-cog"
                 rounded
-                severity="secondary"
                 text
                 size="small"
-                onClick={() => showDetails(item)}
-                tooltip="Ver detalles"
-                tooltipOptions={{ position: "top" }}
-                className="p-1"
-              />
-              <Button
-                icon="pi pi-pencil"
-                rounded
-                severity="info"
-                text
-                size="small"
-                onClick={() => editItem(item)}
-                tooltip="Editar"
-                tooltipOptions={{ position: "top" }}
-                className="p-1"
-              />
-              <Button
-                icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
-                rounded
-                severity={item.isActive ? "warning" : "success"}
-                text
-                size="small"
-                onClick={() => handleToggleItem(item)}
-                tooltip={item.isActive ? "Desactivar" : "Activar"}
-                tooltipOptions={{ position: "top" }}
-                className="p-1"
-              />
-              <Button
-                icon="pi pi-trash"
-                rounded
-                severity="danger"
-                text
-                size="small"
-                onClick={() => confirmDeleteItem(item)}
-                tooltip="Eliminar"
+                aria-controls="popup_menu"
+                aria-haspopup
+                onClick={(e) => {
+                  setActionItem(item);
+                  menuRef.current?.toggle(e);
+                }}
+                tooltip="Opciones"
                 tooltipOptions={{ position: "top" }}
                 className="p-1"
               />
@@ -723,43 +713,17 @@ const ItemList = () => {
             {/* Actions */}
             <div className="flex align-items-center gap-1">
               <Button
-                icon="pi pi-eye"
+                icon="pi pi-cog"
                 rounded
-                severity="secondary"
                 text
                 size="small"
-                onClick={() => showDetails(item)}
-                tooltip="Ver detalles"
-                tooltipOptions={{ position: "top" }}
-              />
-              <Button
-                icon="pi pi-pencil"
-                rounded
-                severity="info"
-                text
-                size="small"
-                onClick={() => editItem(item)}
-                tooltip="Editar"
-                tooltipOptions={{ position: "top" }}
-              />
-              <Button
-                icon={item.isActive ? "pi pi-pause" : "pi pi-play"}
-                rounded
-                severity={item.isActive ? "warning" : "success"}
-                text
-                size="small"
-                onClick={() => handleToggleItem(item)}
-                tooltip={item.isActive ? "Desactivar" : "Activar"}
-                tooltipOptions={{ position: "top" }}
-              />
-              <Button
-                icon="pi pi-trash"
-                rounded
-                severity="danger"
-                text
-                size="small"
-                onClick={() => confirmDeleteItem(item)}
-                tooltip="Eliminar"
+                aria-controls="popup_menu"
+                aria-haspopup
+                onClick={(e) => {
+                  setActionItem(item);
+                  menuRef.current?.toggle(e);
+                }}
+                tooltip="Opciones"
                 tooltipOptions={{ position: "top" }}
               />
             </div>
@@ -840,23 +804,6 @@ const ItemList = () => {
     );
   };
 
-  const deleteDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={() => setDeleteDialog(false)}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDelete}
-      />
-    </>
-  );
-
   const layoutOptions = [
     { icon: "pi pi-table", value: "table" },
     { icon: "pi pi-list", value: "list" },
@@ -901,7 +848,9 @@ const ItemList = () => {
             emptyMessage="No se encontraron artículos"
             sortMode="multiple"
             lazy
+            scrollable
             tableStyle={{ minWidth: "50rem" }}
+            size="small"
           >
             <Column
               field="code"
@@ -962,9 +911,13 @@ const ItemList = () => {
               style={{ minWidth: "100px" }}
             />
             <Column
+              header="Acciones"
               body={actionBodyTemplate}
               exportable={false}
-              style={{ minWidth: "140px" }}
+              frozen={true}
+              alignFrozen="right"
+              style={{ width: "6rem", textAlign: "center" }}
+              headerStyle={{ textAlign: "center" }}
             />
           </DataTable>
         ) : (
@@ -1000,35 +953,41 @@ const ItemList = () => {
         modal
         className="p-fluid"
         onHide={() => setFormDialog(false)}
+        footer={
+          <FormActionButtons
+            formId="item-form"
+            isUpdate={!!selectedItem?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
       >
         <ItemForm
-          item={selectedItem}
+          model={selectedItem}
+          formId="item-form"
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedItem && (
-            <span>
-              ¿Está seguro de eliminar el artículo <b>{selectedItem.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedItem(null);
+        }}
+        itemName={selectedItem?.name}
+        isDeleting={isDeleting}
+        onConfirm={handleDelete}
+      />
+
+      <Menu
+        model={getMenuItems(actionItem)}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
 
       {/* Detalles Dialog */}
       <Dialog

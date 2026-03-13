@@ -7,9 +7,7 @@ import { Tag } from "primereact/tag";
 import { Dialog } from "primereact/dialog";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
-import {
-  getMovement,
-  cancelMovement,
+import movementService, {
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_SEVERITY,
   Movement,
@@ -66,7 +64,7 @@ const MovementDetailPage = () => {
   const fetchMovement = async () => {
     try {
       setLoading(true);
-      const res = await getMovement(id);
+      const res = await movementService.getById(id);
       setMovement(res.data);
     } catch {
       toast.current?.show({
@@ -84,7 +82,7 @@ const MovementDetailPage = () => {
   const handleCancel = async () => {
     setCancelling(true);
     try {
-      await cancelMovement(id);
+      await movementService.cancel(id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",

@@ -10,7 +10,7 @@ import { Dialog } from "primereact/dialog";
 import { MultiSelect, MultiSelectChangeEvent } from "primereact/multiselect";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import * as bulkService from "@/app/api/inventory/bulkService";
+import bulkService from "@/app/api/inventory/bulkService";
 import type { IBulkExportRequest } from "@/app/api/inventory/bulkService";
 import { useRef } from "react";
 

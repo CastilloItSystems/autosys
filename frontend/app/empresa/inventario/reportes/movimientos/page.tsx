@@ -39,9 +39,9 @@ const MovementsPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getMovementsReport(page, rows);
+      const response = await reportService.getMovements(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -60,7 +60,8 @@ const MovementsPage = () => {
       header: "Fecha",
       sortable: true,
       width: "12%",
-      body: (row: any) => new Date(row.movementDate).toLocaleDateString("es-VE"),
+      body: (row: any) =>
+        new Date(row.movementDate).toLocaleDateString("es-VE"),
     },
     { field: "itemName", header: "Artículo", sortable: true, width: "20%" },
     { field: "sku", header: "SKU", sortable: true, width: "12%" },
@@ -73,7 +74,9 @@ const MovementsPage = () => {
         <Tag
           value={MOVEMENT_TYPE_LABELS[row.type] || row.type}
           severity={
-            row.type?.includes("salida") || row.type?.includes("OUT") || row.type?.includes("SALE")
+            row.type?.includes("salida") ||
+            row.type?.includes("OUT") ||
+            row.type?.includes("SALE")
               ? "danger"
               : "success"
           }
@@ -86,10 +89,18 @@ const MovementsPage = () => {
       sortable: true,
       width: "10%",
       body: (row: any) => {
-        const isOut = row.type?.includes("salida") || row.type?.includes("OUT") || row.type?.includes("SALE");
+        const isOut =
+          row.type?.includes("salida") ||
+          row.type?.includes("OUT") ||
+          row.type?.includes("SALE");
         return (
-          <span className={`font-semibold ${isOut ? "text-red-500" : "text-green-600"}`}>
-            {isOut ? "-" : "+"}{row.quantity?.toFixed(0)}
+          <span
+            className={`font-semibold ${
+              isOut ? "text-red-500" : "text-green-600"
+            }`}
+          >
+            {isOut ? "-" : "+"}
+            {row.quantity?.toFixed(0)}
           </span>
         );
       },
@@ -100,7 +111,9 @@ const MovementsPage = () => {
       header: "Referencia",
       sortable: false,
       width: "17%",
-      body: (row: any) => <span className="text-500 text-sm">{row.reference || "—"}</span>,
+      body: (row: any) => (
+        <span className="text-500 text-sm">{row.reference || "—"}</span>
+      ),
     },
   ];
 

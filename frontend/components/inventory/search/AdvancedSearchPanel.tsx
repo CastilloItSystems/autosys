@@ -9,7 +9,7 @@ import { MultiSelect, MultiSelectChangeEvent } from "primereact/multiselect";
 import { Slider } from "primereact/slider";
 import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
-import * as searchService from "@/app/api/inventory/searchService";
+import searchService from "@/app/api/inventory/searchService";
 import type {
   ISearchFilters,
   ISearchAggregations,

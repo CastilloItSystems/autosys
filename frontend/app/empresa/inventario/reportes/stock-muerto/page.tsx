@@ -6,7 +6,7 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getDeadStockReport } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const DeadStockPage = () => {
   const toast = useRef<Toast>(null);
@@ -23,9 +23,9 @@ const DeadStockPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getDeadStockReport(page, rows);
+      const response = await reportService.getDeadStock(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -46,7 +46,9 @@ const DeadStockPage = () => {
       header: "Stock Actual",
       sortable: true,
       width: "12%",
-      body: (row: any) => <span className="font-semibold">{row.currentStock?.toFixed(0)}</span>,
+      body: (row: any) => (
+        <span className="font-semibold">{row.currentStock?.toFixed(0)}</span>
+      ),
     },
     {
       field: "lastMovementAt",

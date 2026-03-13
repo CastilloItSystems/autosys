@@ -12,10 +12,8 @@ import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
-import {
-  createSupplier,
-  updateSupplier,
-  Supplier,
+import supplierService, {
+  type Supplier,
 } from "@/app/api/inventory/supplierService";
 
 // Schema de validación
@@ -109,9 +107,9 @@ export default function SupplierForm({
       };
 
       if (supplier?.id) {
-        await updateSupplier(supplier.id, submitData);
+        await supplierService.update(supplier.id, submitData);
       } else {
-        await createSupplier(submitData);
+        await supplierService.create(submitData);
       }
       onSave();
     } catch (error: any) {

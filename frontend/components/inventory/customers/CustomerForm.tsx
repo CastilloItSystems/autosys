@@ -6,11 +6,11 @@ import { z } from "zod";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
 import { classNames } from "primereact/utils";
-import { customerSchema } from "@/libs/zods/inventory/customerZod";
 import {
-  createCustomer,
-  updateCustomer,
-} from "@/app/api/inventory/customerService";
+  customerSchema,
+  type CustomerFormData,
+} from "@/libs/zods/inventory/customerZod";
+import customerService from "@/app/api/inventory/customerService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";
@@ -30,7 +30,7 @@ interface CustomerFormProps {
   showToast: (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => void;
   toast: React.RefObject<Toast> | null;
   onCustomerCreated?: (customer: any) => void;
@@ -94,21 +94,24 @@ const CustomerForm = ({
       const payload: any = { ...data };
 
       if (customer) {
-        const updatedCustomer = await updateCustomer(customer.id, payload);
-        console.log(updatedCustomer.customer.id);
+        const updatedCustomer = await customerService.update(
+          customer.id,
+          payload,
+        );
+        console.log(updatedCustomer.data.id);
         const updatedCustomers = customers.map((c) =>
-          c.id === updatedCustomer.customer.id ? updatedCustomer.customer : c
+          c.id === updatedCustomer.data.id ? updatedCustomer.data : c,
         );
         setCustomers(updatedCustomers);
         showToast("success", "Éxito", "Cliente actualizado");
       } else {
-        const newCustomer = await createCustomer(payload);
+        const newCustomer = await customerService.create(payload);
         console.log(newCustomer);
-        setCustomers([newCustomer.customer, ...customers]);
+        setCustomers([newCustomer.data, ...customers]);
         showToast("success", "Éxito", "Cliente creado");
         // Llamar al callback si existe
         if (onCustomerCreated) {
-          onCustomerCreated(newCustomer.customer);
+          onCustomerCreated(newCustomer.data);
         }
       }
       hideFormDialog();
@@ -151,7 +154,7 @@ const CustomerForm = ({
               {...register("nombre")}
               className={classNames(
                 { "p-invalid": errors.nombre },
-                { "p-filled": filledInput }
+                { "p-filled": filledInput },
               )}
               placeholder="Ingrese el nombre"
             />
@@ -176,7 +179,7 @@ const CustomerForm = ({
                   placeholder="Seleccione el tipo"
                   className={classNames(
                     { "p-invalid": errors.tipo },
-                    { "p-filled": filledInput }
+                    { "p-filled": filledInput },
                   )}
                 />
               )}
@@ -217,7 +220,7 @@ const CustomerForm = ({
               {...register("correo")}
               className={classNames(
                 { "p-invalid": errors.correo },
-                { "p-filled": filledInput }
+                { "p-filled": filledInput },
               )}
               placeholder="Ingrese el correo"
             />
@@ -237,7 +240,7 @@ const CustomerForm = ({
               {...register("direccion")}
               className={classNames(
                 { "p-invalid": errors.direccion },
-                { "p-filled": filledInput }
+                { "p-filled": filledInput },
               )}
               placeholder="Ingrese la dirección"
             />
@@ -280,7 +283,7 @@ const CustomerForm = ({
                 {...register("razonSocial")}
                 className={classNames(
                   { "p-invalid": errors.razonSocial },
-                  { "p-filled": filledInput }
+                  { "p-filled": filledInput },
                 )}
                 placeholder="Ingrese la razón social"
               />
@@ -303,7 +306,7 @@ const CustomerForm = ({
                   rows={3}
                   className={classNames(
                     { "p-invalid": errors.notas },
-                    { "p-filled": filledInput }
+                    { "p-filled": filledInput },
                   )}
                   placeholder="Ingrese notas adicionales"
                 />
@@ -334,7 +337,7 @@ const CustomerForm = ({
                     placeholder="Seleccione el estado"
                     className={classNames(
                       { "p-invalid": errors.estado },
-                      { "p-filled": filledInput }
+                      { "p-filled": filledInput },
                     )}
                   />
                 )}

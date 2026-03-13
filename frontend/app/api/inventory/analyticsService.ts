@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ============================================================================
 // ENUMS & TYPES
@@ -27,7 +28,7 @@ export interface TopDiscrepancyItem {
 }
 
 // ============================================================================
-// INTERFACES
+// ENTITY
 // ============================================================================
 
 export interface ABCItem {
@@ -43,22 +44,12 @@ export interface ABCItem {
   recommendations: string[];
 }
 
-export interface ABCAnalysisResponse {
-  success: boolean;
-  data: ABCItem[];
-  summary: {
-    totalItems: number;
-    classA: number;
-    classB: number;
-    classC: number;
-    totalMovementValue: number;
-  };
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+export interface ABCSummary {
+  totalItems: number;
+  classA: number;
+  classB: number;
+  classC: number;
+  totalMovementValue: number;
 }
 
 export interface TurnoverMetrics {
@@ -75,22 +66,12 @@ export interface TurnoverMetrics {
   stockValue: number;
 }
 
-export interface TurnoverResponse {
-  success: boolean;
-  data: TurnoverMetrics[];
-  summary: {
-    averageTurnover: number;
-    fastMovingCount: number;
-    moderateCount: number;
-    slowMovingCount: number;
-    staticCount: number;
-  };
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
+export interface TurnoverSummary {
+  averageTurnover: number;
+  fastMovingCount: number;
+  moderateCount: number;
+  slowMovingCount: number;
+  staticCount: number;
 }
 
 export interface ForecastData {
@@ -115,17 +96,6 @@ export interface ForecastData {
   recommendations: string[];
 }
 
-export interface ForecastResponse {
-  success: boolean;
-  data: ForecastData[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-}
-
 export interface ForecastAccuracy {
   itemId: string;
   itemName: string;
@@ -135,144 +105,159 @@ export interface ForecastAccuracy {
   lastUpdated: string;
 }
 
-export interface ForecastAccuracyResponse {
-  success: boolean;
+// ============================================================================
+// REQUEST PARAMS & DTOs
+// ============================================================================
+
+export interface GetABCAnalysisParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface GetTurnoverMetricsParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface GetTurnoverByClassificationParams {
+  classification: TurnoverClassification;
+  page?: number;
+  limit?: number;
+}
+
+export interface GetForecastsParams {
+  page?: number;
+  limit?: number;
+}
+
+export interface GetForecastAccuracyParams {
+  daysBack?: number;
+}
+
+export interface GetTopDiscrepanciesParams {
+  limit?: number;
+}
+
+// ============================================================================
+// RESPONSE TYPES
+// ============================================================================
+
+interface ABCAnalysisResponse extends ApiResponse<ABCItem[]> {
+  data: ABCItem[];
+  summary: ABCSummary;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+interface TurnoverResponse extends ApiResponse<TurnoverMetrics[]> {
+  data: TurnoverMetrics[];
+  summary: TurnoverSummary;
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+interface ForecastResponse extends ApiResponse<ForecastData[]> {
+  data: ForecastData[];
+  pagination: {
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+interface ForecastAccuracyResponseType extends ApiResponse<ForecastAccuracy> {
   data: ForecastAccuracy;
 }
 
 // ============================================================================
-// SERVICE FUNCTIONS
+// SERVICE
 // ============================================================================
 
-/**
- * Get ABC analysis (Pareto classification)
- */
-export const getABCAnalysis = async (
-  page: number = 1,
-  limit: number = 20,
-): Promise<ABCAnalysisResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<ABCAnalysisResponse>(
-    `/inventory/analytics/abc?${params.toString()}`,
-  );
-  return response.data;
+const analyticsService = {
+  // ABC Analysis (Pareto Classification)
+  async getABCAnalysis(
+    params?: GetABCAnalysisParams,
+  ): Promise<ABCAnalysisResponse> {
+    const res = await apiClient.get("/inventory/analytics/abc", { params });
+    return res.data;
+  },
+
+  // Turnover Metrics
+  async getAllTurnoverMetrics(
+    params?: GetTurnoverMetricsParams,
+  ): Promise<TurnoverResponse> {
+    const res = await apiClient.get("/inventory/analytics/turnover", {
+      params,
+    });
+    return res.data;
+  },
+
+  async getTurnoverByItem(
+    itemId: string,
+  ): Promise<ApiResponse<TurnoverMetrics>> {
+    const res = await apiClient.get(`/inventory/analytics/turnover/${itemId}`);
+    return res.data;
+  },
+
+  async getTurnoverByClassification(
+    params: GetTurnoverByClassificationParams,
+  ): Promise<TurnoverResponse> {
+    const { classification, page, limit } = params;
+    const res = await apiClient.get(
+      `/inventory/analytics/turnover/classification/${classification}`,
+      {
+        params: { page, limit },
+      },
+    );
+    return res.data;
+  },
+
+  // Forecasting
+  async getAllForecasts(
+    params?: GetForecastsParams,
+  ): Promise<ForecastResponse> {
+    const res = await apiClient.get("/inventory/analytics/forecasting", {
+      params,
+    });
+    return res.data;
+  },
+
+  async getForecastByItem(itemId: string): Promise<ApiResponse<ForecastData>> {
+    const res = await apiClient.get(
+      `/inventory/analytics/forecasting/${itemId}`,
+    );
+    return res.data;
+  },
+
+  async getForecastAccuracy(
+    itemId: string,
+    params?: GetForecastAccuracyParams,
+  ): Promise<ForecastAccuracyResponseType> {
+    const res = await apiClient.get(
+      `/inventory/analytics/forecasting/${itemId}/accuracy`,
+      { params },
+    );
+    return res.data;
+  },
+
+  // Discrepancies
+  async getTopDiscrepancies(
+    params?: GetTopDiscrepanciesParams,
+  ): Promise<ApiResponse<TopDiscrepancyItem[]>> {
+    const res = await apiClient.get("/inventory/analytics/discrepancies/top", {
+      params,
+    });
+    return res.data;
+  },
 };
 
-/**
- * Get turnover metrics for all items
- */
-export const getAllTurnoverMetrics = async (
-  page: number = 1,
-  limit: number = 20,
-): Promise<TurnoverResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<TurnoverResponse>(
-    `/inventory/analytics/turnover?${params.toString()}`,
-  );
-  return response.data;
-};
-
-/**
- * Get turnover metrics for a specific item
- */
-export const getTurnoverByItem = async (
-  itemId: string,
-): Promise<{ data: TurnoverMetrics }> => {
-  const response = await apiClient.get<{ data: TurnoverMetrics }>(
-    `/inventory/analytics/turnover/${itemId}`,
-  );
-  return response.data;
-};
-
-/**
- * Get items by turnover classification
- */
-export const getTurnoverByClassification = async (
-  classification: TurnoverClassification,
-  page: number = 1,
-  limit: number = 20,
-): Promise<TurnoverResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<TurnoverResponse>(
-    `/inventory/analytics/turnover/classification/${classification}?${params.toString()}`,
-  );
-  return response.data;
-};
-
-/**
- * Get forecasts for all items
- */
-export const getAllForecasts = async (
-  page: number = 1,
-  limit: number = 20,
-): Promise<ForecastResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
-  const response = await apiClient.get<ForecastResponse>(
-    `/inventory/analytics/forecasting?${params.toString()}`,
-  );
-  return response.data;
-};
-
-/**
- * Get forecast for a specific item
- */
-export const getForecastByItem = async (
-  itemId: string,
-): Promise<{ data: ForecastData }> => {
-  const response = await apiClient.get<{ data: ForecastData }>(
-    `/inventory/analytics/forecasting/${itemId}`,
-  );
-  return response.data;
-};
-
-/**
- * Get forecast accuracy metrics
- */
-export const getForecastAccuracy = async (
-  itemId: string,
-  daysBack: number = 30,
-): Promise<ForecastAccuracyResponse> => {
-  const params = new URLSearchParams({
-    daysBack: String(daysBack),
-  });
-  const response = await apiClient.get<ForecastAccuracyResponse>(
-    `/inventory/analytics/forecasting/${itemId}/accuracy?${params.toString()}`,
-  );
-  return response.data;
-};
-
-// ============================================================================
-// DISCREPANCIES
-// ============================================================================
-
-export const getTopDiscrepancies = async (
-  limit = 5,
-): Promise<{ data: TopDiscrepancyItem[] }> => {
-  const response = await apiClient.get(
-    `/inventory/analytics/discrepancies/top?limit=${limit}`,
-  );
-  return response.data;
-};
-
-export default {
-  getABCAnalysis,
-  getAllTurnoverMetrics,
-  getTurnoverByItem,
-  getTurnoverByClassification,
-  getAllForecasts,
-  getForecastByItem,
-  getForecastAccuracy,
-  getTopDiscrepancies,
-};
+export default analyticsService;

@@ -45,7 +45,7 @@ const LoanList = () => {
   const loadLoans = async () => {
     try {
       setLoading(true);
-      const response = await loanService.getLoans(filters.page, filters.limit, {
+      const response = await loanService.getAll(filters.page, filters.limit, {
         status: filters.status || undefined,
         borrowerName: filters.borrowerName || undefined,
       });
@@ -55,7 +55,9 @@ const LoanList = () => {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: error?.response?.data?.message || "No se pudieron cargar los préstamos",
+        detail:
+          error?.response?.data?.message ||
+          "No se pudieron cargar los préstamos",
         life: 3000,
       });
       setLoans([]);
@@ -66,7 +68,13 @@ const LoanList = () => {
 
   useEffect(() => {
     if (activeEmpresa) loadLoans();
-  }, [filters.page, filters.limit, filters.status, filters.borrowerName, activeEmpresa?.id_empresa]);
+  }, [
+    filters.page,
+    filters.limit,
+    filters.status,
+    filters.borrowerName,
+    activeEmpresa?.id_empresa,
+  ]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -81,11 +89,21 @@ const LoanList = () => {
       accept: async () => {
         setActionInProgress(loan.id);
         try {
-          await loanService.approveLoan(loan.id);
-          toast.current?.show({ severity: "success", summary: "Aprobado", detail: `Préstamo ${loan.loanNumber} aprobado`, life: 3000 });
+          await loanService.approve(loan.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Aprobado",
+            detail: `Préstamo ${loan.loanNumber} aprobado`,
+            life: 3000,
+          });
           loadLoans();
         } catch (error: any) {
-          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo aprobar", life: 4000 });
+          toast.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: error?.response?.data?.message || "No se pudo aprobar",
+            life: 4000,
+          });
         } finally {
           setActionInProgress(null);
         }
@@ -104,11 +122,21 @@ const LoanList = () => {
       accept: async () => {
         setActionInProgress(loan.id);
         try {
-          await loanService.activateLoan(loan.id);
-          toast.current?.show({ severity: "success", summary: "Activado", detail: `Préstamo ${loan.loanNumber} activado`, life: 3000 });
+          await loanService.activate(loan.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Activado",
+            detail: `Préstamo ${loan.loanNumber} activado`,
+            life: 3000,
+          });
           loadLoans();
         } catch (error: any) {
-          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo activar", life: 4000 });
+          toast.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: error?.response?.data?.message || "No se pudo activar",
+            life: 4000,
+          });
         } finally {
           setActionInProgress(null);
         }
@@ -127,11 +155,21 @@ const LoanList = () => {
       accept: async () => {
         setActionInProgress(loan.id);
         try {
-          await loanService.cancelLoan(loan.id);
-          toast.current?.show({ severity: "info", summary: "Cancelado", detail: `Préstamo ${loan.loanNumber} cancelado`, life: 3000 });
+          await loanService.cancel(loan.id);
+          toast.current?.show({
+            severity: "info",
+            summary: "Cancelado",
+            detail: `Préstamo ${loan.loanNumber} cancelado`,
+            life: 3000,
+          });
           loadLoans();
         } catch (error: any) {
-          toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "No se pudo cancelar", life: 4000 });
+          toast.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: error?.response?.data?.message || "No se pudo cancelar",
+            life: 4000,
+          });
         } finally {
           setActionInProgress(null);
         }
@@ -153,18 +191,25 @@ const LoanList = () => {
     const today = new Date();
     const isOverdue =
       dueDate < today &&
-      (rowData.status === LoanStatus.ACTIVE || rowData.status === LoanStatus.OVERDUE);
+      (rowData.status === LoanStatus.ACTIVE ||
+        rowData.status === LoanStatus.OVERDUE);
     const daysOverdue = isOverdue
-      ? Math.floor((today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (today.getTime() - dueDate.getTime()) / (1000 * 60 * 60 * 24),
+        )
       : 0;
     const daysUntilDue = !isOverdue
-      ? Math.floor((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      ? Math.floor(
+          (dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24),
+        )
       : 0;
 
     return (
       <div className="flex align-items-center gap-2">
         <span>{dueDate.toLocaleDateString("es-VE")}</span>
-        {isOverdue && <Tag value={`${daysOverdue}d vencido`} severity="danger" />}
+        {isOverdue && (
+          <Tag value={`${daysOverdue}d vencido`} severity="danger" />
+        )}
         {!isOverdue && daysUntilDue <= 7 && daysUntilDue >= 0 && (
           <Tag value={`${daysUntilDue}d restantes`} severity="warning" />
         )}
@@ -178,25 +223,43 @@ const LoanList = () => {
       <div className="flex align-items-center gap-1">
         <Button
           icon="pi pi-eye"
-          rounded text severity="info" size="small"
-          tooltip="Ver detalles" tooltipOptions={{ position: "top" }}
-          onClick={() => { setSelectedLoan(rowData); setIsDetailOpen(true); }}
+          rounded
+          text
+          severity="info"
+          size="small"
+          tooltip="Ver detalles"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => {
+            setSelectedLoan(rowData);
+            setIsDetailOpen(true);
+          }}
           disabled={busy}
         />
         {rowData.status === LoanStatus.DRAFT && (
           <Button
             icon="pi pi-pencil"
-            rounded text severity="warning" size="small"
-            tooltip="Editar" tooltipOptions={{ position: "top" }}
-            onClick={() => { setSelectedLoan(rowData); setIsFormOpen(true); }}
+            rounded
+            text
+            severity="warning"
+            size="small"
+            tooltip="Editar"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => {
+              setSelectedLoan(rowData);
+              setIsFormOpen(true);
+            }}
             disabled={busy}
           />
         )}
         {rowData.status === LoanStatus.DRAFT && (
           <Button
             icon="pi pi-check"
-            rounded text severity="success" size="small"
-            tooltip="Aprobar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="success"
+            size="small"
+            tooltip="Aprobar"
+            tooltipOptions={{ position: "top" }}
             loading={actionInProgress === rowData.id}
             disabled={busy}
             onClick={() => handleApprove(rowData)}
@@ -205,27 +268,48 @@ const LoanList = () => {
         {rowData.status === LoanStatus.APPROVED && (
           <Button
             icon="pi pi-play"
-            rounded text severity="success" size="small"
-            tooltip="Activar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="success"
+            size="small"
+            tooltip="Activar"
+            tooltipOptions={{ position: "top" }}
             loading={actionInProgress === rowData.id}
             disabled={busy}
             onClick={() => handleActivate(rowData)}
           />
         )}
-        {(rowData.status === LoanStatus.ACTIVE || rowData.status === LoanStatus.OVERDUE) && (
+        {(rowData.status === LoanStatus.ACTIVE ||
+          rowData.status === LoanStatus.OVERDUE) && (
           <Button
             icon="pi pi-undo"
-            rounded text severity="info" size="small"
-            tooltip="Registrar devolución" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="info"
+            size="small"
+            tooltip="Registrar devolución"
+            tooltipOptions={{ position: "top" }}
             disabled={busy}
-            onClick={() => { setSelectedLoan(rowData); setIsReturnOpen(true); }}
+            onClick={() => {
+              setSelectedLoan(rowData);
+              setIsReturnOpen(true);
+            }}
           />
         )}
-        {[LoanStatus.DRAFT, LoanStatus.APPROVED, LoanStatus.ACTIVE, LoanStatus.OVERDUE].includes(rowData.status) && (
+        {[
+          LoanStatus.DRAFT,
+          LoanStatus.APPROVED,
+          LoanStatus.ACTIVE,
+          LoanStatus.OVERDUE,
+        ].includes(rowData.status) && (
           <Button
             icon="pi pi-ban"
-            rounded text severity="danger" size="small"
-            tooltip="Cancelar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="danger"
+            size="small"
+            tooltip="Cancelar"
+            tooltipOptions={{ position: "top" }}
             loading={actionInProgress === rowData.id}
             disabled={busy}
             onClick={() => handleCancel(rowData)}
@@ -261,7 +345,10 @@ const LoanList = () => {
           label="Nuevo Préstamo"
           icon="pi pi-plus"
           disabled={!activeEmpresa}
-          onClick={() => { setSelectedLoan(null); setIsFormOpen(true); }}
+          onClick={() => {
+            setSelectedLoan(null);
+            setIsFormOpen(true);
+          }}
         />
       </div>
     </div>
@@ -294,7 +381,9 @@ const LoanList = () => {
           rows={filters.limit}
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
-          onPage={(e) => setFilters({ ...filters, page: e.page + 1, limit: e.rows })}
+          onPage={(e) =>
+            setFilters({ ...filters, page: e.page + 1, limit: e.rows })
+          }
           rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"
           stripedRows
@@ -304,8 +393,17 @@ const LoanList = () => {
           size="small"
         >
           <Column body={actionTemplate} style={{ minWidth: "180px" }} />
-          <Column field="loanNumber" header="Nº Préstamo" sortable style={{ minWidth: "140px" }} />
-          <Column field="borrowerName" header="Prestatario" style={{ minWidth: "160px" }} />
+          <Column
+            field="loanNumber"
+            header="Nº Préstamo"
+            sortable
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            field="borrowerName"
+            header="Prestatario"
+            style={{ minWidth: "160px" }}
+          />
           <Column
             field="purpose"
             header="Propósito"
@@ -319,8 +417,16 @@ const LoanList = () => {
               </span>
             )}
           />
-          <Column header="Estado" body={statusTemplate} style={{ minWidth: "160px" }} />
-          <Column header="Fecha Devolución" body={dueDateTemplate} style={{ minWidth: "190px" }} />
+          <Column
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            header="Fecha Devolución"
+            body={dueDateTemplate}
+            style={{ minWidth: "190px" }}
+          />
           <Column
             header="Creado"
             field="createdAt"
@@ -334,7 +440,10 @@ const LoanList = () => {
       {/* Form Dialog */}
       <Dialog
         visible={isFormOpen}
-        onHide={() => { setIsFormOpen(false); setSelectedLoan(null); }}
+        onHide={() => {
+          setIsFormOpen(false);
+          setSelectedLoan(null);
+        }}
         header={
           <div className="flex align-items-center gap-2">
             <i className="pi pi-file-edit text-primary text-2xl" />
@@ -348,15 +457,24 @@ const LoanList = () => {
       >
         <LoanForm
           loan={selectedLoan ?? undefined}
-          onSuccess={() => { setIsFormOpen(false); loadLoans(); }}
-          onCancel={() => { setIsFormOpen(false); setSelectedLoan(null); }}
+          onSuccess={() => {
+            setIsFormOpen(false);
+            loadLoans();
+          }}
+          onCancel={() => {
+            setIsFormOpen(false);
+            setSelectedLoan(null);
+          }}
         />
       </Dialog>
 
       {/* Detail Dialog */}
       <Dialog
         visible={isDetailOpen}
-        onHide={() => { setIsDetailOpen(false); setSelectedLoan(null); }}
+        onHide={() => {
+          setIsDetailOpen(false);
+          setSelectedLoan(null);
+        }}
         header={
           <div className="flex align-items-center gap-2">
             <i className="pi pi-info-circle text-primary text-2xl" />
@@ -371,7 +489,10 @@ const LoanList = () => {
         {selectedLoan && (
           <LoanDetail
             loan={selectedLoan}
-            onReturn={() => { setIsDetailOpen(false); setIsReturnOpen(true); }}
+            onReturn={() => {
+              setIsDetailOpen(false);
+              setIsReturnOpen(true);
+            }}
             onRefresh={loadLoans}
           />
         )}
@@ -385,7 +506,12 @@ const LoanList = () => {
           onHide={() => setIsReturnOpen(false)}
           onSuccess={() => {
             setIsReturnOpen(false);
-            toast.current?.show({ severity: "success", summary: "Éxito", detail: "Devolución registrada correctamente", life: 3000 });
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Devolución registrada correctamente",
+              life: 3000,
+            });
             loadLoans();
           }}
           toast={toast}

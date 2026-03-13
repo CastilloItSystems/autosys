@@ -19,11 +19,10 @@ import returnService, {
   CreateReturnInput,
   RETURN_TYPE_CONFIG,
 } from "@/app/api/inventory/returnService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
-import { searchItems, Item } from "@/app/api/inventory/itemService";
+import itemService, { Item } from "@/app/api/inventory/itemService";
 
 // ── Schema ────────────────────────────────────────────────────────────────────
 
@@ -78,10 +77,15 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
     const load = async () => {
       setWarehousesLoading(true);
       try {
-        const res = await getActiveWarehouses();
+        const res = await warehouseService.getActive();
         setWarehouses(Array.isArray(res.data) ? res.data : []);
       } catch {
-        toast.current?.show({ severity: "warn", summary: "Advertencia", detail: "No se pudieron cargar los almacenes", life: 3000 });
+        toast.current?.show({
+          severity: "warn",
+          summary: "Advertencia",
+          detail: "No se pudieron cargar los almacenes",
+          life: 3000,
+        });
       } finally {
         setWarehousesLoading(false);
       }
@@ -104,8 +108,8 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
 
   const handleItemSearch = async (event: { query: string }) => {
     try {
-      const results = await searchItems(event.query);
-      setItemSuggestions(Array.isArray(results) ? results : (results as any)?.data ?? []);
+      const results = await itemService.search(event.query);
+      setItemSuggestions(Array.isArray(results.data) ? results.data : []);
     } catch {
       setItemSuggestions([]);
     }
@@ -118,20 +122,55 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
     </div>
   );
 
-  const addItem = () => setItemRows((prev) => [...prev, { key: Date.now().toString(), itemId: "", itemName: "", itemSku: "", quantity: 1 }]);
-  const removeItem = (key: string) => setItemRows((prev) => prev.filter((r) => r.key !== key));
+  const addItem = () =>
+    setItemRows((prev) => [
+      ...prev,
+      {
+        key: Date.now().toString(),
+        itemId: "",
+        itemName: "",
+        itemSku: "",
+        quantity: 1,
+      },
+    ]);
+  const removeItem = (key: string) =>
+    setItemRows((prev) => prev.filter((r) => r.key !== key));
   const updateItemField = (key: string, field: keyof ItemRow, value: any) =>
-    setItemRows((prev) => prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)));
+    setItemRows((prev) =>
+      prev.map((r) => (r.key === key ? { ...r, [field]: value } : r)),
+    );
   const handleItemSelect = (key: string, item: Item) =>
-    setItemRows((prev) => prev.map((r) => r.key === key ? { ...r, itemId: item.id, itemName: item.name, itemSku: item.sku ?? item.code } : r));
+    setItemRows((prev) =>
+      prev.map((r) =>
+        r.key === key
+          ? {
+              ...r,
+              itemId: item.id,
+              itemName: item.name,
+              itemSku: item.sku ?? item.code,
+            }
+          : r,
+      ),
+    );
 
   const onSubmit = async (data: ReturnFormData) => {
     if (!itemRows.length) {
-      toast.current?.show({ severity: "warn", summary: "Validación", detail: "Debe agregar al menos un artículo", life: 3000 });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Validación",
+        detail: "Debe agregar al menos un artículo",
+        life: 3000,
+      });
       return;
     }
     if (itemRows.some((r) => !r.itemId || r.quantity < 1)) {
-      toast.current?.show({ severity: "warn", summary: "Validación", detail: "Todos los artículos deben estar seleccionados con cantidad mayor a 0", life: 4000 });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Validación",
+        detail:
+          "Todos los artículos deben estar seleccionados con cantidad mayor a 0",
+        life: 4000,
+      });
       return;
     }
     setLoading(true);
@@ -140,11 +179,22 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
         ...data,
         items: itemRows.map(({ key, itemName, itemSku, ...item }) => item),
       };
-      await returnService.createReturn(input);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Devolución creada correctamente", life: 3000 });
+      await returnService.create(input);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Devolución creada correctamente",
+        life: 3000,
+      });
       onSuccess?.();
     } catch (error: any) {
-      toast.current?.show({ severity: "error", summary: "Error", detail: error?.response?.data?.message || "Error al crear la devolución", life: 4000 });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          error?.response?.data?.message || "Error al crear la devolución",
+        life: 4000,
+      });
     } finally {
       setLoading(false);
     }
@@ -155,7 +205,6 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
       <Toast ref={toast} />
       <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
         <div className="grid">
-
           {/* ── Tipo y Almacén ───────────────────────────────────────── */}
           <div className="col-12 md:col-6">
             <label className="block text-900 font-medium mb-2">
@@ -177,7 +226,9 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
               )}
             />
             {errors.type && (
-              <small className="p-error block mt-1">{errors.type.message}</small>
+              <small className="p-error block mt-1">
+                {errors.type.message}
+              </small>
             )}
           </div>
 
@@ -195,7 +246,9 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                   options={warehouses}
                   optionLabel="name"
                   optionValue="id"
-                  placeholder={warehousesLoading ? "Cargando..." : "Seleccionar almacén"}
+                  placeholder={
+                    warehousesLoading ? "Cargando..." : "Seleccionar almacén"
+                  }
                   disabled={warehousesLoading}
                   filter
                   filterPlaceholder="Buscar almacén..."
@@ -205,7 +258,9 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
               )}
             />
             {errors.warehouseId && (
-              <small className="p-error block mt-1">{errors.warehouseId.message}</small>
+              <small className="p-error block mt-1">
+                {errors.warehouseId.message}
+              </small>
             )}
           </div>
 
@@ -227,18 +282,26 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
               )}
             />
             {errors.reason && (
-              <small className="p-error block mt-1">{errors.reason.message}</small>
+              <small className="p-error block mt-1">
+                {errors.reason.message}
+              </small>
             )}
           </div>
 
           {/* ── Notas ────────────────────────────────────────────────── */}
           <div className="col-12">
-            <label className="block text-900 font-medium mb-2">Notas adicionales</label>
+            <label className="block text-900 font-medium mb-2">
+              Notas adicionales
+            </label>
             <Controller
               name="notes"
               control={control}
               render={({ field }) => (
-                <InputTextarea {...field} rows={3} placeholder="Observaciones opcionales..." />
+                <InputTextarea
+                  {...field}
+                  rows={3}
+                  placeholder="Observaciones opcionales..."
+                />
               )}
             />
           </div>
@@ -270,7 +333,12 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                 <span>Sin artículos. Haz clic en "Agregar artículo".</span>
               </div>
             ) : (
-              <DataTable value={itemRows} dataKey="key" size="small" responsiveLayout="scroll">
+              <DataTable
+                value={itemRows}
+                dataKey="key"
+                size="small"
+                responsiveLayout="scroll"
+              >
                 <Column
                   header="Artículo *"
                   style={{ minWidth: "220px" }}
@@ -280,8 +348,18 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                       suggestions={itemSuggestions}
                       completeMethod={handleItemSearch}
                       itemTemplate={itemSuggestionTemplate}
-                      onSelect={(e) => handleItemSelect(row.key, e.value as Item)}
-                      onChange={(e) => updateItemField(row.key, "itemName", typeof e.value === "string" ? e.value : e.value?.name ?? "")}
+                      onSelect={(e) =>
+                        handleItemSelect(row.key, e.value as Item)
+                      }
+                      onChange={(e) =>
+                        updateItemField(
+                          row.key,
+                          "itemName",
+                          typeof e.value === "string"
+                            ? e.value
+                            : e.value?.name ?? "",
+                        )
+                      }
                       field="name"
                       placeholder="Buscar artículo..."
                       className="w-full"
@@ -293,7 +371,11 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                 <Column
                   header="SKU"
                   style={{ minWidth: "90px" }}
-                  body={(row: ItemRow) => <span className="text-500 text-sm">{row.itemSku || "—"}</span>}
+                  body={(row: ItemRow) => (
+                    <span className="text-500 text-sm">
+                      {row.itemSku || "—"}
+                    </span>
+                  )}
                 />
                 <Column
                   header="Cantidad *"
@@ -301,7 +383,9 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                   body={(row: ItemRow) => (
                     <InputNumber
                       value={row.quantity}
-                      onValueChange={(e) => updateItemField(row.key, "quantity", e.value ?? 1)}
+                      onValueChange={(e) =>
+                        updateItemField(row.key, "quantity", e.value ?? 1)
+                      }
                       min={1}
                       showButtons
                       buttonLayout="horizontal"
@@ -319,7 +403,13 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                   body={(row: ItemRow) => (
                     <InputNumber
                       value={row.unitPrice ?? null}
-                      onValueChange={(e) => updateItemField(row.key, "unitPrice", e.value ?? undefined)}
+                      onValueChange={(e) =>
+                        updateItemField(
+                          row.key,
+                          "unitPrice",
+                          e.value ?? undefined,
+                        )
+                      }
                       min={0}
                       mode="currency"
                       currency="USD"
@@ -335,7 +425,9 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
                   body={(row: ItemRow) => (
                     <InputText
                       value={row.notes ?? ""}
-                      onChange={(e) => updateItemField(row.key, "notes", e.target.value)}
+                      onChange={(e) =>
+                        updateItemField(row.key, "notes", e.target.value)
+                      }
                       placeholder="Opcional"
                       className="w-full"
                     />
@@ -379,7 +471,6 @@ const ReturnForm = ({ onSuccess, onCancel }: ReturnFormProps) => {
               disabled={loading}
             />
           </div>
-
         </div>
       </form>
     </>

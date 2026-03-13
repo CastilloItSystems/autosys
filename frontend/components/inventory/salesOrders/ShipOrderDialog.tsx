@@ -4,7 +4,7 @@ import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { InputNumber } from "primereact/inputnumber";
 import { Toast } from "primereact/toast";
-import { shipSalesOrder } from "@/app/api/inventory/salesOrderService";
+import salesOrderService from "@/app/api/inventory/salesOrderService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 // Generar UUID simple
@@ -96,7 +96,7 @@ const ShipOrderDialog = ({
 
   const handleShipAll = () => {
     setLines((prev) =>
-      prev.map((line) => ({ ...line, qtyToShip: line.pendiente }))
+      prev.map((line) => ({ ...line, qtyToShip: line.pendiente })),
     );
   };
 
@@ -107,17 +107,19 @@ const ShipOrderDialog = ({
   const handleShipFull = async () => {
     setSubmitting(true);
     try {
-      const idempotencyKey = `ship-${order.numero || order.id}-full-${generateUUID()}`;
+      const idempotencyKey = `ship-${
+        order.numero || order.id
+      }-full-${generateUUID()}`;
 
       localStorage.setItem(
         `ship-pending-${order.id || order._id}`,
-        idempotencyKey
+        idempotencyKey,
       );
 
-      const response = await shipSalesOrder(
+      const response = await salesOrderService.ship(
         order.id || order._id,
         undefined,
-        idempotencyKey
+        idempotencyKey,
       );
 
       localStorage.removeItem(`ship-pending-${order.id || order._id}`);
@@ -158,17 +160,19 @@ const ShipOrderDialog = ({
     setSubmitting(true);
 
     try {
-      const idempotencyKey = `ship-${order.numero || order.id}-partial-${generateUUID()}`;
+      const idempotencyKey = `ship-${
+        order.numero || order.id
+      }-partial-${generateUUID()}`;
 
       localStorage.setItem(
         `ship-pending-${order.id || order._id}`,
-        idempotencyKey
+        idempotencyKey,
       );
 
-      const response = await shipSalesOrder(
+      const response = await salesOrderService.ship(
         order.id || order._id,
         itemsToShip,
-        idempotencyKey
+        idempotencyKey,
       );
 
       localStorage.removeItem(`ship-pending-${order.id || order._id}`);
@@ -252,8 +256,8 @@ const ShipOrderDialog = ({
         <div className="mb-3 surface-100 border-round p-3">
           <p className="text-700 m-0">
             <i className="pi pi-info-circle mr-2 text-blue-500"></i>
-            Puede despachar la orden completa o parcial. Los movimientos de salida
-            se crearán automáticamente y el stock se actualizará.
+            Puede despachar la orden completa o parcial. Los movimientos de
+            salida se crearán automáticamente y el stock se actualizará.
           </p>
         </div>
 
@@ -306,7 +310,9 @@ const ShipOrderDialog = ({
                     <InputNumber
                       id={`qty-${index}`}
                       value={line.qtyToShip}
-                      onValueChange={(e) => updateQuantity(index, e.value ?? null)}
+                      onValueChange={(e) =>
+                        updateQuantity(index, e.value ?? null)
+                      }
                       min={0}
                       max={line.pendiente}
                       showButtons

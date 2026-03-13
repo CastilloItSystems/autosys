@@ -38,7 +38,9 @@ const ReturnList = () => {
     limit: 20,
   });
 
-  const [selectedReturn, setSelectedReturn] = useState<ReturnOrder | null>(null);
+  const [selectedReturn, setSelectedReturn] = useState<ReturnOrder | null>(
+    null,
+  );
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -48,20 +50,22 @@ const ReturnList = () => {
   const loadReturns = async () => {
     try {
       setLoading(true);
-      const response = await returnService.getReturns(
-        filters.page,
-        filters.limit,
-        {
-          status: filters.status || undefined,
-          type: filters.type || undefined,
-        }
-      );
+      const response = await returnService.getAll(filters.page, filters.limit, {
+        status: filters.status || undefined,
+        type: filters.type || undefined,
+      });
       setReturns(Array.isArray(response.data) ? response.data : []);
-      setTotalRecords(response.pagination?.total || 0);
+      setTotalRecords(response.meta?.total || 0);
     } catch (error: any) {
       const detail =
-        error?.response?.data?.message || "No se pudieron cargar las devoluciones";
-      toast.current?.show({ severity: "error", summary: "Error", detail, life: 3000 });
+        error?.response?.data?.message ||
+        "No se pudieron cargar las devoluciones";
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail,
+        life: 3000,
+      });
       setReturns([]);
     } finally {
       setLoading(false);
@@ -70,7 +74,13 @@ const ReturnList = () => {
 
   useEffect(() => {
     if (activeEmpresa) loadReturns();
-  }, [filters.page, filters.limit, filters.status, filters.type, activeEmpresa?.id_empresa]);
+  }, [
+    filters.page,
+    filters.limit,
+    filters.status,
+    filters.type,
+    activeEmpresa?.id_empresa,
+  ]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -85,7 +95,7 @@ const ReturnList = () => {
       accept: async () => {
         setActionInProgress(ret.id);
         try {
-          await returnService.submitReturn(ret.id);
+          await returnService.submit(ret.id);
           toast.current?.show({
             severity: "info",
             summary: "Enviado",
@@ -97,7 +107,9 @@ const ReturnList = () => {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: error?.response?.data?.message || "No se pudo enviar la devolución",
+            detail:
+              error?.response?.data?.message ||
+              "No se pudo enviar la devolución",
             life: 3000,
           });
         } finally {
@@ -118,7 +130,7 @@ const ReturnList = () => {
       accept: async () => {
         setActionInProgress(ret.id);
         try {
-          await returnService.approveReturn(ret.id);
+          await returnService.approve(ret.id);
           toast.current?.show({
             severity: "success",
             summary: "Aprobado",
@@ -130,7 +142,9 @@ const ReturnList = () => {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: error?.response?.data?.message || "No se pudo aprobar la devolución",
+            detail:
+              error?.response?.data?.message ||
+              "No se pudo aprobar la devolución",
             life: 3000,
           });
         } finally {
@@ -151,7 +165,7 @@ const ReturnList = () => {
       accept: async () => {
         setActionInProgress(ret.id);
         try {
-          await returnService.processReturn(ret.id);
+          await returnService.process(ret.id);
           toast.current?.show({
             severity: "success",
             summary: "Procesado",
@@ -163,7 +177,9 @@ const ReturnList = () => {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: error?.response?.data?.message || "No se pudo procesar la devolución",
+            detail:
+              error?.response?.data?.message ||
+              "No se pudo procesar la devolución",
             life: 3000,
           });
         } finally {
@@ -184,7 +200,7 @@ const ReturnList = () => {
       accept: async () => {
         setActionInProgress(ret.id);
         try {
-          await returnService.rejectReturn(ret.id);
+          await returnService.reject(ret.id);
           toast.current?.show({
             severity: "warn",
             summary: "Rechazado",
@@ -196,7 +212,9 @@ const ReturnList = () => {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: error?.response?.data?.message || "No se pudo rechazar la devolución",
+            detail:
+              error?.response?.data?.message ||
+              "No se pudo rechazar la devolución",
             life: 3000,
           });
         } finally {
@@ -217,7 +235,7 @@ const ReturnList = () => {
       accept: async () => {
         setActionInProgress(ret.id);
         try {
-          await returnService.cancelReturn(ret.id);
+          await returnService.cancel(ret.id);
           toast.current?.show({
             severity: "info",
             summary: "Cancelado",
@@ -229,7 +247,9 @@ const ReturnList = () => {
           toast.current?.show({
             severity: "error",
             summary: "Error",
-            detail: error?.response?.data?.message || "No se pudo cancelar la devolución",
+            detail:
+              error?.response?.data?.message ||
+              "No se pudo cancelar la devolución",
             life: 3000,
           });
         } finally {
@@ -285,9 +305,16 @@ const ReturnList = () => {
         {/* Ver */}
         <Button
           icon="pi pi-eye"
-          rounded text severity="info" size="small"
-          tooltip="Ver detalles" tooltipOptions={{ position: "top" }}
-          onClick={() => { setSelectedReturn(rowData); setIsDetailOpen(true); }}
+          rounded
+          text
+          severity="info"
+          size="small"
+          tooltip="Ver detalles"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => {
+            setSelectedReturn(rowData);
+            setIsDetailOpen(true);
+          }}
           disabled={busy}
         />
 
@@ -295,8 +322,12 @@ const ReturnList = () => {
         {isDraft && (
           <Button
             icon="pi pi-send"
-            rounded text severity="info" size="small"
-            tooltip="Enviar a aprobación" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="info"
+            size="small"
+            tooltip="Enviar a aprobación"
+            tooltipOptions={{ position: "top" }}
             onClick={() => handleSubmitForApproval(rowData)}
             loading={actionInProgress === rowData.id}
             disabled={busy}
@@ -307,8 +338,12 @@ const ReturnList = () => {
         {isPending && (
           <Button
             icon="pi pi-check"
-            rounded text severity="success" size="small"
-            tooltip="Aprobar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="success"
+            size="small"
+            tooltip="Aprobar"
+            tooltipOptions={{ position: "top" }}
             onClick={() => handleApprove(rowData)}
             loading={actionInProgress === rowData.id}
             disabled={busy}
@@ -319,8 +354,12 @@ const ReturnList = () => {
         {isPending && (
           <Button
             icon="pi pi-times"
-            rounded text severity="danger" size="small"
-            tooltip="Rechazar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="danger"
+            size="small"
+            tooltip="Rechazar"
+            tooltipOptions={{ position: "top" }}
             onClick={() => handleReject(rowData)}
             loading={actionInProgress === rowData.id}
             disabled={busy}
@@ -331,8 +370,12 @@ const ReturnList = () => {
         {isApproved && (
           <Button
             icon="pi pi-box"
-            rounded text severity="success" size="small"
-            tooltip="Procesar (agregar a stock)" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="success"
+            size="small"
+            tooltip="Procesar (agregar a stock)"
+            tooltipOptions={{ position: "top" }}
             onClick={() => handleProcess(rowData)}
             loading={actionInProgress === rowData.id}
             disabled={busy}
@@ -343,8 +386,12 @@ const ReturnList = () => {
         {isCancellable && (
           <Button
             icon="pi pi-ban"
-            rounded text severity="danger" size="small"
-            tooltip="Cancelar" tooltipOptions={{ position: "top" }}
+            rounded
+            text
+            severity="danger"
+            size="small"
+            tooltip="Cancelar"
+            tooltipOptions={{ position: "top" }}
             onClick={() => handleCancel(rowData)}
             loading={actionInProgress === rowData.id}
             disabled={busy}
@@ -397,7 +444,10 @@ const ReturnList = () => {
         <Button
           label="Nueva Devolución"
           icon="pi pi-plus"
-          onClick={() => { setSelectedReturn(null); setIsFormOpen(true); }}
+          onClick={() => {
+            setSelectedReturn(null);
+            setIsFormOpen(true);
+          }}
         />
       </div>
     </div>
@@ -431,7 +481,9 @@ const ReturnList = () => {
           rows={filters.limit}
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
-          onPage={(e) => setFilters({ ...filters, page: e.page + 1, limit: e.rows })}
+          onPage={(e) =>
+            setFilters({ ...filters, page: e.page + 1, limit: e.rows })
+          }
           rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"
           stripedRows
@@ -441,8 +493,17 @@ const ReturnList = () => {
           size="small"
         >
           <Column body={actionTemplate} style={{ minWidth: "200px" }} />
-          <Column field="returnNumber" header="Nº Devolución" sortable style={{ minWidth: "140px" }} />
-          <Column header="Tipo" body={typeTemplate} style={{ minWidth: "200px" }} />
+          <Column
+            field="returnNumber"
+            header="Nº Devolución"
+            sortable
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            header="Tipo"
+            body={typeTemplate}
+            style={{ minWidth: "200px" }}
+          />
           <Column
             field="reason"
             header="Razón"
@@ -456,7 +517,11 @@ const ReturnList = () => {
               </span>
             )}
           />
-          <Column header="Estado" body={statusTemplate} style={{ minWidth: "180px" }} />
+          <Column
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "180px" }}
+          />
           <Column
             header="Almacén"
             style={{ minWidth: "140px" }}
@@ -475,7 +540,10 @@ const ReturnList = () => {
       {/* Form Dialog */}
       <Dialog
         visible={isFormOpen}
-        onHide={() => { setIsFormOpen(false); setSelectedReturn(null); }}
+        onHide={() => {
+          setIsFormOpen(false);
+          setSelectedReturn(null);
+        }}
         header={
           <div className="flex align-items-center gap-2">
             <i className="pi pi-file-edit text-primary text-2xl" />
@@ -486,15 +554,24 @@ const ReturnList = () => {
         style={{ width: "90vw", maxWidth: "860px" }}
       >
         <ReturnForm
-          onSuccess={() => { setIsFormOpen(false); loadReturns(); }}
-          onCancel={() => { setIsFormOpen(false); setSelectedReturn(null); }}
+          onSuccess={() => {
+            setIsFormOpen(false);
+            loadReturns();
+          }}
+          onCancel={() => {
+            setIsFormOpen(false);
+            setSelectedReturn(null);
+          }}
         />
       </Dialog>
 
       {/* Detail Dialog */}
       <Dialog
         visible={isDetailOpen}
-        onHide={() => { setIsDetailOpen(false); setSelectedReturn(null); }}
+        onHide={() => {
+          setIsDetailOpen(false);
+          setSelectedReturn(null);
+        }}
         header={
           <div className="flex align-items-center gap-2">
             <i className="pi pi-info-circle text-primary text-2xl" />

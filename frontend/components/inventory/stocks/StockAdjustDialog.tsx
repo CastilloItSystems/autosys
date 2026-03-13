@@ -7,7 +7,7 @@ import { Button } from "primereact/button";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { classNames } from "primereact/utils";
-import { adjustStock, Stock } from "@/app/api/inventory/stockService";
+import stockService, { Stock } from "@/app/api/inventory/stockService";
 import { adjustStockSchema, AdjustStock } from "@/libs/zods/inventory/stockZod";
 import { handleFormError } from "@/utils/errorHandlers";
 

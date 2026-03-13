@@ -12,12 +12,7 @@ import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
-import {
-  createWarehouse,
-  updateWarehouse,
-  Warehouse,
-  WarehouseType,
-} from "@/app/api/inventory/warehouseService";
+import warehouseService, { Warehouse, WarehouseType } from "@/app/api/inventory/warehouseService";
 
 // Schema de validación
 import {
@@ -104,9 +99,9 @@ export default function WarehouseForm({
       };
 
       if (warehouse?.id) {
-        await updateWarehouse(warehouse.id, submitData);
+        await warehouseService.update(warehouse.id, submitData);
       } else {
-        await createWarehouse(submitData);
+        await warehouseService.create(submitData);
       }
       onSave();
     } catch (error: any) {

@@ -16,15 +16,7 @@ import {
   TransferStatus,
   TRANSFER_STATUS_CONFIG,
 } from "@/libs/interfaces";
-import {
-  getTransfers,
-  getTransfer,
-  submitTransfer,
-  approveTransfer,
-  rejectTransfer,
-  cancelTransfer,
-  deleteTransfer,
-} from "@/app/api/inventory/transferService";
+import transferService from "@/app/api/inventory/transferService";
 import TransferForm from "./TransferForm";
 import TransferDetail from "./TransferDetail";
 import CreateButton from "@/components/common/CreateButton";
@@ -91,7 +83,7 @@ export default function TransferList({
   const loadTransfers = async () => {
     try {
       setLoading(true);
-      const response = await getTransfers(page + 1, rows, {
+      const response = await transferService.getAll(page + 1, rows, {
         status: filterStatus || undefined,
         fromWarehouseId: warehouseId || undefined,
         search: searchQuery || undefined,
@@ -134,7 +126,7 @@ export default function TransferList({
   const fetchFullTransfer = async (id: string) => {
     try {
       setLoading(true);
-      const res = await getTransfer(id);
+      const res = await transferService.getById(id);
       return res.data;
     } catch (error) {
       console.error("Error fetching transfer details:", error);
@@ -192,7 +184,7 @@ export default function TransferList({
       rejectLabel: "Cancelar",
       accept: () =>
         withAction(transfer.id, async () => {
-          await submitTransfer(transfer.id);
+          await transferService.submit(transfer.id);
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -212,7 +204,7 @@ export default function TransferList({
       rejectLabel: "Cancelar",
       accept: () =>
         withAction(transfer.id, async () => {
-          await approveTransfer(transfer.id);
+          await transferService.approve(transfer.id);
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -233,7 +225,7 @@ export default function TransferList({
     if (!rejectingTransfer || !rejectionReason.trim()) return;
     setShowRejectDialog(false);
     await withAction(rejectingTransfer.id, async () => {
-      await rejectTransfer(rejectingTransfer.id, {
+      await transferService.reject(rejectingTransfer.id, {
         reason: rejectionReason.trim(),
       });
       toast.current?.show({
@@ -260,7 +252,7 @@ export default function TransferList({
       acceptClassName: "p-button-danger",
       accept: () =>
         withAction(transfer.id, async () => {
-          await cancelTransfer(transfer.id);
+          await transferService.cancel(transfer.id);
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -281,7 +273,7 @@ export default function TransferList({
       acceptClassName: "p-button-danger",
       accept: () =>
         withAction(transfer.id, async () => {
-          await deleteTransfer(transfer.id);
+          await transferService.delete(transfer.id);
           toast.current?.show({
             severity: "success",
             summary: "Éxito",

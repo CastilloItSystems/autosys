@@ -13,7 +13,7 @@ import {
   RETURN_STATUS_CONFIG,
   RETURN_TYPE_CONFIG,
 } from "@/app/api/inventory/returnService";
-import { getWarehouse, Warehouse } from "@/app/api/inventory/warehouseService";
+import warehouseService, { Warehouse } from "@/app/api/inventory/warehouseService";
 
 interface ReturnDetailProps {
   returnOrder: ReturnOrder;
@@ -32,7 +32,7 @@ const ReturnDetail = ({ returnOrder, onRefresh }: ReturnDetailProps) => {
     const fetchWarehouse = async () => {
       setWarehouseLoading(true);
       try {
-        const res = await getWarehouse(returnOrder.warehouseId);
+        const res = await warehouseService.getById(returnOrder.warehouseId);
         setWarehouse(res.data ?? null);
       } catch {
         // silent — fallback to raw ID

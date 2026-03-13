@@ -46,7 +46,7 @@ const LoanReturnDialog = ({
       alreadyReturned: i.quantityReturned,
       maxToReturn: i.quantityLoaned - i.quantityReturned,
       toReturn: i.quantityLoaned - i.quantityReturned,
-    }))
+    })),
   );
 
   const updateToReturn = (itemId: string, value: number) => {
@@ -54,8 +54,8 @@ const LoanReturnDialog = ({
       prev.map((r) =>
         r.itemId === itemId
           ? { ...r, toReturn: Math.max(0, Math.min(value, r.maxToReturn)) }
-          : r
-      )
+          : r,
+      ),
     );
   };
 
@@ -76,13 +76,14 @@ const LoanReturnDialog = ({
 
     setSaving(true);
     try {
-      await loanService.returnLoanItems(loan.id, { items: itemsToReturn });
+      await loanService.returnItems(loan.id, { items: itemsToReturn });
       onSuccess();
     } catch (err: any) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
-        detail: err?.response?.data?.message ?? "No se pudo registrar la devolución",
+        detail:
+          err?.response?.data?.message ?? "No se pudo registrar la devolución",
         life: 4000,
       });
     } finally {
@@ -110,8 +111,7 @@ const LoanReturnDialog = ({
       return <Tag value="Ya devuelto" severity="success" />;
     if (row.toReturn === row.maxToReturn)
       return <Tag value="Devuelto completo" severity="info" />;
-    if (row.toReturn > 0)
-      return <Tag value="Parcial" severity="warning" />;
+    if (row.toReturn > 0) return <Tag value="Parcial" severity="warning" />;
     return <Tag value="Pendiente" severity="secondary" />;
   };
 
@@ -143,7 +143,9 @@ const LoanReturnDialog = ({
           <i className="pi pi-undo text-primary text-2xl" />
           <div>
             <div className="text-xl font-semibold">Registrar Devolución</div>
-            <div className="text-sm text-500">{loan.loanNumber} — {loan.borrowerName}</div>
+            <div className="text-sm text-500">
+              {loan.loanNumber} — {loan.borrowerName}
+            </div>
           </div>
         </div>
       }

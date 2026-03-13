@@ -9,7 +9,7 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
-import { getStockByItem, Stock } from "@/app/api/inventory/stockService";
+import stockService, { Stock } from "@/app/api/inventory/stockService";
 
 export default function StockItemDetailPage() {
   const params = useParams();

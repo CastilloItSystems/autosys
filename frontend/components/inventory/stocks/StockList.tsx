@@ -14,21 +14,14 @@ import { SelectButton } from "primereact/selectbutton";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
 import { ProgressSpinner } from "primereact/progressspinner";
-import {
-  getStocks,
-  getLowStock,
-  getOutOfStock,
-  getDashboardMetrics,
+import stockService, {
   Stock,
   DashboardMetrics,
 } from "@/app/api/inventory/stockService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
-import {
-  getMovementsByItem,
-  getMovement,
+import movementService, {
   Movement,
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_SEVERITY,
@@ -89,7 +82,7 @@ export default function StockList() {
 
   const loadWarehouses = async () => {
     try {
-      const response = await getActiveWarehouses();
+      const response = await warehouseService.getActive();
       const data = response.data || [];
       setWarehouses(Array.isArray(data) ? data : []);
     } catch (error) {
@@ -99,7 +92,7 @@ export default function StockList() {
 
   const loadDashboard = async () => {
     try {
-      const response = await getDashboardMetrics();
+      const response = await stockService.getDashboardMetrics();
       setDashboardMetrics(response.data);
     } catch (error) {
       console.error("Error loading dashboard metrics:", error);
@@ -112,19 +105,19 @@ export default function StockList() {
 
       let response;
       if (stockFilter === "lowStock") {
-        response = await getLowStock(
+        response = await stockService.getLowStock(
           warehouseFilter || undefined,
           page + 1,
           rows,
         );
       } else if (stockFilter === "outOfStock") {
-        response = await getOutOfStock(
+        response = await stockService.getOutOfStock(
           warehouseFilter || undefined,
           page + 1,
           rows,
         );
       } else {
-        response = await getStocks(page + 1, rows, {
+        response = await stockService.getAll(page + 1, rows, {
           warehouseId: warehouseFilter || undefined,
         });
       }
@@ -223,7 +216,7 @@ export default function StockList() {
     setHistoryLoading(true);
     setHistoryMovements([]);
     try {
-      const res = await getMovementsByItem(stock.itemId, 50);
+      const res = await movementService.getByItem(stock.itemId, 50);
       setHistoryMovements(res.data);
     } catch (error) {
       console.error("Error fetching movements:", error);
@@ -242,7 +235,7 @@ export default function StockList() {
     setHistoryDetailLoading(true);
     setHistoryDetailDialog(true);
     try {
-      const res = await getMovement(movementId);
+      const res = await movementService.getById(movementId);
       setHistorySelectedMovement(res.data);
     } catch {
       toast.current?.show({

@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // Enums
 export enum ReconciliationStatus {
@@ -54,20 +55,6 @@ export interface Reconciliation {
   };
 }
 
-export interface ReconciliationsResponse {
-  data: Reconciliation[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-  };
-}
-
-interface ReconciliationResponse {
-  data: Reconciliation;
-}
-
 // DTOs
 interface CreateReconciliationRequest {
   warehouseId: string;
@@ -109,158 +96,151 @@ interface ApplyReconciliationRequest {
   appliedBy: string;
 }
 
-// API Methods
-export const getReconciliations = async (
-  page = 1,
-  limit = 20,
-  filters?: {
-    status?: string;
-    warehouseId?: string;
-    source?: string;
-    search?: string;
+// ===== Service =====
+
+const reconciliationService = {
+  async getAll(
+    page = 1,
+    limit = 20,
+    filters?: {
+      status?: string;
+      warehouseId?: string;
+      source?: string;
+      search?: string;
+    },
+  ): Promise<PaginatedResponse<Reconciliation>> {
+    const response = await apiClient.get("/inventory/reconciliations", {
+      params: {
+        page,
+        limit,
+        ...filters,
+      },
+    });
+    return response.data;
   },
-): Promise<ReconciliationsResponse> => {
-  const params = new URLSearchParams({
-    page: String(page),
-    limit: String(limit),
-  });
 
-  if (filters) {
-    if (filters.status) params.append("status", filters.status);
-    if (filters.warehouseId) params.append("warehouseId", filters.warehouseId);
-    if (filters.source) params.append("source", filters.source);
-    if (filters.search) params.append("search", filters.search);
-  }
-
-  const response = await apiClient.get(`/inventory/reconciliations?${params}`);
-  return response.data;
-};
-
-export const getReconciliation = async (
-  id: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.get(`/inventory/reconciliations/${id}`);
-  return response.data;
-};
-
-export const createReconciliation = async (
-  data: CreateReconciliationRequest,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.post("/inventory/reconciliations", data);
-  return response.data;
-};
-
-export const updateReconciliation = async (
-  id: string,
-  data: UpdateReconciliationRequest,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.put(
-    `/inventory/reconciliations/${id}`,
-    data,
-  );
-  return response.data;
-};
-
-export const startReconciliation = async (
-  id: string,
-  startedBy: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/start`,
-    {
-      startedBy,
-    },
-  );
-  return response.data;
-};
-
-export const completeReconciliation = async (
-  id: string,
-  completedBy: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/complete`,
-    {
-      completedBy,
-    },
-  );
-  return response.data;
-};
-
-export const approveReconciliation = async (
-  id: string,
-  approvedBy: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/approve`,
-    {
-      approvedBy,
-    },
-  );
-  return response.data;
-};
-
-export const applyReconciliation = async (
-  id: string,
-  appliedBy: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/apply`,
-    {
-      appliedBy,
-    },
-  );
-  return response.data;
-};
-
-export const rejectReconciliation = async (
-  id: string,
-  reason: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/reject`,
-    {
-      reason,
-    },
-  );
-  return response.data;
-};
-
-export const cancelReconciliation = async (
-  id: string,
-): Promise<ReconciliationResponse> => {
-  const response = await apiClient.patch(
-    `/inventory/reconciliations/${id}/cancel`,
-    {},
-  );
-  return response.data;
-};
-
-export const addItemToReconciliation = async (
-  id: string,
-  item: {
-    itemId: string;
-    systemQuantity: number;
-    expectedQuantity: number;
-    notes?: string;
+  async getById(id: string): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.get(`/inventory/reconciliations/${id}`);
+    return response.data;
   },
-): Promise<ReconciliationItem> => {
-  const response = await apiClient.post(
-    `/inventory/reconciliations/${id}/items`,
-    item,
-  );
-  return response.data;
+
+  async create(
+    data: CreateReconciliationRequest,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.post("/inventory/reconciliations", data);
+    return response.data;
+  },
+
+  async update(
+    id: string,
+    data: UpdateReconciliationRequest,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.put(
+      `/inventory/reconciliations/${id}`,
+      data,
+    );
+    return response.data;
+  },
+
+  async start(
+    id: string,
+    startedBy: string,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/start`,
+      {
+        startedBy,
+      },
+    );
+    return response.data;
+  },
+
+  async complete(
+    id: string,
+    completedBy: string,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/complete`,
+      {
+        completedBy,
+      },
+    );
+    return response.data;
+  },
+
+  async approve(
+    id: string,
+    approvedBy: string,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/approve`,
+      {
+        approvedBy,
+      },
+    );
+    return response.data;
+  },
+
+  async apply(
+    id: string,
+    appliedBy: string,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/apply`,
+      {
+        appliedBy,
+      },
+    );
+    return response.data;
+  },
+
+  async reject(
+    id: string,
+    reason: string,
+  ): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/reject`,
+      {
+        reason,
+      },
+    );
+    return response.data;
+  },
+
+  async cancel(id: string): Promise<ApiResponse<Reconciliation>> {
+    const response = await apiClient.patch(
+      `/inventory/reconciliations/${id}/cancel`,
+      {},
+    );
+    return response.data;
+  },
+
+  async addItem(
+    id: string,
+    item: {
+      itemId: string;
+      systemQuantity: number;
+      expectedQuantity: number;
+      notes?: string;
+    },
+  ): Promise<ApiResponse<ReconciliationItem>> {
+    const response = await apiClient.post(
+      `/inventory/reconciliations/${id}/items`,
+      item,
+    );
+    return response.data;
+  },
+
+  async getItems(id: string): Promise<ApiResponse<ReconciliationItem[]>> {
+    const response = await apiClient.get(
+      `/inventory/reconciliations/${id}/items`,
+    );
+    return response.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/inventory/reconciliations/${id}`);
+  },
 };
 
-export const getReconciliationItems = async (
-  id: string,
-): Promise<ReconciliationItem[]> => {
-  const response = await apiClient.get(
-    `/inventory/reconciliations/${id}/items`,
-  );
-  return response.data;
-};
-
-export const deleteReconciliation = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/reconciliations/${id}`);
-};
+export default reconciliationService;

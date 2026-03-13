@@ -12,13 +12,11 @@ import { Divider } from "primereact/divider";
 import { Skeleton } from "primereact/skeleton";
 import { Tag } from "primereact/tag";
 
-import {
-  createReconciliation,
-  updateReconciliation,
+import reconciliationService, {
   Reconciliation,
   ReconciliationSource,
 } from "../../../app/api/inventory/reconciliationService";
-import { getActiveItems } from "../../../app/api/inventory/itemService";
+import itemService from "../../../app/api/inventory/itemService";
 import { Warehouse } from "../../../app/api/inventory/warehouseService";
 import {
   createReconciliationSchema,
@@ -69,7 +67,7 @@ export default function ReconciliationForm({
   useEffect(() => {
     (async () => {
       try {
-        const response = await getActiveItems();
+        const response = await itemService.getActive();
         setItems(Array.isArray(response.data) ? response.data : []);
       } catch {
         // silencioso — opciones vacías
@@ -83,9 +81,9 @@ export default function ReconciliationForm({
     setIsSubmitting(true);
     try {
       if (reconciliation) {
-        await updateReconciliation(reconciliation.id, data);
+        await reconciliationService.update(reconciliation.id, data);
       } else {
-        await createReconciliation(data);
+        await reconciliationService.create(data);
       }
       onSuccess();
     } catch (error) {
@@ -95,12 +93,17 @@ export default function ReconciliationForm({
     }
   };
 
-  const warehouseOptions = warehouses.map((w) => ({ label: w.name, value: w.id }));
-
-  const sourceOptions = Object.entries(RECONCILIATION_SOURCE_CONFIG).map(([key, cfg]) => ({
-    label: cfg.label,
-    value: key,
+  const warehouseOptions = warehouses.map((w) => ({
+    label: w.name,
+    value: w.id,
   }));
+
+  const sourceOptions = Object.entries(RECONCILIATION_SOURCE_CONFIG).map(
+    ([key, cfg]) => ({
+      label: cfg.label,
+      value: key,
+    }),
+  );
 
   const itemOptions = items.map((item) => ({
     label: item.sku ? `${item.sku} — ${item.name}` : item.name,
@@ -110,9 +113,17 @@ export default function ReconciliationForm({
   if (initialLoading) {
     return (
       <div className="grid">
-        <div className="col-12 md:col-6"><Skeleton height="2.5rem" className="mb-2" /><Skeleton height="2.5rem" /></div>
-        <div className="col-12 md:col-6"><Skeleton height="2.5rem" className="mb-2" /><Skeleton height="2.5rem" /></div>
-        <div className="col-12"><Skeleton height="6rem" /></div>
+        <div className="col-12 md:col-6">
+          <Skeleton height="2.5rem" className="mb-2" />
+          <Skeleton height="2.5rem" />
+        </div>
+        <div className="col-12 md:col-6">
+          <Skeleton height="2.5rem" className="mb-2" />
+          <Skeleton height="2.5rem" />
+        </div>
+        <div className="col-12">
+          <Skeleton height="6rem" />
+        </div>
       </div>
     );
   }
@@ -120,7 +131,6 @@ export default function ReconciliationForm({
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       <div className="grid">
-
         {/* ── Almacén ──────────────────────────────────────────────────── */}
         <div className="col-12 md:col-6">
           <label className="block text-900 font-medium mb-2">
@@ -141,7 +151,9 @@ export default function ReconciliationForm({
             )}
           />
           {errors.warehouseId && (
-            <small className="p-error block mt-1">{errors.warehouseId.message}</small>
+            <small className="p-error block mt-1">
+              {errors.warehouseId.message}
+            </small>
           )}
         </div>
 
@@ -165,13 +177,17 @@ export default function ReconciliationForm({
             )}
           />
           {errors.source && (
-            <small className="p-error block mt-1">{errors.source.message}</small>
+            <small className="p-error block mt-1">
+              {errors.source.message}
+            </small>
           )}
         </div>
 
         {/* ── Notas ───────────────────────────────────────────────────── */}
         <div className="col-12">
-          <label className="block text-900 font-medium mb-2">Notas adicionales</label>
+          <label className="block text-900 font-medium mb-2">
+            Notas adicionales
+          </label>
           <Controller
             name="notes"
             control={control}
@@ -190,7 +206,8 @@ export default function ReconciliationForm({
           <Divider />
           <div className="flex align-items-center justify-content-between mb-3">
             <span className="text-900 font-medium">
-              Artículos con Discrepancias <span className="text-red-500">*</span>
+              Artículos con Discrepancias{" "}
+              <span className="text-red-500">*</span>
             </span>
             <Button
               type="button"
@@ -199,7 +216,9 @@ export default function ReconciliationForm({
               size="small"
               severity="info"
               text
-              onClick={() => append({ itemId: "", systemQuantity: 0, expectedQuantity: 0 })}
+              onClick={() =>
+                append({ itemId: "", systemQuantity: 0, expectedQuantity: 0 })
+              }
             />
           </div>
 
@@ -222,7 +241,10 @@ export default function ReconciliationForm({
                   >
                     {/* Artículo */}
                     <div className="col-12 md:col-5">
-                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                      <label
+                        className="block text-900 font-medium mb-2"
+                        style={{ fontSize: "0.875rem" }}
+                      >
                         Artículo
                       </label>
                       <Controller
@@ -242,15 +264,25 @@ export default function ReconciliationForm({
                         )}
                       />
                       {itemErr?.itemId && (
-                        <small className="p-error block mt-1">{itemErr.itemId.message}</small>
+                        <small className="p-error block mt-1">
+                          {itemErr.itemId.message}
+                        </small>
                       )}
                     </div>
 
                     {/* Stock Sistema */}
                     <div className="col-12 md:col-3">
-                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                      <label
+                        className="block text-900 font-medium mb-2"
+                        style={{ fontSize: "0.875rem" }}
+                      >
                         Stock Sistema
-                        <Tag value="actual" severity="secondary" className="ml-2" style={{ fontSize: "0.7rem" }} />
+                        <Tag
+                          value="actual"
+                          severity="secondary"
+                          className="ml-2"
+                          style={{ fontSize: "0.7rem" }}
+                        />
                       </label>
                       <Controller
                         name={`items.${index}.systemQuantity`}
@@ -261,20 +293,32 @@ export default function ReconciliationForm({
                             onValueChange={(e) => field.onChange(e.value ?? 0)}
                             min={0}
                             showButtons
-                            className={itemErr?.systemQuantity ? "p-invalid" : ""}
+                            className={
+                              itemErr?.systemQuantity ? "p-invalid" : ""
+                            }
                           />
                         )}
                       />
                       {itemErr?.systemQuantity && (
-                        <small className="p-error block mt-1">{itemErr.systemQuantity.message}</small>
+                        <small className="p-error block mt-1">
+                          {itemErr.systemQuantity.message}
+                        </small>
                       )}
                     </div>
 
                     {/* Stock Esperado */}
                     <div className="col-12 md:col-3">
-                      <label className="block text-900 font-medium mb-2" style={{ fontSize: "0.875rem" }}>
+                      <label
+                        className="block text-900 font-medium mb-2"
+                        style={{ fontSize: "0.875rem" }}
+                      >
                         Stock Real/Contado
-                        <Tag value="físico" severity="info" className="ml-2" style={{ fontSize: "0.7rem" }} />
+                        <Tag
+                          value="físico"
+                          severity="info"
+                          className="ml-2"
+                          style={{ fontSize: "0.7rem" }}
+                        />
                       </label>
                       <Controller
                         name={`items.${index}.expectedQuantity`}
@@ -285,12 +329,16 @@ export default function ReconciliationForm({
                             onValueChange={(e) => field.onChange(e.value ?? 0)}
                             min={0}
                             showButtons
-                            className={itemErr?.expectedQuantity ? "p-invalid" : ""}
+                            className={
+                              itemErr?.expectedQuantity ? "p-invalid" : ""
+                            }
                           />
                         )}
                       />
                       {itemErr?.expectedQuantity && (
-                        <small className="p-error block mt-1">{itemErr.expectedQuantity.message}</small>
+                        <small className="p-error block mt-1">
+                          {itemErr.expectedQuantity.message}
+                        </small>
                       )}
                     </div>
 
@@ -316,7 +364,9 @@ export default function ReconciliationForm({
           )}
 
           {errors.items && !Array.isArray(errors.items) && (
-            <small className="p-error block mt-2">{(errors.items as any).message}</small>
+            <small className="p-error block mt-2">
+              {(errors.items as any).message}
+            </small>
           )}
         </div>
 
@@ -337,7 +387,6 @@ export default function ReconciliationForm({
             loading={isSubmitting}
           />
         </div>
-
       </div>
     </form>
   );

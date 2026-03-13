@@ -7,13 +7,10 @@ import { DataTable, DataTableFilterMeta } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import {
-  deleteSalesOrder,
-  getSalesOrders,
-} from "@/app/api/inventory/salesOrderService";
+import salesOrderService from "@/app/api/inventory/salesOrderService";
 import SalesOrderForm from "./SalesOrderForm";
 import { SalesOrder, Item, SalesLine } from "@/libs/interfaces/inventory";
-import { getItems } from "@/app/api/inventory/itemService";
+import itemService from "@/app/api/inventory/itemService";
 import CustomActionButtons from "@/components/common/CustomActionButtons";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
@@ -48,15 +45,15 @@ const SalesOrderList = () => {
   const fetchData = async () => {
     try {
       const [salesOrdersDB, itemsDB] = await Promise.all([
-        getSalesOrders(),
-        getItems(),
+        salesOrderService.getAll(),
+        itemService.getAll({}),
       ]);
 
       if (Array.isArray(salesOrdersDB)) {
         setSalesOrders(salesOrdersDB);
       }
-      if (itemsDB && Array.isArray(itemsDB.items)) {
-        setItems(itemsDB.items);
+      if (itemsDB && Array.isArray(itemsDB.data)) {
+        setItems(itemsDB.data as unknown as Item[]);
       }
     } catch (error) {
       console.error("Error al obtener los datos:", error);
@@ -101,8 +98,8 @@ const SalesOrderList = () => {
       prev.map((so) =>
         so._id === updatedOrder._id || so.id === updatedOrder.id
           ? updatedOrder
-          : so
-      )
+          : so,
+      ),
     );
     hideConfirmDialog();
   };
@@ -112,8 +109,8 @@ const SalesOrderList = () => {
       prev.map((so) =>
         so._id === updatedOrder._id || so.id === updatedOrder.id
           ? updatedOrder
-          : so
-      )
+          : so,
+      ),
     );
     hideShipDialog();
   };
@@ -122,9 +119,9 @@ const SalesOrderList = () => {
     try {
       if (salesOrder?._id || salesOrder?.id) {
         const orderId = (salesOrder._id || salesOrder.id)!;
-        await deleteSalesOrder(orderId);
+        await salesOrderService.delete(orderId);
         setSalesOrders(
-          salesOrders.filter((val) => (val._id || val.id) !== orderId)
+          salesOrders.filter((val) => (val._id || val.id) !== orderId),
         );
         toast.current?.show({
           severity: "success",
@@ -242,11 +239,11 @@ const SalesOrderList = () => {
   const progressBodyTemplate = (rowData: SalesOrder) => {
     const totalQty = rowData.items.reduce(
       (sum: number, line: SalesLine) => sum + line.cantidad,
-      0
+      0,
     );
     const deliveredQty = rowData.items.reduce(
       (sum: number, line: SalesLine) => sum + (line.entregado || 0),
-      0
+      0,
     );
     const percentage = totalQty > 0 ? (deliveredQty / totalQty) * 100 : 0;
 
@@ -271,7 +268,7 @@ const SalesOrderList = () => {
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };

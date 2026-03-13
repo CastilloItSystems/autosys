@@ -39,7 +39,8 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
   const loadImages = async () => {
     setLoading(true);
     try {
-      const loadedImages = await imageService.getItemImages(itemId);
+      const response = await imageService.getByItem(itemId);
+      const loadedImages = response.data;
       setImages(loadedImages);
       onImagesChange?.(loadedImages);
     } catch (error: any) {
@@ -56,7 +57,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
 
     // Validate files
     for (const file of fileArray) {
-      const validation = imageService.validateImageFile(file);
+      const validation = imageService.validate(file);
       if (!validation.valid) {
         toast.current?.show({
           severity: "warn",
@@ -83,7 +84,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
   const uploadFiles = async (files: File[]) => {
     setUploading(true);
     try {
-      const uploaded = await imageService.uploadImages(itemId, files);
+      const response = await imageService.upload(itemId, files);
 
       // Reload images
       await loadImages();
@@ -91,7 +92,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
       toast.current?.show({
         severity: "success",
         summary: "Imágenes subidas",
-        detail: `${uploaded.length} imagen(es) subida(s) correctamente`,
+        detail: `${response.data.length} imagen(es) subida(s) correctamente`,
       });
     } catch (error: any) {
       toast.current?.show({
@@ -122,7 +123,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
 
   const handleDeleteImage = async (id: string) => {
     try {
-      await imageService.deleteImage(id);
+      await imageService.delete(id);
       await loadImages();
       toast.current?.show({
         severity: "success",
@@ -140,7 +141,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
 
   const handleSetPrimary = async (id: string) => {
     try {
-      await imageService.setPrimaryImage(id);
+      await imageService.setPrimary(id);
       await loadImages();
       toast.current?.show({
         severity: "success",

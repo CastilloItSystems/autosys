@@ -1,61 +1,65 @@
 import apiClient from "../apiClient";
+import { ApiResponse } from "./types";
 import { Customer } from "@/libs/interfaces/inventory";
 import { CustomerFormData } from "@/libs/zods/inventory/customerZod";
 
-interface CustomerResponse {
-  msg: string;
-  customer: Customer;
+// ============================================================================
+// ENTITY
+// ============================================================================
+
+export type CustomerType = "persona" | "empresa";
+
+// ============================================================================
+// REQUEST PARAMS & DTOs
+// ============================================================================
+
+export interface GetCustomersParams {
+  type?: CustomerType;
+  search?: string;
 }
 
-interface CustomersResponse {
-  customers: Customer[];
-}
+// ============================================================================
+// SERVICE
+// ============================================================================
 
-interface SearchResponse {
-  customers: Customer[];
-}
+const customerService = {
+  async getAll(
+    params?: GetCustomersParams,
+  ): Promise<ApiResponse<Customer[]>> {
+    const res = await apiClient.get("/customers", { params });
+    return res.data;
+  },
 
-export const getCustomer = async (id: string): Promise<Customer> => {
-  const response = await apiClient.get(`/customers/${id}`);
-  return response.data;
+  async getById(id: string): Promise<ApiResponse<Customer>> {
+    const res = await apiClient.get(`/customers/${id}`);
+    return res.data;
+  },
+
+  async create(data: CustomerFormData): Promise<ApiResponse<Customer>> {
+    const res = await apiClient.post("/customers", data);
+    return res.data;
+  },
+
+  async update(id: string, data: CustomerFormData): Promise<ApiResponse<Customer>> {
+    const res = await apiClient.put(`/customers/${id}`, data);
+    return res.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/customers/${id}`);
+  },
+
+  async search(query: string): Promise<ApiResponse<Customer[]>> {
+    const res = await apiClient.get("/customers/search", {
+      params: { q: query },
+    });
+    return res.data;
+  },
+
+  async getByType(type: CustomerType): Promise<ApiResponse<Customer[]>> {
+    const res = await apiClient.get(`/customers/type/${type}`);
+    return res.data;
+  },
 };
 
-export const getCustomers = async (): Promise<CustomersResponse> => {
-  const response = await apiClient.get("/customers");
-  return response.data;
-};
-
-export const createCustomer = async (
-  data: CustomerFormData
-): Promise<CustomerResponse> => {
-  const response = await apiClient.post("/customers", data);
-  return response.data;
-};
-
-export const updateCustomer = async (
-  id: string,
-  data: CustomerFormData
-): Promise<CustomerResponse> => {
-  const response = await apiClient.put(`/customers/${id}`, data);
-  return response.data;
-};
-
-export const deleteCustomer = async (id: string): Promise<void> => {
-  await apiClient.delete(`/customers/${id}`);
-};
-
-// Búsqueda de customers
-export const searchCustomers = async (
-  query: string
-): Promise<SearchResponse> => {
-  const response = await apiClient.get(`/customers/search?q=${query}`);
-  return response.data;
-};
-
-// Obtener customers por tipo
-export const getCustomersByType = async (
-  tipo: "persona" | "empresa"
-): Promise<CustomersResponse> => {
-  const response = await apiClient.get(`/customers/type/${tipo}`);
-  return response.data;
-};
+export default customerService;

@@ -5,8 +5,8 @@ import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import { classNames } from "primereact/utils";
-import { confirmSalesOrder } from "@/app/api/inventory/salesOrderService";
-import { getWarehouses } from "@/app/api/inventory/warehouseService";
+import salesOrderService from "@/app/api/inventory/salesOrderService";
+import warehouseService from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { Warehouse } from "@/libs/interfaces/inventory";
 
@@ -47,10 +47,10 @@ const ConfirmOrderDialog = ({
 
   const loadWarehouses = async () => {
     try {
-      const response = await getWarehouses();
-      const warehouseList = Array.isArray(response?.warehouses)
-        ? response.warehouses
-        : response?.warehouses ?? response ?? [];
+      const response = await warehouseService.getAll();
+      const warehouseList = (Array.isArray(response?.data)
+        ? response.data
+        : []) as unknown as Warehouse[];
       setWarehouses(warehouseList);
     } catch (error) {
       console.error("Error loading warehouses:", error);
@@ -71,17 +71,19 @@ const ConfirmOrderDialog = ({
     setSubmitting(true);
 
     try {
-      const idempotencyKey = `confirm-${order.numero || order.id}-${generateUUID()}`;
+      const idempotencyKey = `confirm-${
+        order.numero || order.id
+      }-${generateUUID()}`;
 
       localStorage.setItem(
         `confirm-pending-${order.id || order._id}`,
-        idempotencyKey
+        idempotencyKey,
       );
 
-      const response = await confirmSalesOrder(
+      const response = await salesOrderService.confirm(
         order.id || order._id,
         selectedWarehouse,
-        idempotencyKey
+        idempotencyKey,
       );
 
       localStorage.removeItem(`confirm-pending-${order.id || order._id}`);

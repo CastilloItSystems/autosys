@@ -21,7 +21,7 @@ import { WorkOrderItem } from "@/libs/interfaces/workshop";
 
 // API functions
 import { getServices } from "@/app/api/workshop/serviceService";
-import { getItems } from "@/app/api/inventory/itemService";
+import itemService from "@/app/api/inventory/itemService";
 
 interface WorkOrderItemsFormProps {
   items: WorkOrderItem[];
@@ -74,7 +74,7 @@ export default function WorkOrderItemsForm({
       console.log("=== LOADING DATA ===");
       const [servicesRes, itemsRes] = await Promise.all([
         getServices({}),
-        getItems(),
+        itemService.getAll({}),
       ]);
 
       console.log("Services response:", servicesRes);
@@ -238,7 +238,7 @@ export default function WorkOrderItemsForm({
     field: keyof Pick<
       WorkOrderItem,
       "precioUnitario" | "precioTotal" | "precioFinal"
-    >
+    >,
   ) => {
     const value = rowData[field];
     return new Intl.NumberFormat("es-VE", {
@@ -566,7 +566,7 @@ export default function WorkOrderItemsForm({
                 currency: "VES",
               }).format(
                 precioUnitario * cantidad -
-                  (precioUnitario * cantidad * descuento) / 100
+                  (precioUnitario * cantidad * descuento) / 100,
               )}
             </span>
           </div>

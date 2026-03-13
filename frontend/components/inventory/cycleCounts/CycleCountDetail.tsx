@@ -12,7 +12,7 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { InputNumber } from "primereact/inputnumber";
 import { Toast } from "primereact/toast";
-import { updateItemCountedQuantity } from "../../../app/api/inventory/cycleCountService";
+import cycleCountService from "../../../app/api/inventory/cycleCountService";
 import { Message } from "primereact/message";
 
 interface CycleCountDetailProps {
@@ -32,7 +32,11 @@ export default function CycleCountDetail({
   ) => {
     try {
       setUpdatingItemId(itemId);
-      await updateItemCountedQuantity(cycleCount.id, itemId, countedQuantity);
+      await cycleCountService.updateItemQuantity(
+        cycleCount.id,
+        itemId,
+        countedQuantity,
+      );
       toast.current?.show({
         severity: "success",
         summary: "Éxito",

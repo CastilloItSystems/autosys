@@ -6,7 +6,7 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import { Toast } from "primereact/toast";
-import { receivePurchaseOrder } from "@/app/api/inventory/purchaseOrderService";
+import purchaseOrderService from "@/app/api/inventory/purchaseOrderService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type {
   PurchaseOrder,
@@ -129,7 +129,7 @@ const ReceiveOrderDialog = ({
     setSubmitting(true);
 
     try {
-      const response = await receivePurchaseOrder(order!.id, {
+      const response = await purchaseOrderService.receive(order!.id, {
         notes: notes || undefined,
         items: itemsToReceive,
       });

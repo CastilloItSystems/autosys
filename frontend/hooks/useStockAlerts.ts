@@ -4,11 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import {
-  getStockAlerts,
-  markAlertAsRead,
-  StockAlert,
-} from "@/app/api/inventory/stockService";
+import stockService, { StockAlert } from "@/app/api/inventory/stockService";
 
 export interface StockAlertsState {
   total: number;
@@ -33,7 +29,7 @@ export const useStockAlerts = (enabled: boolean = true) => {
 
     setLoading(true);
     try {
-      const response = await getStockAlerts(1, 50, {
+      const response = await stockService.getAlerts(1, 50, {
         isRead: false, // Only unread alerts
       });
 
@@ -74,7 +70,7 @@ export const useStockAlerts = (enabled: boolean = true) => {
   // Mark alert as read
   const handleMarkAsRead = useCallback(async (alertId: string) => {
     try {
-      await markAlertAsRead(alertId);
+      await stockService.markAlertAsRead(alertId);
 
       // Remove from local state
       setAlerts((prev) => ({

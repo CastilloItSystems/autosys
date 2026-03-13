@@ -1,17 +1,17 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useContext } from 'react';
-import { Card } from 'primereact/card';
-import { Chart } from 'primereact/chart';
-import { DataTable } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { Tag } from 'primereact/tag';
-import { Skeleton } from 'primereact/skeleton';
-import { Toast } from 'primereact/toast';
-import { Button } from 'primereact/button';
-import { motion } from 'framer-motion';
-import { getDashboardMetrics } from '@/app/api/inventory/stockService';
-import { LayoutContext } from '@/layout/context/layoutcontext';
+import { useState, useEffect, useRef, useContext } from "react";
+import { Card } from "primereact/card";
+import { Chart } from "primereact/chart";
+import { DataTable } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Tag } from "primereact/tag";
+import { Skeleton } from "primereact/skeleton";
+import { Toast } from "primereact/toast";
+import { Button } from "primereact/button";
+import { motion } from "framer-motion";
+import stockService from "@/app/api/inventory/stockService";
+import { LayoutContext } from "@/layout/context/layoutcontext";
 
 interface DashboardMetrics {
   totalItems: number;
@@ -73,14 +73,14 @@ const InventoryDashboard = () => {
   const loadMetrics = async () => {
     setLoading(true);
     try {
-      const response = await getDashboardMetrics();
+      const response = await stockService.getDashboardMetrics();
       setMetrics(response.data);
     } catch (error) {
-      console.error('Error loading dashboard metrics:', error);
+      console.error("Error loading dashboard metrics:", error);
       toast.current?.show({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'No se pudieron cargar las métricas',
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar las métricas",
         life: 3000,
       });
     } finally {
@@ -93,7 +93,7 @@ const InventoryDashboard = () => {
 
     // Stock Health - Donut Chart
     setStockHealthChart({
-      labels: ['En Stock', 'Stock Bajo', 'Agotado'],
+      labels: ["En Stock", "Stock Bajo", "Agotado"],
       datasets: [
         {
           data: [
@@ -101,8 +101,8 @@ const InventoryDashboard = () => {
             metrics.stockHealth.lowStock,
             metrics.stockHealth.outOfStock,
           ],
-          backgroundColor: ['#10B981', '#F59E0B', '#EF4444'],
-          borderColor: layoutConfig.colorScheme === 'dark' ? '#1f2937' : '#fff',
+          backgroundColor: ["#10B981", "#F59E0B", "#EF4444"],
+          borderColor: layoutConfig.colorScheme === "dark" ? "#1f2937" : "#fff",
           borderWidth: 2,
         },
       ],
@@ -110,23 +110,23 @@ const InventoryDashboard = () => {
 
     // Movements Trend - Line Chart
     setMovementsChart({
-      labels: ['Hoy', 'Esta Semana', 'Este Mes'],
+      labels: ["Hoy", "Esta Semana", "Este Mes"],
       datasets: [
         {
-          label: 'Movimientos',
+          label: "Movimientos",
           data: [
             metrics.movements.today,
             metrics.movements.thisWeek,
             metrics.movements.thisMonth,
           ],
-          borderColor: '#3B82F6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: "#3B82F6",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
           borderWidth: 3,
           fill: true,
           tension: 0.4,
           pointRadius: 6,
-          pointBackgroundColor: '#3B82F6',
-          pointBorderColor: '#fff',
+          pointBackgroundColor: "#3B82F6",
+          pointBorderColor: "#fff",
           pointBorderWidth: 2,
         },
       ],
@@ -135,13 +135,15 @@ const InventoryDashboard = () => {
     // Top Moving Items - Horizontal Bar Chart
     if (metrics.topMovingItems && metrics.topMovingItems.length > 0) {
       setTopMovingChart({
-        labels: metrics.topMovingItems.map((item) => item.itemName.substring(0, 20)),
+        labels: metrics.topMovingItems.map((item) =>
+          item.itemName.substring(0, 20),
+        ),
         datasets: [
           {
-            label: 'Movimientos',
+            label: "Movimientos",
             data: metrics.topMovingItems.map((item) => item.movementCount),
-            backgroundColor: '#8B5CF6',
-            borderColor: '#7C3AED',
+            backgroundColor: "#8B5CF6",
+            borderColor: "#7C3AED",
             borderWidth: 1,
           },
         ],
@@ -175,7 +177,11 @@ const InventoryDashboard = () => {
           </div>
           <div
             className="border-round p-3 flex align-items-center justify-content-center"
-            style={{ backgroundColor: iconBg, width: '3.5rem', height: '3.5rem' }}
+            style={{
+              backgroundColor: iconBg,
+              width: "3.5rem",
+              height: "3.5rem",
+            }}
           >
             <i className={`${icon} text-2xl text-white`}></i>
           </div>
@@ -217,19 +223,19 @@ const InventoryDashboard = () => {
 
   const alertSeverityBg =
     metrics.alerts.critical > 0
-      ? '#EF4444'
+      ? "#EF4444"
       : metrics.alerts.warning > 0
-        ? '#F59E0B'
-        : '#3B82F6';
+      ? "#F59E0B"
+      : "#3B82F6";
 
   const chartOptions = {
     maintainAspectRatio: false,
     responsive: true,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        position: "bottom" as const,
         labels: {
-          color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333',
+          color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333",
           padding: 15,
           font: { size: 12 },
         },
@@ -282,27 +288,29 @@ const InventoryDashboard = () => {
       </div>
 
       {/* Alerts Card */}
-      {(metrics.alerts.critical > 0 || metrics.alerts.warning > 0 || metrics.alerts.info > 0) && (
+      {(metrics.alerts.critical > 0 ||
+        metrics.alerts.warning > 0 ||
+        metrics.alerts.info > 0) && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
         >
-          <Card
-            style={{ backgroundColor: alertSeverityBg, color: '#fff' }}
-          >
+          <Card style={{ backgroundColor: alertSeverityBg, color: "#fff" }}>
             <div className="flex align-items-center justify-content-between">
               <div>
                 <h3 className="font-bold text-lg m-0">Alertas de Inventario</h3>
                 <p className="text-sm mt-1 m-0" style={{ opacity: 0.9 }}>
-                  {metrics.alerts.critical} crítica{metrics.alerts.critical > 1 ? 's' : ''},{' '}
-                  {metrics.alerts.warning} advertencia{metrics.alerts.warning > 1 ? 's' : ''}
+                  {metrics.alerts.critical} crítica
+                  {metrics.alerts.critical > 1 ? "s" : ""},{" "}
+                  {metrics.alerts.warning} advertencia
+                  {metrics.alerts.warning > 1 ? "s" : ""}
                 </p>
               </div>
               <Button
                 label="Ver Alertas"
                 icon="pi pi-bell"
                 text
-                style={{ color: '#fff' }}
+                style={{ color: "#fff" }}
               />
             </div>
           </Card>
@@ -314,7 +322,7 @@ const InventoryDashboard = () => {
         {/* Stock Health Donut */}
         <div className="col-12 xl:col-4">
           <Card title="Salud del Stock">
-            <div style={{ height: '300px' }}>
+            <div style={{ height: "300px" }}>
               {stockHealthChart && (
                 <Chart
                   type="doughnut"
@@ -329,7 +337,7 @@ const InventoryDashboard = () => {
         {/* Movements Trend Line */}
         <div className="col-12 xl:col-8">
           <Card title="Tendencia de Movimientos">
-            <div style={{ height: '300px' }}>
+            <div style={{ height: "300px" }}>
               {movementsChart && (
                 <Chart
                   type="line"
@@ -345,13 +353,13 @@ const InventoryDashboard = () => {
       {/* Top Moving Items Chart */}
       {topMovingChart && (
         <Card title="Top 10 Artículos Más Movidos">
-          <div style={{ height: '300px' }}>
+          <div style={{ height: "300px" }}>
             <Chart
               type="bar"
               data={topMovingChart}
               options={{
                 ...chartOptions,
-                indexAxis: 'y' as const,
+                indexAxis: "y" as const,
               }}
             />
           </div>
@@ -380,11 +388,7 @@ const InventoryDashboard = () => {
                 field="itemCount"
                 header="Artículos"
                 body={(rowData) => (
-                  <Tag
-                    value={rowData.itemCount}
-                    severity="info"
-                    rounded
-                  />
+                  <Tag value={rowData.itemCount} severity="info" rounded />
                 )}
               />
               <Column
@@ -404,13 +408,15 @@ const InventoryDashboard = () => {
         {metrics.recentActivities && metrics.recentActivities.length > 0 && (
           <div className="col-12 xl:col-6">
             <Card title="Actividades Recientes">
-              <div style={{ maxHeight: '24rem', overflowY: 'auto' }}>
+              <div style={{ maxHeight: "24rem", overflowY: "auto" }}>
                 {metrics.recentActivities.slice(0, 10).map((activity, idx) => (
                   <div
                     key={idx}
                     className="border-left-3 border-primary pl-3 py-2 mb-2 surface-hover border-round"
                   >
-                    <p className="text-sm font-medium m-0">{activity.description}</p>
+                    <p className="text-sm font-medium m-0">
+                      {activity.description}
+                    </p>
                     <p className="text-xs text-500 mt-1 m-0">
                       {new Date(activity.timestamp).toLocaleString()}
                     </p>

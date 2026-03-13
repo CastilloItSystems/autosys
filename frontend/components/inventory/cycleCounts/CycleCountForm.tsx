@@ -13,12 +13,10 @@ import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { classNames } from "primereact/utils";
 
-import {
-  createCycleCount,
-  updateCycleCount,
+import cycleCountService, {
   CycleCount,
 } from "../../../app/api/inventory/cycleCountService";
-import { getStockByWarehouse } from "../../../app/api/inventory/stockService";
+import stockService from "../../../app/api/inventory/stockService";
 import { Warehouse } from "../../../app/api/inventory/warehouseService";
 import {
   createCycleCountSchema,
@@ -167,7 +165,7 @@ export default function CycleCountForm({
     try {
       setIsSubmitting(true);
       if (cycleCount) {
-        await updateCycleCount(cycleCount.id, data);
+        await cycleCountService.update(cycleCount.id, data);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -175,7 +173,7 @@ export default function CycleCountForm({
           life: 3000,
         });
       } else {
-        await createCycleCount(data);
+        await cycleCountService.create(data);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",

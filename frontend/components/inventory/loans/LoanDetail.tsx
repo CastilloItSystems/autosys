@@ -14,7 +14,7 @@ import {
   LoanStatus,
   LOAN_STATUS_CONFIG,
 } from "@/app/api/inventory/loanService";
-import { getWarehouse, Warehouse } from "@/app/api/inventory/warehouseService";
+import warehouseService, { Warehouse } from "@/app/api/inventory/warehouseService";
 
 interface LoanDetailProps {
   loan: Loan;
@@ -41,7 +41,7 @@ const LoanDetail = ({ loan, onReturn, onRefresh }: LoanDetailProps) => {
     const fetchWarehouse = async () => {
       setWarehouseLoading(true);
       try {
-        const res = await getWarehouse(loan.warehouseId);
+        const res = await warehouseService.getById(loan.warehouseId);
         setWarehouse(res.data ?? null);
       } catch {
         // silent — fallback to raw ID

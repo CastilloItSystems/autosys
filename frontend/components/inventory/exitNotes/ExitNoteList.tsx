@@ -13,14 +13,7 @@ import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
-import {
-  getExitNotes,
-  startPreparing,
-  markAsReady,
-  deliverExitNote,
-  cancelExitNote,
-  deleteExitNote,
-} from "@/app/api/inventory/exitNoteService";
+import exitNoteService from "@/app/api/inventory/exitNoteService";
 import {
   ExitNote,
   ExitNoteItem,
@@ -29,9 +22,8 @@ import {
   EXIT_NOTE_STATUS_CONFIG,
   EXIT_NOTE_TYPE_CONFIG,
 } from "@/libs/interfaces/inventory/exitNote.interface";
-import { getActiveItems, Item } from "@/app/api/inventory/itemService";
-import {
-  getActiveWarehouses,
+import itemService, { Item } from "@/app/api/inventory/itemService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import ExitNoteForm from "./ExitNoteForm";
@@ -65,8 +57,8 @@ const ExitNoteList = () => {
   const loadFormData = async () => {
     try {
       const [whRes, itemRes] = await Promise.all([
-        getActiveWarehouses(),
-        getActiveItems(),
+        warehouseService.getActive(),
+        itemService.getActive(),
       ]);
       setWarehouses(whRes.data || []);
       setItems(itemRes.data || []);
@@ -77,7 +69,7 @@ const ExitNoteList = () => {
 
   const fetchData = async () => {
     try {
-      const res = await getExitNotes();
+      const res = await exitNoteService.getAll();
       setExitNotes(Array.isArray(res.data) ? res.data : []);
     } catch (error) {
       console.error("Error al obtener notas de salida:", error);
@@ -96,7 +88,7 @@ const ExitNoteList = () => {
   const handleDelete = async () => {
     try {
       if (selectedExitNote?.id) {
-        await deleteExitNote(selectedExitNote.id);
+        await exitNoteService.delete(selectedExitNote.id);
         setExitNotes(exitNotes.filter((n) => n.id !== selectedExitNote.id));
         toast.current?.show({
           severity: "success",
@@ -114,7 +106,7 @@ const ExitNoteList = () => {
 
   const handleStart = async (note: ExitNote) => {
     try {
-      const result = await startPreparing(note.id);
+      const result = await exitNoteService.start(note.id);
       const updated = result.data;
       setExitNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -132,7 +124,7 @@ const ExitNoteList = () => {
 
   const handleReady = async (note: ExitNote) => {
     try {
-      const result = await markAsReady(note.id);
+      const result = await exitNoteService.markReady(note.id);
       const updated = result.data;
       setExitNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -151,7 +143,7 @@ const ExitNoteList = () => {
   const handleDeliver = async () => {
     if (!selectedExitNote) return;
     try {
-      const result = await deliverExitNote(selectedExitNote.id);
+      const result = await exitNoteService.deliver(selectedExitNote.id);
       const updated = result.data;
       setExitNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -173,7 +165,10 @@ const ExitNoteList = () => {
   const handleCancel = async () => {
     if (!selectedExitNote) return;
     try {
-      const result = await cancelExitNote(selectedExitNote.id, cancelReason);
+      const result = await exitNoteService.cancel(
+        selectedExitNote.id,
+        cancelReason,
+      );
       const updated = result.data;
       setExitNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -368,8 +363,7 @@ const ExitNoteList = () => {
     );
   };
 
-  const dateBodyTemplate = (rowData: ExitNote) =>
-    formatDate(rowData.createdAt);
+  const dateBodyTemplate = (rowData: ExitNote) => formatDate(rowData.createdAt);
 
   const itemsCountBodyTemplate = (rowData: ExitNote) => {
     const count = rowData.items?.length || 0;
@@ -420,9 +414,7 @@ const ExitNoteList = () => {
                     <td className="text-center py-2">
                       {line.pickedFromLocation || "—"}
                     </td>
-                    <td className="text-center py-2">
-                      {line.batchId || "—"}
-                    </td>
+                    <td className="text-center py-2">{line.batchId || "—"}</td>
                     <td className="py-2 text-500 text-xs">
                       {line.notes || "—"}
                     </td>
@@ -489,9 +481,8 @@ const ExitNoteList = () => {
               </div>
               <div className="font-bold text-900 text-lg">
                 {selectedExitNote.warehouse?.name ||
-                  warehouses.find(
-                    (w) => w.id === selectedExitNote.warehouseId,
-                  )?.name ||
+                  warehouses.find((w) => w.id === selectedExitNote.warehouseId)
+                    ?.name ||
                   "—"}
               </div>
             </div>
@@ -501,7 +492,9 @@ const ExitNoteList = () => {
             <div className="surface-100 border-round p-3 h-full">
               <div className="flex align-items-center gap-2 mb-2">
                 <i className="pi pi-user text-blue-500 text-lg" />
-                <span className="text-500 text-sm font-medium">Destinatario</span>
+                <span className="text-500 text-sm font-medium">
+                  Destinatario
+                </span>
               </div>
               <div className="font-bold text-900 text-lg">
                 {selectedExitNote.recipientName || "—"}
@@ -525,7 +518,8 @@ const ExitNoteList = () => {
                 {noteItems.length}
               </div>
               <div className="text-500 text-sm mt-1">
-                {noteItems.length === 1 ? "artículo" : "artículos"} en esta salida
+                {noteItems.length === 1 ? "artículo" : "artículos"} en esta
+                salida
               </div>
             </div>
           </div>
@@ -538,7 +532,9 @@ const ExitNoteList = () => {
               <div className="surface-100 border-round p-3">
                 <div className="flex align-items-center gap-2 mb-2">
                   <i className="pi pi-link text-500" />
-                  <span className="text-500 text-sm font-medium">Referencia</span>
+                  <span className="text-500 text-sm font-medium">
+                    Referencia
+                  </span>
                 </div>
                 <div className="text-900">{selectedExitNote.reference}</div>
               </div>
@@ -685,9 +681,7 @@ const ExitNoteList = () => {
           fill="var(--surface-ground)"
           animationDuration=".5s"
         />
-        <p className="mt-3 text-600 font-medium">
-          Cargando notas de salida...
-        </p>
+        <p className="mt-3 text-600 font-medium">Cargando notas de salida...</p>
       </div>
     );
   }
@@ -728,11 +722,7 @@ const ExitNoteList = () => {
         >
           <Column expander style={{ width: "3rem" }} />
           <Column body={actionBodyTemplate} style={{ width: "10rem" }} frozen />
-          <Column
-            field="exitNoteNumber"
-            header="Nro. Nota Salida"
-            sortable
-          />
+          <Column field="exitNoteNumber" header="Nro. Nota Salida" sortable />
           <Column
             header="Tipo"
             body={typeBodyTemplate}

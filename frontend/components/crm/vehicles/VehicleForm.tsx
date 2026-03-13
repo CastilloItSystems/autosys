@@ -14,7 +14,7 @@ import {
   VehicleFormData,
 } from "@/libs/zods/inventory/vehicleZod";
 import { createVehicle, updateVehicle } from "@/app/api/crm/vehicleService";
-import { getCustomers } from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/inventory/customerService";
 import { getVehicleModels } from "@/app/api/crm/vehicleModelService";
 import { Vehicle, Customer, VehicleModel } from "@/libs/interfaces/inventory";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -28,7 +28,7 @@ interface VehicleFormProps {
   showToast: (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => void;
   toast: React.RefObject<any>;
   onVehicleCreated?: (vehicle: Vehicle) => void;
@@ -104,9 +104,9 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
   const fetchCustomers = async () => {
     try {
       setLoadingCustomers(true);
-      const customersDB = await getCustomers();
-      if (customersDB && Array.isArray(customersDB.customers)) {
-        setCustomers(customersDB.customers);
+      const customersRes = await customerService.getAll();
+      if (customersRes && Array.isArray(customersRes.data)) {
+        setCustomers(customersRes.data);
       }
     } catch (error) {
       console.error("Error al obtener los clientes:", error);
@@ -135,13 +135,13 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
       if (vehicle) {
         const response = await updateVehicle(vehicle.id, data);
         const updatedVehicles = vehicles.map((v) =>
-          v.id === vehicle.id ? response.vehicle : v
+          v.id === vehicle.id ? response.vehicle : v,
         );
         setVehicles(updatedVehicles);
         showToast(
           "success",
           "Éxito",
-          response.msg || "Vehículo actualizado correctamente"
+          response.msg || "Vehículo actualizado correctamente",
         );
       } else {
         const response = await createVehicle(data);
@@ -149,7 +149,7 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
         showToast(
           "success",
           "Éxito",
-          response.msg || "Vehículo creado correctamente"
+          response.msg || "Vehículo creado correctamente",
         );
         // Llamar al callback si existe
         if (onVehicleCreated) {

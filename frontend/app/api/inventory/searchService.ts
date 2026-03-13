@@ -1,6 +1,5 @@
-// ===== INTERFACES =====
-
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 export interface ISearchItem {
   id: string;
@@ -73,216 +72,195 @@ export interface ISearchResponse {
   };
 }
 
-// ===== SEARCH FUNCTIONS =====
+// ===== SEARCH SERVICE =====
 
-/**
- * Basic search - find items by query
- */
-export const search = async (
-  request: ISearchRequest,
-): Promise<ISearchResponse> => {
-  const response = await apiClient.post<ISearchResponse>(
-    "/inventory/items/search",
-    {
-      query: request.query,
-      filters: request.filters,
-      sortBy: request.sortBy || "relevance",
-      sortOrder: request.sortOrder || "desc",
-      page: request.page || 1,
-      limit: request.limit || 10,
-    },
-  );
-  return response.data;
-};
-
-/**
- * Advanced search - with complex filters
- */
-export const advancedSearch = async (
-  request: IAdvancedSearchRequest,
-): Promise<ISearchResponse> => {
-  const response = await apiClient.post<ISearchResponse>(
-    "/inventory/items/search/advanced",
-    {
-      query: request.query,
-      filters: request.filters,
-      sortBy: request.sortBy || "relevance",
-      sortOrder: request.sortOrder || "desc",
-      page: request.page || 1,
-      limit: request.limit || 10,
-    },
-  );
-  return response.data;
-};
-
-/**
- * Get search suggestions for autocomplete
- */
-export const getSuggestions = async (
-  query: string,
-  limit = 10,
-): Promise<ISearchSuggestion[]> => {
-  const response = await apiClient.get<ISearchSuggestion[]>(
-    "/inventory/items/search/suggestions",
-    {
-      params: {
-        query,
-        limit,
+const searchService = {
+  /**
+   * Basic search - find items by query
+   */
+  async search(request: ISearchRequest): Promise<ISearchResponse> {
+    const response = await apiClient.post<ISearchResponse>(
+      "/inventory/items/search",
+      {
+        query: request.query,
+        filters: request.filters,
+        sortBy: request.sortBy || "relevance",
+        sortOrder: request.sortOrder || "desc",
+        page: request.page || 1,
+        limit: request.limit || 10,
       },
-    },
-  );
-  return response.data;
-};
-
-/**
- * Get aggregations for faceted search
- */
-export const getAggregations = async (
-  query?: string,
-): Promise<ISearchAggregations> => {
-  const response = await apiClient.get<ISearchAggregations>(
-    "/inventory/items/search/aggregations",
-    {
-      params: {
-        query: query || "",
-      },
-    },
-  );
-  return response.data;
-};
-
-/**
- * Enhanced search with full text and suggestions
- */
-export const globalSearch = async (
-  query: string,
-  limit = 20,
-): Promise<ISearchItem[]> => {
-  if (!query || query.trim().length < 2) {
-    return [];
-  }
-
-  try {
-    const response = await search({
-      query: query.trim(),
-      limit,
-      page: 1,
-    });
+    );
     return response.data;
-  } catch (error) {
-    console.error("Global search error:", error);
-    return [];
-  }
-};
+  },
 
-/**
- * Get price range analysis
- */
-export const getPriceAnalysis = async (
-  query?: string,
-): Promise<{
-  min: number;
-  max: number;
-  average: number;
-  ranges: ISearchAggregation[];
-}> => {
-  const aggregations = await getAggregations(query);
-  const priceRanges = aggregations.priceRanges || [];
+  /**
+   * Advanced search - with complex filters
+   */
+  async advancedSearch(
+    request: IAdvancedSearchRequest,
+  ): Promise<ISearchResponse> {
+    const response = await apiClient.post<ISearchResponse>(
+      "/inventory/items/search/advanced",
+      {
+        query: request.query,
+        filters: request.filters,
+        sortBy: request.sortBy || "relevance",
+        sortOrder: request.sortOrder || "desc",
+        page: request.page || 1,
+        limit: request.limit || 10,
+      },
+    );
+    return response.data;
+  },
 
-  return {
-    min: 0,
-    max: 10000,
-    average: 0,
-    ranges: priceRanges,
-  };
-};
+  /**
+   * Get search suggestions for autocomplete
+   */
+  async getSuggestions(
+    query: string,
+    limit = 10,
+  ): Promise<ISearchSuggestion[]> {
+    const response = await apiClient.get<ISearchSuggestion[]>(
+      "/inventory/items/search/suggestions",
+      {
+        params: {
+          query,
+          limit,
+        },
+      },
+    );
+    return response.data;
+  },
 
-/**
- * Get related items by category
- */
-export const getRelatedItems = async (
-  categoryId: string,
-  limit = 5,
-): Promise<ISearchItem[]> => {
-  try {
-    const response = await advancedSearch({
+  /**
+   * Get aggregations for faceted search
+   */
+  async getAggregations(query?: string): Promise<ISearchAggregations> {
+    const response = await apiClient.get<ISearchAggregations>(
+      "/inventory/items/search/aggregations",
+      {
+        params: {
+          query: query || "",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  /**
+   * Enhanced search with full text and suggestions
+   */
+  async globalSearch(query: string, limit = 20): Promise<ISearchItem[]> {
+    if (!query || query.trim().length < 2) {
+      return [];
+    }
+
+    try {
+      const response = await this.search({
+        query: query.trim(),
+        limit,
+        page: 1,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Global search error:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Get price range analysis
+   */
+  async getPriceAnalysis(query?: string): Promise<{
+    min: number;
+    max: number;
+    average: number;
+    ranges: ISearchAggregation[];
+  }> {
+    const aggregations = await this.getAggregations(query);
+    const priceRanges = aggregations.priceRanges || [];
+
+    return {
+      min: 0,
+      max: 10000,
+      average: 0,
+      ranges: priceRanges,
+    };
+  },
+
+  /**
+   * Get related items by category
+   */
+  async getRelatedItems(categoryId: string, limit = 5): Promise<ISearchItem[]> {
+    try {
+      const response = await this.advancedSearch({
+        query: "",
+        filters: {
+          categoryId,
+        },
+        limit,
+        page: 1,
+      });
+      return response.data;
+    } catch (error) {
+      console.error("Related items error:", error);
+      return [];
+    }
+  },
+
+  /**
+   * Get items by brand
+   */
+  async getByBrand(
+    brandId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<ISearchResponse> {
+    return this.advancedSearch({
+      query: "",
+      filters: {
+        brandId,
+      },
+      page,
+      limit,
+    });
+  },
+
+  /**
+   * Get items by category
+   */
+  async getByCategory(
+    categoryId: string,
+    page = 1,
+    limit = 10,
+  ): Promise<ISearchResponse> {
+    return this.advancedSearch({
       query: "",
       filters: {
         categoryId,
       },
+      page,
       limit,
-      page: 1,
     });
-    return response.data;
-  } catch (error) {
-    console.error("Related items error:", error);
-    return [];
-  }
+  },
+
+  /**
+   * Get items with custom filters
+   */
+  async getFiltered(
+    filters: ISearchFilters,
+    page = 1,
+    limit = 10,
+    sortBy?: "price" | "name",
+  ): Promise<ISearchResponse> {
+    return this.advancedSearch({
+      query: "",
+      filters,
+      sortBy,
+      page,
+      limit,
+    });
+  },
 };
 
-/**
- * Get items by brand
- */
-export const getItemsByBrand = async (
-  brandId: string,
-  page = 1,
-  limit = 10,
-): Promise<ISearchResponse> => {
-  return advancedSearch({
-    query: "",
-    filters: {
-      brandId,
-    },
-    page,
-    limit,
-  });
-};
-
-/**
- * Get items by category
- */
-export const getItemsByCategory = async (
-  categoryId: string,
-  page = 1,
-  limit = 10,
-): Promise<ISearchResponse> => {
-  return advancedSearch({
-    query: "",
-    filters: {
-      categoryId,
-    },
-    page,
-    limit,
-  });
-};
-
-/**
- * Get items with custom filters
- */
-export const getFilteredItems = async (
-  filters: ISearchFilters,
-  page = 1,
-  limit = 10,
-  sortBy?: "price" | "name",
-): Promise<ISearchResponse> => {
-  return advancedSearch({
-    query: "",
-    filters,
-    sortBy,
-    page,
-    limit,
-  });
-};
-
-export default {
-  search,
-  advancedSearch,
-  getSuggestions,
-  getAggregations,
-  globalSearch,
-  getPriceAnalysis,
-  getRelatedItems,
-  getItemsByBrand,
-  getItemsByCategory,
-  getFilteredItems,
-};
+export default searchService;

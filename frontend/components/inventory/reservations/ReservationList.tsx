@@ -12,16 +12,9 @@ import { Dropdown } from "primereact/dropdown";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
 
-import {
-  getReservations,
-  deleteReservation,
-  consumeReservation,
-  markAsPendingPickup,
-  releaseReservation,
-} from "@/app/api/inventory/reservationService";
-import { getActiveItems, Item } from "@/app/api/inventory/itemService";
-import {
-  getActiveWarehouses,
+import reservationService from "@/app/api/inventory/reservationService";
+import itemService, { Item } from "@/app/api/inventory/itemService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import {
@@ -68,9 +61,9 @@ const ReservationList = () => {
   const fetchData = async () => {
     try {
       const [resRes, itemRes, whRes] = await Promise.all([
-        getReservations(1, 100),
-        getActiveItems(),
-        getActiveWarehouses(),
+        reservationService.getAll(1, 100),
+        itemService.getActive(),
+        warehouseService.getActive(),
       ]);
 
       setReservations(Array.isArray(resRes.data) ? resRes.data : []);
@@ -153,7 +146,7 @@ const ReservationList = () => {
     if (!selectedReservation) return;
     try {
       setActionInProgress(selectedReservation.id);
-      const result = await consumeReservation(
+      const result = await reservationService.consume(
         selectedReservation.id,
         consumeQuantity,
       );
@@ -179,7 +172,7 @@ const ReservationList = () => {
     if (!selectedReservation) return;
     try {
       setActionInProgress(selectedReservation.id);
-      const result = await releaseReservation(selectedReservation.id);
+      const result = await reservationService.release(selectedReservation.id);
       const updated = result.data || result;
       setReservations((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r)),
@@ -196,7 +189,9 @@ const ReservationList = () => {
   const handlePendingPickup = async (reservation: Reservation) => {
     try {
       setActionInProgress(reservation.id);
-      const result = await markAsPendingPickup(reservation.id);
+      const result = await reservationService.markAsPendingPickup(
+        reservation.id,
+      );
       const updated = result.data || result;
       setReservations((prev) =>
         prev.map((r) => (r.id === updated.id ? updated : r)),
@@ -212,7 +207,7 @@ const ReservationList = () => {
   const handleDelete = async () => {
     if (!selectedReservation) return;
     try {
-      await deleteReservation(selectedReservation.id);
+      await reservationService.delete(selectedReservation.id);
       setReservations(
         reservations.filter((r) => r.id !== selectedReservation.id),
       );

@@ -12,14 +12,12 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { classNames } from "primereact/utils";
-import {
-  createAdjustment,
+import adjustmentService, {
   ADJUSTMENT_TYPE_LABELS,
 } from "@/app/api/inventory/adjustmentService";
 import { createAdjustmentSchema } from "@/libs/zods";
-import { getStockByWarehouse, Stock } from "@/app/api/inventory/stockService";
-import {
-  getActiveWarehouses,
+import stockService, { Stock } from "@/app/api/inventory/stockService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -79,7 +77,7 @@ export default function AdjustmentForm({
   const loadWarehouses = async () => {
     try {
       setIsLoading(true);
-      const warehousesResponse = await getActiveWarehouses();
+      const warehousesResponse = await warehouseService.getActive();
       setWarehouses(warehousesResponse.data);
     } catch (error) {
       console.error("Error loading warehouses:", error);
@@ -130,7 +128,7 @@ export default function AdjustmentForm({
 
   const onSubmit = async (data: FormData) => {
     try {
-      await createAdjustment(data);
+      await adjustmentService.create(data);
       toast?.current?.show({
         severity: "success",
         summary: "Éxito",

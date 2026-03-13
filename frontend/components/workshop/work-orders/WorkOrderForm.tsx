@@ -30,7 +30,7 @@ import {
   createWorkOrderItem,
   getWorkOrderItems,
 } from "@/app/api/workshop/workOrderService";
-import { getCustomers } from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/inventory/customerService";
 import { getVehicles } from "@/app/api/crm/vehicleService";
 import { getUsers } from "@/app/api/userService";
 
@@ -118,13 +118,13 @@ export default function WorkOrderForm({
         "customer",
         typeof workOrder.customer === "object"
           ? workOrder.customer._id
-          : workOrder.customer
+          : workOrder.customer,
       );
       setValue(
         "vehicle",
         typeof workOrder.vehicle === "object"
           ? workOrder.vehicle._id
-          : workOrder.vehicle
+          : workOrder.vehicle,
       );
       setValue("motivo", workOrder.motivo);
       setValue("kilometraje", workOrder.kilometraje);
@@ -146,14 +146,14 @@ export default function WorkOrderForm({
           "tecnicoAsignado",
           typeof workOrder.tecnicoAsignado === "object"
             ? workOrder.tecnicoAsignado._id
-            : workOrder.tecnicoAsignado
+            : workOrder.tecnicoAsignado,
         );
       }
 
       if (workOrder.fechaEstimadaEntrega) {
         setValue(
           "fechaEstimadaEntrega",
-          new Date(workOrder.fechaEstimadaEntrega)
+          new Date(workOrder.fechaEstimadaEntrega),
         );
       }
 
@@ -192,17 +192,17 @@ export default function WorkOrderForm({
     try {
       const [customersRes, vehiclesRes, usersRes, statusesRes] =
         await Promise.all([
-          getCustomers(),
+          customerService.getAll(),
           getVehicles(),
           getUsers(),
           getWorkOrderStatuses(),
         ]);
       console.log(vehiclesRes);
       setCustomers(
-        Array.isArray(customersRes.customers) ? customersRes.customers : []
+        Array.isArray(customersRes.data) ? customersRes.data : [],
       );
       setVehicles(
-        Array.isArray(vehiclesRes.vehicles) ? vehiclesRes.vehicles : []
+        Array.isArray(vehiclesRes.vehicles) ? vehiclesRes.vehicles : [],
       );
       setTechnicians(Array.isArray(usersRes.users) ? usersRes.users : []);
       setStatuses(Array.isArray(statusesRes) ? statusesRes : []);
@@ -254,8 +254,8 @@ export default function WorkOrderForm({
         if (items.length > 0 && createdWorkOrder._id) {
           await Promise.all(
             items.map((item) =>
-              createWorkOrderItem(createdWorkOrder._id!, item)
-            )
+              createWorkOrderItem(createdWorkOrder._id!, item),
+            ),
           );
         }
 
@@ -414,7 +414,7 @@ export default function WorkOrderForm({
                     filter
                     className={classNames(
                       { "p-invalid": errors.customer },
-                      filledInput ? "p-filled" : ""
+                      filledInput ? "p-filled" : "",
                     )}
                     itemTemplate={(option) => {
                       if (option._id === "add-new") {
@@ -465,7 +465,7 @@ export default function WorkOrderForm({
                     disabled={!selectedCustomer}
                     className={classNames(
                       { "p-invalid": errors.vehicle },
-                      filledInput ? "p-filled" : ""
+                      filledInput ? "p-filled" : "",
                     )}
                     itemTemplate={(option) => {
                       if (option._id === "add-new") {
@@ -586,7 +586,7 @@ export default function WorkOrderForm({
                     {...field}
                     className={classNames(
                       { "p-invalid": errors.motivo },
-                      filledInput ? "p-filled" : ""
+                      filledInput ? "p-filled" : "",
                     )}
                     placeholder="Ej: Servicio de mantenimiento preventivo"
                   />

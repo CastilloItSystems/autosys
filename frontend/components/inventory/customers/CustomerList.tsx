@@ -9,10 +9,7 @@ import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
-import {
-  deleteCustomer,
-  getCustomers,
-} from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/inventory/customerService";
 import CustomerForm from "./CustomerForm";
 import { Customer } from "@/libs/interfaces/inventory";
 import CustomActionButtons from "@/components/common/CustomActionButtons";
@@ -39,9 +36,9 @@ const CustomerList = () => {
 
   const fetchCustomers = async () => {
     try {
-      const customersDB = await getCustomers();
-      if (customersDB && Array.isArray(customersDB.customers)) {
-        setCustomers(customersDB.customers);
+      const customersRes = await customerService.getAll();
+      if (customersRes && Array.isArray(customersRes.data)) {
+        setCustomers(customersRes.data);
       }
     } catch (error) {
       console.error("Error al obtener los clientes:", error);
@@ -64,7 +61,7 @@ const CustomerList = () => {
   const handleDelete = async () => {
     try {
       if (customer?.id) {
-        await deleteCustomer(customer.id);
+        await customerService.delete(customer.id);
         setCustomers(customers.filter((val) => val.id !== customer.id));
         toast.current?.show({
           severity: "success",
@@ -147,7 +144,7 @@ const CustomerList = () => {
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };

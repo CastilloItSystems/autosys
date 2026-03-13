@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 import type {
   EntryNote,
   EntryNoteItem,
@@ -7,15 +8,6 @@ import type {
 } from "@/libs/interfaces/inventory/entryNote.interface";
 
 // ===== Types =====
-
-export interface EntryNotesResponse {
-  data: EntryNote[];
-  meta: { page: number; limit: number; total: number; totalPages: number };
-}
-
-export interface EntryNoteResponse {
-  data: EntryNote;
-}
 
 export interface CreateEntryNotePayload {
   type?: EntryType;
@@ -56,12 +48,7 @@ export interface AddEntryNoteItemPayload {
   notes?: string | null;
 }
 
-// ===== CRUD =====
-
-/**
- * Get all entry notes with optional filters and pagination
- */
-export const getEntryNotes = async (params?: {
+interface EntryNoteParams {
   page?: number;
   limit?: number;
   type?: EntryType;
@@ -73,113 +60,77 @@ export const getEntryNotes = async (params?: {
   receivedTo?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
-}): Promise<EntryNotesResponse> => {
-  const response = await apiClient.get("/inventory/entry-notes", { params });
-  return {
-    data: response.data.data || [],
-    meta: response.data.meta || { page: 1, limit: 20, total: 0, totalPages: 0 },
-  };
+}
+
+// ===== Service =====
+
+const entryNoteService = {
+  async getAll(
+    params?: EntryNoteParams,
+  ): Promise<PaginatedResponse<EntryNote>> {
+    const res = await apiClient.get("/inventory/entry-notes", { params });
+    return res.data;
+  },
+
+  async getById(
+    id: string,
+    includeItems = true,
+  ): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.get(`/inventory/entry-notes/${id}`, {
+      params: { includeItems },
+    });
+    return res.data;
+  },
+
+  async create(data: CreateEntryNotePayload): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post("/inventory/entry-notes", data);
+    return res.data;
+  },
+
+  async update(
+    id: string,
+    data: UpdateEntryNotePayload,
+  ): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.put(`/inventory/entry-notes/${id}`, data);
+    return res.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/inventory/entry-notes/${id}`);
+  },
+
+  async getItems(entryNoteId: string): Promise<ApiResponse<EntryNoteItem[]>> {
+    const res = await apiClient.get(
+      `/inventory/entry-notes/${entryNoteId}/items`,
+    );
+    return res.data;
+  },
+
+  async addItem(
+    entryNoteId: string,
+    data: AddEntryNoteItemPayload,
+  ): Promise<ApiResponse<EntryNoteItem>> {
+    const res = await apiClient.post(
+      `/inventory/entry-notes/${entryNoteId}/items`,
+      data,
+    );
+    return res.data;
+  },
+
+  async start(id: string): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post(`/inventory/entry-notes/${id}/start`);
+    return res.data;
+  },
+
+  async complete(id: string): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post(`/inventory/entry-notes/${id}/complete`);
+    return res.data;
+  },
+
+  async cancel(id: string): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post(`/inventory/entry-notes/${id}/cancel`);
+    return res.data;
+  },
 };
 
-/**
- * Get single entry note by ID
- */
-export const getEntryNote = async (
-  id: string,
-  includeItems = true,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.get(`/inventory/entry-notes/${id}`, {
-    params: { includeItems },
-  });
-  return { data: response.data.data };
-};
-
-/**
- * Create new entry note
- */
-export const createEntryNote = async (
-  data: CreateEntryNotePayload,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.post("/inventory/entry-notes", data);
-  return { data: response.data.data };
-};
-
-/**
- * Update entry note
- */
-export const updateEntryNote = async (
-  id: string,
-  data: UpdateEntryNotePayload,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.put(`/inventory/entry-notes/${id}`, data);
-  return { data: response.data.data };
-};
-
-/**
- * Delete entry note (only if not completed)
- */
-export const deleteEntryNote = async (id: string): Promise<void> => {
-  await apiClient.delete(`/inventory/entry-notes/${id}`);
-};
-
-// ===== Items =====
-
-/**
- * Get items of an entry note
- */
-export const getEntryNoteItems = async (
-  entryNoteId: string,
-): Promise<EntryNoteItem[]> => {
-  const response = await apiClient.get(
-    `/inventory/entry-notes/${entryNoteId}/items`,
-  );
-  return response.data.data || [];
-};
-
-/**
- * Add item to entry note
- */
-export const addEntryNoteItem = async (
-  entryNoteId: string,
-  data: AddEntryNoteItemPayload,
-): Promise<EntryNoteItem> => {
-  const response = await apiClient.post(
-    `/inventory/entry-notes/${entryNoteId}/items`,
-    data,
-  );
-  return response.data.data;
-};
-
-// ===== Workflow actions =====
-
-/**
- * Start processing entry note (PENDING → IN_PROGRESS)
- */
-export const startEntryNote = async (
-  id: string,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.post(`/inventory/entry-notes/${id}/start`);
-  return { data: response.data.data };
-};
-
-/**
- * Complete entry note (IN_PROGRESS → COMPLETED) — updates stock & creates movements
- */
-export const completeEntryNote = async (
-  id: string,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.post(
-    `/inventory/entry-notes/${id}/complete`,
-  );
-  return { data: response.data.data };
-};
-
-/**
- * Cancel entry note (PENDING|IN_PROGRESS → CANCELLED)
- */
-export const cancelEntryNote = async (
-  id: string,
-): Promise<EntryNoteResponse> => {
-  const response = await apiClient.post(`/inventory/entry-notes/${id}/cancel`);
-  return { data: response.data.data };
-};
+export default entryNoteService;

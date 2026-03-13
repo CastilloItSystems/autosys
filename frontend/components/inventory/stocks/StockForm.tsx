@@ -7,14 +7,10 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { classNames } from "primereact/utils";
-import {
-  createStock,
-  updateStock,
-  Stock,
-} from "@/app/api/inventory/stockService";
-import { getActiveItems } from "@/app/api/inventory/itemService";
-import {
-  getActiveWarehouses,
+import { Stock } from "@/app/api/inventory/stockService";
+import stockService from "@/app/api/inventory/stockService";
+import itemService from "@/app/api/inventory/itemService";
+import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import {
@@ -81,8 +77,8 @@ export default function StockForm({
   const loadDropdownData = async () => {
     try {
       const [itemsRes, warehousesRes] = await Promise.all([
-        getActiveItems(),
-        getActiveWarehouses(),
+        itemService.getActive(),
+        warehouseService.getActive(),
       ]);
 
       // itemsRes puede ser { data: [...] } con items activos
@@ -112,9 +108,9 @@ export default function StockForm({
     setSubmitting(true);
     try {
       if (isEditing) {
-        await updateStock(stock.id, data as UpdateStock);
+        await stockService.update(stock.id, data as UpdateStock);
       } else {
-        await createStock(data as CreateStock);
+        await stockService.create(data as CreateStock);
       }
       onSave();
     } catch (error) {

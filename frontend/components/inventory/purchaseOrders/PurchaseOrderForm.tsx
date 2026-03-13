@@ -8,7 +8,7 @@ import {
   purchaseOrderSchema,
   PurchaseOrderFormData,
 } from "@/libs/zods/inventory";
-import { createPurchaseOrder } from "@/app/api/inventory/purchaseOrderService";
+import purchaseOrderService from "@/app/api/inventory/purchaseOrderService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
@@ -117,7 +117,7 @@ const PurchaseOrderForm = ({
           "Solo se pueden editar órdenes en borrador.",
         );
       } else {
-        const result = await createPurchaseOrder(payload);
+        const result = await purchaseOrderService.create(payload);
         const newPO = result.data || result;
         setPurchaseOrders([newPO, ...purchaseOrders]);
         showToast("success", "Éxito", "Orden de compra creada");

@@ -15,12 +15,7 @@ import {
 } from "@/libs/interfaces/inventory/exitNote.interface";
 import { Item } from "@/app/api/inventory/itemService";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
-import {
-  startPreparing,
-  markAsReady,
-  deliverExitNote,
-  cancelExitNote,
-} from "@/app/api/inventory/exitNoteService";
+import exitNoteService from "@/app/api/inventory/exitNoteService";
 import { Toast } from "primereact/toast";
 
 interface ExitNoteDetailDialogProps {
@@ -86,7 +81,7 @@ const ExitNoteDetailDialog = ({
   const handleStartPreparing = async () => {
     setLoading(true);
     try {
-      const result = await startPreparing(exitNote.id);
+      const result = await exitNoteService.start(exitNote.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -110,7 +105,7 @@ const ExitNoteDetailDialog = ({
   const handleMarkAsReady = async () => {
     setLoading(true);
     try {
-      const result = await markAsReady(exitNote.id);
+      const result = await exitNoteService.markReady(exitNote.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -134,7 +129,7 @@ const ExitNoteDetailDialog = ({
   const handleDeliver = async () => {
     setLoading(true);
     try {
-      const result = await deliverExitNote(exitNote.id);
+      const result = await exitNoteService.deliver(exitNote.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -164,7 +159,10 @@ const ExitNoteDetailDialog = ({
   const handleCancelConfirm = async () => {
     setLoading(true);
     try {
-      const result = await cancelExitNote(exitNote.id, cancelReason || "");
+      const result = await exitNoteService.cancel(
+        exitNote.id,
+        cancelReason || "",
+      );
       toast.current?.show({
         severity: "success",
         summary: "Éxito",

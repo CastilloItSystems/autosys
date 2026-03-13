@@ -8,7 +8,7 @@ import { Card } from "primereact/card";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { Dialog } from "primereact/dialog";
-import * as bulkService from "@/app/api/inventory/bulkService";
+import bulkService from "@/app/api/inventory/bulkService";
 import type {
   IBulkOperation,
   IBulkValidationError,

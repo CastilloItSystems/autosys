@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import AdjustmentList from "@/components/inventory/adjustments/AdjustmentList";
-import { getActiveWarehouses } from "@/app/api/inventory/warehouseService";
+import warehouseService from "@/app/api/inventory/warehouseService";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
 
 export default function AjustesPage() {
@@ -11,7 +11,7 @@ export default function AjustesPage() {
   useEffect(() => {
     (async () => {
       try {
-        const response = await getActiveWarehouses();
+        const response = await warehouseService.getActive();
         setWarehouses(response.data || []);
       } catch (error) {
         console.error("Error loading warehouses:", error);

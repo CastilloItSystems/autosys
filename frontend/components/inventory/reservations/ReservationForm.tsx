@@ -9,10 +9,7 @@ import {
   reservationSchema,
   ReservationFormData,
 } from "@/libs/zods/inventory/reservationZod";
-import {
-  createReservation,
-  updateReservation,
-} from "@/app/api/inventory/reservationService";
+import reservationService from "@/app/api/inventory/reservationService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
@@ -89,14 +86,17 @@ const ReservationForm = ({
       } as any;
 
       if (reservation) {
-        const result = await updateReservation(reservation.id, cleanedData);
+        const result = await reservationService.update(
+          reservation.id,
+          cleanedData,
+        );
         const updated = reservations.map((r) =>
           r.id === result.data.id ? result.data : r,
         );
         setReservations(updated);
         showToast("success", "Éxito", "Reserva actualizada");
       } else {
-        const result = await createReservation(cleanedData as any);
+        const result = await reservationService.create(cleanedData as any);
         setReservations([result.data, ...reservations]);
         showToast("success", "Éxito", "Reserva creada");
       }

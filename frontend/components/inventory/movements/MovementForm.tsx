@@ -10,15 +10,15 @@ import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { classNames } from "primereact/utils";
 import { LayoutContext } from "@/layout/context/layoutcontext";
-import {
-  createMovement,
+import movementService, {
   MOVEMENT_TYPE_LABELS,
   MovementType,
 } from "@/app/api/inventory/movementService";
 import { createMovementSchema } from "@/libs/zods/inventory";
-import { getActiveItems } from "@/app/api/inventory/itemService";
-import { getActiveWarehouses } from "@/app/api/inventory/warehouseService";
-import { Item, Warehouse } from "@/libs/interfaces/inventory";
+import itemService, { Item } from "@/app/api/inventory/itemService";
+import warehouseService, {
+  Warehouse,
+} from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { z } from "zod";
 
@@ -81,8 +81,8 @@ const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
     try {
       setLoading(true);
       const [itemsResponse, warehousesResponse] = await Promise.all([
-        getActiveItems(),
-        getActiveWarehouses(),
+        itemService.getActive(),
+        warehouseService.getActive(),
       ]);
       setItems(itemsResponse.data);
       setWarehouses(warehousesResponse.data);
@@ -102,7 +102,7 @@ const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      await createMovement(data);
+      await movementService.create(data);
       toast?.current?.show({
         severity: "success",
         summary: "Éxito",

@@ -5,7 +5,7 @@ import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getStockValueReport } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const StockValuePage = () => {
   const toast = useRef<Toast>(null);
@@ -23,9 +23,9 @@ const StockValuePage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getStockValueReport(page, rows);
+      const response = await reportService.getStockValue(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
       setTotalValue(response.summary?.totalInventoryValue || 0);
     } catch (error) {
       toast.current?.show({
@@ -47,7 +47,9 @@ const StockValuePage = () => {
       header: "Cantidad",
       sortable: true,
       width: "10%",
-      body: (row: any) => <span className="font-semibold">{row.quantity?.toFixed(0)}</span>,
+      body: (row: any) => (
+        <span className="font-semibold">{row.quantity?.toFixed(0)}</span>
+      ),
     },
     {
       field: "unitPrice",
@@ -62,7 +64,9 @@ const StockValuePage = () => {
       sortable: true,
       width: "15%",
       body: (row: any) => (
-        <span className="font-semibold text-green-600">${row.totalValue?.toFixed(2)}</span>
+        <span className="font-semibold text-green-600">
+          ${row.totalValue?.toFixed(2)}
+        </span>
       ),
     },
     {
@@ -82,7 +86,9 @@ const StockValuePage = () => {
       {totalValue > 0 && (
         <div className="surface-100 border-round p-4 mb-3 text-center">
           <div className="text-500 text-sm mb-1">Valor Total de Inventario</div>
-          <div className="text-4xl font-bold text-green-600">${totalValue.toFixed(2)}</div>
+          <div className="text-4xl font-bold text-green-600">
+            ${totalValue.toFixed(2)}
+          </div>
         </div>
       )}
 

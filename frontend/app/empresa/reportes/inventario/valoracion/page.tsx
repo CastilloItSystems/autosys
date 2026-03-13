@@ -5,7 +5,7 @@ import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getStockValueReport } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const StockValuePage = () => {
   const toast = useRef<Toast>(null);
@@ -23,9 +23,9 @@ const StockValuePage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getStockValueReport(page, rows);
+      const response = await reportService.getStockValue(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
       setTotalValue(response.summary?.totalInventoryValue || 0);
     } catch (error) {
       console.error("Error loading stock value report:", error);

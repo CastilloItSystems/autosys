@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ============================================
 // PRICING INTERFACES
@@ -87,31 +88,17 @@ export interface Item {
 }
 
 // ============================================
-// RESPONSE INTERFACES
-// ============================================
-export interface ItemsResponse {
-  success: boolean;
-  message: string;
-  data: Item[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-  timestamp: string;
-}
-
-interface ItemResponse {
-  success: boolean;
-  message: string;
-  data: Item;
-  timestamp: string;
-}
-
-// ============================================
 // REQUEST DTOs
 // ============================================
+export interface GetItemParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  brandId?: string;
+  categoryId?: string;
+  isActive?: boolean;
+}
+
 export interface CreateItemRequest {
   code: string;
   name: string;
@@ -182,53 +169,41 @@ export interface UpdateItemRequest {
   images?: IItemImage[];
 }
 
-// Métodos estándar
+// ============================================
+// SERVICE
+// ============================================
+const BASE_ROUTE = "/inventory/items";
+
 const itemService = {
   // GET - Lista con paginación
-  getAll: async (
-    page = 1,
-    limit = 10,
-    search?: string,
-    brandId?: string,
-    categoryId?: string,
-    isActive?: boolean,
-  ): Promise<ItemsResponse> => {
-    const params = new URLSearchParams({
-      page: String(page),
-      limit: String(limit),
-    });
-    if (search) params.append("search", search);
-    if (brandId) params.append("brandId", brandId);
-    if (categoryId) params.append("categoryId", categoryId);
-    if (isActive !== undefined) params.append("isActive", String(isActive));
-
-    const response = await apiClient.get(`/inventory/items?${params}`);
+  getAll: async (params?: GetItemParams): Promise<PaginatedResponse<Item>> => {
+    const response = await apiClient.get(BASE_ROUTE, { params });
     return response.data;
   },
 
   // GET - Solo activos
-  getActive: async (): Promise<ItemsResponse> => {
-    const response = await apiClient.get("/inventory/items/active");
+  getActive: async (): Promise<ApiResponse<Item[]>> => {
+    const response = await apiClient.get(`${BASE_ROUTE}/active`);
     return response.data;
   },
 
   // GET - Búsqueda
-  search: async (query: string): Promise<ItemsResponse> => {
-    const response = await apiClient.get(
-      `/inventory/items/search?term=${encodeURIComponent(query)}`,
-    );
+  search: async (query: string): Promise<ApiResponse<Item[]>> => {
+    const response = await apiClient.get(`${BASE_ROUTE}/search`, {
+      params: { term: query },
+    });
     return response.data;
   },
 
   // GET - Por ID
-  getById: async (id: string): Promise<ItemResponse> => {
-    const response = await apiClient.get(`/inventory/items/${id}`);
+  getById: async (id: string): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.get(`${BASE_ROUTE}/${id}`);
     return response.data;
   },
 
   // POST - Crear
-  create: async (data: CreateItemRequest): Promise<ItemResponse> => {
-    const response = await apiClient.post("/inventory/items", data);
+  create: async (data: CreateItemRequest): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.post(BASE_ROUTE, data);
     return response.data;
   },
 
@@ -236,66 +211,46 @@ const itemService = {
   update: async (
     id: string,
     data: UpdateItemRequest,
-  ): Promise<ItemResponse> => {
-    const response = await apiClient.put(`/inventory/items/${id}`, data);
+  ): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.put(`${BASE_ROUTE}/${id}`, data);
     return response.data;
   },
 
   // PATCH - Toggle activo/inactivo
-  toggleActive: async (id: string): Promise<ItemResponse> => {
-    const response = await apiClient.patch(`/inventory/items/${id}/toggle`);
+  toggleActive: async (id: string): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.patch(`${BASE_ROUTE}/${id}/toggle`);
     return response.data;
   },
 
   // DELETE - Soft delete
-  delete: async (id: string): Promise<ItemResponse> => {
-    const response = await apiClient.delete(`/inventory/items/${id}`);
+  delete: async (id: string): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.delete(`${BASE_ROUTE}/${id}`);
     return response.data;
   },
 
   // DELETE - Hard delete
-  deleteHard: async (id: string): Promise<ItemResponse> => {
-    const response = await apiClient.delete(`/inventory/items/${id}/hard`);
+  deleteHard: async (id: string): Promise<ApiResponse<Item>> => {
+    const response = await apiClient.delete(`${BASE_ROUTE}/${id}/hard`);
     return response.data;
   },
 
   // Query específicas
-  getByCategory: async (categor: string) => {
+  getByCategory: async (categoryId: string): Promise<ApiResponse<Item[]>> => {
     const response = await apiClient.get(
-      `/inventory/items/category/${categor}`,
+      `${BASE_ROUTE}/category/${categoryId}`,
     );
     return response.data;
   },
 
-  getLowStock: async () => {
-    const response = await apiClient.get("/inventory/items/low-stock");
+  getLowStock: async (): Promise<ApiResponse<Item[]>> => {
+    const response = await apiClient.get(`${BASE_ROUTE}/low-stock`);
     return response.data;
   },
 
-  getOutOfStock: async () => {
-    const response = await apiClient.get("/inventory/items/out-of-stock");
+  getOutOfStock: async (): Promise<ApiResponse<Item[]>> => {
+    const response = await apiClient.get(`${BASE_ROUTE}/out-of-stock`);
     return response.data;
   },
 };
 
 export default itemService;
-
-// Export individual functions for backward compatibility
-export const createItem = (data: CreateItemRequest) => itemService.create(data);
-export const updateItem = (id: string, data: UpdateItemRequest) =>
-  itemService.update(id, data);
-export const deleteItem = (id: string) => itemService.delete(id);
-export const getItems = (
-  page = 1,
-  limit = 10,
-  search?: string,
-  brandId?: string,
-  categoryId?: string,
-  isActive?: boolean,
-) => itemService.getAll(page, limit, search, brandId, categoryId, isActive);
-export const getActiveItems = () => itemService.getActive();
-export const searchItems = (query: string) => itemService.search(query);
-export const getItemsByCategory = (categoryId: string) =>
-  itemService.getByCategory(categoryId);
-export const getLowStockItems = () => itemService.getLowStock();
-export const getOutOfStockItems = () => itemService.getOutOfStock();

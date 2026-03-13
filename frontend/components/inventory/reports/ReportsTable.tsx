@@ -1,17 +1,18 @@
-'use client';
+"use client";
 
-import { useState, useRef, ReactNode } from 'react';
-import { DataTable, DataTablePageEvent } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { Button } from 'primereact/button';
-import { Dropdown } from 'primereact/dropdown';
-import { Calendar } from 'primereact/calendar';
-import { Card } from 'primereact/card';
-import { Toolbar } from 'primereact/toolbar';
-import { Toast } from 'primereact/toast';
-import { InputText } from 'primereact/inputtext';
-import { ReportFormat, downloadReport } from '@/app/api/inventory/reportService';
-import { format as formatDate } from 'date-fns';
+import { useState, useRef, ReactNode } from "react";
+import { DataTable, DataTablePageEvent } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Button } from "primereact/button";
+import { Dropdown } from "primereact/dropdown";
+import { Calendar } from "primereact/calendar";
+import { Card } from "primereact/card";
+import { Toolbar } from "primereact/toolbar";
+import { Toast } from "primereact/toast";
+import { InputText } from "primereact/inputtext";
+import { ReportFormat } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
+import { format as formatDate } from "date-fns";
 
 // ============================================================================
 // TYPES
@@ -31,7 +32,13 @@ interface ReportsTableProps {
   totalRecords: number;
   page: number;
   rows: number;
-  reportType: 'stock-value' | 'movements' | 'abc' | 'turnover' | 'low-stock' | 'dead-stock';
+  reportType:
+    | "stock-value"
+    | "movements"
+    | "abc"
+    | "turnover"
+    | "low-stock"
+    | "dead-stock";
   onPageChange: (e: DataTablePageEvent) => void;
   filters?: {
     search?: string;
@@ -81,10 +88,10 @@ const ReportsTable = ({
       const exportFilters: Record<string, any> = {};
 
       if (filters.dateFrom) {
-        exportFilters.dateFrom = formatDate(filters.dateFrom, 'yyyy-MM-dd');
+        exportFilters.dateFrom = formatDate(filters.dateFrom, "yyyy-MM-dd");
       }
       if (filters.dateTo) {
-        exportFilters.dateTo = formatDate(filters.dateTo, 'yyyy-MM-dd');
+        exportFilters.dateTo = formatDate(filters.dateTo, "yyyy-MM-dd");
       }
       if (filters.warehouseId) {
         exportFilters.warehouseId = filters.warehouseId;
@@ -99,19 +106,19 @@ const ReportsTable = ({
         exportFilters.classification = filters.classification;
       }
 
-      await downloadReport(reportType, format, exportFilters);
+      await reportService.download(reportType, format, exportFilters);
 
       toast.current?.show({
-        severity: 'success',
-        summary: 'Éxito',
+        severity: "success",
+        summary: "Éxito",
         detail: `Reporte exportado a ${format.toUpperCase()}`,
         life: 3000,
       });
     } catch (error) {
-      console.error('Export error:', error);
+      console.error("Export error:", error);
       toast.current?.show({
-        severity: 'error',
-        summary: 'Error',
+        severity: "error",
+        summary: "Error",
         detail: `No se pudo exportar a ${format.toUpperCase()}`,
         life: 3000,
       });
@@ -130,11 +137,11 @@ const ReportsTable = ({
               <label className="text-sm font-medium">Búsqueda</label>
               <InputText
                 placeholder="Buscar..."
-                value={filters.search || ''}
+                value={filters.search || ""}
                 onChange={(e) =>
                   onFiltersChange?.({ ...filters, search: e.target.value })
                 }
-                style={{ width: '12rem' }}
+                style={{ width: "12rem" }}
               />
             </div>
           )}
@@ -150,7 +157,7 @@ const ReportsTable = ({
                   }
                   dateFormat="dd/mm/yy"
                   showIcon
-                  style={{ width: '12rem' }}
+                  style={{ width: "12rem" }}
                 />
               </div>
 
@@ -163,7 +170,7 @@ const ReportsTable = ({
                   }
                   dateFormat="dd/mm/yy"
                   showIcon
-                  style={{ width: '12rem' }}
+                  style={{ width: "12rem" }}
                 />
               </div>
             </>
@@ -173,13 +180,16 @@ const ReportsTable = ({
             <div className="flex flex-column gap-1">
               <label className="text-sm font-medium">Almacén</label>
               <Dropdown
-                options={[{ label: 'Todos', value: '' }, ...warehouses.map((w) => ({ label: w.name, value: w.id }))]}
-                value={filters.warehouseId || ''}
+                options={[
+                  { label: "Todos", value: "" },
+                  ...warehouses.map((w) => ({ label: w.name, value: w.id })),
+                ]}
+                value={filters.warehouseId || ""}
                 onChange={(e) =>
                   onFiltersChange?.({ ...filters, warehouseId: e.value })
                 }
                 placeholder="Seleccionar almacén"
-                style={{ width: '12rem' }}
+                style={{ width: "12rem" }}
               />
             </div>
           )}
@@ -252,7 +262,7 @@ const ReportsTable = ({
               field={col.field}
               header={col.header}
               body={col.body}
-              style={{ width: col.width || 'auto' }}
+              style={{ width: col.width || "auto" }}
               sortable={col.sortable !== false}
             />
           ))}

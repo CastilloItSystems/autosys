@@ -1,4 +1,5 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 // ============================================================================
 // ENUMS
@@ -51,21 +52,6 @@ export interface Loan {
   createdBy: string;
   createdAt: Date;
   updatedAt: Date;
-}
-
-export interface LoansResponse {
-  success: boolean;
-  data: Loan[];
-  pagination: {
-    page: number;
-    limit: number;
-    total: number;
-  };
-}
-
-export interface LoanResponse {
-  success: boolean;
-  data: Loan;
 }
 
 export interface CreateLoanInput {
@@ -144,16 +130,11 @@ export const LOAN_STATUS_CONFIG = {
 };
 
 // ============================================================================
-// SERVICE CLASS
+// SERVICE
 // ============================================================================
 
-class LoanService {
-  private baseUrl = "/inventory/loans";
-
-  /**
-   * Get all loans with pagination and filters
-   */
-  async getLoans(
+const loanService = {
+  async getAll(
     page: number = 1,
     limit: number = 20,
     filters?: {
@@ -161,168 +142,136 @@ class LoanService {
       borrowerName?: string;
       warehouseId?: string;
     },
-  ): Promise<LoansResponse> {
+  ): Promise<PaginatedResponse<Loan>> {
     try {
-      const params = new URLSearchParams({
-        page: String(page),
-        limit: String(limit),
-      });
-
-      if (filters?.status) params.append("status", filters.status);
-      if (filters?.borrowerName)
-        params.append("borrowerName", filters.borrowerName);
-      if (filters?.warehouseId)
-        params.append("warehouseId", filters.warehouseId);
-
-      const response = await apiClient.get<LoansResponse>(
-        `${this.baseUrl}?${params.toString()}`,
+      const res = await apiClient.get<PaginatedResponse<Loan>>(
+        "/inventory/loans",
+        {
+          params: {
+            page,
+            limit,
+            status: filters?.status,
+            borrowerName: filters?.borrowerName,
+            warehouseId: filters?.warehouseId,
+          },
+        },
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error("Error fetching loans:", error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Get a single loan by ID
-   */
-  async getLoanById(id: string): Promise<LoanResponse> {
+  async getById(id: string): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.get<LoanResponse>(
-        `${this.baseUrl}/${id}`,
+      const res = await apiClient.get<ApiResponse<Loan>>(
+        `/inventory/loans/${id}`,
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error fetching loan ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Create a new loan
-   */
-  async createLoan(input: CreateLoanInput): Promise<LoanResponse> {
+  async create(input: CreateLoanInput): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.post<LoanResponse>(this.baseUrl, {
+      const res = await apiClient.post<ApiResponse<Loan>>("/inventory/loans", {
         ...input,
         startDate: new Date(input.startDate),
         dueDate: new Date(input.dueDate),
       });
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error("Error creating loan:", error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Update an existing loan
-   */
-  async updateLoan(id: string, input: UpdateLoanInput): Promise<LoanResponse> {
+  async update(id: string, input: UpdateLoanInput): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.put<LoanResponse>(
-        `${this.baseUrl}/${id}`,
+      const res = await apiClient.put<ApiResponse<Loan>>(
+        `/inventory/loans/${id}`,
         {
           ...input,
           ...(input.startDate && { startDate: new Date(input.startDate) }),
           ...(input.dueDate && { dueDate: new Date(input.dueDate) }),
         },
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error updating loan ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Approve a draft loan
-   */
-  async approveLoan(id: string): Promise<LoanResponse> {
+  async approve(id: string): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.patch<LoanResponse>(
-        `${this.baseUrl}/${id}/approve`,
+      const res = await apiClient.patch<ApiResponse<Loan>>(
+        `/inventory/loans/${id}/approve`,
         {},
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error approving loan ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Activate an approved loan
-   */
-  async activateLoan(id: string): Promise<LoanResponse> {
+  async activate(id: string): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.patch<LoanResponse>(
-        `${this.baseUrl}/${id}/activate`,
+      const res = await apiClient.patch<ApiResponse<Loan>>(
+        `/inventory/loans/${id}/activate`,
         {},
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error activating loan ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Return items from a loan
-   */
-  async returnLoanItems(
+  async returnItems(
     id: string,
     input: ReturnItemsInput,
-  ): Promise<LoanResponse> {
+  ): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.patch<LoanResponse>(
-        `${this.baseUrl}/${id}/return`,
+      const res = await apiClient.patch<ApiResponse<Loan>>(
+        `/inventory/loans/${id}/return`,
         input,
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error returning loan items for ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Cancel a loan
-   */
-  async cancelLoan(id: string, reason?: string): Promise<LoanResponse> {
+  async cancel(id: string, reason?: string): Promise<ApiResponse<Loan>> {
     try {
-      const response = await apiClient.patch<LoanResponse>(
-        `${this.baseUrl}/${id}/cancel`,
+      const res = await apiClient.patch<ApiResponse<Loan>>(
+        `/inventory/loans/${id}/cancel`,
         { reason },
       );
-      return response.data;
+      return res.data;
     } catch (error) {
       console.error(`Error cancelling loan ${id}:`, error);
       throw error;
     }
-  }
+  },
 
-  /**
-   * Get loans by borrower name (search)
-   */
-  async getLoansByBorrower(borrowerName: string): Promise<LoansResponse> {
-    return this.getLoans(1, 50, { borrowerName });
-  }
+  async getByBorrower(borrowerName: string): Promise<PaginatedResponse<Loan>> {
+    return this.getAll(1, 50, { borrowerName });
+  },
 
-  /**
-   * Get loans by warehouse
-   */
-  async getLoansByWarehouse(warehouseId: string): Promise<LoansResponse> {
-    return this.getLoans(1, 50, { warehouseId });
-  }
+  async getByWarehouse(warehouseId: string): Promise<PaginatedResponse<Loan>> {
+    return this.getAll(1, 50, { warehouseId });
+  },
 
-  /**
-   * Get loans by status
-   */
-  async getLoansByStatus(status: LoanStatus): Promise<LoansResponse> {
-    return this.getLoans(1, 50, { status });
-  }
-}
+  async getByStatus(status: LoanStatus): Promise<PaginatedResponse<Loan>> {
+    return this.getAll(1, 50, { status });
+  },
+};
 
-export default new LoanService();
+export default loanService;

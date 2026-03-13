@@ -1,6 +1,7 @@
 // ===== INTERFACES =====
 
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 export interface IItemImage {
   id: string;
@@ -30,153 +31,116 @@ export interface IImageUpdateRequest {
   order?: number;
 }
 
-// ===== IMAGE FUNCTIONS =====
+// Eliminar IImageUploadResponse - usar ApiResponse<IItemImage[]> en su lugar
 
-/**
- * Upload multiple images for an item
- */
-export const uploadImages = async (
-  itemId: string,
-  files: File[],
-): Promise<IImageUploadResponse[]> => {
-  const formData = new FormData();
-  formData.append("itemId", itemId);
+// ===== Service =====
 
-  files.forEach((file) => {
-    formData.append("images", file);
-  });
+const imageUploadService = {
+  async upload(
+    itemId: string,
+    files: File[],
+  ): Promise<ApiResponse<IItemImage[]>> {
+    const formData = new FormData();
+    formData.append("itemId", itemId);
 
-  const response = await apiClient.post<IImageUploadResponse[]>(
-    "/api/inventory/items/images/upload",
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+
+    const response = await apiClient.post<ApiResponse<IItemImage[]>>(
+      "/api/inventory/items/images/upload",
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
       },
-    },
-  );
+    );
 
-  return response.data;
+    return response.data;
+  },
+
+  async getByItem(itemId: string): Promise<ApiResponse<IItemImage[]>> {
+    const response = await apiClient.get<ApiResponse<IItemImage[]>>(
+      `/api/inventory/items/images/item/${itemId}`,
+    );
+    return response.data;
+  },
+
+  async getById(id: string): Promise<ApiResponse<IItemImage>> {
+    const response = await apiClient.get<ApiResponse<IItemImage>>(
+      `/api/inventory/items/images/${id}`,
+    );
+    return response.data;
+  },
+
+  async update(
+    id: string,
+    data: IImageUpdateRequest,
+  ): Promise<ApiResponse<IItemImage>> {
+    const response = await apiClient.put<ApiResponse<IItemImage>>(
+      `/api/inventory/items/images/${id}`,
+      data,
+    );
+    return response.data;
+  },
+
+  async setPrimary(id: string): Promise<ApiResponse<IItemImage>> {
+    const response = await apiClient.patch<ApiResponse<IItemImage>>(
+      `/api/inventory/items/images/${id}/primary`,
+      {},
+    );
+    return response.data;
+  },
+
+  async delete(id: string): Promise<void> {
+    await apiClient.delete(`/api/inventory/items/images/${id}`);
+  },
+
+  async getAll(
+    page = 1,
+    limit = 10,
+    itemId?: string,
+  ): Promise<PaginatedResponse<IItemImage>> {
+    const response = await apiClient.get<PaginatedResponse<IItemImage>>(
+      "/api/inventory/items/images",
+      {
+        params: {
+          page,
+          limit,
+          itemId,
+        },
+      },
+    );
+    return response.data;
+  },
+
+  async reorder(images: Array<{ id: string; order: number }>): Promise<void> {
+    await Promise.all(
+      images.map((img) => this.update(img.id, { order: img.order })),
+    );
+  },
+
+  validate(file: File): { valid: boolean; error?: string } {
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
+    const maxSize = 5 * 1024 * 1024; // 5MB
+
+    if (!allowedTypes.includes(file.type)) {
+      return {
+        valid: false,
+        error: "Archivo no permitido. Solo se aceptan JPEG, PNG o WebP",
+      };
+    }
+
+    if (file.size > maxSize) {
+      return {
+        valid: false,
+        error: "Archivo muy grande. Máximo 5MB",
+      };
+    }
+
+    return { valid: true };
+  },
 };
 
-/**
- * Get images for an item
- */
-export const getItemImages = async (itemId: string): Promise<IItemImage[]> => {
-  const response = await apiClient.get<IItemImage[]>(
-    `/api/inventory/items/images/item/${itemId}`,
-  );
-  return response.data;
-};
-
-/**
- * Get image by ID
- */
-export const getImageById = async (id: string): Promise<IItemImage> => {
-  const response = await apiClient.get<IItemImage>(
-    `/api/inventory/items/images/${id}`,
-  );
-  return response.data;
-};
-
-/**
- * Update image details
- */
-export const updateImage = async (
-  id: string,
-  data: IImageUpdateRequest,
-): Promise<IItemImage> => {
-  const response = await apiClient.put<IItemImage>(
-    `/api/inventory/items/images/${id}`,
-    data,
-  );
-  return response.data;
-};
-
-/**
- * Set image as primary
- */
-export const setPrimaryImage = async (id: string): Promise<IItemImage> => {
-  const response = await apiClient.patch<IItemImage>(
-    `/api/inventory/items/images/${id}/primary`,
-    {},
-  );
-  return response.data;
-};
-
-/**
- * Delete image
- */
-export const deleteImage = async (id: string): Promise<void> => {
-  await apiClient.delete(`/api/inventory/items/images/${id}`);
-};
-
-/**
- * Get all images with pagination
- */
-export const getAllImages = async (
-  page = 1,
-  limit = 10,
-  itemId?: string,
-): Promise<{ data: IItemImage[]; total: number }> => {
-  const response = await apiClient.get<any>("/api/inventory/items/images", {
-    params: {
-      page,
-      limit,
-      itemId,
-    },
-  });
-  return {
-    data: response.data.data || [],
-    total: response.data.total || 0,
-  };
-};
-
-/**
- * Reorder images by updating order field
- */
-export const reorderImages = async (
-  images: Array<{ id: string; order: number }>,
-): Promise<void> => {
-  await Promise.all(
-    images.map((img) => updateImage(img.id, { order: img.order })),
-  );
-};
-
-/**
- * Validate image file before upload
- */
-export const validateImageFile = (
-  file: File,
-): { valid: boolean; error?: string } => {
-  const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
-  const maxSize = 5 * 1024 * 1024; // 5MB
-
-  if (!allowedTypes.includes(file.type)) {
-    return {
-      valid: false,
-      error: "Archivo no permitido. Solo se aceptan JPEG, PNG o WebP",
-    };
-  }
-
-  if (file.size > maxSize) {
-    return {
-      valid: false,
-      error: "Archivo muy grande. Máximo 5MB",
-    };
-  }
-
-  return { valid: true };
-};
-
-export default {
-  uploadImages,
-  getItemImages,
-  getImageById,
-  updateImage,
-  setPrimaryImage,
-  deleteImage,
-  getAllImages,
-  reorderImages,
-  validateImageFile,
-};
+export default imageUploadService;

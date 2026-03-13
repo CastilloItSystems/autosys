@@ -8,12 +8,8 @@ import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
-import {
-  getSuppliers,
-  getActiveSuppliers,
-  deleteSupplier,
-  toggleSupplier,
-  Supplier,
+import supplierService, {
+  type Supplier,
 } from "@/app/api/inventory/supplierService";
 import SupplierForm from "./SupplierForm";
 import CreateButton from "@/components/common/CreateButton";
@@ -49,9 +45,13 @@ export default function SupplierList() {
       let response: any;
 
       if (showActive) {
-        response = await getActiveSuppliers();
+        response = await supplierService.getActive();
       } else {
-        response = await getSuppliers(page + 1, rows, searchQuery || undefined);
+        response = await supplierService.getAll({
+          page: page + 1,
+          limit: rows,
+          name: searchQuery || undefined,
+        });
       }
 
       // Estructura consistente en todos los endpoints
@@ -107,7 +107,7 @@ export default function SupplierList() {
     if (!selectedSupplier?.id) return;
 
     try {
-      await deleteSupplier(selectedSupplier.id);
+      await supplierService.delete(selectedSupplier.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -129,7 +129,7 @@ export default function SupplierList() {
 
   const handleToggleSupplier = async (supplier: Supplier) => {
     try {
-      await toggleSupplier(supplier.id);
+      await supplierService.toggle(supplier.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",

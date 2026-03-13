@@ -38,14 +38,12 @@ const ItemList = () => {
   const loadItems = async () => {
     try {
       setLoading(true);
-      const response = await itemService.getAll(
-        page + 1,
-        rows,
-        searchQuery || undefined,
-        undefined,
-        undefined,
-        showActive,
-      );
+      const response = await itemService.getAll({
+        page: page + 1,
+        limit: rows,
+        search: searchQuery || undefined,
+        isActive: showActive,
+      });
 
       const itemsData = response.data || [];
       const total = response.meta?.total || 0;
@@ -395,9 +393,8 @@ const ItemList = () => {
         onHide={() => setFormDialog(false)}
       >
         <ItemForm
-          item={selectedItem}
+          model={selectedItem}
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
           toast={toast}
         />
       </Dialog>

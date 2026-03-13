@@ -5,7 +5,7 @@ import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getDeadStockReport } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const DeadStockPage = () => {
   const toast = useRef<Toast>(null);
@@ -22,9 +22,9 @@ const DeadStockPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await getDeadStockReport(page, rows);
+      const response = await reportService.getDeadStock(page, rows);
       setItems(response.data);
-      setTotalRecords(response.pagination.total);
+      setTotalRecords(response.meta.total);
     } catch (error) {
       console.error("Error loading dead stock items:", error);
       toast.current?.show({

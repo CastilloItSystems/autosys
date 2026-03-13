@@ -13,20 +13,11 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 import { Calendar } from "primereact/calendar";
 
-import {
-  getCycleCounts,
-  getCycleCount,
-  startCycleCount,
-  completeCycleCount,
-  approveCycleCount,
-  applyCycleCount,
-  rejectCycleCount,
-  cancelCycleCount,
+import cycleCountService, {
   CycleCount,
   CycleCountStatus,
 } from "../../../app/api/inventory/cycleCountService";
-import {
-  getActiveWarehouses,
+import warehouseService, {
   Warehouse,
 } from "../../../app/api/inventory/warehouseService";
 import {
@@ -66,7 +57,7 @@ export default function CycleCountList() {
   useEffect(() => {
     (async () => {
       try {
-        const response = await getActiveWarehouses();
+        const response = await warehouseService.getActive();
         setWarehouses(response.data || []);
       } catch {
         toast.current?.show({
@@ -92,10 +83,14 @@ export default function CycleCountList() {
       if (warehouseFilter) filters.warehouseId = warehouseFilter;
       if (searchQuery) filters.search = searchQuery;
 
-      const response = await getCycleCounts(page + 1, rows, filters);
+      const response = await cycleCountService.getAll({
+        page: page + 1,
+        limit: rows,
+        ...filters,
+      });
 
       const data = response.data || [];
-      const total = response.pagination?.total || 0;
+      const total = response.meta?.total || 0;
 
       setCycleCounts(Array.isArray(data) ? data : []);
       setTotalRecords(total);
@@ -124,7 +119,7 @@ export default function CycleCountList() {
     // Verificar varianza alta antes de aprobar
     if (action === "approve") {
       try {
-        const fullData = await getCycleCount(cycleCountId);
+        const fullData = await cycleCountService.getById(cycleCountId);
         // @ts-ignore
         const cycleCount = fullData.data || fullData;
 
@@ -157,22 +152,25 @@ export default function CycleCountList() {
           const userId = session?.user?.id || "SYSTEM";
           switch (action) {
             case "start":
-              await startCycleCount(cycleCountId, userId);
+              await cycleCountService.start(cycleCountId, userId);
               break;
             case "complete":
-              await completeCycleCount(cycleCountId, userId);
+              await cycleCountService.complete(cycleCountId, userId);
               break;
             case "approve":
-              await approveCycleCount(cycleCountId, userId);
+              await cycleCountService.approve(cycleCountId, userId);
               break;
             case "apply":
-              await applyCycleCount(cycleCountId, userId);
+              await cycleCountService.apply(cycleCountId, userId);
               break;
             case "reject":
-              await rejectCycleCount(cycleCountId, "Rechazado por usuario");
+              await cycleCountService.reject(
+                cycleCountId,
+                "Rechazado por usuario",
+              );
               break;
             case "cancel":
-              await cancelCycleCount(cycleCountId);
+              await cycleCountService.cancel(cycleCountId);
               break;
           }
           toast.current?.show({
@@ -221,7 +219,7 @@ export default function CycleCountList() {
             setSelectedCycleCount(rowData);
             setShowDetail(true);
             try {
-              const fullData = await getCycleCount(rowData.id);
+              const fullData = await cycleCountService.getById(rowData.id);
               // @ts-ignore - The response structure might be directly the object or { data: object } depending on interceptors
               const cycleCountData = fullData.data || fullData;
               setSelectedCycleCount(cycleCountData);

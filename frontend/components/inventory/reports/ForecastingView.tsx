@@ -11,11 +11,7 @@ import { Toast } from 'primereact/toast';
 import { AutoComplete, AutoCompleteCompleteEvent } from 'primereact/autocomplete';
 import { Divider } from 'primereact/divider';
 import { motion } from 'framer-motion';
-import {
-  getAllForecasts,
-  getForecastByItem,
-  ForecastData,
-} from '@/app/api/inventory/analyticsService';
+import analyticsService, { ForecastData } from '@/app/api/inventory/analyticsService';
 import { LayoutContext } from '@/layout/context/layoutcontext';
 
 const ForecastingView = () => {
@@ -46,7 +42,7 @@ const ForecastingView = () => {
   const loadForecasts = async () => {
     setLoading(true);
     try {
-      const response = await getAllForecasts(page, rows);
+      const response = await analyticsService.getAllForecasts({ page, limit: rows });
       setItems(response.data);
       setTotalRecords(response.pagination.total);
     } catch (error) {
@@ -57,14 +53,9 @@ const ForecastingView = () => {
         detail: 'No se pudieron cargar los pronósticos',
         life: 3000,
       });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadDetailedForecast = async (itemId: string) => {
     try {
-      const forecast = await getForecastByItem(itemId);
+      const forecast = await analyticsService.getForecastByItem(itemId);
       setDetailedMetrics(forecast);
     } catch (error) {
       console.error('Error loading detailed forecast:', error);
