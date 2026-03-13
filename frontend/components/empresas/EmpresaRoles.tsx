@@ -9,6 +9,7 @@ import { InputText } from "primereact/inputtext";
 import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Toast } from "primereact/toast";
+import CreateButton from "../common/CreateButton";
 import {
   getCompanyRoles,
   createCompanyRole,
@@ -451,13 +452,19 @@ const EmpresaRoles = ({
 
   const dialogFooter =
     viewMode === "list" ? (
-      <Button label="Cerrar" icon="pi pi-times" text onClick={onHide} />
+      <Button
+        label="Cerrar"
+        icon="pi pi-times"
+        severity="secondary"
+        onClick={onHide}
+        className="mb-4"
+      />
     ) : (
-      <div className="flex justify-content-end gap-2">
+      <div className="flex justify-content-end gap-2 mb-4">
         <Button
           label="Cancelar"
           icon="pi pi-times"
-          text
+          severity="secondary"
           onClick={() => setViewMode("list")}
           disabled={saving}
         />
@@ -498,11 +505,10 @@ const EmpresaRoles = ({
               <span className="text-500 text-sm">
                 {roles.length} rol(es) configurados para esta empresa
               </span>
-              <Button
+              <CreateButton
                 label="Nuevo Rol"
-                icon="pi pi-plus"
                 onClick={openCreate}
-                size="small"
+                tooltip="Agregar Nuevo Rol"
               />
             </div>
 

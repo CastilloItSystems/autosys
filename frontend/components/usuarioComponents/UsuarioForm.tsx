@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { InputText } from "primereact/inputtext";
-import { Button } from "primereact/button";
+import { Password } from "primereact/password";
 import { Dropdown } from "primereact/dropdown";
+import { MultiSelect } from "primereact/multiselect";
 import { classNames } from "primereact/utils";
 import PhoneInput from "../common/PhoneInput";
 
@@ -17,24 +18,64 @@ import {
   UpdateUserRequest,
   User,
 } from "@/app/api/userService";
+import { handleFormError } from "@/utils/errorHandlers";
+import {
+  PasswordRequirements,
+  passwordValidator,
+  optionalPasswordValidator,
+} from "./PasswordRequirements";
 
-const usuarioSchema = z.object({
+const baseUsuarioSchema = {
   nombre: z.string().min(1, "El nombre es requerido"),
   correo: z.string().email("Correo inválido"),
   telefono: z.string().optional().or(z.literal("")),
-  departamento: z.string().min(1, "El departamento es requerido"),
+  departamento: z
+    .array(z.string())
+    .min(1, "Seleccione al menos un departamento"),
   acceso: z.enum(["completo", "limitado", "ninguno"]),
   estado: z.enum(["activo", "pendiente", "suspendido"]),
-  password: z.string().optional(),
-});
+};
 
-type FormData = z.infer<typeof usuarioSchema>;
+const createUserSchema = z
+  .object({
+    ...baseUsuarioSchema,
+    password: passwordValidator,
+    confirmPassword: z.string(),
+  })
+  .refine((data) => data.password === data.confirmPassword, {
+    message: "Las contraseñas no coinciden",
+    path: ["confirmPassword"],
+  });
+
+const updateUserSchema = z
+  .object({
+    ...baseUsuarioSchema,
+    password: optionalPasswordValidator,
+    confirmPassword: z.string().optional(),
+  })
+  .refine(
+    (data) => {
+      // Solo validamos coincidencia si se ingresó algo en la contraseña
+      if (data.password) {
+        return data.password === data.confirmPassword;
+      }
+      return true;
+    },
+    {
+      message: "Las contraseñas no coinciden",
+      path: ["confirmPassword"],
+    },
+  );
+
+type FormData = z.infer<typeof createUserSchema> &
+  z.infer<typeof updateUserSchema>;
 
 interface UsuarioFormProps {
   usuario?: User | null;
-  onSave: () => void;
-  onCancel: () => void;
+  onSave: () => void | Promise<void>;
   toast: React.RefObject<any>;
+  formId?: string; // Permite inyectar un ID dinámico al form para conectarlo con botones externos
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 const estatusValues = [
@@ -49,12 +90,23 @@ const accesoValues = [
   { label: "Ninguno", value: "ninguno" },
 ];
 
+const departamentoValues = [
+  { label: "Ventas", value: "ventas" },
+  { label: "Inventario", value: "inventario" },
+  { label: "Administración", value: "administracion" },
+  { label: "Servicios", value: "servicios" },
+  { label: "Gerencia", value: "gerencia" },
+];
+
 const UsuarioForm = ({
   usuario,
   onSave,
-  onCancel,
   toast,
+  formId = "usuario-form",
+  onSubmittingChange,
 }: UsuarioFormProps) => {
+  const currentSchema = usuario ? updateUserSchema : createUserSchema;
+
   const {
     register,
     handleSubmit,
@@ -62,16 +114,19 @@ const UsuarioForm = ({
     setValue,
     reset,
     control,
+    watch,
   } = useForm<FormData>({
-    resolver: zodResolver(usuarioSchema),
+    resolver: zodResolver(currentSchema),
+    mode: "onBlur",
     defaultValues: {
       nombre: "",
       correo: "",
       telefono: "",
-      departamento: "",
+      departamento: [],
       acceso: "ninguno",
       estado: "activo",
       password: "",
+      confirmPassword: "",
     },
   });
 
@@ -81,30 +136,30 @@ const UsuarioForm = ({
         nombre: usuario.nombre ?? "",
         correo: usuario.correo ?? "",
         telefono: usuario.telefono ?? "",
-        departamento: usuario.departamento?.join(", ") ?? "",
+        departamento: usuario.departamento ?? [],
         acceso: usuario.acceso,
         estado: usuario.estado,
         password: "",
+        confirmPassword: "",
       });
     } else {
       reset({
         nombre: "",
         correo: "",
         telefono: "",
-        departamento: "",
+        departamento: [],
         acceso: "ninguno",
         estado: "activo",
         password: "",
+        confirmPassword: "",
       });
     }
   }, [usuario, reset]);
 
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
-      const departamentoArray = data.departamento
-        .split(",")
-        .map((item) => item.trim())
-        .filter(Boolean);
+      const departamentoArray = data.departamento;
 
       if (usuario?.id) {
         const payload: UpdateUserRequest = {
@@ -126,17 +181,6 @@ const UsuarioForm = ({
           life: 3000,
         });
       } else {
-        if (!data.password || data.password.trim().length < 6) {
-          toast.current?.show({
-            severity: "warn",
-            summary: "Validación",
-            detail:
-              "La contraseña es obligatoria y debe tener al menos 6 caracteres",
-            life: 3000,
-          });
-          return;
-        }
-
         const payload: CreateUserRequest = {
           nombre: data.nombre,
           correo: data.correo,
@@ -144,7 +188,7 @@ const UsuarioForm = ({
           departamento: departamentoArray,
           acceso: data.acceso,
           estado: data.estado,
-          password: data.password,
+          password: data.password!, // Validado por createUserSchema
         };
 
         await createUser(payload);
@@ -157,54 +201,68 @@ const UsuarioForm = ({
         });
       }
 
-      onSave();
+      await onSave();
     } catch (error) {
-      console.error("Error guardando usuario:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudo guardar el usuario",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       <div className="grid">
         {/* Nombre */}
         <div className="col-12 md:col-6">
-          <label htmlFor="nombre" className="block font-medium mb-2">
-            Nombre
+          <label htmlFor="nombre" className="block text-900 font-medium mb-2">
+            Nombre <span className="text-red-500">*</span>
           </label>
-          <InputText
-            id="nombre"
-            {...register("nombre")}
-            className={classNames({ "p-invalid": errors.nombre })}
+          <Controller
+            name="nombre"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="nombre"
+                {...field}
+                className={classNames("w-full", { "p-invalid": errors.nombre })}
+                placeholder="Ej: Juan Pérez"
+              />
+            )}
           />
           {errors.nombre && (
-            <small className="p-error">{errors.nombre.message}</small>
+            <small className="p-error block mt-1">
+              {errors.nombre.message}
+            </small>
           )}
         </div>
 
         {/* Correo */}
         <div className="col-12 md:col-6">
-          <label htmlFor="correo" className="block font-medium mb-2">
-            Correo
+          <label htmlFor="correo" className="block text-900 font-medium mb-2">
+            Correo <span className="text-red-500">*</span>
           </label>
-          <InputText
-            id="correo"
-            {...register("correo")}
-            className={classNames({ "p-invalid": errors.correo })}
+          <Controller
+            name="correo"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="correo"
+                {...field}
+                className={classNames("w-full", { "p-invalid": errors.correo })}
+                placeholder="Ej: correo@empresa.com"
+              />
+            )}
           />
           {errors.correo && (
-            <small className="p-error">{errors.correo.message}</small>
+            <small className="p-error block mt-1">
+              {errors.correo.message}
+            </small>
           )}
         </div>
 
         {/* Teléfono */}
         <div className="col-12 md:col-6">
-          <label htmlFor="telefono" className="block font-medium mb-2">
+          <label htmlFor="telefono" className="block text-900 font-medium mb-2">
             Teléfono
           </label>
           <Controller
@@ -214,34 +272,56 @@ const UsuarioForm = ({
               <PhoneInput
                 value={field.value ?? ""}
                 onChange={field.onChange}
-                className={classNames({ "p-invalid": errors.telefono })}
+                className={classNames("w-full", {
+                  "p-invalid": errors.telefono,
+                })}
               />
             )}
           />
           {errors.telefono && (
-            <small className="p-error">{errors.telefono.message}</small>
+            <small className="p-error block mt-1">
+              {errors.telefono.message}
+            </small>
           )}
         </div>
 
         {/* Departamento */}
         <div className="col-12 md:col-6">
-          <label htmlFor="departamento" className="block font-medium mb-2">
-            Departamento
+          <label
+            htmlFor="departamento"
+            className="block text-900 font-medium mb-2"
+          >
+            Departamento <span className="text-red-500">*</span>
           </label>
-          <InputText
-            id="departamento"
-            {...register("departamento")}
-            placeholder="Ej: ventas, inventario"
-            className={classNames({ "p-invalid": errors.departamento })}
+          <Controller
+            name="departamento"
+            control={control}
+            render={({ field }) => (
+              <MultiSelect
+                id="departamento"
+                value={field.value}
+                options={departamentoValues}
+                onChange={(e) => field.onChange(e.value)}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccione departamentos"
+                display="chip"
+                className={classNames("w-full", {
+                  "p-invalid": errors.departamento,
+                })}
+              />
+            )}
           />
           {errors.departamento && (
-            <small className="p-error">{errors.departamento.message}</small>
+            <small className="p-error block mt-1">
+              {errors.departamento.message}
+            </small>
           )}
         </div>
 
         {/* Acceso */}
         <div className="col-12 md:col-6">
-          <label htmlFor="acceso" className="block font-medium mb-2">
+          <label htmlFor="acceso" className="block text-900 font-medium mb-2">
             Acceso
           </label>
           <Controller
@@ -256,18 +336,20 @@ const UsuarioForm = ({
                 optionLabel="label"
                 optionValue="value"
                 placeholder="Seleccione un acceso"
-                className={classNames({ "p-invalid": errors.acceso })}
+                className={classNames("w-full", { "p-invalid": errors.acceso })}
               />
             )}
           />
           {errors.acceso && (
-            <small className="p-error">{errors.acceso.message}</small>
+            <small className="p-error block mt-1">
+              {errors.acceso.message}
+            </small>
           )}
         </div>
 
         {/* Estado */}
         <div className="col-12 md:col-6">
-          <label htmlFor="estado" className="block font-medium mb-2">
+          <label htmlFor="estado" className="block text-900 font-medium mb-2">
             Estado
           </label>
           <Controller
@@ -282,52 +364,91 @@ const UsuarioForm = ({
                 optionLabel="label"
                 optionValue="value"
                 placeholder="Seleccione un estado"
-                className={classNames({ "p-invalid": errors.estado })}
+                className={classNames("w-full", { "p-invalid": errors.estado })}
               />
             )}
           />
           {errors.estado && (
-            <small className="p-error">{errors.estado.message}</small>
-          )}
-        </div>
-
-        {/* Password */}
-        <div className="col-12">
-          <label htmlFor="password" className="block font-medium mb-2">
-            {usuario ? "Nueva contraseña (opcional)" : "Contraseña"}
-          </label>
-          <InputText
-            id="password"
-            type="password"
-            {...register("password")}
-            className={classNames({ "p-invalid": errors.password })}
-          />
-          {errors.password && (
-            <small className="p-error">{errors.password.message}</small>
-          )}
-          {!usuario && (
-            <small className="text-500">
-              La contraseña debe tener al menos 6 caracteres.
+            <small className="p-error block mt-1">
+              {errors.estado.message}
             </small>
           )}
         </div>
 
-        {/* Botones */}
-        <div className="col-12 flex justify-content-end gap-2 mt-4">
-          <Button
-            label="Cancelar"
-            icon="pi pi-times"
-            severity="secondary"
-            onClick={onCancel}
-            type="button"
-            disabled={isSubmitting}
+        {/* Password */}
+        <div className="col-12 md:col-6">
+          <label htmlFor="password" className="block text-900 font-medium mb-2">
+            {usuario ? "Nueva contraseña (opcional)" : "Contraseña"}
+            {!usuario && <span className="text-red-500"> *</span>}
+          </label>
+          <Controller
+            name="password"
+            control={control}
+            render={({ field }) => (
+              <Password
+                id="password"
+                toggleMask
+                feedback={false}
+                className={classNames("w-full", {
+                  "p-invalid": errors.password,
+                })}
+                inputClassName="w-full"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+              />
+            )}
           />
-          <Button
-            label={usuario ? "Actualizar" : "Crear"}
-            icon="pi pi-check"
-            type="submit"
-            loading={isSubmitting}
+          {errors.password && (
+            <small className="p-error block mt-1">
+              {errors.password.message}
+            </small>
+          )}
+        </div>
+
+        {/* Confirmar Password */}
+        <div className="col-12 md:col-6">
+          <label
+            htmlFor="confirmPassword"
+            className="block text-900 font-medium mb-2"
+          >
+            Confirmar contraseña
+            {!usuario && <span className="text-red-500"> *</span>}
+          </label>
+          <Controller
+            name="confirmPassword"
+            control={control}
+            render={({ field }) => (
+              <Password
+                id="confirmPassword"
+                toggleMask
+                feedback={false}
+                className={classNames("w-full", {
+                  "p-invalid": errors.confirmPassword,
+                })}
+                inputClassName="w-full"
+                value={field.value || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+              />
+            )}
           />
+          {errors.confirmPassword && (
+            <small className="p-error block mt-1">
+              {errors.confirmPassword.message}
+            </small>
+          )}
+        </div>
+
+        {/* Requisitos */}
+        <div className="col-12">
+          {(!usuario || watch("password")) && (
+            <PasswordRequirements
+              password={watch("password")}
+              confirmPassword={watch("confirmPassword")}
+              showConfirm={true}
+            />
+          )}
         </div>
       </div>
     </form>

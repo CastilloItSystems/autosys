@@ -58,7 +58,12 @@ const getAll = asyncHandler(async (req: Request, res: Response) => {
 
 const getActive = asyncHandler(async (req: Request, res: Response) => {
   const empresaId = getEmpresaId(req)
-  const models = await modelService.findActive(empresaId, req.prisma)
+  const { type } = req.query
+  const models = await modelService.findActive(
+    empresaId,
+    req.prisma,
+    type as 'VEHICLE' | 'PART' | undefined
+  )
   return ApiResponse.success(
     res,
     models.map((m) => new ModelResponseDTO(m, { includeBrand: true }))

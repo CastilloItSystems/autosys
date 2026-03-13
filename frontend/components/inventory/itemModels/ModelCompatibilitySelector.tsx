@@ -4,10 +4,11 @@ import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
-import * as compatibilityService from "@/app/api/inventory/compatibilityService";
-import * as modelService from "@/app/api/inventory/modelService";
+import modelCompatibilityService, {
+  type ModelCompatibility,
+} from "@/app/api/inventory/compatibilityService";
+import modelsService from "@/app/api/inventory/modelService";
 import type { Model } from "@/app/api/inventory/modelService";
-import type { IModelCompatibility } from "@/app/api/inventory/compatibilityService";
 
 interface Props {
   modelId: string;
@@ -20,7 +21,7 @@ export default function ModelCompatibilitySelector({
   modelType,
   toast,
 }: Props) {
-  const [compatibilities, setCompatibilities] = useState<IModelCompatibility[]>(
+  const [compatibilities, setCompatibilities] = useState<ModelCompatibility[]>(
     [],
   );
   const [availableModels, setAvailableModels] = useState<Model[]>([]);
@@ -37,14 +38,14 @@ export default function ModelCompatibilitySelector({
   const loadCompatibilities = async () => {
     try {
       setLoading(true);
-      let data: IModelCompatibility[] = [];
+      let data: ModelCompatibility[] = [];
       if (modelType === "PART") {
-        const response: any = await compatibilityService.getByPartModel(
+        const response: any = await modelCompatibilityService.getByPartModel(
           modelId,
         );
         data = Array.isArray(response) ? response : response?.data || [];
       } else {
-        const response: any = await compatibilityService.getByVehicleModel(
+        const response: any = await modelCompatibilityService.getByVehicleModel(
           modelId,
         );
         data = Array.isArray(response) ? response : response?.data || [];
@@ -66,14 +67,7 @@ export default function ModelCompatibilitySelector({
     try {
       // Si soy Repuesto, busco Vehículos. Si soy Vehículo, busco Repuestos.
       const targetType = modelType === "PART" ? "VEHICLE" : "PART";
-      const response = await modelService.getModels(
-        1,
-        100,
-        "",
-        undefined,
-        undefined,
-        targetType,
-      );
+      const response = await modelsService.getActive(targetType);
       setAvailableModels(response.data || []);
     } catch (error) {
       console.error("Error loading models:", error);
@@ -90,7 +84,7 @@ export default function ModelCompatibilitySelector({
           ? { partModelId: modelId, vehicleModelId: selectedModelId }
           : { partModelId: selectedModelId, vehicleModelId: modelId };
 
-      await compatibilityService.create(payload);
+      await modelCompatibilityService.create(payload);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -111,7 +105,7 @@ export default function ModelCompatibilitySelector({
 
   const handleDelete = async (id: string) => {
     try {
-      await compatibilityService.remove(id);
+      await modelCompatibilityService.delete(id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -129,7 +123,7 @@ export default function ModelCompatibilitySelector({
 
   const handleVerify = async (id: string) => {
     try {
-      await compatibilityService.verify(id);
+      await modelCompatibilityService.verify(id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -164,7 +158,7 @@ export default function ModelCompatibilitySelector({
       }));
   };
 
-  const nameTemplate = (rowData: IModelCompatibility) => {
+  const nameTemplate = (rowData: ModelCompatibility) => {
     const model =
       modelType === "PART" ? rowData.vehicleModel : rowData.partModel;
     return (
@@ -177,7 +171,7 @@ export default function ModelCompatibilitySelector({
     );
   };
 
-  const statusTemplate = (rowData: IModelCompatibility) => {
+  const statusTemplate = (rowData: ModelCompatibility) => {
     return (
       <Tag
         value={rowData.isVerified ? "Verificado" : "Pendiente"}
@@ -186,7 +180,7 @@ export default function ModelCompatibilitySelector({
     );
   };
 
-  const actionTemplate = (rowData: IModelCompatibility) => {
+  const actionTemplate = (rowData: ModelCompatibility) => {
     return (
       <div className="flex gap-2">
         {!rowData.isVerified && (

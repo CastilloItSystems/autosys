@@ -15,6 +15,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
 import unitsService, { Unit } from "@/app/api/inventory/unitService";
+import { handleFormError } from "@/utils/errorHandlers";
 
 // Schema de validación
 const unitSchema = z.object({
@@ -45,10 +46,11 @@ const unitSchema = z.object({
 type FormData = z.infer<typeof unitSchema>;
 
 interface UnitFormProps {
-  unit: Unit | null;
-  hideFormDialog: () => void;
-  onSuccess?: () => void;
-  toast?: React.RefObject<any>;
+  model: Unit | null;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
+  toast: React.RefObject<any>;
 }
 
 // Opciones de tipo con etiquetas en español
@@ -60,9 +62,10 @@ const UNIT_TYPE_OPTIONS = [
 ];
 
 export default function UnitForm({
-  unit,
-  hideFormDialog,
-  onSuccess,
+  model: unit,
+  formId,
+  onSave,
+  onSubmittingChange,
   toast,
 }: UnitFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +77,7 @@ export default function UnitForm({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(unitSchema),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -123,39 +127,28 @@ export default function UnitForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (unit?.id) {
         await unitsService.update(unit.id, data);
-        toast?.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Unidad actualizada exitosamente",
-          life: 3000,
-        });
       } else {
         await unitsService.create(data);
-        toast?.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Unidad creada exitosamente",
-          life: 3000,
-        });
       }
-      hideFormDialog();
-      if (onSuccess) onSuccess();
+      await onSave();
     } catch (error: any) {
       console.error("Error saving unit:", error);
-      toast?.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar la unidad",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "unit-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -301,24 +294,6 @@ export default function UnitForm({
                 </small>
               )}
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={hideFormDialog}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={unit?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
           </div>
         </>
       )}

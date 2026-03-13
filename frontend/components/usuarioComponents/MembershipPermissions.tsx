@@ -293,7 +293,7 @@ const MembershipPermissions = ({
               </>
             )}
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 mb-4">
             {(grants > 0 || revokes > 0) && (
               <Button
                 label="Limpiar overrides"
@@ -308,14 +308,15 @@ const MembershipPermissions = ({
             <Button
               label="Cancelar"
               icon="pi pi-times"
-              text
+              severity="secondary"
+              //   text
               onClick={onHide}
               disabled={saving}
             />
             <Button
               label="Guardar cambios"
               icon="pi pi-save"
-              severity="success"
+              //   severity="success"
               onClick={handleSave}
               loading={saving}
               disabled={!dirty}

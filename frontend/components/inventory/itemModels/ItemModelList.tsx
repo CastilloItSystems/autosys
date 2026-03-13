@@ -7,22 +7,21 @@ import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
-import {
-  getModels,
-  deleteModel,
-  toggleModel,
-  getActiveModels,
-  type Model,
-} from "@/app/api/inventory/modelService";
+import modelsService, { type Model } from "@/app/api/inventory/modelService";
 import ItemModelForm from "./ItemModelForm";
 import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 export default function ItemModelList() {
   // Datos
   const [models, setModels] = useState<Model[]>([]);
   const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
+  const [actionModel, setActionModel] = useState<Model | null>(null);
 
   // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -34,7 +33,10 @@ export default function ItemModelList() {
   const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
+  const menuRef = useRef<Menu>(null);
 
   // Cargar modelos cuando cambien los filtros
   useEffect(() => {
@@ -44,13 +46,12 @@ export default function ItemModelList() {
   const loadModels = async () => {
     try {
       setLoading(true);
-      let response: any;
-
-      if (showActive) {
-        response = await getActiveModels();
-      } else {
-        response = await getModels(page + 1, rows, searchQuery || undefined);
-      }
+      const response = await modelsService.getAll({
+        page: page + 1,
+        limit: rows,
+        search: searchQuery || undefined,
+        isActive: showActive ? "true" : undefined,
+      });
       // Estructura consistente en todos los endpoints
       const modelsData = response.data || [];
       const total = response.meta?.total || 0;
@@ -106,7 +107,8 @@ export default function ItemModelList() {
     if (!selectedModel?.id) return;
 
     try {
-      await deleteModel(selectedModel.id);
+      setIsDeleting(true);
+      await modelsService.delete(selectedModel.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -115,6 +117,7 @@ export default function ItemModelList() {
       });
       loadModels();
       setDeleteDialog(false);
+      setSelectedModel(null);
     } catch (error) {
       console.error("Error deleting model:", error);
       toast.current?.show({
@@ -123,12 +126,14 @@ export default function ItemModelList() {
         detail: "Error al eliminar el modelo",
         life: 3000,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
   const handleToggleModel = async (model: Model) => {
     try {
-      await toggleModel(model.id);
+      await modelsService.toggleActive(model.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -161,35 +166,53 @@ export default function ItemModelList() {
     setFormDialog(false);
   };
 
+  const getMenuItems = (model: Model): MenuItem[] => {
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => {
+          editModel(model);
+        },
+      },
+      {
+        label: model.isActive ? "Desactivar" : "Activar",
+        icon: model.isActive ? "pi pi-pause" : "pi pi-play",
+        command: () => {
+          handleToggleModel(model);
+        },
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => {
+          confirmDeleteModel(model);
+        },
+      },
+    ];
+  };
+
   // Templates
   const actionBodyTemplate = (rowData: Model) => {
     return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-pencil"
-          rounded
-          severity="info"
-          text
-          onClick={() => editModel(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleModel(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteModel(rowData)}
-          tooltip="Eliminar"
-        />
-      </div>
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        severity="info"
+        aria-controls="popup_menu"
+        aria-haspopup
+        onClick={(e) => {
+          setActionModel(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        tooltip="Opciones"
+        tooltipOptions={{ position: "left" }}
+      />
     );
   };
 
@@ -275,23 +298,6 @@ export default function ItemModelList() {
     </div>
   );
 
-  const deleteDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={() => setDeleteDialog(false)}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDelete}
-      />
-    </>
-  );
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -314,6 +320,7 @@ export default function ItemModelList() {
           emptyMessage="No se encontraron modelos"
           sortMode="multiple"
           lazy
+          scrollable
         >
           <Column
             field="code"
@@ -355,9 +362,13 @@ export default function ItemModelList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            frozen
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -377,36 +388,42 @@ export default function ItemModelList() {
         }
         modal
         className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="model-form"
+            isUpdate={!!selectedModel?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
         onHide={() => setFormDialog(false)}
       >
         <ItemModelForm
           model={selectedModel}
+          formId="model-form"
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedModel && (
-            <span>
-              ¿Está seguro de eliminar el modelo <b>{selectedModel.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedModel(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedModel?.name || ""}
+        isDeleting={isDeleting}
+      />
+
+      <Menu
+        model={actionModel ? getMenuItems(actionModel) : []}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 }

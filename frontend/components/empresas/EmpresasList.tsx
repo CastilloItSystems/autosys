@@ -8,13 +8,17 @@ import { DataTable, DataTableFilterMeta } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 import EmpresaForm from "./EmpresaForm";
 import EmpresaRoles from "./EmpresaRoles";
-import CustomActionButtons from "../common/CustomActionButtons";
 import AuditHistoryDialog from "../common/AuditHistoryDialog";
+import FormActionButtons from "../common/FormActionButtons";
+import DeleteConfirmDialog from "../common/DeleteConfirmDialog";
+import CreateButton from "../common/CreateButton";
 import { Empresa } from "@/libs/interfaces/empresaInterface";
 import {
   deleteEmpresa,
@@ -32,7 +36,9 @@ const EmpresasList = () => {
 
   // Dialog states
   const [deleteEmpresaDialog, setDeleteEmpresaDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [empresaFormDialog, setEmpresaFormDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [auditDialogVisible, setAuditDialogVisible] = useState(false);
 
   const [selectedAuditEmpresa, setSelectedAuditEmpresa] =
@@ -43,7 +49,11 @@ const EmpresasList = () => {
 
   // Estado para el panel de roles dinámicos
   const [rolesDialogVisible, setRolesDialogVisible] = useState(false);
-  const [selectedRolesEmpresa, setSelectedRolesEmpresa] = useState<Empresa | null>(null);
+  const [selectedRolesEmpresa, setSelectedRolesEmpresa] =
+    useState<Empresa | null>(null);
+
+  const [actionEmpresa, setActionEmpresa] = useState<Empresa | null>(null);
+  const menuRef = useRef<Menu>(null);
 
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
@@ -55,12 +65,41 @@ const EmpresasList = () => {
     setGlobalFilterValue("");
   };
 
+  const normalizeEmpresa = (e: any): Empresa => {
+    return {
+      ...e,
+      direccion: e.direccion ?? undefined,
+      telefonos: e.telefonos ?? undefined,
+      fax: e.fax ?? undefined,
+      numerorif: e.numerorif ?? undefined,
+      numeronit: e.numeronit ?? undefined,
+      website: e.website ?? undefined,
+      email: e.email ?? undefined,
+      contacto: e.contacto ?? undefined,
+      soporte1: e.soporte1 ?? undefined,
+      soporte2: e.soporte2 ?? undefined,
+      soporte3: e.soporte3 ?? undefined,
+      data_servidor: e.data_servidor ?? undefined,
+      data_usuario: e.data_usuario ?? undefined,
+      data_password: e.data_password ?? undefined,
+      data_port: e.data_port ?? undefined,
+      licencia: e.licencia ?? undefined,
+      masinfo: e.masinfo ?? undefined,
+      name_prefijo: e.name_prefijo ?? undefined,
+      dprefijobd: e.dprefijobd ?? undefined,
+      dprefijosrv: e.dprefijosrv ?? undefined,
+      dprefijousr: e.dprefijousr ?? undefined,
+    } as Empresa;
+  };
+
   const fetchEmpresas = async () => {
     try {
       setLoading(true);
       const empresasDB = await getEmpresas();
-      // Ajuste según la respuesta de tu backend
-      setEmpresas(empresasDB.empresas || empresasDB || []);
+      // Ajuste según la respuesta de tu backend: normalizamos null -> undefined
+      const raw = (empresasDB?.empresas ?? empresasDB) || [];
+      const normalized = (Array.isArray(raw) ? raw : []).map(normalizeEmpresa);
+      setEmpresas(normalized);
     } catch (error) {
       console.error("Error cargando empresas:", error);
       toast.current?.show({
@@ -86,8 +125,18 @@ const EmpresasList = () => {
 
   const hideEmpresaFormDialog = () => {
     setEmpresaFormDialog(false);
+    setIsSubmitting(false);
     setEmpresa(null);
   };
+
+  const empresaFormFooter = (
+    <FormActionButtons
+      onCancel={hideEmpresaFormDialog}
+      isUpdate={!!empresa}
+      formId="empresa-form"
+      isSubmitting={isSubmitting}
+    />
+  );
 
   const hideDeleteEmpresaDialog = () => {
     setDeleteEmpresaDialog(false);
@@ -111,6 +160,7 @@ const EmpresasList = () => {
 
   const deleteEmpresaAction = async () => {
     if (empresa?.id_empresa) {
+      setIsDeleting(true);
       try {
         await deleteEmpresa(empresa.id_empresa);
         toast.current?.show({
@@ -120,6 +170,8 @@ const EmpresasList = () => {
           life: 3000,
         });
         fetchEmpresas();
+        setDeleteEmpresaDialog(false);
+        setEmpresa(null);
       } catch (error) {
         toast.current?.show({
           severity: "error",
@@ -128,8 +180,7 @@ const EmpresasList = () => {
           life: 3000,
         });
       } finally {
-        setDeleteEmpresaDialog(false);
-        setEmpresa(null);
+        setIsDeleting(false);
       }
     }
   };
@@ -154,21 +205,39 @@ const EmpresasList = () => {
             placeholder="Buscar..."
           />
         </span>
-        <Button label="Nueva Empresa" icon="pi pi-plus" onClick={openNew} />
+        <CreateButton
+          label="Nueva Empresa"
+          onClick={openNew}
+          tooltip="Agregar Nueva Empresa"
+        />
       </div>
     </div>
   );
 
-  const actionBodyTemplate = (rowData: Empresa) => {
-    return (
-      <div className="flex align-items-center gap-1">
-        <CustomActionButtons
-          rowData={rowData}
-          onInfo={async (data) => {
-          setSelectedAuditEmpresa(data);
+  const getMenuItems = (empresaItem: Empresa | null): MenuItem[] => {
+    if (!empresaItem) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editEmpresa(empresaItem),
+      },
+      {
+        label: "Gestionar Roles",
+        icon: "pi pi-shield",
+        command: () => {
+          setSelectedRolesEmpresa(empresaItem);
+          setRolesDialogVisible(true);
+        },
+      },
+      {
+        label: "Ver auditoría",
+        icon: "pi pi-history",
+        command: async () => {
+          setSelectedAuditEmpresa(empresaItem);
           setAuditLogsLoading(true);
           try {
-            const result = await getAuditLogsForEmpresa(data.id_empresa);
+            const result = await getAuditLogsForEmpresa(empresaItem.id_empresa);
             setAuditLogs(result.auditLogs || []);
           } catch (error) {
             console.error("Error loading audit logs:", error);
@@ -183,40 +252,40 @@ const EmpresasList = () => {
             setAuditLogsLoading(false);
           }
           setAuditDialogVisible(true);
-        }}
-          onEdit={() => editEmpresa(rowData)}
-          onDelete={() => confirmDeleteEmpresa(rowData)}
-        />
+        },
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-error",
+        command: () => confirmDeleteEmpresa(empresaItem),
+      },
+    ];
+  };
+
+  const actionBodyTemplate = (rowData: Empresa) => {
+    return (
+      <div className="flex justify-content-center">
         <Button
-          icon="pi pi-shield"
-          className="p-button-rounded p-button-text p-button-warning"
-          onClick={() => {
-            setSelectedRolesEmpresa(rowData);
-            setRolesDialogVisible(true);
+          icon="pi pi-cog"
+          tooltip="Opciones"
+          tooltipOptions={{ position: "left" }}
+          rounded
+          text
+          severity="secondary"
+          onClick={(e) => {
+            setActionEmpresa(rowData);
+            menuRef.current?.toggle(e);
           }}
-          tooltip="Gestionar Roles"
-          tooltipOptions={{ position: "top" }}
+          aria-controls="popup_menu"
+          aria-haspopup
         />
       </div>
     );
   };
-
-  const deleteEmpresaDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={hideDeleteEmpresaDialog}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={deleteEmpresaAction}
-      />
-    </>
-  );
 
   return (
     <motion.div
@@ -287,10 +356,15 @@ const EmpresasList = () => {
             style={{ minWidth: "80px", textAlign: "center" }}
           ></Column>
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "150px" }}
-          ></Column>
+            alignFrozen="right"
+            frozen
+            style={{ width: "6rem" }}
+            bodyStyle={{ textAlign: "center" }}
+            headerStyle={{ textAlign: "center", justifyContent: "center" }}
+          />
         </DataTable>
       </div>
 
@@ -326,6 +400,7 @@ const EmpresasList = () => {
         }
         modal
         className="p-fluid"
+        footer={empresaFormFooter}
         onHide={hideEmpresaFormDialog}
       >
         <EmpresaForm
@@ -333,29 +408,18 @@ const EmpresasList = () => {
           onSave={handleSave}
           onCancel={hideEmpresaFormDialog}
           toast={toast}
+          formId="empresa-form"
+          onSubmittingChange={setIsSubmitting}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteEmpresaDialog}
-        style={{ width: "450px" }}
-        header="Confirmar"
-        modal
-        footer={deleteEmpresaDialogFooter}
         onHide={hideDeleteEmpresaDialog}
-      >
-        <div className="flex align-items-center justify-content-center">
-          <i
-            className="pi pi-exclamation-triangle mr-3"
-            style={{ fontSize: "2rem" }}
-          />
-          {empresa && (
-            <span>
-              ¿Estás seguro de que deseas eliminar <b>{empresa.nombre}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onConfirm={deleteEmpresaAction}
+        itemName={empresa?.nombre}
+        isDeleting={isDeleting}
+      />
       {/* ── Panel de gestión de roles dinámicos ── */}
       {selectedRolesEmpresa && (
         <EmpresaRoles
@@ -369,6 +433,13 @@ const EmpresasList = () => {
           toast={toast}
         />
       )}
+
+      <Menu
+        model={getMenuItems(actionEmpresa)}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 };

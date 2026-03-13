@@ -8,6 +8,7 @@ import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 
+import FormActionButtons from "../common/FormActionButtons";
 import MembershipForm from "./MembershipForm";
 import MembershipPermissions from "./MembershipPermissions";
 import {
@@ -15,6 +16,7 @@ import {
   getMembershipsByUser,
   Membership,
 } from "@/app/api/userService";
+import CreateButton from "../common/CreateButton";
 
 const statusSeverity: Record<
   string,
@@ -50,6 +52,7 @@ const UsuarioMemberships = ({
   const [loading, setLoading] = useState(false);
 
   const [formDialogVisible, setFormDialogVisible] = useState(false);
+  const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
   const [permDialogVisible, setPermDialogVisible] = useState(false);
   const [selectedMembership, setSelectedMembership] =
@@ -120,7 +123,14 @@ const UsuarioMemberships = ({
   const handleFormSave = async () => {
     setFormDialogVisible(false);
     setSelectedMembership(null);
+    setIsSubmittingForm(false);
     await load();
+  };
+
+  const hideFormDialog = () => {
+    setFormDialogVisible(false);
+    setSelectedMembership(null);
+    setIsSubmittingForm(false);
   };
 
   // ── Column templates ──────────────────────────────────────────────────────
@@ -169,33 +179,42 @@ const UsuarioMemberships = ({
   // ── Dialog footers ────────────────────────────────────────────────────────
 
   const deleteFooter = (
-    <>
+    <div className="flex w-full gap-2 mb-4">
       <Button
         label="No"
         icon="pi pi-times"
-        outlined
+        severity="secondary"
         onClick={() => setDeleteDialogVisible(false)}
+        className="flex-1"
       />
       <Button
         label="Sí, eliminar"
         icon="pi pi-trash"
         severity="danger"
         onClick={handleDelete}
+        className="flex-1"
       />
-    </>
+    </div>
   );
 
   const tableHeader = (
     <div className="flex justify-content-between align-items-center">
       <span className="text-lg font-semibold">Memberships de {userName}</span>
-      <Button
-        label="Agregar"
-        icon="pi pi-plus"
-        severity="success"
-        size="small"
+      <CreateButton
+        label="Crear Membership"
         onClick={handleNew}
+        tooltip="Agregar Nueva Membership"
       />
     </div>
+  );
+
+  const formFooter = (
+    <FormActionButtons
+      onCancel={hideFormDialog}
+      isSubmitting={isSubmittingForm}
+      isUpdate={!!selectedMembership}
+      formId="membership-form"
+    />
   );
 
   return (
@@ -204,9 +223,9 @@ const UsuarioMemberships = ({
         visible={visible}
         style={{ width: "820px" }}
         header={
-          <div className="flex align-items-center gap-2">
-            <i className="pi pi-sitemap" />
-            <span className="text-xl font-semibold">Memberships</span>
+          <div className="flex align-items-center gap-2 border-bottom-2 border-primary pb-2">
+            <i className="pi pi-sitemap text-primary text-3xl" />
+            <span className="text-2xl font-bold text-900">Memberships</span>
           </div>
         }
         modal
@@ -242,22 +261,25 @@ const UsuarioMemberships = ({
       <Dialog
         visible={formDialogVisible}
         style={{ width: "560px" }}
-        header={selectedMembership ? "Editar Membership" : "Nueva Membership"}
+        header={
+          <div className="flex align-items-center gap-2 border-bottom-2 border-primary pb-2">
+            <i className="pi pi-sitemap text-primary text-3xl" />
+            <span className="text-2xl font-bold text-900">
+              {selectedMembership ? "Editar Membership" : "Nueva Membership"}
+            </span>
+          </div>
+        }
         modal
-        onHide={() => {
-          setFormDialogVisible(false);
-          setSelectedMembership(null);
-        }}
+        footer={formFooter}
+        onHide={hideFormDialog}
       >
         <MembershipForm
           userId={userId}
           membership={selectedMembership}
           onSave={handleFormSave}
-          onCancel={() => {
-            setFormDialogVisible(false);
-            setSelectedMembership(null);
-          }}
+          onCancel={hideFormDialog}
           toast={toast}
+          onSubmittingChange={setIsSubmittingForm}
         />
       </Dialog>
 
@@ -265,7 +287,14 @@ const UsuarioMemberships = ({
       <Dialog
         visible={deleteDialogVisible}
         style={{ width: "450px" }}
-        header="Confirmar eliminación"
+        header={
+          <div className="flex align-items-center gap-2 border-bottom-2 border-primary pb-2">
+            <i className="pi pi-trash text-primary text-3xl" />
+            <span className="text-2xl font-bold text-900">
+              Confirmar eliminación
+            </span>
+          </div>
+        }
         modal
         footer={deleteFooter}
         onHide={() => setDeleteDialogVisible(false)}

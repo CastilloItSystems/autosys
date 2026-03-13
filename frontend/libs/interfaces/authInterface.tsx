@@ -76,6 +76,15 @@ export interface Membership {
   role?: MembershipRole;
 }
 
+/** Estructura que devuelve el backend en user.empresas[] */
+export interface EmpresaResumen {
+  membershipId: string;
+  empresaId: string;
+  nombre: string;
+  role: MembershipRole;
+  permissions: string[];
+}
+
 export interface Usuario {
   id: string;
   img?: string | null;
@@ -91,5 +100,8 @@ export interface Usuario {
   google: boolean;
   createdAt: string;
   updatedAt: string;
+  /** Lista compacta de empresas con rol y permisos (devuelta con el token) */
+  empresas?: EmpresaResumen[];
+  /** Alias legacy — puede no estar presente según el endpoint */
   memberships?: Membership[];
 }

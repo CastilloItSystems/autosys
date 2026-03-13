@@ -9,10 +9,15 @@ import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 
 import UsuarioForm from "./UsuarioForm";
 import UsuarioChangePasswordForm from "./UsuarioChangePasswordForm";
 import UsuarioMemberships from "./UsuarioMemberships";
+import FormActionButtons from "../common/FormActionButtons";
+import CreateButton from "../common/CreateButton";
+import DeleteConfirmDialog from "../common/DeleteConfirmDialog";
 
 import {
   deleteUser,
@@ -30,8 +35,12 @@ const UsuarioList = () => {
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
+  const [isDeleting, setIsDeleting] = useState(false);
+
   const [deleteUsuarioDialog, setDeleteUsuarioDialog] = useState(false);
   const [usuarioFormDialog, setUsuarioFormDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
   const [usuarioPasswordFormDialog, setUsuarioPasswordFormDialog] =
     useState(false);
   const [auditDialogVisible, setAuditDialogVisible] = useState(false);
@@ -39,6 +48,9 @@ const UsuarioList = () => {
   const [membershipDialogVisible, setMembershipDialogVisible] = useState(false);
   const [selectedMembershipUser, setSelectedMembershipUser] =
     useState<User | null>(null);
+
+  const [actionUser, setActionUser] = useState<User | null>(null);
+  const menuRef = useRef<Menu>(null);
 
   const [selectedAuditUsuario, setSelectedAuditUsuario] = useState<User | null>(
     null,
@@ -85,11 +97,32 @@ const UsuarioList = () => {
 
   const hideUsuarioFormDialog = () => {
     setUsuarioFormDialog(false);
+    setIsSubmitting(false);
   };
+
+  const usuarioFormFooter = (
+    <FormActionButtons
+      onCancel={hideUsuarioFormDialog}
+      isUpdate={!!usuario}
+      formId="usuario-form"
+      isSubmitting={isSubmitting}
+    />
+  );
 
   const hideUsuarioPasswordFormDialog = () => {
     setUsuarioPasswordFormDialog(false);
+    setIsPasswordSubmitting(false);
   };
+
+  const passwordFormFooter = (
+    <FormActionButtons
+      onCancel={hideUsuarioPasswordFormDialog}
+      isUpdate={true}
+      submitLabel="Cambiar Contraseña"
+      formId="password-form"
+      isSubmitting={isPasswordSubmitting}
+    />
+  );
 
   const hideDeleteUsuarioDialog = () => {
     setDeleteUsuarioDialog(false);
@@ -125,6 +158,7 @@ const UsuarioList = () => {
   const handleDeleteUsuario = async () => {
     if (!usuario) return;
 
+    setIsDeleting(true);
     try {
       await deleteUser(usuario.id);
       showToast("success", "Éxito", "Usuario eliminado correctamente");
@@ -134,6 +168,8 @@ const UsuarioList = () => {
     } catch (error) {
       console.error("Error eliminando usuario:", error);
       showToast("error", "Error", "No se pudo eliminar el usuario");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -217,69 +253,61 @@ const UsuarioList = () => {
     );
   };
 
+  const getMenuItems = (user: User | null): MenuItem[] => {
+    if (!user) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editUsuario(user),
+      },
+      {
+        label: "Cambiar contraseña",
+        icon: "pi pi-key",
+        command: () => confirmChangePassword(user),
+      },
+      {
+        label: "Memberships",
+        icon: "pi pi-sitemap",
+        command: () => handleManageMemberships(user),
+      },
+      {
+        label: "Ver auditoría",
+        icon: "pi pi-history",
+        command: () => handleViewAudit(user),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-error",
+        command: () => confirmDeleteUsuario(user),
+      },
+    ];
+  };
+
   const actionBodyTemplate = (rowData: User) => {
     return (
-      <div className="flex gap-2">
+      <div className="flex justify-content-center">
         <Button
-          icon="pi pi-pencil"
+          icon="pi pi-cog"
+          tooltip="Opciones"
+          tooltipOptions={{ position: "left" }}
           rounded
-          outlined
-          severity="success"
-          tooltip="Editar"
-          onClick={() => editUsuario(rowData)}
-        />
-        <Button
-          icon="pi pi-key"
-          rounded
-          outlined
-          severity="help"
-          tooltip="Cambiar contraseña"
-          onClick={() => confirmChangePassword(rowData)}
-        />
-        <Button
-          icon="pi pi-sitemap"
-          rounded
-          outlined
+          text
           severity="secondary"
-          tooltip="Memberships"
-          onClick={() => handleManageMemberships(rowData)}
-        />
-        <Button
-          icon="pi pi-history"
-          rounded
-          outlined
-          severity="info"
-          tooltip="Ver auditoría"
-          onClick={() => handleViewAudit(rowData)}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          outlined
-          severity="danger"
-          tooltip="Eliminar"
-          onClick={() => confirmDeleteUsuario(rowData)}
+          onClick={(e) => {
+            setActionUser(rowData);
+            menuRef.current?.toggle(e);
+          }}
+          aria-controls="popup_menu"
+          aria-haspopup
         />
       </div>
     );
   };
-
-  const deleteUsuarioDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={hideDeleteUsuarioDialog}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDeleteUsuario}
-      />
-    </>
-  );
 
   const header = (
     <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center gap-3">
@@ -293,11 +321,10 @@ const UsuarioList = () => {
             placeholder="Buscar..."
           />
         </span>
-        <Button
-          label="Nuevo"
-          icon="pi pi-plus"
-          severity="success"
+        <CreateButton
+          label="Nuevo Usuario"
           onClick={openNew}
+          tooltip="Agregar Nuevo Usuario"
         />
       </div>
     </div>
@@ -322,6 +349,7 @@ const UsuarioList = () => {
           globalFilter={globalFilterValue}
           header={header}
           emptyMessage="No se encontraron usuarios"
+          scrollable
           responsiveLayout="scroll"
         >
           <Column field="nombre" header="Nombre" sortable />
@@ -336,9 +364,14 @@ const UsuarioList = () => {
           <Column field="estado" header="Estado" body={estadoBodyTemplate} />
           <Column header="Empresas" body={empresasBodyTemplate} />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "14rem" }}
+            alignFrozen="right"
+            frozen
+            style={{ width: "6rem" }}
+            bodyStyle={{ textAlign: "center" }}
+            headerStyle={{ textAlign: "center", justifyContent: "center" }}
           />
         </DataTable>
       </div>
@@ -347,60 +380,63 @@ const UsuarioList = () => {
         visible={usuarioFormDialog}
         style={{ width: "850px" }}
         header={
-          <div className="flex align-items-center gap-2">
-            <i className="pi pi-user" />
-            <h2 className="m-0 text-xl">
-              {usuario ? "Editar Usuario" : "Nuevo Usuario"}
-            </h2>
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-user mr-3 text-primary text-3xl"></i>
+                {usuario ? "Modificar Usuario" : "Crear Usuario"}
+              </h2>
+            </div>
           </div>
         }
         modal
         className="p-fluid"
+        footer={usuarioFormFooter}
         onHide={hideUsuarioFormDialog}
       >
         <UsuarioForm
           usuario={usuario}
           onSave={handleSave}
-          onCancel={hideUsuarioFormDialog}
           toast={toast}
+          formId="usuario-form"
+          onSubmittingChange={setIsSubmitting}
         />
       </Dialog>
 
       <Dialog
         visible={usuarioPasswordFormDialog}
         style={{ width: "600px" }}
-        header="Cambiar Contraseña"
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-key mr-3 text-primary text-3xl"></i>
+                Cambiar Contraseña
+              </h2>
+            </div>
+          </div>
+        }
         modal
+        footer={passwordFormFooter}
         onHide={hideUsuarioPasswordFormDialog}
       >
         <UsuarioChangePasswordForm
           usuario={usuario}
           hideUsuarioPasswordFormDialog={hideUsuarioPasswordFormDialog}
           onPasswordChanged={handlePasswordChanged}
-          showToast={showToast}
+          toast={toast}
+          formId="password-form"
+          onSubmittingChange={setIsPasswordSubmitting}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteUsuarioDialog}
-        style={{ width: "450px" }}
-        header="Confirmar"
-        modal
-        footer={deleteUsuarioDialogFooter}
         onHide={hideDeleteUsuarioDialog}
-      >
-        <div className="flex align-items-center justify-content-center">
-          <i
-            className="pi pi-exclamation-triangle mr-3"
-            style={{ fontSize: "2rem" }}
-          />
-          {usuario && (
-            <span>
-              ¿Estás seguro de que deseas eliminar a <b>{usuario.nombre}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onConfirm={handleDeleteUsuario}
+        itemName={usuario?.nombre}
+        isDeleting={isDeleting}
+      />
 
       <Dialog
         visible={auditDialogVisible}
@@ -471,6 +507,13 @@ const UsuarioList = () => {
           toast={toast}
         />
       )}
+
+      <Menu
+        model={getMenuItems(actionUser)}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 };

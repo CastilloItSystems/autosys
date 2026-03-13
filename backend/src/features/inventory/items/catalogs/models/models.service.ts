@@ -194,10 +194,14 @@ class ModelService {
 
   async findActive(
     empresaId: string,
-    db: PrismaClientType
+    db: PrismaClientType,
+    type?: 'VEHICLE' | 'PART'
   ): Promise<IModelWithRelations[]> {
+    const where: Prisma.ModelWhereInput = { empresaId, isActive: true }
+    if (type) where.type = type
+
     const models = await (db as PrismaClient).model.findMany({
-      where: { empresaId, isActive: true },
+      where,
       orderBy: [{ brand: { name: 'asc' } }, { name: 'asc' }, { year: 'desc' }],
       include: MODEL_INCLUDE,
     })

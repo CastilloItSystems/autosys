@@ -30,10 +30,10 @@ import {
   IPricingTier,
   IItemImage,
 } from "@/app/api/inventory/itemService";
-import { getBrands } from "@/app/api/inventory/brandService";
-import { getCategories } from "@/app/api/inventory/categoryService";
+import brandsService from "@/app/api/inventory/brandService";
+import categoriesService from "@/app/api/inventory/categoryService";
 import { getItemModels } from "@/app/api/inventory/itemModelService";
-import { getUnits } from "@/app/api/inventory/unitService";
+import unitsService from "@/app/api/inventory/unitService";
 
 // ============================================
 // SCHEMA VALIDATION
@@ -176,10 +176,10 @@ export default function ItemForm({
       try {
         const [brandsRes, categoriesRes, modelsRes, unitsRes] =
           await Promise.all([
-            getBrands(1, 100),
-            getCategories({ page: 1, limit: 100 }),
+            brandsService.getAll({ page: 1, limit: 100 }),
+            categoriesService.getAll({ page: 1, limit: 100 }),
             getItemModels(),
-            getUnits({ page: 1, limit: 100 }),
+            unitsService.getAll({ page: 1, limit: 100 }),
           ]);
 
         // Estructura consistente en todos los endpoints

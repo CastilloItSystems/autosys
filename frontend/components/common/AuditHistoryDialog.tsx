@@ -96,7 +96,7 @@ const AuditHistoryDialog: React.FC<AuditHistoryDialogProps> = ({
         <div className="col-12 flex justify-content-end align-items-center mt-3">
           <Button
             type="button"
-            label="Salir"
+            label="Cerrar"
             className="w-auto"
             severity="secondary"
             onClick={onHide}

@@ -15,10 +15,11 @@ import { Dialog } from "primereact/dialog";
 import { Toolbar } from "primereact/toolbar";
 import { Card } from "primereact/card";
 import { useRef } from "react";
-import * as modelService from "@/app/api/inventory/modelService";
-import * as compatibilityService from "@/app/api/inventory/compatibilityService";
+import modelsService from "@/app/api/inventory/modelService";
+import modelCompatibilityService, {
+  type ModelCompatibility,
+} from "@/app/api/inventory/compatibilityService";
 import type { Model } from "@/app/api/inventory/modelService";
-import type { IModelCompatibility } from "@/app/api/inventory/compatibilityService";
 
 interface CompatibilityState {
   [key: string]: boolean; // format: "partModelId_vehicleModelId"
@@ -30,7 +31,7 @@ export const CompatibilityMatrix = () => {
   // State
   const [partModels, setPartModels] = useState<Model[]>([]);
   const [vehicleModels, setVehicleModels] = useState<Model[]>([]);
-  const [compatibilities, setCompatibilities] = useState<IModelCompatibility[]>(
+  const [compatibilities, setCompatibilities] = useState<ModelCompatibility[]>(
     [],
   );
   const [loading, setLoading] = useState(true);
@@ -71,17 +72,16 @@ export const CompatibilityMatrix = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      // Backend limit is 100, so we request 100. Ideally this should be paginated.
       const [partsResponse, vehiclesResponse, compatResponse] =
         await Promise.all([
-          modelService.getModels(1, 100, "", undefined, undefined, "PART"),
-          modelService.getModels(1, 100, "", undefined, undefined, "VEHICLE"),
-          compatibilityService.getAll({ limit: 100 }),
+          modelsService.getActive("PART"),
+          modelsService.getActive("VEHICLE"),
+          modelCompatibilityService.getAll({ limit: 100 }),
         ]);
 
       const parts = partsResponse.data || [];
       const vehicles = vehiclesResponse.data || [];
-      // compatibilityService.getAll returns { data: [], meta: ... } or just [] depending on implementation
+      // modelCompatibilityService.getAll returns { data: [], meta: ... }
       // Let's handle both cases based on the service signature
       const compat = Array.isArray(compatResponse)
         ? compatResponse
@@ -171,12 +171,12 @@ export const CompatibilityMatrix = () => {
         setSaving(true);
         if (checked) {
           // Fix: Get the real response to use the real ID
-          const response: any = await compatibilityService.create({
+          const response: any = await modelCompatibilityService.create({
             partModelId: partId,
             vehicleModelId: vehicleId,
           });
 
-          // compatibilityService.create returns { data: IModelCompatibility, ... } or IModelCompatibility directly
+          // modelCompatibilityService.create returns { data: ModelCompatibility, ... }
           const newCompat = response.data || response;
 
           setCompatibilities((prev) => [
@@ -200,7 +200,7 @@ export const CompatibilityMatrix = () => {
             (c) => c.partModelId === partId && c.vehicleModelId === vehicleId,
           );
           if (toDelete) {
-            await compatibilityService.remove(toDelete.id);
+            await modelCompatibilityService.delete(toDelete.id);
             setCompatibilities((prev) =>
               prev.filter((c) => c.id !== toDelete.id),
             );
@@ -237,7 +237,7 @@ export const CompatibilityMatrix = () => {
           );
 
           if (!exists) {
-            await compatibilityService.create({
+            await modelCompatibilityService.create({
               partModelId: partId,
               vehicleModelId: vehicleId,
             });
@@ -249,7 +249,7 @@ export const CompatibilityMatrix = () => {
       for (const compat of compatibilities) {
         const key = `${compat.partModelId}_${compat.vehicleModelId}`;
         if (key in pendingChanges && !pendingChanges[key]) {
-          await compatibilityService.remove(compat.id);
+          await modelCompatibilityService.delete(compat.id);
         }
       }
 
@@ -278,7 +278,7 @@ export const CompatibilityMatrix = () => {
     );
     if (compat && !compat.isVerified) {
       try {
-        await compatibilityService.verify(compat.id);
+        await modelCompatibilityService.verify(compat.id);
         setCompatibilities((prev) =>
           prev.map((c) =>
             c.id === compat.id ? { ...c, isVerified: true } : c,

@@ -7,12 +7,16 @@ import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import categoriesService, {
   Category,
 } from "@/app/api/inventory/categoryService";
 import CategoryForm from "./CategoryForm";
 import CreateButton from "@/components/common/CreateButton";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 export default function CategoryList() {
   // Datos
@@ -37,6 +41,12 @@ export default function CategoryList() {
     useState<Category | null>(null);
   const toast = useRef<Toast>(null);
 
+  // States for new patterns
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [actionCategory, setActionCategory] = useState<Category | null>(null);
+  const menuRef = useRef<Menu>(null);
+
   // Cargar categorías cuando cambien los filtros
   useEffect(() => {
     loadCategories();
@@ -51,7 +61,6 @@ export default function CategoryList() {
         search: searchQuery || undefined,
         isActive: showActive ? "true" : undefined,
       });
-      console.log(response);
       const categoriesData = response.data || [];
       const total = response.meta?.total || 0;
 
@@ -105,6 +114,7 @@ export default function CategoryList() {
   const handleDelete = async () => {
     if (!selectedCategory?.id) return;
 
+    setIsDeleting(true);
     try {
       await categoriesService.delete(selectedCategory.id);
       toast.current?.show({
@@ -115,6 +125,7 @@ export default function CategoryList() {
       });
       loadCategories();
       setDeleteDialog(false);
+      setSelectedCategory(null);
     } catch (error) {
       console.error("Error deleting category:", error);
       toast.current?.show({
@@ -123,6 +134,8 @@ export default function CategoryList() {
         detail: "Error al eliminar la categoría",
         life: 3000,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -167,32 +180,47 @@ export default function CategoryList() {
     setHierarchyDialog(true);
   };
 
+  const getMenuItems = (categoryItem: Category | null): MenuItem[] => {
+    if (!categoryItem) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editCategory(categoryItem),
+      },
+      {
+        label: categoryItem.isActive ? "Desactivar" : "Activar",
+        icon: categoryItem.isActive ? "pi pi-pause" : "pi pi-play",
+        command: () => handleToggleCategory(categoryItem),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-error",
+        command: () => confirmDeleteCategory(categoryItem),
+      },
+    ];
+  };
+
   const actionBodyTemplate = (rowData: Category) => {
     return (
-      <div className="flex gap-2">
+      <div className="flex justify-content-center">
         <Button
-          icon="pi pi-pencil"
+          icon="pi pi-cog"
+          tooltip="Opciones"
+          tooltipOptions={{ position: "left" }}
           rounded
-          severity="info"
           text
-          onClick={() => editCategory(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleCategory(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteCategory(rowData)}
-          tooltip="Eliminar"
+          severity="secondary"
+          onClick={(e) => {
+            setActionCategory(rowData);
+            menuRef.current?.toggle(e);
+          }}
+          aria-controls="popup_menu"
+          aria-haspopup
         />
       </div>
     );
@@ -335,21 +363,13 @@ export default function CategoryList() {
     </div>
   );
 
-  const deleteDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={() => setDeleteDialog(false)}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDelete}
-      />
-    </>
+  const categoryFormFooter = (
+    <FormActionButtons
+      onCancel={() => setFormDialog(false)}
+      isUpdate={!!selectedCategory?.id}
+      formId="category-form"
+      isSubmitting={isSubmitting}
+    />
   );
 
   return (
@@ -374,6 +394,7 @@ export default function CategoryList() {
           emptyMessage="No se encontraron categorías"
           sortMode="multiple"
           lazy
+          scrollable
         >
           <Column
             field="code"
@@ -408,9 +429,14 @@ export default function CategoryList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            alignFrozen="right"
+            frozen
+            style={{ width: "6rem" }}
+            bodyStyle={{ textAlign: "center" }}
+            headerStyle={{ textAlign: "center", justifyContent: "center" }}
           />
         </DataTable>
       </div>
@@ -432,6 +458,7 @@ export default function CategoryList() {
         }
         modal
         className="p-fluid"
+        footer={categoryFormFooter}
         onHide={() => setFormDialog(false)}
       >
         <CategoryForm
@@ -439,30 +466,21 @@ export default function CategoryList() {
           hideFormDialog={() => setFormDialog(false)}
           onSuccess={handleSave}
           toast={toast}
+          formId="category-form"
+          onSubmittingChange={setIsSubmitting}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedCategory && (
-            <span>
-              ¿Está seguro de eliminar la categoría{" "}
-              <b>{selectedCategory.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedCategory(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedCategory?.name}
+        isDeleting={isDeleting}
+      />
 
       <Dialog
         visible={hierarchyDialog}
@@ -575,6 +593,13 @@ export default function CategoryList() {
           </motion.div>
         )}
       </Dialog>
+
+      <Menu
+        model={getMenuItems(actionCategory)}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 }

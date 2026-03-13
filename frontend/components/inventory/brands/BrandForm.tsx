@@ -14,13 +14,12 @@ import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 
 // API functions
-import {
-  createBrand,
-  updateBrand,
+import brandsService, {
   BrandType,
   BRAND_TYPE_LABELS,
 } from "@/app/api/inventory/brandService";
 import type { Brand } from "@/app/api/inventory/brandService";
+import { handleFormError } from "@/utils/errorHandlers";
 
 // Schema de validación
 const brandSchema = z.object({
@@ -47,8 +46,9 @@ type FormData = z.infer<typeof brandSchema>;
 
 interface BrandFormProps {
   brand: Brand | null;
-  onSave: () => void;
-  onCancel: () => void;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
 
@@ -61,8 +61,9 @@ const BRAND_TYPE_OPTIONS = [
 
 export default function BrandForm({
   brand,
+  formId,
   onSave,
-  onCancel,
+  onSubmittingChange,
   toast,
 }: BrandFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -74,6 +75,7 @@ export default function BrandForm({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(brandSchema),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -113,26 +115,23 @@ export default function BrandForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (brand?.id) {
-        await updateBrand(brand.id, data);
+        await brandsService.update(brand.id, data);
       } else {
-        await createBrand(data);
+        await brandsService.create(data);
       }
-      onSave();
+      await onSave();
     } catch (error: any) {
-      console.error("Error saving brand:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar la marca",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId || "brand-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -251,24 +250,6 @@ export default function BrandForm({
                 </small>
               )}
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={onCancel}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={brand?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
           </div>
         </>
       )}

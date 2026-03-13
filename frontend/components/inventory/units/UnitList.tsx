@@ -7,10 +7,14 @@ import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import unitsService, { Unit } from "@/app/api/inventory/unitService";
 import UnitForm from "./UnitForm";
 import CreateButton from "@/components/common/CreateButton";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 const UNIT_TYPES_LABELS: Record<string, string> = {
   COUNTABLE: "Contable",
@@ -35,6 +39,10 @@ export default function UnitList() {
   const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [actionItem, setActionItem] = useState<Unit | null>(null);
+  const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
 
   // Cargar unidades cuando cambien los filtros
@@ -106,6 +114,7 @@ export default function UnitList() {
   const handleDelete = async () => {
     if (!selectedUnit?.id) return;
 
+    setIsDeleting(true);
     try {
       await unitsService.delete(selectedUnit.id);
       toast.current?.show({
@@ -116,6 +125,7 @@ export default function UnitList() {
       });
       loadUnits();
       setDeleteDialog(false);
+      setSelectedUnit(null);
     } catch (error) {
       console.error("Error deleting unit:", error);
       toast.current?.show({
@@ -124,6 +134,8 @@ export default function UnitList() {
         detail: "Error al eliminar la unidad",
         life: 3000,
       });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -162,35 +174,47 @@ export default function UnitList() {
     setFormDialog(false);
   };
 
+  const getMenuItems = (item: Unit | null): MenuItem[] => {
+    if (!item) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editUnit(item),
+      },
+      {
+        label: item.isActive ? "Desactivar" : "Activar",
+        icon: item.isActive ? "pi pi-pause" : "pi pi-play",
+        command: () => handleToggleUnit(item),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => confirmDeleteUnit(item),
+      },
+    ];
+  };
+
   // Templates
   const actionBodyTemplate = (rowData: Unit) => {
     return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-pencil"
-          rounded
-          severity="info"
-          text
-          onClick={() => editUnit(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleUnit(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteUnit(rowData)}
-          tooltip="Eliminar"
-        />
-      </div>
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        aria-controls="popup_menu"
+        aria-haspopup
+        onClick={(e) => {
+          setActionItem(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        tooltip="Opciones"
+        tooltipOptions={{ position: "left" }}
+      />
     );
   };
 
@@ -253,23 +277,6 @@ export default function UnitList() {
     </div>
   );
 
-  const deleteDialogFooter = (
-    <>
-      <Button
-        label="No"
-        icon="pi pi-times"
-        outlined
-        onClick={() => setDeleteDialog(false)}
-      />
-      <Button
-        label="Sí"
-        icon="pi pi-check"
-        severity="danger"
-        onClick={handleDelete}
-      />
-    </>
-  );
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -292,6 +299,7 @@ export default function UnitList() {
           emptyMessage="No se encontraron unidades"
           sortMode="multiple"
           lazy
+          scrollable
         >
           <Column
             field="code"
@@ -326,9 +334,13 @@ export default function UnitList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -349,35 +361,41 @@ export default function UnitList() {
         modal
         className="p-fluid"
         onHide={() => setFormDialog(false)}
+        footer={
+          <FormActionButtons
+            formId="unit-form"
+            isUpdate={!!selectedUnit?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
       >
         <UnitForm
-          unit={selectedUnit}
-          hideFormDialog={() => setFormDialog(false)}
-          onSuccess={handleSave}
+          model={selectedUnit}
+          formId="unit-form"
+          onSave={handleSave}
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
-        onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedUnit && (
-            <span>
-              ¿Está seguro de eliminar la unidad <b>{selectedUnit.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedUnit(null);
+        }}
+        itemName={selectedUnit?.name}
+        isDeleting={isDeleting}
+        onConfirm={handleDelete}
+      />
+
+      <Menu
+        model={getMenuItems(actionItem)}
+        popup
+        ref={menuRef}
+        id="popup_menu"
+      />
     </motion.div>
   );
 }

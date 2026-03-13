@@ -36,8 +36,10 @@ interface MembershipFormProps {
   userId: string;
   membership?: Membership | null;
   onSave: () => void;
-  onCancel: () => void;
+  onCancel?: () => void;
   toast: React.RefObject<Toast | null>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 const MembershipForm = ({
@@ -46,6 +48,8 @@ const MembershipForm = ({
   onSave,
   onCancel,
   toast,
+  formId = "membership-form",
+  onSubmittingChange,
 }: MembershipFormProps) => {
   const [empresas, setEmpresas] = useState<{ label: string; value: string }[]>(
     [],
@@ -120,6 +124,7 @@ const MembershipForm = ({
   }, [membership, reset]);
 
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (membership?.id) {
         await updateMembership(membership.id, {
@@ -156,101 +161,93 @@ const MembershipForm = ({
         detail,
         life: 4000,
       });
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   const roleOptions = roles.map((r) => ({ label: r.name, value: r.id }));
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
-      <div className="grid">
-        {/* Empresa (solo editable al crear, no al editar) */}
-        <div className="col-12">
-          <label className="block font-medium mb-2">Empresa</label>
-          <Controller
-            name="empresaId"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                {...field}
-                options={empresas}
-                placeholder="Seleccionar empresa"
-                disabled={!!membership}
-                className={classNames({ "p-invalid": errors.empresaId })}
-                filter
-              />
+    <div className="p-2">
+      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+        <div className="grid">
+          {/* Empresa (solo editable al crear, no al editar) */}
+          <div className="col-12">
+            <label className="block text-900 font-medium mb-2">
+              Empresa <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="empresaId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  {...field}
+                  options={empresas}
+                  placeholder="Seleccionar empresa"
+                  disabled={!!membership}
+                  className={classNames({ "p-invalid": errors.empresaId })}
+                  filter
+                />
+              )}
+            />
+            {errors.empresaId && (
+              <small className="p-error">{errors.empresaId.message}</small>
             )}
-          />
-          {errors.empresaId && (
-            <small className="p-error">{errors.empresaId.message}</small>
-          )}
-        </div>
+          </div>
 
-        {/* Rol */}
-        <div className="col-12 md:col-6">
-          <label className="block font-medium mb-2">Rol</label>
-          <Controller
-            name="roleId"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                {...field}
-                options={roleOptions}
-                placeholder={
-                  !watchedEmpresaId
-                    ? "Selecciona una empresa primero"
-                    : loadingRoles
-                    ? "Cargando..."
-                    : "Seleccionar rol"
-                }
-                disabled={!watchedEmpresaId || loadingRoles}
-                className={classNames({ "p-invalid": errors.roleId })}
-              />
+          {/* Rol */}
+          <div className="col-12 md:col-6">
+            <label className="block text-900 font-medium mb-2">
+              Rol <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="roleId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  {...field}
+                  options={roleOptions}
+                  placeholder={
+                    !watchedEmpresaId
+                      ? "Selecciona una empresa primero"
+                      : loadingRoles
+                      ? "Cargando..."
+                      : "Seleccionar rol"
+                  }
+                  disabled={!watchedEmpresaId || loadingRoles}
+                  className={classNames({ "p-invalid": errors.roleId })}
+                />
+              )}
+            />
+            {errors.roleId && (
+              <small className="p-error">{errors.roleId.message}</small>
             )}
-          />
-          {errors.roleId && (
-            <small className="p-error">{errors.roleId.message}</small>
-          )}
-        </div>
+          </div>
 
-        {/* Status */}
-        <div className="col-12 md:col-6">
-          <label className="block font-medium mb-2">Estado</label>
-          <Controller
-            name="status"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                {...field}
-                options={statusOptions}
-                className={classNames({ "p-invalid": errors.status })}
-              />
+          {/* Status */}
+          <div className="col-12 md:col-6">
+            <label className="block text-900 font-medium mb-2">
+              Estado <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  {...field}
+                  options={statusOptions}
+                  className={classNames({ "p-invalid": errors.status })}
+                />
+              )}
+            />
+            {errors.status && (
+              <small className="p-error">{errors.status.message}</small>
             )}
-          />
-          {errors.status && (
-            <small className="p-error">{errors.status.message}</small>
-          )}
+          </div>
         </div>
-      </div>
-
-      <div className="flex justify-content-end gap-2 mt-4">
-        <Button
-          type="button"
-          label="Cancelar"
-          icon="pi pi-times"
-          outlined
-          onClick={onCancel}
-          disabled={isSubmitting}
-        />
-        <Button
-          type="submit"
-          label={membership ? "Actualizar" : "Crear"}
-          icon="pi pi-check"
-          severity="success"
-          loading={isSubmitting}
-        />
-      </div>
-    </form>
+      </form>
+    </div>
   );
 };
 

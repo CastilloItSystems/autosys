@@ -1,24 +1,22 @@
 "use client";
 
-import { useState } from "react";
-import { useForm } from "react-hook-form";
+import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Button } from "primereact/button";
 import { Password } from "primereact/password";
 import { classNames } from "primereact/utils";
 
 import { updateUser, User } from "@/app/api/userService";
+import { handleFormError } from "@/utils/errorHandlers";
+import {
+  PasswordRequirements,
+  passwordValidator,
+} from "./PasswordRequirements";
 
 // Validación
 const passwordSchema = z
   .object({
-    newPassword: z
-      .string()
-      .min(8, "La contraseña debe tener al menos 8 caracteres")
-      .regex(/[A-Z]/, "Debe contener al menos una letra mayúscula")
-      .regex(/[0-9]/, "Debe contener al menos un número")
-      .regex(/[^A-Za-z0-9]/, "Debe contener al menos un carácter especial"),
+    newPassword: passwordValidator,
     confirmPassword: z.string(),
   })
   .refine((data) => data.newPassword === data.confirmPassword, {
@@ -32,29 +30,28 @@ interface UsuarioChangePasswordFormProps {
   usuario: User | null;
   onPasswordChanged?: () => void;
   hideUsuarioPasswordFormDialog?: () => void;
-  showToast: (
-    severity: "success" | "error" | "warn" | "info",
-    summary: string,
-    detail: string,
-  ) => void;
+  toast: React.RefObject<any>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 const UsuarioChangePasswordForm = ({
   usuario,
   onPasswordChanged,
   hideUsuarioPasswordFormDialog,
-  showToast,
+  toast,
+  formId = "password-form",
+  onSubmittingChange,
 }: UsuarioChangePasswordFormProps) => {
-  const [submitting, setSubmitting] = useState(false);
-
   const {
-    register,
+    control,
     handleSubmit,
     formState: { errors },
     reset,
     watch,
   } = useForm<FormData>({
     resolver: zodResolver(passwordSchema),
+    mode: "onBlur",
     defaultValues: {
       newPassword: "",
       confirmPassword: "",
@@ -63,50 +60,64 @@ const UsuarioChangePasswordForm = ({
 
   const onSubmit = async (data: FormData) => {
     if (!usuario?.id) {
-      showToast("error", "Error", "Usuario inválido");
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Usuario inválido",
+      });
       return;
     }
 
-    try {
-      setSubmitting(true);
+    if (onSubmittingChange) onSubmittingChange(true);
 
+    try {
       await updateUser(usuario.id, {
         password: data.newPassword,
       });
 
-      showToast(
-        "success",
-        "Éxito",
-        `Contraseña actualizada para ${usuario.nombre}`,
-      );
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Contraseña actualizada para ${usuario.nombre}`,
+      });
 
       reset();
       hideUsuarioPasswordFormDialog?.();
       onPasswordChanged?.();
     } catch (error) {
-      console.error("Error actualizando contraseña:", error);
-      showToast("error", "Error", "No se pudo cambiar la contraseña");
+      handleFormError(error, toast);
     } finally {
-      setSubmitting(false);
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
     <div className="p-2">
-      <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
         <div className="field mb-4">
-          <label htmlFor="newPassword" className="block font-medium mb-2">
-            Nueva contraseña
+          <label
+            htmlFor="newPassword"
+            className="block text-900 font-medium mb-2"
+          >
+            Nueva contraseña <span className="text-red-500">*</span>
           </label>
-          <Password
-            id="newPassword"
-            toggleMask
-            feedback={false}
-            className={classNames("w-full", {
-              "p-invalid": errors.newPassword,
-            })}
-            inputClassName="w-full"
-            {...register("newPassword")}
+          <Controller
+            name="newPassword"
+            control={control}
+            render={({ field }) => (
+              <Password
+                id="newPassword"
+                toggleMask
+                feedback={false}
+                className={classNames("w-full", {
+                  "p-invalid": errors.newPassword,
+                })}
+                inputClassName="w-full"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+              />
+            )}
           />
           {errors.newPassword && (
             <small className="p-error">{errors.newPassword.message}</small>
@@ -114,87 +125,40 @@ const UsuarioChangePasswordForm = ({
         </div>
 
         <div className="field mb-4">
-          <label htmlFor="confirmPassword" className="block font-medium mb-2">
-            Confirmar contraseña
+          <label
+            htmlFor="confirmPassword"
+            className="block text-900 font-medium mb-2"
+          >
+            Confirmar contraseña <span className="text-red-500">*</span>
           </label>
-          <Password
-            id="confirmPassword"
-            toggleMask
-            feedback={false}
-            className={classNames("w-full", {
-              "p-invalid": errors.confirmPassword,
-            })}
-            inputClassName="w-full"
-            {...register("confirmPassword")}
+          <Controller
+            name="confirmPassword"
+            control={control}
+            render={({ field }) => (
+              <Password
+                id="confirmPassword"
+                toggleMask
+                feedback={false}
+                className={classNames("w-full", {
+                  "p-invalid": errors.confirmPassword,
+                })}
+                inputClassName="w-full"
+                value={field.value}
+                onChange={(e) => field.onChange(e.target.value)}
+                onBlur={field.onBlur}
+              />
+            )}
           />
           {errors.confirmPassword && (
             <small className="p-error">{errors.confirmPassword.message}</small>
           )}
         </div>
 
-        <div className="mb-4 p-3 border-round surface-50">
-          <strong>Requisitos:</strong>
-          <ul className="mt-2 mb-0 pl-3 text-sm">
-            <li
-              className={classNames({
-                "text-green-500": (watch("newPassword") || "").length >= 8,
-              })}
-            >
-              Al menos 8 caracteres
-            </li>
-            <li
-              className={classNames({
-                "text-green-500": /[A-Z]/.test(watch("newPassword") || ""),
-              })}
-            >
-              Al menos una letra mayúscula
-            </li>
-            <li
-              className={classNames({
-                "text-green-500": /[0-9]/.test(watch("newPassword") || ""),
-              })}
-            >
-              Al menos un número
-            </li>
-            <li
-              className={classNames({
-                "text-green-500": /[^A-Za-z0-9]/.test(
-                  watch("newPassword") || "",
-                ),
-              })}
-            >
-              Al menos un carácter especial
-            </li>
-            <li
-              className={classNames({
-                "text-green-500":
-                  watch("newPassword") === watch("confirmPassword") &&
-                  watch("newPassword") !== "",
-              })}
-            >
-              Las contraseñas coinciden
-            </li>
-          </ul>
-        </div>
-
-        <div className="flex justify-content-end gap-3">
-          <Button
-            type="button"
-            label="Cancelar"
-            className="p-button-outlined p-button-secondary"
-            onClick={() => {
-              reset();
-              hideUsuarioPasswordFormDialog?.();
-            }}
-            disabled={submitting}
-          />
-          <Button
-            type="submit"
-            label="Cambiar Contraseña"
-            icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-key"}
-            disabled={submitting}
-          />
-        </div>
+        <PasswordRequirements
+          password={watch("newPassword")}
+          confirmPassword={watch("confirmPassword")}
+          showConfirm={true}
+        />
       </form>
     </div>
   );

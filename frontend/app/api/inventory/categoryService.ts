@@ -1,7 +1,8 @@
 import apiClient from "../apiClient";
+import { ApiResponse, PaginatedResponse } from "./types";
 
 /**
- * Category API Response Interfaces
+ * Category Entity Interface
  */
 export interface Category {
   id: string;
@@ -24,118 +25,112 @@ export interface Category {
   };
 }
 
-export interface CategoriesResponse {
-  success: boolean;
-  message: string;
-  data: Category[];
-  meta: {
-    page: number;
-    limit: number;
-    total: number;
-    totalPages: number;
-  };
-  timestamp: string;
+/**
+ * Request/Parameter Interfaces
+ */
+export interface GetCategoriesParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  isActive?: string;
+  parentId?: string;
 }
 
-export interface CategoryResponse {
-  data: Category;
-}
+/**
+ * Base Route
+ */
+const BASE_ROUTE = "/inventory/catalogs/categories";
 
 /**
  * Categories Service
  * Handles all API calls related to categories catalog management
  */
-
-const BASE_ROUTE = "/inventory/catalogs/categories";
-
-class CategoriesService {
+const categoriesService = {
   /**
    * Get all categories with pagination and filters
    */
-  async getAll(params?: {
-    page?: number;
-    limit?: number;
-    search?: string;
-    isActive?: string;
-    parentId?: string;
-  }): Promise<CategoriesResponse> {
-    const res = await apiClient.get(`${BASE_ROUTE}`, { params });
+  async getAll(
+    params?: GetCategoriesParams,
+  ): Promise<PaginatedResponse<Category>> {
+    const res = await apiClient.get(BASE_ROUTE, { params });
     return res.data;
-  }
+  },
 
   /**
    * Get only active categories
    */
-  async getActive(): Promise<CategoriesResponse> {
+  async getActive(): Promise<PaginatedResponse<Category>> {
     const res = await apiClient.get(`${BASE_ROUTE}/active`);
     return res.data;
-  }
+  },
 
   /**
    * Get root categories (without parent)
    */
-  async getRootCategories(): Promise<CategoriesResponse> {
+  async getRootCategories(): Promise<PaginatedResponse<Category>> {
     const res = await apiClient.get(`${BASE_ROUTE}/root`);
     return res.data;
-  }
+  },
 
   /**
    * Get complete category tree
    */
-  async getTree(): Promise<any> {
+  async getTree(): Promise<ApiResponse<any>> {
     const res = await apiClient.get(`${BASE_ROUTE}/tree`);
     return res.data;
-  }
+  },
 
   /**
    * Search categories by term
    */
-  async search(term: string): Promise<CategoriesResponse> {
+  async search(term: string): Promise<PaginatedResponse<Category>> {
     const res = await apiClient.get(`${BASE_ROUTE}/search`, {
       params: { q: term },
     });
     return res.data;
-  }
+  },
 
   /**
    * Get single category by ID
    */
-  async getById(id: string): Promise<CategoryResponse> {
+  async getById(id: string): Promise<ApiResponse<Category>> {
     const res = await apiClient.get(`${BASE_ROUTE}/${id}`);
     return res.data;
-  }
+  },
 
   /**
    * Get subcategories of a category
    */
-  async getChildren(id: string): Promise<CategoriesResponse> {
+  async getChildren(id: string): Promise<PaginatedResponse<Category>> {
     const res = await apiClient.get(`${BASE_ROUTE}/${id}/children`);
     return res.data;
-  }
+  },
 
   /**
    * Get subtree of a category
    */
-  async getSubTree(id: string): Promise<any> {
+  async getSubTree(id: string): Promise<ApiResponse<any>> {
     const res = await apiClient.get(`${BASE_ROUTE}/${id}/tree`);
     return res.data;
-  }
+  },
 
   /**
    * Create a new category
    */
-  async create(payload: Partial<Category>): Promise<CategoryResponse> {
-    const res = await apiClient.post(`${BASE_ROUTE}`, payload);
+  async create(payload: Partial<Category>): Promise<ApiResponse<Category>> {
+    const res = await apiClient.post(BASE_ROUTE, payload);
     return res.data;
-  }
+  },
 
   /**
    * Create multiple categories (bulk import)
    */
-  async bulkCreate(categories: Partial<Category>[]): Promise<any> {
+  async bulkCreate(
+    categories: Partial<Category>[],
+  ): Promise<ApiResponse<Category[]>> {
     const res = await apiClient.post(`${BASE_ROUTE}/bulk`, { categories });
     return res.data;
-  }
+  },
 
   /**
    * Update a category
@@ -143,68 +138,45 @@ class CategoriesService {
   async update(
     id: string,
     payload: Partial<Category>,
-  ): Promise<CategoryResponse> {
+  ): Promise<ApiResponse<Category>> {
     const res = await apiClient.put(`${BASE_ROUTE}/${id}`, payload);
     return res.data;
-  }
+  },
 
   /**
    * Move category to another parent
    */
-  async move(id: string, parentId: string | null): Promise<CategoryResponse> {
+  async move(
+    id: string,
+    parentId: string | null,
+  ): Promise<ApiResponse<Category>> {
     const res = await apiClient.patch(`${BASE_ROUTE}/${id}/move`, { parentId });
     return res.data;
-  }
+  },
 
   /**
    * Toggle category active status
    */
-  async toggleActive(id: string): Promise<CategoryResponse> {
+  async toggleActive(id: string): Promise<ApiResponse<Category>> {
     const res = await apiClient.patch(`${BASE_ROUTE}/${id}/toggle`);
     return res.data;
-  }
+  },
 
   /**
    * Soft delete a category (sets isActive to false)
    */
-  async delete(id: string): Promise<any> {
+  async delete(id: string): Promise<ApiResponse<Category>> {
     const res = await apiClient.delete(`${BASE_ROUTE}/${id}`);
     return res.data;
-  }
+  },
 
   /**
    * Hard delete a category (permanent deletion)
    */
-  async hardDelete(id: string): Promise<any> {
+  async hardDelete(id: string): Promise<ApiResponse<Category>> {
     const res = await apiClient.delete(`${BASE_ROUTE}/${id}/hard`);
     return res.data;
-  }
-}
+  },
+};
 
-export default new CategoriesService();
-
-/**
- * Legacy function exports for backward compatibility
- */
-export async function getCategory(id: string) {
-  const res = await CategoriesService.prototype.getById(id);
-  return res.data;
-}
-
-export async function getCategories(params?: any) {
-  return CategoriesService.prototype.getAll(params);
-}
-
-export async function createCategory(payload: Partial<Category>) {
-  const res = await CategoriesService.prototype.create(payload);
-  return res.data;
-}
-
-export async function updateCategory(id: string, payload: Partial<Category>) {
-  const res = await CategoriesService.prototype.update(id, payload);
-  return res.data;
-}
-
-export async function deleteCategory(id: string) {
-  return CategoriesService.prototype.delete(id);
-}
+export default categoriesService;

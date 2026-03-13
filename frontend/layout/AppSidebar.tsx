@@ -18,7 +18,10 @@ const AppSidebar = () => {
   };
 
   const renderMenu = () => {
-    if (pathname.startsWith("/empresa")) {
+    const firstSegment = pathname?.split("/")[1];
+    // Mostrar el menú de empresa solo para rutas que pertenezcan a `/empresa`
+    // (evita que `/empresas` active el menú de detalle)
+    if (firstSegment === "empresa") {
       return <AppMenuEmpresa />;
     } else {
       return <AppMenu />;

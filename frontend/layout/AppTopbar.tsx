@@ -32,7 +32,7 @@ interface ExtendedUser extends User {
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
   const { data: session } = useSession();
   const { activeRefineria } = useRefineriaStore();
-
+  console.log("sersion", session);
   const { online, desconectarSocket } = useSocket();
 
   const handleSignOut = async () => {
@@ -41,7 +41,7 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
     if (accessToken) {
       try {
         await fetch(
-          `https://accounts.google.com/o/oauth2/revoke?token=${accessToken}`
+          `https://accounts.google.com/o/oauth2/revoke?token=${accessToken}`,
         );
         // console.log("Token de Google revocado correctamente.");
       } catch (e) {
@@ -178,8 +178,8 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
             <img
               alt="avatar"
               src={
-                session?.user?.usuario?.img
-                  ? session.user.usuario.img
+                session?.user?.img
+                  ? session.user.img
                   : "/layout/images/avatarHombre.png"
               }
               className="p-avatar p-avatar-image p-avatar-circle topbar-profile-avatar"
@@ -187,11 +187,12 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
             />
 
             <span className="profile-details">
-              <span className="profile-name">
-                {session?.user?.usuario?.nombre}
-              </span>
+              <span className="profile-name">{session?.user?.nombre}</span>
               <span className="profile-job">
-                {session?.user?.usuario?.rol.toLowerCase()}
+                {session?.user?.empresas
+                  ?.map((e) => e.role?.name?.toLowerCase())
+                  .filter(Boolean)
+                  .join(", ") || "Sin rol asignado"}
               </span>
               <span className="profile-job">
                 {online ? "Conectado" : "Desconectado"}

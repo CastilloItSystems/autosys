@@ -9,7 +9,8 @@ export interface CompanyRole {
   isSystem: boolean;
   createdAt: string;
   updatedAt: string;
-  _count?: { memberships: number };
+  // Prisma returns counts in `_count`. backend selects `userEmpresaRoles`.
+  _count?: { userEmpresaRoles?: number; memberships?: number };
 }
 
 // ── CRUD de roles por empresa ──────────────────────────────────────────────

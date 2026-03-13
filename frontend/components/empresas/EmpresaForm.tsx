@@ -19,6 +19,8 @@ interface EmpresaFormProps {
   onSave: () => void;
   onCancel: () => void;
   toast: React.RefObject<any>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 const EmpresaForm = ({
@@ -26,6 +28,8 @@ const EmpresaForm = ({
   onSave,
   onCancel,
   toast,
+  formId = "empresa-form",
+  onSubmittingChange,
 }: EmpresaFormProps) => {
   const [isLoading, setIsLoading] = useState(true);
 
@@ -38,6 +42,7 @@ const EmpresaForm = ({
     reset,
   } = useForm<EmpresaFormData>({
     resolver: zodResolver(empresaSchema),
+    mode: "onBlur",
     defaultValues: {
       nombre: "",
       direccion: "",
@@ -133,6 +138,7 @@ const EmpresaForm = ({
   }, [empresa, reset]);
 
   const onSubmit = async (data: EmpresaFormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (empresa) {
         await updateEmpresa(empresa.id_empresa, data);
@@ -154,11 +160,13 @@ const EmpresaForm = ({
       onSave();
     } catch (error) {
       handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -178,23 +186,37 @@ const EmpresaForm = ({
             </div>
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="nombre" className="font-medium text-900">
+              <label
+                htmlFor="nombre"
+                className="block text-900 font-medium mb-2"
+              >
                 Nombre de la Empresa <span className="text-red-500">*</span>
               </label>
-              <InputText
-                id="nombre"
-                className={classNames("w-full", {
-                  "p-invalid": errors.nombre,
-                })}
-                {...register("nombre")}
+              <Controller
+                name="nombre"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="nombre"
+                    {...field}
+                    className={classNames("w-full", {
+                      "p-invalid": errors.nombre,
+                    })}
+                  />
+                )}
               />
               {errors.nombre && (
-                <small className="p-error">{errors.nombre.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.nombre.message}
+                </small>
               )}
             </div>
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="numerorif" className="font-medium text-900">
+              <label
+                htmlFor="numerorif"
+                className="block text-900 font-medium mb-2"
+              >
                 Número RIF <span className="text-red-500">*</span>
               </label>
               <Controller
@@ -210,23 +232,36 @@ const EmpresaForm = ({
                 )}
               />
               {errors.numerorif && (
-                <small className="p-error">{errors.numerorif.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.numerorif.message}
+                </small>
               )}
             </div>
 
             <div className="field mb-4 col-12">
-              <label htmlFor="direccion" className="font-medium text-900">
+              <label
+                htmlFor="direccion"
+                className="block text-900 font-medium mb-2"
+              >
                 Dirección <span className="text-red-500">*</span>
               </label>
-              <InputText
-                id="direccion"
-                className={classNames("w-full", {
-                  "p-invalid": errors.direccion,
-                })}
-                {...register("direccion")}
+              <Controller
+                name="direccion"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="direccion"
+                    {...field}
+                    className={classNames("w-full", {
+                      "p-invalid": errors.direccion,
+                    })}
+                  />
+                )}
               />
               {errors.direccion && (
-                <small className="p-error">{errors.direccion.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.direccion.message}
+                </small>
               )}
             </div>
 
@@ -238,7 +273,10 @@ const EmpresaForm = ({
             </div>
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="telefonos" className="font-medium text-900">
+              <label
+                htmlFor="telefonos"
+                className="block text-900 font-medium mb-2"
+              >
                 Teléfonos
               </label>
               <Controller
@@ -254,7 +292,9 @@ const EmpresaForm = ({
                 )}
               />
               {errors.telefonos && (
-                <small className="p-error">{errors.telefonos.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.telefonos.message}
+                </small>
               )}
             </div>
 
@@ -280,50 +320,83 @@ const EmpresaForm = ({
             </div> */}
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="email" className="font-medium text-900">
+              <label
+                htmlFor="email"
+                className="block text-900 font-medium mb-2"
+              >
                 Email
               </label>
-              <InputText
-                id="email"
-                className={classNames("w-full", {
-                  "p-invalid": errors.email,
-                })}
-                {...register("email")}
+              <Controller
+                name="email"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="email"
+                    {...field}
+                    className={classNames("w-full", {
+                      "p-invalid": errors.email,
+                    })}
+                  />
+                )}
               />
               {errors.email && (
-                <small className="p-error">{errors.email.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.email.message}
+                </small>
               )}
             </div>
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="website" className="font-medium text-900">
+              <label
+                htmlFor="website"
+                className="block text-900 font-medium mb-2"
+              >
                 Sitio Web
               </label>
-              <InputText
-                id="website"
-                className={classNames("w-full", {
-                  "p-invalid": errors.website,
-                })}
-                {...register("website")}
+              <Controller
+                name="website"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="website"
+                    {...field}
+                    className={classNames("w-full", {
+                      "p-invalid": errors.website,
+                    })}
+                  />
+                )}
               />
               {errors.website && (
-                <small className="p-error">{errors.website.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.website.message}
+                </small>
               )}
             </div>
 
             <div className="field mb-4 col-12 md:col-6">
-              <label htmlFor="contacto" className="font-medium text-900">
+              <label
+                htmlFor="contacto"
+                className="block text-900 font-medium mb-2"
+              >
                 Persona de Contacto
               </label>
-              <InputText
-                id="contacto"
-                className={classNames("w-full", {
-                  "p-invalid": errors.contacto,
-                })}
-                {...register("contacto")}
+              <Controller
+                name="contacto"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="contacto"
+                    {...field}
+                    className={classNames("w-full", {
+                      "p-invalid": errors.contacto,
+                    })}
+                  />
+                )}
               />
               {errors.contacto && (
-                <small className="p-error">{errors.contacto.message}</small>
+                <small className="p-error block mt-1">
+                  {errors.contacto.message}
+                </small>
               )}
             </div>
 
@@ -678,23 +751,7 @@ const EmpresaForm = ({
               )}
             </div> */}
 
-            {/* Action Buttons */}
-            <div className="col-12 flex justify-content-end gap-2 mt-4">
-              <Button
-                label="Cancelar"
-                icon="pi pi-times"
-                severity="secondary"
-                onClick={onCancel}
-                type="button"
-                disabled={isSubmitting}
-              />
-              <Button
-                label={empresa ? "Actualizar" : "Crear"}
-                icon="pi pi-check"
-                type="submit"
-                loading={isSubmitting}
-              />
-            </div>
+            {/* El Action Buttons estático se ha removido a favor del footer de FormActionButtons en el componente padre */}
           </div>
         </>
       )}

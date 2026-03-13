@@ -32,14 +32,14 @@ const CreateButton: React.FC<CreateButtonProps> = ({
 }) => {
   const roles = useUserRoles();
   const canCreate = hasRole(createAllowedRoles, roles);
-  if (!canCreate) return null;
+  // if (!canCreate) return null;
 
   return (
     <Button
       type="button"
       icon={icon}
       label={label}
-      outlined={outlined}
+      // outlined={outlined}
       size={size}
       className={className}
       tooltip={tooltip}

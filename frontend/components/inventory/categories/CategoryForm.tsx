@@ -43,6 +43,8 @@ interface CategoryFormProps {
   hideFormDialog: () => void;
   onSuccess?: () => void;
   toast?: React.RefObject<any>;
+  formId?: string;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
 }
 
 export default function CategoryForm({
@@ -50,6 +52,8 @@ export default function CategoryForm({
   hideFormDialog,
   onSuccess,
   toast,
+  formId = "category-form",
+  onSubmittingChange,
 }: CategoryFormProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [categories, setCategories] = useState<Category[]>([]);
@@ -61,6 +65,7 @@ export default function CategoryForm({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(categorySchema),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -123,6 +128,7 @@ export default function CategoryForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (category?.id) {
         await categoryService.update(category.id, data);
@@ -152,6 +158,8 @@ export default function CategoryForm({
           error.response?.data?.message || "Error al guardar la categoría",
         life: 3000,
       });
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
@@ -161,7 +169,7 @@ export default function CategoryForm({
   }));
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -287,24 +295,6 @@ export default function CategoryForm({
                 </small>
               )}
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={hideFormDialog}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={category?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
           </div>
         </>
       )}

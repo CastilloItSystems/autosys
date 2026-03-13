@@ -17,15 +17,13 @@ import { TabView, TabPanel } from "primereact/tabview";
 import ModelCompatibilitySelector from "./ModelCompatibilitySelector";
 
 // API functions
-import {
-  createModel,
-  updateModel,
-  getActiveModels,
+import modelsService, {
   ModelType,
   MODEL_TYPE_LABELS,
   type Model,
 } from "@/app/api/inventory/modelService";
-import { getActiveBrands, type Brand } from "@/app/api/inventory/brandService";
+import brandsService, { type Brand } from "@/app/api/inventory/brandService";
+import { handleFormError } from "@/utils/errorHandlers";
 
 // Schema de validación
 const modelSchema = z.object({
@@ -59,8 +57,9 @@ type FormData = z.infer<typeof modelSchema>;
 
 interface ItemModelFormProps {
   model: Model | null;
-  onSave: () => void;
-  onCancel: () => void;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
 
@@ -72,8 +71,9 @@ const MODEL_TYPE_OPTIONS = [
 
 export default function ItemModelForm({
   model,
+  formId,
   onSave,
-  onCancel,
+  onSubmittingChange,
   toast,
 }: ItemModelFormProps) {
   const [isLoading, setIsLoading] = useState(true);
@@ -86,6 +86,7 @@ export default function ItemModelForm({
     formState: { errors, isSubmitting },
   } = useForm<FormData>({
     resolver: zodResolver(modelSchema),
+    mode: "onBlur",
     defaultValues: {
       code: "",
       name: "",
@@ -100,7 +101,7 @@ export default function ItemModelForm({
   useEffect(() => {
     const loadBrands = async () => {
       try {
-        const response = await getActiveBrands();
+        const response = await brandsService.getActive();
         const brandsData = response.data || [];
         setBrands(Array.isArray(brandsData) ? brandsData : []);
       } catch (error) {
@@ -146,6 +147,7 @@ export default function ItemModelForm({
    * Maneja el envío del formulario
    */
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       // Remove null year values for API compatibility
       const submitData = {
@@ -154,19 +156,15 @@ export default function ItemModelForm({
       };
 
       if (model?.id) {
-        await updateModel(model.id, submitData);
+        await modelsService.update(model.id, submitData);
       } else {
-        await createModel(submitData);
+        await modelsService.create(submitData);
       }
-      onSave();
+      await onSave();
     } catch (error: any) {
-      console.error("Error saving model:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar el modelo",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
@@ -331,7 +329,11 @@ export default function ItemModelForm({
   );
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "model-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       {isLoading ? (
         <div className="flex flex-column align-items-center justify-content-center p-4">
           <ProgressSpinner
@@ -360,24 +362,6 @@ export default function ItemModelForm({
           ) : (
             <BasicDataForm />
           )}
-
-          {/* Action Buttons */}
-          <div className="flex justify-content-end gap-2 mt-4">
-            <Button
-              label="Cancelar"
-              icon="pi pi-times"
-              severity="secondary"
-              onClick={onCancel}
-              type="button"
-              disabled={isSubmitting}
-            />
-            <Button
-              label={model?.id ? "Actualizar" : "Crear"}
-              icon="pi pi-check"
-              type="submit"
-              loading={isSubmitting}
-            />
-          </div>
         </>
       )}
     </form>

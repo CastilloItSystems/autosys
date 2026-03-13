@@ -7,15 +7,14 @@ import { InputText } from "primereact/inputtext";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
-import {
-  getBrands,
-  deleteBrand,
-  toggleBrand,
-  getActiveBrands,
-} from "@/app/api/inventory/brandService";
+import brandsService from "@/app/api/inventory/brandService";
 import BrandForm from "./BrandForm";
 import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import type { Brand } from "@/app/api/inventory/brandService";
 
 export default function BrandList() {
@@ -32,9 +31,13 @@ export default function BrandList() {
 
   // UI
   const [loading, setLoading] = useState<boolean>(true);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [actionBrand, setActionBrand] = useState<Brand | null>(null);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
+  const menuRef = useRef<Menu>(null);
 
   // Cargar marcas cuando cambien los filtros
   useEffect(() => {
@@ -44,13 +47,13 @@ export default function BrandList() {
   const loadBrands = async () => {
     try {
       setLoading(true);
-      let response: any;
+      const response = await brandsService.getAll({
+        page: page + 1,
+        limit: rows,
+        search: searchQuery || undefined,
+        isActive: showActive ? "true" : undefined,
+      });
 
-      if (showActive) {
-        response = await getActiveBrands();
-      } else {
-        response = await getBrands(page + 1, rows, searchQuery || undefined);
-      }
       // Estructura consistente en todos los endpoints
       const brandsData = response.data || [];
       const total = response.meta?.total || 0;
@@ -106,7 +109,7 @@ export default function BrandList() {
     if (!selectedBrand?.id) return;
 
     try {
-      await deleteBrand(selectedBrand.id);
+      await brandsService.delete(selectedBrand.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -128,7 +131,7 @@ export default function BrandList() {
 
   const handleToggleBrand = async (brand: Brand) => {
     try {
-      await toggleBrand(brand.id);
+      await brandsService.toggleActive(brand.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -162,34 +165,44 @@ export default function BrandList() {
   };
 
   // Templates
+  const getMenuItems = (brand: Brand | null): MenuItem[] => {
+    if (!brand) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => editBrand(brand),
+      },
+      {
+        label: brand.isActive ? "Desactivar" : "Activar",
+        icon: brand.isActive ? "pi pi-pause" : "pi pi-play",
+        command: () => handleToggleBrand(brand),
+      },
+      {
+        separator: true,
+      },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => confirmDeleteBrand(brand),
+      },
+    ];
+  };
+
   const actionBodyTemplate = (rowData: Brand) => {
     return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-pencil"
-          rounded
-          severity="info"
-          text
-          onClick={() => editBrand(rowData)}
-          tooltip="Editar"
-        />
-        <Button
-          icon={rowData.isActive ? "pi pi-pause" : "pi pi-play"}
-          rounded
-          severity={rowData.isActive ? "warning" : "success"}
-          text
-          onClick={() => handleToggleBrand(rowData)}
-          tooltip={rowData.isActive ? "Desactivar" : "Activar"}
-        />
-        <Button
-          icon="pi pi-trash"
-          rounded
-          severity="danger"
-          text
-          onClick={() => confirmDeleteBrand(rowData)}
-          tooltip="Eliminar"
-        />
-      </div>
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        onClick={(e) => {
+          setActionBrand(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        aria-controls="brand-menu"
+        aria-haspopup
+      />
     );
   };
 
@@ -303,6 +316,7 @@ export default function BrandList() {
           emptyMessage="No se encontraron marcas"
           sortMode="multiple"
           lazy
+          scrollable
         >
           <Column
             field="code"
@@ -336,9 +350,13 @@ export default function BrandList() {
             style={{ minWidth: "140px" }}
           />
           <Column
+            header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
-            style={{ minWidth: "140px" }}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -358,36 +376,39 @@ export default function BrandList() {
         }
         modal
         className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="brand-form"
+            isUpdate={!!selectedBrand?.id}
+            onCancel={() => setFormDialog(false)}
+            isSubmitting={isSubmitting}
+          />
+        }
         onHide={() => setFormDialog(false)}
       >
         <BrandForm
           brand={selectedBrand}
+          formId="brand-form"
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar eliminación"
-        modal
-        footer={deleteDialogFooter}
         onHide={() => setDeleteDialog(false)}
-      >
-        <div className="confirmation-content flex align-items-center gap-3">
-          <i
-            className="pi pi-exclamation-triangle"
-            style={{ fontSize: "2rem", color: "var(--red-500)" }}
-          />
-          {selectedBrand && (
-            <span>
-              ¿Está seguro de eliminar la marca <b>{selectedBrand.name}</b>?
-            </span>
-          )}
-        </div>
-      </Dialog>
+        itemName={selectedBrand?.name || ""}
+        isDeleting={isDeleting}
+        onConfirm={handleDelete}
+      />
+
+      <Menu
+        model={getMenuItems(actionBrand)}
+        popup
+        ref={menuRef}
+        id="brand-menu"
+      />
     </motion.div>
   );
 }
