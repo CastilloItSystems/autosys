@@ -31,14 +31,9 @@ import { handleFormError } from "@/utils/errorHandlers";
 
 interface EntryNoteFormProps {
   entryNote?: EntryNote | null;
-  entryNotes: EntryNote[];
-  setEntryNotes: (notes: EntryNote[]) => void;
-  hideFormDialog: () => void;
-  showToast: (
-    severity: "success" | "error",
-    summary: string,
-    detail: string,
-  ) => void;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<Toast> | null;
   items: Item[];
   warehouses: Warehouse[];
@@ -46,10 +41,9 @@ interface EntryNoteFormProps {
 
 export default function EntryNoteForm({
   entryNote,
-  entryNotes,
-  setEntryNotes,
-  hideFormDialog,
-  showToast,
+  formId,
+  onSave,
+  onSubmittingChange,
   toast,
   items,
   warehouses,
@@ -68,6 +62,7 @@ export default function EntryNoteForm({
     reset,
   } = useForm<CreateEntryNoteInput>({
     resolver: zodResolver(createEntryNoteSchema),
+    mode: "onBlur",
     defaultValues: entryNote
       ? {
           type: entryNote.type as EntryType,
@@ -151,15 +146,12 @@ export default function EntryNoteForm({
   /* ── Submit ── */
   const onSubmit = async (data: CreateEntryNoteInput) => {
     setSubmitting(true);
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (isEditing) {
         // Update: only header fields
         const { items: _, ...headerData } = data;
-        const result = await entryNoteService.update(entryNote!.id, headerData);
-        setEntryNotes(
-          entryNotes.map((n) => (n.id === result.data.id ? result.data : n)),
-        );
-        showToast("success", "Éxito", "Nota de Entrada actualizada");
+        await entryNoteService.update(entryNote!.id, headerData);
       } else {
         // ── Create EntryNote + add items ──
         const { items: itemsData, ...headerData } = data;
@@ -192,21 +184,23 @@ export default function EntryNoteForm({
             notes: item.notes || null,
           });
         }
-
-        const fresh = await entryNoteService.getById(createdNote.id);
-        setEntryNotes([fresh.data, ...entryNotes]);
-        showToast("success", "Éxito", "Nota de Entrada creada");
       }
-      hideFormDialog();
+
+      await onSave();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
       setSubmitting(false);
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "entry-note-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
         {/* ── Tipo y Almacén ── */}
         <div className="col-12 md:col-6 field">
@@ -493,22 +487,7 @@ export default function EntryNoteForm({
           )}
         </div>
 
-        {/* ── Botones ── */}
-        <div className="col-12 flex justify-content-end gap-2 mt-4">
-          <Button
-            label="Cancelar"
-            icon="pi pi-times"
-            className="p-button-text"
-            onClick={hideFormDialog}
-            type="button"
-          />
-          <Button
-            label={isEditing ? "Actualizar" : "Crear Nota de Entrada"}
-            icon="pi pi-check"
-            loading={submitting}
-            type="submit"
-          />
-        </div>
+        {/* NOTE: Action buttons are rendered by the parent Dialog footer (per list/form standard) */}
       </div>
     </form>
   );

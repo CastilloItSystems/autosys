@@ -232,7 +232,11 @@ export default function WarehouseList() {
             onChange={(e) => handleSearch(e.target.value)}
           />
         </span>
-        <CreateButton label="Nuevo Almacén" onClick={openNew} />
+        <CreateButton
+          label="Nuevo almacén"
+          onClick={openNew}
+          tooltip="Crear almacén"
+        />
       </div>
     </div>
   );

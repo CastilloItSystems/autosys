@@ -28,7 +28,9 @@ import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import EntryNoteForm from "./EntryNoteForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 import EntryNoteStepper from "./EntryNoteStepper";
+import CreateButton from "@/components/common/CreateButton";
 
 const EntryNoteList = () => {
   const [entryNotes, setEntryNotes] = useState<EntryNote[]>([]);
@@ -46,6 +48,7 @@ const EntryNoteList = () => {
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
 
@@ -81,6 +84,10 @@ const EntryNoteList = () => {
   const hideDeleteDialog = () => {
     setSelectedEntryNote(null);
     setDeleteDialog(false);
+  };
+  const openNew = () => {
+    setSelectedEntryNote(null);
+    setFormDialog(true);
   };
 
   const handleDelete = async () => {
@@ -200,14 +207,10 @@ const EntryNoteList = () => {
           className="w-full"
         />
       </span>
-      <Button
+      <CreateButton
         label="Nueva Nota de Entrada"
-        icon="pi pi-plus"
-        severity="success"
-        onClick={() => {
-          setSelectedEntryNote(null);
-          setFormDialog(true);
-        }}
+        onClick={openNew}
+        tooltip="Crear nueva nota de entrada"
       />
     </div>
   );
@@ -873,18 +876,35 @@ const EntryNoteList = () => {
           }
           modal
           onHide={() => setFormDialog(false)}
+          footer={
+            <FormActionButtons
+              formId="entry-note-form"
+              isUpdate={!!selectedEntryNote?.id}
+              onCancel={() => {
+                setFormDialog(false);
+                setSelectedEntryNote(null);
+              }}
+              isSubmitting={isSubmitting}
+            />
+          }
         >
           <EntryNoteForm
             entryNote={selectedEntryNote}
-            entryNotes={entryNotes}
-            setEntryNotes={setEntryNotes}
-            hideFormDialog={() => {
+            formId="entry-note-form"
+            onSave={async () => {
+              await fetchData();
+              toast.current?.show({
+                severity: "success",
+                summary: "Éxito",
+                detail: selectedEntryNote?.id
+                  ? "Nota de Entrada actualizada"
+                  : "Nota de Entrada creada",
+                life: 3000,
+              });
               setFormDialog(false);
-              fetchData();
+              setSelectedEntryNote(null);
             }}
-            showToast={(severity, summary, detail) =>
-              toast.current?.show({ severity, summary, detail, life: 3000 })
-            }
+            onSubmittingChange={setIsSubmitting}
             toast={toast}
             items={items}
             warehouses={warehouses}
