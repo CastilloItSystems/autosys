@@ -4,9 +4,20 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
-import { Button } from "primereact/button";
-import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
+import ItemsTable from "../common/ItemsTable";
+import ItemRow, { ItemRowColWidths } from "../common/ItemRow";
+
+/** Column widths — shared between the ItemsTable header and each ItemRow cell */
+const COLS: ItemRowColWidths = {
+  handle:   { width: "1.75rem", flexShrink: 0 },
+  product:  { flex: "1 1 0",    minWidth: 0 },
+  quantity: { width: "5.5rem",  flexShrink: 0 },
+  unitCost: { width: "8rem",    flexShrink: 0 },
+  location: { width: "6rem",    flexShrink: 0 },
+  batch:    { width: "5.5rem",  flexShrink: 0 },
+  remove:   { width: "1.75rem", flexShrink: 0 },
+};
 import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 import { Message } from "primereact/message";
@@ -93,7 +104,7 @@ export default function EntryNoteForm({
         },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove, replace, move } = useFieldArray({
     control,
     name: "items",
   });
@@ -142,6 +153,18 @@ export default function EntryNoteForm({
     },
     [items],
   );
+
+  /* ── Totals (optional footer) ── */
+  const watchedItems = watch("items");
+  const subtotal =
+    watchedItems?.reduce(
+      (acc, it) => acc + (it.quantityReceived ?? 0) * (it.unitCost ?? 0),
+      0,
+    ) ?? 0;
+  const totalsLines =
+    subtotal > 0
+      ? [{ label: "Subtotal", value: subtotal, highlight: true }]
+      : undefined;
 
   /* ── Submit ── */
   const onSubmit = async (data: CreateEntryNoteInput) => {
@@ -325,146 +348,46 @@ export default function EntryNoteForm({
         </div>
 
         {/* ── Items Section ── */}
-        <div className="col-12">
-          <Divider align="left">
-            <div className="flex align-items-center gap-2">
-              <span className="p-tag">Artículos a Recibir</span>
-              <Button
-                type="button"
-                icon="pi pi-plus"
-                className="p-button-rounded p-button-text p-button-sm"
-                onClick={() =>
-                  append({ itemId: "", quantityReceived: 1, unitCost: 0 })
-                }
-              />
-            </div>
-          </Divider>
-        </div>
-
-        {/* ── Items rows ── */}
-        {fields.map((field, index) => {
-          const watchedQty = watch(`items.${index}.quantityReceived`);
-
-          return (
-            <div
-              key={field.id}
-              className="col-12 grid align-items-end p-2 border-round mb-2 surface-50"
-            >
-              {/* Producto */}
-              <div className="col-12 md:col-4 field mb-0">
-                <label className="text-sm">Producto</label>
-                <Controller
-                  name={`items.${index}.itemId`}
-                  control={control}
-                  render={({ field: f }) => (
-                    <Dropdown
-                      value={f.value}
-                      onChange={(e) => f.onChange(e.value)}
-                      options={itemOptions}
-                      optionLabel="label"
-                      optionValue="value"
-                      placeholder="Seleccione Producto"
-                      filter
-                      className={
-                        errors.items?.[index]?.itemId ? "p-invalid" : ""
-                      }
-                    />
-                  )}
-                />
-                {errors.items?.[index]?.itemId && (
-                  <small className="p-error block">
-                    {errors.items[index]?.itemId?.message}
-                  </small>
-                )}
-              </div>
-
-              {/* Cantidad */}
-              <div className="col-6 md:col-2 field mb-0">
-                <label className="text-sm">Cantidad</label>
-                <Controller
-                  name={`items.${index}.quantityReceived`}
-                  control={control}
-                  render={({ field: f }) => (
-                    <InputNumber
-                      value={f.value}
-                      onValueChange={(e) => f.onChange(e.value)}
-                      min={1}
-                      showButtons
-                      className={
-                        errors.items?.[index]?.quantityReceived
-                          ? "p-invalid"
-                          : ""
-                      }
-                    />
-                  )}
-                />
-                {errors.items?.[index]?.quantityReceived && (
-                  <small className="p-error block">
-                    {errors.items[index]?.quantityReceived?.message}
-                  </small>
-                )}
-              </div>
-
-              {/* Costo Unitario */}
-              <div className="col-6 md:col-2 field mb-0">
-                <label className="text-sm">Costo Unit.</label>
-                <Controller
-                  name={`items.${index}.unitCost`}
-                  control={control}
-                  render={({ field: f }) => (
-                    <InputNumber
-                      value={f.value}
-                      onValueChange={(e) => f.onChange(e.value)}
-                      min={0}
-                      minFractionDigits={2}
-                      maxFractionDigits={2}
-                      mode="currency"
-                      currency="USD"
-                      locale="es-VE"
-                      className={
-                        errors.items?.[index]?.unitCost ? "p-invalid" : ""
-                      }
-                    />
-                  )}
-                />
-                {errors.items?.[index]?.unitCost && (
-                  <small className="p-error block">
-                    {errors.items[index]?.unitCost?.message}
-                  </small>
-                )}
-              </div>
-
-              {/* Ubicación */}
-              <div className="col-6 md:col-2 field mb-0">
-                <label className="text-sm">Ubicación</label>
-                <InputText
-                  {...register(`items.${index}.storedToLocation` as any)}
-                  placeholder="Ej: A-12"
-                />
-              </div>
-
-              {/* Lote */}
-              <div className="col-6 md:col-1 field mb-0">
-                <label className="text-sm">Lote</label>
-                <InputText
-                  {...register(`items.${index}.batchNumber` as any)}
-                  placeholder="Lote"
-                />
-              </div>
-
-              {/* Eliminar */}
-              <div className="col-12 md:col-1 flex justify-content-end mb-1">
-                <Button
-                  type="button"
-                  icon="pi pi-trash"
-                  className="p-button-rounded p-button-danger p-button-text"
-                  onClick={() => remove(index)}
-                  disabled={fields.length === 1}
-                />
-              </div>
-            </div>
-          );
-        })}
+        <ItemsTable
+          fields={fields}
+          append={append}
+          remove={remove}
+          move={move}
+          defaultItem={{ itemId: "", quantityReceived: 1, unitCost: 0 }}
+          title="Artículos a Recibir"
+          totals={totalsLines}
+          columns={[
+            { label: "",            style: COLS.handle },
+            { label: "Producto",    style: COLS.product },
+            { label: "Cant.",       style: COLS.quantity },
+            { label: "Costo Unit.", style: COLS.unitCost! },
+            { label: "Ubicación",   style: COLS.location! },
+            { label: "Lote",        style: COLS.batch! },
+            { label: "",            style: COLS.remove },
+          ]}
+          renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
+            <ItemRow
+              control={control}
+              register={register}
+              rowErrors={(errors.items as any)?.[index]}
+              itemOptions={itemOptions}
+              fieldPaths={{
+                itemId:   `items.${index}.itemId`,
+                quantity: `items.${index}.quantityReceived`,
+                unitCost: `items.${index}.unitCost`,
+                location: `items.${index}.storedToLocation`,
+                batch:    `items.${index}.batchNumber`,
+              }}
+              colWidths={COLS}
+              onRemove={() => remove(index)}
+              canRemove={fields.length > 1}
+              onAddRow={onAddRow}
+              dragHandleProps={dragHandleProps}
+              isDragging={isDragging}
+              locationPlaceholder="Ej: A-12"
+            />
+          )}
+        />
 
         {errors.items && typeof errors.items.message === "string" && (
           <div className="col-12">
