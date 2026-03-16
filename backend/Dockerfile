@@ -3,13 +3,14 @@ FROM node:20-slim
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm ci
 
+# Instalamos dependencias sin ejecutar scripts
+RUN npm install --ignore-scripts
+
+# Copiamos todo el proyecto, incluida la carpeta prisma
 COPY . .
-
-RUN npm run prisma:generate
-RUN npm run build
 
 EXPOSE 4000
 
-CMD ["npm", "start"]
+# Generamos Prisma al iniciar y luego arrancamos la app
+CMD ["sh", "-c", "npx prisma generate && npm start"]
