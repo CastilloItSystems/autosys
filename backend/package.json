@@ -19,9 +19,6 @@
   "author": "",
   "license": "ISC",
   "type": "module",
-  "overrides": {
-    "zeptomatch": "1.1.4"
-  },
   "dependencies": {
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^7.3.0",
@@ -50,8 +47,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
-    "winston": "^3.19.0",
-    "zeptomatch": "1.1.4"
+    "winston": "^3.19.0"
   },
   "devDependencies": {
     "@jest/globals": "^30.2.0",
