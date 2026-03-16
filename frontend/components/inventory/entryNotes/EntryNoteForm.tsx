@@ -125,7 +125,7 @@ export default function EntryNoteForm({
   const itemOptions = useMemo(
     () =>
       items.map((i) => ({
-        label: i.sku ? `${i.sku} - ${i.name}` : i.name,
+        label: i.sku || i.code ? `${i.sku || i.code} - ${i.name}` : i.name,
         value: i.id,
       })),
     [items],
@@ -144,7 +144,11 @@ export default function EntryNoteForm({
   const getItemName = useCallback(
     (itemId: string) => {
       const item = items.find((i) => i.id === itemId);
-      return item ? (item.sku ? `${item.sku} - ${item.name}` : item.name) : "";
+      return item
+        ? item.sku || item.code
+          ? `${item.sku || item.code} - ${item.name}`
+          : item.name
+        : "";
     },
     [items],
   );

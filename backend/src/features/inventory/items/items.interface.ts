@@ -2,6 +2,7 @@
 export interface IItem {
   id: string
   sku: string
+  code: string
   barcode?: string | null
   name: string
   description?: string | null
@@ -88,6 +89,7 @@ export interface IItemWithRelations extends IItem {
 
 export interface ICreateItemInput {
   sku: string
+  code: string
   barcode?: string | undefined
   name: string
   description?: string | undefined
@@ -113,6 +115,7 @@ export interface ICreateItemInput {
 
 export interface IUpdateItemInput {
   sku?: string | undefined
+  code?: string | undefined
   barcode?: string | undefined
   name?: string | undefined
   description?: string | undefined

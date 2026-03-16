@@ -98,6 +98,7 @@ describe('Items API Tests', () => {
       data: {
         empresaId,
         sku: testSKU,
+        code: testSKU,
         barcode: testBarcode,
         name: 'Test Item',
         description: 'Item de prueba',
@@ -159,6 +160,7 @@ describe('Items API Tests', () => {
         .set('X-Empresa-Id', empresaId)
         .send({
           sku: createTestSKU,
+          code: createTestSKU,
           barcode: 'UNIQUE-CREATE-BC',
           name: 'Test Item',
           description: 'Item de prueba',
@@ -191,6 +193,7 @@ describe('Items API Tests', () => {
         .set('X-Empresa-Id', empresaId)
         .send({
           sku: testSKU,
+          code: testSKU,
           barcode: 'UNIQUE-BC-002',
           name: 'Another Item',
           brandId,
@@ -213,6 +216,7 @@ describe('Items API Tests', () => {
         .set('X-Empresa-Id', empresaId)
         .send({
           sku: 'UNIQUE-SKU-002',
+          code: 'UNIQUE-SKU-002',
           name: 'Test Item',
           brandId: '00000000-0000-0000-0000-000000000000',
           categoryId,
@@ -234,6 +238,7 @@ describe('Items API Tests', () => {
         .set('X-Empresa-Id', empresaId)
         .send({
           sku: '',
+          code: '',
           name: '',
           brandId,
           categoryId,

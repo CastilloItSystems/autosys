@@ -158,6 +158,7 @@ const TurnoverAnalysis = () => {
   const columns = [
     { field: "itemName", header: "Artículo", width: "18%", sortable: true },
     { field: "sku", header: "SKU", width: "12%", sortable: true },
+    { field: "code", header: "Código", width: "12%", sortable: true },
     {
       field: "turnoverRatio",
       header: "Ratio de Rotación",

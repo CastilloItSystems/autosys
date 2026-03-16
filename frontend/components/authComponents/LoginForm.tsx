@@ -109,7 +109,7 @@ const LoginForm: Page = () => {
 
           <div className="flex flex-column gap-2">
             <label htmlFor="correo" className="font-medium text-900">
-              Correo electrónico editado
+              Correo electrónico
             </label>
             <span className="p-input-icon-left">
               <i className="pi pi-envelope text-color-secondary" />

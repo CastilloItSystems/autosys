@@ -6,6 +6,7 @@ const asRecord = (value: unknown): AnyRecord =>
 
 export class CreateItemDTO {
   sku: string
+  code: string
   barcode?: string
   name: string
   description?: string
@@ -32,6 +33,7 @@ export class CreateItemDTO {
     const d = asRecord(data)
 
     this.sku = String(d.sku ?? '').toUpperCase()
+    this.code = String(d.code ?? '')
     this.name = String(d.name ?? '')
     this.brandId = String(d.brandId ?? '')
     this.categoryId = String(d.categoryId ?? '')
@@ -69,6 +71,7 @@ export class CreateItemDTO {
 
 export class UpdateItemDTO {
   sku?: string
+  code?: string
   barcode?: string
   name?: string
   description?: string
@@ -95,6 +98,7 @@ export class UpdateItemDTO {
     const d = asRecord(data)
 
     if (d.sku !== undefined) this.sku = String(d.sku).toUpperCase()
+    if (d.code !== undefined) this.code = String(d.code)
     if (d.barcode !== undefined)
       this.barcode = d.barcode == null ? '' : String(d.barcode)
     if (d.name !== undefined) this.name = String(d.name)
@@ -131,6 +135,7 @@ export class UpdateItemDTO {
 export class ItemResponseDTO {
   id: string
   sku: string
+  code: string
   barcode?: string | null
   name: string
   description?: string | null
@@ -192,6 +197,7 @@ export class ItemResponseDTO {
 
     this.id = String(i.id ?? '')
     this.sku = String(i.sku ?? '')
+    this.code = String(i.code ?? '')
     this.name = String(i.name ?? '')
     this.brandId = String(i.brandId ?? '')
     this.categoryId = String(i.categoryId ?? '')

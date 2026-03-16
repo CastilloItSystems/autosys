@@ -265,7 +265,9 @@ const ReceiveOrderDialog = ({
                   {/* Item info */}
                   <div className="col-12 md:col-3">
                     <div className="font-medium text-900">
-                      {line.sku ? `${line.sku} — ` : ""}
+                      {line.sku || line.code
+                        ? `${line.sku || line.code} — `
+                        : ""}
                       {line.itemName}
                     </div>
                     <div className="text-sm text-500 mt-1">

@@ -133,14 +133,25 @@ const bulkService = {
 
   // Export items to CSV/JSON/Excel
   async exportItems(request: IBulkExportRequest): Promise<Blob> {
-    const res = await apiClient.post<Blob>(
-      `/inventory/items/bulk/export`,
-      request,
-      {
-        responseType: "blob",
-      },
-    );
-    return res.data;
+    try {
+      const res = await apiClient.post<Blob>(
+        `/inventory/items/bulk/export`,
+        request,
+        {
+          responseType: "blob",
+        },
+      );
+      return res.data;
+    } catch (error: any) {
+      // If backend returns 404 (e.g., no items match export filters), return an empty file
+      // so the UI can still download a valid (but empty) export.
+      if (error?.response?.status === 404) {
+        const mimeType =
+          request.format === "json" ? "application/json" : "text/csv";
+        return new Blob([""], { type: mimeType });
+      }
+      throw error;
+    }
   },
 
   // Bulk update items

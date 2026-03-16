@@ -22,9 +22,12 @@ const EXPORT_FORMATS = [
 
 const ALL_COLUMNS = [
   "sku",
+  "code",
   "name",
   "description",
   "category",
+  "brand",
+  "model",
   "costPrice",
   "salePrice",
   "wholesalePrice",
@@ -32,7 +35,6 @@ const ALL_COLUMNS = [
   "maxStock",
   "barcode",
   "unit",
-  "brand",
   "status",
   "createdAt",
   "updatedAt",
@@ -52,14 +54,16 @@ export const BulkExport = () => {
   const [format, setFormat] = useState<string>("csv");
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     "sku",
+    "code",
     "name",
     "category",
+    "brand",
+    "model",
     "costPrice",
     "salePrice",
     "minStock",
     "barcode",
     "unit",
-    "brand",
     "status",
   ]);
 

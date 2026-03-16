@@ -19,6 +19,7 @@ interface ForecastData {
 interface ForecastResult {
   itemId: string
   itemSku: string
+  code?: string
   itemName: string
   currentStock: number
   historicalAverageDailyDemand: number
@@ -212,6 +213,7 @@ class ForecastingService {
     return {
       itemId,
       itemSku: item.sku,
+      code: item.code,
       itemName: item.name,
       currentStock,
       historicalAverageDailyDemand:

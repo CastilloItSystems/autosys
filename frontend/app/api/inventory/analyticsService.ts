@@ -35,6 +35,7 @@ export interface ABCItem {
   itemId: string;
   itemName: string;
   sku: string;
+  code?: string;
   totalMovementValue: number;
   movementCount: number;
   percentageOfTotal: number;
@@ -78,6 +79,7 @@ export interface ForecastData {
   itemId: string;
   itemName: string;
   sku: string;
+  code?: string;
   currentStock: number;
   estimatedDemand: {
     demand30Days: number;

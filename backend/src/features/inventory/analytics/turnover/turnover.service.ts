@@ -8,6 +8,7 @@ import { NotFoundError } from '../../../../shared/utils/errors.js'
 interface TurnoverMetrics {
   itemId: string
   itemSku: string
+  code?: string
   itemName: string
   turnoverRatio: number
   daysInventoryOutstanding: number
@@ -135,6 +136,7 @@ class TurnoverService {
     return {
       itemId,
       itemSku: item.sku,
+      code: item.code,
       itemName: item.name,
       turnoverRatio: Math.round(turnoverRatio * 100) / 100,
       daysInventoryOutstanding: Math.round(daysInventoryOutstanding * 10) / 10,
@@ -313,12 +315,17 @@ class TurnoverService {
     const total = await prisma.item.count({ where: { isActive: true } })
 
     const summary = {
-      averageTurnover: metrics.length > 0
-        ? metrics.reduce((sum, m) => sum + m.turnoverRatio, 0) / metrics.length
-        : 0,
-      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING').length,
-      moderateCount: metrics.filter((m) => m.classification === 'MODERATE').length,
-      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING').length,
+      averageTurnover:
+        metrics.length > 0
+          ? metrics.reduce((sum, m) => sum + m.turnoverRatio, 0) /
+            metrics.length
+          : 0,
+      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING')
+        .length,
+      moderateCount: metrics.filter((m) => m.classification === 'MODERATE')
+        .length,
+      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING')
+        .length,
       staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
       totalItems: total,
     }
@@ -351,12 +358,17 @@ class TurnoverService {
     const total = metrics.length
 
     const summary = {
-      averageTurnover: filtered.length > 0
-        ? filtered.reduce((sum, m) => sum + m.turnoverRatio, 0) / filtered.length
-        : 0,
-      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING').length,
-      moderateCount: metrics.filter((m) => m.classification === 'MODERATE').length,
-      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING').length,
+      averageTurnover:
+        filtered.length > 0
+          ? filtered.reduce((sum, m) => sum + m.turnoverRatio, 0) /
+            filtered.length
+          : 0,
+      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING')
+        .length,
+      moderateCount: metrics.filter((m) => m.classification === 'MODERATE')
+        .length,
+      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING')
+        .length,
       staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
       totalItems: total,
     }

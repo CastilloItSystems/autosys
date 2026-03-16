@@ -81,7 +81,7 @@ const ItemList = () => {
 
       const itemsData = response.data || [];
       const total = response.meta?.total || 0;
-
+      console.log("items", itemsData);
       setItems(Array.isArray(itemsData) ? itemsData : []);
       setTotalRecords(total);
     } catch (error) {
@@ -114,6 +114,7 @@ const ItemList = () => {
       // Mapear resultados de búsqueda a Item
       const searchItems = response.data.map((res: any) => ({
         ...res,
+        model: { name: res.modelName },
         category: { name: res.categoryName },
         brand: { name: res.brandName },
         // Images are already in correct structure from backend update
@@ -199,7 +200,8 @@ const ItemList = () => {
         <div className="flex flex-column">
           <span className="font-bold text-sm">{item.name}</span>
           <span className="text-xs text-600">
-            {item.sku} - {item.categoryName}
+            {item.sku || item.code ? `${item.sku || item.code} - ` : ""}
+            {item.categoryName}
           </span>
         </div>
         <span className="font-semibold text-primary text-sm">
@@ -347,11 +349,13 @@ const ItemList = () => {
     );
   };
 
+  const skuBodyTemplate = (rowData: Item) => {
+    return <span className="font-bold">{rowData.sku || "-"}</span>;
+  };
+
   const codeBodyTemplate = (rowData: Item) => {
     return (
-      <span className="font-bold text-primary">
-        {rowData.sku || rowData.code}
-      </span>
+      <span className="font-bold text-primary">{rowData.code || "-"}</span>
     );
   };
 
@@ -639,7 +643,10 @@ const ItemList = () => {
               </div>
               <div className="flex align-items-center gap-3 text-sm text-600 flex-wrap">
                 <span className="font-bold text-primary">
-                  {item.sku || item.code}
+                  {item.sku ? `SKU: ${item.sku}` : ""}
+                  {item.code
+                    ? ` ${item.sku ? "|" : ""} Código: ${item.code}`
+                    : ""}
                 </span>
                 <span>
                   <i className="pi pi-tag text-xs mr-1" />
@@ -853,11 +860,18 @@ const ItemList = () => {
             size="small"
           >
             <Column
+              field="sku"
+              header="SKU"
+              sortable
+              body={skuBodyTemplate}
+              style={{ minWidth: "110px" }}
+            />
+            <Column
               field="code"
               header="Código"
               sortable
               body={codeBodyTemplate}
-              style={{ minWidth: "80px" }}
+              style={{ minWidth: "110px" }}
             />
             <Column
               field="name"
@@ -868,6 +882,11 @@ const ItemList = () => {
             <Column
               field="brand.name"
               header="Marca"
+              style={{ minWidth: "120px" }}
+            />
+            <Column
+              field="model.name"
+              header="Modelo"
               style={{ minWidth: "120px" }}
             />
             <Column
@@ -1016,9 +1035,11 @@ const ItemList = () => {
                     className="mb-2"
                   />
                   <div className="text-xl font-bold">
-                    {selectedItem.sku || selectedItem.code}
+                    SKU: {selectedItem.sku || "-"}
                   </div>
-                  <span className="text-sm text-600">SKU / Código</span>
+                  <div className="text-lg font-semibold">
+                    Código: {selectedItem.code || "-"}
+                  </div>
                 </div>
               </div>
             </div>

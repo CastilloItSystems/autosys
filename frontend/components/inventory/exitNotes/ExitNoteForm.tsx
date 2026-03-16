@@ -112,7 +112,7 @@ export default function ExitNoteForm({
   const itemOptions = useMemo(
     () =>
       items.map((i) => ({
-        label: i.sku ? `${i.sku} - ${i.name}` : i.name,
+        label: i.sku || i.code ? `${i.sku || i.code} - ${i.name}` : i.name,
         value: i.id,
       })),
     [items],

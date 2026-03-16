@@ -3,6 +3,7 @@
 model Item {
   id          String   @id @default(uuid())
   sku         String
+  code        String
   barcode     String?
   name        String
   description String?  @db.Text
@@ -79,9 +80,11 @@ model Item {
 
   // Únicos por empresa
   @@unique([empresaId, sku], map: "items_empresa_sku_unique")
+  @@unique([empresaId, code], map: "items_empresa_code_unique")
   @@unique([empresaId, barcode], map: "items_empresa_barcode_unique")
 
   @@index([sku])
+  @@index([code])
   @@index([barcode])
   @@index([brandId])
   @@index([categoryId])

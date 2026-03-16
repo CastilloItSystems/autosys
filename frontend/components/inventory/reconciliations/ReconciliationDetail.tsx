@@ -40,18 +40,23 @@ export default function ReconciliationDetail({
   };
 
   const totalItems = reconciliation.items?.length ?? 0;
-  const itemsWithDiscrepancy = reconciliation.items?.filter((i) => {
-    const diff = (i.expectedQuantity ?? 0) - i.systemQuantity;
-    return diff !== 0;
-  }).length ?? 0;
+  const itemsWithDiscrepancy =
+    reconciliation.items?.filter((i) => {
+      const diff = (i.expectedQuantity ?? 0) - i.systemQuantity;
+      return diff !== 0;
+    }).length ?? 0;
   const itemsOk = totalItems - itemsWithDiscrepancy;
 
   // ── Templates de tabla ───────────────────────────────────────────────────
   const itemNameTemplate = (rowData: any) => (
     <div>
-      <div className="font-medium text-900">{rowData.itemName ?? rowData.item?.name ?? rowData.itemId}</div>
-      {(rowData.itemSku ?? rowData.item?.sku) && (
-        <small className="text-500">{rowData.itemSku ?? rowData.item?.sku}</small>
+      <div className="font-medium text-900">
+        {rowData.itemName ?? rowData.item?.name ?? rowData.itemId}
+      </div>
+      {(rowData.itemSku ?? rowData.item?.sku ?? rowData.item?.code) && (
+        <small className="text-500">
+          {rowData.itemSku ?? rowData.item?.sku ?? rowData.item?.code}
+        </small>
       )}
     </div>
   );
@@ -60,8 +65,18 @@ export default function ReconciliationDetail({
     const diff = (rowData.expectedQuantity ?? 0) - rowData.systemQuantity;
     if (diff === 0) return <Tag value="0 — OK" severity="success" />;
     if (diff > 0)
-      return <Tag value={`+${diff}`} severity={Math.abs(diff) <= 5 ? "warning" : "danger"} />;
-    return <Tag value={String(diff)} severity={Math.abs(diff) <= 5 ? "warning" : "danger"} />;
+      return (
+        <Tag
+          value={`+${diff}`}
+          severity={Math.abs(diff) <= 5 ? "warning" : "danger"}
+        />
+      );
+    return (
+      <Tag
+        value={String(diff)}
+        severity={Math.abs(diff) <= 5 ? "warning" : "danger"}
+      />
+    );
   };
 
   const rowClass = (rowData: any) => {
@@ -79,11 +94,12 @@ export default function ReconciliationDetail({
     >
       {/* ── Encabezado: datos principales ──────────────────────────────── */}
       <div className="grid mb-3">
-
         <div className="col-12 md:col-4">
           <div className="surface-100 border-round p-3">
             <div className="text-500 text-sm mb-1">Nº Reconciliación</div>
-            <div className="text-900 font-bold text-lg">{reconciliation.reconciliationNumber}</div>
+            <div className="text-900 font-bold text-lg">
+              {reconciliation.reconciliationNumber}
+            </div>
           </div>
         </div>
 
@@ -92,7 +108,10 @@ export default function ReconciliationDetail({
             <div className="text-500 text-sm mb-2">Estado</div>
             <div className="flex align-items-center gap-2">
               <i className={statusConfig.icon} />
-              <Tag value={statusConfig.label} severity={statusConfig.severity as any} />
+              <Tag
+                value={statusConfig.label}
+                severity={statusConfig.severity as any}
+              />
             </div>
           </div>
         </div>
@@ -101,7 +120,9 @@ export default function ReconciliationDetail({
           <div className="surface-100 border-round p-3">
             <div className="text-500 text-sm mb-1">Origen de Discrepancia</div>
             <div className="flex align-items-center gap-2">
-              {sourceConfig && <i className={`${sourceConfig.icon} text-500`} />}
+              {sourceConfig && (
+                <i className={`${sourceConfig.icon} text-500`} />
+              )}
               <span className="font-medium text-900">
                 {sourceConfig?.label ?? reconciliation.source ?? "—"}
               </span>
@@ -112,14 +133,18 @@ export default function ReconciliationDetail({
         <div className="col-12 md:col-4">
           <div className="surface-100 border-round p-3">
             <div className="text-500 text-sm mb-1">Almacén</div>
-            <div className="font-medium text-900">{reconciliation.warehouse?.name ?? "—"}</div>
+            <div className="font-medium text-900">
+              {reconciliation.warehouse?.name ?? "—"}
+            </div>
           </div>
         </div>
 
         <div className="col-12 md:col-4">
           <div className="surface-100 border-round p-3">
             <div className="text-500 text-sm mb-1">Creado</div>
-            <div className="text-900">{formatDate(reconciliation.createdAt)}</div>
+            <div className="text-900">
+              {formatDate(reconciliation.createdAt)}
+            </div>
           </div>
         </div>
 
@@ -127,7 +152,9 @@ export default function ReconciliationDetail({
           <div className="col-12 md:col-4">
             <div className="surface-100 border-round p-3">
               <div className="text-500 text-sm mb-1">Aprobado</div>
-              <div className="text-900">{formatDate(reconciliation.approvedAt)}</div>
+              <div className="text-900">
+                {formatDate(reconciliation.approvedAt)}
+              </div>
             </div>
           </div>
         )}
@@ -136,7 +163,9 @@ export default function ReconciliationDetail({
           <div className="col-12 md:col-4">
             <div className="surface-100 border-round p-3">
               <div className="text-500 text-sm mb-1">Aplicado al stock</div>
-              <div className="text-900">{formatDate(reconciliation.appliedAt)}</div>
+              <div className="text-900">
+                {formatDate(reconciliation.appliedAt)}
+              </div>
             </div>
           </div>
         )}
@@ -166,7 +195,9 @@ export default function ReconciliationDetail({
         </div>
         <div className="col-12 md:col-4">
           <div className="surface-100 border-round p-3 text-center">
-            <div className="text-2xl font-bold text-red-500">{itemsWithDiscrepancy}</div>
+            <div className="text-2xl font-bold text-red-500">
+              {itemsWithDiscrepancy}
+            </div>
             <div className="text-500 text-sm mt-1">Con discrepancia</div>
           </div>
         </div>
@@ -199,20 +230,28 @@ export default function ReconciliationDetail({
         emptyMessage="Sin artículos registrados"
         responsiveLayout="scroll"
       >
-        <Column header="Artículo" body={itemNameTemplate} style={{ minWidth: "180px" }} />
+        <Column
+          header="Artículo"
+          body={itemNameTemplate}
+          style={{ minWidth: "180px" }}
+        />
         <Column
           header="Stock Sistema"
           field="systemQuantity"
           align="right"
           style={{ width: "130px" }}
-          body={(r: any) => <span className="font-medium">{r.systemQuantity}</span>}
+          body={(r: any) => (
+            <span className="font-medium">{r.systemQuantity}</span>
+          )}
         />
         <Column
           header="Stock Real/Contado"
           field="expectedQuantity"
           align="right"
           style={{ width: "150px" }}
-          body={(r: any) => <span className="font-medium">{r.expectedQuantity ?? 0}</span>}
+          body={(r: any) => (
+            <span className="font-medium">{r.expectedQuantity ?? 0}</span>
+          )}
         />
         <Column
           header="Discrepancia"

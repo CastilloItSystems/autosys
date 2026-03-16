@@ -80,7 +80,8 @@ const ForecastingView = () => {
     const filtered = items.filter(
       (item) =>
         item.itemName.toLowerCase().includes(query) ||
-        item.sku.toLowerCase().includes(query),
+        item.sku.toLowerCase().includes(query) ||
+        (item.code ?? "").toLowerCase().includes(query),
     );
     setItemSuggestions(filtered);
   };
@@ -232,7 +233,9 @@ const ForecastingView = () => {
     <div className="flex align-items-center justify-content-between p-2">
       <div>
         <p className="font-medium m-0">{option.itemName}</p>
-        <p className="text-sm text-500 m-0">{option.sku}</p>
+        <p className="text-sm text-500 m-0">
+          {option.sku || "-"} {option.code ? ` / ${option.code}` : ""}
+        </p>
       </div>
       <Tag
         value={getRiskLabel(option.stockoutRisk)}
@@ -244,6 +247,7 @@ const ForecastingView = () => {
   const columns = [
     { field: "itemName", header: "Artículo", width: "18%" },
     { field: "sku", header: "SKU", width: "12%" },
+    { field: "code", header: "Código", width: "12%" },
     {
       field: "currentStock",
       header: "Stock Actual",

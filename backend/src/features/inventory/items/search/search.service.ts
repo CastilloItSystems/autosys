@@ -35,6 +35,7 @@ export class SearchService {
     const where: any = {
       OR: [
         { sku: { contains: searchQuery.query, mode: 'insensitive' } },
+        { code: { contains: searchQuery.query, mode: 'insensitive' } },
         { name: { contains: searchQuery.query, mode: 'insensitive' } },
         { description: { contains: searchQuery.query, mode: 'insensitive' } },
       ],
@@ -64,8 +65,14 @@ export class SearchService {
       select: {
         id: true,
         sku: true,
+        code: true,
         name: true,
         description: true,
+        model: {
+          select: {
+            name: true,
+          },
+        },
         salePrice: true,
         costPrice: true,
         minStock: true,
@@ -111,6 +118,10 @@ export class SearchService {
       if (item.sku.toLowerCase() === queryLower) score += 100
       else if (item.sku.toLowerCase().includes(queryLower)) score += 50
 
+      // Code match
+      if (item.code?.toLowerCase() === queryLower) score += 90
+      else if (item.code?.toLowerCase().includes(queryLower)) score += 45
+
       // Nombre match
       if (item.name.toLowerCase() === queryLower) score += 80
       else if (item.name.toLowerCase().includes(queryLower)) score += 40
@@ -124,10 +135,12 @@ export class SearchService {
       return {
         id: item.id,
         sku: item.sku,
+        code: item.code,
         name: item.name,
         description: item.description,
         categoryName: item.category?.name,
         brandName: item.brand?.name,
+        modelName: item.model?.name,
         salePrice: Number(item.salePrice),
         costPrice: Number(item.costPrice),
         minStock: item.minStock,
@@ -165,6 +178,7 @@ export class SearchService {
     if (query && query.trim().length > 0) {
       where.OR = [
         { sku: { contains: query, mode: 'insensitive' } },
+        { code: { contains: query, mode: 'insensitive' } },
         { name: { contains: query, mode: 'insensitive' } },
         { description: { contains: query, mode: 'insensitive' } },
       ]

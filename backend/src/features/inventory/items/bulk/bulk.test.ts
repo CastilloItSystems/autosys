@@ -284,6 +284,23 @@ BULK-TEST-001,Updated Item,Updated Description,12,25,120`
       expect(response.status).toBe(200)
       expect(response.header['content-disposition']).toBeDefined()
     })
+
+    test('should return empty export when no items match filters', async () => {
+      const response = await request(app)
+        .post('/api/inventory/items/bulk/export')
+        .set('Authorization', `Bearer ${token}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          format: 'csv',
+          filters: {
+            sku: 'NONEXISTENT-SKU',
+          },
+        })
+
+      expect(response.status).toBe(200)
+      expect(response.header['content-disposition']).toBeDefined()
+      expect(response.text).toBeDefined()
+    })
   })
 
   describe('PATCH /items/bulk/update - Bulk Update', () => {

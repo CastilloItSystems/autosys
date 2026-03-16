@@ -43,6 +43,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       },
       create: {
         sku: 'FLT-AIR-001',
+        code: 'FLT-AIR-001',
         name: 'Filtro de Aire Bosch BA-2015',
         description: 'Filtro de aire de alta calidad para motores de gasolina',
         brandId: bosch.id,
@@ -76,6 +77,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       },
       create: {
         sku: 'FLT-OIL-001',
+        code: 'FLT-OIL-001',
         name: 'Filtro de Aceite Bosch OB-2016',
         description: 'Filtro de aceite para cambios regulares',
         brandId: bosch.id,
@@ -109,6 +111,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       },
       create: {
         sku: 'OIL-10W40-001',
+        code: 'OIL-10W40-001',
         name: 'Aceite Castrol 10W40 1L',
         description: 'Aceite multigrado sintético 10W40 para motores gasolina',
         brandId: castrol.id,
@@ -142,6 +145,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       },
       create: {
         sku: 'OIL-15W40-001',
+        code: 'OIL-15W40-001',
         name: 'Aceite Castrol 15W40 1L',
         description: 'Aceite multigrado 15W40 para motores diesel',
         brandId: castrol.id,
@@ -175,6 +179,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       },
       create: {
         sku: 'FLT-CAB-001',
+        code: 'FLT-CAB-001',
         name: 'Filtro de Cabina Bosch CF-2017',
         description: 'Filtro de cabina con carbón activado',
         brandId: bosch.id,
@@ -201,6 +206,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
       const brand = brands[i % brands.length]!
       const category = categories[i % categories.length]!
       const sku = `GEN-ITEM-${i.toString().padStart(3, '0')}`
+      const code = sku
       const name = `Item Generico ${i} ${brand.name}`
       const price = (1000 + i * 50).toFixed(2)
 
@@ -219,6 +225,7 @@ async function seedItems(prisma: PrismaClient, empresaId: string) {
         },
         create: {
           sku,
+          code,
           name,
           description: `Descripción generada para el item ${i}`,
           brandId: brand.id,

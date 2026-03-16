@@ -17,6 +17,7 @@ export async function getABCAnalysis(page = 1, limit = 50, prismaClient?: any) {
       .map((s) => ({
         itemId: s.itemId,
         itemName: s.item.name,
+        code: (s.item as any).code,
         warehouseId: s.warehouseId,
         quantity: s.quantityReal,
         unitPrice: (s.item as any).unitPrice || 0,

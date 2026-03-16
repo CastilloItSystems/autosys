@@ -153,18 +153,21 @@ export class BulkService {
           await prisma.item.create({
             data: {
               sku: row.sku,
+              code: row.code ?? row.sku,
               name: row.name,
               description: row.description,
-              categoryId: row.categoryId || undefined,
-              brandId: row.brandId || undefined,
-              unitId: row.unitId || undefined,
               costPrice: row.costPrice ?? 0,
               salePrice: row.salePrice ?? 0,
               wholesalePrice: row.wholesalePrice ?? undefined,
               minStock: row.minStock ?? 0,
               barcode: row.barcode,
               isActive: true,
-              empresaId: empresaId || 'default',
+              empresa: { connect: { id_empresa: empresaId } },
+              brand: row.brandId ? { connect: { id: row.brandId } } : undefined,
+              category: row.categoryId
+                ? { connect: { id: row.categoryId } }
+                : undefined,
+              unit: row.unitId ? { connect: { id: row.unitId } } : undefined,
             },
           })
           imported++
@@ -250,12 +253,9 @@ export class BulkService {
         category: true,
         brand: true,
         unit: true,
+        model: true,
       },
     })
-
-    if (items.length === 0) {
-      throw new NotFoundError(INVENTORY_MESSAGES.bulk.noItemsExport)
-    }
 
     // Map items to flatten relations and format values correctly
     const mappedItems = items.map((item: any) => {
@@ -264,12 +264,24 @@ export class BulkService {
         category: item.category?.name || '',
         brand: item.brand?.name || '',
         unit: item.unit?.name || '',
+        model: item.model?.name || '',
         status: item.isActive ? 'Activo' : 'Inactivo',
         costPrice: item.costPrice ? Number(item.costPrice) : 0,
         salePrice: item.salePrice ? Number(item.salePrice) : 0,
         wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
       }
     })
+
+    // If no items match the filters, return a valid empty export instead of a 404.
+    // This prevents clients from failing on "Not Found" errors when there are just
+    // no matching records to export.
+    if (mappedItems.length === 0) {
+      logger.info('Bulk export resulted in no matching items', {
+        operationId,
+        format,
+        userId,
+      })
+    }
 
     let fileContent: any = ''
     let fileName = ''
@@ -284,7 +296,19 @@ export class BulkService {
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet('Artículos')
 
-      const keys = data.columns || Object.keys(mappedItems[0] || {})
+      // Use provided columns or fallback to a default set if no items exist
+      const defaultKeys = [
+        'sku',
+        'name',
+        'description',
+        'category',
+        'brand',
+        'costPrice',
+        'salePrice',
+      ]
+      const keys =
+        data.columns ||
+        (mappedItems.length > 0 ? Object.keys(mappedItems[0]) : defaultKeys)
       worksheet.addRow(keys)
 
       mappedItems.forEach((item: any) => {
@@ -570,10 +594,23 @@ export class BulkService {
   }
 
   private toCSV(items: any[], columns?: string[]): string {
-    if (items.length === 0) return ''
-
-    const keys = columns || Object.keys(items[0])
+    const defaultKeys = [
+      'sku',
+      'name',
+      'description',
+      'category',
+      'brand',
+      'costPrice',
+      'salePrice',
+    ]
+    const keys =
+      columns || (items.length > 0 ? Object.keys(items[0]) : defaultKeys)
     const header = keys.join(',')
+
+    if (items.length === 0) {
+      return header
+    }
+
     const rows = items.map((item) =>
       keys.map((key) => item[key] ?? '').join(',')
     )

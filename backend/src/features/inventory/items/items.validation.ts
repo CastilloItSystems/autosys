@@ -18,6 +18,12 @@ export const createItemSchema = Joi.object({
         'El SKU solo puede contener letras mayúsculas, números y guiones',
       'any.required': 'El SKU es obligatorio',
     }),
+  code: Joi.string().min(3).max(50).required().messages({
+    'string.empty': 'El código de producto es requerido',
+    'string.min': 'El código de producto debe tener al menos 3 caracteres',
+    'string.max': 'El código de producto no puede exceder 50 caracteres',
+    'any.required': 'El código de producto es obligatorio',
+  }),
 
   barcode: Joi.string().max(50).allow('', null).optional().messages({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
@@ -172,6 +178,10 @@ export const updateItemSchema = Joi.object({
       'string.pattern.base':
         'El SKU solo puede contener letras mayúsculas, números y guiones',
     }),
+  code: Joi.string().min(3).max(50).optional().messages({
+    'string.min': 'El código de producto debe tener al menos 3 caracteres',
+    'string.max': 'El código de producto no puede exceder 50 caracteres',
+  }),
 
   barcode: Joi.string().max(50).allow('', null).optional().messages({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
@@ -372,12 +382,20 @@ export const getItemsQuerySchema = Joi.object({
   }),
 
   sortBy: Joi.string()
-    .valid('name', 'sku', 'salePrice', 'costPrice', 'createdAt', 'updatedAt')
+    .valid(
+      'name',
+      'sku',
+      'code',
+      'salePrice',
+      'costPrice',
+      'createdAt',
+      'updatedAt'
+    )
     .optional()
     .default('name')
     .messages({
       'any.only':
-        'sortBy debe ser uno de: name, sku, salePrice, costPrice, createdAt, updatedAt',
+        'sortBy debe ser uno de: name, sku, code, salePrice, costPrice, createdAt, updatedAt',
     }),
 
   sortOrder: Joi.string()
