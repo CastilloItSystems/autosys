@@ -1,7 +1,7 @@
 FROM node:18
 WORKDIR /app
 COPY package*.json ./
-RUN npm install --legacy-peer-deps
+RUN npm install --force
 COPY . .
 
 # 👇 CORREGIMOS EL NOMBRE DE LA VARIABLE AQUÍ 👇
