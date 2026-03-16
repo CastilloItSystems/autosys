@@ -12,4 +12,4 @@ COPY . .
 
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma generate && npm run build && npm start"]
+CMD ["sh", "-c", "npx prisma generate && npm start"]
