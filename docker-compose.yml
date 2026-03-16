@@ -1,0 +1,28 @@
+version: "3.8"
+
+services:
+  api-backend:
+    image: node:18-alpine
+    container_name: mi_backend_autosys
+    working_dir: /app
+    restart: always
+    volumes:
+      # Ahora busca la carpeta "backend" que está al lado de este archivo
+      - ./backend:/app
+    command: sh -c "npm install && npm start"
+    ports:
+      - "4000:4000"
+
+  web-frontend:
+    image: node:18-alpine
+    container_name: mi_frontend_autosys
+    working_dir: /app
+    restart: always
+    volumes:
+      # Ahora busca la carpeta "frontend"
+      - ./frontend:/app
+    command: sh -c "npm install && npm run build && npm start"
+    ports:
+      - "3005:3000"
+    depends_on:
+      - api-backend

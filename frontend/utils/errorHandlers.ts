@@ -4,12 +4,12 @@ import { Toast } from "primereact/toast";
 
 export const handleFormError = (
   error: unknown,
-  toastRef: React.RefObject<Toast> | null
+  toastRef: React.RefObject<Toast> | null,
 ) => {
   const axiosError = error as AxiosError<{
     message?: string;
     error?: string;
-    errors?: string[];
+    errors?: any[];
   }>;
 
   let errorMessage = "Ocurrió un error al procesar la solicitud";
@@ -18,8 +18,14 @@ export const handleFormError = (
   // Manejo estructurado de diferentes tipos de errores
   if (axiosError.response) {
     // Errores de validación con múltiples mensajes
-    if (axiosError.response.data?.errors) {
-      errorDetails = axiosError.response.data.errors;
+    if (Array.isArray(axiosError.response.data?.errors)) {
+      errorDetails = axiosError.response.data.errors.map((err) => {
+        if (typeof err === "string") return err;
+        if (typeof err === "object" && err !== null && err.message) {
+          return err.message;
+        }
+        return String(err);
+      });
       errorMessage = "Errores de validación";
     }
     // Mensaje de error específico del backend

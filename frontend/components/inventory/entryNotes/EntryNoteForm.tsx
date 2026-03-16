@@ -7,22 +7,19 @@ import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";
 import ItemsTable from "../common/ItemsTable";
 import ItemRow, { ItemRowColWidths } from "../common/ItemRow";
+import { Divider } from "primereact/divider";
+import { Toast } from "primereact/toast";
 
 /** Column widths — shared between the ItemsTable header and each ItemRow cell */
 const COLS: ItemRowColWidths = {
-  handle:   { width: "1.75rem", flexShrink: 0 },
-  product:  { flex: "1 1 0",    minWidth: 0 },
-  quantity: { width: "5.5rem",  flexShrink: 0 },
-  unitCost: { width: "8rem",    flexShrink: 0 },
-  location: { width: "6rem",    flexShrink: 0 },
-  batch:    { width: "5.5rem",  flexShrink: 0 },
-  remove:   { width: "1.75rem", flexShrink: 0 },
+  handle: { width: "1.75rem", flexShrink: 0 },
+  product: { flex: "1 1 0", minWidth: 0 },
+  quantity: { width: "5.5rem", flexShrink: 0 },
+  unitCost: { width: "8rem", flexShrink: 0 },
+  location: { width: "6rem", flexShrink: 0 },
+  batch: { width: "5.5rem", flexShrink: 0 },
+  remove: { width: "1.75rem", flexShrink: 0 },
 };
-import { Divider } from "primereact/divider";
-import { Toast } from "primereact/toast";
-import { Message } from "primereact/message";
-import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 
 import {
   createEntryNoteSchema,
@@ -69,8 +66,6 @@ export default function EntryNoteForm({
     register,
     formState: { errors },
     watch,
-    setValue,
-    reset,
   } = useForm<CreateEntryNoteInput>({
     resolver: zodResolver(createEntryNoteSchema),
     mode: "onBlur",
@@ -225,9 +220,9 @@ export default function EntryNoteForm({
       className="p-fluid"
     >
       <div className="grid">
-        {/* ── Tipo y Almacén ── */}
-        <div className="col-12 md:col-6 field">
-          <label className="font-bold">
+        {/* ══ 1. ENCABEZADO ═══════════════════════════════════════════════ */}
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">
             Tipo de Entrada <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -251,9 +246,8 @@ export default function EntryNoteForm({
           )}
         </div>
 
-        {/* ── Warehouse ── */}
-        <div className="col-12 md:col-6 field">
-          <label className="font-bold">
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">
             Almacén Destino <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -267,7 +261,7 @@ export default function EntryNoteForm({
                 options={warehouseOptions}
                 optionLabel="label"
                 optionValue="value"
-                placeholder="Seleccione Almacén"
+                placeholder="Seleccione almacén"
                 className={errors.warehouseId ? "p-invalid" : ""}
               />
             )}
@@ -277,57 +271,26 @@ export default function EntryNoteForm({
           )}
         </div>
 
-        {/* ── Authorization (for DONATION/SAMPLE) ── */}
-        {(selectedType === "DONATION" || selectedType === "SAMPLE") && (
-          <div className="col-12 md:col-6 field">
-            <label>Autorizado Por</label>
-            <InputText
-              {...register("authorizedBy")}
-              placeholder="Nombre de la persona autorizante"
-              className={errors.authorizedBy ? "p-invalid" : ""}
-            />
-            {errors.authorizedBy && (
-              <small className="p-error">{errors.authorizedBy.message}</small>
-            )}
-          </div>
-        )}
+        <div className="col-12 md:col-4 field">
+          <label>Referencia</label>
+          <InputText
+            {...register("reference")}
+            placeholder="Nro. factura, guía, OC, etc."
+          />
+        </div>
 
-        {/* ── Supplier info ── */}
-        <>
-          <div className="col-12">
-            <Divider align="left">
-              <span className="p-tag">Información del Proveedor / Origen</span>
-            </Divider>
-          </div>
+        {/* ══ 2. RECEPCIÓN ════════════════════════════════════════════════ */}
+        <div className="col-12">
+          <Divider align="left" className="my-0">
+            <span className="p-tag p-tag-secondary text-xs">Recepción</span>
+          </Divider>
+        </div>
 
-          <div className="col-12 md:col-4 field">
-            <label>Nombre</label>
-            <InputText
-              {...register("supplierName")}
-              placeholder="Nombre completo"
-            />
-          </div>
-
-          <div className="col-12 md:col-4 field">
-            <label>RIF / ID</label>
-            <InputText
-              {...register("supplierId")}
-              placeholder="Identificación"
-            />
-          </div>
-
-          <div className="col-12 md:col-4 field">
-            <label>Teléfono</label>
-            <InputText {...register("supplierPhone")} placeholder="Teléfono" />
-          </div>
-        </>
-
-        {/* ── Common fields ── */}
         <div className="col-12 md:col-4 field">
           <label>Recibido Por</label>
           <InputText
             {...register("receivedBy")}
-            placeholder="Persona que recibe"
+            placeholder="Nombre de quien recibe"
           />
         </div>
 
@@ -339,15 +302,53 @@ export default function EntryNoteForm({
           />
         </div>
 
+        {(selectedType === "DONATION" || selectedType === "SAMPLE") && (
+          <div className="col-12 md:col-4 field">
+            <label>
+              Autorizado Por <span className="text-red-500">*</span>
+            </label>
+            <InputText
+              {...register("authorizedBy")}
+              placeholder="Nombre de quien autoriza"
+              className={errors.authorizedBy ? "p-invalid" : ""}
+            />
+            {errors.authorizedBy && (
+              <small className="p-error">{errors.authorizedBy.message}</small>
+            )}
+          </div>
+        )}
+
+        {/* ══ 3. PROVEEDOR / ORIGEN ═══════════════════════════════════════ */}
+        <div className="col-12">
+          <Divider align="left" className="my-0">
+            <span className="p-tag p-tag-secondary text-xs">
+              Proveedor / Origen
+            </span>
+          </Divider>
+        </div>
+
         <div className="col-12 md:col-4 field">
-          <label>Referencia</label>
+          <label>Nombre</label>
           <InputText
-            {...register("reference")}
-            placeholder="Referencia adicional"
+            {...register("supplierName")}
+            placeholder="Nombre o razón social"
           />
         </div>
 
-        {/* ── Items Section ── */}
+        <div className="col-12 md:col-4 field">
+          <label>RIF / ID</label>
+          <InputText {...register("supplierId")} placeholder="J-00000000-0" />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label>Teléfono</label>
+          <InputText
+            {...register("supplierPhone")}
+            placeholder="0412-0000000"
+          />
+        </div>
+
+        {/* ── 4. ARTÍCULOS ──────────────────────────────────────────────────── */}
         <ItemsTable
           fields={fields}
           append={append}
@@ -357,13 +358,13 @@ export default function EntryNoteForm({
           title="Artículos a Recibir"
           totals={totalsLines}
           columns={[
-            { label: "",            style: COLS.handle },
-            { label: "Producto",    style: COLS.product },
-            { label: "Cant.",       style: COLS.quantity },
+            { label: "", style: COLS.handle },
+            { label: "Producto", style: COLS.product },
+            { label: "Cant.", style: COLS.quantity },
             { label: "Costo Unit.", style: COLS.unitCost! },
-            { label: "Ubicación",   style: COLS.location! },
-            { label: "Lote",        style: COLS.batch! },
-            { label: "",            style: COLS.remove },
+            { label: "Ubicación", style: COLS.location! },
+            { label: "Lote", style: COLS.batch! },
+            { label: "", style: COLS.remove },
           ]}
           renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
             <ItemRow
@@ -372,11 +373,11 @@ export default function EntryNoteForm({
               rowErrors={(errors.items as any)?.[index]}
               itemOptions={itemOptions}
               fieldPaths={{
-                itemId:   `items.${index}.itemId`,
+                itemId: `items.${index}.itemId`,
                 quantity: `items.${index}.quantityReceived`,
                 unitCost: `items.${index}.unitCost`,
                 location: `items.${index}.storedToLocation`,
-                batch:    `items.${index}.batchNumber`,
+                batch: `items.${index}.batchNumber`,
               }}
               colWidths={COLS}
               onRemove={() => remove(index)}
@@ -395,9 +396,9 @@ export default function EntryNoteForm({
           </div>
         )}
 
-        {/* ── Notas Generales ── */}
-        <div className="col-12 field mt-3">
-          <label>Notas Generales</label>
+        {/* ── 5. OBSERVACIONES ─────────────────────────────────────────────── */}
+        <div className="col-12 field my-0">
+          <label>Observaciones</label>
           <InputTextarea
             {...register("notes")}
             rows={3}

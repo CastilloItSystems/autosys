@@ -10,6 +10,8 @@ import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import entryNoteService from "@/app/api/inventory/entryNoteService";
@@ -31,6 +33,10 @@ import EntryNoteForm from "./EntryNoteForm";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import EntryNoteStepper from "./EntryNoteStepper";
 import CreateButton from "@/components/common/CreateButton";
+import {
+  confirmAction,
+  ConfirmActionPopup,
+} from "@/components/common/ConfirmAction";
 
 const EntryNoteList = () => {
   const [entryNotes, setEntryNotes] = useState<EntryNote[]>([]);
@@ -41,16 +47,19 @@ const EntryNoteList = () => {
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [completeDialog, setCompleteDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
-  const [completeDialog, setCompleteDialog] = useState(false);
-  const [cancelDialog, setCancelDialog] = useState(false);
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionEntryNote, setActionEntryNote] = useState<EntryNote | null>(
+    null,
+  );
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
+  const menuRef = useRef<Menu>(null);
 
   useEffect(() => {
     fetchData();
@@ -127,10 +136,9 @@ const EntryNoteList = () => {
     }
   };
 
-  const handleComplete = async () => {
-    if (!selectedEntryNote) return;
+  const handleComplete = async (note: EntryNote) => {
     try {
-      const result = await entryNoteService.complete(selectedEntryNote.id);
+      const result = await entryNoteService.complete(note.id);
       const updated = result.data;
       setEntryNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -138,21 +146,17 @@ const EntryNoteList = () => {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Nota ${selectedEntryNote.entryNoteNumber} completada — Stock actualizado`,
+        detail: `Nota ${note.entryNoteNumber} completada — Stock actualizado`,
         life: 4000,
       });
     } catch (error) {
       handleFormError(error, toast);
-    } finally {
-      setSelectedEntryNote(null);
-      setCompleteDialog(false);
     }
   };
 
-  const handleCancel = async () => {
-    if (!selectedEntryNote) return;
+  const handleCancel = async (note: EntryNote) => {
     try {
-      const result = await entryNoteService.cancel(selectedEntryNote.id);
+      const result = await entryNoteService.cancel(note.id);
       const updated = result.data;
       setEntryNotes((prev) =>
         prev.map((n) => (n.id === updated.id ? updated : n)),
@@ -160,14 +164,11 @@ const EntryNoteList = () => {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Nota ${selectedEntryNote.entryNoteNumber} cancelada`,
+        detail: `Nota ${note.entryNoteNumber} cancelada`,
         life: 3000,
       });
     } catch (error) {
       handleFormError(error, toast);
-    } finally {
-      setSelectedEntryNote(null);
-      setCancelDialog(false);
     }
   };
 
@@ -216,45 +217,31 @@ const EntryNoteList = () => {
   );
 
   /* ── Column templates ── */
+
+  /* Status-transition actions: Iniciar / Completar / Cancelar / Ver */
   const actionBodyTemplate = (rowData: EntryNote) => {
     const { status } = rowData;
-
     return (
       <div className="flex gap-1 flex-nowrap">
-        {/* PENDING → Iniciar / Editar / Eliminar */}
         {status === "PENDING" && (
-          <>
-            <Button
-              icon="pi pi-play"
-              className="p-button-rounded p-button-info p-button-sm"
-              tooltip="Iniciar Proceso"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => handleStart(rowData)}
-            />
-            <Button
-              icon="pi pi-pencil"
-              className="p-button-rounded p-button-warning p-button-sm"
-              tooltip="Editar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedEntryNote(rowData);
-                setFormDialog(true);
-              }}
-            />
-            <Button
-              icon="pi pi-trash"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Eliminar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedEntryNote(rowData);
-                setDeleteDialog(true);
-              }}
-            />
-          </>
+          <Button
+            icon="pi pi-play"
+            className="p-button-rounded p-button-info p-button-sm"
+            tooltip="Iniciar Proceso"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Iniciar el proceso de la nota ${rowData.entryNoteNumber}?`,
+                icon: "pi pi-play",
+                iconClass: "text-blue-500",
+                acceptLabel: "Iniciar",
+                acceptSeverity: "info",
+                onAccept: () => handleStart(rowData),
+              })
+            }
+          />
         )}
-
-        {/* IN_PROGRESS → Completar / Cancelar */}
         {status === "IN_PROGRESS" && (
           <>
             <Button
@@ -272,15 +259,20 @@ const EntryNoteList = () => {
               className="p-button-rounded p-button-danger p-button-sm"
               tooltip="Cancelar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedEntryNote(rowData);
-                setCancelDialog(true);
-              }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la nota ${rowData.entryNoteNumber}? Esta acción no se puede deshacer.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
             />
           </>
         )}
-
-        {/* COMPLETED / CANCELLED → Solo ver */}
         {(status === "COMPLETED" || status === "CANCELLED") && (
           <Button
             icon="pi pi-eye"
@@ -294,6 +286,48 @@ const EntryNoteList = () => {
           />
         )}
       </div>
+    );
+  };
+
+  /* CRUD actions (Edit / Delete) — cog menu, solo disponible cuando PENDING */
+  const getMenuItems = (note: EntryNote | null): MenuItem[] => {
+    if (!note || note.status !== "PENDING") return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => {
+          setSelectedEntryNote(note);
+          setFormDialog(true);
+        },
+      },
+      { separator: true },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => {
+          setSelectedEntryNote(note);
+          setDeleteDialog(true);
+        },
+      },
+    ];
+  };
+
+  const crudBodyTemplate = (rowData: EntryNote) => {
+    if (rowData.status !== "PENDING") return null;
+    return (
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        onClick={(e) => {
+          setActionEntryNote(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        aria-controls="entry-note-menu"
+        aria-haspopup
+      />
     );
   };
 
@@ -736,6 +770,7 @@ const EntryNoteList = () => {
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmActionPopup />
       <motion.div
         initial={{
           opacity: 0,
@@ -766,9 +801,16 @@ const EntryNoteList = () => {
           expandedRows={expandedRows}
           onRowToggle={(e) => setExpandedRows(e.data)}
           rowExpansionTemplate={rowExpansionTemplate}
+          scrollable
         >
           <Column expander style={{ width: "3rem" }} />
-          <Column body={actionBodyTemplate} style={{ width: "10rem" }} frozen />
+          <Column
+            header="Proceso"
+            body={actionBodyTemplate}
+            style={{ width: "7rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+
           <Column field="entryNoteNumber" header="Nro. Nota Entrada" sortable />
           <Column
             header="Tipo"
@@ -811,7 +853,177 @@ const EntryNoteList = () => {
             className="text-right"
           />
           <Column header="Recibido Por" body={receivedByBodyTemplate} />
+          <Column
+            header="Acciones"
+            body={crudBodyTemplate}
+            exportable={false}
+            frozen
+            alignFrozen="right"
+            style={{ width: "5rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
         </DataTable>
+
+        {/* Complete confirmation dialog */}
+        <Dialog
+          visible={completeDialog}
+          style={{ width: "680px" }}
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-check-circle mr-3 text-green-500 text-3xl"></i>
+                  Confirmar Recepción
+                </h2>
+              </div>
+            </div>
+          }
+          modal
+          maximizable
+          onHide={() => {
+            setCompleteDialog(false);
+            setSelectedEntryNote(null);
+          }}
+          footer={
+            <div className="flex w-full gap-2 mb-4">
+              <Button
+                label="Cancelar"
+                icon="pi pi-times"
+                severity="secondary"
+                type="button"
+                className="flex-1"
+                onClick={() => {
+                  setCompleteDialog(false);
+                  setSelectedEntryNote(null);
+                }}
+              />
+              <Button
+                label="Completar Recepción"
+                icon="pi pi-check"
+                severity="success"
+                type="button"
+                className="flex-1"
+                onClick={async () => {
+                  if (selectedEntryNote) {
+                    setCompleteDialog(false);
+                    await handleComplete(selectedEntryNote);
+                    setSelectedEntryNote(null);
+                  }
+                }}
+              />
+            </div>
+          }
+        >
+          {selectedEntryNote &&
+            (() => {
+              const noteItems = selectedEntryNote.items || [];
+              const total = noteItems.reduce(
+                (sum, it) =>
+                  sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
+                0,
+              );
+              return (
+                <div className="flex flex-column gap-3">
+                  <div className="flex align-items-center gap-3 p-2 surface-100 border-round">
+                    <i className="pi pi-exclamation-triangle text-orange-500 text-2xl" />
+                    <div>
+                      <div className="font-semibold text-900">
+                        Nota <b>{selectedEntryNote.entryNoteNumber}</b> —{" "}
+                        {ENTRY_TYPE_LABELS[selectedEntryNote.type]}
+                      </div>
+                      <div className="text-500 text-sm mt-1">
+                        Al completar, se actualizará el stock en{" "}
+                        <b>
+                          {selectedEntryNote.warehouse?.name || "el almacén"}
+                        </b>
+                        .
+                      </div>
+                    </div>
+                  </div>
+
+                  <DataTable
+                    value={noteItems}
+                    size="small"
+                    stripedRows
+                    showGridlines={false}
+                    emptyMessage="Sin artículos"
+                    dataKey="id"
+                  >
+                    <Column
+                      header="Artículo"
+                      body={(item: EntryNoteItem) => (
+                        <div className="flex flex-column">
+                          <span className="font-semibold">
+                            {item.item?.name || item.itemId}
+                          </span>
+                          {item.item?.sku && (
+                            <span className="text-500 text-xs">
+                              SKU: {item.item.sku}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    />
+                    <Column
+                      header="Cantidad"
+                      className="text-center"
+                      style={{ width: "7rem" }}
+                      body={(item: EntryNoteItem) => (
+                        <Tag
+                          value={item.quantityReceived.toString()}
+                          severity="success"
+                        />
+                      )}
+                    />
+                    <Column
+                      header="Costo Unit."
+                      className="text-right"
+                      style={{ width: "8rem" }}
+                      body={(item: EntryNoteItem) =>
+                        formatCurrency(item.unitCost)
+                      }
+                    />
+                    <Column
+                      header="Subtotal"
+                      className="text-right font-semibold"
+                      style={{ width: "8rem" }}
+                      body={(item: EntryNoteItem) =>
+                        formatCurrency(
+                          Number(item.unitCost || 0) *
+                            (item.quantityReceived || 0),
+                        )
+                      }
+                    />
+                    <Column
+                      header="Ubicación"
+                      className="text-center"
+                      style={{ width: "7rem" }}
+                      body={(item: EntryNoteItem) =>
+                        item.storedToLocation ? (
+                          <Tag
+                            value={item.storedToLocation}
+                            severity="info"
+                            className="text-xs"
+                          />
+                        ) : (
+                          <span className="text-400">—</span>
+                        )
+                      }
+                    />
+                  </DataTable>
+
+                  <div className="flex justify-content-end">
+                    <div className="surface-100 border-round px-4 py-2">
+                      <span className="text-500 mr-3">Total:</span>
+                      <span className="font-bold text-primary text-lg">
+                        {formatCurrency(total)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+        </Dialog>
 
         {/* Delete confirmation */}
         <Dialog
@@ -841,11 +1053,13 @@ const EntryNoteList = () => {
           visible={detailDialog}
           style={{ width: "960px" }}
           header={
-            <div className="flex align-items-center gap-2">
-              <i className="pi pi-inbox text-primary" />
-              <span>
-                Nota de Entrada: {selectedEntryNote?.entryNoteNumber || ""}
-              </span>
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-inbox mr-3 text-primary text-3xl"></i>
+                  Nota de Entrada: {selectedEntryNote?.entryNoteNumber || ""}
+                </h2>
+              </div>
             </div>
           }
           modal
@@ -861,7 +1075,7 @@ const EntryNoteList = () => {
         {/* Form dialog */}
         <Dialog
           visible={formDialog}
-          style={{ width: "900px" }}
+          style={{ width: "80vw" }}
           header={
             <div className="mb-2 text-center md:text-left">
               <div className="border-bottom-2 border-primary pb-2">
@@ -875,6 +1089,7 @@ const EntryNoteList = () => {
             </div>
           }
           modal
+          maximizable
           onHide={() => setFormDialog(false)}
           footer={
             <FormActionButtons
@@ -911,142 +1126,12 @@ const EntryNoteList = () => {
           />
         </Dialog>
 
-        {/* Complete confirmation dialog */}
-        <Dialog
-          visible={completeDialog}
-          style={{ width: "550px" }}
-          header="Confirmar Completar Nota de Entrada"
-          modal
-          footer={
-            <>
-              <Button
-                label="Cancelar"
-                icon="pi pi-times"
-                text
-                onClick={() => {
-                  setSelectedEntryNote(null);
-                  setCompleteDialog(false);
-                }}
-              />
-              <Button
-                label="Completar"
-                icon="pi pi-check"
-                severity="success"
-                onClick={handleComplete}
-              />
-            </>
-          }
-          onHide={() => {
-            setSelectedEntryNote(null);
-            setCompleteDialog(false);
-          }}
-        >
-          {selectedEntryNote && (
-            <div className="flex flex-column gap-3">
-              <div className="flex align-items-center gap-3 p-2">
-                <i
-                  className="pi pi-check-circle text-green-500"
-                  style={{ fontSize: "2rem" }}
-                />
-                <div>
-                  <p className="m-0">
-                    ¿Completar la nota{" "}
-                    <b>{selectedEntryNote.entryNoteNumber}</b>?
-                  </p>
-                  <p className="m-0 mt-1 text-500 text-sm">
-                    Se actualizará el stock del almacén{" "}
-                    <b>{selectedEntryNote.warehouse?.name || "—"}</b> con los
-                    siguientes artículos:
-                  </p>
-                </div>
-              </div>
-              {selectedEntryNote.items &&
-                selectedEntryNote.items.length > 0 && (
-                  <div className="surface-100 border-round p-3">
-                    {selectedEntryNote.items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex justify-content-between align-items-center py-1 border-bottom-1 surface-border"
-                      >
-                        <span className="text-sm">
-                          {item.item?.name || item.itemId}
-                        </span>
-                        <div className="flex align-items-center gap-3">
-                          <Tag
-                            value={`+${item.quantityReceived}`}
-                            severity="success"
-                            className="text-xs"
-                          />
-                          <span className="text-sm text-500">
-                            {formatCurrency(item.unitCost)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                    <div className="flex justify-content-between mt-2 pt-2 border-top-2 surface-border">
-                      <span className="font-bold">Total:</span>
-                      <span className="font-bold text-primary">
-                        {formatCurrency(
-                          selectedEntryNote.items.reduce(
-                            (sum, it) =>
-                              sum +
-                              Number(it.unitCost || 0) *
-                                (it.quantityReceived || 0),
-                            0,
-                          ),
-                        )}
-                      </span>
-                    </div>
-                  </div>
-                )}
-            </div>
-          )}
-        </Dialog>
-
-        {/* Cancel confirmation dialog */}
-        <Dialog
-          visible={cancelDialog}
-          style={{ width: "450px" }}
-          header="Confirmar Cancelación"
-          modal
-          footer={
-            <>
-              <Button
-                label="No"
-                icon="pi pi-times"
-                text
-                onClick={() => {
-                  setSelectedEntryNote(null);
-                  setCancelDialog(false);
-                }}
-              />
-              <Button
-                label="Sí, Cancelar"
-                icon="pi pi-times"
-                severity="danger"
-                onClick={handleCancel}
-              />
-            </>
-          }
-          onHide={() => {
-            setSelectedEntryNote(null);
-            setCancelDialog(false);
-          }}
-        >
-          {selectedEntryNote && (
-            <div className="flex align-items-center gap-3 p-2">
-              <i
-                className="pi pi-exclamation-triangle text-orange-500"
-                style={{ fontSize: "2rem" }}
-              />
-              <span>
-                ¿Estás seguro de cancelar la nota de entrada{" "}
-                <b>{selectedEntryNote.entryNoteNumber}</b>? Esta acción no se
-                puede deshacer.
-              </span>
-            </div>
-          )}
-        </Dialog>
+        <Menu
+          model={getMenuItems(actionEntryNote)}
+          popup
+          ref={menuRef}
+          id="entry-note-menu"
+        />
       </motion.div>
     </>
   );

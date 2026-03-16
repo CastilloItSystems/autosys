@@ -33,8 +33,14 @@ interface SortableRowProps {
 }
 
 function SortableRow({ id, renderContent }: SortableRowProps) {
-  const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
-    useSortable({ id });
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
 
   const style: React.CSSProperties = {
     transform: CSS.Transform.toString(transform),
@@ -44,7 +50,10 @@ function SortableRow({ id, renderContent }: SortableRowProps) {
   return (
     <div ref={setNodeRef} style={style}>
       {renderContent({
-        dragHandleProps: { ...(attributes as unknown as Record<string, unknown>), ...(listeners ?? {}) },
+        dragHandleProps: {
+          ...(attributes as unknown as Record<string, unknown>),
+          ...(listeners ?? {}),
+        },
         isDragging,
       })}
     </div>
@@ -110,7 +119,7 @@ export default function ItemsTable({
   return (
     <div className="col-12">
       {/* ── Section header ── */}
-      <Divider align="left">
+      <Divider align="left" className="my-0">
         <div className="flex align-items-center gap-2">
           <span className="p-tag">{title}</span>
           {!disabled && (

@@ -94,15 +94,15 @@ export default function ItemRow({
   locationPlaceholder = "Ubicación",
   batchPlaceholder = "Lote",
 }: ItemRowProps) {
-  const itemIdKey  = leafKey(fieldPaths.itemId);
-  const qtyKey     = leafKey(fieldPaths.quantity);
-  const costKey    = fieldPaths.unitCost ? leafKey(fieldPaths.unitCost) : null;
-  const locKey     = fieldPaths.location  ? leafKey(fieldPaths.location)  : null;
-  const batchKey   = fieldPaths.batch     ? leafKey(fieldPaths.batch)     : null;
+  const itemIdKey = leafKey(fieldPaths.itemId);
+  const qtyKey = leafKey(fieldPaths.quantity);
+  const costKey = fieldPaths.unitCost ? leafKey(fieldPaths.unitCost) : null;
+  const locKey = fieldPaths.location ? leafKey(fieldPaths.location) : null;
+  const batchKey = fieldPaths.batch ? leafKey(fieldPaths.batch) : null;
 
   const itemError = rowErrors?.[itemIdKey]?.message;
-  const qtyError  = rowErrors?.[qtyKey]?.message;
-  const costError = costKey  ? rowErrors?.[costKey]?.message  : null;
+  const qtyError = rowErrors?.[qtyKey]?.message;
+  const costError = costKey ? rowErrors?.[costKey]?.message : null;
 
   const rowStyle: React.CSSProperties = {
     display: "flex",
@@ -151,12 +151,19 @@ export default function ItemRow({
               placeholder="Seleccione..."
               filter
               className={`w-full${itemError ? " p-invalid" : ""}`}
-              pt={{ input: { style: { padding: "0.3rem 0.5rem", fontSize: "0.85rem" } } }}
+              pt={{
+                input: {
+                  style: { padding: "0.3rem 0.5rem", fontSize: "0.85rem" },
+                },
+              }}
             />
           )}
         />
         {itemError && (
-          <small className="p-error" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>
+          <small
+            className="p-error"
+            style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+          >
             {itemError}
           </small>
         )}
@@ -173,13 +180,18 @@ export default function ItemRow({
               onValueChange={(e) => f.onChange(e.value)}
               min={quantityMin}
               className="w-full"
-              inputClassName={`w-full text-right${qtyError ? " p-invalid" : ""}`}
+              inputClassName={`w-full text-right${
+                qtyError ? " p-invalid" : ""
+              }`}
               inputStyle={{ padding: "0.3rem 0.4rem", fontSize: "0.85rem" }}
             />
           )}
         />
         {qtyError && (
-          <small className="p-error" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>
+          <small
+            className="p-error"
+            style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+          >
             {qtyError}
           </small>
         )}
@@ -202,13 +214,18 @@ export default function ItemRow({
                 currency="USD"
                 locale="es-VE"
                 className="w-full"
-                inputClassName={`w-full text-right${costError ? " p-invalid" : ""}`}
+                inputClassName={`w-full text-right${
+                  costError ? " p-invalid" : ""
+                }`}
                 inputStyle={{ padding: "0.3rem 0.4rem", fontSize: "0.85rem" }}
               />
             )}
           />
           {costError && (
-            <small className="p-error" style={{ fontSize: "0.65rem", lineHeight: 1.2 }}>
+            <small
+              className="p-error"
+              style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+            >
               {costError}
             </small>
           )}
