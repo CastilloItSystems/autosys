@@ -10,6 +10,10 @@ RUN npm install --ignore-scripts
 
 COPY . .
 
+RUN npx prisma generate
+
+RUN npm run build
+
 EXPOSE 4000
 
-CMD ["sh", "-c", "npx prisma generate && npm start"]
+CMD ["node", "dist/index.js"]
