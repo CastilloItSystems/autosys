@@ -4,30 +4,26 @@
  */
 
 import { prisma } from '../../../../config/database.js'
-import {
-  EventService,
-  EventType,
-} from '../../../../shared/services/event.service.js'
+import { MovementType } from '../../../../generated/prisma/client.js'
+import EventService from '../../shared/events/event.service.js'
+import { EventType } from '../../shared/events/event.types.js'
 import {
   BadRequestError,
   NotFoundError,
   ConflictError,
 } from '../../../../shared/utils/errors.js'
 import { logger } from '../../../../shared/utils/logger.js'
+import { MovementNumberGenerator } from '../../shared/utils/movementNumberGenerator.js'
 
 interface ReturnItemDetail {
   itemId: string
-  returnId: string
+  returnOrderId: string
   itemSku: string
   itemName: string
   quantity: number
-  reason: string
-  condition: 'DEFECTIVE' | 'DAMAGED' | 'WRONG_ITEM' | 'UNWANTED' | 'OTHER'
-  notes?: string
-  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'RESTOCKED' | 'SCRAPED'
-  refundAmount?: number
+  unitPrice?: number | null
+  notes?: string | null
   createdAt: Date
-  updatedAt: Date
 }
 
 interface ReturnItemAnalysis {
@@ -66,7 +62,7 @@ class ReturnItemsService {
     notes?: string
   ): Promise<ReturnItemDetail> {
     // Verify return exists
-    const returnRecord = await prisma.return.findUnique({
+    const returnRecord = await prisma.returnOrder.findUnique({
       where: { id: returnId },
     })
 
@@ -80,10 +76,10 @@ class ReturnItemsService {
     if (!item) throw new NotFoundError('Item not found')
 
     // Check if item already exists in return
-    const existingItem = await prisma.returnItem.findUnique({
+    const existingItem = await prisma.returnOrderItem.findUnique({
       where: {
-        returnId_itemId: {
-          returnId,
+        returnOrderId_itemId: {
+          returnOrderId: returnId,
           itemId,
         },
       },
@@ -94,43 +90,36 @@ class ReturnItemsService {
     }
 
     // Add item to return
-    const returnItem = await prisma.returnItem.create({
+    const returnItem = await prisma.returnOrderItem.create({
       data: {
-        returnId,
+        returnOrderId: returnId,
         itemId,
         quantity,
-        reason,
-        condition,
+        unitPrice: null,
         notes,
-        status: 'PENDING',
       },
     })
 
     // Calculate refund amount (should be based on original invoice)
-    const refundAmount = quantity * (item.sellPrice || item.costPrice || 0)
+    const refundAmount = quantity * Number(item.salePrice || item.costPrice || 0)
 
     // Emit item added event
-    EventService.getInstance().emit(EventType.RETURN_ITEM_ADDED, {
-      returnId,
-      itemId,
-      quantity,
-      reason,
-      condition,
+    EventService.getInstance().emit({
+      type: EventType.RETURN_ITEM_ADDED,
+      entityId: returnId,
+      entityType: 'ReturnOrder',
+      data: { returnId, itemId, quantity, reason, condition },
     })
 
     return {
       itemId,
-      returnId,
+      returnOrderId: returnId,
       itemSku: item.sku,
       itemName: item.name,
       quantity,
-      reason,
-      condition,
+      unitPrice: null,
       notes,
-      status: 'PENDING',
-      refundAmount: Math.round(refundAmount * 100) / 100,
       createdAt: returnItem.createdAt,
-      updatedAt: returnItem.updatedAt,
     }
   }
 
@@ -143,10 +132,10 @@ class ReturnItemsService {
     action: 'APPROVE' | 'REJECT' | 'RESTOCK' | 'SCRAP',
     notes?: string
   ): Promise<ReturnItemDetail> {
-    const returnItem = await prisma.returnItem.findUnique({
+    const returnItem = await prisma.returnOrderItem.findUnique({
       where: {
-        returnId_itemId: {
-          returnId,
+        returnOrderId_itemId: {
+          returnOrderId: returnId,
           itemId,
         },
       },
@@ -155,7 +144,7 @@ class ReturnItemsService {
 
     if (!returnItem) throw new NotFoundError('Return item not found')
 
-    // Update status based on action
+    // Determine action and create movements if needed
     let newStatus: string
     switch (action) {
       case 'APPROVE':
@@ -176,16 +165,15 @@ class ReturnItemsService {
         break
     }
 
-    // Update return item
-    const updated = await prisma.returnItem.update({
+    // Update return item notes (status is not stored in schema)
+    const updated = await prisma.returnOrderItem.update({
       where: {
-        returnId_itemId: {
-          returnId,
+        returnOrderId_itemId: {
+          returnOrderId: returnId,
           itemId,
         },
       },
       data: {
-        status: newStatus,
         notes,
       },
     })
@@ -194,31 +182,32 @@ class ReturnItemsService {
     const refundAmount =
       newStatus === 'APPROVED'
         ? returnItem.quantity *
-          (returnItem.item.sellPrice || returnItem.item.costPrice || 0)
+          Number(returnItem.item.salePrice || returnItem.item.costPrice || 0)
         : 0
 
     // Emit item processed event
-    EventService.getInstance().emit(EventType.RETURN_ITEM_PROCESSED, {
-      returnId,
-      itemId,
-      action,
-      newStatus,
-      refundAmount: refundAmount > 0 ? refundAmount : undefined,
+    EventService.getInstance().emit({
+      type: EventType.RETURN_ITEM_PROCESSED,
+      entityId: returnId,
+      entityType: 'ReturnOrder',
+      data: {
+        returnId,
+        itemId,
+        action,
+        newStatus,
+        refundAmount: refundAmount > 0 ? refundAmount : undefined,
+      },
     })
 
     return {
       itemId,
-      returnId,
+      returnOrderId: returnId,
       itemSku: returnItem.item.sku,
       itemName: returnItem.item.name,
       quantity: returnItem.quantity,
-      reason: returnItem.reason,
-      condition: returnItem.condition as any,
+      unitPrice: Number(returnItem.unitPrice || 0),
       notes: updated.notes || undefined,
-      status: newStatus as any,
-      refundAmount: Math.round(refundAmount * 100) / 100,
       createdAt: returnItem.createdAt,
-      updatedAt: updated.updatedAt,
     }
   }
 
@@ -226,33 +215,26 @@ class ReturnItemsService {
    * Get return items by return ID
    */
   async getReturnItems(returnId: string): Promise<ReturnItemDetail[]> {
-    const returnRecord = await prisma.return.findUnique({
+    const returnRecord = await prisma.returnOrder.findUnique({
       where: { id: returnId },
     })
 
     if (!returnRecord) throw new NotFoundError('Return not found')
 
-    const items = await prisma.returnItem.findMany({
-      where: { returnId },
+    const items = await prisma.returnOrderItem.findMany({
+      where: { returnOrderId: returnId },
       include: { item: true },
     })
 
     return items.map((ri) => ({
       itemId: ri.itemId,
-      returnId: ri.returnId,
+      returnOrderId: ri.returnOrderId,
       itemSku: ri.item.sku,
       itemName: ri.item.name,
       quantity: ri.quantity,
-      reason: ri.reason,
-      condition: ri.condition as any,
+      unitPrice: Number(ri.unitPrice || 0),
       notes: ri.notes || undefined,
-      status: ri.status as any,
-      refundAmount:
-        ri.status === 'APPROVED'
-          ? ri.quantity * (ri.item.sellPrice || ri.item.costPrice || 0)
-          : 0,
       createdAt: ri.createdAt,
-      updatedAt: ri.updatedAt,
     }))
   }
 
@@ -266,26 +248,14 @@ class ReturnItemsService {
     const startDate = new Date()
     startDate.setDate(startDate.getDate() - days)
 
-    const returnItems = await prisma.returnItem.findMany({
+    const returnItems = await prisma.returnOrderItem.findMany({
       where: {
         itemId,
         createdAt: { gte: startDate },
       },
     })
 
-    // Count reasons
-    const reasonCounts: { [key: string]: number } = {}
-    returnItems.forEach((ri) => {
-      reasonCounts[ri.reason] = (reasonCounts[ri.reason] || 0) + 1
-    })
-
-    // Get common reasons
-    const commonReasons = Object.entries(reasonCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 3)
-      .map(([reason]) => reason)
-
-    // Get sales count for failure rate
+    // Failure rate = returns / sales (based on movement records)
     const sales = await prisma.movement.count({
       where: {
         itemId,
@@ -296,12 +266,15 @@ class ReturnItemsService {
 
     const failureRate = sales > 0 ? (returnItems.length / sales) * 100 : 0
 
+    // No per-reason data available in schema; return empty array
+    const commonReasons: string[] = []
+
     // Get item for cost calculation
     const item = await prisma.item.findUnique({
       where: { id: itemId },
     })
 
-    const estimatedLoss = returnItems.length * (item?.costPrice || 0)
+    const estimatedLoss = returnItems.length * Number(item?.costPrice || 0)
 
     // Recommend action
     let recommendation:
@@ -340,11 +313,12 @@ class ReturnItemsService {
   ) {
     await prisma.movement.create({
       data: {
-        type: 'RETURN_IN',
-        itemId,
+        movementNumber: MovementNumberGenerator.generateMovementNumber(),
+        type: MovementType.SUPPLIER_RETURN,
         quantity,
-        referenceId: returnId,
+        reference: returnId,
         notes: `Authorized return restock from return ${returnId}`,
+        item: { connect: { id: itemId } },
       },
     })
   }
@@ -359,11 +333,12 @@ class ReturnItemsService {
   ) {
     await prisma.movement.create({
       data: {
-        type: 'WRITE_OFF',
-        itemId,
+        movementNumber: MovementNumberGenerator.generateMovementNumber(),
+        type: MovementType.ADJUSTMENT_OUT,
         quantity,
-        referenceId: returnId,
+        reference: returnId,
         notes: `Return item scrapped from return ${returnId}`,
+        item: { connect: { id: itemId } },
       },
     })
   }
@@ -377,31 +352,24 @@ class ReturnItemsService {
   ): Promise<{ data: ReturnItemDetail[]; total: number }> {
     const skip = (page - 1) * limit
 
-    const items = await prisma.returnItem.findMany({
+    const items = await prisma.returnOrderItem.findMany({
       include: { item: true },
       skip,
       take: limit,
       orderBy: { createdAt: 'desc' },
     })
 
-    const total = await prisma.returnItem.count()
+    const total = await prisma.returnOrderItem.count()
 
     const data = items.map((ri) => ({
       itemId: ri.itemId,
-      returnId: ri.returnId,
+      returnOrderId: ri.returnOrderId,
       itemSku: ri.item.sku,
       itemName: ri.item.name,
       quantity: ri.quantity,
-      reason: ri.reason,
-      condition: ri.condition as any,
+      unitPrice: Number(ri.unitPrice || 0),
       notes: ri.notes || undefined,
-      status: ri.status as any,
-      refundAmount:
-        ri.status === 'APPROVED'
-          ? ri.quantity * (ri.item.sellPrice || ri.item.costPrice || 0)
-          : 0,
       createdAt: ri.createdAt,
-      updatedAt: ri.updatedAt,
     }))
 
     return { data, total }

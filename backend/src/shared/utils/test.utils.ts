@@ -22,7 +22,6 @@ export async function getTestAuthToken(): Promise<string> {
         nombre: 'Test Admin User',
         correo: 'admin@test.com',
         password: 'test-hashed-password',
-        rol: 'SUPER_ADMIN',
         estado: 'activo',
         acceso: 'completo',
         eliminado: false,
@@ -33,9 +32,6 @@ export async function getTestAuthToken(): Promise<string> {
   const payload: JWTPayload = {
     userId: user.id,
     email: user.correo,
-    role: user.rol,
-    access: user.acceso,
-    permissions: ['*'], // Para pruebas, otorgamos todos los permisos
   }
 
   return generateToken(payload)

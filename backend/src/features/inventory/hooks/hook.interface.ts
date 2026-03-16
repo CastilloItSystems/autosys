@@ -47,6 +47,9 @@ export enum HookType {
   // Transfer hooks
   TRANSFER_SEND = 'TRANSFER_SEND',
   TRANSFER_RECEIVE = 'TRANSFER_RECEIVE',
+
+  // Movement hooks
+  MOVEMENT_CREATE = 'MOVEMENT_CREATE',
 }
 
 export interface IHookContext {

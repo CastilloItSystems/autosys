@@ -106,7 +106,7 @@ export class CategoryResponseDTO {
 }
 
 export class CategoryTreeResponseDTO extends CategoryResponseDTO {
-  children: CategoryTreeResponseDTO[]
+  declare children: CategoryTreeResponseDTO[]
 
   constructor(category: any, level: number = 0) {
     super(category, { includeRelations: true, level })

@@ -96,6 +96,31 @@ export enum EventType {
   SYSTEM_ALERT = 'system.alert',
   SYSTEM_WARNING = 'system.warning',
   SYSTEM_ERROR = 'system.error',
+
+  // Inventory Analytics Events
+  INVENTORY_METRICS_CALCULATED = 'inventory.metricsCalculated',
+  FORECAST_CALCULATED = 'forecast.calculated',
+  STOCK_LEVELS_UPDATED = 'stock.levelsUpdated',
+  STOCK_DISCREPANCY_DETECTED = 'stock.discrepancyDetected',
+  STOCK_INTEGRITY_ISSUE = 'stock.integrityIssue',
+  LOW_STOCK_ALERT = 'stock.lowAlert',
+  CRITICAL_STOCK_ALERT = 'stock.criticalAlert',
+
+  // Movement Events
+  MOVEMENT_AUDIT_CREATED = 'movement.auditCreated',
+  MOVEMENT_METRICS_RECORDED = 'movement.metricsRecorded',
+
+  // Workshop Events
+  MATERIAL_CONSUMED = 'workshop.materialConsumed',
+  WORK_ORDER_COMPLETED = 'workshop.workOrderCompleted',
+
+  // Sales Integration Events
+  PRE_INVOICE_LINKED = 'preInvoice.linked',
+  SHIPMENT_CONFIRMED = 'sales.shipmentConfirmed',
+
+  // Return Item Events
+  RETURN_ITEM_ADDED = 'return.itemAdded',
+  RETURN_ITEM_PROCESSED = 'return.itemProcessed',
 }
 
 export enum EventPriority {

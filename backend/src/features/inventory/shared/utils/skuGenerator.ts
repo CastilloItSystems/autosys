@@ -50,7 +50,7 @@ export class SKUGenerator {
    * Verifica si un SKU ya existe
    */
   static async exists(sku: string): Promise<boolean> {
-    const item = await prisma.item.findUnique({
+    const item = await prisma.item.findFirst({
       where: { sku },
     })
 

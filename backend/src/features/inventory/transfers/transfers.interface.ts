@@ -1,5 +1,7 @@
 // backend/src/features/inventory/transfers/transfers.interface.ts
 
+import { Decimal } from '@prisma/client/runtime/client'
+
 export enum TransferStatus {
   DRAFT = 'DRAFT',
   PENDING_APPROVAL = 'PENDING_APPROVAL',
@@ -52,7 +54,7 @@ export interface ITransferItem {
   transferId: string
   itemId: string
   quantity: number
-  unitCost?: number | null
+  unitCost?: Decimal | null
   notes?: string | null
 }
 
@@ -83,6 +85,6 @@ export interface ITransferFilters {
 export interface ICreateTransferItemInput {
   itemId: string
   quantity: number
-  unitCost?: number | null
+  unitCost?: Decimal | null
   notes?: string | null
 }

@@ -3,9 +3,9 @@
  * Synchronizes stock quantities across multiple locations and data sources
  */
 
-import prisma from '../../../../services/prisma.service.js'
-import { EventService } from '../../../shared/events/event.service.js'
-import { EventType } from '../../../shared/types/event.types.js'
+import prisma from '../../../services/prisma.service.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
 
 const eventService = EventService.getInstance()
 
@@ -49,7 +49,10 @@ export async function syncStockWithMovements(): Promise<SyncResult> {
         const movements = await prisma.movement.findMany({
           where: {
             itemId: stock.itemId,
-            warehouseId: stock.warehouseId,
+            OR: [
+              { warehouseFromId: stock.warehouseId },
+              { warehouseToId: stock.warehouseId },
+            ],
           },
         })
 
@@ -58,25 +61,24 @@ export async function syncStockWithMovements(): Promise<SyncResult> {
 
         // Get all purchase in movements as base
         const purchaseIn = movements
-          .filter((m) => m.movementType === 'PURCHASE_IN')
+          .filter((m) => m.type === 'PURCHASE')
           .reduce((sum, m) => sum + m.quantity, 0)
 
-        // Add transfer in
+        // Add transfer in (where this warehouse is the destination)
         const transferIn = movements
-          .filter((m) => m.movementType === 'TRANSFER_IN')
+          .filter((m) => m.type === 'TRANSFER' && m.warehouseToId === stock.warehouseId)
           .reduce((sum, m) => sum + m.quantity, 0)
 
         // Add returns
         const returnsIn = movements
-          .filter((m) => m.movementType === 'RETURN_IN')
+          .filter((m) => m.type === 'SUPPLIER_RETURN')
           .reduce((sum, m) => sum + m.quantity, 0)
 
         // Subtract sales/exits
         const exitsOut = movements
           .filter((m) =>
-            ['SALE', 'EXIT_NOTE', 'TRANSFER_OUT', 'WRITE_OFF'].includes(
-              m.movementType
-            )
+            (['SALE', 'ADJUSTMENT_OUT'] as string[]).includes(m.type) ||
+            (m.type === 'TRANSFER' && m.warehouseFromId === stock.warehouseId)
           )
           .reduce((sum, m) => sum + m.quantity, 0)
 
@@ -100,14 +102,12 @@ export async function syncStockWithMovements(): Promise<SyncResult> {
             await prisma.movement.create({
               data: {
                 itemId: stock.itemId,
-                warehouseId: stock.warehouseId,
-                movementType:
-                  discrepancy > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN',
+                warehouseToId: stock.warehouseId,
+                type: (discrepancy > 0 ? 'ADJUSTMENT_OUT' : 'ADJUSTMENT_IN') as any,
                 quantity: Math.abs(discrepancy),
                 reference: `AUTO_SYNC_${new Date().getTime()}`,
                 notes: 'Auto-sync correction based on movement history',
-                status: 'COMPLETED',
-              },
+              } as any,
             })
 
             // Update stock
@@ -143,11 +143,16 @@ export async function syncStockWithMovements(): Promise<SyncResult> {
 
     // Emit event if discrepancies found
     if (result.discrepancies.length > 0) {
-      eventService.emit(EventType.STOCK_DISCREPANCY_DETECTED, {
-        discrepancies: result.discrepancies,
-        correctedCount: result.synced,
-        totalCount: result.totalItems,
-        timestamp: result.timestamp,
+      eventService.emit({
+        type: EventType.STOCK_DISCREPANCY_DETECTED,
+        entityId: 'system',
+        entityType: 'STOCK',
+        data: {
+          discrepancies: result.discrepancies,
+          correctedCount: result.synced,
+          totalCount: result.totalItems,
+          timestamp: result.timestamp,
+        },
       })
     }
 
@@ -222,10 +227,11 @@ export async function validateStockConstraints(): Promise<
 
     // Emit event if issues found
     if (issues.length > 0) {
-      eventService.emit(EventType.STOCK_INTEGRITY_ISSUE, {
-        issueCount: issues.length,
-        issues,
-        timestamp: new Date(),
+      eventService.emit({
+        type: EventType.STOCK_INTEGRITY_ISSUE,
+        entityId: 'system',
+        entityType: 'STOCK',
+        data: { issueCount: issues.length, issues, timestamp: new Date() },
       })
     }
 

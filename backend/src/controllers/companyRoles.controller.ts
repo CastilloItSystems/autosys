@@ -26,7 +26,7 @@ function mapRole(role: any) {
  * Lista todos los roles de una empresa con sus permisos y count de memberships.
  */
 export const getCompanyRoles = async (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
 
   try {
     const roles = await prisma.companyRole.findMany({
@@ -48,7 +48,7 @@ export const getCompanyRoles = async (req: Request, res: Response) => {
  * Body: { name, description?, permissionCodes: string[] }
  */
 export const createCompanyRole = async (req: Request, res: Response) => {
-  const { id } = req.params
+  const id = req.params.id as string
   const { name, description, permissionCodes = [] } = req.body
 
   if (!name || typeof name !== 'string' || name.trim().length === 0) {
@@ -118,7 +118,7 @@ export const createCompanyRole = async (req: Request, res: Response) => {
  * Body: { name?, description?, permissionCodes?: string[] }
  */
 export const updateCompanyRole = async (req: Request, res: Response) => {
-  const { id, roleId } = req.params
+  const id = req.params.id as string; const roleId = req.params.roleId as string
   const { name, description, permissionCodes } = req.body
 
   try {
@@ -200,7 +200,7 @@ export const updateCompanyRole = async (req: Request, res: Response) => {
  * No permite eliminar roles de sistema (isSystem: true).
  */
 export const deleteCompanyRole = async (req: Request, res: Response) => {
-  const { id, roleId } = req.params
+  const id = req.params.id as string; const roleId = req.params.roleId as string
 
   try {
     const role = await prisma.companyRole.findFirst({
@@ -221,10 +221,11 @@ export const deleteCompanyRole = async (req: Request, res: Response) => {
       })
     }
 
-    if (role._count.memberships > 0) {
+    const roleCounted = role as any
+    if (roleCounted._count?.memberships > 0) {
       return res.status(409).json({
-        error: `Este rol está asignado a ${role._count.memberships} membership(s) activa(s). Reasigna los usuarios antes de eliminarlo.`,
-        membershipsCount: role._count.memberships,
+        error: `Este rol está asignado a ${roleCounted._count.memberships} membership(s) activa(s). Reasigna los usuarios antes de eliminarlo.`,
+        membershipsCount: roleCounted._count.memberships,
       })
     }
 

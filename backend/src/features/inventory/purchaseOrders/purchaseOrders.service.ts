@@ -752,7 +752,7 @@ class PurchaseOrderService {
 
         // 2d. Create Movement
         const movementNumber =
-          await MovementNumberGenerator.generateMovementNumber(tx, 'MOV')
+          MovementNumberGenerator.generateMovementNumber()
 
         await tx.movement.create({
           data: {

@@ -17,7 +17,7 @@ export const addItemHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { returnId } = req.params
+    const returnId = req.params.returnId as string
     const { itemId, quantity, reason, condition, notes } = req.body
 
     const result = await addItemToReturn(
@@ -28,11 +28,9 @@ export const addItemHandler = async (
       condition,
       notes
     )
-    res
-      .status(201)
-      .json(ApiResponse.created(result, 'Item added to return successfully'))
+    ApiResponse.created(res, result, 'Item added to return successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -41,15 +39,14 @@ export const processItemHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { returnId, itemId } = req.params
+    const returnId = req.params.returnId as string
+    const itemId = req.params.itemId as string
     const { action, notes } = req.body
 
     const result = await processReturnItem(returnId, itemId, action, notes)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Return item processed successfully'))
+    ApiResponse.success(res, result, 'Return item processed successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -58,13 +55,11 @@ export const getItemsHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { returnId } = req.params
+    const returnId = req.params.returnId as string
     const result = await getReturnItems(returnId)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Return items retrieved successfully'))
+    ApiResponse.success(res, result, 'Return items retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -73,16 +68,12 @@ export const getAnalysisHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { itemId } = req.params
+    const itemId = req.params.itemId as string
     const days = parseInt(req.query.days as string) || 90
     const result = await getReturnAnalysisByItem(itemId, days)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(result, 'Return analysis retrieved successfully')
-      )
+    ApiResponse.success(res, result, 'Return analysis retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -94,19 +85,9 @@ export const getAllItemsHandler = async (
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
     const result = await getAllReturnItems(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Return Items'
-        )
-      )
+    ApiResponse.paginated(res, result.data, page, limit, result.total, 'Return Items')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 

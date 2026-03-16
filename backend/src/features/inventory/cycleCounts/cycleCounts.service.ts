@@ -298,6 +298,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_CREATED, // Using CREATED as "started"
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: startedBy,
       })
 
@@ -362,6 +363,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_COMPLETED,
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: completedBy,
       })
 
@@ -386,6 +388,7 @@ export class CycleCountService {
     try {
       const cycleCount = await prisma.cycleCount.findUnique({
         where: { id },
+        include: { items: true },
       })
 
       if (!cycleCount) {
@@ -446,6 +449,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_APPROVED,
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: approvedBy,
       })
 
@@ -598,6 +602,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_APPLIED,
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: appliedBy,
       })
 
@@ -641,6 +646,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_REJECTED,
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: 'system',
       })
 
@@ -690,6 +696,7 @@ export class CycleCountService {
         type: EventType.CYCLE_COUNT_REJECTED, // No CANCELLED event defined, use REJECTED
         entityId: updated.id,
         entityType: 'cycleCount',
+        data: {},
         userId: 'system',
       })
 

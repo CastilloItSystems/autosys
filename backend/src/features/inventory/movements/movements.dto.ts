@@ -147,8 +147,8 @@ export class MovementResponseDTO {
     this.warehouseFromId = movement.warehouseFromId ?? null
     this.warehouseToId = movement.warehouseToId ?? null
     this.quantity = movement.quantity
-    this.unitCost = movement.unitCost ?? null
-    this.totalCost = movement.totalCost ?? null
+    this.unitCost = movement.unitCost != null ? Number(movement.unitCost) : null
+    this.totalCost = movement.totalCost != null ? Number(movement.totalCost) : null
     this.batchId = movement.batchId ?? null
     this.reference = movement.reference ?? null
     this.purchaseOrderId = movement.purchaseOrderId ?? null

@@ -9,7 +9,7 @@
     "prisma:generate": "npm run prisma:merge && prisma generate",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
-    "start": "tsx src/index.ts",
+    "start": "node dist/index.js",
     "test": "NODE_OPTIONS=--experimental-vm-modules jest --no-coverage"
   },
   "prisma": {

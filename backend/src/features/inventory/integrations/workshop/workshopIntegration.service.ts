@@ -3,7 +3,7 @@
  * Handles work order material consumption and tracking
  */
 
-import { EventType } from '@/shared/types/event.types.js'
+import { EventType } from '../../shared/events/event.types.js'
 import { prisma } from '../../../../config/database.js'
 
 import {
@@ -75,13 +75,13 @@ class WorkshopIntegrationService {
   ): Promise<WorkOrderMaterialConsumption> {
     const item = await prisma.item.findUnique({
       where: { id: itemId },
-      include: { stock: true },
+      include: { stocks: true },
     })
 
     if (!item) throw new NotFoundError('Item not found')
 
     // Check stock availability
-    const totalStock = item.stock.reduce(
+    const totalStock = item.stocks.reduce(
       (sum, s) => sum + s.quantityAvailable,
       0
     )
@@ -94,32 +94,32 @@ class WorkshopIntegrationService {
     // Create movement for material consumption
     const movement = await prisma.movement.create({
       data: {
-        type: 'WORK_ORDER_CONSUMPTION',
+        type: 'ADJUSTMENT_OUT' as any,
         itemId,
         quantity,
-        warehouseId: item.stock[0]?.warehouseId || '',
-        referenceId: workOrderId,
+        warehouseFromId: item.stocks[0]?.warehouseId || undefined,
+        reference: workOrderId,
         notes: `Work order ${workOrderId} material consumption`,
-      },
+      } as any,
     })
 
     // Calculate costs
-    const totalCost = quantity * (item.costPrice || 0)
+    const unitCost = Number(item.costPrice) || 0
+    const totalCost = quantity * unitCost
     const plannedQuantity = quantity + wasteQuantity
     const remainingQuantity = Math.max(0, plannedQuantity - quantity)
-    const costVariance = wasteQuantity * (item.costPrice || 0)
+    const costVariance = wasteQuantity * unitCost
 
     // Calculate efficiency (actual vs planned)
     const efficiency =
       plannedQuantity > 0 ? (quantity / plannedQuantity) * 100 : 100
 
     // Emit material consumed event
-    EventService.getInstance().emit(EventType.MATERIAL_CONSUMED, {
-      workOrderId,
-      itemId,
-      quantity,
-      movementId,
-      cost: totalCost,
+    EventService.getInstance().emit({
+      type: EventType.MATERIAL_CONSUMED,
+      entityId: workOrderId,
+      entityType: 'WORK_ORDER',
+      data: { workOrderId, itemId, quantity, movementId: movement.id, cost: totalCost },
     })
 
     return {
@@ -131,7 +131,7 @@ class WorkshopIntegrationService {
       consumedQuantity: quantity,
       remainingQuantity,
       wasteQuantity,
-      unitCost: item.costPrice || 0,
+      unitCost,
       totalCost: Math.round(totalCost * 100) / 100,
       costVariance: Math.round(costVariance * 100) / 100,
       efficiency: Math.round(efficiency * 100) / 100,
@@ -148,8 +148,8 @@ class WorkshopIntegrationService {
     // Get all movements for this work order
     const movements = await prisma.movement.findMany({
       where: {
-        referenceId: workOrderId,
-        type: 'WORK_ORDER_CONSUMPTION',
+        reference: workOrderId,
+        type: 'ADJUSTMENT_OUT',
       },
       include: { item: true },
     })
@@ -164,11 +164,12 @@ class WorkshopIntegrationService {
       movements.map(async (mov) => {
         const plannedQuantity = mov.quantity // Simplified - should include waste
         const wasteQuantity = 0 // Placeholder
-        const totalCost = mov.quantity * (mov.item.costPrice || 0)
+        const itemUnitCost = Number(mov.item.costPrice) || 0
+        const totalCost = mov.quantity * itemUnitCost
         const efficiency =
           plannedQuantity > 0 ? (mov.quantity / plannedQuantity) * 100 : 100
 
-        totalPlannedCost += plannedQuantity * (mov.item.costPrice || 0)
+        totalPlannedCost += plannedQuantity * itemUnitCost
         totalActualCost += totalCost
         totalWaste += wasteQuantity
         totalPlanned += plannedQuantity
@@ -183,10 +184,9 @@ class WorkshopIntegrationService {
           consumedQuantity: mov.quantity,
           remainingQuantity: Math.max(0, plannedQuantity - mov.quantity),
           wasteQuantity,
-          unitCost: mov.item.costPrice || 0,
+          unitCost: itemUnitCost,
           totalCost: Math.round(totalCost * 100) / 100,
-          costVariance:
-            Math.round(wasteQuantity * (mov.item.costPrice || 0) * 100) / 100,
+          costVariance: Math.round(wasteQuantity * itemUnitCost * 100) / 100,
           efficiency: Math.round(efficiency * 100) / 100,
           status: 'IN_PROGRESS' as const,
         }
@@ -239,28 +239,29 @@ class WorkshopIntegrationService {
       materials.map(async (mat) => {
         const item = await prisma.item.findUnique({
           where: { id: mat.itemId },
-          include: { stock: true },
+          include: { stocks: true },
         })
 
         if (!item) {
           throw new NotFoundError(`Item ${mat.itemId} not found`)
         }
 
-        const availableQuantity = item.stock.reduce(
+        const availableQuantity = item.stocks.reduce(
           (sum, s) => sum + s.quantityAvailable,
           0
         )
         const shortfall = Math.max(0, mat.quantity - availableQuantity)
-        const totalCost = mat.quantity * (item.costPrice || 0)
+        const matUnitCost = Number(item.costPrice) || 0
+        const totalCost = mat.quantity * matUnitCost
 
         const requirement: MaterialRequirement = {
           itemId: item.id,
           itemSku: item.sku,
           itemName: item.name,
           quantity: mat.quantity,
-          unitCost: item.costPrice || 0,
+          unitCost: matUnitCost,
           totalCost: Math.round(totalCost * 100) / 100,
-          warehouse: item.stock[0]?.warehouse?.name || 'Unknown',
+          warehouse: item.stocks[0]?.warehouseId || 'Unknown',
           availableQuantity,
           shortfall,
         }
@@ -288,8 +289,8 @@ class WorkshopIntegrationService {
   ): Promise<void> {
     const movements = await prisma.movement.findMany({
       where: {
-        referenceId: workOrderId,
-        type: 'WORK_ORDER_CONSUMPTION',
+        reference: workOrderId,
+        type: 'ADJUSTMENT_OUT',
       },
     })
 
@@ -304,10 +305,11 @@ class WorkshopIntegrationService {
     )
 
     // Emit work order completed event
-    EventService.getInstance().emit(EventType.WORK_ORDER_COMPLETED, {
-      workOrderId,
-      materialsCount: movements.length,
-      completedAt: new Date(),
+    EventService.getInstance().emit({
+      type: EventType.WORK_ORDER_COMPLETED,
+      entityId: workOrderId,
+      entityType: 'WORK_ORDER',
+      data: { workOrderId, materialsCount: movements.length, completedAt: new Date() },
     })
   }
 
@@ -321,7 +323,7 @@ class WorkshopIntegrationService {
     const skip = (page - 1) * limit
 
     const movements = await prisma.movement.findMany({
-      where: { type: 'WORK_ORDER_CONSUMPTION' },
+      where: { type: 'ADJUSTMENT_OUT' },
       include: { item: true },
       skip,
       take: limit,
@@ -329,17 +331,17 @@ class WorkshopIntegrationService {
     })
 
     const total = await prisma.movement.count({
-      where: { type: 'WORK_ORDER_CONSUMPTION' },
+      where: { type: 'ADJUSTMENT_OUT' },
     })
 
     return {
       data: movements.map((mov) => ({
         movementId: mov.id,
-        workOrderId: mov.referenceId,
+        workOrderId: mov.reference,
         itemSku: mov.item.sku,
         itemName: mov.item.name,
         quantity: mov.quantity,
-        cost: mov.quantity * (mov.item.costPrice || 0),
+        cost: mov.quantity * (Number(mov.item.costPrice) || 0),
         createdAt: mov.createdAt,
       })),
       total,

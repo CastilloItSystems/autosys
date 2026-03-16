@@ -17,25 +17,13 @@ export const recordConsumptionHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { workOrderId } = req.params
+    const workOrderId = req.params.workOrderId as string
     const { itemId, quantity, wasteQuantity } = req.body
 
-    const result = await recordMaterialConsumption(
-      workOrderId,
-      itemId,
-      quantity,
-      wasteQuantity
-    )
-    res
-      .status(201)
-      .json(
-        ApiResponse.created(
-          result,
-          'Material consumption recorded successfully'
-        )
-      )
+    const result = await recordMaterialConsumption(workOrderId, itemId, quantity, wasteQuantity)
+    ApiResponse.created(res, result, 'Material consumption recorded successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -44,15 +32,11 @@ export const getMaterialSummaryHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { workOrderId } = req.params
+    const workOrderId = req.params.workOrderId as string
     const result = await getWorkOrderMaterialSummary(workOrderId)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(result, 'Material summary retrieved successfully')
-      )
+    ApiResponse.success(res, result, 'Material summary retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -63,16 +47,9 @@ export const checkRequirementsHandler = async (
   try {
     const { materials } = req.body
     const result = await checkMaterialRequirements(materials)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(
-          result,
-          'Material requirements checked successfully'
-        )
-      )
+    ApiResponse.success(res, result, 'Material requirements checked successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -81,15 +58,13 @@ export const completeWorkOrderHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { workOrderId } = req.params
+    const workOrderId = req.params.workOrderId as string
     const { finalNotes } = req.body
 
     await completeWorkOrder(workOrderId, finalNotes)
-    res
-      .status(200)
-      .json(ApiResponse.success({}, 'Work order completed successfully'))
+    ApiResponse.success(res, {}, 'Work order completed successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -102,19 +77,9 @@ export const getConsumptionHistoryHandler = async (
     const limit = parseInt(req.query.limit as string) || 50
 
     const result = await getWorkOrderConsumptionHistory(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Work Order Consumption History'
-        )
-      )
+    ApiResponse.paginated(res, result.data, page, limit, result.total, 'Work Order Consumption History')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 

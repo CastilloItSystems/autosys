@@ -3,9 +3,9 @@
  * Generates alerts for low stock, overstock, and expiring items
  */
 
-import prisma from '../../../../services/prisma.service.js'
-import { EventService } from '../../../shared/events/event.service.js'
-import { EventType } from '../../../shared/types/event.types.js'
+import prisma from '../../../services/prisma.service.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
 
 const eventService = EventService.getInstance()
 
@@ -156,7 +156,7 @@ async function generateExpiringAlerts(): Promise<StockAlert[]> {
         itemId: batch.itemId,
         itemName: `${batch.item.name} (Batch: ${batch.batchNumber})`,
         itemSKU: batch.item.sku,
-        warehouseId: batch.warehouseId,
+        warehouseId: (batch as any).warehouseId || 'unknown',
         alertType: 'EXPIRING',
         currentQuantity: batch.currentQuantity,
         thresholdQuantity: 0,
@@ -190,7 +190,7 @@ async function generateDeadStockAlerts(): Promise<StockAlert[]> {
     })
 
     for (const stock of stocks) {
-      if (stock.quantityReal > 0 && stock.lastCountDate < sixMonthsAgo) {
+      if (stock.quantityReal > 0 && (stock as any).lastCountDate < sixMonthsAgo) {
         alerts.push({
           id: `DEADSTOCK-${stock.itemId}-${stock.warehouseId}`,
           itemId: stock.itemId,
@@ -232,10 +232,11 @@ export async function generateAllAlerts(): Promise<StockAlert[]> {
   // Emit events for critical alerts
   const criticalAlerts = allAlerts.filter((a) => a.severity === 'CRITICAL')
   if (criticalAlerts.length > 0) {
-    eventService.emit(EventType.CRITICAL_STOCK_ALERT, {
-      alertCount: criticalAlerts.length,
-      alerts: criticalAlerts,
-      timestamp: new Date(),
+    eventService.emit({
+      type: EventType.CRITICAL_STOCK_ALERT,
+      entityId: 'system',
+      entityType: 'STOCK',
+      data: { alertCount: criticalAlerts.length, alerts: criticalAlerts, timestamp: new Date() },
     })
   }
 

@@ -1,5 +1,7 @@
 // backend/src/features/inventory/movements/movements.interface.ts
 
+import { Decimal } from '@prisma/client/runtime/client'
+
 export enum MovementType {
   PURCHASE = 'PURCHASE',
   SALE = 'SALE',
@@ -21,8 +23,8 @@ export interface IMovement {
   warehouseFromId?: string | null
   warehouseToId?: string | null
   quantity: number
-  unitCost?: number | null
-  totalCost?: number | null
+  unitCost?: Decimal | null
+  totalCost?: Decimal | null
   batchId?: string | null
   reference?: string | null
   purchaseOrderId?: string | null

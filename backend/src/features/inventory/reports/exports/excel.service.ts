@@ -39,7 +39,7 @@ export async function exportDataToExcel(
       worksheet.columns = [
         { header: 'No data available', key: 'noData', width: 20 },
       ]
-      return workbook.xlsx.writeBuffer() as Promise<Buffer>
+      return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>
     }
 
     // Get columns from first data object or use provided columns
@@ -106,7 +106,7 @@ export async function exportDataToExcel(
     // Freeze header row
     worksheet.views = [{ state: 'frozen', ySplit: 1 }]
 
-    return workbook.xlsx.writeBuffer() as Promise<Buffer>
+    return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>
   } catch (error) {
     console.error('Error exporting to Excel:', error)
     throw error

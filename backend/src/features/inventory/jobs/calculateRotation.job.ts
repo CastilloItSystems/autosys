@@ -3,9 +3,9 @@
  * Calculates inventory turnover and rotation metrics for FIFO optimization
  */
 
-import prisma from '../../../../services/prisma.service.js'
-import { EventService } from '../../../shared/events/event.service.js'
-import { EventType } from '../../../shared/types/event.types.js'
+import prisma from '../../../services/prisma.service.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
 
 const eventService = EventService.getInstance()
 
@@ -49,7 +49,10 @@ export async function calculateRotationMetrics(): Promise<RotationMetrics[]> {
           const movements = await prisma.movement.findMany({
             where: {
               itemId: item.id,
-              warehouseId: warehouse.id,
+              OR: [
+                { warehouseFromId: warehouse.id },
+                { warehouseToId: warehouse.id },
+              ],
               createdAt: { gte: ninetyDaysAgo },
             },
           })
@@ -62,7 +65,7 @@ export async function calculateRotationMetrics(): Promise<RotationMetrics[]> {
           const outMovements = movements
             .filter((m) =>
               ['SALE', 'EXIT_NOTE', 'TRANSFER_OUT', 'WRITE_OFF'].includes(
-                m.movementType
+                m.type
               )
             )
             .reduce((sum, m) => sum + m.quantity, 0)
@@ -103,10 +106,11 @@ export async function calculateRotationMetrics(): Promise<RotationMetrics[]> {
       )
     }
 
-    eventService.emit(EventType.INVENTORY_METRICS_CALCULATED, {
-      metricsCount: metrics.length,
-      timestamp: new Date(),
-      period: '90_days',
+    eventService.emit({
+      type: EventType.INVENTORY_METRICS_CALCULATED,
+      entityId: 'system',
+      entityType: 'INVENTORY',
+      data: { metricsCount: metrics.length, timestamp: new Date(), period: '90_days' },
     })
 
     return metrics

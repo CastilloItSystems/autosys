@@ -60,7 +60,7 @@ export class SerialNumbersController {
    * Get serial number by ID
    */
   getOne = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const serial = await SerialNumbersService.findById(id)
     const dto = new SerialNumberResponseDTO(serial)
     return ApiResponse.success(res, dto, 'Serial number retrieved successfully')
@@ -71,7 +71,7 @@ export class SerialNumbersController {
    * Get serial number by serial number string
    */
   getBySerialNumber = asyncHandler(async (req: Request, res: Response) => {
-    const { serialNumber } = req.params
+    const serialNumber = req.params.serialNumber as string
     const serial = await SerialNumbersService.findBySerialNumber(serialNumber)
     const dto = new SerialNumberResponseDTO(serial)
     return ApiResponse.success(res, dto, 'Serial number retrieved successfully')
@@ -82,7 +82,7 @@ export class SerialNumbersController {
    * Get serial numbers by item ID
    */
   getByItemId = asyncHandler(async (req: Request, res: Response) => {
-    const { itemId } = req.params
+    const itemId = req.params.itemId as string
     const serials = await SerialNumbersService.findByItemId(itemId)
     const dtos = serials.map((s) => new SerialNumberListResponseDTO(s))
     return ApiResponse.success(
@@ -97,7 +97,7 @@ export class SerialNumbersController {
    * Get serial numbers by warehouse ID
    */
   getByWarehouseId = asyncHandler(async (req: Request, res: Response) => {
-    const { warehouseId } = req.params
+    const warehouseId = req.params.warehouseId as string
     const serials = await SerialNumbersService.findByWarehouseId(warehouseId)
     const dtos = serials.map((s) => new SerialNumberListResponseDTO(s))
     return ApiResponse.success(
@@ -112,7 +112,7 @@ export class SerialNumbersController {
    *  Get serial numbers by status
    */
   getByStatus = asyncHandler(async (req: Request, res: Response) => {
-    const { status } = req.params
+    const status = req.params.status as string
     const serials = await SerialNumbersService.findByStatus(status as any)
     const dtos = serials.map((s) => new SerialNumberListResponseDTO(s))
     return ApiResponse.success(
@@ -139,7 +139,7 @@ export class SerialNumbersController {
    * Update serial number
    */
   update = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const updateDTO = new UpdateSerialNumberDTO(req.body)
     const userId = (req as any).user?.id || 'system'
     const serial = await SerialNumbersService.update(id, updateDTO, userId)
@@ -152,7 +152,7 @@ export class SerialNumbersController {
    * Assign serial to warehouse
    */
   assignToWarehouse = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     const assignDTO = new AssignSerialDTO(req.body)
     const userId = (req as any).user?.id || 'system'
     const serial = await SerialNumbersService.assignToWarehouse(
@@ -169,7 +169,7 @@ export class SerialNumbersController {
    * Delete serial number
    */
   delete = asyncHandler(async (req: Request, res: Response) => {
-    const { id } = req.params
+    const id = req.params.id as string
     await SerialNumbersService.delete(id)
     return ApiResponse.success(res, null, 'Serial number deleted successfully')
   })

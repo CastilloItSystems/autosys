@@ -114,7 +114,7 @@ class ForecastingService {
       where: {
         itemId,
         createdAt: { gte: startDate },
-        type: { in: ['SALE', 'TRANSFER_OUT'] },
+        type: { in: ['SALE'] },
       },
       orderBy: { createdAt: 'asc' },
     })
@@ -194,14 +194,19 @@ class ForecastingService {
     }
 
     // Emit forecast calculated event
-    EventService.getInstance().emit(EventType.FORECAST_CALCULATED, {
-      itemId,
-      forecast30Days,
-      confidenceLevel,
-      trend: this.calculateTrend(
-        historicalAverageDailyDemand,
-        forecast30Days / 30
-      ),
+    EventService.getInstance().emit({
+      type: EventType.STOCK_MOVEMENT_CREATED,
+      entityId: itemId,
+      entityType: 'forecast',
+      data: {
+        itemId,
+        forecast30Days,
+        confidenceLevel,
+        trend: this.calculateTrend(
+          historicalAverageDailyDemand,
+          forecast30Days / 30
+        ),
+      },
     })
 
     return {
@@ -269,7 +274,7 @@ class ForecastingService {
       where: {
         itemId,
         createdAt: { gte: startDate },
-        type: { in: ['SALE', 'TRANSFER_OUT'] },
+        type: { in: ['SALE', 'TRANSFER'] },
       },
     })
 
@@ -282,7 +287,7 @@ class ForecastingService {
         createdAt: {
           gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
         },
-        type: { in: ['SALE', 'TRANSFER_OUT'] },
+        type: { in: ['SALE', 'TRANSFER'] },
       },
     })
 

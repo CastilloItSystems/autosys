@@ -371,6 +371,7 @@ export class ReconciliationService {
         type: EventType.RECONCILIATION_APPROVED,
         entityId: updated.id,
         entityType: 'reconciliation',
+        data: {},
         userId: approvedBy,
       })
 
@@ -494,6 +495,7 @@ export class ReconciliationService {
         type: EventType.RECONCILIATION_APPLIED,
         entityId: updated.id,
         entityType: 'reconciliation',
+        data: {},
         userId: appliedBy,
       })
 
@@ -540,6 +542,7 @@ export class ReconciliationService {
         type: EventType.RECONCILIATION_REJECTED,
         entityId: updated.id,
         entityType: 'reconciliation',
+        data: {},
         userId: 'system',
       })
 
@@ -589,6 +592,7 @@ export class ReconciliationService {
         type: EventType.RECONCILIATION_REJECTED, // No CANCELLED event for reconciliation, use REJECTED
         entityId: updated.id,
         entityType: 'reconciliation',
+        data: {},
         userId: 'system',
       })
 

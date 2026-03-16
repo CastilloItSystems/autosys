@@ -11,7 +11,7 @@ export async function scheduleCheckExpiryJob(): Promise<void> {
   try {
     logger.info('Scheduling check expiry job')
 
-    await QueueService.enqueueJob(JobType.CHECK_EXPIRING_BATCHES, {
+    await QueueService.getInstance().addJob(JobType.CHECK_EXPIRING_BATCHES, {
       daysThreshold: 30,
     })
 
@@ -29,7 +29,7 @@ export async function scheduleCheckExpiryJobRecurring(
     logger.info('Scheduling recurring check expiry job', { intervalHours })
 
     // Job will run every X hours
-    await QueueService.enqueueJob(
+    await QueueService.getInstance().addJob(
       JobType.CHECK_EXPIRING_BATCHES,
       {
         daysThreshold: 30,

@@ -127,7 +127,7 @@ export class LoanResponseDTO implements ILoanResponseDTO {
 }
 
 export class LoanWithItemsDTO extends LoanResponseDTO {
-  items: Array<{
+  declare items: Array<{
     itemId: string
     itemName: string
     itemSku: string

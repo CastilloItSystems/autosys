@@ -18,20 +18,13 @@ export const linkToPreInvoiceHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { exitNoteId } = req.params
+    const exitNoteId = req.params.exitNoteId as string
     const { preInvoiceId } = req.body
 
     const result = await linkExitNoteToPreInvoice(exitNoteId, preInvoiceId)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(
-          result,
-          'Exit note linked to pre-invoice successfully'
-        )
-      )
+    ApiResponse.success(res, result, 'Exit note linked to pre-invoice successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -40,24 +33,13 @@ export const linkToSalesOrderHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { exitNoteId } = req.params
+    const exitNoteId = req.params.exitNoteId as string
     const { salesOrderId, trackingInfo } = req.body
 
-    const result = await linkExitNoteToSalesOrder(
-      exitNoteId,
-      salesOrderId,
-      trackingInfo
-    )
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(
-          result,
-          'Exit note linked to sales order successfully'
-        )
-      )
+    const result = await linkExitNoteToSalesOrder(exitNoteId, salesOrderId, trackingInfo)
+    ApiResponse.success(res, result, 'Exit note linked to sales order successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -66,15 +48,11 @@ export const getFulfillmentStatusHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { salesOrderId } = req.params
+    const salesOrderId = req.params.salesOrderId as string
     const result = await getSalesOrderFulfillmentStatus(salesOrderId)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(result, 'Fulfillment status retrieved successfully')
-      )
+    ApiResponse.success(res, result, 'Fulfillment status retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -87,19 +65,9 @@ export const getPendingExitsHandler = async (
     const limit = parseInt(req.query.limit as string) || 50
 
     const result = await getPendingExitNotesForSalesOrders(page, limit)
-    res
-      .status(200)
-      .json(
-        ApiResponse.paginated(
-          result.data,
-          result.total,
-          page,
-          limit,
-          'Pending Exit Notes for Sales Orders'
-        )
-      )
+    ApiResponse.paginated(res, result.data, page, limit, result.total, 'Pending Exit Notes for Sales Orders')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -108,20 +76,13 @@ export const confirmShipmentHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { exitNoteId } = req.params
+    const exitNoteId = req.params.exitNoteId as string
     const { deliveryDate, signature, notes } = req.body
 
-    const result = await confirmShipment(
-      exitNoteId,
-      new Date(deliveryDate),
-      signature,
-      notes
-    )
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Shipment confirmed successfully'))
+    const result = await confirmShipment(exitNoteId, new Date(deliveryDate), signature, notes)
+    ApiResponse.success(res, result, 'Shipment confirmed successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -138,11 +99,9 @@ export const getSalesMetricsHandler = async (
       : new Date()
 
     const result = await getSalesMetrics(startDate, endDate)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Sales metrics retrieved successfully'))
+    ApiResponse.success(res, result, 'Sales metrics retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 

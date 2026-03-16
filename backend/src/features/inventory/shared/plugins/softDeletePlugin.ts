@@ -2,8 +2,9 @@
  * Soft Delete Plugin - Prisma Middleware for logical deletion
  */
 
-import { Prisma } from '@prisma/client'
-import { logger } from '../../../shared/utils/logger.js'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrismaMiddlewareParams = any
+import { logger } from '../../../../shared/utils/logger.js'
 
 interface SoftDeleteConfig {
   models: string[]
@@ -39,8 +40,8 @@ export function createSoftDeleteMiddleware(
   const finalConfig = { ...DEFAULT_CONFIG, ...config }
 
   return async (
-    params: Prisma.MiddlewareParams,
-    next: (params: Prisma.MiddlewareParams) => Promise<any>
+    params: PrismaMiddlewareParams,
+    next: (params: PrismaMiddlewareParams) => Promise<any>
   ) => {
     const { model, action, args } = params
 
@@ -52,7 +53,7 @@ export function createSoftDeleteMiddleware(
     // Handle delete operations
     if (action === 'delete') {
       // Convert delete to update with soft delete flag
-      const updateParams: Prisma.MiddlewareParams = {
+      const updateParams: PrismaMiddlewareParams = {
         ...params,
         action: 'update',
         args: {
@@ -69,7 +70,7 @@ export function createSoftDeleteMiddleware(
 
     // Handle deleteMany operations
     if (action === 'deleteMany') {
-      const updateParams: Prisma.MiddlewareParams = {
+      const updateParams: PrismaMiddlewareParams = {
         ...params,
         action: 'updateMany',
         args: {

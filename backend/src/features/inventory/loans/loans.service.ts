@@ -343,12 +343,11 @@ class LoansService {
           data: {
             id: uuidv4(),
             itemId: item.itemId,
-            warehouseId: loan.warehouseId,
+            warehouseFromId: loan.warehouseId,
             type: MovementType.LOAN_OUT as any,
             quantity: item.quantityLoaned,
             reference: loan.loanNumber,
-            createdBy: userId,
-          },
+          } as any,
         })
       }
 
@@ -444,12 +443,11 @@ class LoansService {
             data: {
               id: uuidv4(),
               itemId: ret.itemId,
-              warehouseId: loan.warehouseId,
+              warehouseFromId: loan.warehouseId,
               type: MovementType.LOAN_RETURN as any,
               quantity: ret.quantityReturned,
               reference: loan.loanNumber,
-              createdBy: userId,
-            },
+            } as any,
           })
         }
       }

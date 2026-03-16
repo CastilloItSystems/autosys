@@ -3,9 +3,9 @@
  * Recalculates optimal stock levels and reorder points based on demand patterns
  */
 
-import prisma from '../../../../services/prisma.service.js'
-import { EventService } from '../../../shared/events/event.service.js'
-import { EventType } from '../../../shared/types/event.types.js'
+import prisma from '../../../services/prisma.service.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
 
 const eventService = EventService.getInstance()
 
@@ -52,10 +52,10 @@ export async function updateStockLevels(): Promise<StockLevel[]> {
         const movements = await prisma.movement.findMany({
           where: {
             itemId: item.id,
-            warehouseId: warehouse.id,
+            warehouseFromId: warehouse.id,
             createdAt: { gte: ninetyDaysAgo },
-            movementType: {
-              in: ['SALE', 'EXIT_NOTE', 'TRANSFER_OUT'],
+            type: {
+              in: ['SALE', 'ADJUSTMENT_OUT', 'TRANSFER'],
             },
           },
         })
@@ -155,12 +155,17 @@ export async function updateStockLevels(): Promise<StockLevel[]> {
     const reductionsNeeded = levels.filter((l) => l.recommendation === 'REDUCE')
 
     if (ordersNeeded.length > 0 || reviewsNeeded.length > 0) {
-      eventService.emit(EventType.STOCK_LEVELS_UPDATED, {
-        updatedCount: levels.length,
-        ordersNeeded: ordersNeeded.length,
-        reviewsNeeded: reviewsNeeded.length,
-        reductionsNeeded: reductionsNeeded.length,
-        timestamp: new Date(),
+      eventService.emit({
+        type: EventType.STOCK_LEVELS_UPDATED,
+        entityId: 'system',
+        entityType: 'STOCK',
+        data: {
+          updatedCount: levels.length,
+          ordersNeeded: ordersNeeded.length,
+          reviewsNeeded: reviewsNeeded.length,
+          reductionsNeeded: reductionsNeeded.length,
+          timestamp: new Date(),
+        },
       })
     }
 
@@ -200,26 +205,18 @@ export async function getReorderSuggestions(): Promise<
       if (level.recommendation === 'ORDER') {
         const item = await prisma.item.findUnique({
           where: { id: level.itemId },
-          include: {
-            itemSuppliers: {
-              orderBy: { priority: 'asc' },
-              take: 1,
-            },
-          },
         })
 
-        if (item && item.itemSuppliers && item.itemSuppliers.length > 0) {
-          const supplier = item.itemSuppliers[0]
+        if (item) {
           const priority =
             level.currentLevel <= level.reorderPoint / 2 ? 'URGENT' : 'NORMAL'
 
           suggestions.push({
             itemId: level.itemId,
             itemName: level.itemName,
-            supplier: supplier.name,
+            supplier: 'N/A',
             quantityToOrder: level.reorderQuantity,
-            estimateCost:
-              level.reorderQuantity * ((supplier as any).unitPrice || 0),
+            estimateCost: 0,
             priority,
           })
         }

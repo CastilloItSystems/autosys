@@ -326,7 +326,7 @@ export class MovementController {
     const empresaId = getEmpresaId(req)
 
     // delegate to service which always throws BadRequestError
-    await movementService.delete(id, req.user?.userId, empresaId)
+    await movementService.delete(id)
 
     // unreachable — service always throws, here just for TS return type
     return ApiResponse.success(res, {}, 'Movimiento eliminado')

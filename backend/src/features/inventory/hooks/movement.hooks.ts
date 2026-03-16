@@ -5,8 +5,9 @@
 
 import prisma from '../../../services/prisma.service.js'
 import { HookRegistry } from '../shared/hooks/hook.registry.js'
-import { EventService } from '../../../shared/events/event.service.js'
-import { EventType } from '../../../shared/types/event.types.js'
+import EventService from '../shared/events/event.service.js'
+import { EventType } from '../shared/events/event.types.js'
+import { HookType, HookStage } from './hook.interface.js'
 
 const eventService = EventService.getInstance()
 const hookRegistry = HookRegistry.getInstance()
@@ -90,7 +91,6 @@ export const preMovementValidation = {
 
     const item = await prisma.item.findUnique({
       where: { id: itemId },
-      select: { auditRequired: true },
     })
 
     // High-value or audit-required items
@@ -148,11 +148,11 @@ export const postMovementHooks = {
     )
 
     // Emit event for audit logging
-    eventService.emit(EventType.MOVEMENT_AUDIT_CREATED, {
-      movementId,
-      movementType,
-      createdBy,
-      timestamp: new Date(),
+    eventService.emit({
+      type: EventType.MOVEMENT_AUDIT_CREATED,
+      entityId: movementId || 'unknown',
+      entityType: 'MOVEMENT',
+      data: { movementId, movementType, createdBy, timestamp: new Date() },
     })
   },
 
@@ -187,13 +187,18 @@ export const postMovementHooks = {
 
       // Trigger alert if below minimum
       if (stock.quantityAvailable <= minStock) {
-        eventService.emit(EventType.LOW_STOCK_ALERT, {
-          itemId,
-          itemName: item.name,
-          warehouseId,
-          currentQuantity: stock.quantityAvailable,
-          minStock,
-          timestamp: new Date(),
+        eventService.emit({
+          type: EventType.LOW_STOCK_ALERT,
+          entityId: itemId,
+          entityType: 'ITEM',
+          data: {
+            itemId,
+            itemName: item.name,
+            warehouseId,
+            currentQuantity: stock.quantityAvailable,
+            minStock,
+            timestamp: new Date(),
+          },
         })
       }
     }
@@ -208,7 +213,7 @@ export const postMovementHooks = {
     await prisma.item.updateMany({
       where: { id: itemId },
       data: {
-        lastMovementDate: new Date(),
+        updatedAt: new Date(),
       },
     })
   },
@@ -224,12 +229,11 @@ export const postMovementHooks = {
       `📊 Movement metrics: ${quantity} units of ${itemId} - ${movementType}`
     )
 
-    eventService.emit(EventType.MOVEMENT_METRICS_RECORDED, {
-      movementType,
-      quantity,
-      itemId,
-      warehouseId,
-      timestamp: new Date(),
+    eventService.emit({
+      type: EventType.MOVEMENT_METRICS_RECORDED,
+      entityId: itemId,
+      entityType: 'MOVEMENT',
+      data: { movementType, quantity, itemId, warehouseId, timestamp: new Date() },
     })
   },
 }
@@ -241,52 +245,61 @@ export function registerMovementHooks(): void {
   console.log('🪝 Registering movement hooks...')
 
   // Pre-movement validations
-  hookRegistry.registerHook(
-    'movement:before:create',
-    'validate-outgoing-stock',
-    preMovementValidation.validateOutgoingStock
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.BEFORE,
+    (ctx) => preMovementValidation.validateOutgoingStock(ctx.data || ctx),
+    10
   )
-  hookRegistry.registerHook(
-    'movement:before:create',
-    'validate-item',
-    preMovementValidation.validateItem
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.BEFORE,
+    (ctx) => preMovementValidation.validateItem(ctx.data || ctx),
+    9
   )
-  hookRegistry.registerHook(
-    'movement:before:create',
-    'validate-warehouse',
-    preMovementValidation.validateWarehouse
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.BEFORE,
+    (ctx) => preMovementValidation.validateWarehouse(ctx.data || ctx),
+    8
   )
-  hookRegistry.registerHook(
-    'movement:before:create',
-    'validate-audit',
-    preMovementValidation.validateAuditRequirements
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.BEFORE,
+    (ctx) => preMovementValidation.validateAuditRequirements(ctx.data || ctx),
+    7
   )
 
   // Post-movement actions
-  hookRegistry.registerHook(
-    'movement:after:create',
-    'update-stock',
-    postMovementHooks.updateStock
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.AFTER,
+    (ctx) => postMovementHooks.updateStock(ctx.data || ctx),
+    10
   )
-  hookRegistry.registerHook(
-    'movement:after:create',
-    'audit-trail',
-    postMovementHooks.createAuditTrail
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.AFTER,
+    (ctx) => postMovementHooks.createAuditTrail(ctx.data || ctx),
+    9
   )
-  hookRegistry.registerHook(
-    'movement:after:create',
-    'check-threshold',
-    postMovementHooks.checkStockThreshold
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.AFTER,
+    (ctx) => postMovementHooks.checkStockThreshold(ctx.data || ctx),
+    8
   )
-  hookRegistry.registerHook(
-    'movement:after:create',
-    'update-last-movement',
-    postMovementHooks.updateLastMovementDate
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.AFTER,
+    (ctx) => postMovementHooks.updateLastMovementDate(ctx.data || ctx),
+    7
   )
-  hookRegistry.registerHook(
-    'movement:after:create',
-    'generate-metrics',
-    postMovementHooks.generateMetrics
+  hookRegistry.register(
+    HookType.MOVEMENT_CREATE,
+    HookStage.AFTER,
+    (ctx) => postMovementHooks.generateMetrics(ctx.data || ctx),
+    6
   )
 
   console.log('✅ Movement hooks registered')
@@ -296,13 +309,14 @@ export function registerMovementHooks(): void {
  * Execute pre-movement hooks
  */
 export async function executePreMovementHooks(context: any): Promise<void> {
-  const hooks = hookRegistry.getHooks('movement:before:create')
+  const hooks = hookRegistry.getHooks(HookType.MOVEMENT_CREATE)
+  const preHooks = hooks.filter((h) => h.stage === HookStage.BEFORE)
 
-  for (const hook of hooks) {
+  for (const hook of preHooks) {
     try {
-      await hook(context)
+      await hook.handler(context)
     } catch (error) {
-      console.error(`Error executing pre-movement hook ${hook.name}:`, error)
+      console.error(`Error executing pre-movement hook ${hook.id}:`, error)
       throw error // Re-throw to prevent movement
     }
   }
@@ -312,13 +326,14 @@ export async function executePreMovementHooks(context: any): Promise<void> {
  * Execute post-movement hooks
  */
 export async function executePostMovementHooks(context: any): Promise<void> {
-  const hooks = hookRegistry.getHooks('movement:after:create')
+  const hooks = hookRegistry.getHooks(HookType.MOVEMENT_CREATE)
+  const postHooks = hooks.filter((h) => h.stage === HookStage.AFTER)
 
-  for (const hook of hooks) {
+  for (const hook of postHooks) {
     try {
-      await hook(context)
+      await hook.handler(context)
     } catch (error) {
-      console.error(`Error executing post-movement hook ${hook.name}:`, error)
+      console.error(`Error executing post-movement hook ${hook.id}:`, error)
       // Don't re-throw - movement already created, just log error
     }
   }

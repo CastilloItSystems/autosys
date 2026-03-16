@@ -85,7 +85,7 @@ export class TransfersController {
   create = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
     const transfer = await TransfersService.create(
-      new CreateTransferDTO(req.body),
+      new CreateTransferDTO(req.body) as any,
       getUserId(req),
       empresaId,
       req.prisma

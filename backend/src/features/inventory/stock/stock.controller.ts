@@ -180,8 +180,8 @@ class StockController {
 
     const stocks = await stockService.findLowStock(
       empresaId,
-      warehouseId,
-      req.prisma
+      req.prisma,
+      warehouseId
     )
     const response = stocks.map(
       (s) => new StockResponseDTO(s, { includeRelations: true })
@@ -208,8 +208,8 @@ class StockController {
 
     const stocks = await stockService.findOutOfStock(
       empresaId,
-      warehouseId,
-      req.prisma
+      req.prisma,
+      warehouseId
     )
     const response = stocks.map(
       (s) => new StockResponseDTO(s, { includeRelations: true })

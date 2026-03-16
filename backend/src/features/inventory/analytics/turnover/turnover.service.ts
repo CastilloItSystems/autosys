@@ -94,7 +94,7 @@ class TurnoverService {
     // Calculate average stock
     const currentStock = item.stocks.reduce((sum, s) => sum + s.quantityReal, 0)
     const averageStock = this.calculateAverageStock(movements, currentStock)
-    const averageStockValue = averageStock * (item.costPrice || 0)
+    const averageStockValue = averageStock * (Number(item.costPrice) || 0)
 
     // Calculate turnover ratio = COGS / Average Inventory
     const turnoverRatio = averageStock > 0 ? cogs365Days / averageStock : 0
@@ -135,7 +135,6 @@ class TurnoverService {
     return {
       itemId,
       itemSku: item.sku,
-      sku: item.sku,
       itemName: item.name,
       turnoverRatio: Math.round(turnoverRatio * 100) / 100,
       daysInventoryOutstanding: Math.round(daysInventoryOutstanding * 10) / 10,
@@ -151,8 +150,6 @@ class TurnoverService {
       classification,
       trend,
       recommendation,
-      recommendations: [recommendation],
-      stockValue: averageStockValue,
     }
   }
 

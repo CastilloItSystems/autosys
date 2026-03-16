@@ -15,7 +15,7 @@ export const getForecastForItemHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { itemId } = req.params
+    const itemId = req.params.itemId as string
     const result = await getDemandForecastForItem(itemId)
     ApiResponse.success(res, result, 'Forecast retrieved successfully')
   } catch (error: any) {
@@ -49,7 +49,7 @@ export const getAccuracyHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { itemId } = req.params
+    const itemId = req.params.itemId as string
     const daysBack = parseInt(req.query.daysBack as string) || 30
     const accuracy = await calculateForecastAccuracy(itemId, daysBack)
     ApiResponse.success(

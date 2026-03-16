@@ -3,7 +3,7 @@
  * Handles pre-invoice linking and sales order integration
  */
 
-import { EventType } from '@/shared/types/event.types.js'
+import { EventType } from '../../shared/events/event.types.js'
 import { prisma } from '../../../../config/database.js'
 
 import {
@@ -84,11 +84,11 @@ class SalesIntegrationService {
     const totalValue = totalQuantity * 100 // Placeholder - should be derived from item prices
 
     // Emit pre-invoice linked event
-    EventService.getInstance().emit(EventType.PRE_INVOICE_LINKED, {
-      exitNoteId,
-      preInvoiceId,
-      itemCount: updated.items.length,
-      totalQuantity,
+    EventService.getInstance().emit({
+      type: EventType.PRE_INVOICE_LINKED,
+      entityId: exitNoteId,
+      entityType: 'ExitNote',
+      data: { exitNoteId, preInvoiceId, itemCount: updated.items.length, totalQuantity },
     })
 
     return {
@@ -118,22 +118,27 @@ class SalesIntegrationService {
 
     if (!exitNote) throw new NotFoundError('Exit note not found')
 
-    // Update exit note with sales order reference
+    // Update exit note with sales order reference (stored in reference field)
     const updated = await prisma.exitNote.update({
       where: { id: exitNoteId },
       data: {
-        salesOrderId,
+        reference: salesOrderId,
         status: 'DELIVERED',
       },
     })
 
     // Emit sales order linked event
-    EventService.getInstance().emit(EventType.SALES_ORDER_SHIPPED, {
-      exitNoteId,
-      salesOrderId,
-      shipmentDate: new Date(),
-      carrier: trackingInfo?.carrier,
-      trackingNumber: trackingInfo?.trackingNumber,
+    EventService.getInstance().emit({
+      type: EventType.SHIPMENT_CONFIRMED,
+      entityId: exitNoteId,
+      entityType: 'ExitNote',
+      data: {
+        exitNoteId,
+        salesOrderId,
+        shipmentDate: new Date(),
+        carrier: trackingInfo?.carrier,
+        trackingNumber: trackingInfo?.trackingNumber,
+      },
     })
 
     return {
@@ -155,11 +160,11 @@ class SalesIntegrationService {
   async getSalesOrderFulfillmentStatus(
     salesOrderId: string
   ): Promise<SalesOrderFulfillment> {
-    // Get exit notes linked to this sales order (conceptual - may need adjustment)
+    // Get exit notes linked to this sales order (reference field stores salesOrderId)
     const exitNotes = await prisma.exitNote.findMany({
       where: {
-        salesOrderId,
-        status: { in: ['DELIVERED', 'COMPLETED'] },
+        reference: salesOrderId,
+        status: 'DELIVERED',
       },
       include: { items: true },
     })
@@ -210,7 +215,7 @@ class SalesIntegrationService {
 
     const exitNotes = await prisma.exitNote.findMany({
       where: {
-        salesOrderId: { not: null },
+        reference: { not: null },
         status: { not: 'DELIVERED' },
       },
       include: {
@@ -223,7 +228,7 @@ class SalesIntegrationService {
 
     const total = await prisma.exitNote.count({
       where: {
-        salesOrderId: { not: null },
+        reference: { not: null },
         status: { not: 'DELIVERED' },
       },
     })
@@ -231,7 +236,7 @@ class SalesIntegrationService {
     return {
       data: exitNotes.map((note) => ({
         exitNoteId: note.id,
-        salesOrderId: note.salesOrderId,
+        salesOrderId: note.reference,
         status: note.status,
         itemCount: note.items.length,
         createdAt: note.createdAt,
@@ -253,16 +258,16 @@ class SalesIntegrationService {
       where: { id: exitNoteId },
       data: {
         status: 'DELIVERED',
-        deliveryDate,
+        deliveredAt: deliveryDate,
       },
     })
 
     // Emit shipment confirmed event
-    EventService.getInstance().emit(EventType.SHIPMENT_CONFIRMED, {
-      exitNoteId,
-      deliveredAt: deliveryDate,
-      signature,
-      notes,
+    EventService.getInstance().emit({
+      type: EventType.SHIPMENT_CONFIRMED,
+      entityId: exitNoteId,
+      entityType: 'ExitNote',
+      data: { exitNoteId, deliveredAt: deliveryDate, signature, notes },
     })
 
     return {
@@ -287,8 +292,7 @@ class SalesIntegrationService {
   }> {
     const exitNotes = await prisma.exitNote.findMany({
       where: {
-        type: 'SALE',
-        deliveryDate: { gte: startDate, lte: endDate },
+        deliveredAt: { gte: startDate, lte: endDate },
         status: 'DELIVERED',
       },
       include: { items: true },

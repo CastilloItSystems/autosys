@@ -16,13 +16,11 @@ export const postMovementHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { movementId } = req.params
+    const movementId = req.params.movementId as string
     const result = await postMovementToGL(movementId)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Movement posted to GL successfully'))
+    ApiResponse.success(res, result, 'Movement posted to GL successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -31,13 +29,11 @@ export const allocatCostHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { movementId } = req.params
+    const movementId = req.params.movementId as string
     const result = await allocateCostToCostCenters(movementId)
-    res
-      .status(200)
-      .json(ApiResponse.success(result, 'Cost allocated successfully'))
+    ApiResponse.success(res, result, 'Cost allocated successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -54,13 +50,9 @@ export const getCostByCenterHandler = async (
       : new Date()
 
     const result = await getCostByCostCenter(startDate, endDate)
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(result, 'Cost by center retrieved successfully')
-      )
+    ApiResponse.success(res, result, 'Cost by center retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 
@@ -70,16 +62,9 @@ export const getValuationHandler = async (
 ): Promise<void> => {
   try {
     const result = await getInventoryValuation()
-    res
-      .status(200)
-      .json(
-        ApiResponse.success(
-          result,
-          'Inventory valuation retrieved successfully'
-        )
-      )
+    ApiResponse.success(res, result, 'Inventory valuation retrieved successfully')
   } catch (error: any) {
-    res.status(500).json(ApiResponse.error(error.message))
+    ApiResponse.error(res, error.message)
   }
 }
 

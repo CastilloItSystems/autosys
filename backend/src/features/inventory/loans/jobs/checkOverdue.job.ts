@@ -4,8 +4,8 @@
  */
 
 import prisma from '../../../../services/prisma.service.js'
-import { EventService } from '../../shared/events/event.service.js'
-import { EventType } from '../../shared/types/event.types.js'
+import EventService from '../../shared/events/event.service.js'
+import { EventType } from '../../shared/events/event.types.js'
 
 const eventService = EventService.getInstance()
 
@@ -112,47 +112,7 @@ export async function processCheckOverdueLoansJob(data?: any): Promise<any> {
   }
 }
 
-/**
- * Job processor for queue system
- */
-export async function processCheckOverdueLoansJob(data?: any): Promise<any> {
-  console.log('⏰ Processing check overdue loans job...')
-
-  try {
-    const [overdue, reminders, report] = await Promise.all([
-      checkOverdueLoans(),
-      sendLoanReminders(),
-      getOverdueLoanReport(),
-    ])
-
-    const summary = {
-      overdue: {
-        total: overdue.length,
-        critical: overdue.filter((l) => l.status === 'CRITICAL').length,
-        lost: overdue.filter((l) => l.status === 'LOST').length,
-      },
-      reminders: {
-        sent: reminders.remindersSent,
-        failed: reminders.failedCount,
-      },
-      report,
-      timestamp: new Date(),
-    }
-
-    console.log(
-      `✅ Overdue loans check completed: ${summary.overdue.total} overdue, ${summary.overdue.critical} critical`
-    )
-
-    return summary
-  } catch (error) {
-    console.error('❌ Overdue loans check failed:', error)
-    throw error
-  }
-}
-
 export default {
   checkOverdueLoans,
-  sendLoanReminders,
-  getOverdueLoanReport,
   processCheckOverdueLoansJob,
 }

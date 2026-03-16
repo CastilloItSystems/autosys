@@ -55,19 +55,19 @@ class AccountingIntegrationService {
       where: { id: movementId },
       include: {
         item: true,
-        fromWarehouse: true,
-        toWarehouse: true,
+        warehouseFrom: true,
+        warehouseTo: true,
       },
     })
 
     if (!movement) throw new NotFoundError('Movement not found')
 
     const glEntries: GLEntry[] = []
-    const amount = movement.quantity * (movement.item.costPrice || 0)
+    const amount = movement.quantity * Number(movement.item.costPrice || 0)
 
     // Map movement types to GL accounts
     const glAccountMap: { [key: string]: { debit: string; credit: string } } = {
-      PURCHASE_IN: {
+      PURCHASE: {
         debit: '1010', // Inventory Asset
         credit: '2010', // Accounts Payable
       },
@@ -75,19 +75,19 @@ class AccountingIntegrationService {
         debit: '5010', // COGS
         credit: '1010', // Inventory Asset
       },
-      TRANSFER_OUT: {
+      TRANSFER: {
         debit: '1010-FROM', // Inventory Asset - From Location
         credit: '1010-TO', // Inventory Asset - To Location
       },
-      TRANSFER_IN: {
-        debit: '1010', // Inventory Asset
-        credit: '1010', // Inventory Asset
-      },
-      RETURN_IN: {
+      SUPPLIER_RETURN: {
         debit: '1010', // Inventory Asset
         credit: '2010', // Accounts Payable
       },
-      WRITE_OFF: {
+      WORKSHOP_RETURN: {
+        debit: '1010', // Inventory Asset
+        credit: '2010', // Accounts Payable
+      },
+      ADJUSTMENT_OUT: {
         debit: '6010', // Loss on Disposal
         credit: '1010', // Inventory Asset
       },
@@ -95,8 +95,16 @@ class AccountingIntegrationService {
         debit: '1010', // Inventory Asset
         credit: '6020', // Adjustment Gain
       },
-      ADJUSTMENT_OUT: {
-        debit: '6020', // Adjustment Loss
+      LOAN_OUT: {
+        debit: '1020', // Loaned Inventory Asset
+        credit: '1010', // Inventory Asset
+      },
+      LOAN_RETURN: {
+        debit: '1010', // Inventory Asset
+        credit: '1020', // Loaned Inventory Asset
+      },
+      RESERVATION_RELEASE: {
+        debit: '1010', // Inventory Asset
         credit: '1010', // Inventory Asset
       },
     }
@@ -108,7 +116,7 @@ class AccountingIntegrationService {
     }
 
     // Create GL entries
-    if (movement.type === 'TRANSFER_OUT' || movement.type === 'TRANSFER_IN') {
+    if (movement.type === 'TRANSFER') {
       // Inter-warehouse transfer - both debit and credit to inventory
       glEntries.push({
         account: '1010-FROM',
@@ -143,10 +151,15 @@ class AccountingIntegrationService {
     }
 
     // Emit GL posted event
-    EventService.getInstance().emit(EventType.GL_POSTED, {
-      movementId,
-      amount,
-      entriesCount: glEntries.length,
+    EventService.getInstance().emit({
+      type: EventType.STOCK_MOVEMENT_CREATED,
+      entityId: movementId,
+      entityType: 'gl_entry',
+      data: {
+        movementId,
+        amount,
+        entriesCount: glEntries.length,
+      },
     })
 
     return glEntries
@@ -167,7 +180,7 @@ class AccountingIntegrationService {
 
     if (!movement) throw new NotFoundError('Movement not found')
 
-    const totalAmount = movement.quantity * (movement.item.costPrice || 0)
+    const totalAmount = movement.quantity * Number(movement.item.costPrice || 0)
 
     // Get cost center allocation rules (simplified - not using actual DB yet)
     const allocations: AllocationResult['allocations'] = []
@@ -212,10 +225,15 @@ class AccountingIntegrationService {
     })
 
     // Emit cost allocated event
-    EventService.getInstance().emit(EventType.COST_ALLOCATED, {
-      movementId,
-      totalAmount,
-      allocationsCount: allocations.length,
+    EventService.getInstance().emit({
+      type: EventType.STOCK_MOVEMENT_CREATED,
+      entityId: movementId,
+      entityType: 'cost_allocation',
+      data: {
+        movementId,
+        totalAmount,
+        allocationsCount: allocations.length,
+      },
     })
 
     return {
@@ -237,7 +255,7 @@ class AccountingIntegrationService {
     const movements = await prisma.movement.findMany({
       where: {
         createdAt: { gte: startDate, lte: endDate },
-        type: { in: ['SALE', 'TRANSFER_OUT', 'WRITE_OFF'] },
+        type: { in: ['SALE', 'TRANSFER', 'ADJUSTMENT_OUT'] },
       },
       include: { item: true },
     })
@@ -246,7 +264,7 @@ class AccountingIntegrationService {
     const costByCenter: { [key: string]: number } = {}
 
     movements.forEach((mov) => {
-      const cost = mov.quantity * (mov.item.costPrice || 0)
+      const cost = mov.quantity * Number(mov.item.costPrice || 0)
       const center = `CC-${mov.item.categoryId?.slice(0, 3) || '001'}`
       costByCenter[center] = (costByCenter[center] || 0) + cost
     })
@@ -279,7 +297,7 @@ class AccountingIntegrationService {
     const byCategory: { [key: string]: { name: string; value: number } } = {}
 
     stocks.forEach((stock) => {
-      const value = stock.quantityReal * (stock.item.costPrice || 0)
+      const value = stock.quantityReal * Number(stock.item.costPrice || 0)
       totalValue += value
 
       // Group by warehouse

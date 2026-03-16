@@ -57,7 +57,7 @@ export class BulkImportDTO {
 export class BulkExportDTO {
   filters?: any
   columns?: string[]
-  format: 'csv' | 'json' | 'excel'
+  format: 'csv' | 'json' | 'xlsx'
 
   constructor(data: IBulkExportInput) {
     this.format = data.format ?? 'csv'

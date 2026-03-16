@@ -2,9 +2,10 @@
  * Audit Plugin - Prisma Middleware for audit trail tracking
  */
 
-import { Prisma } from '@prisma/client'
-import { prisma } from '../../../config/database.js'
-import { logger } from '../../../shared/utils/logger.js'
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type PrismaMiddlewareParams = any
+import { prisma } from '../../../../config/database.js'
+import { logger } from '../../../../shared/utils/logger.js'
 
 interface AuditLog {
   id: string
@@ -23,8 +24,8 @@ interface AuditLog {
  */
 export function createAuditMiddleware(userId: string) {
   return async (
-    params: Prisma.MiddlewareParams,
-    next: (params: Prisma.MiddlewareParams) => Promise<any>
+    params: PrismaMiddlewareParams,
+    next: (params: PrismaMiddlewareParams) => Promise<any>
   ) => {
     const before = Date.now()
 
@@ -41,6 +42,7 @@ export function createAuditMiddleware(userId: string) {
         try {
           // Create audit log entry (non-blocking)
           logAudit({
+            id: `audit-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             model: model || 'Unknown',
             action: action.toUpperCase() as 'CREATE' | 'UPDATE' | 'DELETE',
             recordId: result?.id || params.args?.where?.id || 'unknown',
@@ -66,7 +68,7 @@ export function createAuditMiddleware(userId: string) {
  * Extract changes from Prisma params
  */
 function extractChanges(
-  params: Prisma.MiddlewareParams,
+  params: PrismaMiddlewareParams,
   result: any
 ): Record<string, { before: any; after: any }> | undefined {
   const changes: Record<string, { before: any; after: any }> = {}
@@ -104,7 +106,7 @@ export function initializeAuditTracking(
   userId: string
 ): void {
   try {
-    client.$use(createAuditMiddleware(userId))
+    ;(client as any).$use(createAuditMiddleware(userId))
     logger.info(`Audit tracking initialized for user: ${userId}`)
   } catch (error) {
     logger.error('Failed to initialize audit tracking:', error)

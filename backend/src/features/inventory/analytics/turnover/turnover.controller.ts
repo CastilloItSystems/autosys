@@ -15,7 +15,7 @@ export const getTurnoverMetricsHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { itemId } = req.params
+    const itemId = req.params.itemId as string
     const result = await getTurnoverMetricsForItem(itemId)
     ApiResponse.success(res, result, 'Turnover metrics retrieved successfully')
   } catch (error: any) {
@@ -54,7 +54,7 @@ export const getItemsByClassificationHandler = async (
   res: Response
 ): Promise<void> => {
   try {
-    const { classification } = req.params
+    const classification = req.params.classification as string
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
 
