@@ -1,20 +1,18 @@
-# Usar Node 18
-FROM node:18-alpine
+FROM node:18
 
 WORKDIR /app
 
-# Copiar package.json e instalar dependencias
 COPY package*.json ./
 RUN npm install
 
-# Copiar el resto del código
 COPY . .
 
-# Construir Next.js para producción (vital)
+# Recibir la variable desde el docker-compose
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+
 RUN npm run build
 
-# Exponer el puerto
 EXPOSE 3000
 
-# El comando para encenderlo
 CMD ["npm", "start"]

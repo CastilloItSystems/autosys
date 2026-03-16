@@ -1,20 +1,17 @@
-# Usar Node 18
-FROM node:18-alpine
+# Usamos el Node estándar (sin alpine) para evitar errores de compilación
+FROM node:18
 
-# Crear la carpeta de trabajo
 WORKDIR /app
 
-# Copiar solo el package.json primero (esto hace que la instalación sea más rápida)
 COPY package*.json ./
-
-# Instalar las dependencias
 RUN npm install
 
-# Copiar el resto de tu código del backend
 COPY . .
 
-# Exponer el puerto
+# Si usas Prisma, necesitamos generar el cliente antes de arrancar
+# (Si no usas prisma, puedes borrar esta línea)
+RUN npx prisma generate
+
 EXPOSE 4000
 
-# El comando para encenderlo
 CMD ["npm", "start"]

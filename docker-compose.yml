@@ -1,8 +1,5 @@
-version: "3.8"
-
 services:
   api-backend:
-    # 👇 LE DECIMOS QUE CONSTRUYA LA IMAGEN USANDO LA CARPETA BACKEND 👇
     build: ./backend
     container_name: mi_backend_autosys
     restart: always
@@ -14,8 +11,11 @@ services:
       - JWT_SECRET=${JWT_SECRET}
 
   web-frontend:
-    # 👇 LE DECIMOS QUE CONSTRUYA LA IMAGEN USANDO LA CARPETA FRONTEND 👇
-    build: ./frontend
+    build:
+      context: ./frontend
+      # 👇 Pasamos la variable a la fase de construcción de Next.js 👇
+      args:
+        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
     container_name: mi_frontend_autosys
     restart: always
     ports:
