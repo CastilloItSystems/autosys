@@ -1,17 +1,16 @@
-# Usamos el Node estándar (sin alpine) para evitar errores de compilación
 FROM node:18
 
 WORKDIR /app
 
 COPY package.json ./
-RUN npm install --no-package-lock --force --ignore-scripts
 
+# Mantenemos el ignore-scripts para que pase la instalación
+RUN npm install --ignore-scripts
+
+# Copiamos todo tu código (incluyendo la carpeta prisma)
 COPY . .
-
-# Si usas Prisma, necesitamos generar el cliente antes de arrancar
-# (Si no usas prisma, puedes borrar esta línea)
-RUN npx prisma generate
 
 EXPOSE 4000
 
-CMD ["npm", "start"]
+# 👇 LA MAGIA: Movemos la generación de Prisma al momento de encender el contenedor 👇
+CMD ["sh", "-c", "npx prisma generate && npm start"]
