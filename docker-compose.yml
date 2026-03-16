@@ -2,14 +2,10 @@ version: "3.8"
 
 services:
   api-backend:
-    image: node:18-alpine
+    # 👇 LE DECIMOS QUE CONSTRUYA LA IMAGEN USANDO LA CARPETA BACKEND 👇
+    build: ./backend
     container_name: mi_backend_autosys
-    working_dir: /app
     restart: always
-    volumes:
-      # 👇 REEMPLAZAMOS EL PUNTO POR ${PWD} 👇
-      - ${PWD}/backend:/app
-    command: sh -c "npm install && npm start"
     ports:
       - "4000:4000"
     environment:
@@ -18,14 +14,10 @@ services:
       - JWT_SECRET=${JWT_SECRET}
 
   web-frontend:
-    image: node:18-alpine
+    # 👇 LE DECIMOS QUE CONSTRUYA LA IMAGEN USANDO LA CARPETA FRONTEND 👇
+    build: ./frontend
     container_name: mi_frontend_autosys
-    working_dir: /app
     restart: always
-    volumes:
-      # 👇 REEMPLAZAMOS EL PUNTO POR ${PWD} 👇
-      - ${PWD}/frontend:/app
-    command: sh -c "npm install && npm run build && npm start"
     ports:
       - "3005:3000"
     depends_on:
