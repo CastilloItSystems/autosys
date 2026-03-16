@@ -6,16 +6,22 @@ services:
     ports:
       - "4000:4000"
     environment:
+      # Forzamos a producción y le pasamos todas sus variables
       - NODE_ENV=production
+      - PORT=4000
       - DATABASE_URL=${DATABASE_URL}
+      - DIRECT_URL=${DIRECT_URL}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
+      - FRONTEND_URL=${FRONTEND_URL}
+      - ADDITIONAL_CORS_ORIGINS=${ADDITIONAL_CORS_ORIGINS}
 
   web-frontend:
     build:
       context: ./frontend
-      # 👇 Pasamos la variable a la fase de construcción de Next.js 👇
       args:
-        - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+        # Pasamos la variable pública para la compilación de Next.js
+        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
     container_name: mi_frontend_autosys
     restart: always
     ports:
@@ -23,4 +29,9 @@ services:
     depends_on:
       - api-backend
     environment:
-      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+      - NODE_ENV=production
+      - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+      - AUTH_SECRET=${AUTH_SECRET}
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - NEXTAUTH_URL=${NEXTAUTH_URL}
