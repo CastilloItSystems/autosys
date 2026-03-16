@@ -1,16 +1,15 @@
-FROM node:20-alpine
+FROM node:20-slim
 
 WORKDIR /app
 
-COPY package.json ./
+COPY package.json package-lock.json* ./
+RUN npm ci
 
-# Mantenemos el ignore-scripts para que pase la instalación
-RUN npm install --ignore-scripts
-
-# Copiamos todo tu código (incluyendo la carpeta prisma)
 COPY . .
+
+RUN npm run prisma:generate
+RUN npm run build
 
 EXPOSE 4000
 
-# 👇 LA MAGIA: Movemos la generación de Prisma al momento de encender el contenedor 👇
-CMD ["sh", "-c", "npx prisma generate && npm start"]
+CMD ["npm", "start"]
