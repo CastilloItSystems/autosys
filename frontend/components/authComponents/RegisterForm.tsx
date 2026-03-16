@@ -157,7 +157,7 @@ const RegisterForm: Page = () => {
         setError(err.response.data.message);
       } else {
         setError(
-          err.message || "Ocurrió un error inesperado. Inténtalo de nuevo."
+          err.message || "Ocurrió un error inesperado. Inténtalo de nuevo.",
         );
       }
     } finally {
@@ -198,7 +198,7 @@ const RegisterForm: Page = () => {
               {
                 "bg-primary text-white border-primary": step === num,
                 "border-300": step !== num,
-              }
+              },
             )}
           >
             {num}

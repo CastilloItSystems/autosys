@@ -21,7 +21,7 @@ import { useInventoryStore } from "@/store/inventoryStore";
 const OperationsDashboard = () => {
   const [activeTab, setActiveTab] = useState(0);
   const [selectedWorkOrder, setSelectedWorkOrder] = useState<WorkOrder | null>(
-    null
+    null,
   );
   const [workOrderDialog, setWorkOrderDialog] = useState(false);
   const toast = useRef(null);
@@ -370,7 +370,10 @@ const OperationsDashboard = () => {
                 <div className="col-12 lg:col-4">
                   <Card className="shadow-2 border-round-lg mb-4 text-center">
                     <div className="text-4xl font-bold text-green-600 mb-2">
-                      {movements.filter((m) => (m as any).tipo === "entrada").length}
+                      {
+                        movements.filter((m) => (m as any).tipo === "entrada")
+                          .length
+                      }
                     </div>
                     <div className="text-sm text-600">Entradas Recientes</div>
                   </Card>
@@ -378,7 +381,10 @@ const OperationsDashboard = () => {
                 <div className="col-12 lg:col-4">
                   <Card className="shadow-2 border-round-lg mb-4 text-center">
                     <div className="text-4xl font-bold text-orange-600 mb-2">
-                      {movements.filter((m) => (m as any).tipo === "salida").length}
+                      {
+                        movements.filter((m) => (m as any).tipo === "salida")
+                          .length
+                      }
                     </div>
                     <div className="text-sm text-600">Salidas Recientes</div>
                   </Card>
