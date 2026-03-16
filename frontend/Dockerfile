@@ -1,7 +1,7 @@
 FROM node:18
 WORKDIR /app
 COPY package.json ./
-RUN npm install --no-package-lock --force
+RUN npm install --no-package-lock --force --ignore-scripts
 COPY . .
 
 # 👇 CORREGIMOS EL NOMBRE DE LA VARIABLE AQUÍ 👇
