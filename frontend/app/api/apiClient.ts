@@ -9,7 +9,7 @@ interface ExtendedUser {
 const apiClient = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
-    "https://app-taller-97d415ecb8bf.herokuapp.com/api",
+    "https://api-autosys.castilloitsystems.com/api",
   headers: {
     "Content-Type": "application/json",
   },
