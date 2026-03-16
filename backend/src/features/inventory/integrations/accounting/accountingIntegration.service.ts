@@ -3,7 +3,7 @@
  * Handles GL posting and cost allocation to accounting system
  */
 
-import { EventType } from '@/shared/types/event.types.js'
+import { EventType } from '../../../../shared/types/event.types.js'
 import { prisma } from '../../../../config/database.js'
 // import {
 //   EventService,

@@ -2,7 +2,7 @@
  * Forecasting Service - Demand Forecasting using Time Series Analysis
  */
 
-import { EventType } from '@/shared/types/event.types.js'
+import { EventType } from '../../../../shared/types/event.types.js'
 import { prisma } from '../../../../config/database.js'
 import {
   BadRequestError,
