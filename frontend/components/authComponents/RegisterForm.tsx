@@ -122,8 +122,8 @@ const RegisterForm: Page = () => {
       // Eliminar confirmPassword antes de enviar
       const { confirmPassword, terminos, ...userData } = data;
 
-      const usuarioCreado = await registerUser(userData);
-      if (!usuarioCreado.token) {
+      const usuarioCreado = await registerUser(userData as any);
+      if (!usuarioCreado.data?.token) {
         throw new Error(usuarioCreado.message || "Error en el registro");
       }
       if (usuarioCreado) {

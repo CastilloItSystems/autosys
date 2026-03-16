@@ -1,6 +1,6 @@
 import apiClient from "../apiClient";
 import { Model } from "@/libs/interfaces/inventory";
-import { ModelFormData } from "@/libs/zods/inventory/vehicleZod";
+import { VehicleModelFormData as ModelFormData } from "@/libs/zods/inventory/vehicleZod";
 
 interface ModelResponse {
   msg: string;
@@ -9,12 +9,12 @@ interface ModelResponse {
 
 const BASE_URL = "/vehicles/models";
 
-export const getModel = async (id: string): Promise<Model> => {
+export const getVehicleModel = async (id: string): Promise<Model> => {
   const response = await apiClient.get(`${BASE_URL}/${id}`);
   return response.data;
 };
 
-export const getModels = async (): Promise<{
+export const getVehicleModels = async (): Promise<{
   msg: string;
   models: Model[];
 }> => {
@@ -22,14 +22,14 @@ export const getModels = async (): Promise<{
   return response.data;
 };
 
-export const createModel = async (
+export const createVehicleModel = async (
   data: ModelFormData,
 ): Promise<ModelResponse> => {
   const response = await apiClient.post(BASE_URL, data);
   return response.data;
 };
 
-export const updateModel = async (
+export const updateVehicleModel = async (
   id: string,
   data: ModelFormData,
 ): Promise<ModelResponse> => {
@@ -37,6 +37,6 @@ export const updateModel = async (
   return response.data;
 };
 
-export const deleteModel = async (id: string): Promise<void> => {
+export const deleteVehicleModel = async (id: string): Promise<void> => {
   await apiClient.delete(`${BASE_URL}/${id}`);
 };

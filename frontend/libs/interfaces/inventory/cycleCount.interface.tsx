@@ -104,7 +104,7 @@ export interface CycleCountsResponse {
   meta?: any;
 }
 
-export enum CreateAllowedRoles {
+export enum CycleCountCreateAllowedRoles {
   WAREHOUSE_MANAGER = "WAREHOUSE_MANAGER",
   SUPERVISOR = "SUPERVISOR",
   ADMIN = "ADMIN",

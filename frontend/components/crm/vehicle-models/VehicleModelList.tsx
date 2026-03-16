@@ -14,7 +14,7 @@ import {
   getVehicleModels,
 } from "@/app/api/crm/vehicleModelService";
 import VehicleModelForm from "./VehicleModelForm";
-import { VehicleModel } from "@/libs/interfaces/inventory";
+import { Model as VehicleModel } from "@/libs/interfaces/inventory";
 import CustomActionButtons from "@/components/common/CustomActionButtons";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
@@ -40,8 +40,8 @@ const VehicleModelList = () => {
   const fetchModels = async () => {
     try {
       const modelsDB = await getVehicleModels();
-      if (modelsDB && Array.isArray(modelsDB.vehicleModels)) {
-        setModels(modelsDB.vehicleModels);
+      if (modelsDB && Array.isArray(modelsDB.models)) {
+        setModels(modelsDB.models);
       }
     } catch (error) {
       console.error("Error al obtener los modelos:", error);
@@ -190,7 +190,7 @@ const VehicleModelList = () => {
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };

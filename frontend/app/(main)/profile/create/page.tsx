@@ -1,15 +1,14 @@
 "use client";
 import { Page } from "../../../../types/layout";
 import UsuarioForm from "@/components/usuarioComponents/UsuarioForm";
+import { useRef } from "react";
 
 const Login: Page = () => {
+  const toast = useRef(null);
   return (
-    <UsuarioForm
-      usuario={null} // Provide appropriate usuario object
-      hideUsuarioFormDialog={() => {}} // Provide appropriate function
-      usuarios={[]} // Provide appropriate usuarios array
-      setUsuarios={() => {}} // Provide appropriate function
-    />
+    <div className="card">
+      <UsuarioForm usuario={null} onSave={() => {}} toast={toast} />
+    </div>
   );
 };
 

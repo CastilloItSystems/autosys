@@ -84,7 +84,7 @@ export default function CycleCountForm({
     const loadStock = async () => {
       try {
         setInitialLoading(true);
-        const response = await getStockByWarehouse(selectedWarehouseId);
+        const response = await stockService.getByWarehouse(selectedWarehouseId);
         const stocks = response.data || [];
 
         // Map stock to items and store quantity map

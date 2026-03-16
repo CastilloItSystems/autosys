@@ -6,7 +6,7 @@ import {
   SerialNumberFilters,
   SerialNumberListResponse,
   SerialNumberJourney,
-} from "../types/serialNumber.interface";
+} from "../../types/serialNumber.interface";
 
 // Get all serial numbers with pagination
 export const getSerialNumbers = async (

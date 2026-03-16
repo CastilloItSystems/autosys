@@ -18,7 +18,10 @@ import {
   updateVehicleModel,
 } from "@/app/api/crm/vehicleModelService";
 import { getVehicleBrands } from "@/app/api/crm/vehicleBrandService";
-import { VehicleModel, VehicleBrand } from "@/libs/interfaces/inventory";
+import {
+  Model as VehicleModel,
+  VehicleBrand,
+} from "@/libs/interfaces/inventory";
 import { handleFormError } from "@/utils/errorHandlers";
 
 interface VehicleModelFormProps {
@@ -30,7 +33,7 @@ interface VehicleModelFormProps {
   showToast: (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => void;
   toast: React.RefObject<any>;
 }
@@ -104,21 +107,21 @@ const VehicleModelForm: React.FC<VehicleModelFormProps> = ({
       if (model) {
         const response = await updateVehicleModel(model.id, data);
         const updatedModels = models.map((m) =>
-          m.id === model.id ? response.vehicleModel : m
+          m.id === model.id ? response.model : m,
         );
         setModels(updatedModels);
         showToast(
           "success",
           "Éxito",
-          response.msg || "Modelo actualizado correctamente"
+          response.msg || "Modelo actualizado correctamente",
         );
       } else {
         const response = await createVehicleModel(data);
-        setModels([...models, response.vehicleModel]);
+        setModels([...models, response.model]);
         showToast(
           "success",
           "Éxito",
-          response.msg || "Modelo creado correctamente"
+          response.msg || "Modelo creado correctamente",
         );
       }
       hideFormDialog();

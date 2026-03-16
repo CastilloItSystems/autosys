@@ -5,7 +5,7 @@ import {
   UpdateBatchInput,
   BatchFilters,
   BatchListResponse,
-} from "../types/batch.interface";
+} from "../../types/batch.interface";
 
 // Get all batches with pagination
 export const getBatches = async (

@@ -23,7 +23,6 @@ import { motion, AnimatePresence } from "framer-motion";
 // Stores & Services
 import { useOperationsStore } from "@/store/operationsStore";
 import { useInventoryStore } from "@/store/inventoryStore";
-import { initializeMockData } from "@/api/operationsService";
 
 // Interfaces
 import { Invoice, Payment } from "@/libs/interfaces/workshop";
@@ -153,7 +152,7 @@ const FinanceDashboard = () => {
   // EFFECTS
   // =============================================
   useEffect(() => {
-    initializeMockData();
+    // initializeMockData();
   }, []);
 
   // =============================================
@@ -169,9 +168,9 @@ const FinanceDashboard = () => {
         sum +
         (po.items?.reduce(
           (itemSum, item) => itemSum + item.quantityOrdered * item.unitCost,
-          0
+          0,
         ) || 0),
-      0
+      0,
     );
 
     const totalVentas = salesOrders.reduce(
@@ -179,9 +178,9 @@ const FinanceDashboard = () => {
         sum +
         (so.items?.reduce(
           (itemSum, item) => itemSum + item.cantidad * item.precioUnitario,
-          0
+          0,
         ) || 0),
-      0
+      0,
     );
 
     const margenGanancia =
@@ -656,8 +655,8 @@ const FinanceDashboard = () => {
                     rowData.items?.reduce(
                       (total: number, item: any) =>
                         total + item.cantidad * item.precioUnitario,
-                      0
-                    ) || 0
+                      0,
+                    ) || 0,
                   )
                 }
                 sortable
@@ -739,8 +738,8 @@ const FinanceDashboard = () => {
                     rowData.items?.reduce(
                       (total: number, item: any) =>
                         total + item.cantidad * item.precioUnitario,
-                      0
-                    ) || 0
+                      0,
+                    ) || 0,
                   )
                 }
                 sortable
@@ -892,24 +891,26 @@ const FinanceDashboard = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <strong>Número de Orden:</strong> {selectedPurchaseOrder.numero}
+                <strong>Número de Orden:</strong>{" "}
+                {(selectedPurchaseOrder as any).numero ||
+                  (selectedPurchaseOrder as any).id}
               </div>
               <div>
                 <strong>Proveedor:</strong>{" "}
-                {typeof selectedPurchaseOrder.proveedor === "string"
-                  ? selectedPurchaseOrder.proveedor
-                  : selectedPurchaseOrder.proveedor?.nombre}
+                {typeof (selectedPurchaseOrder as any).proveedor === "string"
+                  ? (selectedPurchaseOrder as any).proveedor
+                  : (selectedPurchaseOrder as any).proveedor?.nombre}
               </div>
               <div>
                 <strong>Fecha:</strong>{" "}
-                {formatDate(selectedPurchaseOrder.fecha)}
+                {formatDate((selectedPurchaseOrder as any).fecha)}
               </div>
             </div>
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-bold mb-3">Items de la Orden</h3>
               <DataTable
-                value={selectedPurchaseOrder.items}
+                value={(selectedPurchaseOrder as any).items}
                 className="p-datatable-sm"
               >
                 <Column field="descripcion" header="Descripción" />
@@ -942,23 +943,25 @@ const FinanceDashboard = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <strong>Número de Orden:</strong> {selectedSalesOrder.numero}
+                <strong>Número de Orden:</strong>{" "}
+                {(selectedSalesOrder as any).numero}
               </div>
               <div>
                 <strong>Cliente:</strong>{" "}
-                {typeof selectedSalesOrder.customer === "string"
-                  ? selectedSalesOrder.customer
-                  : selectedSalesOrder.customer?.nombre}
+                {typeof (selectedSalesOrder as any).customer === "string"
+                  ? (selectedSalesOrder as any).customer
+                  : (selectedSalesOrder as any).customer?.nombre}
               </div>
               <div>
-                <strong>Fecha:</strong> {formatDate(selectedSalesOrder.fecha)}
+                <strong>Fecha:</strong>{" "}
+                {formatDate((selectedSalesOrder as any).fecha)}
               </div>
             </div>
 
             <div className="border-t pt-4">
               <h3 className="text-lg font-bold mb-3">Items de la Orden</h3>
               <DataTable
-                value={selectedSalesOrder.items}
+                value={(selectedSalesOrder as any).items}
                 className="p-datatable-sm"
               >
                 <Column field="descripcion" header="Descripción" />

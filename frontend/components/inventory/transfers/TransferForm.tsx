@@ -88,7 +88,10 @@ export default function TransferForm({
     const loadWarehouseStocks = async () => {
       setLoadingStocks(true);
       try {
-        const response = await getStockByWarehouse(fromWarehouseId, 1, 1000);
+        const response = await stockService.getByWarehouse(fromWarehouseId, {
+          page: 1,
+          limit: 1000,
+        });
         const stocks = (response.data || []).filter(
           (s) => s.quantityAvailable > 0,
         );

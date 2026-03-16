@@ -30,7 +30,7 @@ export default function StockItemDetailPage() {
   const loadItemStock = async () => {
     try {
       setLoading(true);
-      const response = await getStockByItem(itemId, page + 1, rows);
+      const response = await stockService.getByItem(itemId, page + 1, rows);
       setStocks(response.data || []);
       setTotalRecords(response.meta?.total || 0);
     } catch (error) {

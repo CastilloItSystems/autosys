@@ -22,7 +22,7 @@ import warehouseService, {
 } from "../../../app/api/inventory/warehouseService";
 import {
   CYCLE_COUNT_STATUS_CONFIG,
-  CreateAllowedRoles,
+  CycleCountCreateAllowedRoles,
 } from "../../../libs/interfaces/inventory/cycleCount.interface";
 import CycleCountForm from "./CycleCountForm";
 import CycleCountDetail from "./CycleCountDetail";
@@ -49,8 +49,8 @@ export default function CycleCountList() {
 
   const canCreate = true;
   /* session?.user?.rol
-    ? Object.values(CreateAllowedRoles).includes(
-        session.user.rol as CreateAllowedRoles,
+    ? Object.values(CycleCountCreateAllowedRoles).includes(
+        session.user.rol as CycleCountCreateAllowedRoles,
       )
     : false; */
 

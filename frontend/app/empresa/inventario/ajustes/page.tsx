@@ -19,5 +19,5 @@ export default function AjustesPage() {
     })();
   }, []);
 
-  return <AdjustmentList warehouses={warehouses} />;
+  return <AdjustmentList />;
 }

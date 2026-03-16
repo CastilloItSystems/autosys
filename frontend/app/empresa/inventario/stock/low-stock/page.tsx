@@ -45,7 +45,7 @@ export default function LowStockPage() {
   const loadLowStock = async () => {
     try {
       setLoading(true);
-      const response = await getLowStock(
+      const response = await stockService.getLowStock(
         warehouseFilter || undefined,
         page + 1,
         rows,

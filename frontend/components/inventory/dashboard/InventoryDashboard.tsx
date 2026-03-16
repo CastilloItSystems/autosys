@@ -6,11 +6,9 @@ import { DataTable } from "primereact/datatable";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
-import {
-  getDashboardMetrics,
+import stockService, {
   DashboardMetrics,
 } from "@/app/api/inventory/stockService";
-import stockService from "@/app/api/inventory/stockService";
 import { DiscrepancyWidget } from "./DiscrepancyWidget";
 
 export default function InventoryDashboard() {
@@ -24,7 +22,7 @@ export default function InventoryDashboard() {
   const loadDashboard = async () => {
     try {
       setLoading(true);
-      const response = await getDashboardMetrics();
+      const response = await stockService.getDashboardMetrics();
       setMetrics(response.data);
     } catch (error) {
       console.error("Error loading dashboard:", error);

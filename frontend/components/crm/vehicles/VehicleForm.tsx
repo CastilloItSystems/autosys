@@ -16,7 +16,11 @@ import {
 import { createVehicle, updateVehicle } from "@/app/api/crm/vehicleService";
 import customerService from "@/app/api/inventory/customerService";
 import { getVehicleModels } from "@/app/api/crm/vehicleModelService";
-import { Vehicle, Customer, VehicleModel } from "@/libs/interfaces/inventory";
+import {
+  Vehicle,
+  Customer,
+  Model as VehicleModel,
+} from "@/libs/interfaces/inventory";
 import { handleFormError } from "@/utils/errorHandlers";
 
 interface VehicleFormProps {
@@ -119,8 +123,8 @@ const VehicleForm: React.FC<VehicleFormProps> = ({
     try {
       setLoadingModels(true);
       const modelsDB = await getVehicleModels();
-      if (modelsDB && Array.isArray(modelsDB.vehicleModels)) {
-        setModels(modelsDB.vehicleModels);
+      if (modelsDB && Array.isArray(modelsDB.models)) {
+        setModels(modelsDB.models);
       }
     } catch (error) {
       console.error("Error al obtener los modelos:", error);

@@ -1,18 +1,23 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useContext } from 'react';
-import { DataTable, DataTablePageEvent } from 'primereact/datatable';
-import { Column } from 'primereact/column';
-import { Card } from 'primereact/card';
-import { Chart } from 'primereact/chart';
-import { Skeleton } from 'primereact/skeleton';
-import { Tag } from 'primereact/tag';
-import { Toast } from 'primereact/toast';
-import { AutoComplete, AutoCompleteCompleteEvent } from 'primereact/autocomplete';
-import { Divider } from 'primereact/divider';
-import { motion } from 'framer-motion';
-import analyticsService, { ForecastData } from '@/app/api/inventory/analyticsService';
-import { LayoutContext } from '@/layout/context/layoutcontext';
+import { useState, useEffect, useRef, useContext } from "react";
+import { DataTable, DataTablePageEvent } from "primereact/datatable";
+import { Column } from "primereact/column";
+import { Card } from "primereact/card";
+import { Chart } from "primereact/chart";
+import { Skeleton } from "primereact/skeleton";
+import { Tag } from "primereact/tag";
+import { Toast } from "primereact/toast";
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from "primereact/autocomplete";
+import { Divider } from "primereact/divider";
+import { motion } from "framer-motion";
+import analyticsService, {
+  ForecastData,
+} from "@/app/api/inventory/analyticsService";
+import { LayoutContext } from "@/layout/context/layoutcontext";
 
 const ForecastingView = () => {
   const toast = useRef<Toast>(null);
@@ -42,23 +47,31 @@ const ForecastingView = () => {
   const loadForecasts = async () => {
     setLoading(true);
     try {
-      const response = await analyticsService.getAllForecasts({ page, limit: rows });
+      const response = await analyticsService.getAllForecasts({
+        page,
+        limit: rows,
+      });
       setItems(response.data);
       setTotalRecords(response.pagination.total);
     } catch (error) {
-      console.error('Error loading forecasts:', error);
+      console.error("Error loading forecasts:", error);
       toast.current?.show({
-        severity: 'error',
-        summary: 'Error',
-        detail: 'No se pudieron cargar los pronósticos',
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los pronósticos",
         life: 3000,
       });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const loadDetailedForecast = async (itemId: string) => {
     try {
       const forecast = await analyticsService.getForecastByItem(itemId);
       setDetailedMetrics(forecast);
     } catch (error) {
-      console.error('Error loading detailed forecast:', error);
+      console.error("Error loading detailed forecast:", error);
     }
   };
 
@@ -67,7 +80,7 @@ const ForecastingView = () => {
     const filtered = items.filter(
       (item) =>
         item.itemName.toLowerCase().includes(query) ||
-        item.sku.toLowerCase().includes(query)
+        item.sku.toLowerCase().includes(query),
     );
     setItemSuggestions(filtered);
   };
@@ -75,7 +88,17 @@ const ForecastingView = () => {
   const initializeDetailChart = () => {
     if (!selectedItem) return;
 
-    const days = ['Hoy', 'Día 7', 'Día 14', 'Día 21', 'Día 30', 'Día 45', 'Día 60', 'Día 75', 'Día 90'];
+    const days = [
+      "Hoy",
+      "Día 7",
+      "Día 14",
+      "Día 21",
+      "Día 30",
+      "Día 45",
+      "Día 60",
+      "Día 75",
+      "Día 90",
+    ];
     const historical = [
       selectedItem.currentStock,
       selectedItem.currentStock + 5,
@@ -107,40 +130,40 @@ const ForecastingView = () => {
       labels: days,
       datasets: [
         {
-          label: 'Datos Históricos',
+          label: "Datos Históricos",
           data: historical,
-          borderColor: '#3B82F6',
-          backgroundColor: 'rgba(59, 130, 246, 0.1)',
+          borderColor: "#3B82F6",
+          backgroundColor: "rgba(59, 130, 246, 0.1)",
           tension: 0.4,
           fill: false,
           pointRadius: 4,
-          pointBackgroundColor: '#3B82F6',
+          pointBackgroundColor: "#3B82F6",
         },
         {
-          label: 'Pronóstico',
+          label: "Pronóstico",
           data: forecast,
-          borderColor: '#10B981',
+          borderColor: "#10B981",
           borderDash: [5, 5],
-          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+          backgroundColor: "rgba(16, 185, 129, 0.1)",
           tension: 0.4,
           fill: false,
           pointRadius: 4,
-          pointBackgroundColor: '#10B981',
+          pointBackgroundColor: "#10B981",
         },
         {
-          label: 'Banda de Confianza Superior',
+          label: "Banda de Confianza Superior",
           data: upperBound,
-          borderColor: 'transparent',
-          backgroundColor: 'rgba(16, 185, 129, 0.15)',
-          fill: '-1',
+          borderColor: "transparent",
+          backgroundColor: "rgba(16, 185, 129, 0.15)",
+          fill: "-1",
           tension: 0.4,
           pointRadius: 0,
         },
         {
-          label: 'Banda de Confianza Inferior',
+          label: "Banda de Confianza Inferior",
           data: lowerBound,
-          borderColor: 'transparent',
-          backgroundColor: 'transparent',
+          borderColor: "transparent",
+          backgroundColor: "transparent",
           fill: false,
           tension: 0.4,
           pointRadius: 0,
@@ -151,19 +174,27 @@ const ForecastingView = () => {
 
   const getRiskBadgeSeverity = (risk: string) => {
     switch (risk) {
-      case 'low': return 'success';
-      case 'medium': return 'warning';
-      case 'high': return 'danger';
-      default: return 'info';
+      case "low":
+        return "success";
+      case "medium":
+        return "warning";
+      case "high":
+        return "danger";
+      default:
+        return "info";
     }
   };
 
   const getRiskLabel = (risk: string) => {
     switch (risk) {
-      case 'low': return 'Bajo';
-      case 'medium': return 'Medio';
-      case 'high': return 'Alto';
-      default: return 'Desconocido';
+      case "low":
+        return "Bajo";
+      case "medium":
+        return "Medio";
+      case "high":
+        return "Alto";
+      default:
+        return "Desconocido";
     }
   };
 
@@ -172,9 +203,9 @@ const ForecastingView = () => {
     responsive: true,
     plugins: {
       legend: {
-        position: 'bottom' as const,
+        position: "bottom" as const,
         labels: {
-          color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333',
+          color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333",
           padding: 15,
         },
       },
@@ -183,12 +214,16 @@ const ForecastingView = () => {
     scales: {
       y: {
         beginAtZero: true,
-        ticks: { color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333' },
-        grid: { color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb' },
+        ticks: { color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333" },
+        grid: {
+          color: layoutConfig.colorScheme === "dark" ? "#374151" : "#e5e7eb",
+        },
       },
       x: {
-        ticks: { color: layoutConfig.colorScheme === 'dark' ? '#fff' : '#333' },
-        grid: { color: layoutConfig.colorScheme === 'dark' ? '#374151' : '#e5e7eb' },
+        ticks: { color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333" },
+        grid: {
+          color: layoutConfig.colorScheme === "dark" ? "#374151" : "#e5e7eb",
+        },
       },
     },
   };
@@ -207,44 +242,44 @@ const ForecastingView = () => {
   );
 
   const columns = [
-    { field: 'itemName', header: 'Artículo', width: '18%' },
-    { field: 'sku', header: 'SKU', width: '12%' },
+    { field: "itemName", header: "Artículo", width: "18%" },
+    { field: "sku", header: "SKU", width: "12%" },
     {
-      field: 'currentStock',
-      header: 'Stock Actual',
-      width: '12%',
+      field: "currentStock",
+      header: "Stock Actual",
+      width: "12%",
       body: (rowData: ForecastData) => (
         <span className="font-semibold">{rowData.currentStock.toFixed(0)}</span>
       ),
     },
     {
-      field: 'demand30Days',
-      header: 'Demanda 30d',
-      width: '12%',
+      field: "demand30Days",
+      header: "Demanda 30d",
+      width: "12%",
       body: (rowData: ForecastData) => (
         <span>{rowData.estimatedDemand.demand30Days.toFixed(0)} unid.</span>
       ),
     },
     {
-      field: 'demand60Days',
-      header: 'Demanda 60d',
-      width: '12%',
+      field: "demand60Days",
+      header: "Demanda 60d",
+      width: "12%",
       body: (rowData: ForecastData) => (
         <span>{rowData.estimatedDemand.demand60Days.toFixed(0)} unid.</span>
       ),
     },
     {
-      field: 'demand90Days',
-      header: 'Demanda 90d',
-      width: '12%',
+      field: "demand90Days",
+      header: "Demanda 90d",
+      width: "12%",
       body: (rowData: ForecastData) => (
         <span>{rowData.estimatedDemand.demand90Days.toFixed(0)} unid.</span>
       ),
     },
     {
-      field: 'stockoutRisk',
-      header: 'Riesgo Agotamiento',
-      width: '14%',
+      field: "stockoutRisk",
+      header: "Riesgo Agotamiento",
+      width: "14%",
       body: (rowData: ForecastData) => (
         <Tag
           value={getRiskLabel(rowData.stockoutRisk)}
@@ -287,9 +322,24 @@ const ForecastingView = () => {
           {/* Metrics Cards */}
           <div className="grid">
             {[
-              { label: 'Stock Actual', value: selectedItem.currentStock.toFixed(0), sub: 'unidades', color: 'var(--blue-500)' },
-              { label: 'Demanda Estimada 30d', value: selectedItem.estimatedDemand.demand30Days.toFixed(0), sub: 'unidades', color: 'var(--purple-500)' },
-              { label: 'Demanda Estimada 60d', value: selectedItem.estimatedDemand.demand60Days.toFixed(0), sub: 'unidades', color: 'var(--orange-500)' },
+              {
+                label: "Stock Actual",
+                value: selectedItem.currentStock.toFixed(0),
+                sub: "unidades",
+                color: "var(--blue-500)",
+              },
+              {
+                label: "Demanda Estimada 30d",
+                value: selectedItem.estimatedDemand.demand30Days.toFixed(0),
+                sub: "unidades",
+                color: "var(--purple-500)",
+              },
+              {
+                label: "Demanda Estimada 60d",
+                value: selectedItem.estimatedDemand.demand60Days.toFixed(0),
+                sub: "unidades",
+                color: "var(--orange-500)",
+              },
             ].map((item, index) => (
               <div key={item.label} className="col-12 md:col-4">
                 <motion.div
@@ -300,7 +350,10 @@ const ForecastingView = () => {
                   <Card>
                     <div className="text-center">
                       <p className="text-500 text-sm m-0 mb-2">{item.label}</p>
-                      <p className="text-4xl font-bold m-0" style={{ color: item.color }}>
+                      <p
+                        className="text-4xl font-bold m-0"
+                        style={{ color: item.color }}
+                      >
                         {item.value}
                       </p>
                       <p className="text-xs text-500 mt-1 m-0">{item.sub}</p>
@@ -317,11 +370,15 @@ const ForecastingView = () => {
               >
                 <Card>
                   <div className="text-center">
-                    <p className="text-500 text-sm m-0 mb-2">Riesgo de Agotamiento</p>
+                    <p className="text-500 text-sm m-0 mb-2">
+                      Riesgo de Agotamiento
+                    </p>
                     <div className="flex justify-content-center mt-2">
                       <Tag
                         value={getRiskLabel(selectedItem.stockoutRisk)}
-                        severity={getRiskBadgeSeverity(selectedItem.stockoutRisk) as any}
+                        severity={
+                          getRiskBadgeSeverity(selectedItem.stockoutRisk) as any
+                        }
                       />
                     </div>
                   </div>
@@ -333,27 +390,37 @@ const ForecastingView = () => {
           {/* Forecast Chart */}
           {chartData && (
             <Card title={`Pronóstico de Demanda - ${selectedItem.itemName}`}>
-              <div style={{ height: '400px' }}>
+              <div style={{ height: "400px" }}>
                 <Chart type="line" data={chartData} options={chartOptions} />
               </div>
               <Divider />
               <div className="grid mt-2">
                 <div className="col-12 md:col-4">
                   <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-primary m-0 mb-1">Línea Azul</p>
-                    <p className="text-500 text-sm m-0">Datos históricos del período actual</p>
+                    <p className="font-medium text-primary m-0 mb-1">
+                      Línea Azul
+                    </p>
+                    <p className="text-500 text-sm m-0">
+                      Datos históricos del período actual
+                    </p>
                   </div>
                 </div>
                 <div className="col-12 md:col-4">
                   <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-green-500 m-0 mb-1">Línea Verde (Punteada)</p>
+                    <p className="font-medium text-green-500 m-0 mb-1">
+                      Línea Verde (Punteada)
+                    </p>
                     <p className="text-500 text-sm m-0">Pronóstico calculado</p>
                   </div>
                 </div>
                 <div className="col-12 md:col-4">
                   <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-green-400 m-0 mb-1">Área Verde</p>
-                    <p className="text-500 text-sm m-0">Banda de confianza (80-120%)</p>
+                    <p className="font-medium text-green-400 m-0 mb-1">
+                      Área Verde
+                    </p>
+                    <p className="text-500 text-sm m-0">
+                      Banda de confianza (80-120%)
+                    </p>
                   </div>
                 </div>
               </div>
@@ -361,18 +428,19 @@ const ForecastingView = () => {
           )}
 
           {/* Recommendations */}
-          {selectedItem.recommendations && selectedItem.recommendations.length > 0 && (
-            <Card title="Recomendaciones del Sistema">
-              <ul className="list-none p-0 m-0 flex flex-column gap-2">
-                {selectedItem.recommendations.map((rec, idx) => (
-                  <li key={idx} className="flex align-items-start gap-3">
-                    <i className="pi pi-check-circle text-green-500 mt-1"></i>
-                    <span className="text-700">{rec}</span>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-          )}
+          {selectedItem.recommendations &&
+            selectedItem.recommendations.length > 0 && (
+              <Card title="Recomendaciones del Sistema">
+                <ul className="list-none p-0 m-0 flex flex-column gap-2">
+                  {selectedItem.recommendations.map((rec, idx) => (
+                    <li key={idx} className="flex align-items-start gap-3">
+                      <i className="pi pi-check-circle text-green-500 mt-1"></i>
+                      <span className="text-700">{rec}</span>
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            )}
         </>
       )}
 
@@ -413,21 +481,24 @@ const ForecastingView = () => {
       <Card title="Acerca de los Pronósticos">
         <div className="flex flex-column gap-2">
           <p className="text-sm text-500 m-0">
-            <strong>Pronóstico de Demanda:</strong> Estimación de la cantidad de artículos que se
-            espera consumir en los próximos 30, 60 y 90 días basada en patrones históricos.
+            <strong>Pronóstico de Demanda:</strong> Estimación de la cantidad de
+            artículos que se espera consumir en los próximos 30, 60 y 90 días
+            basada en patrones históricos.
           </p>
           <p className="text-sm text-500 m-0">
-            <strong>Banda de Confianza:</strong> Rango esperado alrededor del pronóstico. Los
-            valores reales probablemente caerán dentro de este rango.
+            <strong>Banda de Confianza:</strong> Rango esperado alrededor del
+            pronóstico. Los valores reales probablemente caerán dentro de este
+            rango.
           </p>
           <p className="text-sm text-500 m-0">
-            <strong>Riesgo de Agotamiento:</strong> Probabilidad de que el stock se agote antes de
-            recibir nuevas compras basada en la demanda proyectada.
+            <strong>Riesgo de Agotamiento:</strong> Probabilidad de que el stock
+            se agote antes de recibir nuevas compras basada en la demanda
+            proyectada.
           </p>
           <p className="text-sm text-500 m-0">
-            <strong>Bajo:</strong> Suficiente stock proyectado |{' '}
-            <strong>Medio:</strong> Stock limitado |{' '}
-            <strong>Alto:</strong> Riesgo significativo de agotamiento
+            <strong>Bajo:</strong> Suficiente stock proyectado |{" "}
+            <strong>Medio:</strong> Stock limitado | <strong>Alto:</strong>{" "}
+            Riesgo significativo de agotamiento
           </p>
         </div>
       </Card>

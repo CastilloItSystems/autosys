@@ -102,7 +102,7 @@ export default function AdjustmentForm({
     const loadStocks = async () => {
       try {
         setLoadingStocks(true);
-        const response = await getStockByWarehouse(
+        const response = await stockService.getByWarehouse(
           selectedWarehouseId,
           1,
           1000,

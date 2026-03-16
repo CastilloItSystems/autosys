@@ -145,7 +145,7 @@ const PartidaList = () => {
   const showToast = (
     severity: "success" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };
@@ -253,7 +253,7 @@ const PartidaList = () => {
             </div>
           </div>
         }
-        createdBy={selectedAuditPartida?.createdBy!}
+        /* createdBy={selectedAuditPartida?.createdBy!} */
         createdAt={selectedAuditPartida?.createdAt!}
         historial={selectedAuditPartida?.historial}
       />

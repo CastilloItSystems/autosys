@@ -6,7 +6,7 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import { getMovementsReport } from "@/app/api/inventory/reportService";
+import reportService from "@/app/api/inventory/reportService";
 
 const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   entrada: "Entrada",

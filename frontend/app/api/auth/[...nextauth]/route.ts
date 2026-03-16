@@ -25,8 +25,12 @@ const handler = NextAuth({
         password: { label: "Password", type: "password" },
       },
       authorize: async (credentials) => {
+        if (!credentials) return null;
         try {
-          const response = await loginUser(credentials);
+          const response = await loginUser({
+            correo: credentials.email,
+            password: credentials.password,
+          });
           console.log("lo que envia el backend", response);
 
           // Verificamos si la respuesta fue exitosa y si contiene la propiedad data.user
@@ -41,9 +45,9 @@ const handler = NextAuth({
 
           // Extraemos el usuario y el token de la propiedad "data"
           const userData = response.data.user;
-          userData.token = response.data.token;
+          (userData as any).token = response.data.token;
 
-          return userData;
+          return userData as any;
         } catch (error) {
           console.error("Error de auth:", error);
           return null;
