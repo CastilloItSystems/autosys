@@ -12,7 +12,7 @@ COPY . .
 
 RUN DIRECT_URL="postgresql://dummy:dummy@localhost:5432/dummy" npx prisma generate
 
-RUN npm run build
+RUN node --max-old-space-size=4096 node_modules/.bin/tsc
 
 EXPOSE 4000
 
