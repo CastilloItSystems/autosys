@@ -27,9 +27,15 @@ const handler = NextAuth({
       authorize: async (credentials) => {
         if (!credentials) return null;
         try {
+          const correo = (credentials as any).email ?? (credentials as any).correo
+          const password = (credentials as any).password
+          if (!correo || !password) {
+            console.warn('Credentials missing email/correo or password', { credentials })
+            return null
+          }
           const response = await loginUser({
-            correo: credentials.email,
-            password: credentials.password,
+            correo,
+            password,
           });
           console.log("lo que envia el backend", response);
 

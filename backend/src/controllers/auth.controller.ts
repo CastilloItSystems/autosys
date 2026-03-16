@@ -13,8 +13,8 @@ export const login = async (req: Request, res: Response) => {
       password?: string
     }
 
-    const correo = body.correo?.trim().toLowerCase()
-    const password = body.password
+    const correo = (body.correo ?? (body as any).email)?.trim().toLowerCase()
+    const password = body.password ?? (body as any).password
 
     if (!correo || !password) {
       return ApiResponse.badRequest(res, 'Correo y contraseña son requeridos')

@@ -47,8 +47,7 @@
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.1",
     "uuid": "^13.0.0",
-    "winston": "^3.19.0"
-    ,
+    "winston": "^3.19.0",
     "zeptomatch": "1.1.4"
   },
   "devDependencies": {
