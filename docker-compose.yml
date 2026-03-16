@@ -7,11 +7,15 @@ services:
     working_dir: /app
     restart: always
     volumes:
-      # Ahora busca la carpeta "backend" que está al lado de este archivo
-      - ./backend:/app
+      # 👇 REEMPLAZAMOS EL PUNTO POR ${PWD} 👇
+      - ${PWD}/backend:/app
     command: sh -c "npm install && npm start"
     ports:
       - "4000:4000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=${DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
 
   web-frontend:
     image: node:18-alpine
@@ -19,10 +23,12 @@ services:
     working_dir: /app
     restart: always
     volumes:
-      # Ahora busca la carpeta "frontend"
-      - ./frontend:/app
+      # 👇 REEMPLAZAMOS EL PUNTO POR ${PWD} 👇
+      - ${PWD}/frontend:/app
     command: sh -c "npm install && npm run build && npm start"
     ports:
       - "3005:3000"
     depends_on:
       - api-backend
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
