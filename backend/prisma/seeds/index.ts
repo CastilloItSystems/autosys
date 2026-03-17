@@ -61,9 +61,9 @@ async function main() {
     await seedSuppliers(prisma, empresaId)
     console.log('')
 
-    // Fase 6: Items
-    await seedItems(prisma, empresaId)
-    console.log('')
+    // // Fase 6: Items
+    // await seedItems(prisma, empresaId)
+    // console.log('')
 
     // Fase 7: Usuarios globales
     await seedUsers(prisma)

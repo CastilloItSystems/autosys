@@ -7,8 +7,6 @@ enum ReconciliationStatus {
   APPLIED
   REJECTED
   CANCELLED
-
-  @@map("reconciliation_status")
 }
 
 enum ReconciliationSource {
@@ -17,8 +15,6 @@ enum ReconciliationSource {
   SYSTEM_ERROR
   ADJUSTMENT
   OTHER
-
-  @@map("reconciliation_source")
 }
 
 model Reconciliation {

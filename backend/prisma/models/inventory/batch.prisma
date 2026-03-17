@@ -29,5 +29,6 @@ model Batch {
   @@index([batchNumber])
   @@index([itemId])
   @@index([expiryDate])
+  @@index([itemId, expiryDate])
   @@index([isActive])
 }

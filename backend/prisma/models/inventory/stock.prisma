@@ -29,4 +29,5 @@ model Stock {
   @@index([itemId])
   @@index([warehouseId])
   @@index([quantityAvailable])
+  @@index([warehouseId, quantityAvailable])
 }

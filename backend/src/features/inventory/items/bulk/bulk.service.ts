@@ -29,8 +29,14 @@ export class BulkService {
   ): Promise<IBulkImportResult> {
     const operationId = uuid()
 
+    // Guard against excessively large files (max 10 MB)
+    const MAX_CSV_BYTES = 10 * 1024 * 1024
+    if (data.fileContent.length > MAX_CSV_BYTES) {
+      throw new BadRequestError('El archivo supera el límite de 10 MB')
+    }
+
     // Parse CSV
-    const rows = this.parseCSV(data.fileContent)
+    const rows = this.parseCSV(data.fileContent) as any[]
     if (rows.length === 0) {
       throw new BadRequestError(INVENTORY_MESSAGES.bulk.emptyFile)
     }
@@ -72,122 +78,213 @@ export class BulkService {
       return Number.isNaN(n) ? undefined : n
     }
 
+    const parsePositiveNumber = (v: any) => {
+      const n = parseNumber(v)
+      return n !== undefined && n >= 0 ? n : undefined
+    }
+
     const isUuid = (v?: string) => !!v && /^[0-9a-fA-F-]{36}$/.test(v)
 
+    // Pre-load existing catalogs for the empresa to avoid N+1 queries inside the loop.
+    // Each map is keyed by normalized lower-case name → id.
+    const [existingCategories, existingBrands, existingUnits] =
+      await Promise.all([
+        prisma.category.findMany({
+          where: empresaId ? { empresaId } : {},
+          select: { id: true, name: true },
+        }),
+        prisma.brand.findMany({
+          where: empresaId ? { empresaId } : {},
+          select: { id: true, name: true },
+        }),
+        prisma.unit.findMany({
+          where: empresaId ? { empresaId } : {},
+          select: { id: true, name: true },
+        }),
+      ])
+    const categoryCache = new Map(
+      existingCategories.map((c) => [c.name.toLowerCase(), c.id])
+    )
+    const brandCache = new Map(
+      existingBrands.map((b) => [b.name.toLowerCase(), b.id])
+    )
+    const unitCache = new Map(
+      existingUnits.map((u) => [u.name.toLowerCase(), u.id])
+    )
+
+    // ── Phase 1: normalize all rows (no DB I/O) ───────────────────────────
+    const normalized: (IBulkImportData & { _rowIndex: number })[] = []
     for (let i = 0; i < rows.length; i++) {
-      try {
-        const row = rows[i]
+      const row = rows[i]
+      row.sku = normalize(row.sku)
+      row.name = normalize(row.name)
+      row.description = normalize(row.description)
+      row.barcode = normalize(row.barcode)
+      row.category = normalize(row.category)
+      row.brand = normalize(row.brand)
+      row.unit = normalize(row.unit)
+      row.costPrice = parsePositiveNumber(row.costPrice)
+      row.salePrice = parsePositiveNumber(row.salePrice)
+      row.wholesalePrice = parsePositiveNumber(row.wholesalePrice)
+      row.minStock = parsePositiveNumber(row.minStock)
 
-        // Normalize and sanitize fields coming from CSV (trim, remove surrounding quotes)
-        row.sku = normalize(row.sku)
-        row.name = normalize(row.name)
-        row.description = normalize(row.description)
-        row.barcode = normalize(row.barcode)
-        row.category = normalize(row.category) // human-readable name
-        row.brand = normalize(row.brand)
-        row.unit = normalize(row.unit)
+      if (!row.sku || !row.name) {
+        errors.push({
+          rowNumber: i + 1,
+          field: 'sku/name',
+          value: row,
+          error: 'SKU and name are required',
+        })
+        failed++
+        continue
+      }
+      normalized.push({ ...row, _rowIndex: i + 1 } as any)
+    }
 
-        // numeric fields
-        row.costPrice = parseNumber(row.costPrice)
-        row.salePrice = parseNumber(row.salePrice)
-        row.wholesalePrice = parseNumber(row.wholesalePrice)
-        row.minStock =
-          row.minStock !== undefined
-            ? parseInt(String(row.minStock).replace(/[^0-9-]/g, ''), 10)
-            : undefined
-
-        // Resolve relational IDs: categoryId, brandId, unitId
-        if (!isUuid(row.categoryId) && row.category) {
+    // ── Phase 2: resolve catalog IDs (sequential only for cache misses) ───
+    for (const row of normalized) {
+      if (!isUuid(row.categoryId) && row.category) {
+        const key = row.category.toLowerCase()
+        if (categoryCache.has(key)) {
+          row.categoryId = categoryCache.get(key)
+        } else {
           row.categoryId = await this.resolveCategoryIdByName(
             row.category,
             empresaId
           )
+          if (row.categoryId) categoryCache.set(key, row.categoryId)
         }
-        if (!isUuid(row.brandId) && row.brand) {
+      }
+      if (!isUuid(row.brandId) && row.brand) {
+        const key = row.brand.toLowerCase()
+        if (brandCache.has(key)) {
+          row.brandId = brandCache.get(key)
+        } else {
           row.brandId = await this.resolveBrandIdByName(row.brand, empresaId)
+          if (row.brandId) brandCache.set(key, row.brandId)
         }
-        if (!isUuid(row.unitId) && row.unit) {
+      }
+      if (!isUuid(row.unitId) && row.unit) {
+        const key = row.unit.toLowerCase()
+        if (unitCache.has(key)) {
+          row.unitId = unitCache.get(key)
+        } else {
           row.unitId = await this.resolveUnitIdByName(row.unit, empresaId)
+          if (row.unitId) unitCache.set(key, row.unitId)
         }
+      }
+    }
 
-        // Validate required fields
-        if (!row.sku || !row.name) {
-          errors.push({
-            rowNumber: i + 1,
-            field: 'sku/name',
-            value: row,
-            error: 'SKU and name are required',
-          })
-          failed++
-          continue
-        }
+    // ── Phase 3: ONE query to find which SKUs already exist ───────────────
+    const allSkus = normalized.map((r) => r.sku as string)
+    const existingItems = await prisma.item.findMany({
+      where: { sku: { in: allSkus }, ...(empresaId ? { empresaId } : {}) },
+      select: { id: true, sku: true },
+    })
+    const existingMap = new Map(existingItems.map((it) => [it.sku, it.id]))
 
-        // Check if item exists for this empresa
-        const existingItem = await prisma.item.findFirst({
-          where: {
-            sku: row.sku,
-            ...(empresaId ? { empresaId } : {}),
-          },
-        })
+    // ── Phase 4: separate into creates vs updates ─────────────────────────
+    const toCreate: typeof normalized = []
+    const toUpdate: typeof normalized = []
 
-        if (existingItem && data.options?.updateExisting) {
-          // Update existing
-          await prisma.item.update({
-            where: { id: existingItem.id },
-            data: {
-              name: row.name,
-              description: row.description,
-              categoryId: row.categoryId,
-              brandId: row.brandId,
-              unitId: row.unitId,
-              costPrice: row.costPrice,
-              salePrice: row.salePrice,
-              wholesalePrice: row.wholesalePrice,
-              minStock: row.minStock,
-              barcode: row.barcode,
-            },
-          })
-          updated++
-        } else if (!existingItem) {
-          // Create new
-          await prisma.item.create({
-            data: {
-              sku: row.sku,
-              code: row.code ?? row.sku,
-              name: row.name,
-              description: row.description,
-              costPrice: row.costPrice ?? 0,
-              salePrice: row.salePrice ?? 0,
-              wholesalePrice: row.wholesalePrice ?? undefined,
-              minStock: row.minStock ?? 0,
-              barcode: row.barcode,
-              isActive: true,
-              empresa: { connect: { id_empresa: empresaId } },
-              brand: row.brandId ? { connect: { id: row.brandId } } : undefined,
-              category: row.categoryId
-                ? { connect: { id: row.categoryId } }
-                : undefined,
-              unit: row.unitId ? { connect: { id: row.unitId } } : undefined,
-            },
-          })
-          imported++
+    for (const row of normalized) {
+      const existingId = existingMap.get(row.sku as string)
+      if (existingId) {
+        if (data.options?.updateExisting) {
+          ;(row as any)._existingId = existingId
+          toUpdate.push(row)
         } else {
           errors.push({
-            rowNumber: i + 1,
+            rowNumber: (row as any)._rowIndex,
             field: 'sku',
             value: row.sku,
             error: 'Item already exists and updateExisting is false',
           })
           failed++
         }
-      } catch (error: any) {
-        failed++
-        errors.push({
-          rowNumber: i + 1,
-          field: 'general',
-          value: rows[i],
-          error: error.message,
+      } else {
+        toCreate.push(row)
+      }
+    }
+
+    // ── Phase 5a: batch create (single query) ────────────────────────────
+    if (toCreate.length > 0) {
+      try {
+        const result = await prisma.item.createMany({
+          data: toCreate.map((row) => ({
+            sku: row.sku as string,
+            code: (row as any).code ?? row.sku,
+            name: row.name as string,
+            description: row.description,
+            costPrice: row.costPrice ?? 0,
+            salePrice: row.salePrice ?? 0,
+            wholesalePrice: row.wholesalePrice ?? undefined,
+            minStock: row.minStock ?? 0,
+            barcode: row.barcode,
+            isActive: true,
+            empresaId: empresaId as string,
+            brandId: row.brandId,
+            categoryId: row.categoryId,
+            unitId: row.unitId,
+          })),
+          skipDuplicates: true,
         })
+        imported = result.count
+        // Rows skipped by skipDuplicates (race condition) count as failures
+        const skipped = toCreate.length - result.count
+        if (skipped > 0) failed += skipped
+      } catch (error: any) {
+        // If createMany fails entirely, record each row as an error
+        for (const row of toCreate) {
+          errors.push({
+            rowNumber: (row as any)._rowIndex,
+            field: 'general',
+            value: row.sku,
+            error: error.message,
+          })
+        }
+        failed += toCreate.length
+      }
+    }
+
+    // ── Phase 5b: batch updates in parallel chunks of 50 ─────────────────
+    if (toUpdate.length > 0) {
+      const CHUNK = 50
+      for (let start = 0; start < toUpdate.length; start += CHUNK) {
+        const chunk = toUpdate.slice(start, start + CHUNK)
+        const results = await Promise.allSettled(
+          chunk.map((row) =>
+            prisma.item.update({
+              where: { id: (row as any)._existingId },
+              data: {
+                name: row.name,
+                description: row.description,
+                categoryId: row.categoryId,
+                brandId: row.brandId,
+                unitId: row.unitId,
+                costPrice: row.costPrice,
+                salePrice: row.salePrice,
+                wholesalePrice: row.wholesalePrice,
+                minStock: row.minStock,
+                barcode: row.barcode,
+              },
+            })
+          )
+        )
+        for (let j = 0; j < results.length; j++) {
+          const res = results[j]
+          if (res.status === 'fulfilled') {
+            updated++
+          } else {
+            failed++
+            errors.push({
+              rowNumber: (chunk[j] as any)._rowIndex,
+              field: 'general',
+              value: chunk[j].sku,
+              error: (res.reason as any)?.message ?? 'Update failed',
+            })
+          }
+        }
       }
     }
 
@@ -195,7 +292,7 @@ export class BulkService {
     await prisma.bulkOperation.update({
       where: { id: operationId },
       data: {
-        status: failed === 0 ? 'COMPLETED' : 'COMPLETED',
+        status: failed === 0 ? 'COMPLETED' : 'COMPLETED_WITH_ERRORS',
         processedRecords: imported + updated + failed,
         errorRecords: failed,
         errorDetails: errors.length > 0 ? JSON.stringify(errors) : undefined,
@@ -247,30 +344,36 @@ export class BulkService {
       where.isActive = data.filters.isActive
 
     const whereWithEmpresa = empresaId ? { ...where, empresaId } : where
-    const items = await prisma.item.findMany({
-      where: whereWithEmpresa,
-      include: {
-        category: true,
-        brand: true,
-        unit: true,
-        model: true,
-      },
-    })
 
-    // Map items to flatten relations and format values correctly
-    const mappedItems = items.map((item: any) => {
-      return {
-        ...item,
-        category: item.category?.name || '',
-        brand: item.brand?.name || '',
-        unit: item.unit?.name || '',
-        model: item.model?.name || '',
-        status: item.isActive ? 'Activo' : 'Inactivo',
-        costPrice: item.costPrice ? Number(item.costPrice) : 0,
-        salePrice: item.salePrice ? Number(item.salePrice) : 0,
-        wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
+    // Fetch items in pages of 500 to avoid loading all records into memory at once
+    const PAGE_SIZE = 500
+    const mappedItems: any[] = []
+    let cursor: string | undefined
+    while (true) {
+      const page = await prisma.item.findMany({
+        where: whereWithEmpresa,
+        include: { category: true, brand: true, unit: true, model: true },
+        take: PAGE_SIZE,
+        ...(cursor ? { skip: 1, cursor: { id: cursor } } : {}),
+        orderBy: { id: 'asc' },
+      })
+      if (page.length === 0) break
+      for (const item of page) {
+        mappedItems.push({
+          ...item,
+          category: item.category?.name || '',
+          brand: item.brand?.name || '',
+          unit: item.unit?.name || '',
+          model: (item as any).model?.name || '',
+          status: item.isActive ? 'Activo' : 'Inactivo',
+          costPrice: item.costPrice ? Number(item.costPrice) : 0,
+          salePrice: item.salePrice ? Number(item.salePrice) : 0,
+          wholesalePrice: item.wholesalePrice ? Number(item.wholesalePrice) : 0,
+        })
       }
-    })
+      if (page.length < PAGE_SIZE) break
+      cursor = page[page.length - 1].id
+    }
 
     // If no items match the filters, return a valid empty export instead of a 404.
     // This prevents clients from failing on "Not Found" errors when there are just
@@ -326,8 +429,8 @@ export class BulkService {
         operationType: 'EXPORT',
         status: 'COMPLETED',
         fileName,
-        totalRecords: items.length,
-        processedRecords: items.length,
+        totalRecords: mappedItems.length,
+        processedRecords: mappedItems.length,
         errorRecords: 0,
         createdBy: userId,
         endDate: new Date(),
@@ -337,7 +440,7 @@ export class BulkService {
     logger.info('Bulk export completed', {
       operationId,
       format,
-      recordCount: items.length,
+      recordCount: mappedItems.length,
       userId,
     })
 
@@ -345,7 +448,7 @@ export class BulkService {
       operationId,
       fileName,
       format,
-      recordCount: items.length,
+      recordCount: mappedItems.length,
       content: fileContent,
     }
   }
@@ -369,10 +472,37 @@ export class BulkService {
       throw new NotFoundError(INVENTORY_MESSAGES.bulk.noItemsUpdate)
     }
 
+    // Whitelist of fields that can be updated in bulk to prevent overwriting
+    // sensitive fields like createdBy, empresaId, etc.
+    const ALLOWED_UPDATE_FIELDS = [
+      'name',
+      'description',
+      'costPrice',
+      'salePrice',
+      'wholesalePrice',
+      'minStock',
+      'maxStock',
+      'reorderPoint',
+      'barcode',
+      'isActive',
+      'categoryId',
+      'brandId',
+      'unitId',
+    ] as const
+    const safeUpdate: Record<string, unknown> = {}
+    for (const field of ALLOWED_UPDATE_FIELDS) {
+      if (field in data.update) safeUpdate[field] = data.update[field]
+    }
+    if (Object.keys(safeUpdate).length === 0) {
+      throw new BadRequestError(
+        'No se proporcionaron campos válidos para actualizar'
+      )
+    }
+
     // Perform update
     const result = await prisma.item.updateMany({
       where: filterWithEmpresa,
-      data: data.update,
+      data: safeUpdate,
     })
 
     // Record operation
@@ -508,24 +638,41 @@ export class BulkService {
   }
 
   // Helper methods
+  /** Generate a collision-safe code from a name: first 24 chars + 6-char hex suffix. */
+  private safeCode(name: string): string {
+    const base = name.slice(0, 24).trim().replace(/\s+/g, '-').toUpperCase()
+    const suffix = Math.floor(Math.random() * 0xffffff)
+      .toString(16)
+      .padStart(6, '0')
+      .toUpperCase()
+    return `${base}-${suffix}`
+  }
+
   private async resolveCategoryIdByName(
     name: string,
     empresaId?: string
   ): Promise<string | undefined> {
     if (!name) return undefined
-    const where: any = { name: { equals: name, mode: 'insensitive' } }
-    if (empresaId) where.empresaId = empresaId
+    const eid = empresaId || 'default'
+    const where: any = {
+      name: { equals: name, mode: 'insensitive' },
+      empresaId: eid,
+    }
     const existing = await prisma.category.findFirst({ where })
     if (existing) return existing.id
-    // create new category scoped to empresa
-    const created = await prisma.category.create({
-      data: {
-        name,
-        empresaId: empresaId || 'default',
-        code: name.slice(0, 30),
-      },
-    })
-    return created.id
+    try {
+      const created = await prisma.category.create({
+        data: { name, empresaId: eid, code: this.safeCode(name) },
+      })
+      return created.id
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        // Race condition or code conflict — re-fetch
+        const found = await prisma.category.findFirst({ where })
+        return found?.id
+      }
+      throw e
+    }
   }
 
   private async resolveBrandIdByName(
@@ -533,18 +680,25 @@ export class BulkService {
     empresaId?: string
   ): Promise<string | undefined> {
     if (!name) return undefined
-    const where: any = { name: { equals: name, mode: 'insensitive' } }
-    if (empresaId) where.empresaId = empresaId
+    const eid = empresaId || 'default'
+    const where: any = {
+      name: { equals: name, mode: 'insensitive' },
+      empresaId: eid,
+    }
     const existing = await prisma.brand.findFirst({ where })
     if (existing) return existing.id
-    const created = await prisma.brand.create({
-      data: {
-        name,
-        empresaId: empresaId || 'default',
-        code: name.slice(0, 30),
-      },
-    })
-    return created.id
+    try {
+      const created = await prisma.brand.create({
+        data: { name, empresaId: eid, code: this.safeCode(name) },
+      })
+      return created.id
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        const found = await prisma.brand.findFirst({ where })
+        return found?.id
+      }
+      throw e
+    }
   }
 
   private async resolveUnitIdByName(
@@ -552,41 +706,111 @@ export class BulkService {
     empresaId?: string
   ): Promise<string | undefined> {
     if (!name) return undefined
-    const where: any = { name: { equals: name, mode: 'insensitive' } }
-    if (empresaId) where.empresaId = empresaId
+    const eid = empresaId || 'default'
+    const where: any = {
+      name: { equals: name, mode: 'insensitive' },
+      empresaId: eid,
+    }
     const existing = await prisma.unit.findFirst({ where })
     if (existing) return existing.id
-
-    // Auto-create missing unit with defaults for abbreviation and type
-    const created = await prisma.unit.create({
-      data: {
-        name,
-        empresaId: empresaId || 'default',
-        code: name.slice(0, 30),
-        abbreviation: name.slice(0, 5).toLowerCase(),
-        type: 'COUNTABLE',
-      },
-    })
-    return created.id
+    // Abbreviation must be unique per empresa — use a random suffix to avoid conflicts
+    const abbr = `${name.slice(0, 3).toLowerCase()}-${Math.random().toString(36).slice(2, 5)}`
+    try {
+      const created = await prisma.unit.create({
+        data: {
+          name,
+          empresaId: eid,
+          code: this.safeCode(name),
+          abbreviation: abbr,
+          type: 'COUNTABLE',
+        },
+      })
+      return created.id
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        const found = await prisma.unit.findFirst({ where })
+        return found?.id
+      }
+      throw e
+    }
   }
 
-  private parseCSV(content: string): any[] {
-    const lines = content.trim().split('\n')
+  /**
+   * RFC 4180-compliant CSV parser.
+   * Handles quoted fields with embedded commas, escaped quotes (""), and CRLF/LF line endings.
+   * Header names are sanitized to prevent prototype pollution.
+   */
+  private parseCSV(content: string): Record<string, string>[] {
+    const parseRow = (line: string): string[] => {
+      const values: string[] = []
+      let field = ''
+      let inQuotes = false
+
+      for (let i = 0; i < line.length; i++) {
+        const ch = line[i]
+        if (ch === '"') {
+          if (inQuotes && line[i + 1] === '"') {
+            field += '"'
+            i++ // skip escaped quote
+          } else {
+            inQuotes = !inQuotes
+          }
+        } else if (ch === ',' && !inQuotes) {
+          values.push(field.trim())
+          field = ''
+        } else {
+          field += ch
+        }
+      }
+      values.push(field.trim())
+      return values
+    }
+
+    // Split respecting quoted newlines
+    const lines: string[] = []
+    let current = ''
+    let inQ = false
+    for (let i = 0; i < content.length; i++) {
+      const ch = content[i]
+      if (ch === '"') {
+        if (inQ && content[i + 1] === '"') {
+          current += '""'
+          i++
+        } else {
+          inQ = !inQ
+          current += ch
+        }
+      } else if (
+        (ch === '\n' || (ch === '\r' && content[i + 1] === '\n')) &&
+        !inQ
+      ) {
+        if (ch === '\r') i++ // skip \n of \r\n
+        lines.push(current)
+        current = ''
+      } else if (ch === '\r' && !inQ) {
+        lines.push(current)
+        current = ''
+      } else {
+        current += ch
+      }
+    }
+    if (current.trim()) lines.push(current)
+
     if (lines.length < 2) return []
 
-    const headers = lines[0]?.split(',').map((h) => h.trim()) || []
-    const rows = []
+    // Sanitize headers to prevent prototype pollution (__proto__, constructor, etc.)
+    const rawHeaders = parseRow(lines[0] ?? '')
+    const headers = rawHeaders.map((h) => h.replace(/[^a-zA-Z0-9_]/g, ''))
 
+    const rows: Record<string, string>[] = []
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i]
-      if (!line) continue
-      const values = line.split(',').map((v) => v.trim())
-      const row: any = {}
-
+      if (!line?.trim()) continue
+      const values = parseRow(line)
+      const row: Record<string, string> = Object.create(null)
       headers.forEach((header, index) => {
-        row[header] = values[index]
+        if (header) row[header] = values[index] ?? ''
       })
-
       rows.push(row)
     }
 

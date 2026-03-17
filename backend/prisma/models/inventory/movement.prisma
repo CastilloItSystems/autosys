@@ -69,6 +69,7 @@ model Movement {
   @@index([itemId])
   @@index([type])
   @@index([movementDate])
+  @@index([itemId, movementDate])
   @@index([reference])
   @@index([warehouseFromId])
   @@index([warehouseToId])

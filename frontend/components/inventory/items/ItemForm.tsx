@@ -30,9 +30,9 @@ import itemService, {
 } from "@/app/api/inventory/itemService";
 import brandsService from "@/app/api/inventory/brandService";
 import categoriesService from "@/app/api/inventory/categoryService";
-import itemModelService from "@/app/api/inventory/itemModelService";
 import unitsService from "@/app/api/inventory/unitService";
 import { handleFormError } from "@/utils/errorHandlers";
+import modelsService from "@/app/api/inventory/modelService";
 
 // ============================================
 // SCHEMA VALIDATION
@@ -178,10 +178,10 @@ export default function ItemForm({
       try {
         const [brandsRes, categoriesRes, modelsRes, unitsRes] =
           await Promise.all([
-            brandsService.getAll({ page: 1, limit: 100 }),
-            categoriesService.getAll({ page: 1, limit: 100 }),
-            itemModelService.getAll(),
-            unitsService.getAll({ page: 1, limit: 100 }),
+            brandsService.getActive(),
+            categoriesService.getActive(),
+            modelsService.getActive(),
+            unitsService.getActive(),
           ]);
 
         // Estructura consistente en todos los endpoints

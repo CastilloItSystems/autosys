@@ -2,8 +2,14 @@
 
 export interface IBulkOperation {
   id: string
-  operationType: 'import' | 'export' | 'update' | 'delete'
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  operationType: 'IMPORT' | 'EXPORT' | 'UPDATE' | 'DELETE'
+  status:
+    | 'PENDING'
+    | 'PROCESSING'
+    | 'COMPLETED'
+    | 'COMPLETED_WITH_ERRORS'
+    | 'FAILED'
+    | 'CANCELLED'
   fileName?: string
   fileUrl?: string
   totalRecords: number
@@ -13,7 +19,7 @@ export interface IBulkOperation {
   startDate: Date
   endDate?: Date
   createdBy: string
-  metadata?: any
+  metadata?: Record<string, unknown>
 }
 
 export interface IBulkImportData {

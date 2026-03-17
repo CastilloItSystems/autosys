@@ -3,7 +3,9 @@ import { Request, Response, NextFunction } from 'express'
 import { ForbiddenError, UnauthorizedError } from '../utils/apiError.js'
 import prisma from '../../services/prisma.service.js'
 
-const skipAuthzInTests = process.env.SKIP_AUTHZ_IN_TESTS === 'true'
+// Evaluated per-request so dotenv has time to load before the first check
+const skipAuthzInTests = () =>
+  process.env.NODE_ENV === 'test' && process.env.SKIP_AUTHZ_IN_TESTS === 'true'
 
 async function getEffectivePermissions(
   membershipId: string
@@ -60,7 +62,7 @@ export const authorize = (...requiredPermissions: string[]) => {
     console.log('--- DEPURACIÓN AUTHZ ---')
     console.log('Permisos que pide la ruta:', requiredPermissions)
 
-    if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
+    if (skipAuthzInTests()) return next()
 
     if (!req.user) {
       throw new UnauthorizedError('Usuario no autenticado')
@@ -95,7 +97,7 @@ export const authorizeAny = (...requiredPermissions: string[]) => {
     _res: Response,
     next: NextFunction
   ): Promise<void> => {
-    if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
+    if (skipAuthzInTests()) return next()
 
     if (!req.user) {
       throw new UnauthorizedError('Usuario no autenticado')
@@ -123,7 +125,7 @@ export const authorizeAny = (...requiredPermissions: string[]) => {
 
 export const authorizeRoles = (...allowedRoles: string[]) => {
   return (req: Request, _res: Response, next: NextFunction): void => {
-    if (process.env.NODE_ENV === 'test' && skipAuthzInTests) return next()
+    if (skipAuthzInTests()) return next()
 
     if (!req.user) {
       throw new UnauthorizedError('Usuario no autenticado')

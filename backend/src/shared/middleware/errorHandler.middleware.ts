@@ -57,6 +57,11 @@ export const errorHandler = (
     return ApiResponse.badRequest(res, 'JSON inválido en el body')
   }
 
+  // PayloadTooLargeError — body-parser rechaza el request antes del controller
+  if ('status' in error && (error as any).status === 413) {
+    return ApiResponse.error(res, 'El archivo supera el límite permitido', 413)
+  }
+
   // Error de validación genérico (Joi/Zod/etc según adapter)
   if (error.name === 'ValidationError') {
     return ApiResponse.validationError(res, [error.message])

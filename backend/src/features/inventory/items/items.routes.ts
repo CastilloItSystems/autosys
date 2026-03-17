@@ -158,8 +158,16 @@ import {
   checkAvailabilitySchema,
 } from './items.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import bulkRouter from './bulk/bulk.routes.js'
+import searchRouter from './search/search.routes.js'
 
 const router = Router()
+
+// ---------------------------------------------------------------------------
+// Bulk operations sub-router (/bulk/import, /bulk/export, etc.)
+// ---------------------------------------------------------------------------
+router.use('/bulk', bulkRouter)
+router.use('/search', searchRouter) // Sub-router for /search endpoints
 
 // ---------------------------------------------------------------------------
 // Rutas específicas ANTES de /:id

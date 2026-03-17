@@ -181,6 +181,7 @@
  */
 
 import { Router } from 'express'
+import multer from 'multer'
 import { BulkController } from './bulk.controller.js'
 import {
   validateBody,
@@ -190,7 +191,6 @@ import {
 import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
 import { authorize } from '../../../../shared/middleware/authorize.middleware.js'
 import {
-  bulkImportSchema,
   bulkExportSchema,
   bulkUpdateSchema,
   bulkDeleteSchema,
@@ -198,6 +198,18 @@ import {
   getPaginationSchema,
 } from './bulk.validation.js'
 import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
+
+// Accept CSV and Excel files up to 50 MB in memory (no disk I/O)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = ['text/csv', 'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/octet-stream', 'text/plain']
+    cb(null, allowed.includes(file.mimetype) || file.originalname.endsWith('.csv') || file.originalname.endsWith('.xlsx'))
+  },
+})
 
 const router = Router({ mergeParams: true })
 const controller = new BulkController()
@@ -208,12 +220,12 @@ const controller = new BulkController()
 router.post("/test-import", controller.import)
 
 
-// POST /api/inventory/items/bulk/import
+// POST /api/inventory/items/bulk/import  (multipart/form-data)
 router.post(
   '/import',
   authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateBody(bulkImportSchema),
+  upload.single('file'),   // req.file = uploaded CSV/XLSX buffer
   controller.import
 )
 

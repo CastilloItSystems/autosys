@@ -14,7 +14,14 @@ import type {
   IBulkValidationError,
 } from "@/app/api/inventory/bulkService";
 
-export const BulkHistory = () => {
+interface BulkHistoryProps {
+  /** Increment this value from outside to trigger a reload */
+  refreshKey?: number;
+}
+
+const POLL_INTERVAL_MS = 4000; // poll every 4 s while any op is PROCESSING/PENDING
+
+export const BulkHistory = ({ refreshKey = 0 }: BulkHistoryProps) => {
   const toast = useRef<Toast>(null);
 
   const [operations, setOperations] = useState<IBulkOperation[]>([]);
@@ -23,27 +30,49 @@ export const BulkHistory = () => {
   const [showDetails, setShowDetails] = useState(false);
   const [loading, setLoading] = useState(true);
   const [expandedRows, setExpandedRows] = useState<DataTableExpandedRows>({});
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Load operations on mount
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current);
+      pollRef.current = null;
+    }
+  };
+
+  // Reload when refreshKey changes (triggered from parent after import/export)
   useEffect(() => {
     loadOperations();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
-  const loadOperations = async () => {
+  // Cleanup on unmount
+  useEffect(() => () => stopPolling(), []);
+
+  const loadOperations = async (silent = false) => {
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const response = await bulkService.getOperations();
-      // Safe fallback for API response to prevent DataTable `.slice is not a function` error
       const opsData = response?.data;
-      setOperations(Array.isArray(opsData) ? opsData : []);
+      const ops: IBulkOperation[] = Array.isArray(opsData) ? opsData : [];
+      setOperations(ops);
+
+      // If any op is still active, start/keep polling; otherwise stop
+      const hasActive = ops.some((o) => o.status === "PROCESSING" || o.status === "PENDING");
+      if (hasActive && !pollRef.current) {
+        pollRef.current = setInterval(() => loadOperations(true), POLL_INTERVAL_MS);
+      } else if (!hasActive) {
+        stopPolling();
+      }
     } catch (error: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.message || "Error al cargar historial",
-      });
+      if (!silent) {
+        toast.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: error.message || "Error al cargar historial",
+        });
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   };
 
@@ -86,11 +115,12 @@ export const BulkHistory = () => {
   // Status badge
   const statusTemplate = (rowData: IBulkOperation) => {
     const statusConfig: Record<string, { severity: string; label: string }> = {
-      PENDING: { severity: "warning", label: "Pendiente" },
-      PROCESSING: { severity: "info", label: "Procesando" },
-      COMPLETED: { severity: "success", label: "Completado" },
-      FAILED: { severity: "danger", label: "Fallido" },
-      CANCELLED: { severity: "secondary", label: "Cancelado" },
+      PENDING:                { severity: "warning",   label: "Pendiente" },
+      PROCESSING:             { severity: "info",      label: "Procesando..." },
+      COMPLETED:              { severity: "success",   label: "Completado" },
+      COMPLETED_WITH_ERRORS:  { severity: "warning",   label: "Con errores" },
+      FAILED:                 { severity: "danger",    label: "Fallido" },
+      CANCELLED:              { severity: "secondary", label: "Cancelado" },
     };
 
     const config = statusConfig[rowData.status || ""] || {
@@ -98,7 +128,13 @@ export const BulkHistory = () => {
       label: rowData.status,
     };
 
-    return <Tag value={config.label} severity={config.severity as any} />;
+    const isActive = rowData.status === "PROCESSING" || rowData.status === "PENDING";
+    return (
+      <span className="flex align-items-center gap-1">
+        {isActive && <i className="pi pi-spin pi-spinner" style={{ fontSize: "0.75rem" }} />}
+        <Tag value={config.label} severity={config.severity as any} />
+      </span>
+    );
   };
 
   // Summary template
@@ -198,7 +234,7 @@ export const BulkHistory = () => {
         <DataTable value={parsedErrors} size="small" scrollable>
           <Column field="rowNumber" header="Fila" style={{ width: "60px" }} />
           <Column field="field" header="Campo" style={{ width: "100px" }} />
-          <Column field="error" header="Mensaje" flex={1} />
+          <Column field="error" header="Mensaje" style={{ minWidth: "200px" }} />
           <Column
             field="value"
             header="Valor"
@@ -219,27 +255,30 @@ export const BulkHistory = () => {
       <Toast ref={toast} />
 
       {/* Header */}
-      <Card>
-        <template slot="header">
-          <div className="flex align-items-center justify-content-between w-full">
+      <Card
+        header={
+          <div className="flex align-items-center justify-content-between w-full p-3">
             <h3 className="m-0">Historial de operaciones</h3>
             <Button
               icon="pi pi-refresh"
               rounded
               text
-              onClick={loadOperations}
+              onClick={() => loadOperations()}
               loading={loading}
               title="Recargar"
             />
           </div>
-        </template>
+        }
+      >
 
         {/* Operations Table */}
         <DataTable
           value={operations}
-          expandedRows={expandedRows}
-          onExpandedRowsChange={(e) => setExpandedRows(e.value)}
-          rowExpansionTemplate={errorRowExpansionTemplate}
+          {...({
+            expandedRows,
+            onExpandedRowsChange: (e: any) => setExpandedRows(e.value),
+            rowExpansionTemplate: errorRowExpansionTemplate,
+          } as any)}
           dataKey="id"
           loading={loading}
           emptyMessage="Sin operaciones"
@@ -429,7 +468,7 @@ export const BulkHistory = () => {
                         header="Campo"
                         style={{ width: "100px" }}
                       />
-                      <Column field="error" header="Mensaje" flex={1} />
+                      <Column field="error" header="Mensaje" style={{ minWidth: "200px" }} />
                       <Column
                         field="value"
                         header="Valor"

@@ -15,6 +15,7 @@ model Reservation {
   item              Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
   warehouseId       String
+  warehouse         Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
   quantity          Int
   status            ReservationStatus @default(ACTIVE)
@@ -43,6 +44,7 @@ model Reservation {
 
   @@map("reservations")
   @@index([itemId])
+  @@index([warehouseId])
   @@index([workOrderId])
   @@index([exitNoteId])
   @@index([status])

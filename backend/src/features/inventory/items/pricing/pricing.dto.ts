@@ -82,8 +82,8 @@ export class PricingResponseDTO {
     this.itemId = data.itemId
     this.costPrice = Number(data.costPrice)
     this.salePrice = Number(data.salePrice)
-    this.minMargin = data.minMargin
-    this.maxMargin = data.maxMargin
+    this.minMargin = Number(data.minMargin)
+    this.maxMargin = Number(data.maxMargin)
     this.isActive = data.isActive
     if (data.item) {
       this.item = data.item
@@ -94,7 +94,7 @@ export class PricingResponseDTO {
     if (data.wholesalePrice !== undefined && data.wholesalePrice !== null)
       this.wholesalePrice = Number(data.wholesalePrice)
     if (data.discountPercentage !== undefined)
-      this.discountPercentage = data.discountPercentage
+      this.discountPercentage = Number(data.discountPercentage)
     if (data.notes !== undefined) this.notes = data.notes
   }
 }
@@ -153,6 +153,6 @@ export class PricingTierResponseDTO {
     if (data.maxQuantity !== undefined && data.maxQuantity !== null)
       this.maxQuantity = data.maxQuantity
     if (data.discountPercentage !== undefined)
-      this.discountPercentage = data.discountPercentage
+      this.discountPercentage = Number(data.discountPercentage)
   }
 }

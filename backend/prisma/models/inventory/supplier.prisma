@@ -2,7 +2,7 @@
 
 model Supplier {
   id              String          @id @default(uuid())
-  code            String          @unique
+  code            String
   name            String
   contactName     String?
   email           String?
@@ -22,8 +22,8 @@ model Supplier {
   createdAt       DateTime        @default(now())
   updatedAt       DateTime        @updatedAt
 
+  @@unique([empresaId, code])
   @@map("suppliers")
-  @@index([code])
   @@index([isActive])
   @@index([empresaId])
 }

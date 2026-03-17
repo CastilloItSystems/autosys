@@ -10,9 +10,9 @@ model Pricing {
   salePrice         Decimal  @db.Decimal(12, 2)
   wholesalePrice    Decimal? @db.Decimal(12, 2)
   
-  minMargin         Int      // Porcentaje de margen mínimo
-  maxMargin         Int      // Porcentaje de margen máximo
-  discountPercentage Int?    // Descuento aplicable en porcentaje
+  minMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen mínimo (0.00–999.99)
+  maxMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen máximo
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento aplicable en porcentaje
   
   notes             String?  @db.Text
   isActive          Boolean  @default(true)
@@ -38,7 +38,7 @@ model PricingTier {
   minQuantity       Int
   maxQuantity       Int?     // null si es sin límite
   tierPrice         Decimal  @db.Decimal(12, 2)
-  discountPercentage Int?    // Descuento en este tier
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento en este tier
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

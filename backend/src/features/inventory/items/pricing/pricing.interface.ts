@@ -1,14 +1,16 @@
 // backend/src/features/inventory/items/pricing/pricing.interface.ts
 
+import { Decimal } from '@prisma/client/runtime/client'
+
 export interface IPricing {
   id: string
   itemId: string
   costPrice: number | any
   salePrice: number | any
   wholesalePrice?: number | any | null
-  minMargin: number
-  maxMargin: number
-  discountPercentage?: number | null
+  minMargin: Decimal
+  maxMargin: Decimal
+  discountPercentage?: number | Decimal | null
   notes?: string | null
   isActive: boolean
   createdAt: Date
@@ -28,8 +30,8 @@ export interface IPricingTier {
   pricingId: string
   minQuantity: number
   maxQuantity?: number | null
-  tierPrice: number | any
-  discountPercentage?: number | null
+  tierPrice: number | Decimal
+  discountPercentage?: number | Decimal | null
   createdAt: Date
   updatedAt: Date
 }

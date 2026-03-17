@@ -7,8 +7,6 @@ enum CycleCountStatus {
   APPLIED
   REJECTED
   CANCELLED
-
-  @@map("cycle_count_status")
 }
 
 model CycleCount {

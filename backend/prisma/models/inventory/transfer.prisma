@@ -56,6 +56,8 @@ model Transfer {
   @@index([fromWarehouseId])
   @@index([toWarehouseId])
   @@index([status])
+  @@index([fromWarehouseId, status])
+  @@index([toWarehouseId, status])
 }
 
 model TransferItem {

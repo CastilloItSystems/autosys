@@ -6,7 +6,12 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
 
     // Almacén Principal
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-001' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'ALM-001',
+        },
+      },
       update: {
         name: 'Almacén Principal',
         type: 'PRINCIPAL',
@@ -27,7 +32,12 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
 
     // Almacén de Tránsito
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-TRANSITO' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'ALM-TRANSITO',
+        },
+      },
       update: {
         name: 'Almacén Tránsito',
         type: 'TRANSITO',
@@ -48,7 +58,12 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
 
     // Almacén Sucursal
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-SUCURSAL' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'ALM-SUCURSAL',
+        },
+      },
       update: {
         name: 'Almacén Sucursal',
         type: 'SUCURSAL',

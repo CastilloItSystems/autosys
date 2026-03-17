@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "BulkOperationStatus" ADD VALUE 'COMPLETED_WITH_ERRORS';

@@ -13,10 +13,11 @@ model StockAlert {
 
   // itemId      String
   // item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
- itemId      String
+  itemId      String
   item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  
+
   warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   type        AlertType
   message     String
@@ -28,6 +29,7 @@ model StockAlert {
 
   createdAt   DateTime  @default(now())
 
+  @@unique([itemId, warehouseId, type])
   @@map("stock_alerts")
   @@index([itemId])
   @@index([warehouseId])
