@@ -282,9 +282,15 @@ export default function ItemForm({
   }, [item, reset, isLoading]);
 
   const onSubmit = async (data: FormData) => {
+    console.log("aqui????✅");
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload: any = { ...data };
+
+      if (!payload.modelId) payload.modelId = null;
+      if (!payload.barcode) payload.barcode = null;
+      if (!payload.location) payload.location = null;
+      if (!payload.description) payload.description = null;
 
       // Add pricing if exists or has values
       if (
@@ -308,29 +314,14 @@ export default function ItemForm({
 
       if (item?.id) {
         await itemService.update(item.id, payload);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Artículo actualizado correctamente",
-          life: 3000,
-        });
       } else {
         await itemService.create(payload);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Artículo creado correctamente",
-          life: 3000,
-        });
       }
       onSave();
     } catch (error: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
@@ -863,6 +854,7 @@ export default function ItemForm({
       <div className="mb-3 flex justify-content-between align-items-center">
         <h3 className="text-xl font-bold text-900">Precios por Cantidad</h3>
         <Button
+          type="button"
           label="+ Agregar Tier"
           icon="pi pi-plus"
           onClick={() => {
@@ -959,6 +951,7 @@ export default function ItemForm({
             header="Acciones"
             body={(row, { rowIndex }) => (
               <Button
+                type="button"
                 icon="pi pi-trash"
                 severity="danger"
                 rounded
@@ -983,6 +976,7 @@ export default function ItemForm({
       <div className="mb-4 flex justify-content-between align-items-center">
         <h3 className="text-xl font-bold text-900">Galería de Imágenes</h3>
         <Button
+          type="button"
           label="+ Agregar Imagen"
           icon="pi pi-plus"
           onClick={() => setImageDialog(true)}
@@ -1010,6 +1004,7 @@ export default function ItemForm({
                     )}
                   </div>
                   <Button
+                    type="button"
                     icon="pi pi-trash"
                     severity="danger"
                     text
@@ -1074,11 +1069,13 @@ export default function ItemForm({
           </div>
           <div className="col-12 flex gap-2 justify-content-end">
             <Button
+              type="button"
               label="Cancelar"
               severity="secondary"
               onClick={() => setImageDialog(false)}
             />
             <Button
+              type="button"
               label="Agregar"
               onClick={() => {
                 if (newImageUrl.trim()) {

@@ -7,14 +7,14 @@ const asRecord = (value: unknown): AnyRecord =>
 export class CreateItemDTO {
   sku: string
   code: string
-  barcode?: string
+  barcode?: string | null
   name: string
-  description?: string
+  description?: string | null
   brandId: string
   categoryId: string
-  modelId?: string
+  modelId?: string | null
   unitId: string
-  location?: string
+  location?: string | null
   costPrice: number
   salePrice: number
   wholesalePrice?: number
@@ -39,10 +39,10 @@ export class CreateItemDTO {
     this.categoryId = String(d.categoryId ?? '')
     this.unitId = String(d.unitId ?? '')
 
-    if (d.barcode != null) this.barcode = String(d.barcode)
-    if (d.description != null) this.description = String(d.description)
-    if (d.modelId != null) this.modelId = String(d.modelId)
-    if (d.location != null) this.location = String(d.location).toUpperCase()
+    if (d.barcode !== undefined) this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.description !== undefined) this.description = d.description == null ? null : String(d.description)
+    if (d.modelId !== undefined) this.modelId = d.modelId == null ? null : String(d.modelId)
+    if (d.location !== undefined) this.location = d.location == null ? null : String(d.location).toUpperCase()
 
     this.costPrice = Number(d.costPrice ?? 0)
     this.salePrice = Number(d.salePrice ?? 0)
@@ -72,14 +72,14 @@ export class CreateItemDTO {
 export class UpdateItemDTO {
   sku?: string
   code?: string
-  barcode?: string
+  barcode?: string | null
   name?: string
-  description?: string
+  description?: string | null
   brandId?: string
   categoryId?: string
-  modelId?: string
+  modelId?: string | null
   unitId?: string
-  location?: string
+  location?: string | null
   costPrice?: number
   salePrice?: number
   wholesalePrice?: number
@@ -100,17 +100,17 @@ export class UpdateItemDTO {
     if (d.sku !== undefined) this.sku = String(d.sku).toUpperCase()
     if (d.code !== undefined) this.code = String(d.code)
     if (d.barcode !== undefined)
-      this.barcode = d.barcode == null ? '' : String(d.barcode)
+      this.barcode = d.barcode == null ? null : String(d.barcode)
     if (d.name !== undefined) this.name = String(d.name)
     if (d.description !== undefined)
-      this.description = d.description == null ? '' : String(d.description)
+      this.description = d.description == null ? null : String(d.description)
     if (d.brandId !== undefined) this.brandId = String(d.brandId)
     if (d.categoryId !== undefined) this.categoryId = String(d.categoryId)
     if (d.modelId !== undefined)
-      this.modelId = d.modelId == null ? '' : String(d.modelId)
+      this.modelId = d.modelId == null ? null : String(d.modelId)
     if (d.unitId !== undefined) this.unitId = String(d.unitId)
     if (d.location !== undefined)
-      this.location = d.location == null ? '' : String(d.location).toUpperCase()
+      this.location = d.location == null ? null : String(d.location).toUpperCase()
     if (d.costPrice !== undefined) this.costPrice = Number(d.costPrice)
     if (d.salePrice !== undefined) this.salePrice = Number(d.salePrice)
     if (d.wholesalePrice !== undefined)
