@@ -27,7 +27,7 @@ jobs:
           context: ./backend
           push: true
           # ⚠️ CAMBIA "tu_usuario" POR TU USUARIO DE GITHUB (TODO EN MINÚSCULAS)
-          tags: ghcr.io/tu_usuario/autosys-backend:latest
+          tags: ghcr.io/castilloitsystems/autosys-backend:latest
 
       - name: Construir y subir el Frontend
         uses: docker/build-push-action@v4
@@ -35,6 +35,6 @@ jobs:
           context: ./frontend
           push: true
           # ⚠️ CAMBIA "tu_usuario" POR TU USUARIO DE GITHUB (TODO EN MINÚSCULAS)
-          tags: ghcr.io/tu_usuario/autosys-frontend:latest
+          tags: ghcr.io/castilloitsystems/autosys-frontend:latest
           build-args: |
-            NEXT_PUBLIC_API_BASE_URL=https://api-autosys.castilloitsystems.com/apia
+            NEXT_PUBLIC_API_BASE_URL=https://api-autosys.castilloitsystems.com/api
