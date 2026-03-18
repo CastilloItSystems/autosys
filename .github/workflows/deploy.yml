@@ -1,0 +1,40 @@
+name: Build and Push Docker Images
+
+# Esto hace que el robot se active cada vez que haces un "push" a la rama "develop"
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del código
+        uses: actions/checkout@v3
+
+      - name: Iniciar sesión en GitHub Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          # Aquí usa el secreto que guardamos antes
+          username: ${{ github.actor }}
+          password: ${{ secrets.CR_PAT }}
+
+      - name: Construir y subir el Backend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./backend
+          push: true
+          # ⚠️ CAMBIA "tu_usuario" POR TU USUARIO DE GITHUB (TODO EN MINÚSCULAS)
+          tags: ghcr.io/castilloitsystems/autosys-backend:latest
+
+      - name: Construir y subir el Frontend
+        uses: docker/build-push-action@v4
+        with:
+          context: ./frontend
+          push: true
+          # ⚠️ CAMBIA "tu_usuario" POR TU USUARIO DE GITHUB (TODO EN MINÚSCULAS)
+          tags: ghcr.io/castilloitsystems/autosys-frontend:latest
+          build-args: |
+            NEXT_PUBLIC_API_BASE_URL=https://api-autosys.castilloitsystems.com/api
