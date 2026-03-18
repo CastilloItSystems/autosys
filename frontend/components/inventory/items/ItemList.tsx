@@ -40,6 +40,8 @@ const ItemList = () => {
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(12);
   const [showActive, setShowActive] = useState<boolean>(true);
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // UI
   const [loading, setLoading] = useState<boolean>(true);
@@ -68,7 +70,15 @@ const ItemList = () => {
       // Si no hay búsqueda ni filtros, cargar todo normal
       loadItems();
     }
-  }, [page, rows, searchQuery, showActive, advancedFilters]);
+  }, [
+    page,
+    rows,
+    searchQuery,
+    showActive,
+    advancedFilters,
+    sortField,
+    sortOrder,
+  ]);
 
   const loadItems = async () => {
     try {
@@ -77,6 +87,8 @@ const ItemList = () => {
         page: page + 1,
         limit: rows,
         isActive: showActive,
+        sortBy: sortField,
+        sortOrder: sortOrder,
       });
 
       const itemsData = response.data || [];
@@ -109,6 +121,8 @@ const ItemList = () => {
         },
         page: page + 1,
         limit: rows,
+        sortBy: sortField,
+        sortOrder: sortOrder,
       });
 
       // Mapear resultados de búsqueda a Item
@@ -143,6 +157,11 @@ const ItemList = () => {
         : Math.floor(event.first / event.rows);
     setPage(newPage);
     setRows(event.rows);
+  };
+
+  const onSort = (event: any) => {
+    setSortField(event.sortField);
+    setSortOrder(event.sortOrder === 1 ? "asc" : "desc");
   };
 
   const handleSearch = (value: string) => {
@@ -367,7 +386,10 @@ const ItemList = () => {
   const locationBodyTemplate = (rowData: Item) => {
     return (
       <div className="flex align-items-center gap-2">
-        <i className="pi pi-map-marker text-500" style={{ fontSize: "0.8rem" }}></i>
+        <i
+          className="pi pi-map-marker text-500"
+          style={{ fontSize: "0.8rem" }}
+        ></i>
         <span className="text-sm font-medium">{rowData.location || "-"}</span>
       </div>
     );
@@ -885,10 +907,12 @@ const ItemList = () => {
             totalRecords={totalRecords}
             rowsPerPageOptions={[6, 12, 24, 50]}
             onPage={onPageChange}
+            onSort={onSort}
+            sortField={sortField}
+            sortOrder={sortOrder === "asc" ? 1 : -1}
             dataKey="id"
             loading={loading}
             emptyMessage="No se encontraron artículos"
-            sortMode="multiple"
             lazy
             scrollable
             tableStyle={{ minWidth: "50rem" }}
@@ -917,6 +941,7 @@ const ItemList = () => {
             <Column
               field="identity"
               header="Identidad"
+              sortable
               body={identityBodyTemplate}
               style={{ minWidth: "160px" }}
             />
@@ -1060,10 +1085,20 @@ const ItemList = () => {
       <Dialog
         visible={detailsDialog}
         style={{ width: "60vw" }}
-        header="Detalles del Artículo"
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-info-circle mr-3 text-primary text-3xl"></i>
+                Detalles del Artículo: {selectedItem?.name}
+              </h2>
+            </div>
+          </div>
+        }
         modal
         onHide={() => setDetailsDialog(false)}
         className="p-fluid"
+        maximizable
       >
         {selectedItem && (
           <div className="grid">

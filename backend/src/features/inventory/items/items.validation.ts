@@ -394,6 +394,8 @@ export const getItemsQuerySchema = Joi.object({
       'name',
       'sku',
       'code',
+      'identity',
+      'location',
       'salePrice',
       'costPrice',
       'createdAt',
@@ -403,7 +405,7 @@ export const getItemsQuerySchema = Joi.object({
     .default('name')
     .messages({
       'any.only':
-        'sortBy debe ser uno de: name, sku, code, salePrice, costPrice, createdAt, updatedAt',
+        'sortBy debe ser uno de: name, sku, code, identity, location, salePrice, costPrice, createdAt, updatedAt',
     }),
 
   sortOrder: Joi.string()

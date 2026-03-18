@@ -98,6 +98,8 @@ export interface GetItemParams {
   brandId?: string;
   categoryId?: string;
   isActive?: boolean;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 export interface CreateItemRequest {

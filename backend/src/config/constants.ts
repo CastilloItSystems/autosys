@@ -30,7 +30,7 @@ export const REGEX_PATTERNS = {
   RIF: /^[VEJPG]-\d{8}-\d$/,
   CEDULA: /^[VE]-\d{7,8}$/,
   SKU: /^[A-Z0-9-]+$/,
-  LOCATION: /^[A-Z]\d+-[A-Z]\d+-[A-Z]\d+$/, // M1-R01-D03
+  LOCATION: /^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i, // Acepta B02-06-J05, M1-R01-D03, etc.
 }
 
 export const FILE_UPLOAD = {

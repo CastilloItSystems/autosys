@@ -20,6 +20,7 @@ import { InputSwitch } from "primereact/inputswitch";
 import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
+import { Chips } from "primereact/chips";
 
 // API functions
 import itemService, {
@@ -120,6 +121,9 @@ export default function ItemForm({
   const [models, setModels] = useState<any[]>([]);
   const [units, setUnits] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState(0);
+
+  // Technical Specs state
+  const [specs, setSpecs] = useState<{ label: string; value: string }[]>([]);
 
   // Pricing state
   const [pricing, setPricing] = useState<IPricing | null>(null);
@@ -239,8 +243,21 @@ export default function ItemForm({
         hasBatch: item.hasBatch ?? false,
         hasExpiry: item.hasExpiry ?? false,
         allowNegativeStock: item.allowNegativeStock ?? false,
-        tags: item.tags || [],
+        tags: Array.isArray(item.tags) ? item.tags : [],
       });
+
+      // Load technical specs
+      if (item.technicalSpecs && typeof item.technicalSpecs === "object") {
+        const loadedSpecs = Object.entries(item.technicalSpecs).map(
+          ([label, value]) => ({
+            label,
+            value: String(value),
+          }),
+        );
+        setSpecs(loadedSpecs);
+      } else {
+        setSpecs([]);
+      }
 
       // Load pricing if exists
       if (item.pricing) {
@@ -279,6 +296,7 @@ export default function ItemForm({
         tags: [],
         images: [],
       });
+      setSpecs([]);
       setPricing(null);
       setTiers([]);
       setImages([]);
@@ -296,6 +314,18 @@ export default function ItemForm({
       if (!payload.identity) payload.identity = null;
       if (!payload.location) payload.location = null;
       if (!payload.description) payload.description = null;
+
+      // Add technical specs
+      if (specs.length > 0) {
+        payload.technicalSpecs = specs.reduce((acc: any, spec) => {
+          if (spec.label.trim()) {
+            acc[spec.label.trim()] = spec.value;
+          }
+          return acc;
+        }, {});
+      } else {
+        payload.technicalSpecs = null;
+      }
 
       // Add pricing if exists or has values
       if (
@@ -492,6 +522,28 @@ export default function ItemForm({
                   />
                 )}
               />
+            </div>
+
+            {/* Tags Row */}
+            <div className="col-12">
+              <label htmlFor="tags" className="block text-900 font-medium mb-2">
+                Etiquetas (Tags)
+              </label>
+              <Controller
+                name="tags"
+                control={control}
+                render={({ field }) => (
+                  <Chips
+                    id="tags"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.value)}
+                    placeholder="Escribe y presiona Enter para añadir etiquetas"
+                    separator=","
+                    className="w-full"
+                  />
+                )}
+              />
+              <small className="text-500">Ej: aceite, sintético, 10w40</small>
             </div>
 
             {/* Row 4: Marca, Categoría, Modelo, Unidad (4 columnas) */}
@@ -1202,6 +1254,82 @@ export default function ItemForm({
                 </div>
               </div>
             </Dialog>
+          </div>
+        </TabPanel>
+
+        <TabPanel header="Especificaciones" leftIcon="pi pi-list">
+          <div className="p-4">
+            <div className="mb-3 flex justify-content-between align-items-center">
+              <h3 className="text-xl font-bold text-900">
+                Especificaciones Técnicas
+              </h3>
+              <Button
+                type="button"
+                label="+ Añadir Especificación"
+                icon="pi pi-plus"
+                onClick={() => {
+                  setSpecs([...specs, { label: "", value: "" }]);
+                }}
+                size="small"
+              />
+            </div>
+
+            {specs.length === 0 ? (
+              <div className="text-center p-4 bg-surface-50 rounded border-1 border-surface-200">
+                <p className="text-surface-500">
+                  No hay especificaciones técnicas añadidas
+                </p>
+              </div>
+            ) : (
+              <DataTable value={specs} responsiveLayout="scroll">
+                <Column
+                  header="Nombre (Label)"
+                  body={(row, { rowIndex }) => (
+                    <InputText
+                      value={row.label}
+                      onChange={(e) => {
+                        const newSpecs = [...specs];
+                        newSpecs[rowIndex].label = e.target.value;
+                        setSpecs(newSpecs);
+                      }}
+                      placeholder="Ej: Voltaje, Material, Peso"
+                      className="w-full"
+                    />
+                  )}
+                />
+                <Column
+                  header="Valor"
+                  body={(row, { rowIndex }) => (
+                    <InputText
+                      value={row.value}
+                      onChange={(e) => {
+                        const newSpecs = [...specs];
+                        newSpecs[rowIndex].value = e.target.value;
+                        setSpecs(newSpecs);
+                      }}
+                      placeholder="Ej: 110V, Aluminio, 2kg"
+                      className="w-full"
+                    />
+                  )}
+                />
+                <Column
+                  header="Acciones"
+                  body={(row, { rowIndex }) => (
+                    <Button
+                      type="button"
+                      icon="pi pi-trash"
+                      severity="danger"
+                      rounded
+                      text
+                      onClick={() => {
+                        setSpecs(specs.filter((_, i) => i !== rowIndex));
+                      }}
+                    />
+                  )}
+                  style={{ width: "4rem" }}
+                />
+              </DataTable>
+            )}
           </div>
         </TabPanel>
       </TabView>

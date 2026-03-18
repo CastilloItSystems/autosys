@@ -24,6 +24,7 @@ export interface ISearchResult {
   sku: string
   code?: string
   identity?: string
+  location?: string
   name: string
   description?: string
   categoryName: string

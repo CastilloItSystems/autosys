@@ -246,6 +246,8 @@ class ItemService {
       'name',
       'sku',
       'code',
+      'identity',
+      'location',
       'createdAt',
       'costPrice',
       'salePrice',

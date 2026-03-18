@@ -61,6 +61,26 @@ export class SearchService {
 
     const total = await prisma.item.count({ where })
 
+    // Whitelist for sorting to prevent injection and handle mapping
+    const SORT_MAPPING: Record<string, any> = {
+      name: { name: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      sku: { sku: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      code: { code: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      identity: { identity: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      location: { location: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      salePrice: {
+        salePrice: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc',
+      },
+      createdAt: {
+        createdAt: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc',
+      },
+    }
+
+    const orderBy =
+      searchQuery.sortBy && SORT_MAPPING[searchQuery.sortBy]
+        ? SORT_MAPPING[searchQuery.sortBy]
+        : { name: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' }
+
     const items = await prisma.item.findMany({
       where,
       select: {
@@ -68,6 +88,7 @@ export class SearchService {
         sku: true,
         code: true,
         identity: true,
+        location: true,
         name: true,
         description: true,
         model: {
@@ -101,14 +122,10 @@ export class SearchService {
           },
           take: 1,
         },
-        // Asumiendo que hay un campo quantity o calculo de stock, si no está directo en item,
-        // habría que ver cómo lo obtiene el getAll. Por ahora agrego lo que es seguro del modelo.
       },
       skip,
       take,
-      orderBy: {
-        name: searchQuery.sortOrder === 'asc' ? 'asc' : 'desc',
-      },
+      orderBy: orderBy,
     })
 
     // Calcular score de relevancia
@@ -143,6 +160,7 @@ export class SearchService {
         sku: item.sku,
         code: item.code,
         identity: item.identity,
+        location: item.location,
         name: item.name,
         description: item.description,
         categoryName: item.category?.name,
@@ -160,8 +178,8 @@ export class SearchService {
       }
     })
 
-    // Ordenar por score si es búsqueda libre
-    if (searchQuery.sortBy === 'relevance') {
+    // Ordenar por score si es búsqueda libre y NO se especificó un ordenamiento de columna
+    if (searchQuery.sortBy === 'relevance' || !searchQuery.sortBy) {
       results.sort((a, b) => b.score - a.score)
     }
 

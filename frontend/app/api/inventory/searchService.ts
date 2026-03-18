@@ -53,7 +53,7 @@ export interface ISearchFilters {
 export interface ISearchRequest {
   query: string;
   filters?: ISearchFilters;
-  sortBy?: "relevance" | "price" | "name";
+  sortBy?: string;
   sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;
