@@ -39,10 +39,15 @@ export class CreateItemDTO {
     this.categoryId = String(d.categoryId ?? '')
     this.unitId = String(d.unitId ?? '')
 
-    if (d.barcode !== undefined) this.barcode = d.barcode == null ? null : String(d.barcode)
-    if (d.description !== undefined) this.description = d.description == null ? null : String(d.description)
-    if (d.modelId !== undefined) this.modelId = d.modelId == null ? null : String(d.modelId)
-    if (d.location !== undefined) this.location = d.location == null ? null : String(d.location).toUpperCase()
+    if (d.barcode !== undefined)
+      this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.description !== undefined)
+      this.description = d.description == null ? null : String(d.description)
+    if (d.modelId !== undefined)
+      this.modelId = d.modelId == null ? null : String(d.modelId)
+    if (d.location !== undefined)
+      this.location =
+        d.location == null ? null : String(d.location).toUpperCase()
 
     this.costPrice = Number(d.costPrice ?? 0)
     this.salePrice = Number(d.salePrice ?? 0)
@@ -110,7 +115,8 @@ export class UpdateItemDTO {
       this.modelId = d.modelId == null ? null : String(d.modelId)
     if (d.unitId !== undefined) this.unitId = String(d.unitId)
     if (d.location !== undefined)
-      this.location = d.location == null ? null : String(d.location).toUpperCase()
+      this.location =
+        d.location == null ? null : String(d.location).toUpperCase()
     if (d.costPrice !== undefined) this.costPrice = Number(d.costPrice)
     if (d.salePrice !== undefined) this.salePrice = Number(d.salePrice)
     if (d.wholesalePrice !== undefined)
