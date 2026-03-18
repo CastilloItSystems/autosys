@@ -162,6 +162,7 @@ class ItemService {
           timestamp: new Date().toISOString(),
         } as never,
         ...(data.barcode != null ? { barcode: data.barcode } : {}),
+        ...(data.identity != null ? { identity: data.identity } : {}),
         ...(data.description != null ? { description: data.description } : {}),
         ...(data.modelId != null ? { modelId: data.modelId } : {}),
         ...(data.location != null
@@ -257,6 +258,7 @@ class ItemService {
       where.OR = [
         { sku: { contains: filters.search, mode: 'insensitive' } },
         { code: { contains: filters.search, mode: 'insensitive' } },
+        { identity: { contains: filters.search, mode: 'insensitive' } },
         { name: { contains: filters.search, mode: 'insensitive' } },
         { barcode: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
@@ -329,6 +331,7 @@ class ItemService {
         isActive: true,
         OR: [
           { sku: { contains: term, mode: 'insensitive' } },
+          { identity: { contains: term, mode: 'insensitive' } },
           { name: { contains: term, mode: 'insensitive' } },
           { barcode: { contains: term, mode: 'insensitive' } },
           { tags: { has: term.toLowerCase() } },
@@ -460,6 +463,7 @@ class ItemService {
     if (data.sku !== undefined) updateData.sku = data.sku.toUpperCase()
     if (data.code !== undefined) updateData.code = data.code
     if (data.barcode !== undefined) updateData.barcode = data.barcode ?? null
+    if (data.identity !== undefined) updateData.identity = data.identity ?? null
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined)
       updateData.description = data.description ?? null

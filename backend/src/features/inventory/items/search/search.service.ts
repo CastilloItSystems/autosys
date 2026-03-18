@@ -36,6 +36,7 @@ export class SearchService {
       OR: [
         { sku: { contains: searchQuery.query, mode: 'insensitive' } },
         { code: { contains: searchQuery.query, mode: 'insensitive' } },
+        { identity: { contains: searchQuery.query, mode: 'insensitive' } },
         { name: { contains: searchQuery.query, mode: 'insensitive' } },
         { description: { contains: searchQuery.query, mode: 'insensitive' } },
       ],
@@ -66,6 +67,7 @@ export class SearchService {
         id: true,
         sku: true,
         code: true,
+        identity: true,
         name: true,
         description: true,
         model: {
@@ -122,6 +124,10 @@ export class SearchService {
       if (item.code?.toLowerCase() === queryLower) score += 90
       else if (item.code?.toLowerCase().includes(queryLower)) score += 45
 
+      // Identity match
+      if (item.identity?.toLowerCase() === queryLower) score += 85
+      else if (item.identity?.toLowerCase().includes(queryLower)) score += 42
+
       // Nombre match
       if (item.name.toLowerCase() === queryLower) score += 80
       else if (item.name.toLowerCase().includes(queryLower)) score += 40
@@ -136,6 +142,7 @@ export class SearchService {
         id: item.id,
         sku: item.sku,
         code: item.code,
+        identity: item.identity,
         name: item.name,
         description: item.description,
         categoryName: item.category?.name,
@@ -179,6 +186,7 @@ export class SearchService {
       where.OR = [
         { sku: { contains: query, mode: 'insensitive' } },
         { code: { contains: query, mode: 'insensitive' } },
+        { identity: { contains: query, mode: 'insensitive' } },
         { name: { contains: query, mode: 'insensitive' } },
         { description: { contains: query, mode: 'insensitive' } },
       ]
@@ -307,6 +315,7 @@ export class SearchService {
       where: {
         OR: [
           { sku: { contains: query, mode: 'insensitive' } },
+          { identity: { contains: query, mode: 'insensitive' } },
           { name: { contains: query, mode: 'insensitive' } },
         ],
         isActive: true,

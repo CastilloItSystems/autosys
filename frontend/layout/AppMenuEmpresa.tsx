@@ -16,7 +16,7 @@ const AppMenuEmpresa = () => {
     // DASHBOARDS Y OPERACIONES PRINCIPALES
     // =============================================
     {
-      label: activeEmpresa?.nombre || "Selecciona una Empresa",
+      label: activeEmpresa?.name_prefijo || "Selecciona una Empresa",
       icon: "pi pi-home",
       items: [
         {

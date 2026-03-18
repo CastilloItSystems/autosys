@@ -29,6 +29,10 @@ export const createItemSchema = Joi.object({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
   }),
 
+  identity: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'La identidad no puede exceder 100 caracteres',
+  }),
+
   name: Joi.string().min(3).max(200).required().messages({
     'string.empty': 'El nombre es requerido',
     'string.min': 'El nombre debe tener al menos 3 caracteres',
@@ -185,6 +189,10 @@ export const updateItemSchema = Joi.object({
 
   barcode: Joi.string().max(50).allow('', null).optional().messages({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
+  }),
+
+  identity: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'La identidad no puede exceder 100 caracteres',
   }),
 
   name: Joi.string().min(3).max(200).optional().messages({

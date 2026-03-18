@@ -23,6 +23,7 @@ export interface ISearchResult {
   id: string
   sku: string
   code?: string
+  identity?: string
   name: string
   description?: string
   categoryName: string

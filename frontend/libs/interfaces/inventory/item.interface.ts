@@ -21,6 +21,7 @@ export interface Item {
   _id?: string;
   id?: string; // For backward compatibility
   sku?: string;
+  identity?: string;
   codigo?: string;
   nombre: string;
   descripcion?: string;

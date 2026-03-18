@@ -48,6 +48,7 @@ export interface Item {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   quantity?: number;
   minStock?: number;
   maxStock?: number;
@@ -109,6 +110,7 @@ export interface CreateItemRequest {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   minStock?: number;
   maxStock?: number;
   reorderPoint?: number;
@@ -144,6 +146,7 @@ export interface UpdateItemRequest {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   minStock?: number;
   maxStock?: number;
   reorderPoint?: number;

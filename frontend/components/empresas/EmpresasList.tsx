@@ -305,7 +305,13 @@ const EmpresasList = () => {
           scrollable
           rowsPerPageOptions={[10, 25, 50]}
           filters={filters}
-          globalFilterFields={["nombre", "numerorif", "direccion", "email"]}
+          globalFilterFields={[
+            "nombre",
+            "numerorif",
+            "direccion",
+            "email",
+            "name_prefijo",
+          ]}
           loading={loading}
           emptyMessage="No se encontraron empresas."
           size="small"
@@ -327,6 +333,12 @@ const EmpresasList = () => {
             header="Dirección"
             sortable
             style={{ minWidth: "250px" }}
+          ></Column>
+          <Column
+            field="name_prefijo"
+            header="Prefijo"
+            sortable
+            style={{ minWidth: "150px" }}
           ></Column>
           <Column
             field="telefonos"

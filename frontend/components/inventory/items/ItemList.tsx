@@ -183,7 +183,7 @@ const ItemList = () => {
     // showDetails(fullItem as unknown as Item);
 
     // Opción 2: Filtrar la tabla (elegida por consistencia)
-    setSearchQuery(selected.name);
+    setSearchQuery(selected.identity || selected.sku || selected.name);
     setPage(0);
   };
 
@@ -201,6 +201,7 @@ const ItemList = () => {
           <span className="font-bold text-sm">{item.name}</span>
           <span className="text-xs text-600">
             {item.sku || item.code ? `${item.sku || item.code} - ` : ""}
+            {item.identity ? `${item.identity} - ` : ""}
             {item.categoryName}
           </span>
         </div>
@@ -359,6 +360,10 @@ const ItemList = () => {
     );
   };
 
+  const identityBodyTemplate = (rowData: Item) => {
+    return <span>{rowData.identity || "-"}</span>;
+  };
+
   const quantityBodyTemplate = (rowData: Item) => {
     const amount = rowData.quantity || 0;
     const minStock = rowData.minStock || 0;
@@ -506,6 +511,11 @@ const ItemList = () => {
                 >
                   {item.name}
                 </div>
+                {item.identity && (
+                  <div className="text-600" style={{ fontSize: "0.72rem" }}>
+                    Identidad: {item.identity}
+                  </div>
+                )}
                 {item.brand?.name && (
                   <div
                     className="flex align-items-center justify-content-center gap-1 mt-1 text-600"
@@ -648,6 +658,7 @@ const ItemList = () => {
                     ? ` ${item.sku ? "|" : ""} Código: ${item.code}`
                     : ""}
                 </span>
+                {item.identity && <span>Identidad: {item.identity}</span>}
                 <span>
                   <i className="pi pi-tag text-xs mr-1" />
                   {item.category?.name || "-"}
@@ -790,6 +801,7 @@ const ItemList = () => {
               completeMethod={searchSuggestions}
               field="name"
               placeholder="Buscar (SKU, Nombre, Desc...)"
+              placeholder="Buscar (SKU, Código, Identidad, Nombre...)"
               itemTemplate={itemSuggestionTemplate}
               onSelect={onSuggestionSelect}
               onChange={(e) => handleSearch(e.value)}
@@ -878,6 +890,12 @@ const ItemList = () => {
               header="Nombre"
               sortable
               style={{ minWidth: "250px" }}
+            />
+            <Column
+              field="identity"
+              header="Identidad"
+              body={identityBodyTemplate}
+              style={{ minWidth: "160px" }}
             />
             <Column
               field="brand.name"
@@ -1054,6 +1072,13 @@ const ItemList = () => {
                       </span>
                       <span className="text-xl font-bold text-900">
                         {selectedItem.name}
+                      </span>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <span className="text-sm text-500 block">Identidad</span>
+                      <span className="text-lg font-semibold">
+                        {selectedItem.identity || "-"}
                       </span>
                     </div>
 

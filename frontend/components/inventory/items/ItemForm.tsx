@@ -78,6 +78,7 @@ const itemSchema = z.object({
   unitId: z.string().min(1, "Unidad requerida"),
   sku: z.string().min(3, "SKU min 3").max(50, "SKU max 50").toUpperCase(),
   barcode: z.string().max(50).optional(),
+  identity: z.string().max(100, "Identidad max 100 caracteres").optional(),
   minStock: z.number().min(0).default(5),
   maxStock: z.number().min(0).nullable(),
   reorderPoint: z.number().min(0).default(10),
@@ -148,6 +149,7 @@ export default function ItemForm({
       unitId: "",
       sku: "",
       barcode: "",
+      identity: "",
       minStock: 5,
       maxStock: 100,
       reorderPoint: 10,
@@ -224,6 +226,7 @@ export default function ItemForm({
         unitId: item.unitId || "",
         sku: item.sku || "",
         barcode: item.barcode || "",
+        identity: item.identity || "",
         minStock: item.minStock || 5,
         maxStock: item.maxStock || 100,
         reorderPoint: item.reorderPoint || 10,
@@ -260,6 +263,7 @@ export default function ItemForm({
         unitId: "",
         sku: "",
         barcode: "",
+        identity: "",
         minStock: 5,
         maxStock: 100,
         reorderPoint: 10,
@@ -289,6 +293,7 @@ export default function ItemForm({
 
       if (!payload.modelId) payload.modelId = null;
       if (!payload.barcode) payload.barcode = null;
+      if (!payload.identity) payload.identity = null;
       if (!payload.location) payload.location = null;
       if (!payload.description) payload.description = null;
 
@@ -347,8 +352,8 @@ export default function ItemForm({
       >
         <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
           <div className="grid">
-            {/* Row 1: SKU, Código, Barcode */}
-            <div className="col-12 md:col-4">
+            {/* Row 1: SKU, Código, Barcode, Identidad */}
+            <div className="col-12 md:col-3">
               <label htmlFor="sku" className="block text-900 font-medium mb-2">
                 SKU <span className="text-red-500">*</span>
               </label>
@@ -375,7 +380,7 @@ export default function ItemForm({
               )}
             </div>
 
-            <div className="col-12 md:col-4">
+            <div className="col-12 md:col-3">
               <label htmlFor="code" className="block text-900 font-medium mb-2">
                 Código <span className="text-red-500">*</span>
               </label>
@@ -397,7 +402,7 @@ export default function ItemForm({
               )}
             </div>
 
-            <div className="col-12 md:col-4">
+            <div className="col-12 md:col-3">
               <label
                 htmlFor="barcode"
                 className="block text-900 font-medium mb-2"
@@ -416,6 +421,32 @@ export default function ItemForm({
                   />
                 )}
               />
+            </div>
+
+            <div className="col-12 md:col-3">
+              <label
+                htmlFor="identity"
+                className="block text-900 font-medium mb-2"
+              >
+                Identidad
+              </label>
+              <Controller
+                name="identity"
+                control={control}
+                render={({ field }) => (
+                  <InputText
+                    id="identity"
+                    {...field}
+                    placeholder="Identidad del artículo"
+                    className={errors.identity ? "p-invalid" : ""}
+                  />
+                )}
+              />
+              {errors.identity && (
+                <small className="p-error block">
+                  {errors.identity.message}
+                </small>
+              )}
             </div>
 
             {/* Row 2: Nombre completo */}

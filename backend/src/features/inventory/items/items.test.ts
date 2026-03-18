@@ -16,6 +16,7 @@ describe('Items API Tests', () => {
   const testSKU = 'TEST-SKU-001'
   const createTestSKU = 'TEST-SKU-CREATE'
   const testBarcode = 'TEST-BC-001'
+  const testIdentity = 'TEST-IDENTITY-001'
 
   beforeAll(async () => {
     const creds = await getTestCredentials()
@@ -100,6 +101,7 @@ describe('Items API Tests', () => {
         sku: testSKU,
         code: testSKU,
         barcode: testBarcode,
+        identity: testIdentity,
         name: 'Test Item',
         description: 'Item de prueba',
         brandId,
@@ -162,6 +164,7 @@ describe('Items API Tests', () => {
           sku: createTestSKU,
           code: createTestSKU,
           barcode: 'UNIQUE-CREATE-BC',
+          identity: 'CREATE-IDENTITY-001',
           name: 'Test Item',
           description: 'Item de prueba',
           brandId,
@@ -182,6 +185,7 @@ describe('Items API Tests', () => {
       expect(res.status).toBe(201)
       expect(res.body.success).toBe(true)
       expect(res.body.data.sku).toBe(createTestSKU)
+      expect(res.body.data.identity).toBe('CREATE-IDENTITY-001')
       expect(res.body.data.name).toBe('Test Item')
       itemId = res.body.data.id
     })
@@ -323,6 +327,20 @@ describe('Items API Tests', () => {
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
+    })
+
+    test('Debe buscar artículos por identity', async () => {
+      const res = await request(app)
+        .get('/api/inventory/items/search')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .query({ term: testIdentity })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(
+        res.body.data.some((item: any) => item.identity === testIdentity)
+      ).toBe(true)
     })
 
     test('Debe fallar sin término de búsqueda', async () => {

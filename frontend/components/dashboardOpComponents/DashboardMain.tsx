@@ -102,7 +102,7 @@ const DashboardMain = () => {
           empresasFilter.map((empresa, idx) => (
             <motion.div
               key={empresa.id_empresa}
-              className="col-12 md:col-6 lg:col-4 xl:col-3 p-2 clickable"
+              className="col-12 md:col-6 lg:col-4 xl:col-4 p-2 clickable"
               onClick={() => handleDivClick(empresa)}
               initial={{ opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" }}
               animate={{ opacity: 1, y: 0, scale: 1, filter: "blur(0px)" }}
@@ -129,11 +129,11 @@ const DashboardMain = () => {
                     style={{ background: "#f4f6fa" }}
                   />
                   <div className="ml-3">
-                    <span className="text-primary block white-space-nowrap text-xs font-medium opacity-80">
+                    {/* <span className="text-primary block white-space-nowrap text-xs font-medium opacity-80">
                       {empresa.direccion}
-                    </span>
+                    </span> */}
                     <span className="text-primary block text-2xl md:text-3xl font-bold mb-1">
-                      {empresa.nombre}
+                      {empresa.name_prefijo}
                     </span>
                     <span className="text-primary block white-space-nowrap text-xs opacity-70">
                       {empresa.numerorif}

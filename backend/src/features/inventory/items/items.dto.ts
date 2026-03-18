@@ -8,6 +8,7 @@ export class CreateItemDTO {
   sku: string
   code: string
   barcode?: string | null
+  identity?: string | null
   name: string
   description?: string | null
   brandId: string
@@ -41,6 +42,8 @@ export class CreateItemDTO {
 
     if (d.barcode !== undefined)
       this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.identity !== undefined)
+      this.identity = d.identity == null ? null : String(d.identity)
     if (d.description !== undefined)
       this.description = d.description == null ? null : String(d.description)
     if (d.modelId !== undefined)
@@ -78,6 +81,7 @@ export class UpdateItemDTO {
   sku?: string
   code?: string
   barcode?: string | null
+  identity?: string | null
   name?: string
   description?: string | null
   brandId?: string
@@ -106,6 +110,8 @@ export class UpdateItemDTO {
     if (d.code !== undefined) this.code = String(d.code)
     if (d.barcode !== undefined)
       this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.identity !== undefined)
+      this.identity = d.identity == null ? null : String(d.identity)
     if (d.name !== undefined) this.name = String(d.name)
     if (d.description !== undefined)
       this.description = d.description == null ? null : String(d.description)
@@ -143,6 +149,7 @@ export class ItemResponseDTO {
   sku: string
   code: string
   barcode?: string | null
+  identity?: string | null
   name: string
   description?: string | null
 
@@ -211,6 +218,8 @@ export class ItemResponseDTO {
 
     if (i.barcode !== undefined)
       this.barcode = (i.barcode as string | null) ?? null
+    if (i.identity !== undefined)
+      this.identity = (i.identity as string | null) ?? null
     if (i.description !== undefined)
       this.description = (i.description as string | null) ?? null
     if (i.modelId !== undefined)

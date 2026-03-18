@@ -4,6 +4,7 @@ export interface IItem {
   sku: string
   code: string
   barcode?: string | null
+  identity?: string | null
   name: string
   description?: string | null
 
@@ -91,6 +92,7 @@ export interface ICreateItemInput {
   sku: string
   code: string
   barcode?: string | undefined
+  identity?: string | undefined
   name: string
   description?: string | undefined
   brandId: string
@@ -117,6 +119,7 @@ export interface IUpdateItemInput {
   sku?: string | undefined
   code?: string | undefined
   barcode?: string | undefined
+  identity?: string | undefined
   name?: string | undefined
   description?: string | undefined
   brandId?: string | undefined

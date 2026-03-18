@@ -264,7 +264,21 @@ const EmpresaForm = ({
                 </small>
               )}
             </div>
-
+            <div className="field mb-4 col-12 md:col-6">
+              <label htmlFor="name_prefijo" className="font-medium text-900">
+                Nombre del Prefijo
+              </label>
+              <InputText
+                id="name_prefijo"
+                className={classNames("w-full", {
+                  "p-invalid": errors.name_prefijo,
+                })}
+                {...register("name_prefijo")}
+              />
+              {errors.name_prefijo && (
+                <small className="p-error">{errors.name_prefijo.message}</small>
+              )}
+            </div>
             {/* Información de Contacto */}
             <div className="col-12">
               <h5 className="text-900 font-medium mb-4 mt-4">
