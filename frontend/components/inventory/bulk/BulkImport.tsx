@@ -43,6 +43,8 @@ const SYSTEM_FIELDS: FieldDef[] = [
   { key: "wholesalePrice", label: "Precio mayoreo",    required: false, description: "Precio de mayoreo (número)" },
   { key: "minStock",       label: "Stock mínimo",      required: false, description: "Cantidad mínima en stock" },
   { key: "barcode",        label: "Código de barras",  required: false, description: "EAN/UPC/QR" },
+  { key: "identity",       label: "Identidad",         required: false, description: "Identidad del artículo" },
+  { key: "location",       label: "Ubicación",         required: false, description: "M1-R01-D03" },
   { key: "description",    label: "Descripción",       required: false, description: "Descripción del artículo" },
   { key: "model",          label: "Modelo",            required: false, description: "Número o nombre de modelo" },
   { key: "isActive",       label: "Activo",            required: false, description: "true/false" },

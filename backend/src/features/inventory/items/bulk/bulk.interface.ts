@@ -34,6 +34,8 @@ export interface IBulkImportData {
   stock: number
   minStock?: number
   barcode?: string
+  identity?: string
+  location?: string
   [key: string]: any
 }
 

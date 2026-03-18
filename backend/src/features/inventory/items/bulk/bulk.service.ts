@@ -120,6 +120,8 @@ export class BulkService {
       row.name = normalize(row.name)
       row.description = normalize(row.description)
       row.barcode = normalize(row.barcode)
+      row.identity = normalize(row.identity)
+      row.location = normalize(row.location)
       row.category = normalize(row.category)
       row.brand = normalize(row.brand)
       row.unit = normalize(row.unit)
@@ -221,6 +223,8 @@ export class BulkService {
             wholesalePrice: row.wholesalePrice ?? undefined,
             minStock: row.minStock ?? 0,
             barcode: row.barcode,
+            identity: row.identity,
+            location: row.location?.toUpperCase(),
             isActive: true,
             empresaId: empresaId as string,
             brandId: row.brandId,
@@ -267,6 +271,8 @@ export class BulkService {
                 wholesalePrice: row.wholesalePrice,
                 minStock: row.minStock,
                 barcode: row.barcode,
+                identity: row.identity,
+                location: row.location?.toUpperCase(),
               },
             })
           )
@@ -484,6 +490,8 @@ export class BulkService {
       'maxStock',
       'reorderPoint',
       'barcode',
+      'identity',
+      'location',
       'isActive',
       'categoryId',
       'brandId',

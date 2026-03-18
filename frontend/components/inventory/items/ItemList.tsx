@@ -364,6 +364,15 @@ const ItemList = () => {
     return <span>{rowData.identity || "-"}</span>;
   };
 
+  const locationBodyTemplate = (rowData: Item) => {
+    return (
+      <div className="flex align-items-center gap-2">
+        <i className="pi pi-map-marker text-500" style={{ fontSize: "0.8rem" }}></i>
+        <span className="text-sm font-medium">{rowData.location || "-"}</span>
+      </div>
+    );
+  };
+
   const quantityBodyTemplate = (rowData: Item) => {
     const amount = rowData.quantity || 0;
     const minStock = rowData.minStock || 0;
@@ -563,6 +572,15 @@ const ItemList = () => {
               className="flex align-items-center justify-content-center gap-2 px-3 pb-1 text-500"
               style={{ fontSize: "0.65rem" }}
             >
+              {item.location && (
+                <span title="Ubicación">
+                  <i
+                    className="pi pi-map-marker mr-1"
+                    style={{ fontSize: "0.6rem" }}
+                  />
+                  {item.location}
+                </span>
+              )}
               {item.images && item.images.length > 0 && (
                 <span>
                   <i
@@ -667,6 +685,12 @@ const ItemList = () => {
                   <span>
                     <i className="pi pi-box text-xs mr-1" />
                     {item.brand.name}
+                  </span>
+                )}
+                {item.location && (
+                  <span>
+                    <i className="pi pi-map-marker text-xs mr-1" />
+                    {item.location}
                   </span>
                 )}
                 {item.tags && item.tags.length > 0 && (
@@ -800,7 +824,6 @@ const ItemList = () => {
               suggestions={suggestions}
               completeMethod={searchSuggestions}
               field="name"
-              placeholder="Buscar (SKU, Nombre, Desc...)"
               placeholder="Buscar (SKU, Código, Identidad, Nombre...)"
               itemTemplate={itemSuggestionTemplate}
               onSelect={onSuggestionSelect}
@@ -896,6 +919,13 @@ const ItemList = () => {
               header="Identidad"
               body={identityBodyTemplate}
               style={{ minWidth: "160px" }}
+            />
+            <Column
+              field="location"
+              header="Ubicación"
+              body={locationBodyTemplate}
+              sortable
+              style={{ minWidth: "140px" }}
             />
             <Column
               field="brand.name"
@@ -1093,6 +1123,13 @@ const ItemList = () => {
                       <span className="text-sm text-500 block">Categoría</span>
                       <span className="text-lg font-semibold">
                         {selectedItem.category?.name || "-"}
+                      </span>
+                    </div>
+
+                    <div className="col-12 md:col-6 mb-3">
+                      <span className="text-sm text-500 block">Ubicación</span>
+                      <span className="text-lg font-semibold">
+                        {selectedItem.location || "-"}
                       </span>
                     </div>
 

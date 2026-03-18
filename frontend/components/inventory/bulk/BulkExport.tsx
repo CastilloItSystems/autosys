@@ -34,6 +34,8 @@ const ALL_COLUMNS = [
   "minStock",
   "maxStock",
   "barcode",
+  "identity",
+  "location",
   "unit",
   "status",
   "createdAt",
