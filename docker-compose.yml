@@ -1,6 +1,6 @@
 services:
   api-backend:
-    build: ./backend
+   # build: ./backend
     image: ghcr.io/castilloitsystems/autosys-backend:latest
     container_name: mi_backend_autosys
     restart: always
