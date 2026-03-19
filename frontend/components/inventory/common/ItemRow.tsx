@@ -35,21 +35,22 @@ export interface ItemRowColWidths {
   itemName?: React.CSSProperties;
   quantity: React.CSSProperties;
   unitCost?: React.CSSProperties;
+  discountPercent?: React.CSSProperties;
+  taxType?: React.CSSProperties;
+  totalLine?: React.CSSProperties;
   location?: React.CSSProperties;
   batch?: React.CSSProperties;
   remove: React.CSSProperties;
 }
 
-/**
- * Full field paths for each column, e.g. "items.0.quantityReceived".
- * The error key is derived automatically from the last segment of the path.
- * Only provide paths for fields you want to render.
- */
 export interface ItemRowFieldPaths {
   itemId: string;
   itemName: string;
   quantity: string;
   unitCost?: string;
+  discountPercent?: string;
+  taxType?: string;
+  totalLine?: string; // Solo lectura
   location?: string;
   batch?: string;
 }
@@ -123,6 +124,9 @@ export default function ItemRow({
   const itemNameKey = leafKey(fieldPaths.itemName);
   const qtyKey = leafKey(fieldPaths.quantity);
   const costKey = fieldPaths.unitCost ? leafKey(fieldPaths.unitCost) : null;
+  const discountKey = fieldPaths.discountPercent
+    ? leafKey(fieldPaths.discountPercent)
+    : null;
   const locKey = fieldPaths.location ? leafKey(fieldPaths.location) : null;
   const batchKey = fieldPaths.batch ? leafKey(fieldPaths.batch) : null;
 
@@ -130,6 +134,7 @@ export default function ItemRow({
   const itemNameError = rowErrors?.[itemNameKey]?.message;
   const qtyError = rowErrors?.[qtyKey]?.message;
   const costError = costKey ? rowErrors?.[costKey]?.message : null;
+  const discountError = discountKey ? rowErrors?.[discountKey]?.message : null;
 
   /**
    * Resolve the current value (ID) to display text for AutoComplete.
@@ -188,7 +193,15 @@ export default function ItemRow({
   };
 
   return (
-    <div style={rowStyle}>
+    <div
+      style={rowStyle}
+      onKeyDown={(e) => {
+        // Prevent Enter from submitting the parent form in ALL inputs
+        if (e.key === "Enter") {
+          e.preventDefault();
+        }
+      }}
+    >
       {/* ── Drag handle ── */}
       <div
         style={{
@@ -290,7 +303,7 @@ export default function ItemRow({
           render={({ field: f }) => (
             <InputNumber
               value={f.value}
-              onValueChange={(e) => f.onChange(e.value)}
+              onValueChange={(e) => f.onChange(e.value ?? 0)}
               min={quantityMin}
               className="w-full"
               inputClassName={`w-full text-center ${
@@ -324,7 +337,7 @@ export default function ItemRow({
             render={({ field: f }) => (
               <InputNumber
                 value={f.value}
-                onValueChange={(e) => f.onChange(e.value)}
+                onValueChange={(e) => f.onChange(e.value ?? 0)}
                 min={0}
                 minFractionDigits={2}
                 maxFractionDigits={2}
@@ -352,6 +365,98 @@ export default function ItemRow({
               {costError}
             </small>
           )}
+        </div>
+      )}
+
+      {/* ── Descuento (optional) ── */}
+      {fieldPaths.discountPercent && colWidths.discountPercent && (
+        <div style={colWidths.discountPercent}>
+          <Controller
+            name={fieldPaths.discountPercent}
+            control={control}
+            render={({ field: f }) => (
+              <InputNumber
+                value={f.value}
+                onValueChange={(e) => f.onChange(e.value ?? 0)}
+                min={0}
+                max={100}
+                suffix=" %"
+                className="w-full"
+                inputClassName={`w-full text-center ${
+                  discountError ? "p-invalid" : ""
+                }`}
+                inputStyle={{
+                  padding: "0.25rem 0.4rem",
+                  height: "30px",
+                  fontSize: "0.8rem",
+                }}
+                style={{ height: "30px" }}
+              />
+            )}
+          />
+          {discountError && (
+            <small
+              className="p-error"
+              style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+            >
+              {discountError}
+            </small>
+          )}
+        </div>
+      )}
+
+      {/* ── Impuesto (optional) ── */}
+      {fieldPaths.taxType && colWidths.taxType && (
+        <div style={colWidths.taxType}>
+          <Controller
+            name={fieldPaths.taxType}
+            control={control}
+            render={({ field: f }) => (
+              <Dropdown
+                value={f.value}
+                onChange={(e) => f.onChange(e.value)}
+                options={[
+                  { label: "IVA (16%)", value: "IVA" },
+                  { label: "Exento", value: "EXEMPT" },
+                  { label: "Reducido", value: "REDUCED" },
+                ]}
+                className="w-full"
+                style={{
+                  height: "30px",
+                  fontSize: "0.8rem",
+                  alignItems: "center",
+                }}
+                panelStyle={{ fontSize: "0.8rem" }}
+              />
+            )}
+          />
+        </div>
+      )}
+
+      {/* ── Total Linea (optional - read only if passed) ── */}
+      {fieldPaths.totalLine && colWidths.totalLine && (
+        <div style={colWidths.totalLine}>
+          <Controller
+            name={fieldPaths.totalLine}
+            control={control}
+            render={({ field: f }) => (
+              <InputNumber
+                value={f.value}
+                readOnly
+                mode="currency"
+                currency="USD"
+                locale="es-VE"
+                className="w-full"
+                inputClassName="w-full text-right surface-200"
+                inputStyle={{
+                  padding: "0.25rem 0.4rem",
+                  height: "30px",
+                  fontSize: "0.8rem",
+                }}
+                style={{ height: "30px" }}
+              />
+            )}
+          />
         </div>
       )}
 

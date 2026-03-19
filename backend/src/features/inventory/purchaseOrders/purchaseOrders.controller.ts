@@ -11,7 +11,10 @@ import {
   PurchaseOrderItemResponseDTO,
   ReceiveOrderDTO,
 } from './purchaseOrders.dto.js'
-import { IPurchaseOrderFilters, PurchaseOrderStatus } from './purchaseOrders.interface.js'
+import {
+  IPurchaseOrderFilters,
+  PurchaseOrderStatus,
+} from './purchaseOrders.interface.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
@@ -71,7 +74,10 @@ class PurchaseOrderController {
     } = req.query
 
     const filters: IPurchaseOrderFilters = {}
-    if (status && Object.values(PurchaseOrderStatus).includes(status as PurchaseOrderStatus))
+    if (
+      status &&
+      Object.values(PurchaseOrderStatus).includes(status as PurchaseOrderStatus)
+    )
       filters.status = status as PurchaseOrderStatus
     if (supplierId) filters.supplierId = String(supplierId)
     if (warehouseId) filters.warehouseId = String(warehouseId)
@@ -109,9 +115,18 @@ class PurchaseOrderController {
     const { id } = req.params as { id: string }
     const includeItems = req.query.includeItems !== 'false'
 
-    const po = await purchaseOrderService.findById(id, empresaId, includeItems, req.prisma)
+    const po = await purchaseOrderService.findById(
+      id,
+      empresaId,
+      includeItems,
+      req.prisma
+    )
 
-    return ApiResponse.success(res, new PurchaseOrderResponseDTO(po), 'Orden de compra obtenida')
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(po),
+      'Orden de compra obtenida'
+    )
   })
 
   /**
@@ -128,6 +143,13 @@ class PurchaseOrderController {
         {
           supplierId: dto.supplierId,
           warehouseId: dto.warehouseId,
+          currency: dto.currency as any,
+          exchangeRate: dto.exchangeRate as any,
+          paymentTerms: dto.paymentTerms as any,
+          creditDays: dto.creditDays as any,
+          deliveryTerms: dto.deliveryTerms as any,
+          discountAmount: dto.discountAmount as any,
+          igtfApplies: dto.igtfApplies as any,
           notes: dto.notes as any,
           expectedDate: dto.expectedDate as any,
           createdBy: dto.createdBy as any,
@@ -138,7 +160,12 @@ class PurchaseOrderController {
         req.prisma
       )
     } else {
-      result = await purchaseOrderService.create(dto, empresaId, userId, req.prisma)
+      result = await purchaseOrderService.create(
+        dto,
+        empresaId,
+        userId,
+        req.prisma
+      )
     }
 
     return ApiResponse.created(
@@ -156,7 +183,12 @@ class PurchaseOrderController {
     const { id } = req.params as { id: string }
     const dto = new UpdatePurchaseOrderDTO(req.body)
 
-    const result = await purchaseOrderService.update(id, dto, empresaId, req.prisma)
+    const result = await purchaseOrderService.update(
+      id,
+      dto,
+      empresaId,
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,
@@ -212,7 +244,12 @@ class PurchaseOrderController {
     const { id } = req.params as { id: string }
     const dto = new CreatePurchaseOrderItemDTO(req.body)
 
-    const result = await purchaseOrderService.addItem(id, dto, empresaId, req.prisma)
+    const result = await purchaseOrderService.addItem(
+      id,
+      dto,
+      empresaId,
+      req.prisma
+    )
 
     return ApiResponse.created(
       res,
@@ -270,7 +307,11 @@ class PurchaseOrderController {
 
     const result = await purchaseOrderService.delete(id, empresaId, req.prisma)
 
-    return ApiResponse.success(res, result, 'Orden de compra eliminada exitosamente')
+    return ApiResponse.success(
+      res,
+      result,
+      'Orden de compra eliminada exitosamente'
+    )
   })
 }
 

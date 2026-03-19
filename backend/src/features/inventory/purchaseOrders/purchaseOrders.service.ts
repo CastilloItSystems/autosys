@@ -20,7 +20,9 @@ import {
   ICreatePurchaseOrderWithItemsInput,
   IReceiveOrderInput,
   PurchaseOrderStatus,
+  PurchaseOrderCurrency,
 } from './purchaseOrders.interface.js'
+import { calculateOrderTotals } from '../shared/utils/calculateOrderTotals.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -109,15 +111,29 @@ class PurchaseOrderService {
     if (!warehouse)
       throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
 
+    const orderNumber = generateOrderNumber()
+
     const po = await db.purchaseOrder.create({
       data: {
-        orderNumber: generateOrderNumber(),
+        orderNumber,
         supplierId: data.supplierId,
         warehouseId: data.warehouseId,
+        currency: data.currency ?? PurchaseOrderCurrency.USD,
+        exchangeRate: data.exchangeRate ?? null,
+        paymentTerms: data.paymentTerms ?? null,
+        creditDays: data.creditDays ?? null,
+        deliveryTerms: data.deliveryTerms ?? null,
+        discountAmount: data.discountAmount ?? 0,
+        subtotalBruto: data.subtotalBruto ?? 0,
+        baseImponible: data.baseImponible ?? 0,
+        baseExenta: data.baseExenta ?? 0,
+        taxAmount: data.taxAmount ?? 0,
+        taxRate: data.taxRate ?? 16,
+        igtfApplies: data.igtfApplies ?? false,
+        igtfRate: data.igtfRate ?? 3,
+        igtfAmount: data.igtfAmount ?? 0,
         status: PurchaseOrderStatus.DRAFT,
-        subtotal: 0,
-        tax: 0,
-        total: 0,
+        total: data.total ?? 0,
         notes: data.notes ?? null,
         expectedDate: data.expectedDate ?? null,
         createdBy: userId ?? data.createdBy ?? null,
@@ -170,10 +186,16 @@ class PurchaseOrderService {
       )
     }
 
-    const subtotal = data.items.reduce(
-      (sum, item) => sum + item.quantityOrdered * item.unitCost,
-      0
+    const igtfApplies = data.igtfApplies ?? false
+    const globalDiscountAmount = data.discountAmount ?? 0
+    const totals = calculateOrderTotals(
+      data.items,
+      globalDiscountAmount,
+      igtfApplies,
+      data.taxRate ?? 16,
+      data.igtfRate ?? 3
     )
+
     const orderNumber = generateOrderNumber()
 
     const po = await (db as PrismaClient).$transaction(async (tx) => {
@@ -182,18 +204,32 @@ class PurchaseOrderService {
           orderNumber,
           supplierId: data.supplierId,
           warehouseId: data.warehouseId,
+          currency: data.currency ?? PurchaseOrderCurrency.USD,
+          exchangeRate: data.exchangeRate ?? null,
+          paymentTerms: data.paymentTerms ?? null,
+          creditDays: data.creditDays ?? null,
+          deliveryTerms: data.deliveryTerms ?? null,
+          discountAmount: totals.discountAmount,
+          subtotalBruto: totals.subtotalBruto,
+          baseImponible: totals.baseImponible,
+          baseExenta: totals.baseExenta,
+          taxAmount: totals.taxAmount,
+          taxRate: data.taxRate ?? 16,
+          igtfApplies,
+          igtfRate: data.igtfRate ?? 3,
+          igtfAmount: totals.igtfAmount,
           status: PurchaseOrderStatus.DRAFT,
-          subtotal,
-          tax: 0,
-          total: subtotal,
+          total: totals.total,
           notes: data.notes ?? null,
           expectedDate: data.expectedDate ?? null,
           createdBy: userId ?? data.createdBy ?? null,
         },
       })
 
-      for (const item of data.items) {
-        const itemSubtotal = item.quantityOrdered * item.unitCost
+      for (let i = 0; i < data.items.length; i++) {
+        const item = data.items[i]
+        const itemTotals = totals.items[i]
+
         await tx.purchaseOrderItem.create({
           data: {
             purchaseOrderId: createdPO.id,
@@ -202,7 +238,13 @@ class PurchaseOrderService {
             quantityReceived: 0,
             quantityPending: item.quantityOrdered,
             unitCost: item.unitCost,
-            subtotal: itemSubtotal,
+            discountPercent: item.discountPercent ?? 0,
+            discountAmount: itemTotals.discountAmount,
+            taxType: item.taxType,
+            taxRate: itemTotals.taxRate,
+            taxAmount: itemTotals.taxAmount,
+            subtotal: itemTotals.subtotal,
+            totalLine: itemTotals.totalLine,
           },
         })
       }
@@ -336,6 +378,7 @@ class PurchaseOrderService {
     // TENANT-SAFE: verify via warehouse
     const po = await db.purchaseOrder.findFirst({
       where: { id, warehouse: { empresaId } },
+      include: { items: true },
     })
     if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
@@ -348,9 +391,53 @@ class PurchaseOrderService {
 
     const updateData: Record<string, unknown> = {}
     if (data.status !== undefined) updateData.status = data.status
+    if (data.currency !== undefined) updateData.currency = data.currency
+    if (data.exchangeRate !== undefined)
+      updateData.exchangeRate = data.exchangeRate
+    if (data.paymentTerms !== undefined)
+      updateData.paymentTerms = data.paymentTerms
+    if (data.creditDays !== undefined) updateData.creditDays = data.creditDays
+    if (data.deliveryTerms !== undefined)
+      updateData.deliveryTerms = data.deliveryTerms
     if (data.notes !== undefined) updateData.notes = data.notes ?? null
     if (data.expectedDate !== undefined)
       updateData.expectedDate = data.expectedDate ?? null
+
+    // If financial fields change while in DRAFT, we must recalculate totals
+    const isDraft =
+      po.status === PurchaseOrderStatus.DRAFT ||
+      (data.status && data.status === PurchaseOrderStatus.DRAFT)
+    const financialFieldsChanged =
+      data.discountAmount !== undefined || data.igtfApplies !== undefined
+
+    if (isDraft && financialFieldsChanged) {
+      const newDiscountAmount = data.discountAmount ?? Number(po.discountAmount)
+      const newIgtfApplies = data.igtfApplies ?? po.igtfApplies
+
+      const itemsForCalc = po.items.map((i) => ({
+        quantityOrdered: i.quantityOrdered,
+        unitCost: Number(i.unitCost),
+        discountPercent: Number(i.discountPercent),
+        taxType: i.taxType as any,
+      }))
+
+      const newTotals = calculateOrderTotals(
+        itemsForCalc,
+        newDiscountAmount,
+        newIgtfApplies,
+        Number(po.taxRate),
+        Number(po.igtfRate)
+      )
+
+      updateData.discountAmount = newTotals.discountAmount
+      updateData.subtotalBruto = newTotals.subtotalBruto
+      updateData.baseImponible = newTotals.baseImponible
+      updateData.baseExenta = newTotals.baseExenta
+      updateData.taxAmount = newTotals.taxAmount
+      updateData.igtfApplies = newIgtfApplies
+      updateData.igtfAmount = newTotals.igtfAmount
+      updateData.total = newTotals.total
+    }
 
     const updated = await db.purchaseOrder.update({
       where: { id },
@@ -486,7 +573,35 @@ class PurchaseOrderService {
       })
       if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
 
-      const subtotal = data.quantityOrdered * data.unitCost
+      // Pre-fetch existing items to calculate the new order total
+      const existingItems = await tx.purchaseOrderItem.findMany({
+        where: { purchaseOrderId: poId },
+      })
+
+      const calcItems = existingItems.map((i) => ({
+        quantityOrdered: i.quantityOrdered,
+        unitCost: Number(i.unitCost),
+        discountPercent: Number(i.discountPercent),
+        taxType: i.taxType as any,
+      }))
+
+      // Add the new item to the calculation
+      calcItems.push({
+        quantityOrdered: data.quantityOrdered,
+        unitCost: data.unitCost,
+        discountPercent: data.discountPercent ?? 0,
+        taxType: data.taxType as any,
+      })
+
+      const newTotals = calculateOrderTotals(
+        calcItems,
+        Number(po.discountAmount),
+        po.igtfApplies,
+        Number(po.taxRate),
+        Number(po.igtfRate)
+      )
+
+      const newItemTotals = newTotals.items[newTotals.items.length - 1]
 
       const created = await tx.purchaseOrderItem.create({
         data: {
@@ -496,23 +611,27 @@ class PurchaseOrderService {
           quantityReceived: 0,
           quantityPending: data.quantityOrdered,
           unitCost: data.unitCost,
-          subtotal,
+          discountPercent: data.discountPercent ?? 0,
+          discountAmount: newItemTotals.discountAmount,
+          taxType: data.taxType,
+          taxRate: newItemTotals.taxRate,
+          taxAmount: newItemTotals.taxAmount,
+          subtotal: newItemTotals.subtotal,
+          totalLine: newItemTotals.totalLine,
         },
       })
 
       // Recalculate PO totals atomically
-      const allItems = await tx.purchaseOrderItem.findMany({
-        where: { purchaseOrderId: poId },
-      })
-      const newSubtotal = allItems.reduce(
-        (sum, i) => sum + parseFloat(String(i.subtotal)),
-        0
-      )
-      const newTotal = newSubtotal + parseFloat(String(po.tax ?? 0))
-
       await tx.purchaseOrder.update({
         where: { id: poId },
-        data: { subtotal: newSubtotal, total: newTotal },
+        data: {
+          subtotalBruto: newTotals.subtotalBruto,
+          baseImponible: newTotals.baseImponible,
+          baseExenta: newTotals.baseExenta,
+          taxAmount: newTotals.taxAmount,
+          igtfAmount: newTotals.igtfAmount,
+          total: newTotals.total,
+        },
       })
 
       logger.info(`Item agregado a orden de compra: ${poId}`, {
@@ -531,6 +650,9 @@ class PurchaseOrderService {
         (poItem.quantityReceived as number),
       unitCost: parseFloat(String(poItem.unitCost)),
       subtotal: parseFloat(String(poItem.subtotal)),
+      totalLine: parseFloat(String(poItem.totalLine)),
+      discountAmount: parseFloat(String(poItem.discountAmount)),
+      taxAmount: parseFloat(String(poItem.taxAmount)),
     } as unknown as IPurchaseOrderItem
   }
 
@@ -559,6 +681,9 @@ class PurchaseOrderService {
       quantityPending: item.quantityOrdered - item.quantityReceived,
       unitCost: parseFloat(String(item.unitCost)),
       subtotal: parseFloat(String(item.subtotal)),
+      totalLine: parseFloat(String(item.totalLine)),
+      discountAmount: parseFloat(String(item.discountAmount)),
+      taxAmount: parseFloat(String(item.taxAmount)),
     })) as unknown as IPurchaseOrderItem[]
   }
 
@@ -751,8 +876,7 @@ class PurchaseOrderService {
         }
 
         // 2d. Create Movement
-        const movementNumber =
-          MovementNumberGenerator.generateMovementNumber()
+        const movementNumber = MovementNumberGenerator.generateMovementNumber()
 
         await tx.movement.create({
           data: {

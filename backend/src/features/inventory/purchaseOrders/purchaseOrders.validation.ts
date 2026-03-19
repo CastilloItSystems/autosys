@@ -1,7 +1,11 @@
 // backend/src/features/inventory/purchaseOrders/purchaseOrders.validation.ts
 
 import Joi from 'joi'
-import { PurchaseOrderStatus } from './purchaseOrders.interface.js'
+import {
+  PurchaseOrderStatus,
+  PurchaseOrderCurrency,
+  TaxType,
+} from './purchaseOrders.interface.js'
 
 export const createPurchaseOrderSchema = Joi.object({
   supplierId: Joi.string().uuid({ version: 'uuidv4' }).required().messages({
@@ -12,6 +16,15 @@ export const createPurchaseOrderSchema = Joi.object({
     'string.guid': 'warehouseId debe ser un UUID válido',
     'any.required': 'warehouseId es requerido',
   }),
+  currency: Joi.string()
+    .valid(...Object.values(PurchaseOrderCurrency))
+    .optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  paymentTerms: Joi.string().max(255).optional().allow(null),
+  creditDays: Joi.number().integer().min(0).optional().allow(null),
+  deliveryTerms: Joi.string().max(255).optional().allow(null),
+  discountAmount: Joi.number().min(0).optional(),
+  igtfApplies: Joi.boolean().optional(),
   notes: Joi.string().max(2000).optional().allow(null).messages({
     'string.max': 'notes no puede exceder 2000 caracteres',
   }),
@@ -25,6 +38,10 @@ export const createPurchaseOrderSchema = Joi.object({
         itemId: Joi.string().uuid({ version: 'uuidv4' }).required(),
         quantityOrdered: Joi.number().integer().positive().required(),
         unitCost: Joi.number().positive().required(),
+        discountPercent: Joi.number().min(0).max(100).optional(),
+        taxType: Joi.string()
+          .valid(...Object.values(TaxType))
+          .optional(),
       })
     )
     .min(1)
@@ -38,6 +55,15 @@ export const updatePurchaseOrderSchema = Joi.object({
     .messages({
       'any.only': `status debe ser uno de: ${Object.values(PurchaseOrderStatus).join(', ')}`,
     }),
+  currency: Joi.string()
+    .valid(...Object.values(PurchaseOrderCurrency))
+    .optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  paymentTerms: Joi.string().max(255).optional().allow(null),
+  creditDays: Joi.number().integer().min(0).optional().allow(null),
+  deliveryTerms: Joi.string().max(255).optional().allow(null),
+  discountAmount: Joi.number().min(0).optional(),
+  igtfApplies: Joi.boolean().optional(),
   notes: Joi.string().max(2000).optional().allow(null),
   expectedDate: Joi.date().iso().optional().allow(null),
 }).min(1)
@@ -61,6 +87,10 @@ export const addPurchaseOrderItemSchema = Joi.object({
     'number.positive': 'unitCost debe ser un número positivo',
     'any.required': 'unitCost es requerido',
   }),
+  discountPercent: Joi.number().min(0).max(100).optional(),
+  taxType: Joi.string()
+    .valid(...Object.values(TaxType))
+    .optional(),
 })
 
 export const receiveOrderSchema = Joi.object({

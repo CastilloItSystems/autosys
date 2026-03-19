@@ -412,7 +412,7 @@ export default function EntryNoteForm({
       <div className="grid">
         {/* ══ 1. ENCABEZADO ═══════════════════════════════════════════════ */}
         <div className="col-12 md:col-4 field">
-          <label className="font-semibold">
+          <label htmlFor="type" className="block text-900 font-medium mb-2">
             Tipo de Entrada <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -420,7 +420,7 @@ export default function EntryNoteForm({
             control={control}
             render={({ field }) => (
               <Dropdown
-                id={field.name}
+                id="type"
                 value={field.value}
                 onChange={(e) => field.onChange(e.value)}
                 options={typeOptions}
@@ -437,7 +437,10 @@ export default function EntryNoteForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label className="font-semibold">
+          <label
+            htmlFor="warehouseId"
+            className="block text-900 font-medium mb-2"
+          >
             Almacén Destino <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -445,7 +448,7 @@ export default function EntryNoteForm({
             control={control}
             render={({ field }) => (
               <Dropdown
-                id={field.name}
+                id="warehouseId"
                 value={field.value}
                 onChange={(e) => field.onChange(e.value)}
                 options={warehouseOptions}
@@ -462,8 +465,14 @@ export default function EntryNoteForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label>Referencia</label>
+          <label
+            htmlFor="reference"
+            className="block text-900 font-medium mb-2"
+          >
+            Referencia
+          </label>
           <InputText
+            id="reference"
             {...register("reference")}
             placeholder="Nro. factura, guía, OC, etc."
           />
@@ -477,16 +486,25 @@ export default function EntryNoteForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label>Recibido Por</label>
+          <label
+            htmlFor="receivedBy"
+            className="block text-900 font-medium mb-2"
+          >
+            Recibido Por
+          </label>
           <InputText
+            id="receivedBy"
             {...register("receivedBy")}
             placeholder="Nombre de quien recibe"
           />
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label>Motivo / Razón</label>
+          <label htmlFor="reason" className="block text-900 font-medium mb-2">
+            Motivo / Razón
+          </label>
           <InputText
+            id="reason"
             {...register("reason")}
             placeholder="Motivo de la entrada"
           />
@@ -494,13 +512,18 @@ export default function EntryNoteForm({
 
         {selectedType === "PURCHASE" && (
           <div className="col-12 md:col-4 field">
-            <label>Orden de Compra</label>
+            <label
+              htmlFor="purchaseOrderId"
+              className="block text-900 font-medium mb-2"
+            >
+              Orden de Compra
+            </label>
             <Controller
               name="purchaseOrderId"
               control={control}
               render={({ field }) => (
                 <Dropdown
-                  id={field.name}
+                  id="purchaseOrderId"
                   value={field.value}
                   onChange={(e) => field.onChange(e.value)}
                   options={poOptions}
@@ -520,10 +543,14 @@ export default function EntryNoteForm({
 
         {(selectedType === "DONATION" || selectedType === "SAMPLE") && (
           <div className="col-12 md:col-4 field">
-            <label>
+            <label
+              htmlFor="authorizedBy"
+              className="block text-900 font-medium mb-2"
+            >
               Autorizado Por <span className="text-red-500">*</span>
             </label>
             <InputText
+              id="authorizedBy"
               {...register("authorizedBy")}
               placeholder="Nombre de quien autoriza"
               className={errors.authorizedBy ? "p-invalid" : ""}
@@ -544,13 +571,18 @@ export default function EntryNoteForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label>Nombre del Proveedor</label>
+          <label
+            htmlFor="catalogSupplierId"
+            className="block text-900 font-medium mb-2"
+          >
+            Nombre del Proveedor
+          </label>
           <Controller
             name="catalogSupplierId"
             control={control}
             render={({ field }) => (
               <Dropdown
-                id={field.name}
+                id="catalogSupplierId"
                 value={field.value}
                 onChange={(e) => field.onChange(e.value)}
                 options={supplierOptions}
@@ -643,8 +675,11 @@ export default function EntryNoteForm({
 
         {/* ── 5. OBSERVACIONES ─────────────────────────────────────────────── */}
         <div className="col-12 field my-0">
-          <label>Observaciones</label>
+          <label htmlFor="notes" className="block text-900 font-medium mb-2">
+            Observaciones
+          </label>
           <InputTextarea
+            id="notes"
             {...register("notes")}
             rows={3}
             autoResize

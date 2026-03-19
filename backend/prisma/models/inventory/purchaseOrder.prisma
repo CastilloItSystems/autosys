@@ -8,40 +8,70 @@ enum PurchaseOrderStatus {
   CANCELLED   // Cancelada
 }
 
+enum PurchaseOrderCurrency {
+  USD
+  VES
+  EUR
+}
+
 model PurchaseOrder {
-  id            String              @id @default(uuid())
-  orderNumber   String              @unique
-  
-  supplierId    String
-  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  
-  warehouseId   String
-  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
-  status        PurchaseOrderStatus @default(DRAFT)
-  
-  // Totales
-  subtotal      Decimal             @default(0) @db.Decimal(12, 2)
-  tax           Decimal             @default(0) @db.Decimal(12, 2)
-  total         Decimal             @default(0) @db.Decimal(12, 2)
-  
-  notes         String?             @db.Text
-  
-  // Relaciones
-  items         PurchaseOrderItem[]
-  entryNotes    EntryNote[]
-  
-  // Fechas
-  orderDate     DateTime            @default(now())
-  expectedDate  DateTime?
-  
-  // Auditoría
-  createdBy     String?
-  approvedBy    String?
-  approvedAt    DateTime?
-  
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id              String                @id @default(uuid())
+  orderNumber     String                @unique
+
+  // ── Proveedor ──
+  supplierId      String
+  supplier        Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  // ── Almacén destino ──
+  warehouseId     String
+  warehouse       Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  status          PurchaseOrderStatus   @default(DRAFT)
+
+  // ── Moneda y tasa ──
+  currency        PurchaseOrderCurrency @default(USD)
+  exchangeRate    Decimal?              @db.Decimal(14, 4)   // Tasa BCV del día (VES/USD)
+
+  // ── Condiciones comerciales ──
+  paymentTerms    String?               // Ej: "Contado", "Crédito 30 días", "50/50"
+  creditDays      Int?                  // Días de crédito (si aplica)
+  deliveryTerms   String?               // Ej: "Puesto en almacén", "FOB", "CIF"
+
+  // ── Descuento general (aplicado al subtotal bruto) ──
+  discountAmount  Decimal               @default(0) @db.Decimal(12, 2)
+
+  // ── Totales calculados ──
+  subtotalBruto   Decimal               @default(0) @db.Decimal(12, 2)  // Suma líneas antes de descuento general
+  baseImponible   Decimal               @default(0) @db.Decimal(12, 2)  // Subtotal gravado (IVA 16%)
+  baseExenta      Decimal               @default(0) @db.Decimal(12, 2)  // Subtotal exento (IVA 0%)
+  taxAmount       Decimal               @default(0) @db.Decimal(12, 2)  // IVA total
+  taxRate         Decimal               @default(16) @db.Decimal(5, 2)  // % IVA vigente
+
+  // ── IGTF (Impuesto a Grandes Transacciones Financieras) ──
+  igtfApplies     Boolean               @default(false)                 // Toggle: pago en divisas
+  igtfRate        Decimal               @default(3) @db.Decimal(5, 2)   // % IGTF vigente
+  igtfAmount      Decimal               @default(0) @db.Decimal(12, 2)  // Monto IGTF calculado
+
+  // ── Total final ──
+  total           Decimal               @default(0) @db.Decimal(12, 2)  // subtotal - descuento + IVA + IGTF
+
+  notes           String?               @db.Text
+
+  // ── Relaciones ──
+  items           PurchaseOrderItem[]
+  entryNotes      EntryNote[]
+
+  // ── Fechas ──
+  orderDate       DateTime              @default(now())
+  expectedDate    DateTime?
+
+  // ── Auditoría ──
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   @@map("purchase_orders")
   @@index([orderNumber])

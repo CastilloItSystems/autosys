@@ -7,6 +7,9 @@ export type PurchaseOrderStatus =
   | "COMPLETED"
   | "CANCELLED";
 
+export type PurchaseOrderCurrency = "USD" | "VES" | "EUR";
+export type TaxType = "IVA" | "EXEMPT" | "REDUCED";
+
 export interface PurchaseOrderItem {
   id: string;
   purchaseOrderId: string;
@@ -15,7 +18,13 @@ export interface PurchaseOrderItem {
   quantityReceived: number;
   quantityPending: number;
   unitCost: number;
+  discountPercent: number;
+  discountAmount: number;
+  taxType: TaxType;
+  taxRate: number;
+  taxAmount: number;
   subtotal: number;
+  totalLine: number;
   item?: {
     id: string;
     sku: string;
@@ -34,8 +43,20 @@ export interface PurchaseOrder {
   supplierId: string;
   warehouseId: string;
   status: PurchaseOrderStatus;
-  subtotal: number;
-  tax: number;
+  currency: PurchaseOrderCurrency;
+  exchangeRate: number | null;
+  paymentTerms: string | null;
+  creditDays: number | null;
+  deliveryTerms: string | null;
+  discountAmount: number;
+  subtotalBruto: number;
+  baseImponible: number;
+  baseExenta: number;
+  taxAmount: number;
+  taxRate: number;
+  igtfApplies: boolean;
+  igtfRate: number;
+  igtfAmount: number;
   total: number;
   notes?: string | null;
   orderDate?: string;
@@ -78,3 +99,15 @@ export const PO_STATUS_STEPS: PurchaseOrderStatus[] = [
   "PARTIAL",
   "COMPLETED",
 ];
+
+export const CURRENCY_LABELS: Record<PurchaseOrderCurrency, string> = {
+  USD: "Dólares (USD)",
+  VES: "Bolívares (VES)",
+  EUR: "Euros (EUR)",
+};
+
+export const TAX_TYPE_LABELS: Record<TaxType, string> = {
+  IVA: "IVA (16%)",
+  EXEMPT: "Exento (0%)",
+  REDUCED: "Reducido (8%)",
+};
