@@ -31,6 +31,7 @@ type PrismaClientType = PrismaClient | Prisma.TransactionClient
 const ENTRY_NOTE_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
   warehouse: true,
+  catalogSupplier: true,
   items: {
     include: {
       item: { select: { id: true, sku: true, name: true } },
@@ -43,6 +44,7 @@ const ENTRY_NOTE_INCLUDE = {
 const ENTRY_NOTE_LIST_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
   warehouse: true,
+  catalogSupplier: true,
   items: {
     include: {
       item: { select: { id: true, sku: true, name: true } },
@@ -109,6 +111,7 @@ function mapEntryNoteItem(item: Record<string, unknown>): IEntryNoteItem {
       typeof item.unitCost === 'number'
         ? item.unitCost
         : parseFloat(String(item.unitCost)),
+    itemName: (item.itemName as string | null) ?? null,
     storedToLocation: (item.storedToLocation as string | null) ?? null,
     batchId: (item.batchId as string | null) ?? null,
     serialNumberId: (item.serialNumberId as string | null) ?? null,
@@ -180,6 +183,7 @@ export class EntryNoteService {
         status: 'PENDING',
         purchaseOrderId: data.purchaseOrderId ?? null,
         warehouseId: data.warehouseId,
+        catalogSupplierId: data.catalogSupplierId ?? null,
         supplierName: data.supplierName ?? null,
         supplierId: data.supplierId ?? null,
         supplierPhone: data.supplierPhone ?? null,
@@ -256,7 +260,23 @@ export class EntryNoteService {
     if (filters.status) where.status = filters.status
     if (filters.purchaseOrderId) where.purchaseOrderId = filters.purchaseOrderId
     if (filters.warehouseId) where.warehouseId = filters.warehouseId
+    if (filters.catalogSupplierId)
+      where.catalogSupplierId = filters.catalogSupplierId
     if (filters.receivedBy) where.receivedBy = filters.receivedBy
+
+    if (filters.search) {
+      const search = filters.search.trim()
+      where.OR = [
+        { entryNoteNumber: { contains: search, mode: 'insensitive' } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+        {
+          purchaseOrder: {
+            orderNumber: { contains: search, mode: 'insensitive' },
+          },
+        },
+      ]
+    }
 
     if (filters.receivedFrom || filters.receivedTo) {
       const createdAt: Record<string, Date> = {}
@@ -327,6 +347,8 @@ export class EntryNoteService {
       updateData.verifiedBy = data.verifiedBy ?? null
     if (data.authorizedBy !== undefined)
       updateData.authorizedBy = data.authorizedBy ?? null
+    if (data.catalogSupplierId !== undefined)
+      updateData.catalogSupplierId = data.catalogSupplierId ?? null
     if (data.supplierName !== undefined)
       updateData.supplierName = data.supplierName ?? null
     if (data.supplierId !== undefined)
@@ -414,6 +436,7 @@ export class EntryNoteService {
       data: {
         entryNoteId,
         itemId: data.itemId,
+        itemName: data.itemName ?? item.name,
         quantityReceived: data.quantityReceived,
         unitCost: data.unitCost,
         storedToLocation: data.storedToLocation ?? null,

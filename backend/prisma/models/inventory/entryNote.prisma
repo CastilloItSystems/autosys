@@ -32,7 +32,11 @@ model EntryNote {
   warehouseId      String
   warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
-  // Para entradas sin orden de compra
+  // Relación formal con Catálogo de Proveedores
+  catalogSupplierId String?
+  catalogSupplier   Supplier?      @relation(fields: [catalogSupplierId], references: [id], onDelete: SetNull)
+
+  // Snapshots históricos para entradas sin orden de compra o auditoría
   supplierName     String?
   supplierId       String?         // Cédula/RIF del proveedor o texto libre
   supplierPhone    String?

@@ -16,6 +16,7 @@ export class CreateEntryNoteDTO {
   type: EntryType
   purchaseOrderId?: string | null
   warehouseId: string
+  catalogSupplierId?: string | null
   supplierName?: string | null
   supplierId?: string | null
   supplierPhone?: string | null
@@ -30,6 +31,9 @@ export class CreateEntryNoteDTO {
     this.warehouseId = String(data.warehouseId)
     this.purchaseOrderId = data.purchaseOrderId
       ? String(data.purchaseOrderId)
+      : null
+    this.catalogSupplierId = data.catalogSupplierId
+      ? String(data.catalogSupplierId)
       : null
     this.supplierName = data.supplierName ? String(data.supplierName) : null
     this.supplierId = data.supplierId ? String(data.supplierId) : null
@@ -48,6 +52,7 @@ export class UpdateEntryNoteDTO {
   receivedBy?: string | null
   verifiedBy?: string | null
   authorizedBy?: string | null
+  catalogSupplierId?: string | null
   supplierName?: string | null
   supplierId?: string | null
   supplierPhone?: string | null
@@ -64,6 +69,10 @@ export class UpdateEntryNoteDTO {
       this.verifiedBy = data.verifiedBy ? String(data.verifiedBy) : null
     if (data.authorizedBy !== undefined)
       this.authorizedBy = data.authorizedBy ? String(data.authorizedBy) : null
+    if (data.catalogSupplierId !== undefined)
+      this.catalogSupplierId = data.catalogSupplierId
+        ? String(data.catalogSupplierId)
+        : null
     if (data.supplierName !== undefined)
       this.supplierName = data.supplierName ? String(data.supplierName) : null
     if (data.supplierId !== undefined)
@@ -83,6 +92,7 @@ export class CreateEntryNoteItemDTO {
   itemId: string
   quantityReceived: number
   unitCost: number
+  itemName?: string | null
   storedToLocation?: string | null
   batchId?: string | null
   serialNumberId?: string | null
@@ -94,6 +104,7 @@ export class CreateEntryNoteItemDTO {
     this.itemId = String(data.itemId)
     this.quantityReceived = Number(data.quantityReceived)
     this.unitCost = Number(data.unitCost)
+    this.itemName = data.itemName ? String(data.itemName) : null
     this.storedToLocation = data.storedToLocation
       ? String(data.storedToLocation)
       : null
@@ -120,6 +131,7 @@ export class EntryNoteResponseDTO {
   status: EntryNoteStatus
   purchaseOrderId: string | null
   warehouseId: string
+  catalogSupplierId: string | null
   supplierName: string | null
   supplierId: string | null
   supplierPhone: string | null
@@ -135,6 +147,7 @@ export class EntryNoteResponseDTO {
   updatedAt: Date
   purchaseOrder?: unknown
   warehouse?: unknown
+  catalogSupplier?: unknown
   items?: EntryNoteItemResponseDTO[]
 
   constructor(data: IEntryNoteWithRelations) {
@@ -144,6 +157,7 @@ export class EntryNoteResponseDTO {
     this.status = data.status
     this.purchaseOrderId = data.purchaseOrderId ?? null
     this.warehouseId = data.warehouseId
+    this.catalogSupplierId = data.catalogSupplierId ?? null
     this.supplierName = data.supplierName ?? null
     this.supplierId = data.supplierId ?? null
     this.supplierPhone = data.supplierPhone ?? null
@@ -161,6 +175,8 @@ export class EntryNoteResponseDTO {
     if (data.purchaseOrder !== undefined)
       this.purchaseOrder = data.purchaseOrder
     if (data.warehouse !== undefined) this.warehouse = data.warehouse
+    if (data.catalogSupplier !== undefined)
+      this.catalogSupplier = data.catalogSupplier
     if (data.items !== undefined) {
       this.items = data.items.map((item) => new EntryNoteItemResponseDTO(item))
     }
@@ -173,6 +189,7 @@ export class EntryNoteItemResponseDTO {
   itemId: string
   quantityReceived: number
   unitCost: number
+  itemName: string | null
   storedToLocation: string | null
   batchId: string | null
   serialNumberId: string | null
@@ -193,6 +210,7 @@ export class EntryNoteItemResponseDTO {
       typeof data.unitCost === 'number'
         ? data.unitCost
         : parseFloat(String(data.unitCost))
+    this.itemName = data.itemName ?? null
     this.storedToLocation = data.storedToLocation ?? null
     this.batchId = data.batchId ?? null
     this.serialNumberId = data.serialNumberId ?? null

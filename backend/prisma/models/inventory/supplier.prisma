@@ -17,6 +17,7 @@ model Supplier {
   
   // Relaciones
   purchaseOrders  PurchaseOrder[]
+  entryNotes      EntryNote[]
   
   // Auditoría
   createdAt       DateTime        @default(now())

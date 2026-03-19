@@ -29,6 +29,7 @@ import itemService, { Item } from "@/app/api/inventory/itemService";
 import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
+import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
 import EntryNoteForm from "./EntryNoteForm";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import EntryNoteStepper from "./EntryNoteStepper";
@@ -46,6 +47,11 @@ const EntryNoteList = () => {
   const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [completeDialog, setCompleteDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
@@ -53,41 +59,83 @@ const EntryNoteList = () => {
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionEntryNote, setActionEntryNote] = useState<EntryNote | null>(
     null,
   );
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
 
   useEffect(() => {
-    fetchData();
+    const handler = setTimeout(() => {
+      setDebouncedSearch(globalFilterValue);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [globalFilterValue]);
+
+  useEffect(() => {
+    loadEntryNotes();
+  }, [page, rows, sortField, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
     loadFormData();
   }, []);
 
   const loadFormData = async () => {
     try {
-      const [whRes, itemRes] = await Promise.all([
+      const [whRes, itemRes, supRes] = await Promise.all([
         warehouseService.getActive(),
         itemService.getActive(),
+        supplierService.getActive(),
       ]);
       setWarehouses(whRes.data || []);
       setItems(itemRes.data || []);
+      setSuppliers(supRes.data || []);
     } catch (error) {
       console.error("Error loading form data:", error);
     }
   };
 
-  const fetchData = async () => {
+  const loadEntryNotes = async () => {
     try {
-      const res = await entryNoteService.getAll();
+      setLoading(true);
+      const res = await entryNoteService.getAll({
+        page: page + 1,
+        limit: rows,
+        sortBy: sortField,
+        sortOrder: sortOrder,
+        search: debouncedSearch || undefined,
+      });
       setEntryNotes(Array.isArray(res.data) ? res.data : []);
+      setTotalRecords(res.meta?.total || 0);
     } catch (error) {
       console.error("Error al obtener notas de entrada:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar las notas de entrada",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
+
+  const onSort = (event: any) => {
+    setSortField(event.sortField);
+    setSortOrder(event.sortOrder === 1 ? "asc" : "desc");
   };
 
   const hideDeleteDialog = () => {
@@ -103,7 +151,7 @@ const EntryNoteList = () => {
     try {
       if (selectedEntryNote?.id) {
         await entryNoteService.delete(selectedEntryNote.id);
-        setEntryNotes(entryNotes.filter((n) => n.id !== selectedEntryNote.id));
+        await loadEntryNotes();
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -120,11 +168,8 @@ const EntryNoteList = () => {
 
   const handleStart = async (note: EntryNote) => {
     try {
-      const result = await entryNoteService.start(note.id);
-      const updated = result.data;
-      setEntryNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await entryNoteService.start(note.id);
+      await loadEntryNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -138,11 +183,8 @@ const EntryNoteList = () => {
 
   const handleComplete = async (note: EntryNote) => {
     try {
-      const result = await entryNoteService.complete(note.id);
-      const updated = result.data;
-      setEntryNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await entryNoteService.complete(note.id);
+      await loadEntryNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -156,11 +198,8 @@ const EntryNoteList = () => {
 
   const handleCancel = async (note: EntryNote) => {
     try {
-      const result = await entryNoteService.cancel(note.id);
-      const updated = result.data;
-      setEntryNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await entryNoteService.cancel(note.id);
+      await loadEntryNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -174,8 +213,8 @@ const EntryNoteList = () => {
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
     setGlobalFilterValue(value);
+    setPage(0); // Reset page on search
   };
 
   /* ── Helpers ── */
@@ -198,21 +237,28 @@ const EntryNoteList = () => {
 
   /* ── Table header ── */
   const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+    <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0 font-bold text-900">Notas de Entrada</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2 align-items-center w-full sm:w-auto">
+        <span className="p-input-icon-left w-full sm:w-20rem">
+          <i className="pi pi-search" />
+          <InputText
+            value={globalFilterValue}
+            onChange={onGlobalFilterChange}
+            placeholder="Buscar nota (nro, tipo, proveedor...)"
+            className="w-full"
+          />
+        </span>
+        <CreateButton
+          label="Nueva Nota"
+          onClick={openNew}
+          tooltip="Crear nueva nota de entrada"
+          className="w-full sm:w-auto"
         />
-      </span>
-      <CreateButton
-        label="Nueva Nota de Entrada"
-        onClick={openNew}
-        tooltip="Crear nueva nota de entrada"
-      />
+      </div>
     </div>
   );
 
@@ -364,7 +410,10 @@ const EntryNoteList = () => {
   };
 
   const supplierBodyTemplate = (rowData: EntryNote) =>
-    rowData.purchaseOrder?.supplier?.name || rowData.supplierName || "—";
+    rowData.supplierName ||
+    rowData.catalogSupplier?.name ||
+    rowData.purchaseOrder?.supplier?.name ||
+    "—";
 
   const warehouseBodyTemplate = (rowData: EntryNote) =>
     rowData.warehouse?.name || "—";
@@ -383,6 +432,7 @@ const EntryNoteList = () => {
   /* ── Row expansion with stepper ── */
   const rowExpansionTemplate = (data: EntryNote) => {
     const items = data.items || [];
+    console.log(items);
     const total = items.reduce(
       (sum, it) => sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
       0,
@@ -396,6 +446,7 @@ const EntryNoteList = () => {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-bottom-1 surface-border">
+                  <th className="text-left py-2">SKU</th>
                   <th className="text-left py-2">Artículo</th>
                   <th className="text-center py-2">Cantidad</th>
                   <th className="text-right py-2">Costo Unit.</th>
@@ -408,9 +459,13 @@ const EntryNoteList = () => {
                 {items.map((line) => (
                   <tr key={line.id} className="border-bottom-1 surface-border">
                     <td className="py-2">
-                      {line.item
-                        ? `${line.item.sku} — ${line.item.name}`
-                        : line.itemId}
+                      {line.item ? `${line.item.sku} ` : line.itemId}
+                    </td>
+                    <td className="py-2">
+                      {line.itemName ||
+                        (line.item
+                          ? `${line.item.sku} — ${line.item.name}`
+                          : line.itemId)}
                     </td>
                     <td className="text-center py-2 font-semibold">
                       {line.quantityReceived}
@@ -642,7 +697,7 @@ const EntryNoteList = () => {
               body={(item: EntryNoteItem) => (
                 <div className="flex flex-column">
                   <span className="font-semibold text-900">
-                    {item.item?.name || "Artículo desconocido"}
+                    {item.itemName || item.item?.name || "Artículo desconocido"}
                   </span>
                   {item.item?.sku && (
                     <span className="text-500 text-xs">
@@ -748,23 +803,8 @@ const EntryNoteList = () => {
     );
   };
 
-  if (loading) {
-    return (
-      <div
-        className="flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "60vh" }}
-      >
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="4"
-          fill="var(--surface-ground)"
-          animationDuration=".5s"
-        />
-        <p className="mt-3 text-600 font-medium">
-          Cargando notas de entrada...
-        </p>
-      </div>
-    );
+  if (detailDialog) {
+    // No-op to avoid showing spinner when dialog is open but it's not the case
   }
 
   return (
@@ -787,11 +827,17 @@ const EntryNoteList = () => {
           value={entryNotes}
           header={renderHeader()}
           paginator
-          rows={10}
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          onSort={onSort}
+          sortField={sortField}
+          sortOrder={sortOrder === "asc" ? 1 : -1}
           responsiveLayout="scroll"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} notas de entrada"
           rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
           loading={loading}
           emptyMessage="No hay notas de entrada disponibles"
           rowClassName={() => "animated-row"}
@@ -802,6 +848,7 @@ const EntryNoteList = () => {
           onRowToggle={(e) => setExpandedRows(e.data)}
           rowExpansionTemplate={rowExpansionTemplate}
           scrollable
+          tableStyle={{ minWidth: "75rem" }}
         >
           <Column expander style={{ width: "3rem" }} />
           <Column
@@ -1107,7 +1154,7 @@ const EntryNoteList = () => {
             entryNote={selectedEntryNote}
             formId="entry-note-form"
             onSave={async () => {
-              await fetchData();
+              await loadEntryNotes();
               toast.current?.show({
                 severity: "success",
                 summary: "Éxito",
@@ -1123,6 +1170,7 @@ const EntryNoteList = () => {
             toast={toast}
             items={items}
             warehouses={warehouses}
+            suppliers={suppliers}
           />
         </Dialog>
 

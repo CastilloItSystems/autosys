@@ -9,6 +9,9 @@ model EntryNoteItem {
   itemId           String
   item             Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
+  // Snapshot histórico del nombre del artículo (editable)
+  itemName         String?
+
   quantityReceived Int
   
   unitCost         Decimal       @db.Decimal(12, 2)
