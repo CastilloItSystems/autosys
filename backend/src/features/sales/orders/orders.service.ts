@@ -51,6 +51,13 @@ function generateOrderNumber(): string {
   return `OV-${year}-${ts}${rnd}`
 }
 
+function generatePreInvoiceNumber(): string {
+  const year = new Date().getFullYear()
+  const ts = Date.now().toString(36).toUpperCase()
+  const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
+  return `PF-${year}-${ts}${rnd}`
+}
+
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
@@ -153,7 +160,6 @@ class OrdersService {
             discountPercent: item.discountPercent ?? 0,
             discountAmount: itemTotals.discountAmount,
             taxType: (item.taxType as 'IVA' | 'EXEMPT' | 'REDUCED') ?? 'IVA',
-
             taxRate: itemTotals.taxRate,
             taxAmount: itemTotals.taxAmount,
             subtotal: itemTotals.subtotal,
@@ -337,7 +343,6 @@ class OrdersService {
               discountPercent: item.discountPercent ?? 0,
               discountAmount: itemTotals.discountAmount,
               taxType: (item.taxType as 'IVA' | 'EXEMPT' | 'REDUCED') ?? 'IVA',
-              //   taxType: item.taxType ?? 'IVA',
               taxRate: itemTotals.taxRate,
               taxAmount: itemTotals.taxAmount,
               subtotal: itemTotals.subtotal,
@@ -412,7 +417,7 @@ class OrdersService {
   }
 
   // -------------------------------------------------------------------------
-  // APPROVE
+  // APPROVE — generates PreInvoice automatically
   // -------------------------------------------------------------------------
 
   async approve(
@@ -423,7 +428,7 @@ class OrdersService {
   ): Promise<IOrder> {
     const order = await (db as PrismaClient).order.findFirst({
       where: { id, empresaId },
-      include: { items: true },
+      include: { items: true, customer: true },
     })
     if (!order) throw new NotFoundError(MSG.notFound)
 
@@ -437,17 +442,92 @@ class OrdersService {
       throw new BadRequestError('La orden debe tener al menos un artículo')
     }
 
-    const updated = await (db as PrismaClient).order.update({
-      where: { id },
-      data: {
-        status: OrderStatus.APPROVED,
-        approvedBy,
-        approvedAt: new Date(),
-      },
-      include: ORDER_INCLUDE,
+    // Check no PreInvoice already exists
+    const existingPI = await (db as PrismaClient).preInvoice.findUnique({
+      where: { orderId: id },
+    })
+    if (existingPI) {
+      throw new BadRequestError('Esta orden ya tiene una pre-factura generada')
+    }
+
+    const preInvoiceNumber = generatePreInvoiceNumber()
+
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      // 1. Update order status
+      const approvedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: OrderStatus.APPROVED,
+          approvedBy,
+          approvedAt: new Date(),
+        },
+      })
+
+      // 2. Create PreInvoice copying ALL fiscal data from Order
+      const preInvoice = await tx.preInvoice.create({
+        data: {
+          preInvoiceNumber,
+          status: 'PENDING_PREPARATION',
+          empresaId,
+          orderId: id,
+          customerId: order.customerId,
+          warehouseId: order.warehouseId,
+          currency: (order as any).currency ?? 'USD',
+          exchangeRate: (order as any).exchangeRate ?? null,
+          discountAmount: (order as any).discountAmount ?? order.discount ?? 0,
+          subtotalBruto: (order as any).subtotalBruto ?? order.subtotal ?? 0,
+          baseImponible: (order as any).baseImponible ?? 0,
+          baseExenta: (order as any).baseExenta ?? 0,
+          taxAmount: (order as any).taxAmount ?? order.tax ?? 0,
+          taxRate: (order as any).taxRate ?? 16,
+          igtfApplies: (order as any).igtfApplies ?? false,
+          igtfRate: (order as any).igtfRate ?? 3,
+          igtfAmount: (order as any).igtfAmount ?? 0,
+          total: order.total ?? 0,
+          notes: order.notes ?? null,
+        },
+      })
+
+      // 3. Copy items from Order to PreInvoice with fiscal data
+      const orderItems = order.items as any[]
+      for (const item of orderItems) {
+        await tx.preInvoiceItem.create({
+          data: {
+            preInvoiceId: preInvoice.id,
+            itemId: item.itemId,
+            itemName: item.itemName ?? null,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercent: item.discountPercent ?? 0,
+            discountAmount: item.discountAmount ?? item.discount ?? 0,
+            taxType: (item.taxType as 'IVA' | 'EXEMPT' | 'REDUCED') ?? 'IVA',
+            taxRate: item.taxRate ?? 16,
+            taxAmount: item.taxAmount ?? 0,
+            subtotal: item.subtotal ?? 0,
+            totalLine: item.totalLine ?? 0,
+            notes: item.notes ?? null,
+          },
+        })
+      }
+
+      // 4. Return updated order with relations
+      return tx.order.findUnique({
+        where: { id },
+        include: {
+          ...ORDER_INCLUDE,
+          preInvoice: true,
+        },
+      })
     })
 
-    logger.info(`Orden aprobada: ${id}`, { approvedBy, empresaId })
+    if (!updated) throw new Error('Error al aprobar la orden')
+
+    logger.info(`Orden aprobada con pre-factura: ${id}`, {
+      preInvoiceNumber,
+      approvedBy,
+      empresaId,
+    })
+
     return updated as unknown as IOrder
   }
 

@@ -133,6 +133,21 @@ const AppMenuEmpresa = () => {
                   icon: "pi pi-fw pi-users",
                   to: "/empresa/inventario/clientes",
                 },
+                {
+                  label: "pre-facturas",
+                  icon: "pi pi-fw pi-file-text",
+                  to: "/empresa/inventario/pre-invoice",
+                },
+                {
+                  label: "pagos",
+                  icon: "pi pi-fw pi-money-bill",
+                  to: "/empresa/inventario/payment",
+                },
+                {
+                  label: "facturas",
+                  icon: "pi pi-fw pi-file",
+                  to: "/empresa/inventario/invoice",
+                },
               ],
             },
             {

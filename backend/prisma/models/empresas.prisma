@@ -38,6 +38,7 @@ model Empresa {
   orders          Order[]
   preInvoices     PreInvoice[]
   invoices        Invoice[]
+  payments        Payment[]
   brands          Brand[]
   categories      Category[]
   units           Unit[]
