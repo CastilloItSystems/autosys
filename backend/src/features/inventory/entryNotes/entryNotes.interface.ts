@@ -112,6 +112,7 @@ export interface IUpdateEntryNoteInput {
   supplierPhone?: string | null
   reason?: string | null
   reference?: string | null
+  items?: ICreateEntryNoteItemInput[]
 }
 
 export interface IEntryNoteFilters {

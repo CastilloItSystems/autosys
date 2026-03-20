@@ -128,6 +128,11 @@ const AppMenuEmpresa = () => {
                   icon: "pi pi-fw pi-bookmark",
                   to: "/empresa/inventario/reservas",
                 },
+                {
+                  label: "clientes",
+                  icon: "pi pi-fw pi-users",
+                  to: "/empresa/inventario/clientes",
+                },
               ],
             },
             {

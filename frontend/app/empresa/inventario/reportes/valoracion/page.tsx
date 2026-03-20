@@ -25,7 +25,7 @@ const StockValuePage = () => {
     try {
       const response = await reportService.getStockValue(page, rows);
       setItems(response.data);
-      setTotalRecords(response.meta.total);
+      setTotalRecords(response.meta?.total || (response as any).pagination?.total || 0);
       setTotalValue(response.summary?.totalInventoryValue || 0);
     } catch (error) {
       toast.current?.show({
@@ -41,14 +41,14 @@ const StockValuePage = () => {
 
   const columns = [
     { field: "itemName", header: "Artículo", sortable: true, width: "20%" },
-    { field: "sku", header: "SKU", sortable: true, width: "12%" },
+    { field: "itemSKU", header: "SKU", sortable: true, width: "12%" },
     {
       field: "quantity",
       header: "Cantidad",
       sortable: true,
       width: "10%",
       body: (row: any) => (
-        <span className="font-semibold">{row.quantity?.toFixed(0)}</span>
+        <span className="font-semibold">{Number(row.quantity || 0).toFixed(0)}</span>
       ),
     },
     {
@@ -56,7 +56,7 @@ const StockValuePage = () => {
       header: "Precio Unitario",
       sortable: true,
       width: "12%",
-      body: (row: any) => <span>${row.unitPrice?.toFixed(2)}</span>,
+      body: (row: any) => <span>${Number(row.unitPrice || 0).toFixed(2)}</span>,
     },
     {
       field: "totalValue",
@@ -65,7 +65,7 @@ const StockValuePage = () => {
       width: "15%",
       body: (row: any) => (
         <span className="font-semibold text-green-600">
-          ${row.totalValue?.toFixed(2)}
+          ${Number(row.totalValue || 0).toFixed(2)}
         </span>
       ),
     },
@@ -74,9 +74,9 @@ const StockValuePage = () => {
       header: "% del Total",
       sortable: true,
       width: "12%",
-      body: (row: any) => <span>{row.percentageOfTotal?.toFixed(1)}%</span>,
+      body: (row: any) => <span>{Number(row.percentageOfTotal || 0).toFixed(1)}%</span>,
     },
-    { field: "warehouse", header: "Almacén", sortable: true, width: "12%" },
+    { field: "warehouseName", header: "Almacén", sortable: true, width: "12%" },
   ];
 
   return (

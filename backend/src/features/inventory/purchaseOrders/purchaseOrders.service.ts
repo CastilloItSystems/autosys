@@ -178,13 +178,15 @@ class PurchaseOrderService {
     const itemIds = data.items.map((i) => i.itemId)
     const existingItems = await db.item.findMany({
       where: { id: { in: itemIds }, empresaId },
-      select: { id: true },
+      select: { id: true, name: true },
     })
     if (existingItems.length !== itemIds.length) {
       throw new BadRequestError(
         'Uno o más artículos no existen o no pertenecen a esta empresa'
       )
     }
+    // Build a map of itemId → name for snapshot
+    const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
 
     const igtfApplies = data.igtfApplies ?? false
     const globalDiscountAmount = data.discountAmount ?? 0
@@ -234,6 +236,7 @@ class PurchaseOrderService {
           data: {
             purchaseOrderId: createdPO.id,
             itemId: item.itemId,
+            itemName: item.itemName || itemNameMap.get(item.itemId) || null,
             quantityOrdered: item.quantityOrdered,
             quantityReceived: 0,
             quantityPending: item.quantityOrdered,
@@ -409,7 +412,99 @@ class PurchaseOrderService {
       (data.status && data.status === PurchaseOrderStatus.DRAFT)
     const financialFieldsChanged =
       data.discountAmount !== undefined || data.igtfApplies !== undefined
+    const itemsChanged = Array.isArray(data.items) && data.items.length > 0
 
+    // If items are provided and order is in DRAFT, replace all items
+    if (isDraft && itemsChanged) {
+      const newDiscountAmount = data.discountAmount ?? Number(po.discountAmount)
+      const newIgtfApplies = data.igtfApplies ?? po.igtfApplies
+
+      const itemsForCalc = data.items!.map((i) => ({
+        quantityOrdered: i.quantityOrdered,
+        unitCost: i.unitCost,
+        discountPercent: i.discountPercent ?? 0,
+        taxType: (i.taxType as any) || 'IVA',
+      }))
+
+      const newTotals = calculateOrderTotals(
+        itemsForCalc,
+        newDiscountAmount,
+        newIgtfApplies,
+        Number(po.taxRate),
+        Number(po.igtfRate)
+      )
+
+      // Validate all items belong to this company
+      const itemIds = data.items!.map((i) => i.itemId)
+      const existingItems = await db.item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== itemIds.length) {
+        throw new BadRequestError(
+          'Uno o más artículos no existen o no pertenecen a esta empresa'
+        )
+      }
+      const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
+
+      // Transaction: delete old items, create new ones, update header
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // Delete all existing items
+        await tx.purchaseOrderItem.deleteMany({
+          where: { purchaseOrderId: id },
+        })
+
+        // Create new items
+        for (let i = 0; i < data.items!.length; i++) {
+          const item = data.items![i]
+          const itemTotals = newTotals.items[i]
+
+          await tx.purchaseOrderItem.create({
+            data: {
+              purchaseOrderId: id,
+              itemId: item.itemId,
+              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
+              quantityOrdered: item.quantityOrdered,
+              quantityReceived: 0,
+              quantityPending: item.quantityOrdered,
+              unitCost: item.unitCost,
+              discountPercent: item.discountPercent ?? 0,
+              discountAmount: itemTotals.discountAmount,
+              taxType: item.taxType || 'IVA',
+              taxRate: itemTotals.taxRate,
+              taxAmount: itemTotals.taxAmount,
+              subtotal: itemTotals.subtotal,
+              totalLine: itemTotals.totalLine,
+            },
+          })
+        }
+
+        // Update header with new totals
+        return tx.purchaseOrder.update({
+          where: { id },
+          data: {
+            ...updateData,
+            discountAmount: newTotals.discountAmount,
+            subtotalBruto: newTotals.subtotalBruto,
+            baseImponible: newTotals.baseImponible,
+            baseExenta: newTotals.baseExenta,
+            taxAmount: newTotals.taxAmount,
+            igtfApplies: newIgtfApplies,
+            igtfAmount: newTotals.igtfAmount,
+            total: newTotals.total,
+          },
+          include: PO_INCLUDE,
+        })
+      })
+
+      logger.info(`Orden de compra actualizada con items: ${id}`, { empresaId })
+
+      return enrichWithQuantityPending(
+        updated as unknown as Record<string, unknown>
+      ) as unknown as IPurchaseOrderWithRelations
+    }
+
+    // No items changed — only recalculate if financial header fields changed
     if (isDraft && financialFieldsChanged) {
       const newDiscountAmount = data.discountAmount ?? Number(po.discountAmount)
       const newIgtfApplies = data.igtfApplies ?? po.igtfApplies
@@ -570,6 +665,7 @@ class PurchaseOrderService {
       // TENANT-SAFE: item belongs to this company
       const item = await tx.item.findFirst({
         where: { id: data.itemId, empresaId },
+        select: { id: true, name: true },
       })
       if (!item) throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
 
@@ -607,6 +703,7 @@ class PurchaseOrderService {
         data: {
           purchaseOrderId: poId,
           itemId: data.itemId,
+          itemName: data.itemName || item.name || null,
           quantityOrdered: data.quantityOrdered,
           quantityReceived: 0,
           quantityPending: data.quantityOrdered,

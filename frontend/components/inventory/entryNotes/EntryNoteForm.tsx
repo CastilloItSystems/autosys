@@ -355,9 +355,29 @@ export default function EntryNoteForm({
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (isEditing) {
-        // Update: only header fields
-        const { items: _, ...headerData } = data;
-        await entryNoteService.update(entryNote!.id, headerData);
+        const { items: itemsData, ...headerData } = data;
+
+        await entryNoteService.update(entryNote!.id, {
+          ...headerData,
+          catalogSupplierId: headerData.catalogSupplierId || null,
+          supplierName: headerData.supplierName || null,
+          supplierId: headerData.supplierId || null,
+          supplierPhone: headerData.supplierPhone || null,
+          reason: headerData.reason || null,
+          reference: headerData.reference || null,
+          notes: headerData.notes || null,
+          receivedBy: headerData.receivedBy || null,
+          authorizedBy: headerData.authorizedBy || null,
+          items: itemsData.map((item) => ({
+            itemId: item.itemId,
+            itemName: item.itemName,
+            quantityReceived: item.quantityReceived,
+            unitCost: item.unitCost,
+            storedToLocation: item.storedToLocation || null,
+            batchNumber: item.batchNumber || null,
+            notes: item.notes || null,
+          })),
+        } as any);
       } else {
         // ── Create EntryNote + add items ──
         const { items: itemsData, ...headerData } = data;

@@ -93,6 +93,7 @@ export interface IUpdatePurchaseOrderInput {
   igtfApplies?: boolean | undefined
   notes?: string | null | undefined
   expectedDate?: Date | null | undefined
+  items?: ICreatePurchaseOrderItemInput[]
 }
 
 export interface IApprovePurchaseOrderInput {
@@ -112,6 +113,7 @@ export interface IPurchaseOrderItem {
   id: string
   purchaseOrderId: string
   itemId: string
+  itemName: string | null
   quantityOrdered: number
   quantityReceived: number
   quantityPending: number
@@ -129,6 +131,7 @@ export interface IPurchaseOrderItem {
 
 export interface ICreatePurchaseOrderItemInput {
   itemId: string
+  itemName?: string
   quantityOrdered: number
   unitCost: number
   discountPercent?: number
@@ -143,6 +146,7 @@ export interface ICreatePurchaseOrderItemInput {
 export interface IAddPurchaseOrderItemInput {
   purchaseOrderId: string
   itemId: string
+  itemName?: string
   quantityOrdered: number
   unitCost: number
   discountPercent?: number

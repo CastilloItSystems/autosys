@@ -1,0 +1,28 @@
+-- CreateEnum
+CREATE TYPE "OrderCurrency" AS ENUM ('USD', 'VES', 'EUR');
+
+-- AlterTable
+ALTER TABLE "order_items" ADD COLUMN     "discountAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "discountPercent" DECIMAL(5,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "itemName" VARCHAR(255),
+ADD COLUMN     "taxAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "taxRate" DECIMAL(5,2) NOT NULL DEFAULT 16,
+ADD COLUMN     "taxType" "TaxType" NOT NULL DEFAULT 'IVA',
+ADD COLUMN     "totalLine" DECIMAL(12,2) NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "orders" ADD COLUMN     "baseExenta" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "baseImponible" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "creditDays" INTEGER,
+ADD COLUMN     "currency" "OrderCurrency" NOT NULL DEFAULT 'USD',
+ADD COLUMN     "deliveryTerms" TEXT,
+ADD COLUMN     "discountAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "exchangeRate" DECIMAL(14,4),
+ADD COLUMN     "exchangeRateSource" TEXT,
+ADD COLUMN     "igtfAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "igtfApplies" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN     "igtfRate" DECIMAL(5,2) NOT NULL DEFAULT 3,
+ADD COLUMN     "paymentTerms" TEXT,
+ADD COLUMN     "subtotalBruto" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "taxAmount" DECIMAL(12,2) NOT NULL DEFAULT 0,
+ADD COLUMN     "taxRate" DECIMAL(5,2) NOT NULL DEFAULT 16;

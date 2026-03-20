@@ -14,7 +14,7 @@ import {
   VehicleFormData,
 } from "@/libs/zods/inventory/vehicleZod";
 import { createVehicle, updateVehicle } from "@/app/api/crm/vehicleService";
-import customerService from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/sales/customerService";
 import { getVehicleModels } from "@/app/api/crm/vehicleModelService";
 import {
   Vehicle,

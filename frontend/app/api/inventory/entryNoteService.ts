@@ -36,10 +36,21 @@ export interface UpdateEntryNotePayload {
   supplierPhone?: string | null;
   reason?: string | null;
   reference?: string | null;
+  items?: {
+    itemId: string;
+    itemName?: string | null;
+    quantityReceived: number;
+    unitCost: number;
+    storedToLocation?: string | null;
+    batchNumber?: string | null;
+    expiryDate?: string | null;
+    notes?: string | null;
+  }[];
 }
 
 export interface AddEntryNoteItemPayload {
   itemId: string;
+  itemName?: string | null;
   quantityReceived: number;
   unitCost: number;
   storedToLocation?: string | null;

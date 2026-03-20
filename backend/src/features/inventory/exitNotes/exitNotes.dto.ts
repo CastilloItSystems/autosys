@@ -9,6 +9,7 @@ import {
 
 export class CreateExitNoteItemDTO {
   itemId: string
+  itemName?: string
   quantity: number
   pickedFromLocation?: string
   batchId?: string
@@ -18,12 +19,15 @@ export class CreateExitNoteItemDTO {
   constructor(data: Record<string, unknown>) {
     this.itemId = String(data.itemId)
     this.quantity = Number(data.quantity)
-    if (data.pickedFromLocation !== undefined)
+    if (data.itemName != null && data.itemName !== '')
+      this.itemName = String(data.itemName)
+    if (data.pickedFromLocation != null && data.pickedFromLocation !== '')
       this.pickedFromLocation = String(data.pickedFromLocation)
-    if (data.batchId !== undefined) this.batchId = String(data.batchId)
-    if (data.serialNumberId !== undefined)
+    if (data.batchId != null && data.batchId !== '')
+      this.batchId = String(data.batchId)
+    if (data.serialNumberId != null && data.serialNumberId !== '')
       this.serialNumberId = String(data.serialNumberId)
-    if (data.notes !== undefined) this.notes = String(data.notes)
+    if (data.notes != null && data.notes !== '') this.notes = String(data.notes)
   }
 }
 
@@ -75,6 +79,7 @@ export class UpdateExitNoteDTO {
   reference?: string
   notes?: string
   expectedReturnDate?: Date
+  items?: CreateExitNoteItemDTO[]
 
   constructor(data: Record<string, unknown>) {
     if (data.recipientName !== undefined)
@@ -88,6 +93,11 @@ export class UpdateExitNoteDTO {
     if (data.notes !== undefined) this.notes = String(data.notes)
     if (data.expectedReturnDate !== undefined)
       this.expectedReturnDate = new Date(data.expectedReturnDate as string)
+    if (Array.isArray(data.items)) {
+      this.items = (data.items as Record<string, unknown>[]).map(
+        (i) => new CreateExitNoteItemDTO(i)
+      )
+    }
   }
 }
 

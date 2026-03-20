@@ -36,6 +36,7 @@ export const createPurchaseOrderSchema = Joi.object({
     .items(
       Joi.object({
         itemId: Joi.string().uuid({ version: 'uuidv4' }).required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
         quantityOrdered: Joi.number().integer().positive().required(),
         unitCost: Joi.number().positive().required(),
         discountPercent: Joi.number().min(0).max(100).optional(),
@@ -66,6 +67,21 @@ export const updatePurchaseOrderSchema = Joi.object({
   igtfApplies: Joi.boolean().optional(),
   notes: Joi.string().max(2000).optional().allow(null),
   expectedDate: Joi.date().iso().optional().allow(null),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string().uuid({ version: 'uuidv4' }).required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityOrdered: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().positive().required(),
+        discountPercent: Joi.number().min(0).max(100).optional(),
+        taxType: Joi.string()
+          .valid(...Object.values(TaxType))
+          .optional(),
+      })
+    )
+    .min(1)
+    .optional(),
 }).min(1)
 
 export const approvePurchaseOrderSchema = Joi.object({
@@ -79,6 +95,7 @@ export const addPurchaseOrderItemSchema = Joi.object({
     'string.guid': 'itemId debe ser un UUID válido',
     'any.required': 'itemId es requerido',
   }),
+  itemName: Joi.string().max(255).optional().allow(null, ''),
   quantityOrdered: Joi.number().integer().positive().required().messages({
     'number.positive': 'quantityOrdered debe ser un número positivo',
     'any.required': 'quantityOrdered es requerido',

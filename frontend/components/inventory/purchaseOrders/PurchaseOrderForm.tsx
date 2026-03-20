@@ -31,6 +31,7 @@ import type { Warehouse } from "@/app/api/inventory/warehouseService";
 const COLS: ItemRowColWidths = {
   handle: { width: "1.75rem", flexShrink: 0 },
   product: { width: "12rem", flexShrink: 0 },
+  itemName: { flex: "1 1 0", minWidth: 0 },
   quantity: { width: "5.5rem", flexShrink: 0 },
   unitCost: { width: "8rem", flexShrink: 0 },
   discountPercent: { width: "6rem", flexShrink: 0 },
@@ -112,6 +113,7 @@ const PurchaseOrderForm = ({
         : undefined,
       items: purchaseOrder?.items?.map((i) => ({
         itemId: i.itemId,
+        itemName: i.itemName || "",
         quantityOrdered: i.quantityOrdered,
         unitCost: i.unitCost,
         discountPercent: i.discountPercent ?? 0,
@@ -119,6 +121,7 @@ const PurchaseOrderForm = ({
       })) || [
         {
           itemId: "",
+          itemName: "",
           quantityOrdered: 1,
           unitCost: 0,
           discountPercent: 0,
@@ -245,6 +248,7 @@ const PurchaseOrderForm = ({
           : undefined,
         items: data.items.map((item) => ({
           itemId: item.itemId,
+          itemName: item.itemName,
           quantityOrdered: item.quantityOrdered,
           unitCost: item.unitCost,
           discountPercent: item.discountPercent,
@@ -253,7 +257,8 @@ const PurchaseOrderForm = ({
       };
 
       if (isEditing && purchaseOrder) {
-        // Partial edit support can be added here
+        await purchaseOrderService.update(purchaseOrder.id, payload);
+        await onSave();
       } else {
         await purchaseOrderService.create(payload);
         await onSave();
@@ -607,6 +612,7 @@ const PurchaseOrderForm = ({
           move={move}
           defaultItem={{
             itemId: "",
+            itemName: "",
             quantityOrdered: 1,
             unitCost: 0,
             discountPercent: 0,
@@ -617,6 +623,7 @@ const PurchaseOrderForm = ({
           columns={[
             { label: "", style: COLS.handle },
             { label: "Producto (SKU)", style: COLS.product },
+            { label: "Nombre en Registro", style: COLS.itemName! },
             { label: "Cant.", style: COLS.quantity },
             { label: "Costo Unit.", style: COLS.unitCost! },
             { label: "Desc. %", style: COLS.discountPercent! },
@@ -635,7 +642,7 @@ const PurchaseOrderForm = ({
               }))}
               fieldPaths={{
                 itemId: `items.${index}.itemId`,
-                itemName: `items.${index}.itemId`,
+                itemName: `items.${index}.itemName`,
                 quantity: `items.${index}.quantityOrdered`,
                 unitCost: `items.${index}.unitCost`,
                 discountPercent: `items.${index}.discountPercent`,
@@ -659,6 +666,7 @@ const PurchaseOrderForm = ({
                   items.find((i) => i.id === itemId);
                 if (item) {
                   setSelectedItemsMap((prev) => ({ ...prev, [itemId]: item }));
+                  setValue(`items.${index}.itemName`, item.name);
                 }
               }}
             />

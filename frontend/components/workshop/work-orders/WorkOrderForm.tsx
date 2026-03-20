@@ -30,7 +30,7 @@ import {
   createWorkOrderItem,
   getWorkOrderItems,
 } from "@/app/api/workshop/workOrderService";
-import customerService from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/sales/customerService";
 import { getVehicles } from "@/app/api/crm/vehicleService";
 import { getUsers } from "@/app/api/userService";
 

@@ -441,55 +441,250 @@ const PurchaseOrderList = () => {
 
   /* ── Row expansion with stepper ── */
   const rowExpansionTemplate = (data: PurchaseOrder) => {
+    const orderTotal =
+      data.items?.reduce(
+        (sum, l) => sum + Number(l.totalLine || l.subtotal || 0),
+        0,
+      ) ?? 0;
+
     return (
       <div className="p-3">
         <PurchaseOrderStepper currentStatus={data.status} />
         {data.items && data.items.length > 0 && (
           <div className="mt-3">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-bottom-1 surface-border">
-                  <th className="text-left py-2">Artículo</th>
-                  <th className="text-center py-2">Ordenado</th>
-                  <th className="text-center py-2">Recibido</th>
-                  <th className="text-center py-2">Pendiente</th>
-                  <th className="text-right py-2">Costo Unit.</th>
-                  <th className="text-right py-2">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((line) => (
-                  <tr key={line.id} className="border-bottom-1 surface-border">
-                    <td className="py-2">
-                      {line.item
-                        ? `${line.item.sku} — ${line.item.name}`
-                        : line.itemId}
-                    </td>
-                    <td className="text-center py-2">{line.quantityOrdered}</td>
-                    <td className="text-center py-2">
-                      {line.quantityReceived}
-                    </td>
-                    <td className="text-center py-2">
-                      <span
-                        className={
-                          line.quantityPending > 0
-                            ? "text-orange-500 font-bold"
-                            : "text-green-600"
-                        }
-                      >
-                        {line.quantityPending}
-                      </span>
-                    </td>
-                    <td className="text-right py-2">
-                      ${Number(line.unitCost || 0).toFixed(2)}
-                    </td>
-                    <td className="text-right py-2">
-                      ${Number(line.subtotal || 0).toFixed(2)}
-                    </td>
-                  </tr>
+            <div
+              style={{
+                border: "1px solid var(--surface-300)",
+                borderRadius: "6px",
+                overflow: "hidden",
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 8px",
+                  backgroundColor: "var(--surface-100)",
+                  borderBottom: "2px solid var(--surface-300)",
+                }}
+              >
+                {[
+                  { label: "Artículo", style: { flex: "1 1 0", minWidth: 0 } },
+                  {
+                    label: "Ord.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Rec.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Pend.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Costo Unit.",
+                    style: { width: "6rem", textAlign: "right" as const },
+                  },
+                  {
+                    label: "Desc. %",
+                    style: { width: "5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Impuesto",
+                    style: { width: "5.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Total Línea",
+                    style: { width: "6.5rem", textAlign: "right" as const },
+                  },
+                ].map((col, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      ...col.style,
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "var(--text-color-secondary)",
+                      userSelect: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {col.label}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Rows */}
+              {data.items.map((line) => (
+                <div
+                  key={line.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderBottom: "1px solid var(--surface-200)",
+                  }}
+                >
+                  {/* Artículo */}
+                  <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <div
+                      className="font-medium text-900"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      {line.item?.sku || "—"}
+                    </div>
+                    <div
+                      className="text-500"
+                      style={{
+                        fontSize: "0.7rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={line.itemName || line.item?.name || ""}
+                    >
+                      {line.itemName || line.item?.name || "Sin nombre"}
+                    </div>
+                  </div>
+
+                  {/* Ordenado */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.quantityOrdered}
+                  </div>
+
+                  {/* Recibido */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.quantityReceived}
+                  </div>
+
+                  {/* Pendiente */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      className={
+                        line.quantityPending > 0
+                          ? "text-orange-500 font-bold"
+                          : "text-green-600"
+                      }
+                    >
+                      {line.quantityPending}
+                    </span>
+                  </div>
+
+                  {/* Costo Unit. */}
+                  <div
+                    style={{
+                      width: "6rem",
+                      textAlign: "right",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {formatCurrency(Number(line.unitCost || 0))}
+                  </div>
+
+                  {/* Desc % */}
+                  <div
+                    style={{
+                      width: "5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {Number(line.discountPercent || 0) > 0 ? (
+                      <span className="text-green-600 font-medium">
+                        {Number(line.discountPercent)}%
+                      </span>
+                    ) : (
+                      <span className="text-400">—</span>
+                    )}
+                  </div>
+
+                  {/* Impuesto */}
+                  <div
+                    style={{
+                      width: "5.5rem",
+                      textAlign: "center",
+                      fontSize: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Tag
+                      value={
+                        line.taxType === "EXEMPT"
+                          ? "Exento"
+                          : line.taxType === "REDUCED"
+                          ? "Red. 8%"
+                          : "IVA 16%"
+                      }
+                      severity={
+                        line.taxType === "EXEMPT"
+                          ? "secondary"
+                          : line.taxType === "REDUCED"
+                          ? "warning"
+                          : "info"
+                      }
+                      className="text-xs"
+                      style={{ fontSize: "0.65rem" }}
+                    />
+                  </div>
+
+                  {/* Total Línea */}
+                  <div
+                    style={{
+                      width: "6.5rem",
+                      textAlign: "right",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {formatCurrency(
+                      Number(line.totalLine || line.subtotal || 0),
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            {orderTotal > 0 && (
+              <div className="flex justify-content-end mt-2">
+                <div className="surface-100 border-round px-4 py-2">
+                  <span className="text-500 mr-3">Total:</span>
+                  <span className="font-bold text-primary text-lg">
+                    {formatCurrency(orderTotal)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -9,7 +9,7 @@ import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
-import customerService from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/sales/customerService";
 import CustomerForm from "./CustomerForm";
 import { Customer } from "@/libs/interfaces/inventory";
 import CustomActionButtons from "@/components/common/CustomActionButtons";

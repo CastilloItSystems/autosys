@@ -64,6 +64,23 @@ export const updateEntryNoteSchema = Joi.object({
   supplierPhone: Joi.string().max(50).allow(null).optional(),
   reason: Joi.string().max(2000).allow(null).optional(),
   reference: Joi.string().max(200).allow(null).optional(),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string()
+          .uuid({ version: 'uuidv4', separator: '-' })
+          .required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityReceived: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().positive().required(),
+        storedToLocation: Joi.string().max(100).optional().allow(null),
+        batchNumber: Joi.string().optional().allow(null),
+        expiryDate: Joi.date().iso().optional().allow(null),
+        notes: Joi.string().max(2000).optional().allow(null),
+      })
+    )
+    .min(1)
+    .optional(),
 }).min(1)
 
 export const addEntryNoteItemSchema = Joi.object({

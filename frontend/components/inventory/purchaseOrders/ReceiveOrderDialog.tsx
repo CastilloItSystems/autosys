@@ -1,10 +1,12 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
+import { Divider } from "primereact/divider";
+import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import purchaseOrderService from "@/app/api/inventory/purchaseOrderService";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -12,6 +14,8 @@ import type {
   PurchaseOrder,
   PurchaseOrderItem,
 } from "@/libs/interfaces/inventory";
+
+// ── Types ──────────────────────────────────────────────────────────────────
 
 interface ReceiveOrderDialogProps {
   visible: boolean;
@@ -34,6 +38,42 @@ interface LineToReceive {
   expiryDate: Date | null;
 }
 
+// ── Column widths (mirrors ItemsTable pattern) ─────────────────────────────
+
+const COL = {
+  product: { width: "14rem", flexShrink: 0 } as React.CSSProperties,
+  ordered: { width: "4.5rem", flexShrink: 0 } as React.CSSProperties,
+  received: { width: "4.5rem", flexShrink: 0 } as React.CSSProperties,
+  pending: { width: "4.5rem", flexShrink: 0 } as React.CSSProperties,
+  qtyToReceive: { width: "7rem", flexShrink: 0 } as React.CSSProperties,
+  unitCost: { width: "7rem", flexShrink: 0 } as React.CSSProperties,
+  batch: { width: "6.5rem", flexShrink: 0 } as React.CSSProperties,
+  expiry: { width: "7.5rem", flexShrink: 0 } as React.CSSProperties,
+  subtotal: { width: "6rem", flexShrink: 0 } as React.CSSProperties,
+};
+
+const COLUMNS = [
+  { label: "Producto", style: COL.product },
+  { label: "Ord.", style: COL.ordered },
+  { label: "Rec.", style: COL.received },
+  { label: "Pend.", style: COL.pending },
+  { label: "A Recibir", style: COL.qtyToReceive },
+  { label: "Costo Unit.", style: COL.unitCost },
+  { label: "Lote", style: COL.batch },
+  { label: "Venc.", style: COL.expiry },
+  { label: "Subtotal", style: COL.subtotal },
+];
+
+// ── Helpers ─────────────────────────────────────────────────────────────────
+
+const formatCurrency = (value: number) =>
+  `$${value.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
+// ── Component ───────────────────────────────────────────────────────────────
+
 const ReceiveOrderDialog = ({
   visible,
   order,
@@ -45,33 +85,35 @@ const ReceiveOrderDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState("");
 
-  useEffect(() => {
-    if (visible && order) {
-      initializeLines();
-      setNotes("");
-    }
-  }, [visible, order]);
-
-  const initializeLines = () => {
+  const initializeLines = useCallback(() => {
     if (!order?.items) return;
 
     const initialLines: LineToReceive[] = order.items
       .filter((line) => line.quantityPending > 0)
       .map((line: PurchaseOrderItem) => ({
         itemId: line.itemId,
-        itemName: line.item?.name || line.itemId,
+        itemName: line.itemName || line.item?.name || "",
         sku: line.item?.sku || "",
         quantityOrdered: line.quantityOrdered,
         quantityReceived: line.quantityReceived,
         quantityPending: line.quantityPending,
         qtyToReceive: line.quantityPending,
-        unitCost: line.unitCost,
+        unitCost: Number(line.unitCost),
         batchNumber: "",
         expiryDate: null,
       }));
 
     setLines(initialLines);
-  };
+  }, [order]);
+
+  useEffect(() => {
+    if (visible && order) {
+      initializeLines();
+      setNotes("");
+    }
+  }, [visible, order, initializeLines]);
+
+  // ── Field update ──
 
   const updateField = <K extends keyof LineToReceive>(
     index: number,
@@ -103,6 +145,8 @@ const ReceiveOrderDialog = ({
   const handleClearAll = () => {
     setLines((prev) => prev.map((line) => ({ ...line, qtyToReceive: 0 })));
   };
+
+  // ── Submit ──
 
   const handleSubmit = async () => {
     const itemsToReceive = lines
@@ -151,85 +195,112 @@ const ReceiveOrderDialog = ({
     }
   };
 
-  const dialogFooter = (
-    <div className="flex justify-content-between align-items-center">
-      <div className="flex gap-2">
-        <Button
-          label="Todo"
-          icon="pi pi-check-circle"
-          className="p-button-sm p-button-success p-button-outlined"
-          onClick={handleReceiveAll}
-          disabled={submitting}
-        />
-        <Button
-          label="Limpiar"
-          icon="pi pi-times-circle"
-          className="p-button-sm p-button-secondary p-button-outlined"
-          onClick={handleClearAll}
-          disabled={submitting}
-        />
-      </div>
-      <div className="flex gap-2">
-        <Button
-          label="Cancelar"
-          icon="pi pi-times"
-          className="p-button-text"
-          onClick={onHide}
-          disabled={submitting}
-        />
-        <Button
-          label="Recepcionar"
-          icon="pi pi-check"
-          className="p-button-success"
-          onClick={handleSubmit}
-          loading={submitting}
-        />
+  // ── Totals ──
+
+  const totalUnits = useMemo(
+    () => lines.reduce((sum, l) => sum + l.qtyToReceive, 0),
+    [lines],
+  );
+
+  const totalAmount = useMemo(
+    () => lines.reduce((sum, l) => sum + l.qtyToReceive * l.unitCost, 0),
+    [lines],
+  );
+
+  // ── Header (same pattern as PurchaseOrderList form dialog) ──
+
+  const dialogHeader = (
+    <div className="mb-2 text-center md:text-left">
+      <div className="border-bottom-2 border-primary pb-2">
+        <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+          <i className="pi pi-truck mr-3 text-primary text-3xl"></i>
+          Recepcionar Orden: {order?.orderNumber || ""}
+        </h2>
       </div>
     </div>
   );
 
-  const totalToReceive = lines.reduce(
-    (sum, line) => sum + line.qtyToReceive,
-    0,
+  // ── Footer (same pattern as FormActionButtons) ──
+
+  const dialogFooter = (
+    <div className="flex w-full gap-2 mb-4">
+      <Button
+        label="Cancelar"
+        icon="pi pi-times"
+        severity="secondary"
+        onClick={onHide}
+        type="button"
+        disabled={submitting}
+        className="flex-1"
+      />
+      <Button
+        label={`Recepcionar (${totalUnits} uds — ${formatCurrency(
+          totalAmount,
+        )})`}
+        icon="pi pi-check"
+        onClick={handleSubmit}
+        loading={submitting}
+        disabled={totalUnits === 0}
+        type="button"
+        className="flex-1"
+      />
+    </div>
   );
+
+  // ── Render ──
 
   return (
     <Dialog
       visible={visible}
       onHide={onHide}
-      header={`Recepcionar Orden: ${order?.orderNumber || ""}`}
+      header={dialogHeader}
       footer={dialogFooter}
-      style={{ width: "1000px" }}
-      className="p-fluid"
+      style={{ width: "80vw" }}
+      modal
+      maximizable
     >
-      <div className="card">
-        {/* Info de la orden */}
+      <div
+        onKeyDown={(e) => {
+          if (e.key === "Enter") e.preventDefault();
+        }}
+      >
+        {/* ── Info de la orden ── */}
         {order && (
           <div className="grid mb-3 surface-50 border-round p-3">
-            <div className="col-4">
+            <div className="col-12 md:col-3">
               <span className="text-500 text-sm">Proveedor</span>
               <div className="font-medium text-900">
                 {order.supplier?.name || "—"}
               </div>
             </div>
-            <div className="col-4">
+            <div className="col-12 md:col-3">
               <span className="text-500 text-sm">Almacén Destino</span>
               <div className="font-medium text-900">
                 {order.warehouse?.name || "—"}
               </div>
             </div>
-            <div className="col-4">
+            <div className="col-12 md:col-3">
               <span className="text-500 text-sm">Total Orden</span>
               <div className="font-medium text-900">
-                ${Number(order.total || 0).toFixed(2)}
+                {formatCurrency(Number(order.total || 0))}
+              </div>
+            </div>
+            <div className="col-12 md:col-3">
+              <span className="text-500 text-sm">Estado</span>
+              <div className="mt-1">
+                <Tag
+                  value={order.status}
+                  severity={order.status === "SENT" ? "info" : "warning"}
+                  className="text-xs"
+                />
               </div>
             </div>
           </div>
         )}
 
-        {/* Notas */}
+        {/* ── Notas de recepción ── */}
         <div className="field mb-3">
-          <label htmlFor="receive-notes" className="font-bold text-900">
+          <label htmlFor="receive-notes" className="font-bold text-900 text-sm">
             Notas de Recepción
           </label>
           <InputText
@@ -238,136 +309,267 @@ const ReceiveOrderDialog = ({
             onChange={(e) => setNotes(e.target.value)}
             placeholder="Observaciones de esta recepción..."
             className="w-full"
+            style={{ fontSize: "0.85rem" }}
           />
         </div>
 
-        {/* Lines header */}
-        <div className="border-top-1 border-300 pt-3">
-          <div className="flex justify-content-between align-items-center mb-3">
-            <h4 className="m-0">Líneas a Recepcionar</h4>
-            <span className="text-500">
-              Total a recibir: <strong>{totalToReceive}</strong> unidades
-            </span>
+        {/* ── Líneas a recepcionar (ItemsTable visual pattern) ── */}
+        <Divider align="left" className="my-0">
+          <div className="flex align-items-center gap-2">
+            <span className="p-tag">Líneas a Recepcionar</span>
+            <Button
+              type="button"
+              label="Recibir Todo"
+              icon="pi pi-check-circle"
+              className="p-button-rounded p-button-text p-button-success p-button-sm"
+              onClick={handleReceiveAll}
+              disabled={submitting}
+              style={{ height: "1.5rem", fontSize: "0.75rem" }}
+            />
+            <Button
+              type="button"
+              label="Limpiar"
+              icon="pi pi-times-circle"
+              className="p-button-rounded p-button-text p-button-secondary p-button-sm"
+              onClick={handleClearAll}
+              disabled={submitting}
+              style={{ height: "1.5rem", fontSize: "0.75rem" }}
+            />
+          </div>
+        </Divider>
+
+        <div
+          style={{
+            border: "1px solid var(--surface-300)",
+            borderRadius: "6px",
+            overflow: "hidden",
+          }}
+        >
+          {/* Column headers (same as ItemsTable) */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "6px",
+              padding: "6px 8px",
+              backgroundColor: "var(--surface-100)",
+              borderBottom: "2px solid var(--surface-300)",
+            }}
+          >
+            {COLUMNS.map((col, i) => (
+              <div
+                key={i}
+                style={{
+                  ...col.style,
+                  fontSize: "0.7rem",
+                  fontWeight: 700,
+                  letterSpacing: "0.05em",
+                  textTransform: "uppercase",
+                  color: "var(--text-color-secondary)",
+                  userSelect: "none",
+                }}
+              >
+                {col.label}
+              </div>
+            ))}
           </div>
 
+          {/* Rows */}
           {lines.length === 0 ? (
-            <div className="text-center py-4 text-500">
+            <div
+              className="text-center py-4 text-500"
+              style={{ fontSize: "0.85rem" }}
+            >
               <i className="pi pi-info-circle mr-2"></i>
               No hay líneas pendientes de recepcionar
             </div>
           ) : (
-            <div className="surface-50 border-round p-3">
-              {lines.map((line, index) => (
-                <div
-                  key={line.itemId + index}
-                  className="grid align-items-center mb-3 pb-3 border-bottom-1 border-200"
-                >
-                  {/* Item info */}
-                  <div className="col-12 md:col-3">
-                    <div className="font-medium text-900">
-                      {line.sku || line.code
-                        ? `${line.sku || line.code} — `
-                        : ""}
-                      {line.itemName}
-                    </div>
-                    <div className="text-sm text-500 mt-1">
-                      <span className="mr-3">
-                        Ord: <strong>{line.quantityOrdered}</strong>
-                      </span>
-                      <span className="mr-3">
-                        Rec: <strong>{line.quantityReceived}</strong>
-                      </span>
-                      <span className="text-orange-500">
-                        Pend: <strong>{line.quantityPending}</strong>
-                      </span>
-                    </div>
+            lines.map((line, index) => (
+              <div
+                key={line.itemId + index}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "4px 8px",
+                  borderBottom: "1px solid var(--surface-200)",
+                  transition: "background 0.12s",
+                }}
+              >
+                {/* Producto */}
+                <div style={COL.product}>
+                  <div
+                    className="font-medium text-900"
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    {line.sku || "—"}
                   </div>
-
-                  {/* Cantidad a recibir */}
-                  <div className="col-12 md:col-2">
-                    <label className="text-sm font-medium text-600 mb-1 block">
-                      Cantidad
-                    </label>
-                    <InputNumber
-                      value={line.qtyToReceive}
-                      onValueChange={(e) =>
-                        updateField(index, "qtyToReceive", e.value ?? 0)
-                      }
-                      min={0}
-                      max={line.quantityPending}
-                      showButtons
-                      buttonLayout="horizontal"
-                      decrementButtonClassName="p-button-secondary"
-                      incrementButtonClassName="p-button-secondary"
-                      incrementButtonIcon="pi pi-plus"
-                      decrementButtonIcon="pi pi-minus"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Costo unitario */}
-                  <div className="col-6 md:col-2">
-                    <label className="text-sm font-medium text-600 mb-1 block">
-                      Costo Unit.
-                    </label>
-                    <InputNumber
-                      value={line.unitCost}
-                      onValueChange={(e) =>
-                        updateField(index, "unitCost", e.value ?? 0)
-                      }
-                      mode="currency"
-                      currency="USD"
-                      locale="en-US"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Lote */}
-                  <div className="col-6 md:col-2">
-                    <label className="text-sm font-medium text-600 mb-1 block">
-                      Lote
-                    </label>
-                    <InputText
-                      value={line.batchNumber}
-                      onChange={(e) =>
-                        updateField(index, "batchNumber", e.target.value)
-                      }
-                      placeholder="Nro. Lote"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Vencimiento */}
-                  <div className="col-6 md:col-2">
-                    <label className="text-sm font-medium text-600 mb-1 block">
-                      Vencimiento
-                    </label>
-                    <Calendar
-                      value={line.expiryDate}
-                      onChange={(e) =>
-                        updateField(index, "expiryDate", e.value as Date | null)
-                      }
-                      dateFormat="dd/mm/yy"
-                      showIcon
-                      className="w-full"
-                      placeholder="Fecha"
-                    />
-                  </div>
-
-                  {/* Subtotal */}
-                  <div className="col-6 md:col-1 text-right">
-                    <label className="text-sm font-medium text-600 mb-1 block">
-                      Subtotal
-                    </label>
-                    <div className="text-900 font-bold">
-                      ${(line.qtyToReceive * line.unitCost).toFixed(2)}
-                    </div>
+                  <div
+                    className="text-500"
+                    style={{
+                      fontSize: "0.7rem",
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                    title={line.itemName}
+                  >
+                    {line.itemName || "Sin nombre"}
                   </div>
                 </div>
-              ))}
-            </div>
+
+                {/* Ordenado */}
+                <div
+                  style={{
+                    ...COL.ordered,
+                    textAlign: "center",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  {line.quantityOrdered}
+                </div>
+
+                {/* Recibido */}
+                <div
+                  style={{
+                    ...COL.received,
+                    textAlign: "center",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  {line.quantityReceived}
+                </div>
+
+                {/* Pendiente */}
+                <div
+                  style={{
+                    ...COL.pending,
+                    textAlign: "center",
+                    fontSize: "0.8rem",
+                  }}
+                >
+                  <span className="text-orange-500 font-bold">
+                    {line.quantityPending}
+                  </span>
+                </div>
+
+                {/* A Recibir */}
+                <div style={COL.qtyToReceive}>
+                  <InputNumber
+                    value={line.qtyToReceive}
+                    onValueChange={(e) =>
+                      updateField(index, "qtyToReceive", e.value ?? 0)
+                    }
+                    min={0}
+                    max={line.quantityPending}
+                    className="w-full"
+                    inputClassName="w-full text-center"
+                    inputStyle={{
+                      padding: "0.25rem 0.4rem",
+                      height: "30px",
+                      fontSize: "0.8rem",
+                    }}
+                    style={{ height: "30px" }}
+                  />
+                </div>
+
+                {/* Costo Unit. */}
+                <div style={COL.unitCost}>
+                  <InputNumber
+                    value={line.unitCost}
+                    onValueChange={(e) =>
+                      updateField(index, "unitCost", e.value ?? 0)
+                    }
+                    mode="currency"
+                    currency="USD"
+                    locale="es-VE"
+                    minFractionDigits={2}
+                    maxFractionDigits={2}
+                    className="w-full"
+                    inputClassName="w-full text-right"
+                    inputStyle={{
+                      padding: "0.25rem 0.4rem",
+                      height: "30px",
+                      fontSize: "0.8rem",
+                    }}
+                    style={{ height: "30px" }}
+                  />
+                </div>
+
+                {/* Lote */}
+                <div style={COL.batch}>
+                  <InputText
+                    value={line.batchNumber}
+                    onChange={(e) =>
+                      updateField(index, "batchNumber", e.target.value)
+                    }
+                    placeholder="Lote"
+                    className="w-full"
+                    style={{
+                      padding: "0.25rem 0.5rem",
+                      fontSize: "0.8rem",
+                      height: "30px",
+                    }}
+                  />
+                </div>
+
+                {/* Vencimiento */}
+                <div style={COL.expiry}>
+                  <Calendar
+                    value={line.expiryDate}
+                    onChange={(e) =>
+                      updateField(index, "expiryDate", e.value as Date | null)
+                    }
+                    dateFormat="dd/mm/yy"
+                    showIcon
+                    className="w-full"
+                    placeholder="Fecha"
+                    inputStyle={{
+                      padding: "0.25rem 0.4rem",
+                      height: "30px",
+                      fontSize: "0.75rem",
+                    }}
+                    style={{ height: "30px" }}
+                  />
+                </div>
+
+                {/* Subtotal */}
+                <div
+                  style={{
+                    ...COL.subtotal,
+                    textAlign: "right",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                  }}
+                >
+                  {formatCurrency(line.qtyToReceive * line.unitCost)}
+                </div>
+              </div>
+            ))
           )}
         </div>
+
+        {/* ── Totals footer (same pattern as TotalsFooter) ── */}
+        {totalAmount > 0 && (
+          <div className="flex justify-content-end mt-2">
+            <div
+              className="surface-100 border-round p-3"
+              style={{ minWidth: "260px" }}
+            >
+              <Divider className="my-2" />
+              <div className="flex justify-content-between align-items-center mb-1 text-sm">
+                <span className="text-600">Unidades a recibir</span>
+                <span className="text-700 font-bold">{totalUnits}</span>
+              </div>
+              <div className="flex justify-content-between align-items-center font-bold text-lg">
+                <span className="text-900">Total Recepción</span>
+                <span className="text-primary">
+                  {formatCurrency(totalAmount)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </Dialog>
   );

@@ -55,6 +55,7 @@ export class CreatePurchaseOrderDTO {
     if (Array.isArray(data.items)) {
       this.items = (data.items as Record<string, unknown>[]).map((item) => ({
         itemId: String(item.itemId),
+        itemName: item.itemName ? String(item.itemName) : undefined,
         quantityOrdered: Number(item.quantityOrdered),
         unitCost: Number(item.unitCost),
         discountPercent:
@@ -79,6 +80,14 @@ export class UpdatePurchaseOrderDTO {
   igtfApplies?: boolean
   notes?: string | null
   expectedDate?: Date | null
+  items?: {
+    itemId: string
+    itemName?: string
+    quantityOrdered: number
+    unitCost: number
+    discountPercent?: number
+    taxType?: TaxType
+  }[]
 
   constructor(data: Record<string, unknown>) {
     if (data.status !== undefined)
@@ -105,6 +114,20 @@ export class UpdatePurchaseOrderDTO {
       this.expectedDate = data.expectedDate
         ? new Date(data.expectedDate as string)
         : null
+    if (Array.isArray(data.items)) {
+      this.items = (data.items as Record<string, unknown>[]).map((item) => ({
+        itemId: String(item.itemId),
+        itemName: item.itemName ? String(item.itemName) : undefined,
+        quantityOrdered: Number(item.quantityOrdered),
+        unitCost: Number(item.unitCost),
+        discountPercent:
+          item.discountPercent !== undefined
+            ? Number(item.discountPercent)
+            : undefined,
+        taxType:
+          item.taxType !== undefined ? (item.taxType as TaxType) : undefined,
+      }))
+    }
   }
 }
 
@@ -117,6 +140,7 @@ export class ApprovePurchaseOrderDTO {
 
 export class CreatePurchaseOrderItemDTO {
   itemId: string
+  itemName?: string
   quantityOrdered: number
   unitCost: number
   discountPercent?: number
@@ -124,6 +148,7 @@ export class CreatePurchaseOrderItemDTO {
 
   constructor(data: Record<string, unknown>) {
     this.itemId = String(data.itemId)
+    if (data.itemName) this.itemName = String(data.itemName)
     this.quantityOrdered = Number(data.quantityOrdered)
     this.unitCost = Number(data.unitCost)
     if (data.discountPercent !== undefined)
@@ -236,6 +261,7 @@ export class PurchaseOrderItemResponseDTO {
   id: string
   purchaseOrderId: string
   itemId: string
+  itemName: string | null
   quantityOrdered: number
   quantityReceived: number
   quantityPending: number
@@ -255,6 +281,7 @@ export class PurchaseOrderItemResponseDTO {
     this.id = item.id
     this.purchaseOrderId = item.purchaseOrderId
     this.itemId = item.itemId
+    this.itemName = item.itemName ?? null
     this.quantityOrdered = item.quantityOrdered
     this.quantityReceived = item.quantityReceived
     this.quantityPending = item.quantityPending

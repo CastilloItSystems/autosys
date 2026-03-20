@@ -58,6 +58,16 @@ export class UpdateEntryNoteDTO {
   supplierPhone?: string | null
   reason?: string | null
   reference?: string | null
+  items?: {
+    itemId: string
+    itemName?: string | null
+    quantityReceived: number
+    unitCost: number
+    storedToLocation?: string | null
+    batchNumber?: string | null
+    expiryDate?: Date | null
+    notes?: string | null
+  }[]
 
   constructor(data: Record<string, unknown>) {
     if (data.status !== undefined) this.status = data.status as EntryNoteStatus
@@ -85,6 +95,22 @@ export class UpdateEntryNoteDTO {
       this.reason = data.reason ? String(data.reason) : null
     if (data.reference !== undefined)
       this.reference = data.reference ? String(data.reference) : null
+    if (Array.isArray(data.items)) {
+      this.items = (data.items as Record<string, unknown>[]).map((item) => ({
+        itemId: String(item.itemId),
+        itemName: item.itemName ? String(item.itemName) : null,
+        quantityReceived: Number(item.quantityReceived),
+        unitCost: Number(item.unitCost),
+        storedToLocation: item.storedToLocation
+          ? String(item.storedToLocation)
+          : null,
+        batchNumber: item.batchNumber ? String(item.batchNumber) : null,
+        expiryDate: item.expiryDate
+          ? new Date(item.expiryDate as string)
+          : null,
+        notes: item.notes ? String(item.notes) : null,
+      }))
+    }
   }
 }
 

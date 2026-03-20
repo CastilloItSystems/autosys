@@ -23,7 +23,7 @@ export const getStockValueReportHandler = async (
       message: 'Stock value report',
       data: result.data,
       summary: { totalInventoryValue: result.totalInventoryValue },
-      pagination: {
+      meta: {
         page,
         limit,
         total: result.total,

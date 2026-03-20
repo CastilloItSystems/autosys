@@ -14,6 +14,7 @@ export interface PurchaseOrderItem {
   id: string;
   purchaseOrderId: string;
   itemId: string;
+  itemName?: string | null;
   quantityOrdered: number;
   quantityReceived: number;
   quantityPending: number;

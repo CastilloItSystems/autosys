@@ -10,7 +10,7 @@ import {
   customerSchema,
   type CustomerFormData,
 } from "@/libs/zods/inventory/customerZod";
-import customerService from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/sales/customerService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";

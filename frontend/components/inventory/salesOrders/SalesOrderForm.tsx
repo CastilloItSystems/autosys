@@ -8,7 +8,7 @@ import { Button } from "primereact/button";
 import { classNames } from "primereact/utils";
 import { salesOrderSchema } from "@/libs/zods/inventory/salesOrderZod";
 import salesOrderService from "@/app/api/inventory/salesOrderService";
-import customerService from "@/app/api/inventory/customerService";
+import customerService from "@/app/api/sales/customerService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";

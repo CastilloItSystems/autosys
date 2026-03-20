@@ -1,5 +1,4 @@
-// backend/src/features/inventory/purchaseOrders/calculateOrderTotals.ts
-
+// backend/src/features/inventory/shared/utils/calculateOrderTotals.ts
 /**
  * Pure function that calculates all fiscal totals for a purchase order.
  * Used by the service to recalculate from scratch (never trusts frontend values).
@@ -67,7 +66,9 @@ export function calculateOrderTotals(
     const taxType = item.taxType || 'IVA'
     const taxRate = TAX_RATES[taxType] ?? 16
     const subtotal = round2(item.quantityOrdered * item.unitCost)
-    const discountAmount = round2(subtotal * ((item.discountPercent || 0) / 100))
+    const discountAmount = round2(
+      subtotal * ((item.discountPercent || 0) / 100)
+    )
     const net = round2(subtotal - discountAmount)
 
     return {
@@ -76,8 +77,8 @@ export function calculateOrderTotals(
       net,
       taxType,
       taxRate,
-      taxAmount: 0,   // calculated after global discount distribution
-      totalLine: 0,    // calculated at the end
+      taxAmount: 0, // calculated after global discount distribution
+      totalLine: 0, // calculated at the end
     }
   })
 
@@ -119,9 +120,8 @@ export function calculateOrderTotals(
       item.taxAmount = 0
     } else {
       // Proportional share of the base after global discount
-      const itemShare = sumGravadas > 0
-        ? round2((item.net / sumGravadas) * baseImponible)
-        : 0
+      const itemShare =
+        sumGravadas > 0 ? round2((item.net / sumGravadas) * baseImponible) : 0
       item.taxAmount = round2(itemShare * (item.taxRate / 100))
     }
     totalTaxAmount = round2(totalTaxAmount + item.taxAmount)

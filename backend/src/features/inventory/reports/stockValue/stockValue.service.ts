@@ -19,7 +19,7 @@ export async function getStockValueReport(
 
     const stockValues = stocks
       .map((s) => {
-        const unitPrice = (s.item as any).unitPrice || 0
+        const unitPrice = Number(s.item.costPrice || 0)
         const totalValue = s.quantityReal * unitPrice
         return {
           itemId: s.itemId,
@@ -44,8 +44,8 @@ export async function getStockValueReport(
       ...s,
       percentageOfTotal:
         totalInventoryValue > 0
-          ? ((s.totalValue / totalInventoryValue) * 100).toFixed(2)
-          : '0.00',
+          ? Number(((s.totalValue / totalInventoryValue) * 100).toFixed(2))
+          : 0,
     }))
 
     const total = await db.stock.count()

@@ -324,6 +324,7 @@ export class EntryNoteService {
     // TENANT-SAFE: verify via warehouse
     const entryNote = await db.entryNote.findFirst({
       where: { id, warehouse: { empresaId } },
+      include: { items: true },
     })
 
     if (!entryNote) {
@@ -359,6 +360,67 @@ export class EntryNoteService {
     if (data.reference !== undefined)
       updateData.reference = data.reference ?? null
 
+    // If items are provided and note is editable, replace all items
+    const canEditItems =
+      entryNote.status === 'PENDING' || entryNote.status === 'IN_PROGRESS'
+    const itemsProvided = Array.isArray(data.items) && data.items.length > 0
+
+    if (canEditItems && itemsProvided) {
+      // Validate all items belong to this company
+      const itemIds = data.items!.map((i) => i.itemId)
+      const existingItems = await db.item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== itemIds.length) {
+        throw new BadRequestError(
+          'Uno o más artículos no existen o no pertenecen a esta empresa'
+        )
+      }
+      const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
+
+      // Transaction: delete old items, create new ones, update header
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // Delete all existing items
+        await tx.entryNoteItem.deleteMany({
+          where: { entryNoteId: id },
+        })
+
+        // Create new items
+        for (const item of data.items!) {
+          await tx.entryNoteItem.create({
+            data: {
+              entryNoteId: id,
+              itemId: item.itemId,
+              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
+              quantityReceived: item.quantityReceived,
+              unitCost: item.unitCost,
+              storedToLocation: item.storedToLocation ?? null,
+              batchNumber: item.batchNumber ?? null,
+              expiryDate: item.expiryDate ?? null,
+              notes: item.notes ?? null,
+            },
+          })
+        }
+
+        // Update header
+        return tx.entryNote.update({
+          where: { id },
+          data: updateData,
+          include: ENTRY_NOTE_INCLUDE,
+        })
+      })
+
+      logger.info('Nota de entrada actualizada con items', {
+        entryNoteId: id,
+        itemCount: data.items!.length,
+        empresaId,
+      })
+
+      return updated as unknown as IEntryNoteWithRelations
+    }
+
+    // No items — just update header
     const updated = await db.entryNote.update({
       where: { id },
       data: updateData,
