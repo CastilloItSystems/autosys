@@ -54,85 +54,32 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-align-left",
       items: [
         // =============================================
-        // MÓDULO: INVENTARIO
+        // MÓDULO: VENTAS
         // =============================================
         {
-          label: "inventario",
-          icon: "pi pi-fw pi-box",
+          label: "ventas",
+          icon: "pi pi-fw pi-shopping-cart",
           items: [
-            // --- Accesos rápidos ---
             {
-              label: "dashboard",
-              icon: "pi pi-fw pi-chart-line",
-              to: "/empresa/inventario/dashboard",
-            },
-            {
-              label: "artículos",
-              icon: "pi pi-fw pi-box",
-              to: "/empresa/inventario/items",
-            },
-            {
-              label: "stock bajo",
-              icon: "pi pi-fw pi-exclamation-triangle",
-              to: "/empresa/inventario/stock/low-stock",
-            },
-            {
-              label: "movimientos",
-              icon: "pi pi-fw pi-exchange",
-              to: "/empresa/inventario/movimientos",
-            },
-            // --- Navegación principal ---
-
-            {
-              label: "stock",
-              icon: "pi pi-fw pi-chart-bar",
-              to: "/empresa/inventario/stock",
-            },
-            {
-              label: "compras",
-              icon: "pi pi-fw pi-shopping-cart",
+              label: "gestión comercial",
+              icon: "pi pi-fw pi-users",
               items: [
-                {
-                  label: "órdenes de compra",
-                  icon: "pi pi-fw pi-shopping-cart",
-                  to: "/empresa/inventario/ordenes-compra",
-                },
-                {
-                  label: "notas de entrada",
-                  icon: "pi pi-fw pi-inbox",
-                  to: "/empresa/inventario/recepciones",
-                },
-                {
-                  label: "proveedores",
-                  icon: "pi pi-fw pi-users",
-                  to: "/empresa/inventario/proveedores",
-                },
-              ],
-            },
-            {
-              label: "ventas",
-              icon: "pi pi-fw pi-money-bill",
-              items: [
-                {
-                  label: "órdenes de venta",
-                  icon: "pi pi-fw pi-money-bill",
-                  to: "/empresa/inventario/ordenes-venta",
-                },
-                {
-                  label: "notas de salida",
-                  icon: "pi pi-fw pi-external-link",
-                  to: "/empresa/inventario/notas-salida",
-                },
-                {
-                  label: "reservas",
-                  icon: "pi pi-fw pi-bookmark",
-                  to: "/empresa/inventario/reservas",
-                },
                 {
                   label: "clientes",
                   icon: "pi pi-fw pi-users",
                   to: "/empresa/inventario/clientes",
                 },
+                {
+                  label: "órdenes de venta",
+                  icon: "pi pi-fw pi-money-bill",
+                  to: "/empresa/inventario/ordenes-venta",
+                },
+              ],
+            },
+            {
+              label: "facturación y cobranza",
+              icon: "pi pi-fw pi-file",
+              items: [
                 {
                   label: "pre-facturas",
                   icon: "pi pi-fw pi-file-text",
@@ -147,6 +94,92 @@ const AppMenuEmpresa = () => {
                   label: "facturas",
                   icon: "pi pi-fw pi-file",
                   to: "/empresa/inventario/invoice",
+                },
+              ],
+            },
+          ],
+        },
+
+        // =============================================
+        // MÓDULO: COMPRAS
+        // =============================================
+        {
+          label: "compras",
+          icon: "pi pi-fw pi-wallet",
+          items: [
+            {
+              label: "proveedores",
+              icon: "pi pi-fw pi-users",
+              to: "/empresa/inventario/proveedores",
+            },
+            {
+              label: "órdenes de compra",
+              icon: "pi pi-fw pi-shopping-cart",
+              to: "/empresa/inventario/ordenes-compra",
+            },
+          ],
+        },
+
+        // =============================================
+        // MÓDULO: INVENTARIO
+        // =============================================
+        {
+          label: "inventario",
+          icon: "pi pi-fw pi-box",
+          items: [
+            // --- Accesos rápidos ---
+            {
+              label: "dashboard",
+              icon: "pi pi-fw pi-chart-line",
+              to: "/empresa/inventario/dashboard",
+            },
+            // --- Catálogo ---
+            {
+              label: "artículos",
+              icon: "pi pi-fw pi-box",
+              to: "/empresa/inventario/items",
+            },
+            // --- Logística ---
+            {
+              label: "logística de entrada / salida",
+              icon: "pi pi-fw pi-truck",
+              items: [
+                {
+                  label: "recepciones",
+                  icon: "pi pi-fw pi-inbox",
+                  to: "/empresa/inventario/recepciones",
+                },
+                {
+                  label: "notas de salida",
+                  icon: "pi pi-fw pi-external-link",
+                  to: "/empresa/inventario/notas-salida",
+                },
+                {
+                  label: "reservas",
+                  icon: "pi pi-fw pi-bookmark",
+                  to: "/empresa/inventario/reservas",
+                },
+              ],
+            },
+            // --- Control de Stock ---
+            {
+              label: "control de stock",
+              icon: "pi pi-fw pi-chart-bar",
+              items: [
+                {
+                  label: "stock actual",
+                  icon: "pi pi-fw pi-chart-bar",
+                  to: "/empresa/inventario/stock",
+                },
+                {
+                  label: "stock bajo",
+                  icon: "pi pi-fw pi-exclamation-triangle",
+                  to: "/empresa/inventario/stock/low-stock",
+                },
+                {
+                  label: "movimientos",
+                  icon: "pi pi-fw pi-exchange",
+                  to: "/empresa/inventario/movimientos",
                 },
               ],
             },
