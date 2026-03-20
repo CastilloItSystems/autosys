@@ -477,6 +477,108 @@ class ExitNotesService {
       throw new BadRequestError(MSG.cannotEdit)
     }
 
+    const shouldReserve = STOCK_DEDUCTING_TYPES.has(
+      exitNote.type as ExitNoteType
+    )
+
+    if (shouldReserve && exitNote.items.length > 0) {
+      // ── Phase 1: Validate ALL items BEFORE reserving anything ──
+      const insufficientItems: string[] = []
+
+      for (const item of exitNote.items as Array<{
+        itemId: string
+        quantity: number
+        itemName?: string
+        item?: { sku?: string; name?: string }
+      }>) {
+        const stock = await (db as PrismaClient).stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: exitNote.warehouseId,
+            },
+          },
+        })
+
+        const available = stock?.quantityAvailable ?? 0
+        if (available < item.quantity) {
+          const label =
+            item.item?.sku || item.itemName || item.item?.name || item.itemId
+          insufficientItems.push(
+            `${label}: disponible ${available}, requerido ${item.quantity}`
+          )
+        }
+      }
+
+      if (insufficientItems.length > 0) {
+        throw new BadRequestError(
+          `Stock insuficiente para los siguientes artículos:\n${insufficientItems.join('\n')}`
+        )
+      }
+
+      // ── Phase 2: All validated — reserve in a single transaction ──
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        for (const item of exitNote.items as Array<{
+          itemId: string
+          quantity: number
+        }>) {
+          // Reserve stock
+          await tx.stock.update({
+            where: {
+              itemId_warehouseId: {
+                itemId: item.itemId,
+                warehouseId: exitNote.warehouseId,
+              },
+            },
+            data: {
+              quantityReserved: { increment: item.quantity },
+              quantityAvailable: { decrement: item.quantity },
+              lastMovementAt: new Date(),
+            },
+          })
+
+          // Create Reservation record for traceability
+          const year = new Date().getFullYear()
+          const ts = Date.now().toString(36).toUpperCase()
+          const rnd = Math.random().toString(36).substring(2, 6).toUpperCase()
+
+          await tx.reservation.create({
+            data: {
+              reservationNumber: `RES-${year}-${ts}${rnd}`,
+              itemId: item.itemId,
+              warehouseId: exitNote.warehouseId,
+              quantity: item.quantity,
+              status: 'ACTIVE',
+              exitNoteId: id,
+              reference: exitNote.exitNoteNumber,
+              notes: `Reserva automática — Nota de salida ${exitNote.exitNoteNumber}`,
+              createdBy: userId,
+            },
+          })
+        }
+
+        return tx.exitNote.update({
+          where: { id },
+          data: {
+            status: ExitNoteStatus.IN_PROGRESS,
+            reservedAt: new Date(),
+          },
+          include: EXIT_NOTE_INCLUDE,
+        })
+      })
+
+      logger.info(
+        `Nota de salida iniciada con ${exitNote.items.length} reservas: ${id}`,
+        {
+          empresaId,
+          userId,
+        }
+      )
+
+      return updated as unknown as IExitNote
+    }
+
+    // No stock reservation needed (non-deducting type or no items)
     const updated = await (db as PrismaClient).exitNote.update({
       where: { id },
       data: { status: ExitNoteStatus.IN_PROGRESS, reservedAt: new Date() },
@@ -542,6 +644,7 @@ class ExitNotesService {
         itemId: string
         quantity: number
       }>) {
+        // Create movement record
         await tx.movement.create({
           data: {
             movementNumber: MovementNumberGenerator.generate('MOV'),
@@ -556,6 +659,7 @@ class ExitNotesService {
           },
         })
 
+        // Deduct real stock (reserved goes down too since it was reserved on start)
         await tx.stock.update({
           where: {
             itemId_warehouseId: {
@@ -566,10 +670,24 @@ class ExitNotesService {
           data: {
             quantityReal: { decrement: item.quantity },
             quantityReserved: { decrement: item.quantity },
+            quantityConsumed: { increment: item.quantity },
             lastMovementAt: new Date(),
           },
         })
       }
+
+      // Mark all linked reservations as CONSUMED
+      await tx.reservation.updateMany({
+        where: {
+          exitNoteId: id,
+          status: { in: ['ACTIVE', 'PENDING_PICKUP'] },
+        },
+        data: {
+          status: 'CONSUMED',
+          deliveredAt: new Date(),
+          deliveredBy: userId,
+        },
+      })
 
       await this.handleTypeSpecificDelivery(tx, note, userId)
 
@@ -598,7 +716,15 @@ class ExitNotesService {
     }
 
     const updated = await (db as PrismaClient).$transaction(async (tx) => {
-      if (STOCK_DEDUCTING_TYPES.has(exitNote.type)) {
+      // Only release stock if it was actually reserved (IN_PROGRESS or READY)
+      const wasReserved =
+        exitNote.status === ExitNoteStatus.IN_PROGRESS ||
+        exitNote.status === ExitNoteStatus.READY
+
+      if (
+        wasReserved &&
+        STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)
+      ) {
         for (const item of exitNote.items) {
           await tx.stock.update({
             where: {
@@ -610,9 +736,23 @@ class ExitNotesService {
             data: {
               quantityReserved: { decrement: item.quantity },
               quantityAvailable: { increment: item.quantity },
+              lastMovementAt: new Date(),
             },
           })
         }
+
+        // Release all linked reservations
+        await tx.reservation.updateMany({
+          where: {
+            exitNoteId: id,
+            status: { in: ['ACTIVE', 'PENDING_PICKUP'] },
+          },
+          data: {
+            status: 'RELEASED',
+            releasedAt: new Date(),
+            notes: `[LIBERADO: Nota de salida cancelada — ${reason}]`,
+          },
+        })
       }
 
       return tx.exitNote.update({
