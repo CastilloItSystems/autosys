@@ -1,397 +1,226 @@
 /**
  * Turnover Service - Inventory Turnover Analysis
+ * Uses 4 parallel DB aggregations instead of N+1 queries
  */
 
-import { prisma } from '../../../../config/database.js'
-import { NotFoundError } from '../../../../shared/utils/errors.js'
+import prisma from '../../../../services/prisma.service.js'
 
-interface TurnoverMetrics {
+// Movement types that represent actual inventory outflow
+const OUTGOING_TYPES = ['SALE', 'ADJUSTMENT_OUT', 'SUPPLIER_RETURN', 'LOAN_OUT']
+
+export type TurnoverClassification = 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC'
+export type TurnoverTrend = 'improving' | 'declining' | 'stable'
+
+export interface TurnoverMetrics {
   itemId: string
-  itemSku: string
-  code?: string
   itemName: string
+  sku: string
+  code?: string
   turnoverRatio: number
   daysInventoryOutstanding: number
-  turnoverFrequency: number
-  monthlyTurnoverRate: number
-  quarterlyTurnoverRate: number
-  annualTurnoverRate: number
-  averageStockValue: number
-  cogs30Days: number
-  cogs90Days: number
-  cogs365Days: number
   healthScore: number
-  classification: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC'
-  trend: 'IMPROVING' | 'DECLINING' | 'STABLE'
-  recommendation: string
+  classification: TurnoverClassification
+  trend: TurnoverTrend
+  stockValue: number
+  recommendations: string[]
 }
 
-class TurnoverService {
-  private static instance: TurnoverService
+const RECOMMENDATIONS: Record<TurnoverClassification, string[]> = {
+  FAST_MOVING: [
+    'Mantener stock de seguridad alto',
+    'Aumentar frecuencia de compra para evitar quiebres',
+  ],
+  MODERATE: [
+    'Control de inventario estándar',
+    'Revisar punto de reorden periódicamente',
+  ],
+  SLOW_MOVING: [
+    'Reducir niveles de stock',
+    'Evaluar actividades promocionales para aumentar ventas',
+  ],
+  STATIC: [
+    'Evaluar descontinuación del artículo',
+    'Considerar liquidación por falta de movimiento',
+  ],
+}
 
-  public static getInstance(): TurnoverService {
-    if (!TurnoverService.instance) {
-      TurnoverService.instance = new TurnoverService()
+function classifyTurnover(ratio: number): TurnoverClassification {
+  if (ratio > 6) return 'FAST_MOVING'
+  if (ratio > 2) return 'MODERATE'
+  if (ratio > 0) return 'SLOW_MOVING'
+  return 'STATIC'
+}
+
+function calcHealthScore(turnoverRatio: number, dio: number): number {
+  let score = 50
+  if (turnoverRatio >= 2 && turnoverRatio <= 6) score += 30
+  else if (
+    (turnoverRatio >= 1 && turnoverRatio < 2) ||
+    (turnoverRatio > 6 && turnoverRatio <= 10)
+  ) score += 15
+  if (dio >= 60 && dio <= 180) score += 20
+  else if ((dio >= 30 && dio < 60) || (dio > 180 && dio <= 360)) score += 10
+  return Math.min(100, Math.max(0, score))
+}
+
+/**
+ * Get turnover metrics for all items (or filtered by classification).
+ * Uses 4 parallel queries instead of N+1.
+ */
+export async function getAllTurnoverMetrics(
+  page = 1,
+  limit = 50,
+  classification?: TurnoverClassification | null,
+  empresaId?: string,
+  prismaClient?: any
+) {
+  const db = prismaClient || prisma
+
+  const now = new Date()
+  const date365 = new Date(now.getTime() - 365 * 24 * 60 * 60 * 1000)
+  const date90  = new Date(now.getTime() -  90 * 24 * 60 * 60 * 1000)
+  const date30  = new Date(now.getTime() -  30 * 24 * 60 * 60 * 1000)
+
+  const movWhere   = empresaId ? { item: { empresaId } } : {}
+  const stockWhere = empresaId ? { warehouse: { empresaId } } : {}
+
+  // ── 4 parallel queries (replaces N+1) ────────────────────────────────────
+  const [stocks, mov365raw, mov90raw, mov30raw] = await Promise.all([
+    // 1. Stocks: per item across all warehouses
+    db.stock.findMany({
+      where: stockWhere,
+      select: {
+        itemId: true,
+        quantityReal: true,
+        averageCost: true,
+        item: { select: { name: true, sku: true, code: true, costPrice: true } },
+      },
+    }),
+
+    // 2-4. Outgoing movement totals for 3 time windows
+    db.movement.groupBy({
+      by: ['itemId'],
+      where: { ...movWhere, movementDate: { gte: date365 }, type: { in: OUTGOING_TYPES } },
+      _sum: { quantity: true },
+    }),
+    db.movement.groupBy({
+      by: ['itemId'],
+      where: { ...movWhere, movementDate: { gte: date90 }, type: { in: OUTGOING_TYPES } },
+      _sum: { quantity: true },
+    }),
+    db.movement.groupBy({
+      by: ['itemId'],
+      where: { ...movWhere, movementDate: { gte: date30 }, type: { in: OUTGOING_TYPES } },
+      _sum: { quantity: true },
+    }),
+  ])
+
+  // ── Aggregate stock per item across warehouses ────────────────────────────
+  const stockMap = new Map<string, {
+    name: string; sku: string; code: string; quantity: number; unitCost: number
+  }>()
+  for (const s of stocks as any[]) {
+    const unitCost = Number(s.averageCost || s.item.costPrice || 0)
+    const existing = stockMap.get(s.itemId)
+    if (existing) {
+      const newQty = existing.quantity + s.quantityReal
+      existing.unitCost = newQty > 0
+        ? (existing.unitCost * existing.quantity + unitCost * s.quantityReal) / newQty
+        : unitCost
+      existing.quantity = newQty
+    } else {
+      stockMap.set(s.itemId, {
+        name: s.item.name,
+        sku: s.item.sku ?? '',
+        code: s.item.code ?? '',
+        quantity: s.quantityReal,
+        unitCost,
+      })
     }
-    return TurnoverService.instance
   }
 
-  /**
-   * Get turnover metrics for a specific item
-   */
-  async getTurnoverMetricsForItem(
-    itemId: string,
-    period: number = 365
-  ): Promise<TurnoverMetrics> {
-    const item = await prisma.item.findUnique({
-      where: { id: itemId },
-      include: {
-        stocks: {
-          include: { warehouse: true },
-        },
-      },
-    })
+  // ── Build outgoing maps ───────────────────────────────────────────────────
+  const toMap = (raw: any[]) => {
+    const m = new Map<string, number>()
+    for (const r of raw) m.set(r.itemId, r._sum.quantity ?? 0)
+    return m
+  }
+  const out365 = toMap(mov365raw)
+  const out30  = toMap(mov30raw)
 
-    if (!item) throw new NotFoundError('Item not found')
+  // ── Compute metrics per item ──────────────────────────────────────────────
+  const results: TurnoverMetrics[] = []
+  for (const [itemId, stock] of stockMap) {
+    const cogs365 = out365.get(itemId) ?? 0
+    const cogs30  = out30.get(itemId) ?? 0
 
-    // Get movement data
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - period)
+    // Use current stock as average inventory (simplified but consistent)
+    const avgStock = stock.quantity
+    const turnoverRatio = avgStock > 0 ? cogs365 / avgStock : 0
+    const dio = turnoverRatio > 0
+      ? Math.round((365 / turnoverRatio) * 10) / 10
+      : 999
+    const healthScore = calcHealthScore(turnoverRatio, dio)
+    const cls = classifyTurnover(turnoverRatio)
 
-    const movements = await prisma.movement.findMany({
-      where: {
-        itemId,
-        createdAt: { gte: startDate },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
+    // Trend: compare annualized 30-day rate vs full 365-day rate
+    const rate365 = cogs365 / 365
+    const rate30  = cogs30 / 30
+    let trend: TurnoverTrend = 'stable'
+    if (rate365 > 0) {
+      if (rate30 > rate365 * 1.15) trend = 'improving'
+      else if (rate30 < rate365 * 0.85) trend = 'declining'
+    }
 
-    // Calculate COGS (Cost of Goods Sold) - approximated by outgoing movements
-    const outgoingMovements = movements.filter((m) =>
-      ['SALE', 'TRANSFER_OUT', 'WRITE_OFF'].includes(m.type)
-    )
-    const totalOutgoing = outgoingMovements.reduce(
-      (sum, m) => sum + m.quantity,
-      0
-    )
-
-    // Calculate period-specific COGS
-    const cogs365Days = totalOutgoing
-
-    const cogs90DaysDate = new Date()
-    cogs90DaysDate.setDate(cogs90DaysDate.getDate() - 90)
-    const outgoing90Days = outgoingMovements.filter(
-      (m) => m.createdAt >= cogs90DaysDate
-    )
-    const cogs90Days = outgoing90Days.reduce((sum, m) => sum + m.quantity, 0)
-
-    const cogs30DaysDate = new Date()
-    cogs30DaysDate.setDate(cogs30DaysDate.getDate() - 30)
-    const outgoing30Days = outgoingMovements.filter(
-      (m) => m.createdAt >= cogs30DaysDate
-    )
-    const cogs30Days = outgoing30Days.reduce((sum, m) => sum + m.quantity, 0)
-
-    // Calculate average stock
-    const currentStock = item.stocks.reduce((sum, s) => sum + s.quantityReal, 0)
-    const averageStock = this.calculateAverageStock(movements, currentStock)
-    const averageStockValue = averageStock * (Number(item.costPrice) || 0)
-
-    // Calculate turnover ratio = COGS / Average Inventory
-    const turnoverRatio = averageStock > 0 ? cogs365Days / averageStock : 0
-
-    // Calculate Days Inventory Outstanding (DIO) = 365 / Turnover Ratio
-    const daysInventoryOutstanding =
-      turnoverRatio > 0 ? Math.round((365 / turnoverRatio) * 10) / 10 : 365
-
-    // Calculate monthly and quarterly rates
-    const monthlyTurnoverRate = turnoverRatio / 12
-    const quarterlyTurnoverRate = turnoverRatio / 4
-    const annualTurnoverRate = turnoverRatio
-
-    // Turnover frequency = number of months until current stock runs out
-    const turnoverFrequency =
-      monthlyTurnoverRate > 0 ? 1 / monthlyTurnoverRate : Infinity
-
-    // Calculate health score (0-100)
-    const healthScore = this.calculateHealthScore(
-      turnoverRatio,
-      daysInventoryOutstanding
-    )
-
-    // Classify item
-    const classification = this.classifyTurnover(turnoverRatio)
-
-    // Calculate trend
-    const trend = this.calculateTrend(movements)
-
-    // Generate recommendation
-    const recommendation = this.generateRecommendation(
-      classification,
-      trend,
-      currentStock,
-      cogs30Days
-    )
-
-    return {
+    results.push({
       itemId,
-      itemSku: item.sku,
-      code: item.code,
-      itemName: item.name,
+      itemName: stock.name,
+      sku: stock.sku,
+      code: stock.code,
       turnoverRatio: Math.round(turnoverRatio * 100) / 100,
-      daysInventoryOutstanding: Math.round(daysInventoryOutstanding * 10) / 10,
-      turnoverFrequency: Math.round(turnoverFrequency * 10) / 10,
-      monthlyTurnoverRate: Math.round(monthlyTurnoverRate * 100) / 100,
-      quarterlyTurnoverRate: Math.round(quarterlyTurnoverRate * 100) / 100,
-      annualTurnoverRate: Math.round(annualTurnoverRate * 100) / 100,
-      averageStockValue: Math.round(averageStockValue * 100) / 100,
-      cogs30Days,
-      cogs90Days,
-      cogs365Days,
+      daysInventoryOutstanding: Math.min(dio, 999),
       healthScore,
-      classification,
+      classification: cls,
       trend,
-      recommendation,
-    }
-  }
-
-  /**
-   * Calculate average stock from movements
-   */
-  private calculateAverageStock(
-    movements: any[],
-    currentStock: number
-  ): number {
-    if (movements.length === 0) return currentStock
-
-    // Group movements by date and calculate running balance
-    const dailyBalances: { [key: string]: number } = {}
-    let runningBalance = 0
-
-    // Get starting balance
-    const firstMovementDate = movements[0]?.createdAt || new Date()
-    const today = new Date()
-    const daysDiff = Math.floor(
-      (today.getTime() - firstMovementDate.getTime()) / (1000 * 60 * 60 * 24)
-    )
-
-    movements.forEach((movement) => {
-      const dateKey = movement.createdAt.toISOString().split('T')[0]
-      if (movement.type.includes('IN') || movement.type === 'PURCHASE_IN') {
-        runningBalance += movement.quantity
-      } else {
-        runningBalance -= movement.quantity
-      }
-      dailyBalances[dateKey] = Math.max(0, runningBalance)
+      stockValue: Math.round(stock.quantity * stock.unitCost * 100) / 100,
+      recommendations: RECOMMENDATIONS[cls],
     })
-
-    // Calculate average
-    const balances = Object.values(dailyBalances)
-    if (balances.length === 0) return currentStock
-
-    const sum = balances.reduce((a, b) => a + b, 0)
-    return sum / balances.length
   }
 
-  /**
-   * Calculate health score based on turnover metrics
-   */
-  private calculateHealthScore(
-    turnoverRatio: number,
-    daysInventoryOutstanding: number
-  ): number {
-    // Ideal turnover ratio is between 2-6 (turns 2-6 times per year)
-    // Ideal DIO is between 60-180 days
+  // Sort by turnover ratio descending
+  results.sort((a, b) => b.turnoverRatio - a.turnoverRatio)
 
-    let score = 50 // Base score
-
-    // Adjust for turnover ratio (closer to 4 is better)
-    if (turnoverRatio >= 2 && turnoverRatio <= 6) {
-      score += 30 // Good turnover
-    } else if (turnoverRatio >= 1 && turnoverRatio < 2) {
-      score += 15
-    } else if (turnoverRatio > 6 && turnoverRatio <= 10) {
-      score += 15
-    }
-
-    // Adjust for DIO (closer to 120 is better)
-    if (daysInventoryOutstanding >= 60 && daysInventoryOutstanding <= 180) {
-      score += 20
-    } else if (
-      daysInventoryOutstanding >= 30 &&
-      daysInventoryOutstanding < 60
-    ) {
-      score += 10
-    } else if (
-      daysInventoryOutstanding > 180 &&
-      daysInventoryOutstanding <= 360
-    ) {
-      score += 10
-    }
-
-    return Math.min(100, Math.max(0, score))
+  // ── Summary (always from full dataset, not filtered) ──────────────────────
+  const summary = {
+    totalItems: results.length,
+    averageTurnover: results.length > 0
+      ? Math.round((results.reduce((s, r) => s + r.turnoverRatio, 0) / results.length) * 100) / 100
+      : 0,
+    fastMovingCount: results.filter((r) => r.classification === 'FAST_MOVING').length,
+    moderateCount:   results.filter((r) => r.classification === 'MODERATE').length,
+    slowMovingCount: results.filter((r) => r.classification === 'SLOW_MOVING').length,
+    staticCount:     results.filter((r) => r.classification === 'STATIC').length,
   }
 
-  /**
-   * Classify turnover
-   */
-  private classifyTurnover(
-    turnoverRatio: number
-  ): 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC' {
-    if (turnoverRatio > 6) return 'FAST_MOVING'
-    if (turnoverRatio > 2) return 'MODERATE'
-    if (turnoverRatio > 0) return 'SLOW_MOVING'
-    return 'STATIC'
-  }
+  // Filter after computing (ensures correct pagination per classification)
+  const filtered = classification
+    ? results.filter((r) => r.classification === classification)
+    : results
 
-  /**
-   * Calculate trend
-   */
-  private calculateTrend(
-    movements: any[]
-  ): 'IMPROVING' | 'DECLINING' | 'STABLE' {
-    if (movements.length < 60) return 'STABLE'
+  const paginated = filtered.slice((page - 1) * limit, page * limit)
 
-    const midpoint = Math.floor(movements.length / 2)
-    const firstHalf = movements.slice(0, midpoint)
-    const secondHalf = movements.slice(midpoint)
-
-    const firstHalfOutgoing = firstHalf.filter((m) =>
-      ['SALE', 'TRANSFER_OUT', 'WRITE_OFF'].includes(m.type)
-    ).length
-    const secondHalfOutgoing = secondHalf.filter((m) =>
-      ['SALE', 'TRANSFER_OUT', 'WRITE_OFF'].includes(m.type)
-    ).length
-
-    if (secondHalfOutgoing > firstHalfOutgoing * 1.1) return 'IMPROVING'
-    if (secondHalfOutgoing < firstHalfOutgoing * 0.9) return 'DECLINING'
-    return 'STABLE'
-  }
-
-  /**
-   * Generate recommendation
-   */
-  private generateRecommendation(
-    classification: string,
-    trend: string,
-    currentStock: number,
-    cogs30Days: number
-  ): string {
-    if (classification === 'FAST_MOVING') {
-      return 'Maintain high stock levels and increase purchase frequency to prevent stockouts.'
-    }
-    if (classification === 'STATIC') {
-      return 'Consider discontinuing or liquidating this item due to no movement.'
-    }
-    if (classification === 'SLOW_MOVING' && trend === 'DECLINING') {
-      return 'Reduce stock levels and consider promotional activities to increase sales.'
-    }
-    if (classification === 'MODERATE' && currentStock > cogs30Days * 3) {
-      return 'Current stock exceeds 3 months of demand. Consider reducing purchase orders.'
-    }
-    return 'Monitor inventory levels and adjust orders based on seasonal trends.'
-  }
-
-  /**
-   * Get turnover metrics for all items (paginated)
-   */
-  async getAllTurnoverMetrics(
-    page: number = 1,
-    limit: number = 50
-  ): Promise<{ data: TurnoverMetrics[]; total: number; summary: any }> {
-    const skip = (page - 1) * limit
-
-    const items = await prisma.item.findMany({
-      where: { isActive: true },
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const metrics = await Promise.all(
-      items.map((item) => this.getTurnoverMetricsForItem(item.id))
-    )
-
-    const total = await prisma.item.count({ where: { isActive: true } })
-
-    const summary = {
-      averageTurnover:
-        metrics.length > 0
-          ? metrics.reduce((sum, m) => sum + m.turnoverRatio, 0) /
-            metrics.length
-          : 0,
-      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING')
-        .length,
-      moderateCount: metrics.filter((m) => m.classification === 'MODERATE')
-        .length,
-      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING')
-        .length,
-      staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
-      totalItems: total,
-    }
-
-    return { data: metrics, total, summary }
-  }
-
-  /**
-   * Get items by classification
-   */
-  async getItemsByClassification(
-    classification: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC',
-    page: number = 1,
-    limit: number = 50
-  ): Promise<{ data: TurnoverMetrics[]; total: number; summary: any }> {
-    const skip = (page - 1) * limit
-
-    const items = await prisma.item.findMany({
-      where: { isActive: true },
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const metrics = await Promise.all(
-      items.map((item) => this.getTurnoverMetricsForItem(item.id))
-    )
-
-    const filtered = metrics.filter((m) => m.classification === classification)
-    const total = metrics.length
-
-    const summary = {
-      averageTurnover:
-        filtered.length > 0
-          ? filtered.reduce((sum, m) => sum + m.turnoverRatio, 0) /
-            filtered.length
-          : 0,
-      fastMovingCount: metrics.filter((m) => m.classification === 'FAST_MOVING')
-        .length,
-      moderateCount: metrics.filter((m) => m.classification === 'MODERATE')
-        .length,
-      slowMovingCount: metrics.filter((m) => m.classification === 'SLOW_MOVING')
-        .length,
-      staticCount: metrics.filter((m) => m.classification === 'STATIC').length,
-      totalItems: total,
-    }
-
-    return { data: filtered, total, summary }
-  }
+  return { data: paginated, total: filtered.length, summary, page, limit }
 }
 
-export const getTurnoverMetricsForItem = (itemId: string) =>
-  TurnoverService.getInstance().getTurnoverMetricsForItem(itemId)
+export async function getTurnoverMetricsForItem(
+  itemId: string,
+  empresaId?: string,
+  prismaClient?: any
+) {
+  const result = await getAllTurnoverMetrics(1, 100_000, null, empresaId, prismaClient)
+  const item = result.data.find((r) => r.itemId === itemId)
+  if (!item) throw new Error('Item not found')
+  return item
+}
 
-export const getAllTurnoverMetrics = (page?: number, limit?: number) =>
-  TurnoverService.getInstance().getAllTurnoverMetrics(page, limit)
-
-export const getItemsByClassification = (
-  classification: 'FAST_MOVING' | 'MODERATE' | 'SLOW_MOVING' | 'STATIC',
-  page?: number,
-  limit?: number
-) =>
-  TurnoverService.getInstance().getItemsByClassification(
-    classification,
-    page,
-    limit
-  )
-
-export default TurnoverService
+export default { getAllTurnoverMetrics, getTurnoverMetricsForItem }

@@ -13,19 +13,26 @@ export const getExitsWithoutInvoiceReportHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
+    const empresaId = (req as any).empresaId as string | undefined
     const result = await getExitsWithoutInvoiceReport(
       page,
       limit,
+      empresaId,
       (req as any).prisma || undefined
     )
-    ApiResponse.paginated(
-      res,
-      result.data,
-      page,
-      limit,
-      result.total,
-      'Exits without invoice'
-    )
+    res.status(200).json({
+      success: true,
+      message: 'Exits without invoice',
+      data: result.data,
+      summary: result.summary,
+      meta: {
+        page,
+        limit,
+        total: result.total,
+        totalPages: Math.ceil(result.total / limit),
+      },
+      timestamp: new Date().toISOString(),
+    })
   } catch (error: any) {
     ApiResponse.error(res, error.message, 500)
   }

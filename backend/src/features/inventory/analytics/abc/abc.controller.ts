@@ -13,9 +13,11 @@ export const getABCAnalysisHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
+    const empresaId = (req as any).empresaId as string | undefined
     const result = await getABCAnalysis(
       page,
       limit,
+      empresaId,
       (req as any).prisma || undefined
     )
     res.status(200).json({

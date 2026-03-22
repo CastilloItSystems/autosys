@@ -289,6 +289,26 @@ const AppMenuEmpresa = () => {
                   icon: "pi pi-fw pi-file-excel",
                   to: "/empresa/inventario/reportes/salidas-sin-factura",
                 },
+                {
+                  label: "kardex",
+                  icon: "pi pi-fw pi-list",
+                  to: "/empresa/inventario/reportes/kardex",
+                },
+                {
+                  label: "envejecimiento",
+                  icon: "pi pi-fw pi-clock",
+                  to: "/empresa/inventario/reportes/envejecimiento",
+                },
+                {
+                  label: "vencimientos",
+                  icon: "pi pi-fw pi-calendar-times",
+                  to: "/empresa/inventario/reportes/vencimientos",
+                },
+                {
+                  label: "rend. proveedores",
+                  icon: "pi pi-fw pi-star-fill",
+                  to: "/empresa/inventario/reportes/rendimiento-proveedores",
+                },
               ],
             },
             {
@@ -602,6 +622,26 @@ const AppMenuEmpresa = () => {
                       label: "salidas sin factura",
                       icon: "pi pi-fw pi-file-excel",
                       to: "/empresa/inventario/reportes/salidas-sin-factura",
+                    },
+                    {
+                      label: "kardex",
+                      icon: "pi pi-fw pi-list",
+                      to: "/empresa/inventario/reportes/kardex",
+                    },
+                    {
+                      label: "envejecimiento",
+                      icon: "pi pi-fw pi-clock",
+                      to: "/empresa/inventario/reportes/envejecimiento",
+                    },
+                    {
+                      label: "vencimientos",
+                      icon: "pi pi-fw pi-calendar-times",
+                      to: "/empresa/inventario/reportes/vencimientos",
+                    },
+                    {
+                      label: "rend. proveedores",
+                      icon: "pi pi-fw pi-star-fill",
+                      to: "/empresa/inventario/reportes/rendimiento-proveedores",
                     },
                   ],
                 },

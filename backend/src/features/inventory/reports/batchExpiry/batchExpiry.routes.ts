@@ -1,0 +1,46 @@
+/**
+ * Batch Expiry Report Routes
+ * GET /api/inventory/reports/batch-expiry?daysAhead=90&page=&limit=
+ */
+
+import { Router, Request, Response } from 'express'
+import { getBatchExpiryReport } from './batchExpiry.service.js'
+import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
+
+const router = Router()
+
+router.get('/', async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1
+    const limit = parseInt(req.query.limit as string) || 50
+    const daysAhead = parseInt(req.query.daysAhead as string) || 90
+    const empresaId = (req as any).empresaId as string | undefined
+
+    const result = await getBatchExpiryReport(
+      page,
+      limit,
+      daysAhead,
+      empresaId,
+      (req as any).prisma || undefined
+    )
+
+    res.status(200).json({
+      success: true,
+      message: 'Batch expiry report',
+      data: result.data,
+      summary: result.summary,
+      meta: {
+        page: result.page,
+        limit: result.limit,
+        total: result.total,
+        totalPages: result.totalPages,
+        daysAhead,
+      },
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    ApiResponse.error(res, error.message || 'Error generating batch expiry report', 500)
+  }
+})
+
+export default router

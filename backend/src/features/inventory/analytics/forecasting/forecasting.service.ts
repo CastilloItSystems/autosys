@@ -1,318 +1,265 @@
 /**
  * Forecasting Service - Demand Forecasting using Time Series Analysis
+ * Uses batch DB queries instead of N+1 (2 queries per call regardless of item count)
  */
 
-import { EventType } from '../../../../shared/types/event.types.js'
-import { prisma } from '../../../../config/database.js'
-import {
-  BadRequestError,
-  NotFoundError,
-} from '../../../../shared/utils/errors.js'
-import EventService from '../../shared/events/event.service.js'
+import prisma from '../../../../services/prisma.service.js'
+import { NotFoundError } from '../../../../shared/utils/errors.js'
 
-interface ForecastData {
-  date: string
-  quantity: number
-  confidence: number
-}
+// Movement types that represent actual demand outflow
+const DEMAND_TYPES = ['SALE', 'ADJUSTMENT_OUT', 'LOAN_OUT']
 
-interface ForecastResult {
+export type StockoutRisk = 'low' | 'medium' | 'high'
+export type TrendDirection = 'increasing' | 'decreasing' | 'stable'
+
+export interface ForecastResult {
   itemId: string
-  itemSku: string
-  code?: string
   itemName: string
+  sku: string
+  code?: string
   currentStock: number
-  historicalAverageDailyDemand: number
-  forecastedDemand30Days: number
-  forecastedDemand60Days: number
-  forecastedDemand90Days: number
-  forecastVariance: number
-  confidenceLevel: number
-  trend: 'INCREASING' | 'DECREASING' | 'STABLE'
-  recommended30DaysStock: number
-  stockoutRisk: number
-  recommendedAction: 'INCREASE_STOCK' | 'MAINTAIN' | 'REDUCE_STOCK' | 'MONITOR'
-  forecastData: ForecastData[]
+  estimatedDemand: {
+    demand30Days: number
+    demand60Days: number
+    demand90Days: number
+  }
+  forecast: {
+    daysForecast: Array<{ date: string; forecastedDemand: number; confidence: number }>
+  }
+  stockoutRisk: StockoutRisk
+  trendDirection: TrendDirection
+  recommendations: string[]
 }
 
-class ForecastingService {
-  private static instance: ForecastingService
+// ── Math helpers ──────────────────────────────────────────────────────────────
 
-  public static getInstance(): ForecastingService {
-    if (!ForecastingService.instance) {
-      ForecastingService.instance = new ForecastingService()
-    }
-    return ForecastingService.instance
+function exponentialSmoothing(values: number[], alpha = 0.3): number[] {
+  if (values.length === 0) return []
+  const result = [values[0]]
+  for (let i = 1; i < values.length; i++) {
+    result.push(alpha * values[i] + (1 - alpha) * result[i - 1])
+  }
+  return result
+}
+
+function classifyRisk(currentStock: number, forecast30: number): StockoutRisk {
+  if (forecast30 === 0) return 'low'
+  const ratio = currentStock / forecast30
+  if (ratio < 0.5) return 'high'
+  if (ratio < 1.0) return 'medium'
+  return 'low'
+}
+
+function calcTrend(historicalDaily: number, forecast30: number): TrendDirection {
+  if (historicalDaily === 0) return 'stable'
+  const forecastDaily = forecast30 / 30
+  const change = (forecastDaily - historicalDaily) / historicalDaily
+  if (change > 0.05) return 'increasing'
+  if (change < -0.05) return 'decreasing'
+  return 'stable'
+}
+
+const RECOMMENDATIONS: Record<StockoutRisk, string[]> = {
+  low: [
+    'Stock suficiente para la demanda proyectada',
+    'Monitorear tendencias estacionales',
+  ],
+  medium: [
+    'Considerar aumentar el nivel de stock',
+    'Revisar punto de reorden',
+  ],
+  high: [
+    'Aumentar stock urgentemente',
+    'Coordinar con proveedores para acelerar entrega',
+  ],
+}
+
+// ── Core computation (pure function, no DB) ───────────────────────────────────
+
+function computeForecast(
+  item: { id: string; name: string; sku: string | null; code: string | null },
+  currentStock: number,
+  movements: Array<{ quantity: number; movementDate: Date }>
+): ForecastResult {
+  // Build daily demand values for last 90 days
+  const dailyMap: Record<string, number> = {}
+  for (const m of movements) {
+    const key = new Date(m.movementDate).toISOString().split('T')[0]
+    dailyMap[key] = (dailyMap[key] ?? 0) + m.quantity
   }
 
-  /**
-   * Calculate moving average for demand forecasting
-   */
-  private calculateMovingAverage(values: number[], period: number): number[] {
-    const result: number[] = []
-    for (let i = 0; i < values.length; i++) {
-      if (i < period - 1) {
-        result.push(0)
-      } else {
-        const sum = values
-          .slice(i - period + 1, i + 1)
-          .reduce((a, b) => a + b, 0)
-        result.push(sum / period)
-      }
-    }
-    return result
+  const demandValues: number[] = []
+  for (let i = 89; i >= 0; i--) {
+    const d = new Date(Date.now() - i * 24 * 60 * 60 * 1000)
+    demandValues.push(dailyMap[d.toISOString().split('T')[0]] ?? 0)
   }
 
-  /**
-   * Calculate exponential smoothing for forecasting
-   */
-  private exponentialSmoothing(
-    values: number[],
-    alpha: number = 0.3
-  ): number[] {
-    if (values.length === 0) return []
-    const result: number[] = [values[0]]
-    for (let i = 1; i < values.length; i++) {
-      result.push(alpha * values[i] + (1 - alpha) * result[i - 1])
-    }
-    return result
+  const totalDemand = demandValues.reduce((a, b) => a + b, 0)
+  const historicalDaily = totalDemand / 90
+
+  const smoothed = exponentialSmoothing(demandValues)
+  const lastSmoothed = smoothed[smoothed.length - 1] ?? historicalDaily
+
+  const forecast30 = Math.round(lastSmoothed * 30)
+  const forecast60 = Math.round(lastSmoothed * 60)
+  const forecast90 = Math.round(lastSmoothed * 90)
+
+  // Confidence: inverse of coefficient of variation (capped 0.5–0.95)
+  const mean = Math.max(historicalDaily, 0.0001)
+  const stdDev = Math.sqrt(
+    demandValues.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / demandValues.length
+  )
+  const confidence = Math.round(Math.max(0.5, Math.min(0.95, 1 - stdDev / mean)) * 100) / 100
+
+  const daysForecast = Array.from({ length: 30 }, (_, i) => ({
+    date: new Date(Date.now() + (i + 1) * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+    forecastedDemand: Math.max(0, Math.round(lastSmoothed)),
+    confidence,
+  }))
+
+  const risk = classifyRisk(currentStock, forecast30)
+
+  return {
+    itemId: item.id,
+    itemName: item.name,
+    sku: item.sku ?? '',
+    code: item.code ?? undefined,
+    currentStock,
+    estimatedDemand: { demand30Days: forecast30, demand60Days: forecast60, demand90Days: forecast90 },
+    forecast: { daysForecast },
+    stockoutRisk: risk,
+    trendDirection: calcTrend(historicalDaily, forecast30),
+    recommendations: RECOMMENDATIONS[risk],
   }
+}
 
-  /**
-   * Calculate trend direction
-   */
-  private calculateTrend(
-    historicalDemand: number,
-    forecast30Days: number
-  ): 'INCREASING' | 'DECREASING' | 'STABLE' {
-    const percentChange =
-      ((forecast30Days - historicalDemand) / historicalDemand) * 100
-    if (percentChange > 5) return 'INCREASING'
-    if (percentChange < -5) return 'DECREASING'
-    return 'STABLE'
-  }
+// ── Public API ────────────────────────────────────────────────────────────────
 
-  /**
-   * Get demand forecast for an item
-   */
-  async getDemandForecastForItem(itemId: string): Promise<ForecastResult> {
-    const item = await prisma.item.findUnique({
-      where: { id: itemId },
-      include: {
-        stocks: {
-          include: { warehouse: true },
-        },
-      },
-    })
+export async function getAllDemandForecasts(
+  page = 1,
+  limit = 50,
+  empresaId?: string,
+  prismaClient?: any
+): Promise<{ data: ForecastResult[]; total: number }> {
+  const db = prismaClient || prisma
 
-    if (!item) throw new NotFoundError('Item not found')
+  const itemWhere = empresaId ? { empresaId, isActive: true } : { isActive: true }
 
-    // Get last 90 days of movement data
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - 90)
-
-    const movements = await prisma.movement.findMany({
-      where: {
-        itemId,
-        createdAt: { gte: startDate },
-        type: { in: ['SALE'] },
-      },
-      orderBy: { createdAt: 'asc' },
-    })
-
-    // Calculate daily demand
-    const dailyDemand: { [key: string]: number } = {}
-    movements.forEach((mov) => {
-      const dateKey = mov.createdAt.toISOString().split('T')[0]
-      dailyDemand[dateKey] = (dailyDemand[dateKey] || 0) + mov.quantity
-    })
-
-    // Get last 90 days including zero-demand days
-    const demandValues: number[] = []
-    for (let i = 0; i < 90; i++) {
-      const date = new Date()
-      date.setDate(date.getDate() - i)
-      const dateKey = date.toISOString().split('T')[0]
-      demandValues.unshift(dailyDemand[dateKey] || 0)
-    }
-
-    // Calculate historical average daily demand
-    const totalDemand = demandValues.reduce((a, b) => a + b, 0)
-    const historicalAverageDailyDemand = totalDemand / 90
-
-    // Apply exponential smoothing for forecasting
-    const smoothedValues = this.exponentialSmoothing(demandValues)
-    const lastSmoothedValue =
-      smoothedValues[smoothedValues.length - 1] || historicalAverageDailyDemand
-
-    // Calculate forecast for 30, 60, 90 days
-    const forecast30Days = Math.round(lastSmoothedValue * 30)
-    const forecast60Days = Math.round(lastSmoothedValue * 60)
-    const forecast90Days = Math.round(lastSmoothedValue * 90)
-
-    // Calculate variance (standard deviation)
-    const mean = demandValues.reduce((a, b) => a + b, 0) / demandValues.length
-    const variance =
-      Math.sqrt(
-        demandValues.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) /
-          demandValues.length
-      ) / Math.max(mean, 1)
-
-    // Confidence level based on demand stability (inverse of variance)
-    const confidenceLevel = Math.max(0.5, Math.min(1, 1 - variance))
-
-    // Calculate stockout risk
-    const currentStock = item.stocks.reduce((sum, s) => sum + s.quantityReal, 0)
-    const stockoutRisk = Math.max(
-      0,
-      Math.min(1, 1 - currentStock / forecast30Days)
-    )
-
-    // Determine recommended action
-    let recommendedAction:
-      | 'INCREASE_STOCK'
-      | 'MAINTAIN'
-      | 'REDUCE_STOCK'
-      | 'MONITOR' = 'MAINTAIN'
-    if (stockoutRisk > 0.3) {
-      recommendedAction = 'INCREASE_STOCK'
-    } else if (currentStock > forecast90Days * 1.5) {
-      recommendedAction = 'REDUCE_STOCK'
-    } else if (variance > 0.5) {
-      recommendedAction = 'MONITOR'
-    }
-
-    // Generate forecast data points for next 30 days
-    const forecastData: ForecastData[] = []
-    for (let day = 1; day <= 30; day++) {
-      forecastData.push({
-        date: new Date(Date.now() + day * 24 * 60 * 60 * 1000)
-          .toISOString()
-          .split('T')[0],
-        quantity: Math.round(lastSmoothedValue),
-        confidence: confidenceLevel,
-      })
-    }
-
-    // Emit forecast calculated event
-    EventService.getInstance().emit({
-      type: EventType.STOCK_MOVEMENT_CREATED,
-      entityId: itemId,
-      entityType: 'forecast',
-      data: {
-        itemId,
-        forecast30Days,
-        confidenceLevel,
-        trend: this.calculateTrend(
-          historicalAverageDailyDemand,
-          forecast30Days / 30
-        ),
-      },
-    })
-
-    return {
-      itemId,
-      itemSku: item.sku,
-      code: item.code,
-      itemName: item.name,
-      currentStock,
-      historicalAverageDailyDemand:
-        Math.round(historicalAverageDailyDemand * 100) / 100,
-      forecastedDemand30Days: forecast30Days,
-      forecastedDemand60Days: forecast60Days,
-      forecastedDemand90Days: forecast90Days,
-      forecastVariance: Math.round(variance * 100) / 100,
-      confidenceLevel: Math.round(confidenceLevel * 100) / 100,
-      trend: this.calculateTrend(
-        historicalAverageDailyDemand,
-        forecast30Days / 30
-      ),
-      recommended30DaysStock: Math.ceil(forecast30Days * 1.2),
-      stockoutRisk: Math.round(stockoutRisk * 100) / 100,
-      recommendedAction,
-      forecastData,
-    }
-  }
-
-  /**
-   * Get demand forecast for all items (paginated)
-   */
-  async getAllDemandForecasts(
-    page: number = 1,
-    limit: number = 50
-  ): Promise<{ data: ForecastResult[]; total: number }> {
-    const skip = (page - 1) * limit
-
-    const items = await prisma.item.findMany({
-      where: { isActive: true },
-      skip,
+  const [items, total] = await Promise.all([
+    db.item.findMany({
+      where: itemWhere,
+      skip: (page - 1) * limit,
       take: limit,
-      orderBy: { createdAt: 'desc' },
-    })
+      select: { id: true, name: true, sku: true, code: true },
+      orderBy: { name: 'asc' },
+    }),
+    db.item.count({ where: itemWhere }),
+  ])
 
-    const forecasts = await Promise.all(
-      items.map((item) => this.getDemandForecastForItem(item.id))
-    )
+  if ((items as any[]).length === 0) return { data: [], total }
 
-    const total = await prisma.item.count({ where: { isActive: true } })
+  const itemIds = (items as any[]).map((i: any) => i.id)
+  const date90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  const stockWhere = empresaId
+    ? { itemId: { in: itemIds }, warehouse: { empresaId } }
+    : { itemId: { in: itemIds } }
 
-    return { data: forecasts, total }
+  // ── 2 batch queries instead of N×2 ────────────────────────────────────────
+  const [stocks, movements] = await Promise.all([
+    db.stock.findMany({
+      where: stockWhere,
+      select: { itemId: true, quantityReal: true },
+    }),
+    db.movement.findMany({
+      where: {
+        itemId: { in: itemIds },
+        movementDate: { gte: date90 },
+        type: { in: DEMAND_TYPES },
+      },
+      select: { itemId: true, quantity: true, movementDate: true },
+    }),
+  ])
+
+  // Group stocks and movements by item
+  const stockByItem = new Map<string, number>()
+  for (const s of stocks as any[]) {
+    stockByItem.set(s.itemId, (stockByItem.get(s.itemId) ?? 0) + s.quantityReal)
   }
 
-  /**
-   * Compare forecast with actual demand
-   */
-  async calculateForecastAccuracy(
-    itemId: string,
-    daysBack: number = 30
-  ): Promise<number> {
-    const item = await prisma.item.findUnique({ where: { id: itemId } })
-    if (!item) throw new NotFoundError('Item not found')
-
-    const startDate = new Date()
-    startDate.setDate(startDate.getDate() - daysBack)
-
-    const movements = await prisma.movement.findMany({
-      where: {
-        itemId,
-        createdAt: { gte: startDate },
-        type: { in: ['SALE', 'TRANSFER'] },
-      },
-    })
-
-    const actualDemand = movements.reduce((sum, mov) => sum + mov.quantity, 0)
-
-    // Get last forecast (simplified - using last 90 days as reference)
-    const historicalMovements = await prisma.movement.findMany({
-      where: {
-        itemId,
-        createdAt: {
-          gte: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000),
-        },
-        type: { in: ['SALE', 'TRANSFER'] },
-      },
-    })
-
-    const historicalTotal = historicalMovements.reduce(
-      (sum, mov) => sum + mov.quantity,
-      0
-    )
-    const expectedDemand = (historicalTotal / 90) * daysBack
-
-    if (expectedDemand === 0) return 1 // Perfect accuracy if no expected demand
-    const accuracy =
-      1 - Math.abs(actualDemand - expectedDemand) / expectedDemand
-    return Math.max(0, Math.min(1, accuracy))
+  const movsByItem = new Map<string, Array<{ quantity: number; movementDate: Date }>>()
+  for (const m of movements as any[]) {
+    if (!movsByItem.has(m.itemId)) movsByItem.set(m.itemId, [])
+    movsByItem.get(m.itemId)!.push(m)
   }
+
+  const data = (items as any[]).map((item: any) =>
+    computeForecast(item, stockByItem.get(item.id) ?? 0, movsByItem.get(item.id) ?? [])
+  )
+
+  return { data, total }
 }
 
-export const getDemandForecastForItem = (itemId: string) =>
-  ForecastingService.getInstance().getDemandForecastForItem(itemId)
+export async function getDemandForecastForItem(
+  itemId: string,
+  empresaId?: string,
+  prismaClient?: any
+): Promise<ForecastResult> {
+  const db = prismaClient || prisma
 
-export const getAllDemandForecasts = (page?: number, limit?: number) =>
-  ForecastingService.getInstance().getAllDemandForecasts(page, limit)
+  const item = await db.item.findUnique({
+    where: { id: itemId },
+    select: { id: true, name: true, sku: true, code: true, empresaId: true },
+  })
 
-export const calculateForecastAccuracy = (itemId: string, daysBack?: number) =>
-  ForecastingService.getInstance().calculateForecastAccuracy(itemId, daysBack)
+  if (!item) throw new NotFoundError('Item not found')
+  if (empresaId && item.empresaId !== empresaId) throw new NotFoundError('Item not found')
 
-export default ForecastingService
+  const date90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+  const stockWhere = empresaId
+    ? { itemId, warehouse: { empresaId } }
+    : { itemId }
+
+  const [stocks, movements] = await Promise.all([
+    db.stock.findMany({ where: stockWhere, select: { quantityReal: true } }),
+    db.movement.findMany({
+      where: { itemId, movementDate: { gte: date90 }, type: { in: DEMAND_TYPES } },
+      select: { quantity: true, movementDate: true },
+    }),
+  ])
+
+  const currentStock = (stocks as any[]).reduce((s: number, r: any) => s + r.quantityReal, 0)
+  return computeForecast(item, currentStock, movements)
+}
+
+export async function calculateForecastAccuracy(
+  itemId: string,
+  daysBack = 30,
+  empresaId?: string,
+  prismaClient?: any
+): Promise<{ itemId: string; accuracy: number; daysBack: number }> {
+  const db = prismaClient || prisma
+  const startDate = new Date(Date.now() - daysBack * 24 * 60 * 60 * 1000)
+  const date90 = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000)
+
+  const movWhere = empresaId ? { item: { empresaId } } : {}
+
+  const [recent, historical] = await Promise.all([
+    db.movement.aggregate({
+      where: { ...movWhere, itemId, movementDate: { gte: startDate }, type: { in: DEMAND_TYPES } },
+      _sum: { quantity: true },
+    }),
+    db.movement.aggregate({
+      where: { ...movWhere, itemId, movementDate: { gte: date90 }, type: { in: DEMAND_TYPES } },
+      _sum: { quantity: true },
+    }),
+  ])
+
+  const actual = recent._sum.quantity ?? 0
+  const expected = ((historical._sum.quantity ?? 0) / 90) * daysBack
+
+  if (expected === 0) return { itemId, accuracy: 1, daysBack }
+  const accuracy = Math.max(0, Math.min(1, 1 - Math.abs(actual - expected) / expected))
+  return { itemId, accuracy: Math.round(accuracy * 100) / 100, daysBack }
+}
+
+export default { getAllDemandForecasts, getDemandForecastForItem, calculateForecastAccuracy }

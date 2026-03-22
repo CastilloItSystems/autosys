@@ -45,12 +45,20 @@ export interface ABCItem {
   recommendations: string[];
 }
 
+export interface ABCParetoPoint {
+  itemName: string;
+  totalMovementValue: number;
+  cumulativePercentage: number;
+  classification: ABCClassification;
+}
+
 export interface ABCSummary {
   totalItems: number;
   classA: number;
   classB: number;
   classC: number;
   totalMovementValue: number;
+  paretoData: ABCParetoPoint[];
 }
 
 export interface TurnoverMetrics {

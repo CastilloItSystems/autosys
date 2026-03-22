@@ -7,42 +7,37 @@ import prisma from '../../../../services/prisma.service.js'
 export async function getLowStockReport(
   page = 1,
   limit = 50,
+  empresaId?: string,
   prismaClient?: any
 ) {
   const db = prismaClient || prisma
   try {
-    const stocks = await db.stock.findMany({
+    // Fetch all matching stocks where quantityAvailable <= item.minStock
+    // We need the item relation to compare, so we fetch with include and filter in app layer.
+    // To keep pagination accurate we first get all IDs that qualify, then paginate.
+    const allStocks = await db.stock.findMany({
+      where: empresaId ? { warehouse: { empresaId } } : undefined,
       include: { item: true, warehouse: true },
-      skip: (page - 1) * limit,
-      take: limit,
     })
 
-    const lowStockItems = stocks
-      .filter(
-        (s: any) => s.quantityAvailable <= ((s.item as any).minStock || 10)
-      )
-      .map((s: any) => ({
-        itemId: s.itemId,
-        itemName: s.item.name,
-        itemSKU: s.item.sku,
-        warehouseId: s.warehouseId,
-        warehouseName: s.warehouse.name,
-        currentStock: s.quantityAvailable,
-        minimumStock: (s.item as any).minStock || 10,
-        shortage: Math.max(
-          0,
-          ((s.item as any).minStock || 10) - s.quantityAvailable
-        ),
-        lastMovement: s.updatedAt,
-      }))
+    const qualifying = allStocks.filter(
+      (s: any) => s.quantityAvailable <= ((s.item as any).minStock ?? 10)
+    )
 
-    const total = await db.stock.count({
-      where: {
-        quantityAvailable: {
-          lte: 10, // Assume conservative default
-        },
-      },
-    })
+    const total = qualifying.length
+    const paginated = qualifying.slice((page - 1) * limit, page * limit)
+
+    const lowStockItems = paginated.map((s: any) => ({
+      itemId: s.itemId,
+      itemName: s.item.name,
+      itemSKU: s.item.sku,
+      warehouseId: s.warehouseId,
+      warehouseName: s.warehouse.name,
+      currentStock: s.quantityAvailable,
+      minimumStock: (s.item as any).minStock ?? 10,
+      shortage: Math.max(0, ((s.item as any).minStock ?? 10) - s.quantityAvailable),
+      lastMovement: s.updatedAt,
+    }))
 
     return {
       data: lowStockItems,
