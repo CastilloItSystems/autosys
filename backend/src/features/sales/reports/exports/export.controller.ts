@@ -18,6 +18,14 @@ import prisma from '../../../../services/prisma.service.js'
 
 type ExportFormat = 'csv' | 'excel' | 'pdf'
 
+interface ExportColumn {
+  header: string
+  key: string
+  width?: number
+  align?: 'left' | 'center' | 'right'
+  format?: 'number' | 'currency' | 'date' | 'percent' | 'text'
+}
+
 type SalesReportType =
   | 'by-period'
   | 'by-customer'
@@ -60,7 +68,7 @@ export const exportSalesReportHandler = async (
 
     let fileName = `ventas_${reportType}_${new Date().toISOString().split('T')[0]}`
     let data: any[] = []
-    let columns: { header: string; key: string }[] = []
+    let columns: ExportColumn[] = []
 
     switch (reportType as SalesReportType) {
       case 'by-period': {
@@ -156,7 +164,7 @@ export const exportSalesReportHandler = async (
     let buffer: Buffer | null = null
 
     if (format === 'excel') {
-      buffer = await exportDataToExcel(data, fileName, columns)
+      buffer = await exportDataToExcel(data, fileName, columns.map(c => ({ header: c.header, key: c.key })))
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}.xlsx"`)
     } else if (format === 'pdf') {
@@ -170,7 +178,7 @@ export const exportSalesReportHandler = async (
     }
 
     if (buffer) {
-      await logReportExport(reportType, format, req, filters)
+      await logReportExport(reportType as string, format, req, filters)
       res.send(buffer)
     } else {
       ApiResponse.error(res, 'No se pudo generar el archivo', 500)
