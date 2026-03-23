@@ -12,11 +12,16 @@ import { Dropdown } from "primereact/dropdown";
 import { ToggleButton } from "primereact/togglebutton";
 import { motion } from "framer-motion";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import reportService, { StockValueFilters } from "@/app/api/inventory/reportService";
+import reportService, {
+  StockValueFilters,
+} from "@/app/api/inventory/reportService";
 import warehouseService from "@/app/api/inventory/warehouseService";
 
 const fmt = (n: number) =>
-  n.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  n.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const SORT_OPTIONS = [
   { label: "Mayor valor primero", value: "value_desc" },
@@ -37,13 +42,16 @@ const StockValuePage = () => {
   const [rows, setRows] = useState(20);
 
   // Warehouses for dropdown
-  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>([]);
+  const [warehouses, setWarehouses] = useState<{ id: string; name: string }[]>(
+    [],
+  );
 
   // Filters
   const [search, setSearch] = useState("");
   const [warehouseId, setWarehouseId] = useState("");
   const [zeroCostOnly, setZeroCostOnly] = useState(false);
-  const [sortBy, setSortBy] = useState<StockValueFilters["sortBy"]>("value_desc");
+  const [sortBy, setSortBy] =
+    useState<StockValueFilters["sortBy"]>("value_desc");
 
   // Active filter count badge
   const activeFilters = [
@@ -67,14 +75,19 @@ const StockValuePage = () => {
         const response = await reportService.getStockValue(
           overridePage ?? page,
           rows,
-          { warehouseId: warehouseId || undefined, search: search || undefined, zeroCostOnly, sortBy }
+          {
+            warehouseId: warehouseId || undefined,
+            search: search || undefined,
+            zeroCostOnly,
+            sortBy,
+          },
         );
         setItems(response.data);
         setTotalRecords(
           (response as any).meta?.total ??
             (response as any).pagination?.total ??
             (response as any).total ??
-            0
+            0,
         );
         const s = (response as any).summary;
         setSummary(s ?? { totalInventoryValue: 0 });
@@ -89,7 +102,7 @@ const StockValuePage = () => {
         setLoading(false);
       }
     },
-    [page, rows, warehouseId, zeroCostOnly, sortBy, search]
+    [page, rows, warehouseId, zeroCostOnly, sortBy, search],
   );
 
   // Reload when non-search filters change (instant)
@@ -112,7 +125,9 @@ const StockValuePage = () => {
       setPage(1);
       loadData(1);
     }, 400);
-    return () => { if (searchTimeout.current) clearTimeout(searchTimeout.current); };
+    return () => {
+      if (searchTimeout.current) clearTimeout(searchTimeout.current);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search]);
 
@@ -129,7 +144,9 @@ const StockValuePage = () => {
         {
           label: "Valor Total Inventario",
           value: `$${fmt(summary.totalInventoryValue ?? 0)}`,
-          sub: summary.isFiltered ? `Filtrado: $${fmt(summary.filteredValue ?? 0)}` : null,
+          sub: summary.isFiltered
+            ? `Filtrado: $${fmt(summary.filteredValue ?? 0)}`
+            : null,
           icon: "pi pi-dollar",
           iconColor: "#22C55E",
           bg: "#F0FDF4",
@@ -153,7 +170,8 @@ const StockValuePage = () => {
         {
           label: "Sin costo asignado",
           value: summary.zeroCostCount ?? 0,
-          sub: summary.zeroCostCount > 0 ? "Revisar costeo" : "Todo costificado",
+          sub:
+            summary.zeroCostCount > 0 ? "Revisar costeo" : "Todo costificado",
           icon: "pi pi-exclamation-triangle",
           iconColor: summary.zeroCostCount > 0 ? "#F97316" : "#22C55E",
           bg: summary.zeroCostCount > 0 ? "#FFF7ED" : "#F0FDF4",
@@ -161,7 +179,14 @@ const StockValuePage = () => {
       ]
     : [];
 
-  const warehouseColors = ["#3B82F6","#8B5CF6","#22C55E","#F97316","#EF4444","#06B6D4"];
+  const warehouseColors = [
+    "#3B82F6",
+    "#8B5CF6",
+    "#22C55E",
+    "#F97316",
+    "#EF4444",
+    "#06B6D4",
+  ];
 
   const columns = [
     { field: "itemName", header: "Artículo", sortable: true, width: "20%" },
@@ -171,7 +196,11 @@ const StockValuePage = () => {
       header: "Cantidad",
       sortable: true,
       width: "9%",
-      body: (row: any) => <span className="font-semibold">{Number(row.quantity || 0).toFixed(0)}</span>,
+      body: (row: any) => (
+        <span className="font-semibold">
+          {Number(row.quantity || 0).toFixed(0)}
+        </span>
+      ),
     },
     {
       field: "unitPrice",
@@ -179,7 +208,9 @@ const StockValuePage = () => {
       sortable: true,
       width: "12%",
       body: (row: any) => (
-        <span className={row.unitPrice === 0 ? "text-orange-500 font-medium" : ""}>
+        <span
+          className={row.unitPrice === 0 ? "text-orange-500 font-medium" : ""}
+        >
           ${fmt(Number(row.unitPrice || 0))}
         </span>
       ),
@@ -190,7 +221,9 @@ const StockValuePage = () => {
       sortable: true,
       width: "14%",
       body: (row: any) => (
-        <span className="font-semibold text-green-600">${fmt(Number(row.totalValue || 0))}</span>
+        <span className="font-semibold text-green-600">
+          ${fmt(Number(row.totalValue || 0))}
+        </span>
       ),
     },
     {
@@ -202,7 +235,12 @@ const StockValuePage = () => {
         const pct = Number(row.percentageOfTotal || 0);
         return (
           <div className="flex align-items-center gap-2">
-            <ProgressBar value={pct} showValue={false} style={{ height: 6, width: 60 }} color="#3B82F6" />
+            <ProgressBar
+              value={pct}
+              showValue={false}
+              style={{ height: 6, width: 60 }}
+              color="#3B82F6"
+            />
             <span className="text-sm">{pct.toFixed(1)}%</span>
           </div>
         );
@@ -310,14 +348,24 @@ const StockValuePage = () => {
                         className="flex align-items-center justify-content-center border-round flex-shrink-0"
                         style={{ width: 48, height: 48, background: card.bg }}
                       >
-                        <i className={card.icon} style={{ fontSize: "1.4rem", color: card.iconColor }} />
+                        <i
+                          className={card.icon}
+                          style={{ fontSize: "1.4rem", color: card.iconColor }}
+                        />
                       </div>
                       <div>
                         <p className="text-500 text-sm m-0">{card.label}</p>
-                        <p className="font-bold text-2xl m-0" style={{ color: card.iconColor }}>
+                        <p
+                          className="font-bold text-2xl m-0"
+                          style={{ color: card.iconColor }}
+                        >
                           {card.value}
                         </p>
-                        {card.sub && <p className="text-400 text-xs m-0 mt-1">{card.sub}</p>}
+                        {card.sub && (
+                          <p className="text-400 text-xs m-0 mt-1">
+                            {card.sub}
+                          </p>
+                        )}
                       </div>
                     </div>
                   </Card>
@@ -331,35 +379,66 @@ const StockValuePage = () => {
         <div className="grid mb-4">
           {summary.byWarehouse?.length > 0 && (
             <div className="col-12 md:col-6">
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.32 }}>
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.32 }}
+              >
                 <Card title="Valor por Almacén" className="shadow-1 h-full">
                   <div className="flex flex-column gap-3">
                     {summary.byWarehouse.map((w: any, i: number) => {
-                      const pct = summary.totalInventoryValue > 0 ? (w.totalValue / summary.totalInventoryValue) * 100 : 0;
+                      const pct =
+                        summary.totalInventoryValue > 0
+                          ? (w.totalValue / summary.totalInventoryValue) * 100
+                          : 0;
                       const color = warehouseColors[i % warehouseColors.length];
                       const isSelected = warehouseId === w.warehouseId;
                       return (
                         <div
                           key={w.warehouseId}
-                          className={`cursor-pointer border-round p-2 transition-all transition-duration-150 ${isSelected ? "surface-100" : "hover:surface-50"}`}
-                          onClick={() => setWarehouseId(isSelected ? "" : w.warehouseId)}
-                          title={isSelected ? "Quitar filtro" : `Filtrar por ${w.warehouseName}`}
+                          className={`cursor-pointer border-round p-2 transition-all transition-duration-150 ${
+                            isSelected ? "surface-100" : "hover:surface-50"
+                          }`}
+                          onClick={() =>
+                            setWarehouseId(isSelected ? "" : w.warehouseId)
+                          }
+                          title={
+                            isSelected
+                              ? "Quitar filtro"
+                              : `Filtrar por ${w.warehouseName}`
+                          }
                         >
                           <div className="flex justify-content-between align-items-center mb-1">
                             <span className="font-medium text-sm flex align-items-center gap-2">
-                              {isSelected && <i className="pi pi-filter-fill text-xs" style={{ color }} />}
+                              {isSelected && (
+                                <i
+                                  className="pi pi-filter-fill text-xs"
+                                  style={{ color }}
+                                />
+                              )}
                               {w.warehouseName}
                             </span>
                             <div className="flex align-items-center gap-2">
-                              <span className="text-500 text-xs">{pct.toFixed(1)}%</span>
-                              <span className="font-semibold text-sm" style={{ color }}>
+                              <span className="text-500 text-xs">
+                                {pct.toFixed(1)}%
+                              </span>
+                              <span
+                                className="font-semibold text-sm"
+                                style={{ color }}
+                              >
                                 ${fmt(w.totalValue)}
                               </span>
                             </div>
                           </div>
-                          <ProgressBar value={pct} showValue={false} style={{ height: 8 }} color={color} />
+                          <ProgressBar
+                            value={pct}
+                            showValue={false}
+                            style={{ height: 8 }}
+                            color={color}
+                          />
                           <p className="text-400 text-xs m-0 mt-1">
-                            {w.itemCount} {w.itemCount === 1 ? "artículo" : "artículos"}
+                            {w.itemCount}{" "}
+                            {w.itemCount === 1 ? "artículo" : "artículos"}
                           </p>
                         </div>
                       );
@@ -372,16 +451,31 @@ const StockValuePage = () => {
 
           {summary.top5Items?.length > 0 && (
             <div className="col-12 md:col-6">
-              <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-                <Card title="Top 5 Artículos por Valor" className="shadow-1 h-full">
+              <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+              >
+                <Card
+                  title="Top 5 Artículos por Valor"
+                  className="shadow-1 h-full"
+                >
                   <div className="flex flex-column gap-3">
                     {summary.top5Items.map((item: any, i: number) => (
                       <div key={i} className="flex align-items-center gap-3">
                         <div
                           className="flex align-items-center justify-content-center border-round-sm font-bold text-white text-sm flex-shrink-0"
                           style={{
-                            width: 28, height: 28,
-                            background: i === 0 ? "#F59E0B" : i === 1 ? "#94A3B8" : i === 2 ? "#B45309" : "#6B7280",
+                            width: 28,
+                            height: 28,
+                            background:
+                              i === 0
+                                ? "#F59E0B"
+                                : i === 1
+                                ? "#94A3B8"
+                                : i === 2
+                                ? "#B45309"
+                                : "#6B7280",
                           }}
                         >
                           {i + 1}
@@ -390,11 +484,19 @@ const StockValuePage = () => {
                           <p className="font-medium text-sm m-0 white-space-nowrap overflow-hidden text-overflow-ellipsis">
                             {item.itemName}
                           </p>
-                          <p className="text-400 text-xs m-0">{item.warehouseName}</p>
+                          <p className="text-400 text-xs m-0">
+                            {item.warehouseName}
+                          </p>
                         </div>
                         <div className="text-right flex-shrink-0">
-                          <p className="font-bold text-green-600 text-sm m-0">${fmt(item.totalValue)}</p>
-                          <Tag value={`${item.percentage}%`} severity="info" style={{ fontSize: "0.7rem" }} />
+                          <p className="font-bold text-green-600 text-sm m-0">
+                            ${fmt(item.totalValue)}
+                          </p>
+                          <Tag
+                            value={`${item.percentage}%`}
+                            severity="info"
+                            style={{ fontSize: "0.7rem" }}
+                          />
                         </div>
                       </div>
                     ))}
@@ -411,7 +513,9 @@ const StockValuePage = () => {
         <div className="flex align-items-center gap-2 p-3 border-round mb-4 surface-100 border-left-3 border-orange-400">
           <i className="pi pi-exclamation-triangle text-orange-500 text-xl" />
           <span className="text-sm">
-            Hay <strong>{summary.zeroCostCount}</strong> registros sin costo asignado. Estos artículos no contribuyen al valor total del inventario.
+            Hay <strong>{summary.zeroCostCount}</strong> registros sin costo
+            asignado. Estos artículos no contribuyen al valor total del
+            inventario.
           </span>
         </div>
       )}

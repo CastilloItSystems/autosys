@@ -3,10 +3,12 @@
 Resumen de la sesión y guía rápida para futuros cambios relacionados con permisos y roles.
 
 ## Resumen general (en español)
+
 - Objetivo: Rehacer y armonizar el catálogo de permisos del sistema para que refleje las rutas y flujos reales, añadir acción `approve` a los módulos, sembrar permisos y roles automáticamente al crear empresas, y propagar cambios al frontend.
 - Resultado: Catálogo centralizado y consistente, seeds actualizados, servicio de setup actualizado, rutas corregidas y componentes frontend actualizados.
 
 ## Cambios realizados (archivos principales)
+
 - Backend
   - `backend/src/shared/constants/permissions.ts`
     - Nuevo catálogo con 14 módulos: `users`, `inventory`, `items`, `warehouses`, `stock`, `movements`, `loans`, `transfers`, `customers`, `orders`, `invoices`, `quotes`, `payments`, `reports`.
@@ -38,6 +40,7 @@ Resumen de la sesión y guía rápida para futuros cambios relacionados con perm
     - Plantillas de columna y uso de `membership.role.name` preservadas; no se requiere cambio adicional por ahora.
 
 ## Estructura de datos observada
+
 - Token/session user sample (lo que devuelve el backend):
   - `user.empresas` es un array con objetos tipo:
     ```json
@@ -52,6 +55,7 @@ Resumen de la sesión y guía rápida para futuros cambios relacionados con perm
   - Nota: También se mantiene `memberships` como alias legacy en algunos endpoints, pero la representación actual usada en UI es `empresas`.
 
 ## Comandos útiles para aplicar/validar cambios
+
 - Sembrar permisos/roles en la base de datos (desde `backend`):
 
 ```bash
@@ -78,6 +82,7 @@ cd backend && npx tsx src/index.ts
 ```
 
 ## Donde buscar cada cosa
+
 - Catálogo de permisos (constantes): `backend/src/shared/constants/permissions.ts`
 - Seeds: `backend/prisma/seeds/permissions.seed.ts`, `roles.seed.ts`, `companyRoles.seed.ts`
 - Servicio que garantiza catálogo y roles: `backend/src/services/empresa-setup.service.ts`
@@ -85,6 +90,7 @@ cd backend && npx tsx src/index.ts
 - Componentes UI: `frontend/components/usuarioComponents/`, `frontend/components/empresas/`, `frontend/layout/`
 
 ## Consideraciones y pasos futuros (lista corta)
+
 - Validar que no queden referencias a códigos antiguos (`users.read`, `loans.approve` singular, `transfer.approve`, etc.). Buscar en todo el repo por esos patrones.
 - Ejecutar `npx prisma db seed` en entorno de desarrollo y revisar que no se creen duplicados y que `rolePermission` apunte a permisos existentes.
 - Revisar endpoints que usan `extractEmpresaFromParam` vs `authorizeGlobal()` para permisos que deben aplicarse sin membership en la empresa (ya corregido en `companyRoles.routes.ts`).
@@ -92,6 +98,7 @@ cd backend && npx tsx src/index.ts
 - Añadir pruebas unitarias para el servicio de `empresa-setup` si se desea evitar regresiones.
 
 ## Notas rápidas (para quien retome esta tarea)
+
 - El formato de permisos es `module.action` (ej.: `items.create`, `loans.approve`).
 - El rol `ADMIN` en la muestra tiene 66 permisos (acceso amplio) — fíjate en `permissions.seed.ts` si quieres quitar/añadir permisos para ese rol.
 - Si vas a cambiar códigos, primero actualiza `backend/src/shared/constants/permissions.ts`, luego actualiza seeds y `empresa-setup.service.ts`, y finalmente corre `prisma db seed`.
@@ -99,6 +106,7 @@ cd backend && npx tsx src/index.ts
 ---
 
 Si quieres, puedo:
+
 - Añadir una checklist de cambios pendientes dentro del mismo archivo.
 - Crear scripts pequeños para buscar referencias a permisos antiguos.
 - Añadir un resumen en inglés también.

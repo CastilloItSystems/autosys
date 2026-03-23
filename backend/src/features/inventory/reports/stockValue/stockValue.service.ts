@@ -6,8 +6,8 @@ import prisma from '../../../../services/prisma.service.js'
 
 export interface StockValueFilters {
   warehouseId?: string
-  search?: string          // filter by item name or SKU
-  zeroCostOnly?: boolean   // only items with no cost assigned
+  search?: string // filter by item name or SKU
+  zeroCostOnly?: boolean // only items with no cost assigned
   sortBy?: 'value_desc' | 'value_asc' | 'quantity_desc' | 'name_asc'
 }
 
@@ -64,11 +64,15 @@ export async function getStockValueReport(
     const sortBy = filters.sortBy ?? 'value_desc'
     allValues.sort((a: any, b: any) => {
       switch (sortBy) {
-        case 'value_asc':    return a.totalValue - b.totalValue
-        case 'quantity_desc':return b.quantity - a.quantity
-        case 'name_asc':     return a.itemName.localeCompare(b.itemName)
+        case 'value_asc':
+          return a.totalValue - b.totalValue
+        case 'quantity_desc':
+          return b.quantity - a.quantity
+        case 'name_asc':
+          return a.itemName.localeCompare(b.itemName)
         case 'value_desc':
-        default:             return b.totalValue - a.totalValue
+        default:
+          return b.totalValue - a.totalValue
       }
     })
 
@@ -78,13 +82,27 @@ export async function getStockValueReport(
       const unitPrice = Number(s.averageCost || s.item.costPrice || 0)
       return s.quantityReal * unitPrice
     })
-    const totalInventoryValue = allStocksForTotal.reduce((sum: number, v: number) => sum + v, 0)
+    const totalInventoryValue = allStocksForTotal.reduce(
+      (sum: number, v: number) => sum + v,
+      0
+    )
 
     // Filtered value (for filtered summary)
-    const filteredValue = allValues.reduce((sum: number, s: any) => sum + s.totalValue, 0)
+    const filteredValue = allValues.reduce(
+      (sum: number, s: any) => sum + s.totalValue,
+      0
+    )
 
     // --- Summary enrichments (always from full unfiltered data) ---
-    const warehouseMap = new Map<string, { warehouseId: string; warehouseName: string; totalValue: number; itemCount: number }>()
+    const warehouseMap = new Map<
+      string,
+      {
+        warehouseId: string
+        warehouseName: string
+        totalValue: number
+        itemCount: number
+      }
+    >()
     for (const s of allStocks) {
       const unitPrice = Number(s.averageCost || s.item.costPrice || 0)
       const tv = s.quantityReal * unitPrice
@@ -101,12 +119,19 @@ export async function getStockValueReport(
         })
       }
     }
-    const byWarehouse = Array.from(warehouseMap.values()).sort((a, b) => b.totalValue - a.totalValue)
+    const byWarehouse = Array.from(warehouseMap.values()).sort(
+      (a, b) => b.totalValue - a.totalValue
+    )
 
     const allValuesSorted = allStocks
       .map((s: any) => {
         const unitPrice = Number(s.averageCost || s.item.costPrice || 0)
-        return { itemName: s.item.name, itemSKU: s.item.sku, warehouseName: s.warehouse.name, totalValue: s.quantityReal * unitPrice }
+        return {
+          itemName: s.item.name,
+          itemSKU: s.item.sku,
+          warehouseName: s.warehouse.name,
+          totalValue: s.quantityReal * unitPrice,
+        }
       })
       .sort((a: any, b: any) => b.totalValue - a.totalValue)
 
@@ -115,10 +140,15 @@ export async function getStockValueReport(
       itemSKU: s.itemSKU,
       warehouseName: s.warehouseName,
       totalValue: s.totalValue,
-      percentage: totalInventoryValue > 0 ? Number(((s.totalValue / totalInventoryValue) * 100).toFixed(1)) : 0,
+      percentage:
+        totalInventoryValue > 0
+          ? Number(((s.totalValue / totalInventoryValue) * 100).toFixed(1))
+          : 0,
     }))
 
-    const zeroCostCount = allStocks.filter((s: any) => Number(s.averageCost || s.item.costPrice || 0) === 0).length
+    const zeroCostCount = allStocks.filter(
+      (s: any) => Number(s.averageCost || s.item.costPrice || 0) === 0
+    ).length
     const distinctItems = new Set(allStocks.map((s: any) => s.itemId)).size
 
     // Paginate filtered results
@@ -141,8 +171,15 @@ export async function getStockValueReport(
       totalPages: Math.ceil(total / limit),
       summary: {
         totalInventoryValue,
-        filteredValue: filters.search || filters.warehouseId || filters.zeroCostOnly ? filteredValue : totalInventoryValue,
-        isFiltered: !!(filters.search || filters.warehouseId || filters.zeroCostOnly),
+        filteredValue:
+          filters.search || filters.warehouseId || filters.zeroCostOnly
+            ? filteredValue
+            : totalInventoryValue,
+        isFiltered: !!(
+          filters.search ||
+          filters.warehouseId ||
+          filters.zeroCostOnly
+        ),
         byWarehouse,
         top5Items,
         zeroCostCount,
