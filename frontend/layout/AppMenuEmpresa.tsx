@@ -97,6 +97,47 @@ const AppMenuEmpresa = () => {
                 },
               ],
             },
+            {
+              label: "reportes",
+              icon: "pi pi-fw pi-chart-bar",
+              items: [
+                {
+                  label: "dashboard ventas",
+                  icon: "pi pi-fw pi-th-large",
+                  to: "/empresa/ventas/reportes",
+                },
+                {
+                  label: "ventas por período",
+                  icon: "pi pi-fw pi-chart-line",
+                  to: "/empresa/ventas/reportes/por-periodo",
+                },
+                {
+                  label: "ventas por cliente",
+                  icon: "pi pi-fw pi-users",
+                  to: "/empresa/ventas/reportes/por-cliente",
+                },
+                {
+                  label: "ventas por producto",
+                  icon: "pi pi-fw pi-box",
+                  to: "/empresa/ventas/reportes/por-producto",
+                },
+                {
+                  label: "pipeline de órdenes",
+                  icon: "pi pi-fw pi-filter",
+                  to: "/empresa/ventas/reportes/pipeline-ordenes",
+                },
+                {
+                  label: "métodos de pago",
+                  icon: "pi pi-fw pi-credit-card",
+                  to: "/empresa/ventas/reportes/metodos-pago",
+                },
+                {
+                  label: "prefacturas pendientes",
+                  icon: "pi pi-fw pi-clock",
+                  to: "/empresa/ventas/reportes/prefacturas-pendientes",
+                },
+              ],
+            },
           ],
         },
 

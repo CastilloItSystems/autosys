@@ -23,87 +23,86 @@ const getColumnWidth = (header: string): number => {
   return Math.min(Math.max(width, minWidth), maxWidth)
 }
 
+type ColDef = { header: string; key: string }
+
 /**
- * Export generic data to Excel
+ * Normalize column definitions.
+ * Accepts: string[] (key names) | { header, key }[] (explicit labels)
+ * When not provided, auto-detects keys from first data row.
+ */
+function normalizeColumns(
+  data: any[],
+  columns?: string[] | ColDef[]
+): ColDef[] {
+  if (!columns || columns.length === 0) {
+    return Object.keys(data[0] || {}).map((k) => ({ header: formatHeader(k), key: k }))
+  }
+  if (typeof columns[0] === 'string') {
+    return (columns as string[]).map((k) => ({ header: formatHeader(k), key: k }))
+  }
+  return columns as ColDef[]
+}
+
+/**
+ * Export generic data to Excel.
+ * columns can be string[] (key names) or { header, key }[] (explicit labels).
  */
 export async function exportDataToExcel(
   data: any[],
   sheetName: string = 'Sheet1',
-  columns?: string[]
+  columns?: string[] | ColDef[]
 ): Promise<Buffer> {
   try {
     const workbook = new ExcelJS.Workbook()
     const worksheet = workbook.addWorksheet(sheetName)
 
     if (!data || data.length === 0) {
-      worksheet.columns = [
-        { header: 'No data available', key: 'noData', width: 20 },
-      ]
+      worksheet.columns = [{ header: 'No data available', key: 'noData', width: 20 }]
       return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>
     }
 
-    // Get columns from first data object or use provided columns
-    const headers = columns || Object.keys(data[0])
+    const colDefs = normalizeColumns(data, columns)
 
-    // Set up columns with formatting
-    worksheet.columns = headers.map((header) => ({
-      header: formatHeader(header),
-      key: header,
-      width: getColumnWidth(formatHeader(header)),
+    // Set up columns
+    worksheet.columns = colDefs.map((col) => ({
+      header: col.header,
+      key: col.key,
+      width: getColumnWidth(col.header),
     }))
 
-    // Format header row
-    worksheet.getRow(1).font = {
-      bold: true,
-      color: { argb: 'FFFFFFFF' },
-    }
+    // Style header row
+    worksheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } }
     worksheet.getRow(1).fill = {
       type: 'pattern',
       pattern: 'solid',
       fgColor: { argb: 'FF4472C4' },
     }
-    worksheet.getRow(1).alignment = {
-      horizontal: 'center',
-      vertical: 'middle',
-      wrapText: true,
-    }
+    worksheet.getRow(1).alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
 
-    // Add data with formatting
+    // Add data rows
     data.forEach((row, rowIndex) => {
       const excelRow = worksheet.addRow(
-        headers.reduce((acc: any, header) => {
-          acc[header] = row[header]
+        colDefs.reduce((acc: any, col) => {
+          acc[col.key] = row[col.key]
           return acc
         }, {})
       )
 
-      // Zebra striping
       if (rowIndex % 2 === 0) {
-        excelRow.fill = {
-          type: 'pattern',
-          pattern: 'solid',
-          fgColor: { argb: 'FFF2F2F2' },
-        }
+        excelRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF2F2F2' } }
       }
 
-      // Format numbers and dates
-      headers.forEach((header) => {
-        const cell = excelRow.getCell(header)
-        const value = row[header]
-
+      colDefs.forEach((col) => {
+        const cell = excelRow.getCell(col.key)
+        const value = row[col.key]
         if (typeof value === 'number') {
-          if (Number.isInteger(value)) {
-            cell.numFmt = '#,##0'
-          } else {
-            cell.numFmt = '#,##0.00'
-          }
+          cell.numFmt = Number.isInteger(value) ? '#,##0' : '#,##0.00'
         } else if (value instanceof Date) {
           cell.numFmt = 'yyyy-mm-dd hh:mm:ss'
         }
       })
     })
 
-    // Freeze header row
     worksheet.views = [{ state: 'frozen', ySplit: 1 }]
 
     return workbook.xlsx.writeBuffer() as unknown as Promise<Buffer>

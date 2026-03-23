@@ -38,7 +38,11 @@ interface ReportsTableProps {
     | "abc"
     | "turnover"
     | "low-stock"
-    | "dead-stock";
+    | "dead-stock"
+    | "sales-by-period"
+    | "sales-by-customer"
+    | "sales-by-product"
+    | "sales-pending-invoices";
   onPageChange: (e: DataTablePageEvent) => void;
   filters?: {
     search?: string;
@@ -54,6 +58,8 @@ interface ReportsTableProps {
   showSearchFilter?: boolean;
   customFilters?: ReactNode;
   footer?: ReactNode;
+  /** Override the default export handler (e.g. for sales reports that use a different endpoint) */
+  onExport?: (format: ReportFormat, filters: Record<string, any>) => Promise<void>;
 }
 
 // ============================================================================
@@ -78,6 +84,7 @@ const ReportsTable = ({
   showSearchFilter = false,
   customFilters,
   footer,
+  onExport,
 }: ReportsTableProps) => {
   const toast = useRef<Toast>(null);
   const [exporting, setExporting] = useState<ReportFormat | null>(null);
@@ -106,7 +113,11 @@ const ReportsTable = ({
         exportFilters.classification = filters.classification;
       }
 
-      await reportService.download(reportType, format, exportFilters);
+      if (onExport) {
+        await onExport(format, exportFilters);
+      } else {
+        await reportService.download(reportType as any, format, exportFilters);
+      }
 
       toast.current?.show({
         severity: "success",
