@@ -1569,31 +1569,52 @@ model StockAlert {
 
 // backend/prisma/models/inventory/supplier.prisma
 
+enum SupplierType {
+  INDIVIDUAL
+  COMPANY
+}
+
 model Supplier {
-  id              String          @id @default(uuid())
-  code            String
-  name            String
-  contactName     String?
-  email           String?
-  phone           String?
-  address         String?
-  taxId           String?         // RIF en Venezuela
-  isActive        Boolean         @default(true)
+  id                String          @id @default(uuid())
+  code              String
+  taxId             String?         // RIF/Cédula unificado
+  name              String
+  contactName       String?
+  email             String?
+  phone             String?
+  mobile            String?         // celular
+  website           String?         // wwwsite
+  address           String?         @db.Text
+  
+  // Fiscal / Comercial
+  type              SupplierType    @default(COMPANY)
+  isSpecialTaxpayer Boolean         @default(false) // esagretesp / agente de retención
+  creditDays        Int             @default(0)     // dias
+  currency          String?         // moneda
+  
+  // CRM / Extra
+  notes             String?         @db.Text        // notas / historia
+  metadata          Json?           // info bancaria, campos extra, etc.
+
+  isActive          Boolean         @default(true)
   
   // Multi-tenancy
-  empresaId       String
-  empresa         Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  empresaId         String
+  empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  purchaseOrders  PurchaseOrder[]
-  entryNotes      EntryNote[]
+  purchaseOrders    PurchaseOrder[]
+  entryNotes        EntryNote[]
   
   // Auditoría
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
   @@map("suppliers")
+  @@index([code])
+  @@index([taxId])
   @@index([isActive])
   @@index([empresaId])
 }
@@ -1860,30 +1881,51 @@ enum CustomerType {
 }
 
 model Customer {
-  id          String       @id @default(uuid())
-  code        String
-  taxId       String?      // RIF/Cédula
-  name        String
-  email       String?
-  phone       String?
-  address     String?      @db.Text
-  type        CustomerType @default(INDIVIDUAL)
+  id                String       @id @default(uuid())
+  code              String
+  taxId             String?      // RIF/Cédula unificado
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?      // telefono_movil
+  website           String?      // wwwcli
+  contactPerson     String?      // perscont
   
-  isActive    Boolean      @default(true)
+  // Direcciones
+  address           String?      @db.Text
+  shippingAddress   String?      @db.Text // direcenvio
+  billingAddress    String?      @db.Text // direccobro
+  
+  // Fiscal / Configuración
+  type              CustomerType @default(INDIVIDUAL)
+  isSpecialTaxpayer Boolean      @default(false) // contribespecial
+  priceList         Int          @default(1)     // precio
+  
+  // Condiciones de Crédito y Venta
+  creditLimit       Float        @default(0)     // limite
+  creditDays        Int          @default(0)     // dias
+  defaultDiscount   Float        @default(0)     // descuento
+  sellerId          String?                      // vendedor
+  
+  // CRM / Extra
+  notes             String?      @db.Text        // nota / historia
+  metadata          Json?                        // Para reemplazar campo1..5, hashtag, etc.
+
+  isActive          Boolean      @default(true)
   
   // Multi-tenancy
-  empresaId   String
-  empresa     Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  empresaId         String
+  empresa           Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  orders      Order[]
-  preInvoices PreInvoice[]
-  payments    Payment[]
-  invoices    Invoice[]
+  orders            Order[]
+  preInvoices       PreInvoice[]
+  payments          Payment[]
+  invoices          Invoice[]
   
   // Auditoría
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
 
   @@unique([empresaId, code])
   @@unique([empresaId, taxId])

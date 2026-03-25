@@ -12,7 +12,11 @@ import reportService from "@/app/api/inventory/reportService";
 const ExitsWithoutInvoicePage = () => {
   const toast = useRef<Toast>(null);
   const [items, setItems] = useState<any[]>([]);
-  const [summary, setSummary] = useState<{ criticalCount: number; warningCount: number; normalCount: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    criticalCount: number;
+    warningCount: number;
+    normalCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -198,29 +202,29 @@ const ExitsWithoutInvoicePage = () => {
         ))}
       </div>
 
-      <Card title="Salidas sin Factura">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Salidas sin Factura">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Salidas Sin Factura"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="movements"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={false}
-            showWarehouseFilter={false}
-            showSearchFilter={false}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Salidas Sin Factura"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="movements"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={false}
+          showSearchFilter={false}
+        />
+      )}
     </>
   );
 };

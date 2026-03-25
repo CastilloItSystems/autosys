@@ -71,7 +71,9 @@ const DeadStockPage = () => {
       body: (row: any) => (
         <span className="font-semibold">
           {row.value != null
-            ? `$${Number(row.value).toLocaleString("es-VE", { minimumFractionDigits: 2 })}`
+            ? `$${Number(row.value).toLocaleString("es-VE", {
+                minimumFractionDigits: 2,
+              })}`
             : "—"}
         </span>
       ),
@@ -107,29 +109,29 @@ const DeadStockPage = () => {
   return (
     <>
       <Toast ref={toast} />
-      <Card title="Artículos Sin Movimiento (Stock Muerto)">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Artículos Sin Movimiento (Stock Muerto)">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Stock Muerto"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="dead-stock"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={false}
-            showWarehouseFilter={true}
-            showSearchFilter={true}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Artículos Sin Movimiento (Stock Muerto)"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="dead-stock"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={true}
+          showSearchFilter={true}
+        />
+      )}
     </>
   );
 };

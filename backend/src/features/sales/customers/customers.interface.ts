@@ -12,8 +12,21 @@ export interface ICustomer {
   name: string
   email?: string | null
   phone?: string | null
+  mobile?: string | null
+  website?: string | null
+  contactPerson?: string | null
   address?: string | null
+  shippingAddress?: string | null
+  billingAddress?: string | null
   type: CustomerType
+  isSpecialTaxpayer: boolean
+  priceList: number
+  creditLimit: number
+  creditDays: number
+  defaultDiscount: number
+  sellerId?: string | null
+  notes?: string | null
+  metadata?: any | null
   isActive: boolean
   empresaId: string
   createdAt: Date
@@ -26,8 +39,21 @@ export interface ICreateCustomerInput {
   name: string
   email?: string | null
   phone?: string | null
+  mobile?: string | null
+  website?: string | null
+  contactPerson?: string | null
   address?: string | null
+  shippingAddress?: string | null
+  billingAddress?: string | null
   type?: CustomerType
+  isSpecialTaxpayer?: boolean
+  priceList?: number
+  creditLimit?: number
+  creditDays?: number
+  defaultDiscount?: number
+  sellerId?: string | null
+  notes?: string | null
+  metadata?: any | null
 }
 
 export interface IUpdateCustomerInput {
@@ -36,8 +62,21 @@ export interface IUpdateCustomerInput {
   name?: string
   email?: string | null
   phone?: string | null
+  mobile?: string | null
+  website?: string | null
+  contactPerson?: string | null
   address?: string | null
+  shippingAddress?: string | null
+  billingAddress?: string | null
   type?: CustomerType
+  isSpecialTaxpayer?: boolean
+  priceList?: number
+  creditLimit?: number
+  creditDays?: number
+  defaultDiscount?: number
+  sellerId?: string | null
+  notes?: string | null
+  metadata?: any | null
   isActive?: boolean
 }
 

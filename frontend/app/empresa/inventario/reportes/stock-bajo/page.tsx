@@ -108,29 +108,29 @@ const LowStockPage = () => {
   return (
     <>
       <Toast ref={toast} />
-      <Card title="Artículos con Stock Bajo">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Artículos con Stock Bajo">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Stock Bajo"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="low-stock"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={false}
-            showWarehouseFilter={true}
-            showSearchFilter={true}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Artículos con Stock Bajo"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="low-stock"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={true}
+          showSearchFilter={true}
+        />
+      )}
     </>
   );
 };

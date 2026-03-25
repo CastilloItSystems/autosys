@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { LayoutProvider } from "@/layout/context/layoutcontext";
 import { SWRCacheProvider } from "@/store/SWRCacheProvider";
 import AppInitializer from "@/components/common/AppInitializer";
+import { SocketProvider } from "@/context/SocketContext";
 
 // Registrar locale español para PrimeReact
 addLocale("es", {
@@ -61,8 +62,10 @@ export default function ClientProviders({
     <SessionProvider>
       <LayoutProvider>
         <PrimeReactProvider value={{ ripple: true }}>
-          <AppInitializer />
-          <SWRCacheProvider>{children}</SWRCacheProvider>
+          <SocketProvider>
+            <AppInitializer />
+            <SWRCacheProvider>{children}</SWRCacheProvider>
+          </SocketProvider>
         </PrimeReactProvider>
       </LayoutProvider>
     </SessionProvider>

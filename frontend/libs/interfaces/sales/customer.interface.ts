@@ -12,8 +12,18 @@ export interface Customer {
   name: string;
   email?: string | null;
   phone?: string | null;
+  mobile?: string | null;
+  website?: string | null;
+  contactPerson?: string | null;
   address?: string | null;
-  type: CustomerType;
+  shippingAddress?: string | null;
+  billingAddress?: string | null;
+  type: CustomerType | "INDIVIDUAL" | "COMPANY";
+  isSpecialTaxpayer: boolean;
+  priceList: number;
+  creditLimit: number;
+  creditDays: number;
+  defaultDiscount: number;
   isActive: boolean;
   empresaId: string;
   createdAt: string;
@@ -21,12 +31,12 @@ export interface Customer {
 }
 
 export const CUSTOMER_TYPE_CONFIG = {
-  [CustomerType.INDIVIDUAL]: {
+  INDIVIDUAL: {
     label: "Persona Natural",
     icon: "pi pi-user",
     severity: "info" as const,
   },
-  [CustomerType.COMPANY]: {
+  COMPANY: {
     label: "Empresa",
     icon: "pi pi-building",
     severity: "success" as const,

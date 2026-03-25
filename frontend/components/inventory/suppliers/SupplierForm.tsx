@@ -1,14 +1,14 @@
 "use client";
-import React, { useEffect, useState } from "react";
-
-// Form libraries
+import React from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-
-// PrimeReact components
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { InputNumber } from "primereact/inputnumber";
+import { Dropdown } from "primereact/dropdown";
+import { InputSwitch } from "primereact/inputswitch";
+import { Divider } from "primereact/divider";
+import { Toast } from "primereact/toast";
 
 // API functions
 import supplierService, {
@@ -18,105 +18,103 @@ import supplierService, {
 // Schema de validación
 import {
   createSupplierSchema,
-  updateSupplierSchema,
   CreateSupplier,
 } from "@/libs/zods/inventory/supplierZod";
 import { handleFormError } from "@/utils/errorHandlers";
 
+// Componentes comunes
+import PhoneInput from "@/components/common/PhoneInput";
+import RifInput from "@/components/common/RifInput";
+import MetadataInput from "@/components/common/MetadataInput";
+
 interface SupplierFormProps {
-  supplier: Supplier | null;
-  onSave: () => void | Promise<void>;
+  supplier?: Supplier | null;
   formId?: string;
+  onSave: () => void | Promise<void>;
   onSubmittingChange?: (isSubmitting: boolean) => void;
-  toast: React.RefObject<any>;
+  toast: React.RefObject<Toast> | null;
 }
+
+const typeOptions = [
+  { label: "Persona Individual", value: "INDIVIDUAL" },
+  { label: "Empresa", value: "COMPANY" },
+];
+
+const currencyOptions = [
+  { label: "USD (Dólar)", value: "USD" },
+  { label: "VES (Bolívar)", value: "VES" },
+  { label: "EUR (Euro)", value: "EUR" },
+];
 
 export default function SupplierForm({
   supplier,
-  onSave,
   formId,
+  onSave,
   onSubmittingChange,
   toast,
 }: SupplierFormProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const isEditing = !!supplier;
 
   const {
     control,
     handleSubmit,
-    reset,
-    formState: { errors, isSubmitting },
+    register,
+    formState: { errors },
   } = useForm<CreateSupplier>({
-    resolver: zodResolver(
-      supplier ? updateSupplierSchema : createSupplierSchema,
-    ),
+    resolver: zodResolver(createSupplierSchema),
     mode: "onBlur",
-    defaultValues: {
-      code: "",
-      name: "",
-      contactName: "",
-      email: "",
-      phone: "",
-      address: "",
-      taxId: "",
-    },
+    defaultValues: supplier
+      ? {
+          code: supplier.code,
+          type: supplier.type || "COMPANY",
+          name: supplier.name,
+          taxId: supplier.taxId || undefined,
+          contactName: supplier.contactName || undefined,
+          email: supplier.email || undefined,
+          phone: supplier.phone || undefined,
+          mobile: supplier.mobile || undefined,
+          website: supplier.website || undefined,
+          address: supplier.address || undefined,
+          isSpecialTaxpayer: supplier.isSpecialTaxpayer ?? false,
+          creditDays: supplier.creditDays ?? 0,
+          currency: supplier.currency || "USD",
+          notes: supplier.notes || undefined,
+        }
+      : {
+          type: "COMPANY",
+          isSpecialTaxpayer: false,
+          creditDays: 0,
+          currency: "USD",
+        },
   });
 
-  // Simular loading inicial para consistencia visual
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, []);
-
-  // Cargar datos del proveedor si está en modo edición
-  useEffect(() => {
-    if (supplier && !isLoading) {
-      reset({
-        code: supplier.code || "",
-        name: supplier.name || "",
-        contactName: supplier.contactName || "",
-        email: supplier.email || "",
-        phone: supplier.phone || "",
-        address: supplier.address || "",
-        taxId: supplier.taxId || "",
-      });
-    } else if (!supplier && !isLoading) {
-      reset({
-        code: "",
-        name: "",
-        contactName: "",
-        email: "",
-        phone: "",
-        address: "",
-        taxId: "",
-      });
-    }
-  }, [supplier, reset, isLoading]);
-
-  /**
-   * Maneja el envío del formulario
-   */
   const onSubmit = async (data: CreateSupplier) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
-      // Normalize empty strings to undefined
-      const submitData = {
-        ...data,
+      const payload = {
+        code: data.code,
+        name: data.name,
+        type: data.type,
+        taxId: data.taxId || undefined,
         contactName: data.contactName || undefined,
         email: data.email || undefined,
         phone: data.phone || undefined,
+        mobile: data.mobile || undefined,
+        website: data.website || undefined,
         address: data.address || undefined,
-        taxId: data.taxId || undefined,
+        isSpecialTaxpayer: data.isSpecialTaxpayer,
+        creditDays: data.creditDays,
+        currency: data.currency || "USD",
+        notes: data.notes || undefined,
       };
 
-      if (supplier?.id) {
-        await supplierService.update(supplier.id, submitData);
+      if (isEditing && supplier) {
+        await supplierService.update(supplier.id, payload);
       } else {
-        await supplierService.create(submitData);
+        await supplierService.create(payload);
       }
       await onSave();
-    } catch (error: any) {
+    } catch (error) {
       handleFormError(error, toast);
     } finally {
       if (onSubmittingChange) onSubmittingChange(false);
@@ -124,218 +122,302 @@ export default function SupplierForm({
   };
 
   return (
-    <form id={formId || "supplier-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
-      {isLoading ? (
-        <div className="flex flex-column align-items-center justify-content-center p-4">
-          <ProgressSpinner
-            style={{ width: "40px", height: "40px" }}
-            strokeWidth="4"
-            fill="var(--surface-ground)"
-            animationDuration=".5s"
-          />
-          <p className="mt-3 text-600 font-medium">Preparando formulario...</p>
+    <form
+      id={formId || "supplier-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
+      <div className="grid formgrid row-gap-2">
+        {/* ========================================= */}
+        {/* INFORMACIÓN BÁSICA                        */}
+        {/* ========================================= */}
+        <div className="col-12 mt-2">
+          <h5 className="mb-0 text-primary">Información Básica</h5>
+          <Divider className="mt-2 mb-3" />
         </div>
-      ) : (
-        <>
-          <div className="grid">
-            {/* Código */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="code" className="block text-900 font-medium mb-2">
-                Código <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="code"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="code"
-                    {...field}
-                    placeholder="Ej: PROV-001"
-                    className={errors.code ? "p-invalid" : ""}
-                    autoFocus
-                    disabled={!!supplier?.id}
-                    title={
-                      supplier?.id ? "El código no puede ser modificado" : ""
-                    }
-                  />
-                )}
-              />
-              {errors.code && (
-                <small className="p-error block mt-1">
-                  {errors.code.message}
-                </small>
-              )}
-            </div>
 
-            {/* Nombre */}
-            <div className="col-12 md:col-6">
-              <label htmlFor="name" className="block text-900 font-medium mb-2">
-                Nombre <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="name"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="name"
-                    {...field}
-                    placeholder="Nombre del proveedor"
-                    className={errors.name ? "p-invalid" : ""}
-                  />
-                )}
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">
+            Tipo de Proveedor <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="type"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id={field.name}
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={typeOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccionar tipo"
+                className={errors.type ? "p-invalid" : ""}
               />
-              {errors.name && (
-                <small className="p-error block mt-1">
-                  {errors.name.message}
-                </small>
-              )}
-            </div>
+            )}
+          />
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
+        </div>
 
-            {/* Contacto */}
-            <div className="col-12 md:col-6">
-              <label
-                htmlFor="contactName"
-                className="block text-900 font-medium mb-2"
-              >
-                Contacto
-              </label>
-              <Controller
-                name="contactName"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="contactName"
-                    {...field}
-                    value={field.value || ""}
-                    placeholder="Nombre del contacto"
-                    className={errors.contactName ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.contactName && (
-                <small className="p-error block mt-1">
-                  {errors.contactName.message}
-                </small>
-              )}
-            </div>
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">
+            Código <span className="text-red-500">*</span>
+          </label>
+          <InputText
+            {...register("code")}
+            placeholder="Ej: PROV-001"
+            className={errors.code ? "p-invalid" : ""}
+            disabled={isEditing}
+            title={isEditing ? "El código no puede ser modificado" : ""}
+          />
+          {errors.code && (
+            <small className="p-error">{errors.code.message}</small>
+          )}
+        </div>
 
-            {/* Correo */}
-            <div className="col-12 md:col-6">
-              <label
-                htmlFor="email"
-                className="block text-900 font-medium mb-2"
-              >
-                Correo
-              </label>
-              <Controller
-                name="email"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="email"
-                    {...field}
-                    value={field.value || ""}
-                    placeholder="correo@ejemplo.com"
-                    className={errors.email ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.email && (
-                <small className="p-error block mt-1">
-                  {errors.email.message}
-                </small>
-              )}
-            </div>
+        <div className="col-12 md:col-8 field">
+          <label className="font-semibold">
+            Nombre <span className="text-red-500">*</span>
+          </label>
+          <InputText
+            {...register("name")}
+            placeholder="Nombre del proveedor"
+            className={errors.name ? "p-invalid" : ""}
+          />
+          {errors.name && (
+            <small className="p-error">{errors.name.message}</small>
+          )}
+        </div>
 
-            {/* Teléfono */}
-            <div className="col-12 md:col-6">
-              <label
-                htmlFor="phone"
-                className="block text-900 font-medium mb-2"
-              >
-                Teléfono
-              </label>
-              <Controller
-                name="phone"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="phone"
-                    {...field}
-                    value={field.value || ""}
-                    placeholder="Teléfono de contacto"
-                    className={errors.phone ? "p-invalid" : ""}
-                  />
-                )}
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">RIF / NIT</label>
+          <Controller
+            name="taxId"
+            control={control}
+            render={({ field }) => (
+              <RifInput
+                id="taxId"
+                value={field.value || ""}
+                onChange={field.onChange}
+                error={errors.taxId}
+                className={errors.taxId ? "p-invalid" : ""}
               />
-              {errors.phone && (
-                <small className="p-error block mt-1">
-                  {errors.phone.message}
-                </small>
-              )}
-            </div>
+            )}
+          />
+          {errors.taxId && (
+            <small className="p-error block mt-1">{errors.taxId.message}</small>
+          )}
+        </div>
 
-            {/* RIF/NIT */}
-            <div className="col-12 md:col-6">
-              <label
-                htmlFor="taxId"
-                className="block text-900 font-medium mb-2"
-              >
-                RIF/NIT
-              </label>
-              <Controller
-                name="taxId"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="taxId"
-                    {...field}
-                    value={field.value || ""}
-                    placeholder="Ej: J-12345678-9"
-                    className={errors.taxId ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.taxId && (
-                <small className="p-error block mt-1">
-                  {errors.taxId.message}
-                </small>
-              )}
-            </div>
+        {/* ========================================= */}
+        {/* CONTACTO Y DIRECCIONES                    */}
+        {/* ========================================= */}
+        <div className="col-12 mt-3">
+          <h5 className="mb-0 text-primary">Contacto y Ubicación</h5>
+          <Divider className="mt-2 mb-3" />
+        </div>
 
-            {/* Dirección */}
-            <div className="col-12">
-              <label
-                htmlFor="address"
-                className="block text-900 font-medium mb-2"
-              >
-                Dirección
-              </label>
+        <div className="col-12 md:col-6 field">
+          <label>Correo Electrónico</label>
+          <InputText
+            {...register("email")}
+            placeholder="correo@ejemplo.com"
+            className={errors.email ? "p-invalid" : ""}
+          />
+          {errors.email && (
+            <small className="p-error">{errors.email.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label>Persona de Contacto</label>
+          <InputText
+            {...register("contactName")}
+            placeholder="Nombre del encargado"
+            className={errors.contactName ? "p-invalid" : ""}
+          />
+          {errors.contactName && (
+            <small className="p-error">{errors.contactName.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label>Teléfono Fijo</label>
+          <Controller
+            name="phone"
+            control={control}
+            render={({ field }) => (
+              <PhoneInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                error={errors.phone}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label>Teléfono Móvil (Celular)</label>
+          <Controller
+            name="mobile"
+            control={control}
+            render={({ field }) => (
+              <PhoneInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                error={errors.mobile}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 field">
+          <label>Sitio Web</label>
+          <InputText
+            {...register("website")}
+            placeholder="https://ejemplo.com"
+            className={errors.website ? "p-invalid" : ""}
+          />
+          {errors.website && (
+            <small className="p-error">{errors.website.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 field">
+          <label>Dirección</label>
+          <InputTextarea
+            {...register("address")}
+            rows={2}
+            placeholder="Dirección completa del proveedor"
+            className={errors.address ? "p-invalid" : ""}
+          />
+        </div>
+
+        {/* ========================================= */}
+        {/* CONFIGURACIÓN COMERCIAL Y FISCAL          */}
+        {/* ========================================= */}
+        <div className="col-12 mt-3">
+          <h5 className="mb-0 text-primary">Configuración Comercial</h5>
+          <Divider className="mt-2 mb-3" />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Moneda</label>
+          <Controller
+            name="currency"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                id={field.name}
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={currencyOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccionar moneda"
+                className={errors.currency ? "p-invalid" : ""}
+              />
+            )}
+          />
+          {errors.currency && (
+            <small className="p-error">{errors.currency.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Días de Crédito</label>
+          <Controller
+            name="creditDays"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                id={field.name}
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={0}
+                suffix=" días"
+                className={errors.creditDays ? "p-invalid" : ""}
+              />
+            )}
+          />
+          {errors.creditDays && (
+            <small className="p-error">{errors.creditDays.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-4 field flex flex-column justify-content-center">
+          <label className="font-semibold mb-2">Contribuyente Especial</label>
+          <div className="flex align-items-center gap-3">
+            <Controller
+              name="isSpecialTaxpayer"
+              control={control}
+              render={({ field }) => (
+                <InputSwitch
+                  checked={field.value ?? false}
+                  onChange={(e) => field.onChange(e.value)}
+                />
+              )}
+            />
+            <span className="text-sm">Agente de Retención (IGTF/IVA)</span>
+          </div>
+        </div>
+
+        {isEditing && (
+          <div className="col-12 md:col-4 field flex flex-column justify-content-center">
+            <label className="font-semibold mb-2">Estado</label>
+            <div className="flex align-items-center gap-3">
               <Controller
-                name="address"
+                name="isActive"
                 control={control}
                 render={({ field }) => (
-                  <InputTextarea
-                    id="address"
-                    {...field}
-                    value={field.value || ""}
-                    rows={2}
-                    placeholder="Dirección del proveedor"
-                    className={errors.address ? "p-invalid" : ""}
+                  <InputSwitch
+                    checked={field.value ?? true}
+                    onChange={(e) => field.onChange(e.value)}
                   />
                 )}
               />
-              {errors.address && (
-                <small className="p-error block mt-1">
-                  {errors.address.message}
-                </small>
-              )}
+              <span className="text-sm">Activo</span>
             </div>
           </div>
+        )}
 
-          {/* Action buttons moved to parent dialog footer via FormActionButtons */}
-        </>
-      )}
+        {/* ========================================= */}
+        {/* INFORMACIÓN ADICIONAL                     */}
+        {/* ========================================= */}
+        <div className="col-12 mt-3">
+          <h5 className="mb-0 text-primary">Información Adicional</h5>
+          <Divider className="mt-2 mb-3" />
+        </div>
+
+        <div className="col-12 field">
+          <label>Notas Internas</label>
+          <InputTextarea
+            {...register("notes")}
+            rows={3}
+            placeholder="Notas o comentarios internos sobre el proveedor"
+            className={errors.notes ? "p-invalid" : ""}
+          />
+          {errors.notes && (
+            <small className="p-error">{errors.notes.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 field">
+          <label>Campos Adicionales</label>
+          <small className="block text-500 mb-2">
+            Información extra personalizada (hashtags, referencias, etc.)
+          </small>
+          <Controller
+            name="metadata"
+            control={control}
+            render={({ field }) => (
+              <MetadataInput value={field.value} onChange={field.onChange} />
+            )}
+          />
+        </div>
+      </div>
     </form>
   );
 }

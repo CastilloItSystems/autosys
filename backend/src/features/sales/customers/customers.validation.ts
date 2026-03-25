@@ -16,11 +16,24 @@ export const createCustomerSchema = Joi.object({
   }),
   email: Joi.string().email().optional().allow(null, ''),
   phone: Joi.string().max(20).optional().allow(null, ''),
+  mobile: Joi.string().max(20).optional().allow(null, ''),
+  website: Joi.string().max(150).optional().allow(null, ''),
+  contactPerson: Joi.string().max(100).optional().allow(null, ''),
   address: Joi.string().max(500).optional().allow(null, ''),
+  shippingAddress: Joi.string().max(500).optional().allow(null, ''),
+  billingAddress: Joi.string().max(500).optional().allow(null, ''),
   type: Joi.string()
     .valid('INDIVIDUAL', 'COMPANY')
     .optional()
     .default('INDIVIDUAL'),
+  isSpecialTaxpayer: Joi.boolean().optional(),
+  priceList: Joi.number().integer().min(1).optional(),
+  creditLimit: Joi.number().min(0).optional(),
+  creditDays: Joi.number().integer().min(0).optional(),
+  defaultDiscount: Joi.number().min(0).max(100).optional(),
+  sellerId: Joi.string().uuid().optional().allow(null, ''),
+  notes: Joi.string().optional().allow(null, ''),
+  metadata: Joi.object().optional().allow(null),
 })
 
 export const updateCustomerSchema = Joi.object({
@@ -29,8 +42,21 @@ export const updateCustomerSchema = Joi.object({
   name: Joi.string().max(255).optional(),
   email: Joi.string().email().optional().allow(null, ''),
   phone: Joi.string().max(20).optional().allow(null, ''),
+  mobile: Joi.string().max(20).optional().allow(null, ''),
+  website: Joi.string().max(150).optional().allow(null, ''),
+  contactPerson: Joi.string().max(100).optional().allow(null, ''),
   address: Joi.string().max(500).optional().allow(null, ''),
+  shippingAddress: Joi.string().max(500).optional().allow(null, ''),
+  billingAddress: Joi.string().max(500).optional().allow(null, ''),
   type: Joi.string().valid('INDIVIDUAL', 'COMPANY').optional(),
+  isSpecialTaxpayer: Joi.boolean().optional(),
+  priceList: Joi.number().integer().min(1).optional(),
+  creditLimit: Joi.number().min(0).optional(),
+  creditDays: Joi.number().integer().min(0).optional(),
+  defaultDiscount: Joi.number().min(0).max(100).optional(),
+  sellerId: Joi.string().uuid().optional().allow(null, ''),
+  notes: Joi.string().optional().allow(null, ''),
+  metadata: Joi.object().optional().allow(null),
   isActive: Joi.boolean().optional(),
 })
 

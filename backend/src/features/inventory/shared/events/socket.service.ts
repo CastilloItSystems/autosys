@@ -4,7 +4,6 @@
  */
 
 import { Server as SocketIOServer, Socket } from 'socket.io'
-import { Server as HTTPServer } from 'http'
 import { logger } from '../../../../shared/utils/logger.js'
 import { IEvent, EventType, ISocketEventPayload } from './event.types.js'
 
@@ -24,49 +23,18 @@ class SocketService {
   }
 
   /**
-   * Initialize Socket.io server
+   * Initialize Socket.io server with existing instance
    */
-  initialize(httpServer: HTTPServer): void {
+  initialize(io: SocketIOServer): void {
     if (this.io) {
       logger.warn('SocketService already initialized')
       return
     }
 
-    this.io = new SocketIOServer(httpServer, {
-      cors: {
-        origin: process.env.FRONTEND_URL || 'http://localhost:3000',
-        methods: ['GET', 'POST'],
-        credentials: true,
-      },
-      transports: ['websocket', 'polling'],
-    })
-
-    this.setupMiddleware()
+    this.io = io
     this.setupEventHandlers()
 
-    logger.info('Socket.io server initialized')
-  }
-
-  /**
-   * Setup Socket.io middleware
-   */
-  private setupMiddleware(): void {
-    if (!this.io) return
-
-    this.io.use((socket, next) => {
-      // Optional: Validate token from handshake
-      const token = socket.handshake.auth.token
-      const userId = socket.handshake.auth.userId
-
-      if (!userId) {
-        return next(new Error('Missing user ID in handshake'))
-      }
-
-      socket.data.userId = userId
-      socket.data.token = token
-
-      next()
-    })
+    logger.info('SocketService connected to global Socket.io instance')
   }
 
   /**

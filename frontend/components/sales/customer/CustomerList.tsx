@@ -277,6 +277,30 @@ const CustomerList = () => {
     </div>
   );
 
+  const commercialBodyTemplate = (rowData: Customer) => (
+    <div className="flex flex-column gap-1">
+      <span className="text-xs">
+        <i className="pi pi-list text-500 mr-1" />
+        Lista {rowData.priceList}
+      </span>
+      {rowData.creditDays > 0 && (
+        <span className="text-xs">
+          <i className="pi pi-calendar text-500 mr-1" />
+          {rowData.creditDays} días
+        </span>
+      )}
+      {rowData.defaultDiscount > 0 && (
+        <span className="text-xs">
+          <i className="pi pi-tag text-500 mr-1" />
+          {rowData.defaultDiscount}% dto.
+        </span>
+      )}
+      {rowData.isSpecialTaxpayer && (
+        <Tag value="C. Especial" severity="warning" className="text-xs w-fit" />
+      )}
+    </div>
+  );
+
   const dateBodyTemplate = (rowData: Customer) =>
     new Date(rowData.createdAt).toLocaleDateString("es-VE", {
       year: "numeric",
@@ -336,6 +360,11 @@ const CustomerList = () => {
             style={{ width: "10rem" }}
           />
           <Column header="Contacto" body={contactBodyTemplate} />
+          <Column
+            header="Comercial"
+            body={commercialBodyTemplate}
+            style={{ minWidth: "120px" }}
+          />
           <Column
             header="Estado"
             body={statusBodyTemplate}
@@ -410,7 +439,9 @@ const CustomerList = () => {
         {/* Form dialog */}
         <Dialog
           visible={formDialog}
-          style={{ width: "700px" }}
+          style={{ width: "800px" }}
+          breakpoints={{ "960px": "80vw", "640px": "95vw" }}
+          maximizable
           header={
             <div className="mb-2 text-center md:text-left">
               <div className="border-bottom-2 border-primary pb-2">

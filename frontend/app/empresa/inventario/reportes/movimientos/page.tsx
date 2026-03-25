@@ -24,8 +24,19 @@ const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   LOAN_RETURN: "Préstamo Retorno",
 };
 
-const IN_TYPES = new Set(["PURCHASE", "ADJUSTMENT_IN", "LOAN_RETURN", "entrada"]);
-const OUT_TYPES = new Set(["SALE", "ADJUSTMENT_OUT", "LOAN_OUT", "salida", "OUT"]);
+const IN_TYPES = new Set([
+  "PURCHASE",
+  "ADJUSTMENT_IN",
+  "LOAN_RETURN",
+  "entrada",
+]);
+const OUT_TYPES = new Set([
+  "SALE",
+  "ADJUSTMENT_OUT",
+  "LOAN_OUT",
+  "salida",
+  "OUT",
+]);
 
 const MovementsPage = () => {
   const toast = useRef<Toast>(null);
@@ -78,13 +89,23 @@ const MovementsPage = () => {
   // Compute total in/out quantities from byType
   const totalIn = summary?.byType
     ? Object.entries(summary.byType as Record<string, number>)
-        .filter(([type]) => IN_TYPES.has(type) || type.includes("IN") || type.includes("entrada"))
+        .filter(
+          ([type]) =>
+            IN_TYPES.has(type) ||
+            type.includes("IN") ||
+            type.includes("entrada"),
+        )
         .reduce((sum, [, count]) => sum + count, 0)
     : null;
 
   const totalOut = summary?.byType
     ? Object.entries(summary.byType as Record<string, number>)
-        .filter(([type]) => OUT_TYPES.has(type) || type.includes("OUT") || type.includes("salida"))
+        .filter(
+          ([type]) =>
+            OUT_TYPES.has(type) ||
+            type.includes("OUT") ||
+            type.includes("salida"),
+        )
         .reduce((sum, [, count]) => sum + count, 0)
     : null;
 
@@ -226,7 +247,10 @@ const MovementsPage = () => {
               {summaryLoading ? (
                 <Skeleton width="4rem" height="1.2rem" />
               ) : (
-                <p className="font-bold text-lg m-0" style={{ color: card.iconColor }}>
+                <p
+                  className="font-bold text-lg m-0"
+                  style={{ color: card.iconColor }}
+                >
                   {card.value != null ? card.format(card.value) : "—"}
                 </p>
               )}
@@ -235,29 +259,29 @@ const MovementsPage = () => {
         ))}
       </div>
 
-      <Card title="Historial de Movimientos de Inventario">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Historial de Movimientos de Inventario">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Movimientos"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="movements"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={true}
-            showWarehouseFilter={true}
-            showSearchFilter={true}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Historial de Movimientos de Inventario"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="movements"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={true}
+          showWarehouseFilter={true}
+          showSearchFilter={true}
+        />
+      )}
     </>
   );
 };

@@ -12,8 +12,18 @@ export interface Customer {
   name: string;
   email?: string | null;
   phone?: string | null;
+  mobile?: string | null;
+  website?: string | null;
+  contactPerson?: string | null;
   address?: string | null;
+  shippingAddress?: string | null;
+  billingAddress?: string | null;
   type: "INDIVIDUAL" | "COMPANY";
+  isSpecialTaxpayer: boolean;
+  priceList: number;
+  creditLimit: number;
+  creditDays: number;
+  defaultDiscount: number;
   isActive: boolean;
   empresaId: string;
   createdAt: string;

@@ -7,7 +7,9 @@ import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import salesReportService, { PendingInvoiceItem } from "@/app/api/sales/reportService";
+import salesReportService, {
+  PendingInvoiceItem,
+} from "@/app/api/sales/reportService";
 import { ReportFormat } from "@/app/api/inventory/reportService";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -25,7 +27,11 @@ const STATUS_SEVERITY: Record<string, "warning" | "info" | "success"> = {
 const PendingInvoicesPage = () => {
   const toast = useRef<Toast>(null);
   const [items, setItems] = useState<PendingInvoiceItem[]>([]);
-  const [summary, setSummary] = useState<{ criticalCount: number; warningCount: number; normalCount: number } | null>(null);
+  const [summary, setSummary] = useState<{
+    criticalCount: number;
+    warningCount: number;
+    normalCount: number;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -38,7 +44,10 @@ const PendingInvoicesPage = () => {
   const loadData = async () => {
     setLoading(true);
     try {
-      const response = await salesReportService.getPendingInvoices({ page, limit: rows });
+      const response = await salesReportService.getPendingInvoices({
+        page,
+        limit: rows,
+      });
       setItems(response.data);
       setTotalRecords(response.meta?.total ?? 0);
       setSummary(response.summary ?? null);
@@ -55,40 +64,105 @@ const PendingInvoicesPage = () => {
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
 
   const columns = [
-    { field: "preInvoiceNumber", header: "Nro. Pre-Factura", sortable: true, width: "16%" },
-    { field: "customerName", header: "Cliente", sortable: true, width: "20%",
-      body: (row: PendingInvoiceItem) => <span className="font-semibold">{row.customerName}</span> },
+    {
+      field: "preInvoiceNumber",
+      header: "Nro. Pre-Factura",
+      sortable: true,
+      width: "16%",
+    },
+    {
+      field: "customerName",
+      header: "Cliente",
+      sortable: true,
+      width: "20%",
+      body: (row: PendingInvoiceItem) => (
+        <span className="font-semibold">{row.customerName}</span>
+      ),
+    },
     { field: "warehouseName", header: "Almacén", sortable: true, width: "14%" },
-    { field: "total", header: "Total", sortable: true, width: "12%",
+    {
+      field: "total",
+      header: "Total",
+      sortable: true,
+      width: "12%",
       body: (row: PendingInvoiceItem) => (
         <span className="font-bold">{formatCurrency(row.total)}</span>
-      ) },
-    { field: "currency", header: "Moneda", sortable: true, width: "8%",
-      body: (row: PendingInvoiceItem) => <Tag value={row.currency} /> },
-    { field: "status", header: "Estado", sortable: true, width: "16%",
+      ),
+    },
+    {
+      field: "currency",
+      header: "Moneda",
+      sortable: true,
+      width: "8%",
+      body: (row: PendingInvoiceItem) => <Tag value={row.currency} />,
+    },
+    {
+      field: "status",
+      header: "Estado",
+      sortable: true,
+      width: "16%",
       body: (row: PendingInvoiceItem) => (
         <Tag
           value={STATUS_LABELS[row.status] ?? row.status}
           severity={STATUS_SEVERITY[row.status] ?? "info"}
         />
-      ) },
-    { field: "daysWaiting", header: "Días en Espera", sortable: true, width: "14%",
+      ),
+    },
+    {
+      field: "daysWaiting",
+      header: "Días en Espera",
+      sortable: true,
+      width: "14%",
       body: (row: PendingInvoiceItem) => (
         <Tag
           value={`${row.daysWaiting}d`}
-          severity={row.daysWaiting > 7 ? "danger" : row.daysWaiting > 3 ? "warning" : "success"}
+          severity={
+            row.daysWaiting > 7
+              ? "danger"
+              : row.daysWaiting > 3
+              ? "warning"
+              : "success"
+          }
         />
-      ) },
+      ),
+    },
   ];
 
   const summaryCards = [
-    { label: "Total Pendientes", value: totalRecords, icon: "pi pi-file-edit", color: "#3B82F6", bg: "#EFF6FF" },
-    { label: "Críticas (>7 días)", value: summary?.criticalCount ?? 0, icon: "pi pi-exclamation-triangle", color: "#EF4444", bg: "#FEF2F2" },
-    { label: "En Seguimiento (3–7d)", value: summary?.warningCount ?? 0, icon: "pi pi-clock", color: "#F97316", bg: "#FFF7ED" },
-    { label: "Recientes (≤3 días)", value: summary?.normalCount ?? 0, icon: "pi pi-check-circle", color: "#22C55E", bg: "#F0FDF4" },
+    {
+      label: "Total Pendientes",
+      value: totalRecords,
+      icon: "pi pi-file-edit",
+      color: "#3B82F6",
+      bg: "#EFF6FF",
+    },
+    {
+      label: "Críticas (>7 días)",
+      value: summary?.criticalCount ?? 0,
+      icon: "pi pi-exclamation-triangle",
+      color: "#EF4444",
+      bg: "#FEF2F2",
+    },
+    {
+      label: "En Seguimiento (3–7d)",
+      value: summary?.warningCount ?? 0,
+      icon: "pi pi-clock",
+      color: "#F97316",
+      bg: "#FFF7ED",
+    },
+    {
+      label: "Recientes (≤3 días)",
+      value: summary?.normalCount ?? 0,
+      icon: "pi pi-check-circle",
+      color: "#22C55E",
+      bg: "#F0FDF4",
+    },
   ];
 
   return (
@@ -109,14 +183,20 @@ const PendingInvoicesPage = () => {
                     className="flex align-items-center justify-content-center border-round"
                     style={{ width: 48, height: 48, background: card.bg }}
                   >
-                    <i className={card.icon} style={{ fontSize: "1.4rem", color: card.color }} />
+                    <i
+                      className={card.icon}
+                      style={{ fontSize: "1.4rem", color: card.color }}
+                    />
                   </div>
                   <div>
                     <p className="text-500 text-sm m-0">{card.label}</p>
                     {loading ? (
                       <Skeleton width="4rem" height="1.5rem" />
                     ) : (
-                      <p className="font-bold text-2xl m-0" style={{ color: card.color }}>
+                      <p
+                        className="font-bold text-2xl m-0"
+                        style={{ color: card.color }}
+                      >
                         {card.value}
                       </p>
                     )}
@@ -128,29 +208,35 @@ const PendingInvoicesPage = () => {
         ))}
       </div>
 
-      <Card title="Pre-Facturas Pendientes">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Pre-Facturas Pendientes">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Pre-Facturas Pendientes"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="sales-pending-invoices"
-            onPageChange={(e) => { setPage((e.page ?? 0) + 1); setRows(e.rows ?? 20); }}
-            showDateFilter={false}
-            showWarehouseFilter={false}
-            showSearchFilter={false}
-            onExport={(format) =>
-              salesReportService.download("pending-invoices", format as ReportFormat)
-            }
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Pre-Facturas Pendientes"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="sales-pending-invoices"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={false}
+          showSearchFilter={false}
+          onExport={(format) =>
+            salesReportService.download(
+              "pending-invoices",
+              format as ReportFormat,
+            )
+          }
+        />
+      )}
     </>
   );
 };

@@ -7,10 +7,7 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
-import {
-  CreateCustomerDTO,
-  UpdateCustomerDTO,
-} from './customers.dto.js'
+import { CreateCustomerDTO, UpdateCustomerDTO } from './customers.dto.js'
 import {
   ICustomer,
   CustomerType,
@@ -60,8 +57,21 @@ class CustomersService {
         name: data.name,
         email: data.email ?? null,
         phone: data.phone ?? null,
+        mobile: data.mobile ?? null,
+        website: data.website ?? null,
+        contactPerson: data.contactPerson ?? null,
         address: data.address ?? null,
+        shippingAddress: data.shippingAddress ?? null,
+        billingAddress: data.billingAddress ?? null,
         type: (data.type as CustomerType) ?? CustomerType.INDIVIDUAL,
+        isSpecialTaxpayer: data.isSpecialTaxpayer ?? false,
+        priceList: data.priceList ?? 1,
+        creditLimit: data.creditLimit ?? 0,
+        creditDays: data.creditDays ?? 0,
+        defaultDiscount: data.defaultDiscount ?? 0,
+        sellerId: data.sellerId ?? null,
+        notes: data.notes ?? null,
+        metadata: data.metadata ?? null,
         empresaId,
       },
     })
@@ -176,8 +186,27 @@ class CustomersService {
     if (data.taxId !== undefined) updateData.taxId = data.taxId || null
     if (data.email !== undefined) updateData.email = data.email || null
     if (data.phone !== undefined) updateData.phone = data.phone || null
+    if (data.mobile !== undefined) updateData.mobile = data.mobile || null
+    if (data.website !== undefined) updateData.website = data.website || null
+    if (data.contactPerson !== undefined)
+      updateData.contactPerson = data.contactPerson || null
     if (data.address !== undefined) updateData.address = data.address || null
+    if (data.shippingAddress !== undefined)
+      updateData.shippingAddress = data.shippingAddress || null
+    if (data.billingAddress !== undefined)
+      updateData.billingAddress = data.billingAddress || null
     if (data.type !== undefined) updateData.type = data.type
+    if (data.isSpecialTaxpayer !== undefined)
+      updateData.isSpecialTaxpayer = data.isSpecialTaxpayer
+    if (data.priceList !== undefined) updateData.priceList = data.priceList
+    if (data.creditLimit !== undefined)
+      updateData.creditLimit = data.creditLimit
+    if (data.creditDays !== undefined) updateData.creditDays = data.creditDays
+    if (data.defaultDiscount !== undefined)
+      updateData.defaultDiscount = data.defaultDiscount
+    if (data.sellerId !== undefined) updateData.sellerId = data.sellerId || null
+    if (data.notes !== undefined) updateData.notes = data.notes || null
+    if (data.metadata !== undefined) updateData.metadata = data.metadata || null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
 
     const updated = await (db as PrismaClient).customer.update({

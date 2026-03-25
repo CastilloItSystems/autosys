@@ -6,6 +6,7 @@ import { logger } from './shared/utils/logger.js'
 import { setupGracefulShutdown } from './shared/utils/shutdown.js'
 import { initSocket } from './socket/index.js'
 import { ensurePermissionCatalog } from './services/empresa-setup.service.js'
+import SocketService from './features/inventory/shared/events/socket.service.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -14,6 +15,9 @@ const server = createServer(app)
 
 // Initialize Socket.IO
 const io = initSocket(server)
+
+// Initialize Inventory SocketService
+SocketService.getInstance().initialize(io)
 
 /**
  * Inicia el servidor HTTP y espera hasta que esté escuchando.
@@ -41,8 +45,8 @@ export const startServer = async (): Promise<void> => {
     logger.info('✅ Base de datos respondiendo correctamente')
 
     // Asegurar catálogo de permisos globales
-    await ensurePermissionCatalog()
-    logger.info('✅ Catálogo de permisos sincronizado')
+    // await ensurePermissionCatalog()
+    // logger.info('✅ Catálogo de permisos sincronizado')
 
     // Iniciar servidor HTTP
     await listenServer(port)
