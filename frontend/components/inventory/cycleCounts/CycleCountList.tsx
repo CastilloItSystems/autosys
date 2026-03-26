@@ -210,24 +210,24 @@ export default function CycleCountList() {
     return (
       <div className="flex gap-2">
         <Button
-          icon="pi pi-eye"
+          icon={rowData.status === CycleCountStatus.IN_PROGRESS ? "pi pi-list-check" : "pi pi-eye"}
           rounded
           outlined
-          severity="info"
+          severity={rowData.status === CycleCountStatus.IN_PROGRESS ? "success" : "info"}
           size="small"
           onClick={async () => {
             setSelectedCycleCount(rowData);
             setShowDetail(true);
             try {
               const fullData = await cycleCountService.getById(rowData.id);
-              // @ts-ignore - The response structure might be directly the object or { data: object } depending on interceptors
+              // @ts-ignore
               const cycleCountData = fullData.data || fullData;
               setSelectedCycleCount(cycleCountData);
             } catch (error) {
               console.error("Error fetching full details", error);
             }
           }}
-          tooltip="Ver detalles"
+          tooltip={rowData.status === CycleCountStatus.IN_PROGRESS ? "Cargar Conteo" : "Ver Detalles"}
         />
         {rowData.status === CycleCountStatus.DRAFT && (
           <>
@@ -344,7 +344,7 @@ export default function CycleCountList() {
                 setSelectedCycleCount(null);
                 setShowForm(true);
               }}
-              severity="primary"
+              severity="info"
             />
           )}
         </div>
@@ -479,14 +479,19 @@ export default function CycleCountList() {
       </Dialog>
 
       <Dialog
-        header="Detalles de Conteo"
+        header={
+          selectedCycleCount?.status === CycleCountStatus.IN_PROGRESS
+            ? `Cargar Conteo — ${selectedCycleCount.cycleCountNumber}`
+            : `Detalle — ${selectedCycleCount?.cycleCountNumber ?? ""}`
+        }
         visible={showDetail}
         onHide={() => {
           setShowDetail(false);
           setSelectedCycleCount(null);
         }}
         modal
-        style={{ width: "90vw", maxWidth: "1000px" }}
+        maximizable
+        style={{ width: "90vw", maxWidth: "1100px" }}
       >
         {selectedCycleCount && (
           <CycleCountDetail cycleCount={selectedCycleCount} />

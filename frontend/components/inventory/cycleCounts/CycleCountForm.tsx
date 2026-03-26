@@ -37,12 +37,12 @@ export default function CycleCountForm({
   onSuccess,
   onCancel,
 }: CycleCountFormProps) {
-  const [items, setItems] = useState<any[]>([]); // Items available in warehouse
-  const [itemsStock, setItemsStock] = useState<Record<string, number>>({}); // Map itemId -> quantity
+  const [items, setItems] = useState<any[]>([]);
+  const [itemsStock, setItemsStock] = useState<Record<string, number>>({});
+  const [itemsLocation, setItemsLocation] = useState<Record<string, string | null>>({});
   const [initialLoading, setInitialLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Selection modes
   const [selectionMode, setSelectionMode] = useState<
     "manual" | "all" | "positive_stock" | "random"
   >("manual");
@@ -73,11 +73,11 @@ export default function CycleCountForm({
     name: "items",
   });
 
-  // Load items when warehouse changes
   useEffect(() => {
     if (!selectedWarehouseId) {
       setItems([]);
       setItemsStock({});
+      setItemsLocation({});
       return;
     }
 
@@ -87,21 +87,20 @@ export default function CycleCountForm({
         const response = await stockService.getByWarehouse(selectedWarehouseId);
         const stocks = response.data || [];
 
-        // Map stock to items and store quantity map
         const availableItems = stocks.map((s: any) => s.item);
         const stockMap: Record<string, number> = {};
+        const locationMap: Record<string, string | null> = {};
+
         stocks.forEach((s: any) => {
           stockMap[s.itemId] = s.quantityReal;
+          locationMap[s.itemId] = s.location ?? null;
         });
 
         setItems(availableItems);
         setItemsStock(stockMap);
+        setItemsLocation(locationMap);
 
-        // If editing, preserve existing items but update stock info if needed
-        if (cycleCount) {
-          // Logic to refresh stock values could go here if needed
-        } else {
-          // If new, clear items when warehouse changes
+        if (!cycleCount) {
           replace([]);
           setSelectionMode("manual");
         }
@@ -121,7 +120,6 @@ export default function CycleCountForm({
     loadStock();
   }, [selectedWarehouseId, cycleCount]);
 
-  // Handle bulk selection logic
   const applySelectionMode = () => {
     if (items.length === 0) return;
 
@@ -134,20 +132,29 @@ export default function CycleCountForm({
       case "positive_stock":
         selectedItems = items.filter((item) => (itemsStock[item.id] || 0) > 0);
         break;
-      case "random":
-        // Simple random selection
+      case "random": {
         const shuffled = [...items].sort(() => 0.5 - Math.random());
         selectedItems = shuffled.slice(0, randomCount);
         break;
+      }
       case "manual":
       default:
-        return; // Do nothing for manual
+        return;
     }
 
-    // Map to form structure
+    // Ordenar por ubicación para que la hoja de ruta esté en orden físico
+    selectedItems.sort((a, b) => {
+      const locA = (itemsLocation[a.id] ?? "").toLowerCase();
+      const locB = (itemsLocation[b.id] ?? "").toLowerCase();
+      if (!itemsLocation[a.id] && itemsLocation[b.id]) return 1;
+      if (itemsLocation[a.id] && !itemsLocation[b.id]) return -1;
+      return locA.localeCompare(locB);
+    });
+
     const formItems = selectedItems.map((item) => ({
       itemId: item.id,
       expectedQuantity: itemsStock[item.id] || 0,
+      location: itemsLocation[item.id] ?? undefined,
       notes: "",
     }));
 
@@ -226,7 +233,7 @@ export default function CycleCountForm({
                 optionValue="value"
                 placeholder="Seleccione almacén"
                 className={classNames({ "p-invalid": errors.warehouseId })}
-                disabled={!!cycleCount} // Disable if editing existing count
+                disabled={!!cycleCount}
               />
             )}
           />
@@ -327,7 +334,9 @@ export default function CycleCountForm({
                 label="Agregar Línea"
                 icon="pi pi-plus"
                 size="small"
-                onClick={() => append({ itemId: "", expectedQuantity: 0 })}
+                onClick={() =>
+                  append({ itemId: "", expectedQuantity: 0 })
+                }
                 className="bg-blue-600"
               />
             )}
@@ -366,110 +375,148 @@ export default function CycleCountForm({
             </div>
           ) : (
             <div className="flex flex-column gap-2">
-              {/* Headers for larger screens */}
+              {/* Headers */}
               <div className="hidden md:flex gap-3 px-3 py-2 bg-gray-100 border-round text-sm font-semibold text-gray-600">
                 <div className="flex-1">Artículo</div>
+                <div className="w-10rem">Ubicación (Sistema)</div>
                 <div className="w-8rem text-center">Stock Sistema</div>
                 <div className="w-3rem"></div>
               </div>
 
-              {fields.map((field, index) => (
-                <div
-                  key={field.id}
-                  className="surface-card p-3 border-1 border-200 border-round flex flex-column md:flex-row gap-3 align-items-center"
-                >
-                  <div className="w-full md:flex-1">
-                    <span className="md:hidden block font-bold mb-1 text-sm">
-                      Artículo
-                    </span>
-                    <Controller
-                      name={`items.${index}.itemId`}
-                      control={control}
-                      render={({ field }) => (
-                        <Dropdown
-                          {...field}
-                          options={itemOptions}
-                          optionLabel="label"
-                          optionValue="value"
-                          placeholder="Seleccione artículo"
-                          filter
-                          className={classNames("w-full", {
-                            "p-invalid": errors.items?.[index]?.itemId,
-                          })}
-                          onChange={(e) => {
-                            field.onChange(e.value);
-                            // Auto-fill expected quantity from system stock
-                            if (itemsStock[e.value] !== undefined) {
-                              setValue(
-                                `items.${index}.expectedQuantity`,
-                                itemsStock[e.value],
+              {fields.map((field, index) => {
+                const watchedItemId = watch(`items.${index}.itemId`);
+                const systemLocation = itemsLocation[watchedItemId] ?? null;
+
+                return (
+                  <div
+                    key={field.id}
+                    className="surface-card p-3 border-1 border-200 border-round flex flex-column md:flex-row gap-3 align-items-center"
+                  >
+                    {/* Artículo */}
+                    <div className="w-full md:flex-1">
+                      <span className="md:hidden block font-bold mb-1 text-sm">
+                        Artículo
+                      </span>
+                      <Controller
+                        name={`items.${index}.itemId`}
+                        control={control}
+                        render={({ field }) => (
+                          <Dropdown
+                            {...field}
+                            options={itemOptions}
+                            optionLabel="label"
+                            optionValue="value"
+                            placeholder="Seleccione artículo"
+                            filter
+                            className={classNames("w-full", {
+                              "p-invalid": errors.items?.[index]?.itemId,
+                            })}
+                            onChange={(e) => {
+                              field.onChange(e.value);
+                              if (itemsStock[e.value] !== undefined) {
+                                setValue(
+                                  `items.${index}.expectedQuantity`,
+                                  itemsStock[e.value]
+                                );
+                              } else {
+                                setValue(`items.${index}.expectedQuantity`, 0);
+                              }
+                              // Pre-rellenar ubicación del sistema
+                              const loc = itemsLocation[e.value] ?? undefined;
+                              setValue(`items.${index}.location`, loc);
+                            }}
+                            itemTemplate={(option) => {
+                              const stock = itemsStock[option.value] || 0;
+                              const loc = itemsLocation[option.value];
+                              return (
+                                <div className="flex justify-content-between align-items-center w-full gap-2">
+                                  <div className="flex flex-column overflow-hidden">
+                                    <span className="white-space-nowrap overflow-hidden text-overflow-ellipsis">
+                                      {option.label}
+                                    </span>
+                                    {loc && (
+                                      <span className="text-xs text-400 font-mono">
+                                        <i className="pi pi-map-marker mr-1" />
+                                        {loc}
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span
+                                    className={`text-xs px-2 py-1 border-round flex-shrink-0 ${
+                                      stock > 0
+                                        ? "bg-green-100 text-green-700"
+                                        : "bg-gray-100 text-gray-500"
+                                    }`}
+                                  >
+                                    Stock: {stock}
+                                  </span>
+                                </div>
                               );
-                            } else {
-                              setValue(`items.${index}.expectedQuantity`, 0);
-                            }
-                          }}
-                          itemTemplate={(option) => {
-                            const stock = itemsStock[option.value] || 0;
-                            return (
-                              <div className="flex justify-content-between align-items-center w-full gap-2">
-                                <span className="white-space-nowrap overflow-hidden text-overflow-ellipsis">
-                                  {option.label}
-                                </span>
-                                <span
-                                  className={`text-xs px-2 py-1 border-round flex-shrink-0 ${
-                                    stock > 0
-                                      ? "bg-green-100 text-green-700"
-                                      : "bg-gray-100 text-gray-500"
-                                  }`}
-                                >
-                                  Stock: {stock}
-                                </span>
-                              </div>
-                            );
-                          }}
-                        />
+                            }}
+                          />
+                        )}
+                      />
+                      {errors.items?.[index]?.itemId && (
+                        <small className="p-error block">
+                          {errors.items[index]?.itemId?.message}
+                        </small>
                       )}
-                    />
-                    {errors.items?.[index]?.itemId && (
-                      <small className="p-error block">
-                        {errors.items[index]?.itemId?.message}
-                      </small>
-                    )}
-                  </div>
+                    </div>
 
-                  <div className="w-full md:w-8rem">
-                    <span className="md:hidden block font-bold mb-1 text-sm">
-                      Stock Sistema
-                    </span>
-                    <Controller
-                      name={`items.${index}.expectedQuantity`}
-                      control={control}
-                      render={({ field }) => (
-                        <InputNumber
-                          {...field}
-                          min={0}
-                          className="w-full"
-                          inputClassName="text-center bg-gray-50"
-                          readOnly
-                          disabled
-                        />
+                    {/* Ubicación sistema (read-only) */}
+                    <div className="w-full md:w-10rem">
+                      <span className="md:hidden block font-bold mb-1 text-sm">
+                        Ubicación
+                      </span>
+                      {systemLocation ? (
+                        <div className="flex align-items-center gap-1 px-2 py-1 bg-blue-50 border-round border-1 border-blue-200">
+                          <i className="pi pi-map-marker text-blue-500 text-sm" />
+                          <span className="text-sm font-mono text-blue-700">
+                            {systemLocation}
+                          </span>
+                        </div>
+                      ) : (
+                        <span className="text-sm text-gray-400 italic">
+                          Sin ubicación
+                        </span>
                       )}
-                    />
-                  </div>
+                    </div>
 
-                  <div className="flex justify-content-end">
-                    <Button
-                      type="button"
-                      icon="pi pi-trash"
-                      severity="danger"
-                      text
-                      rounded
-                      onClick={() => remove(index)}
-                      tooltip="Eliminar línea"
-                    />
+                    {/* Stock Sistema */}
+                    <div className="w-full md:w-8rem">
+                      <span className="md:hidden block font-bold mb-1 text-sm">
+                        Stock Sistema
+                      </span>
+                      <Controller
+                        name={`items.${index}.expectedQuantity`}
+                        control={control}
+                        render={({ field }) => (
+                          <InputNumber
+                            {...field}
+                            min={0}
+                            className="w-full"
+                            inputClassName="text-center bg-gray-50"
+                            readOnly
+                            disabled
+                          />
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex justify-content-end">
+                      <Button
+                        type="button"
+                        icon="pi pi-trash"
+                        severity="danger"
+                        text
+                        rounded
+                        onClick={() => remove(index)}
+                        tooltip="Eliminar línea"
+                      />
+                    </div>
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

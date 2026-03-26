@@ -30,6 +30,7 @@ interface CustomerFormProps {
   customer?: Customer | null;
   formId?: string;
   onSave: () => void | Promise<void>;
+  onCreated?: (item: any) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<Toast> | null;
 }
@@ -38,6 +39,7 @@ export default function CustomerForm({
   customer,
   formId,
   onSave,
+  onCreated,
   onSubmittingChange,
   toast,
 }: CustomerFormProps) {
@@ -118,10 +120,12 @@ export default function CustomerForm({
 
       if (isEditing && customer) {
         await customerService.update(customer.id, payload as any);
+        await onSave();
       } else {
-        await customerService.create(payload as any);
+        const res = await customerService.create(payload as any);
+        await onSave();
+        if (onCreated) onCreated(res?.data ?? res);
       }
-      await onSave();
     } catch (error) {
       handleFormError(error, toast);
     } finally {

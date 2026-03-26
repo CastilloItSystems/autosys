@@ -31,6 +31,7 @@ interface SupplierFormProps {
   supplier?: Supplier | null;
   formId?: string;
   onSave: () => void | Promise<void>;
+  onCreated?: (item: any) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<Toast> | null;
 }
@@ -50,6 +51,7 @@ export default function SupplierForm({
   supplier,
   formId,
   onSave,
+  onCreated,
   onSubmittingChange,
   toast,
 }: SupplierFormProps) {
@@ -110,10 +112,12 @@ export default function SupplierForm({
 
       if (isEditing && supplier) {
         await supplierService.update(supplier.id, payload);
+        await onSave();
       } else {
-        await supplierService.create(payload);
+        const res = await supplierService.create(payload);
+        await onSave();
+        if (onCreated) onCreated(res?.data ?? res);
       }
-      await onSave();
     } catch (error) {
       handleFormError(error, toast);
     } finally {

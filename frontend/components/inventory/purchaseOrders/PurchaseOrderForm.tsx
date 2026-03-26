@@ -20,9 +20,14 @@ import ItemsTable from "../common/ItemsTable";
 import ItemRow, { ItemRowColWidths } from "../common/ItemRow";
 import { OrderFinancialSummary } from "../common/OrderFinancialSummary";
 import searchService from "@/app/api/inventory/searchService";
+import supplierService from "@/app/api/inventory/supplierService";
 import { useBcvRate } from "@/hooks/useBcvRate";
 import { useOrderCalculation } from "@/hooks/useOrderCalculation";
 import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
+import { Dialog } from "primereact/dialog";
+import { Button } from "primereact/button";
+import SupplierForm from "../suppliers/SupplierForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 import type { PurchaseOrder } from "@/libs/interfaces/inventory";
 import type { Item } from "@/app/api/inventory/itemService";
 import type { Supplier } from "@/app/api/inventory/supplierService";
@@ -64,6 +69,10 @@ const PurchaseOrderForm = ({
 }: PurchaseOrderFormProps) => {
   const isEditing = !!purchaseOrder;
   const isDraft = !purchaseOrder || purchaseOrder.status === "DRAFT";
+  const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
+  const [supplierDialog, setSupplierDialog] = useState(false);
+  const [isSupplierSubmitting, setIsSupplierSubmitting] = useState(false);
+  const [loadingSuppliers, setLoadingSuppliers] = useState(false);
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
     () => {
@@ -285,11 +294,41 @@ const PurchaseOrderForm = ({
 
   const supplierOptions = useMemo(
     () =>
-      suppliers.map((s) => ({
+      localSuppliers.map((s) => ({
         label: s.code ? `${s.code} - ${s.name}` : s.name,
         value: s.id,
       })),
-    [suppliers],
+    [localSuppliers],
+  );
+
+  const handleSupplierCreated = async (created?: any) => {
+    setSupplierDialog(false);
+    if (created?.id) {
+      setLocalSuppliers((prev) => [...prev, created]);
+      setValue("supplierId", created.id);
+    } else {
+      setLoadingSuppliers(true);
+      try {
+        const res = await supplierService.getAll({ limit: 500 });
+        setLocalSuppliers(Array.isArray(res?.data) ? res.data : []);
+      } finally {
+        setLoadingSuppliers(false);
+      }
+    }
+  };
+
+  const supplierFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nuevo proveedor"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={() => setSupplierDialog(true)}
+      />
+    </div>
   );
 
   const warehouseOptions = useMemo(
@@ -302,404 +341,453 @@ const PurchaseOrderForm = ({
   );
 
   return (
-    <form id={formId} onSubmit={handleSubmit(onSubmit)}>
-      {/* Header descriptivo opcional */}
-      {!isDraft && isEditing && (
-        <div className="mb-3 p-3 bg-orange-100 border-round">
-          <p className="text-orange-700 text-sm m-0">
-            <i className="pi pi-exclamation-triangle mr-2 font-bold"></i>
-            Solo se pueden editar órdenes en estado <strong>Borrador</strong>
-          </p>
-        </div>
-      )}
-
-      {/* Body */}
-      <div className="grid formgrid row-gap-2">
-        {/* Proveedor */}
-        <div className="field col-12 md:col-4">
-          <label
-            htmlFor="supplierId"
-            className="block text-900 font-medium mb-2"
-          >
-            Proveedor <span className="text-red-500">*</span>
-          </label>
-          <Controller
-            name="supplierId"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="supplierId"
-                value={field.value}
-                onChange={(e) => field.onChange(e.value)}
-                options={supplierOptions}
-                placeholder="Seleccione un proveedor"
-                filter
-                disabled={!isDraft}
-                className={classNames("w-full", {
-                  "p-invalid": errors.supplierId,
-                })}
-              />
-            )}
-          />
-          {errors.supplierId && (
-            <small className="p-error">{errors.supplierId.message}</small>
-          )}
-        </div>
-
-        {/* Almacén */}
-        <div className="field col-12 md:col-4">
-          <label
-            htmlFor="warehouseId"
-            className="block text-900 font-medium mb-2"
-          >
-            Almacén Destino <span className="text-red-500">*</span>
-          </label>
-          <Controller
-            name="warehouseId"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="warehouseId"
-                value={field.value}
-                onChange={(e) => field.onChange(e.value)}
-                options={warehouseOptions}
-                placeholder="Seleccione un almacén"
-                filter
-                disabled={!isDraft}
-                className={classNames("w-full", {
-                  "p-invalid": errors.warehouseId,
-                })}
-              />
-            )}
-          />
-          {errors.warehouseId && (
-            <small className="p-error">{errors.warehouseId.message}</small>
-          )}
-        </div>
-
-        {/* Fecha esperada */}
-        <div className="field col-12 md:col-4">
-          <label
-            htmlFor="expectedDate"
-            className="block text-900 font-medium mb-2"
-          >
-            Fecha Estimada de Entrega
-          </label>
-          <Controller
-            name="expectedDate"
-            control={control}
-            render={({ field }) => (
-              <Calendar
-                id="expectedDate"
-                value={
-                  field.value
-                    ? field.value instanceof Date
-                      ? field.value
-                      : new Date(field.value)
-                    : null
-                }
-                onChange={(e) => field.onChange(e.value)}
-                dateFormat="dd/mm/yy"
-                showIcon
-                minDate={new Date()}
-                className={classNames("w-full", {
-                  "p-invalid": errors.expectedDate,
-                })}
-              />
-            )}
-          />
-        </div>
-
-        {/* Moneda */}
-        <div className="field col-12 md:col-2">
-          <label htmlFor="currency" className="block text-900 font-medium mb-2">
-            Moneda
-          </label>
-          <Controller
-            name="currency"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="currency"
-                value={field.value}
-                onChange={(e) => field.onChange(e.value)}
-                options={[
-                  { label: "USD", value: "USD" },
-                  { label: "VES", value: "VES" },
-                  { label: "EUR", value: "EUR" },
-                ]}
-                disabled={!isDraft}
-                className={classNames("w-full", {
-                  "p-invalid": errors.currency,
-                })}
-              />
-            )}
-          />
-        </div>
-
-        {/* Tasa de Cambio */}
-        <div className="field col-12 md:col-2">
-          <label
-            htmlFor="exchangeRate"
-            className="block text-900 font-medium mb-2"
-          >
-            Tasa de Cambio{" "}
-            {loadingBcv && <i className="pi pi-spin pi-spinner text-sm ml-2" />}
-          </label>
-          <Controller
-            name="exchangeRate"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="exchangeRate"
-                value={field.value ?? undefined}
-                onValueChange={(e) => field.onChange(e.value)}
-                mode="decimal"
-                minFractionDigits={2}
-                maxFractionDigits={4}
-                disabled={!isDraft}
-                className={classNames("w-full", {
-                  "p-invalid": errors.exchangeRate,
-                })}
-              />
-            )}
-          />
-        </div>
-
-        {/* Términos de Pago */}
-        <div className="field col-12 md:col-3">
-          <label
-            htmlFor="paymentTerms"
-            className="block text-900 font-medium mb-2"
-          >
-            Términos de Pago
-          </label>
-          <Controller
-            name="paymentTerms"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="paymentTerms"
-                value={field.value || ""}
-                onChange={(e) => field.onChange(e.target.value)}
-                disabled={!isDraft}
-                className="w-full"
-                placeholder="Ej. Contado, 15 días"
-              />
-            )}
-          />
-        </div>
-
-        {/* Días de Crédito */}
-        <div className="field col-12 md:col-2">
-          <label
-            htmlFor="creditDays"
-            className="block text-900 font-medium mb-2"
-          >
-            Días de Crédito
-          </label>
-          <Controller
-            name="creditDays"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="creditDays"
-                value={field.value ?? undefined}
-                onValueChange={(e) => field.onChange(e.value)}
-                min={0}
-                disabled={!isDraft}
-                className="w-full"
-              />
-            )}
-          />
-        </div>
-
-        {/* Términos de Entrega */}
-        <div className="field col-12 md:col-3">
-          <label
-            htmlFor="deliveryTerms"
-            className="block text-900 font-medium mb-2"
-          >
-            Términos de Entrega
-          </label>
-          <Controller
-            name="deliveryTerms"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="deliveryTerms"
-                value={field.value || ""}
-                onChange={(e) => field.onChange(e.target.value)}
-                disabled={!isDraft}
-                className="w-full"
-                placeholder="Ej. EXW, FOB"
-              />
-            )}
-          />
-        </div>
-
-        {/* Descuento Global */}
-        <div className="field col-12 md:col-3">
-          <label
-            htmlFor="discountAmount"
-            className="block text-900 font-medium mb-2"
-          >
-            Descuento General ($)
-          </label>
-          <Controller
-            name="discountAmount"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="discountAmount"
-                value={field.value ?? undefined}
-                onValueChange={(e) => field.onChange(e.value)}
-                mode="currency"
-                currency="USD"
-                min={0}
-                disabled={!isDraft}
-                className="w-full"
-              />
-            )}
-          />
-        </div>
-
-        {/* Aplica IGTF */}
-        <div className="field col-12 md:col-3 flex align-items-center mt-4">
-          <Controller
-            name="igtfApplies"
-            control={control}
-            render={({ field }) => (
-              <div className="flex align-items-center">
-                <Checkbox
-                  inputId="igtfApplies"
-                  checked={field.value || false}
-                  onChange={(e) => field.onChange(e.checked)}
-                  disabled={!isDraft}
-                />
-                <label
-                  htmlFor="igtfApplies"
-                  className="ml-2 font-medium text-900"
-                >
-                  Aplica IGTF (3%)
-                </label>
-              </div>
-            )}
-          />
-        </div>
-
-        {/* Notas */}
-        <div className="field col-12">
-          <label htmlFor="notes" className="block text-900 font-medium mb-2">
-            Notas / Observaciones
-          </label>
-          <Controller
-            name="notes"
-            control={control}
-            render={({ field }) => (
-              <InputTextarea
-                id="notes"
-                value={field.value || ""}
-                onChange={(e) => field.onChange(e.target.value)}
-                rows={2}
-                autoResize
-                className="w-full"
-                placeholder="Observaciones para la orden..."
-              />
-            )}
-          />
-        </div>
-
-        {/* Items */}
-        <ItemsTable
-          fields={fields}
-          append={append}
-          remove={remove}
-          move={move}
-          defaultItem={{
-            itemId: "",
-            itemName: "",
-            quantityOrdered: 1,
-            unitCost: 0,
-            discountPercent: 0,
-            taxType: "IVA",
-          }}
-          title="Artículos"
-          disabled={!isDraft}
-          columns={[
-            { label: "", style: COLS.handle },
-            { label: "Producto (SKU)", style: COLS.product },
-            { label: "Nombre en Registro", style: COLS.itemName! },
-            { label: "Cant.", style: COLS.quantity },
-            { label: "Costo Unit.", style: COLS.unitCost! },
-            { label: "Desc. %", style: COLS.discountPercent! },
-            { label: "Impuesto", style: COLS.taxType! },
-            { label: "Total", style: COLS.totalLine! },
-            { label: "", style: COLS.remove },
-          ]}
-          renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
-            <ItemRow
-              control={control}
-              register={register}
-              rowErrors={(errors.items as any)?.[index]}
-              itemOptions={itemOptions.map((opt) => ({
-                label: opt.label,
-                value: opt.value,
-              }))}
-              fieldPaths={{
-                itemId: `items.${index}.itemId`,
-                itemName: `items.${index}.itemName`,
-                quantity: `items.${index}.quantityOrdered`,
-                unitCost: `items.${index}.unitCost`,
-                discountPercent: `items.${index}.discountPercent`,
-                taxType: `items.${index}.taxType`,
-                totalLine: `items.${index}.totalLine`, // Solo lectura en el componente si se envía
-              }}
-              colWidths={COLS}
-              onRemove={() => remove(index)}
-              canRemove={fields.length > 1}
-              onAddRow={onAddRow}
-              dragHandleProps={dragHandleProps}
-              isDragging={isDragging}
-              suggestions={itemSuggestions}
-              onSearch={onSearchItems}
-              itemTemplate={itemSuggestionTemplate}
-              items={items}
-              selectedItemsMap={selectedItemsMap}
-              onItemChange={(itemId) => {
-                const item =
-                  itemSuggestions.find((i) => i.id === itemId) ||
-                  items.find((i) => i.id === itemId);
-                if (item) {
-                  setSelectedItemsMap((prev) => ({ ...prev, [itemId]: item }));
-                  setValue(`items.${index}.itemName`, item.name);
-                }
-              }}
-            />
-          )}
-        />
-
-        {errors.items && typeof errors.items.message === "string" && (
-          <div className="col-12">
-            <small className="p-error">{errors.items.message}</small>
+    <>
+      <form id={formId} onSubmit={handleSubmit(onSubmit)}>
+        {/* Header descriptivo opcional */}
+        {!isDraft && isEditing && (
+          <div className="mb-3 p-3 bg-orange-100 border-round">
+            <p className="text-orange-700 text-sm m-0">
+              <i className="pi pi-exclamation-triangle mr-2 font-bold"></i>
+              Solo se pueden editar órdenes en estado <strong>Borrador</strong>
+            </p>
           </div>
         )}
 
-        {/* Resumen Financiero */}
-        <div className="col-12 md:col-6 md:col-offset-6 mt-4">
-          <OrderFinancialSummary
-            totals={calcResult}
-            currencySymbol={
-              watchCurrency === "VES"
-                ? "Bs "
-                : watchCurrency === "EUR"
-                ? "€ "
-                : "$ "
-            }
+        {/* Body */}
+        <div className="grid formgrid row-gap-2">
+          {/* Proveedor */}
+          <div className="field col-12 md:col-4">
+            <label
+              htmlFor="supplierId"
+              className="block text-900 font-medium mb-2"
+            >
+              Proveedor <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="supplierId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="supplierId"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={supplierOptions}
+                  placeholder="Seleccione un proveedor"
+                  filter
+                  disabled={!isDraft}
+                  loading={loadingSuppliers}
+                  panelFooterTemplate={isDraft ? supplierFooter : undefined}
+                  className={classNames("w-full", {
+                    "p-invalid": errors.supplierId,
+                  })}
+                />
+              )}
+            />
+            {errors.supplierId && (
+              <small className="p-error">{errors.supplierId.message}</small>
+            )}
+          </div>
+
+          {/* Almacén */}
+          <div className="field col-12 md:col-4">
+            <label
+              htmlFor="warehouseId"
+              className="block text-900 font-medium mb-2"
+            >
+              Almacén Destino <span className="text-red-500">*</span>
+            </label>
+            <Controller
+              name="warehouseId"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="warehouseId"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={warehouseOptions}
+                  placeholder="Seleccione un almacén"
+                  filter
+                  disabled={!isDraft}
+                  className={classNames("w-full", {
+                    "p-invalid": errors.warehouseId,
+                  })}
+                />
+              )}
+            />
+            {errors.warehouseId && (
+              <small className="p-error">{errors.warehouseId.message}</small>
+            )}
+          </div>
+
+          {/* Fecha esperada */}
+          <div className="field col-12 md:col-4">
+            <label
+              htmlFor="expectedDate"
+              className="block text-900 font-medium mb-2"
+            >
+              Fecha Estimada de Entrega
+            </label>
+            <Controller
+              name="expectedDate"
+              control={control}
+              render={({ field }) => (
+                <Calendar
+                  id="expectedDate"
+                  value={
+                    field.value
+                      ? field.value instanceof Date
+                        ? field.value
+                        : new Date(field.value)
+                      : null
+                  }
+                  onChange={(e) => field.onChange(e.value)}
+                  dateFormat="dd/mm/yy"
+                  showIcon
+                  minDate={new Date()}
+                  className={classNames("w-full", {
+                    "p-invalid": errors.expectedDate,
+                  })}
+                />
+              )}
+            />
+          </div>
+
+          {/* Moneda */}
+          <div className="field col-12 md:col-2">
+            <label
+              htmlFor="currency"
+              className="block text-900 font-medium mb-2"
+            >
+              Moneda
+            </label>
+            <Controller
+              name="currency"
+              control={control}
+              render={({ field }) => (
+                <Dropdown
+                  id="currency"
+                  value={field.value}
+                  onChange={(e) => field.onChange(e.value)}
+                  options={[
+                    { label: "USD", value: "USD" },
+                    { label: "VES", value: "VES" },
+                    { label: "EUR", value: "EUR" },
+                  ]}
+                  disabled={!isDraft}
+                  className={classNames("w-full", {
+                    "p-invalid": errors.currency,
+                  })}
+                />
+              )}
+            />
+          </div>
+
+          {/* Tasa de Cambio */}
+          <div className="field col-12 md:col-2">
+            <label
+              htmlFor="exchangeRate"
+              className="block text-900 font-medium mb-2"
+            >
+              Tasa de Cambio{" "}
+              {loadingBcv && (
+                <i className="pi pi-spin pi-spinner text-sm ml-2" />
+              )}
+            </label>
+            <Controller
+              name="exchangeRate"
+              control={control}
+              render={({ field }) => (
+                <InputNumber
+                  id="exchangeRate"
+                  value={field.value ?? undefined}
+                  onValueChange={(e) => field.onChange(e.value)}
+                  mode="decimal"
+                  minFractionDigits={2}
+                  maxFractionDigits={4}
+                  disabled={!isDraft}
+                  className={classNames("w-full", {
+                    "p-invalid": errors.exchangeRate,
+                  })}
+                />
+              )}
+            />
+          </div>
+
+          {/* Términos de Pago */}
+          <div className="field col-12 md:col-3">
+            <label
+              htmlFor="paymentTerms"
+              className="block text-900 font-medium mb-2"
+            >
+              Términos de Pago
+            </label>
+            <Controller
+              name="paymentTerms"
+              control={control}
+              render={({ field }) => (
+                <InputText
+                  id="paymentTerms"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  disabled={!isDraft}
+                  className="w-full"
+                  placeholder="Ej. Contado, 15 días"
+                />
+              )}
+            />
+          </div>
+
+          {/* Días de Crédito */}
+          <div className="field col-12 md:col-2">
+            <label
+              htmlFor="creditDays"
+              className="block text-900 font-medium mb-2"
+            >
+              Días de Crédito
+            </label>
+            <Controller
+              name="creditDays"
+              control={control}
+              render={({ field }) => (
+                <InputNumber
+                  id="creditDays"
+                  value={field.value ?? undefined}
+                  onValueChange={(e) => field.onChange(e.value)}
+                  min={0}
+                  disabled={!isDraft}
+                  className="w-full"
+                />
+              )}
+            />
+          </div>
+
+          {/* Términos de Entrega */}
+          <div className="field col-12 md:col-3">
+            <label
+              htmlFor="deliveryTerms"
+              className="block text-900 font-medium mb-2"
+            >
+              Términos de Entrega
+            </label>
+            <Controller
+              name="deliveryTerms"
+              control={control}
+              render={({ field }) => (
+                <InputText
+                  id="deliveryTerms"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  disabled={!isDraft}
+                  className="w-full"
+                  placeholder="Ej. EXW, FOB"
+                />
+              )}
+            />
+          </div>
+
+          {/* Descuento Global */}
+          <div className="field col-12 md:col-3">
+            <label
+              htmlFor="discountAmount"
+              className="block text-900 font-medium mb-2"
+            >
+              Descuento General ($)
+            </label>
+            <Controller
+              name="discountAmount"
+              control={control}
+              render={({ field }) => (
+                <InputNumber
+                  id="discountAmount"
+                  value={field.value ?? undefined}
+                  onValueChange={(e) => field.onChange(e.value)}
+                  mode="currency"
+                  currency="USD"
+                  min={0}
+                  disabled={!isDraft}
+                  className="w-full"
+                />
+              )}
+            />
+          </div>
+
+          {/* Aplica IGTF */}
+          <div className="field col-12 md:col-3 flex align-items-center mt-4">
+            <Controller
+              name="igtfApplies"
+              control={control}
+              render={({ field }) => (
+                <div className="flex align-items-center">
+                  <Checkbox
+                    inputId="igtfApplies"
+                    checked={field.value || false}
+                    onChange={(e) => field.onChange(e.checked)}
+                    disabled={!isDraft}
+                  />
+                  <label
+                    htmlFor="igtfApplies"
+                    className="ml-2 font-medium text-900"
+                  >
+                    Aplica IGTF (3%)
+                  </label>
+                </div>
+              )}
+            />
+          </div>
+
+          {/* Notas */}
+          <div className="field col-12">
+            <label htmlFor="notes" className="block text-900 font-medium mb-2">
+              Notas / Observaciones
+            </label>
+            <Controller
+              name="notes"
+              control={control}
+              render={({ field }) => (
+                <InputTextarea
+                  id="notes"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  rows={2}
+                  autoResize
+                  className="w-full"
+                  placeholder="Observaciones para la orden..."
+                />
+              )}
+            />
+          </div>
+
+          {/* Items */}
+          <ItemsTable
+            fields={fields}
+            append={append}
+            remove={remove}
+            move={move}
+            defaultItem={{
+              itemId: "",
+              itemName: "",
+              quantityOrdered: 1,
+              unitCost: 0,
+              discountPercent: 0,
+              taxType: "IVA",
+            }}
+            title="Artículos"
+            disabled={!isDraft}
+            columns={[
+              { label: "", style: COLS.handle },
+              { label: "Producto (SKU)", style: COLS.product },
+              { label: "Nombre en Registro", style: COLS.itemName! },
+              { label: "Cant.", style: COLS.quantity },
+              { label: "Costo Unit.", style: COLS.unitCost! },
+              { label: "Desc. %", style: COLS.discountPercent! },
+              { label: "Impuesto", style: COLS.taxType! },
+              { label: "Total", style: COLS.totalLine! },
+              { label: "", style: COLS.remove },
+            ]}
+            renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
+              <ItemRow
+                control={control}
+                register={register}
+                rowErrors={(errors.items as any)?.[index]}
+                itemOptions={itemOptions.map((opt) => ({
+                  label: opt.label,
+                  value: opt.value,
+                }))}
+                fieldPaths={{
+                  itemId: `items.${index}.itemId`,
+                  itemName: `items.${index}.itemName`,
+                  quantity: `items.${index}.quantityOrdered`,
+                  unitCost: `items.${index}.unitCost`,
+                  discountPercent: `items.${index}.discountPercent`,
+                  taxType: `items.${index}.taxType`,
+                  totalLine: `items.${index}.totalLine`, // Solo lectura en el componente si se envía
+                }}
+                colWidths={COLS}
+                onRemove={() => remove(index)}
+                canRemove={fields.length > 1}
+                onAddRow={onAddRow}
+                dragHandleProps={dragHandleProps}
+                isDragging={isDragging}
+                suggestions={itemSuggestions}
+                onSearch={onSearchItems}
+                itemTemplate={itemSuggestionTemplate}
+                items={items}
+                selectedItemsMap={selectedItemsMap}
+                onItemChange={(itemId) => {
+                  const item =
+                    itemSuggestions.find((i) => i.id === itemId) ||
+                    items.find((i) => i.id === itemId);
+                  if (item) {
+                    setSelectedItemsMap((prev) => ({
+                      ...prev,
+                      [itemId]: item,
+                    }));
+                    setValue(`items.${index}.itemName`, item.name);
+                  }
+                }}
+              />
+            )}
           />
+
+          {errors.items && typeof errors.items.message === "string" && (
+            <div className="col-12">
+              <small className="p-error">{errors.items.message}</small>
+            </div>
+          )}
+
+          {/* Resumen Financiero */}
+          <div className="col-12 md:col-6 md:col-offset-6 mt-4">
+            <OrderFinancialSummary
+              totals={calcResult}
+              currencySymbol={
+                watchCurrency === "VES"
+                  ? "Bs "
+                  : watchCurrency === "EUR"
+                  ? "€ "
+                  : "$ "
+              }
+            />
+          </div>
         </div>
-      </div>
-    </form>
+      </form>
+
+      <Dialog
+        visible={supplierDialog}
+        onHide={() => setSupplierDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-truck mr-3 text-primary text-3xl"></i>
+                Nuevo Proveedor
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        maximizable
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="supplier-form-inline"
+            isUpdate={false}
+            onCancel={() => setSupplierDialog(false)}
+            isSubmitting={isSupplierSubmitting}
+          />
+        }
+      >
+        <SupplierForm
+          supplier={null}
+          formId="supplier-form-inline"
+          onSave={() => {}}
+          onCreated={handleSupplierCreated}
+          onSubmittingChange={setIsSupplierSubmitting}
+          toast={toast}
+        />
+      </Dialog>
+    </>
   );
 };
 

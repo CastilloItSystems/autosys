@@ -256,22 +256,47 @@ export const CycleCountController = {
   }),
 
   /**
-   * Actualizar cantidad contada de un item
+   * Actualizar cantidad contada (y ubicación opcional) de un item
    */
   updateItemCountedQuantity: asyncHandler(
     async (req: Request, res: Response) => {
       const { id, itemId } = req.params
-      const { countedQuantity } = req.body
+      const { countedQuantity, newLocation } = req.body
 
       const item = await CycleCountServiceInstance.updateItemCountedQuantity(
         String(id),
         String(itemId),
-        Number(countedQuantity)
+        countedQuantity !== undefined ? Number(countedQuantity) : undefined,
+        newLocation !== undefined ? (newLocation || null) : undefined
       )
 
       return ApiResponse.success(res, item, 'Cantidad contada actualizada')
     }
   ),
+
+  /**
+   * Exportar hoja de ruta (CSV o Excel)
+   */
+  exportRouteSheet: asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params
+    const format = (req.query.format as string) || 'excel'
+
+    if (format !== 'csv' && format !== 'excel') {
+      return ApiResponse.error(res, 'Formato inválido. Use csv o excel', 400)
+    }
+
+    const result = await CycleCountServiceInstance.generateExport(
+      String(id),
+      format as 'csv' | 'excel'
+    )
+
+    res.setHeader('Content-Type', result.mimeType)
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`
+    )
+    res.send(result.buffer)
+  }),
 
   /**
    * Eliminar ciclo de conteo

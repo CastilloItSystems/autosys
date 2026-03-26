@@ -40,8 +40,9 @@ import { LayoutContext } from "@/layout/context/layoutcontext";
 
 // Components
 import WorkOrderItemsForm from "./WorkOrderItemsForm";
-import CustomerForm from "@/components/inventory/customers/CustomerForm";
+// import CustomerForm from "@/components/inventory/customers/CustomerForm";
 import VehicleForm from "@/components/crm/vehicles/VehicleForm";
+import CustomerForm from "@/components/sales/customer/CustomerForm";
 
 interface WorkOrderFormProps {
   workOrder: WorkOrder | null;

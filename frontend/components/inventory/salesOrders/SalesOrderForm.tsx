@@ -18,7 +18,8 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
 import { LayoutContext } from "@/layout/context/layoutcontext";
 import { Item } from "@/libs/interfaces/inventory";
-import CustomerForm from "@/components/inventory/customers/CustomerForm";
+import CustomerForm from "@/components/sales/customer/CustomerForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 type FormData = z.infer<typeof salesOrderSchema>;
 
@@ -63,6 +64,8 @@ const SalesOrderForm = ({
   const [submitting, setSubmitting] = useState(false);
   const [customers, setCustomers] = useState<any[]>([]);
   const [customerDialog, setCustomerDialog] = useState(false);
+  const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const [isCustomerSubmitting, setIsCustomerSubmitting] = useState(false);
   const {
     register,
     handleSubmit,
@@ -101,60 +104,42 @@ const SalesOrderForm = ({
   // Load customers
   useEffect(() => {
     const loadCustomers = async () => {
+      setLoadingCustomers(true);
       try {
-        const customersRes = await customerService.getAll();
-        setCustomers(
-          Array.isArray(customersRes.customers) ? customersRes.customers : [],
-        );
+        const customersRes = await customerService.getActive();
+        setCustomers(Array.isArray(customersRes.data) ? customersRes.data : []);
       } catch (error) {
         console.error("Error loading customers:", error);
+      } finally {
+        setLoadingCustomers(false);
       }
     };
     loadCustomers();
   }, []);
 
-  // Customer dropdown options with "Add new" option
-  const customerOptions = [
-    ...customers,
-    { _id: "add-new", nombre: "+ Agregar nuevo cliente" },
-  ];
+  const hideCustomerDialog = () => setCustomerDialog(false);
 
-  /**
-   * Abre el modal para crear un nuevo cliente
-   */
-  const openCustomerDialog = () => {
-    setCustomerDialog(true);
-  };
-
-  /**
-   * Cierra el modal del cliente
-   */
-  const hideCustomerDialog = () => {
-    setCustomerDialog(false);
-  };
-
-  /**
-   * Maneja la selección del dropdown de clientes
-   */
-  const handleCustomerChange = (e: any) => {
-    if (e.value === "add-new") {
-      openCustomerDialog();
-    } else {
-      setValue("customer", e.value);
+  const onCustomerCreated = (created: any) => {
+    if (created?.id) {
+      setCustomers((prev) => [...prev, created]);
+      setValue("customer", created.id);
     }
-  };
-
-  /**
-   * Callback cuando se crea un nuevo cliente
-   */
-  const onCustomerCreated = (newCustomer: any) => {
-    // Agregar el nuevo cliente a la lista
-    setCustomers((prev) => [...prev, newCustomer]);
-    // Seleccionar automáticamente el nuevo cliente
-    setValue("customer", newCustomer._id);
-    // Cerrar el modal
     hideCustomerDialog();
   };
+
+  const customerFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nuevo cliente"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={() => setCustomerDialog(true)}
+      />
+    </div>
+  );
 
   useEffect(() => {
     if (salesOrder) {
@@ -282,29 +267,18 @@ const SalesOrderForm = ({
                       <Dropdown
                         id="customer"
                         value={field.value}
-                        options={customerOptions}
-                        onChange={handleCustomerChange}
-                        optionLabel="nombre"
-                        optionValue="_id"
+                        onChange={(e) => field.onChange(e.value)}
+                        options={customers}
+                        optionLabel="name"
+                        optionValue="id"
                         placeholder="Seleccione un cliente"
                         filter
+                        loading={loadingCustomers}
+                        panelFooterTemplate={customerFooter}
                         className={classNames("w-full", {
                           "p-invalid": errors.customer,
                           "p-filled": filledInput,
                         })}
-                        itemTemplate={(option) => {
-                          if (option._id === "add-new") {
-                            return (
-                              <div className="flex align-items-center gap-2 p-2 border-top-1 border-200">
-                                <i className="pi pi-plus text-primary"></i>
-                                <span className="text-primary font-medium">
-                                  {option.nombre}
-                                </span>
-                              </div>
-                            );
-                          }
-                          return <span>{option.nombre}</span>;
-                        }}
                       />
                     )}
                   />
@@ -573,21 +547,36 @@ const SalesOrderForm = ({
           {/* Customer Creation Dialog */}
           <Dialog
             visible={customerDialog}
-            style={{ width: "50rem" }}
-            header="Crear Nuevo Cliente"
+            style={{ width: "550px" }}
+            header={
+              <div className="mb-2 text-center md:text-left">
+                <div className="border-bottom-2 border-primary pb-2">
+                  <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                    <i className="pi pi-user mr-3 text-primary text-3xl"></i>
+                    Nuevo Cliente
+                  </h2>
+                </div>
+              </div>
+            }
             modal
             className="p-fluid"
             onHide={hideCustomerDialog}
+            footer={
+              <FormActionButtons
+                formId="customer-form-inline"
+                isUpdate={false}
+                onCancel={hideCustomerDialog}
+                isSubmitting={isCustomerSubmitting}
+              />
+            }
           >
             <CustomerForm
               customer={null}
-              hideFormDialog={hideCustomerDialog}
-              customers={customers}
-              setCustomers={setCustomers}
-              setCustomer={() => {}} // No necesitamos esto aquí
-              showToast={showToast}
+              formId="customer-form-inline"
+              onSave={() => {}}
+              onCreated={onCustomerCreated}
+              onSubmittingChange={setIsCustomerSubmitting}
               toast={toast}
-              onCustomerCreated={onCustomerCreated}
             />
           </Dialog>
         </>

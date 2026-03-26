@@ -1,13 +1,9 @@
 "use client";
 
-import CustomerList from "@/components/inventory/customers/CustomerList";
+// import CustomerList from "@/components/inventory/customers/CustomerList";
 
 function Clientes() {
-  return (
-    <>
-      <CustomerList />
-    </>
-  );
+  return <>{/* <CustomerList /> */}</>;
 }
 
 export default Clientes;
