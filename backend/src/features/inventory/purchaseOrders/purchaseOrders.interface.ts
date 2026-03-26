@@ -167,6 +167,7 @@ export interface IReceiveOrderItemInput {
   purchaseOrderItemId?: string
   quantityReceived: number
   unitCost: number
+  location?: string | null
   batchNumber?: string | null
   expiryDate?: Date | null
 }

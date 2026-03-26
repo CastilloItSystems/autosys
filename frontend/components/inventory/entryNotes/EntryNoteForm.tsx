@@ -678,6 +678,12 @@ export default function EntryNoteForm({
                   itemSuggestions.find((i) => i.id === itemId) ||
                   items.find((i) => i.id === itemId);
                 if (item) {
+                  // Pre-fill location based on item.location if available
+                  setValue(
+                    `items.${index}.storedToLocation`,
+                    item.location || "",
+                  );
+
                   setValue(`items.${index}.itemName`, item.name);
                   // Persist the selected item so it can be resolved even after suggestions change
                   setSelectedItemsMap((prev) => ({ ...prev, [itemId]: item }));

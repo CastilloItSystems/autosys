@@ -34,6 +34,7 @@ interface LineToReceive {
   quantityPending: number;
   qtyToReceive: number;
   unitCost: number;
+  location: string;
   batchNumber: string;
   expiryDate: Date | null;
 }
@@ -47,6 +48,7 @@ const COL = {
   pending: { width: "4.5rem", flexShrink: 0 } as React.CSSProperties,
   qtyToReceive: { width: "7rem", flexShrink: 0 } as React.CSSProperties,
   unitCost: { width: "7rem", flexShrink: 0 } as React.CSSProperties,
+  location: { width: "7rem", flexShrink: 0 } as React.CSSProperties,
   batch: { width: "6.5rem", flexShrink: 0 } as React.CSSProperties,
   expiry: { width: "7.5rem", flexShrink: 0 } as React.CSSProperties,
   subtotal: { width: "6rem", flexShrink: 0 } as React.CSSProperties,
@@ -59,6 +61,7 @@ const COLUMNS = [
   { label: "Pend.", style: COL.pending },
   { label: "A Recibir", style: COL.qtyToReceive },
   { label: "Costo Unit.", style: COL.unitCost },
+  { label: "Ubicación", style: COL.location },
   { label: "Lote", style: COL.batch },
   { label: "Venc.", style: COL.expiry },
   { label: "Subtotal", style: COL.subtotal },
@@ -99,6 +102,7 @@ const ReceiveOrderDialog = ({
         quantityPending: line.quantityPending,
         qtyToReceive: line.quantityPending,
         unitCost: Number(line.unitCost),
+        location: line.item?.location || "",
         batchNumber: "",
         expiryDate: null,
       }));
@@ -155,6 +159,7 @@ const ReceiveOrderDialog = ({
         itemId: line.itemId,
         quantityReceived: line.qtyToReceive,
         unitCost: line.unitCost,
+        location: line.location || null,
         batchNumber: line.batchNumber || null,
         expiryDate: line.expiryDate
           ? new Date(line.expiryDate).toISOString()
@@ -493,6 +498,23 @@ const ReceiveOrderDialog = ({
                       fontSize: "0.8rem",
                     }}
                     style={{ height: "30px" }}
+                  />
+                </div>
+
+                {/* Ubicación */}
+                <div style={COL.location}>
+                  <InputText
+                    value={line.location || ""}
+                    onChange={(e) =>
+                      updateField(index, "location", e.target.value)
+                    }
+                    placeholder="Ubicación"
+                    className="w-full"
+                    style={{
+                      padding: "0.25rem 0.5rem",
+                      fontSize: "0.8rem",
+                      height: "30px",
+                    }}
                   />
                 </div>
 

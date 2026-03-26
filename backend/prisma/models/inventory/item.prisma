@@ -46,6 +46,23 @@ model Item {
   hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
   allowNegativeStock Boolean  @default(false)
 
+  // Información básica extendida
+  shortName             String?  @db.VarChar(20)  // nombrecorto
+  reference             String?  @db.VarChar(20)  // referencia (texto libre, ≠ barcode)
+  contraindications     String?  @db.Text         // contraindi
+
+  // Flags del formulario de creación
+  useStock              Boolean  @default(true)   // usaexist
+  isFractionable        Boolean  @default(false)  // decimales ("fraccionable")
+  isComposite           Boolean  @default(false)  // compuesto ("integrado")
+  isInternalUse         Boolean  @default(false)  // usointerno
+  useServer             Boolean  @default(false)  // usa_servidor
+  suspendedForPurchase  Boolean  @default(false)  // discontc ("suspendido para la compra")
+
+  // Configuración física/comercial
+  warrantyDays          Int      @default(0)      // garantia
+  packagingQty          Int      @default(1)      // empaque
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]

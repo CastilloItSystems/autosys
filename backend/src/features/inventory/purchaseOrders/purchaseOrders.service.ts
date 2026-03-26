@@ -949,16 +949,30 @@ class PurchaseOrderService {
                 newReal
               : receiveItem.unitCost
 
+          const updateData: any = {
+            quantityReal: newReal,
+            quantityAvailable: newAvailable,
+            averageCost: newAverageCost,
+            lastMovementAt: new Date(),
+          }
+          if (receiveItem.location) {
+            updateData.location = receiveItem.location
+          }
+
           await tx.stock.update({
             where: { id: existingStock.id },
-            data: {
-              quantityReal: newReal,
-              quantityAvailable: newAvailable,
-              averageCost: newAverageCost,
-              lastMovementAt: new Date(),
-            },
+            data: updateData,
           })
         } else {
+          let itemLocation = receiveItem.location || null
+          if (!itemLocation) {
+            const item = await tx.item.findUnique({
+              where: { id: receiveItem.itemId },
+              select: { location: true },
+            })
+            itemLocation = item?.location || null
+          }
+
           await tx.stock.create({
             data: {
               itemId: receiveItem.itemId,
@@ -967,6 +981,7 @@ class PurchaseOrderService {
               quantityReserved: 0,
               quantityAvailable: receiveItem.quantityReceived,
               averageCost: receiveItem.unitCost,
+              location: itemLocation,
               lastMovementAt: new Date(),
             },
           })

@@ -58,6 +58,7 @@ export default function StockForm({
         ? {
             quantityReal: stock.quantityReal ?? 0,
             quantityReserved: stock.quantityReserved ?? 0,
+            location: stock.location ?? "",
             averageCost: stock.averageCost ?? 0,
           }
         : {
@@ -65,6 +66,7 @@ export default function StockForm({
             warehouseId: "",
             quantityReal: 0,
             quantityReserved: 0,
+            location: "",
             averageCost: 0,
           }),
     },
@@ -216,7 +218,7 @@ export default function StockForm({
         )}
 
         {/* Cantidad Real */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="quantityReal" className="font-medium text-900">
             Cantidad Real
           </label>
@@ -241,7 +243,7 @@ export default function StockForm({
         </div>
 
         {/* Cantidad Reservada */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="quantityReserved" className="font-medium text-900">
             Reservado
           </label>
@@ -265,8 +267,34 @@ export default function StockForm({
           )}
         </div>
 
+        {/* Ubicación Física */}
+        <div className="field col-12 md:col-3">
+          <label htmlFor="location" className="font-medium text-900">
+            Ubicación Física
+          </label>
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <input
+                id="location"
+                type="text"
+                className={classNames("p-inputtext p-component w-full", {
+                  "p-invalid": errors.location,
+                })}
+                value={(field.value as string) || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                placeholder="Ej. Pasillo A"
+              />
+            )}
+          />
+          {errors.location && (
+            <small className="p-error">{errors.location.message}</small>
+          )}
+        </div>
+
         {/* Costo Promedio */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="averageCost" className="font-medium text-900">
             Costo Promedio
           </label>

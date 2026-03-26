@@ -2,6 +2,17 @@
 
 import { Decimal } from '@prisma/client/runtime/client'
 
+export interface IPriceLevel {
+  id: string
+  pricingId: string
+  level: number
+  priceForeign: number | Decimal
+  price: number | Decimal
+  finalPrice: number | Decimal
+  utility: number | Decimal
+  commission: number | Decimal
+}
+
 export interface IPricing {
   id: string
   itemId: string
@@ -11,8 +22,15 @@ export interface IPricing {
   minMargin: Decimal
   maxMargin: Decimal
   discountPercentage?: number | Decimal | null
+  costForeign: number | Decimal
+  exchangeRate: number | Decimal
+  costRef: number | Decimal
+  costPrevious: number | Decimal
+  taxRateSale: number | Decimal
+  taxRatePurchase: number | Decimal
   notes?: string | null
   isActive: boolean
+  priceLevels?: IPriceLevel[]
   createdAt: Date
   updatedAt: Date
 }
@@ -41,9 +59,14 @@ export interface ICreatePricingInput {
   costPrice: number
   salePrice: number
   wholesalePrice?: number | null
-  minMargin: number
-  maxMargin: number
+  minMargin?: number
+  maxMargin?: number
   discountPercentage?: number
+  costForeign?: number
+  exchangeRate?: number
+  taxRateSale?: number
+  taxRatePurchase?: number
+  priceLevels?: { level: number; priceForeign: number }[]
   notes?: string
 }
 
@@ -54,6 +77,11 @@ export interface IUpdatePricingInput {
   minMargin?: number
   maxMargin?: number
   discountPercentage?: number
+  costForeign?: number
+  exchangeRate?: number
+  taxRateSale?: number
+  taxRatePurchase?: number
+  priceLevels?: { level: number; priceForeign: number }[]
   notes?: string
   isActive?: boolean
 }

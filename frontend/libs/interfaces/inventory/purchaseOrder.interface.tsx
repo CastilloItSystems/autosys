@@ -33,6 +33,7 @@ export interface PurchaseOrderItem {
     description?: string;
     costPrice?: number;
     salePrice?: number;
+    location?: string;
   };
   createdAt?: string;
   updatedAt?: string;

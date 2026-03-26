@@ -165,6 +165,7 @@ export class ReceiveOrderDTO {
     itemId: string
     quantityReceived: number
     unitCost: number
+    location?: string | null
     batchNumber?: string | null
     expiryDate?: Date | null
   }[]
@@ -179,6 +180,12 @@ export class ReceiveOrderDTO {
       itemId: String(item.itemId),
       quantityReceived: Number(item.quantityReceived),
       unitCost: Number(item.unitCost),
+      location:
+        item.location !== undefined
+          ? item.location === null
+            ? null
+            : String(item.location)
+          : null,
       batchNumber: item.batchNumber ? String(item.batchNumber) : null,
       expiryDate: item.expiryDate ? new Date(item.expiryDate as string) : null,
     }))

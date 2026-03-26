@@ -14,6 +14,10 @@ export const createStockSchema = object({
     .min(0, "La cantidad reservada no puede ser negativa")
     .default(0)
     .optional(),
+  location: string()
+    .max(20, "Ubicación máxima 20 caracteres")
+    .optional()
+    .nullable(),
   averageCost: number()
     .min(0, "El costo promedio no puede ser negativo")
     .default(0)
@@ -30,6 +34,10 @@ export const updateStockSchema = object({
     .int("Debe ser un número entero")
     .min(0, "La cantidad reservada no puede ser negativa")
     .optional(),
+  location: string()
+    .max(20, "Ubicación máxima 20 caracteres")
+    .optional()
+    .nullable(),
   averageCost: number()
     .min(0, "El costo promedio no puede ser negativo")
     .optional(),

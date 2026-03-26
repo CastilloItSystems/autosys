@@ -616,6 +616,12 @@ export default function StockList() {
                 </span>
               </div>
               <div className="text-center">
+                <div className="text-xs text-500">Ubicación</div>
+                <span className="text-sm font-semibold">
+                  {stock.location || "N/A"}
+                </span>
+              </div>
+              <div className="text-center">
                 <div className="text-xs text-500">Costo</div>
                 <span className="text-sm font-semibold">
                   {formatCurrency(stock.averageCost)}
@@ -903,6 +909,17 @@ export default function StockList() {
                 header="Reservado"
                 sortable
                 style={{ minWidth: "90px" }}
+              />
+              <Column
+                field="location"
+                header="Ubicación"
+                body={(rowData) =>
+                  rowData.location || (
+                    <span className="text-500 font-italic">N/A</span>
+                  )
+                }
+                sortable
+                style={{ minWidth: "120px" }}
               />
               <Column
                 field="averageCost"

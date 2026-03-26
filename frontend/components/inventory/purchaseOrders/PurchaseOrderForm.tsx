@@ -391,7 +391,13 @@ const PurchaseOrderForm = ({
             render={({ field }) => (
               <Calendar
                 id="expectedDate"
-                value={field.value ? new Date(field.value as string) : null}
+                value={
+                  field.value
+                    ? field.value instanceof Date
+                      ? field.value
+                      : new Date(field.value)
+                    : null
+                }
                 onChange={(e) => field.onChange(e.value)}
                 dateFormat="dd/mm/yy"
                 showIcon

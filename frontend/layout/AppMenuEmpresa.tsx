@@ -186,9 +186,9 @@ const AppMenuEmpresa = () => {
               icon: "pi pi-fw pi-truck",
               items: [
                 {
-                  label: "recepciones",
+                  label: "notas de entrada",
                   icon: "pi pi-fw pi-inbox",
-                  to: "/empresa/inventario/recepciones",
+                  to: "/empresa/inventario/notas-entrada",
                 },
                 {
                   label: "notas de salida",

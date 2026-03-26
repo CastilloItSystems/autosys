@@ -6,7 +6,10 @@ export interface IItem {
   barcode?: string | null
   identity?: string | null
   name: string
+  shortName?: string | null
+  reference?: string | null
   description?: string | null
+  contraindications?: string | null
 
   brandId: string
   categoryId: string
@@ -28,6 +31,15 @@ export interface IItem {
   hasBatch: boolean
   hasExpiry: boolean
   allowNegativeStock: boolean
+  useStock: boolean
+  isFractionable: boolean
+  isComposite: boolean
+  isInternalUse: boolean
+  useServer: boolean
+  suspendedForPurchase: boolean
+
+  warrantyDays: number
+  packagingQty: number
 
   technicalSpecs?: unknown
   tags?: string[]
@@ -94,7 +106,10 @@ export interface ICreateItemInput {
   barcode?: string | undefined
   identity?: string | undefined
   name: string
+  shortName?: string | undefined
+  reference?: string | undefined
   description?: string | undefined
+  contraindications?: string | undefined
   brandId: string
   categoryId: string
   modelId?: string | undefined
@@ -111,6 +126,14 @@ export interface ICreateItemInput {
   hasBatch?: boolean | undefined
   hasExpiry?: boolean | undefined
   allowNegativeStock?: boolean | undefined
+  useStock?: boolean | undefined
+  isFractionable?: boolean | undefined
+  isComposite?: boolean | undefined
+  isInternalUse?: boolean | undefined
+  useServer?: boolean | undefined
+  suspendedForPurchase?: boolean | undefined
+  warrantyDays?: number | undefined
+  packagingQty?: number | undefined
   technicalSpecs?: unknown
   tags?: string[] | undefined
 }
@@ -121,7 +144,10 @@ export interface IUpdateItemInput {
   barcode?: string | undefined
   identity?: string | undefined
   name?: string | undefined
+  shortName?: string | undefined
+  reference?: string | undefined
   description?: string | undefined
+  contraindications?: string | undefined
   brandId?: string | undefined
   categoryId?: string | undefined
   modelId?: string | undefined
@@ -138,6 +164,14 @@ export interface IUpdateItemInput {
   hasBatch?: boolean | undefined
   hasExpiry?: boolean | undefined
   allowNegativeStock?: boolean | undefined
+  useStock?: boolean | undefined
+  isFractionable?: boolean | undefined
+  isComposite?: boolean | undefined
+  isInternalUse?: boolean | undefined
+  useServer?: boolean | undefined
+  suspendedForPurchase?: boolean | undefined
+  warrantyDays?: number | undefined
+  packagingQty?: number | undefined
   technicalSpecs?: unknown
   tags?: string[] | undefined
 }

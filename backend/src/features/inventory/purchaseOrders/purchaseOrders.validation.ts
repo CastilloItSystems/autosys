@@ -135,6 +135,9 @@ export const receiveOrderSchema = Joi.object({
           'number.positive': 'unitCost debe ser mayor a 0',
           'any.required': 'unitCost es requerido',
         }),
+        location: Joi.string().optional().allow(null, '').messages({
+          'string.base': 'location debe ser una cadena de texto',
+        }),
         batchNumber: Joi.string().optional().allow(null),
         expiryDate: Joi.date().iso().optional().allow(null),
       })

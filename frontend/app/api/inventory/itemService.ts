@@ -12,16 +12,33 @@ export interface IPricingTier {
   discountPercentage?: number | null;
 }
 
+export interface IPriceLevel {
+  id?: string;
+  level: number;
+  priceForeign: number;
+  price: number;
+  finalPrice: number;
+  utility: number;
+  commission: number;
+}
+
 export interface IPricing {
   id?: string;
   costPrice: number;
   salePrice: number;
   wholesalePrice?: number | null;
-  minMargin: number;
-  maxMargin: number;
+  minMargin?: number;
+  maxMargin?: number;
   discountPercentage?: number | null;
+  costForeign?: number;
+  exchangeRate?: number;
+  costRef?: number;
+  costPrevious?: number;
+  taxRateSale?: number;
+  taxRatePurchase?: number;
   isActive: boolean;
   tiers?: IPricingTier[];
+  priceLevels?: IPriceLevel[];
 }
 
 // ============================================
@@ -73,6 +90,18 @@ export interface Item {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  // Campos extendidos
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   // Additional
   location?: string;
   technicalSpecs?: Record<string, any>;
@@ -125,13 +154,29 @@ export interface CreateItemRequest {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   technicalSpecs?: Record<string, any>;
   tags?: string[];
   // Pricing
   pricing?: {
-    minMargin: number;
-    maxMargin: number;
+    minMargin?: number;
+    maxMargin?: number;
     discountPercentage?: number | null;
+    costForeign?: number;
+    exchangeRate?: number;
+    taxRateSale?: number;
+    taxRatePurchase?: number;
+    priceLevels?: { level: number; priceForeign: number }[];
     tiers?: IPricingTier[];
   };
   // Images
@@ -161,6 +206,17 @@ export interface UpdateItemRequest {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   technicalSpecs?: Record<string, any>;
   tags?: string[];
   // Pricing
@@ -168,6 +224,11 @@ export interface UpdateItemRequest {
     minMargin?: number;
     maxMargin?: number;
     discountPercentage?: number | null;
+    costForeign?: number;
+    exchangeRate?: number;
+    taxRateSale?: number;
+    taxRatePurchase?: number;
+    priceLevels?: { level: number; priceForeign: number }[];
     tiers?: IPricingTier[];
   };
   // Images

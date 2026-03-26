@@ -34,6 +34,7 @@ export interface Stock {
   quantityReal: number;
   quantityReserved: number;
   quantityAvailable: number;
+  location?: string | null;
   averageCost: number;
   lastMovementAt: string | null;
   createdAt: string;

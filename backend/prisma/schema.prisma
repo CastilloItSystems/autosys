@@ -780,6 +780,23 @@ model Item {
   hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
   allowNegativeStock Boolean  @default(false)
 
+  // Información básica extendida
+  shortName             String?  @db.VarChar(20)  // nombrecorto
+  reference             String?  @db.VarChar(20)  // referencia (texto libre, ≠ barcode)
+  contraindications     String?  @db.Text         // contraindi
+
+  // Flags del formulario de creación
+  useStock              Boolean  @default(true)   // usaexist
+  isFractionable        Boolean  @default(false)  // decimales ("fraccionable")
+  isComposite           Boolean  @default(false)  // compuesto ("integrado")
+  isInternalUse         Boolean  @default(false)  // usointerno
+  useServer             Boolean  @default(false)  // usa_servidor
+  suspendedForPurchase  Boolean  @default(false)  // discontc ("suspendido para la compra")
+
+  // Configuración física/comercial
+  warrantyDays          Int      @default(0)      // garantia
+  packagingQty          Int      @default(1)      // empaque
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
@@ -1088,11 +1105,22 @@ model Pricing {
   maxMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen máximo
   discountPercentage Decimal? @db.Decimal(5, 2) // Descuento aplicable en porcentaje
   
+  // Precios en moneda extranjera (USD) — input del usuario
+  costForeign     Decimal  @default(0) @db.Decimal(20,7)  // costoex
+  exchangeRate    Decimal  @default(1) @db.Decimal(20,7)  // factor (tasacambio del día)
+  costRef         Decimal  @default(0) @db.Decimal(20,7)  // costoref = costForeign × exchangeRate
+  costPrevious    Decimal  @default(0) @db.Decimal(20,7)  // costo_ant
+
+  // Impuestos
+  taxRateSale     Decimal  @default(0) @db.Decimal(20,7)  // impuesto1 (IVA venta)
+  taxRatePurchase Decimal  @default(0) @db.Decimal(20,7)  // cimpuesto1 (IVA compra)
+
   notes             String?  @db.Text
   isActive          Boolean  @default(true)
-  
+
   // Relaciones
   tiers             PricingTier[]
+  priceLevels       PriceLevel[]
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1101,6 +1129,23 @@ model Pricing {
   @@map("pricings")
   @@index([itemId])
   @@index([isActive])
+}
+
+model PriceLevel {
+  id           String  @id @default(uuid())
+  pricingId    String
+  pricing      Pricing @relation(fields: [pricingId], references: [id], onDelete: Cascade)
+
+  level        Int                                        // 1-8 (precio1ex…precio8ex)
+  priceForeign Decimal @default(0) @db.Decimal(20,7)    // precioNex — input del usuario (USD)
+  price        Decimal @default(0) @db.Decimal(20,7)    // precioN = priceForeign × exchangeRate
+  finalPrice   Decimal @default(0) @db.Decimal(20,7)    // preciofin N = price × (1 + taxRateSale/100)
+  utility      Decimal @default(0) @db.Decimal(20,7)    // utilN = ((priceForeign − costForeign) / priceForeign) × 100
+  commission   Decimal @default(0) @db.Decimal(20,7)    // comisionN (default 0)
+
+  @@unique([pricingId, level])
+  @@map("price_levels")
+  @@index([pricingId])
 }
 
 model PricingTier {
@@ -1508,6 +1553,9 @@ model Stock {
   quantityReserved  Int       @default(0)      // Stock reservado
   quantityConsumed  Int       @default(0)      // Stock consumido/entregado
   quantityAvailable Int       @default(0)      // Real - Reservado
+  
+  // Ubicación física específica en este almacén
+  location          String?
   
   // Valorización
   averageCost       Decimal   @default(0) @db.Decimal(12, 2)

@@ -135,6 +135,18 @@ export const createItemSchema = Joi.object({
     'boolean.base': 'allowNegativeStock debe ser verdadero o falso',
   }),
 
+  shortName: Joi.string().max(20).allow('', null).optional(),
+  reference: Joi.string().max(20).allow('', null).optional(),
+  contraindications: Joi.string().allow('', null).optional(),
+  useStock: Joi.boolean().optional().default(true),
+  isFractionable: Joi.boolean().optional().default(false),
+  isComposite: Joi.boolean().optional().default(false),
+  isInternalUse: Joi.boolean().optional().default(false),
+  useServer: Joi.boolean().optional().default(false),
+  suspendedForPurchase: Joi.boolean().optional().default(false),
+  warrantyDays: Joi.number().integer().min(0).optional().default(0),
+  packagingQty: Joi.number().integer().min(1).optional().default(1),
+
   technicalSpecs: Joi.object().allow(null).optional().messages({
     'object.base': 'Las especificaciones técnicas deben ser un objeto válido',
   }),
@@ -283,6 +295,18 @@ export const updateItemSchema = Joi.object({
   allowNegativeStock: Joi.boolean().optional().messages({
     'boolean.base': 'allowNegativeStock debe ser verdadero o falso',
   }),
+
+  shortName: Joi.string().max(20).allow('', null).optional(),
+  reference: Joi.string().max(20).allow('', null).optional(),
+  contraindications: Joi.string().allow('', null).optional(),
+  useStock: Joi.boolean().optional(),
+  isFractionable: Joi.boolean().optional(),
+  isComposite: Joi.boolean().optional(),
+  isInternalUse: Joi.boolean().optional(),
+  useServer: Joi.boolean().optional(),
+  suspendedForPurchase: Joi.boolean().optional(),
+  warrantyDays: Joi.number().integer().min(0).optional(),
+  packagingQty: Joi.number().integer().min(1).optional(),
 
   technicalSpecs: Joi.object().allow(null).optional().messages({
     'object.base': 'Las especificaciones técnicas deben ser un objeto válido',

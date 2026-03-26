@@ -19,6 +19,7 @@ import {
   CUSTOMER_TYPE_CONFIG,
 } from "@/libs/interfaces/sales/customer.interface";
 import CustomerForm from "./CustomerForm";
+import CustomerDetailDialog from "./CustomerDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import {
@@ -40,6 +41,7 @@ const CustomerList = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
+  const [detailsDialog, setDetailsDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionCustomer, setActionCustomer] = useState<Customer | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -187,6 +189,14 @@ const CustomerList = () => {
   const getMenuItems = (customer: Customer | null): MenuItem[] => {
     if (!customer) return [];
     return [
+      {
+        label: "Ver Detalles",
+        icon: "pi pi-info-circle",
+        command: () => {
+          setSelectedCustomer(customer);
+          setDetailsDialog(true);
+        },
+      },
       {
         label: "Editar",
         icon: "pi pi-pencil",
@@ -477,6 +487,12 @@ const CustomerList = () => {
             toast={toast}
           />
         </Dialog>
+
+        <CustomerDetailDialog
+          visible={detailsDialog}
+          customer={selectedCustomer}
+          onHide={() => setDetailsDialog(false)}
+        />
 
         <Menu
           model={getMenuItems(actionCustomer)}

@@ -16,6 +16,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 import SupplierForm from "./SupplierForm";
+import SupplierDetailDialog from "./SupplierDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 
 export default function SupplierList() {
@@ -36,6 +37,7 @@ export default function SupplierList() {
   const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [detailsDialog, setDetailsDialog] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -390,6 +392,12 @@ export default function SupplierList() {
         />
       </Dialog>
 
+      <SupplierDetailDialog
+        visible={detailsDialog}
+        supplier={selectedSupplier}
+        onHide={() => setDetailsDialog(false)}
+      />
+
       <DeleteConfirmDialog
         visible={deleteDialog}
         onHide={() => {
@@ -405,6 +413,14 @@ export default function SupplierList() {
         model={
           actionSupplier
             ? [
+                {
+                  label: "Ver Detalles",
+                  icon: "pi pi-info-circle",
+                  command: () => {
+                    setSelectedSupplier(actionSupplier);
+                    setDetailsDialog(true);
+                  },
+                },
                 {
                   label: "Editar",
                   icon: "pi pi-pencil",

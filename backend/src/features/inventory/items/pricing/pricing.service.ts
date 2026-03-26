@@ -22,6 +22,25 @@ import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
 import { logger } from '../../../../shared/utils/logger.js'
 
 export class PricingService {
+  private calculatePriceLevels(
+    costForeign: number,
+    exchangeRate: number,
+    taxRateSale: number,
+    levels: { level: number; priceForeign: number }[]
+  ) {
+    return levels.map((pl) => ({
+      level: pl.level,
+      priceForeign: pl.priceForeign,
+      price: pl.priceForeign * exchangeRate,
+      finalPrice: pl.priceForeign * exchangeRate * (1 + taxRateSale / 100),
+      utility:
+        pl.priceForeign > 0
+          ? ((pl.priceForeign - costForeign) / pl.priceForeign) * 100
+          : 0,
+      commission: 0,
+    }))
+  }
+
   async create(data: ICreatePricingInput): Promise<IPricingWithItem> {
     // Validar que el artículo existe
     const item = await prisma.item.findUnique({
@@ -32,12 +51,15 @@ export class PricingService {
       throw new NotFoundError(INVENTORY_MESSAGES.item.notFound)
     }
 
+    const minMargin = data.minMargin ?? 0
+    const maxMargin = data.maxMargin ?? 0
+
     // Validar márgenes
-    if (data.minMargin < 0 || data.maxMargin < 0) {
+    if (minMargin < 0 || maxMargin < 0) {
       throw new BadRequestError(INVENTORY_MESSAGES.pricing.negativeMargins)
     }
 
-    if (data.minMargin > data.maxMargin) {
+    if (minMargin > maxMargin) {
       throw new BadRequestError(INVENTORY_MESSAGES.pricing.minAboveMax)
     }
 
@@ -63,8 +85,8 @@ export class PricingService {
       itemId: data.itemId,
       costPrice: data.costPrice,
       salePrice: data.salePrice,
-      minMargin: data.minMargin,
-      maxMargin: data.maxMargin,
+      minMargin,
+      maxMargin,
       discountPercentage: data.discountPercentage ?? 0,
       isActive: true,
     }
@@ -73,6 +95,32 @@ export class PricingService {
     if (data.wholesalePrice !== undefined)
       createData.wholesalePrice = data.wholesalePrice
     if (data.notes !== undefined) createData.notes = data.notes
+
+    // Modelo de precios en moneda extranjera
+    const usesNewPricingModel =
+      data.costForeign != null && data.exchangeRate != null
+
+    if (usesNewPricingModel) {
+      const cf = data.costForeign!
+      const er = data.exchangeRate!
+      const trs = data.taxRateSale ?? 0
+      const costPrice = cf * er
+
+      createData.costForeign = cf
+      createData.exchangeRate = er
+      createData.costRef = costPrice
+      createData.costPrevious = costPrice
+      createData.costPrice = costPrice
+      createData.taxRateSale = trs
+      createData.taxRatePurchase = data.taxRatePurchase ?? 0
+
+      if (data.priceLevels?.length) {
+        const calculated = this.calculatePriceLevels(cf, er, trs, data.priceLevels)
+        const level1 = calculated.find((pl) => pl.level === 1)
+        if (level1) createData.salePrice = level1.price
+        createData.priceLevels = { createMany: { data: calculated } }
+      }
+    }
 
     const pricing = await prisma.pricing.create({
       data: createData,
@@ -84,6 +132,7 @@ export class PricingService {
             name: true,
           },
         },
+        priceLevels: { orderBy: { level: 'asc' } },
       },
     })
 
@@ -144,6 +193,7 @@ export class PricingService {
             name: true,
           },
         },
+        priceLevels: { orderBy: { level: 'asc' } },
       },
     })
 
@@ -173,6 +223,7 @@ export class PricingService {
             name: true,
           },
         },
+        priceLevels: { orderBy: { level: 'asc' } },
       },
     })
 
@@ -242,6 +293,45 @@ export class PricingService {
       updateData.wholesalePrice = data.wholesalePrice
     if (data.notes !== undefined) updateData.notes = data.notes
 
+    // Modelo de precios en moneda extranjera
+    if (
+      data.costForeign != null ||
+      data.exchangeRate != null ||
+      data.priceLevels != null
+    ) {
+      const cf =
+        data.costForeign ?? Number((pricing as any).costForeign ?? 0)
+      const er =
+        data.exchangeRate ?? Number((pricing as any).exchangeRate ?? 1)
+      const trs =
+        data.taxRateSale ?? Number((pricing as any).taxRateSale ?? 0)
+
+      updateData.costForeign = cf
+      updateData.exchangeRate = er
+      updateData.taxRateSale = trs
+      updateData.costRef = cf * er
+      updateData.costPrice = cf * er
+
+      if (data.taxRatePurchase !== undefined)
+        updateData.taxRatePurchase = data.taxRatePurchase
+
+      if (data.priceLevels?.length) {
+        const calculated = this.calculatePriceLevels(cf, er, trs, data.priceLevels)
+        const level1 = calculated.find((pl) => pl.level === 1)
+        if (level1) updateData.salePrice = level1.price
+
+        await Promise.all(
+          calculated.map((pl) =>
+            prisma.priceLevel.upsert({
+              where: { pricingId_level: { pricingId: id, level: pl.level } },
+              create: { pricingId: id, ...pl },
+              update: pl,
+            })
+          )
+        )
+      }
+    }
+
     const updated = await prisma.pricing.update({
       where: { id },
       data: updateData,
@@ -253,6 +343,7 @@ export class PricingService {
             name: true,
           },
         },
+        priceLevels: { orderBy: { level: 'asc' } },
       },
     })
 

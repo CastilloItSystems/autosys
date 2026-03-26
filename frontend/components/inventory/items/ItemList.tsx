@@ -13,17 +13,15 @@ import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
-import { TabView, TabPanel } from "primereact/tabview";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
-import { Divider } from "primereact/divider";
-import { Image } from "primereact/image";
 import { Sidebar } from "primereact/sidebar";
 import { motion } from "framer-motion";
 import itemService, { Item } from "@/app/api/inventory/itemService";
 import searchService from "@/app/api/inventory/searchService";
 import type { ISearchFilters } from "@/app/api/inventory/searchService";
 import ItemForm from "./ItemForm";
+import ItemDetailDialog from "./ItemDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
@@ -1081,245 +1079,11 @@ const ItemList = () => {
         id="popup_menu"
       />
 
-      {/* Detalles Dialog */}
-      <Dialog
+      <ItemDetailDialog
         visible={detailsDialog}
-        style={{ width: "60vw" }}
-        header={
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-info-circle mr-3 text-primary text-3xl"></i>
-                Detalles del Artículo: {selectedItem?.name}
-              </h2>
-            </div>
-          </div>
-        }
-        modal
+        item={selectedItem}
         onHide={() => setDetailsDialog(false)}
-        className="p-fluid"
-        maximizable
-      >
-        {selectedItem && (
-          <div className="grid">
-            <div className="col-12 md:col-4">
-              <div className="flex flex-column align-items-center justify-content-center p-3 surface-card border-round h-full">
-                <img
-                  src={getPrimaryImage(selectedItem)}
-                  alt={selectedItem.name}
-                  className="w-full border-round shadow-2"
-                  style={{ maxHeight: "250px", objectFit: "contain" }}
-                />
-                <div className="mt-3 text-center">
-                  <Tag
-                    value={selectedItem.isActive ? "Activo" : "Inactivo"}
-                    severity={selectedItem.isActive ? "success" : "secondary"}
-                    rounded
-                    className="mb-2"
-                  />
-                  <div className="text-xl font-bold">
-                    SKU: {selectedItem.sku || "-"}
-                  </div>
-                  <div className="text-lg font-semibold">
-                    Código: {selectedItem.code || "-"}
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 md:col-8">
-              <TabView>
-                <TabPanel header="General">
-                  <div className="grid">
-                    <div className="col-12 mb-3">
-                      <span className="text-sm text-500 block">
-                        Nombre del Producto
-                      </span>
-                      <span className="text-xl font-bold text-900">
-                        {selectedItem.name}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Identidad</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.identity || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Marca</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.brand?.name || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Categoría</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.category?.name || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Ubicación</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.location || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">
-                        Descripción
-                      </span>
-                      <p className="m-0 text-700">
-                        {selectedItem.description ||
-                          "Sin descripción disponible."}
-                      </p>
-                    </div>
-
-                    <div className="col-12">
-                      <span className="text-sm text-500 block mb-2">
-                        Etiquetas
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedItem.tags && selectedItem.tags.length > 0 ? (
-                          selectedItem.tags.map((tag, i) => (
-                            <Tag key={i} value={tag} severity="info" rounded />
-                          ))
-                        ) : (
-                          <span className="text-sm text-600">-</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-
-                <TabPanel header="Inventario">
-                  <div className="grid">
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Stock Actual
-                        </span>
-                        <div className="text-2xl font-bold text-primary">
-                          {selectedItem.quantity || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Stock Mínimo
-                        </span>
-                        <div className="text-2xl font-bold text-orange-500">
-                          {selectedItem.minStock || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Punto Reorden
-                        </span>
-                        <div className="text-2xl font-bold text-blue-500">
-                          {selectedItem.reorderPoint || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12">
-                      <div className="flex align-items-center gap-2 mt-2">
-                        <span className="font-semibold">
-                          Estado de Inventario:
-                        </span>
-                        <Tag
-                          value={
-                            selectedItem.quantity === 0
-                              ? "Sin Stock"
-                              : selectedItem.quantity! <=
-                                (selectedItem.minStock || 0)
-                              ? "Bajo Stock"
-                              : "En Stock"
-                          }
-                          severity={getSeverity(selectedItem)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-
-                <TabPanel header="Precios">
-                  <div className="grid">
-                    <div className="col-12 md:col-6 mb-3">
-                      <div className="surface-50 p-3 border-round">
-                        <span className="text-sm text-500 block">
-                          Precio de Venta
-                        </span>
-                        <span className="text-2xl font-bold text-green-600">
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                          }).format(selectedItem.salePrice || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <div className="surface-50 p-3 border-round">
-                        <span className="text-sm text-500 block">
-                          Precio de Costo
-                        </span>
-                        <span className="text-xl font-semibold text-600">
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                          }).format(selectedItem.costPrice || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="col-12">
-                      <Divider />
-                      <div className="flex justify-content-between align-items-center">
-                        <span className="text-900 font-medium">
-                          Margen de Ganancia
-                        </span>
-                        <span className="text-lg font-bold">
-                          {selectedItem.salePrice && selectedItem.costPrice ? (
-                            <Tag
-                              value={`${(
-                                ((selectedItem.salePrice -
-                                  selectedItem.costPrice) /
-                                  selectedItem.costPrice) *
-                                100
-                              ).toFixed(2)}%`}
-                              severity={
-                                ((selectedItem.salePrice -
-                                  selectedItem.costPrice) /
-                                  selectedItem.costPrice) *
-                                  100 <
-                                20
-                                  ? "warning"
-                                  : "success"
-                              }
-                              className="text-base px-3"
-                            />
-                          ) : (
-                            "-"
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-              </TabView>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      />
 
       <Sidebar
         visible={filterSidebar}

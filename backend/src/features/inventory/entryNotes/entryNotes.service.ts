@@ -659,7 +659,9 @@ export class EntryNoteService {
         ...ENTRY_NOTE_INCLUDE,
         items: {
           include: {
-            item: { select: { id: true, sku: true, name: true } },
+            item: {
+              select: { id: true, sku: true, name: true, location: true },
+            },
           },
         },
       },
@@ -737,16 +739,24 @@ export class EntryNoteService {
               ? (existingTotal + noteItem.quantityReceived * unitCost) / newReal
               : unitCost
 
+          const updateData: any = {
+            quantityReal: newReal,
+            quantityAvailable: newAvailable,
+            averageCost: newAverageCost,
+            lastMovementAt: new Date(),
+          }
+          if (noteItem.storedToLocation) {
+            updateData.location = noteItem.storedToLocation
+          }
+
           await tx.stock.update({
             where: { id: existingStock.id },
-            data: {
-              quantityReal: newReal,
-              quantityAvailable: newAvailable,
-              averageCost: newAverageCost,
-              lastMovementAt: new Date(),
-            },
+            data: updateData,
           })
         } else {
+          const itemLocation =
+            noteItem.storedToLocation || noteItem.item?.location || null
+
           await tx.stock.create({
             data: {
               itemId: noteItem.itemId,
@@ -755,6 +765,7 @@ export class EntryNoteService {
               quantityReserved: 0,
               quantityAvailable: noteItem.quantityReceived,
               averageCost: unitCost,
+              location: itemLocation,
               lastMovementAt: new Date(),
             },
           })
