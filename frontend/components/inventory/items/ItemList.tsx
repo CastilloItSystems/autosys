@@ -1029,7 +1029,9 @@ const ItemList = () => {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "80vw" }}
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">

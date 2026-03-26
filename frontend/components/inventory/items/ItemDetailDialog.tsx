@@ -201,11 +201,12 @@ export default function ItemDetailDialog({
   return (
     <Dialog
       visible={visible}
-      style={{ width: "80vw" }}
+      style={{ width: "75vw" }}
+      breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+      maximizable
       header={dialogHeader}
       modal
       onHide={onHide}
-      maximizable
       contentClassName="p-0"
     >
       <div className="grid m-0">

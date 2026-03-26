@@ -7,6 +7,7 @@ import { z } from "zod";
 
 import { ProgressSpinner } from "primereact/progressspinner";
 import { TabView, TabPanel } from "primereact/tabview";
+import { Dialog } from "primereact/dialog";
 
 import itemService, {
   Item,
@@ -25,6 +26,11 @@ import PricingTab from "./tabs/PricingTab";
 import PricingTiersTab from "./tabs/PricingTiersTab";
 import ImagesTab from "./tabs/ImagesTab";
 import SpecificationsTab from "./tabs/SpecificationsTab";
+import BrandForm from "../brands/BrandForm";
+import CategoryForm from "../categories/CategoryForm";
+import UnitForm from "../units/UnitForm";
+import ItemModelForm from "../itemModels/ItemModelForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 // ============================================
 // SCHEMA VALIDATION
@@ -62,8 +68,14 @@ const imageSchema = z.object({
 });
 
 const itemSchema = z.object({
-  code: z.string().min(3, "Código min 3 caracteres").max(50, "Código max 50 caracteres"),
-  name: z.string().min(3, "Nombre min 3 caracteres").max(200, "Nombre max 200 caracteres"),
+  code: z
+    .string()
+    .min(3, "Código min 3 caracteres")
+    .max(50, "Código max 50 caracteres"),
+  name: z
+    .string()
+    .min(3, "Nombre min 3 caracteres")
+    .max(200, "Nombre max 200 caracteres"),
   description: z.string().max(2000, "Máx 2000 caracteres").optional(),
   brandId: z.string().min(1, "Marca requerida"),
   categoryId: z.string().min(1, "Categoría requerida"),
@@ -111,7 +123,10 @@ interface ItemFormProps {
   toast: React.RefObject<any>;
 }
 
-const EMPTY_PRICE_LEVELS = Array.from({ length: 8 }, (_, i) => ({ level: i + 1, priceForeign: 0 }));
+const EMPTY_PRICE_LEVELS = Array.from({ length: 8 }, (_, i) => ({
+  level: i + 1,
+  priceForeign: 0,
+}));
 
 const EMPTY_DEFAULTS = {
   code: "",
@@ -168,14 +183,26 @@ export default function ItemForm({
   const [specs, setSpecs] = useState<{ label: string; value: string }[]>([]);
   const [pricing, setPricing] = useState<IPricing | null>(null);
   const [tiers, setTiers] = useState<IPricingTier[]>([]);
-  const [priceLevels, setPriceLevels] = useState<{ level: number; priceForeign: number }[]>(EMPTY_PRICE_LEVELS);
+  const [priceLevels, setPriceLevels] =
+    useState<{ level: number; priceForeign: number }[]>(EMPTY_PRICE_LEVELS);
   const [images, setImages] = useState<IItemImage[]>([]);
+
+  const [brandDialog, setBrandDialog] = useState(false);
+  const [categoryDialog, setCategoryDialog] = useState(false);
+  const [unitDialog, setUnitDialog] = useState(false);
+  const [modelDialog, setModelDialog] = useState(false);
+  const [isQuickCreateSubmitting, setIsQuickCreateSubmitting] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(itemSchema),
@@ -185,7 +212,8 @@ export default function ItemForm({
 
   const costPrice = watch("costPrice");
   const salePrice = watch("salePrice");
-  const calculatedMargin = costPrice > 0 ? ((salePrice - costPrice) / costPrice) * 100 : 0;
+  const calculatedMargin =
+    costPrice > 0 ? ((salePrice - costPrice) / costPrice) * 100 : 0;
 
   // Load dropdown data
   useEffect(() => {
@@ -197,7 +225,9 @@ export default function ItemForm({
     ])
       .then(([brandsRes, categoriesRes, modelsRes, unitsRes]) => {
         setBrands(Array.isArray(brandsRes?.data) ? brandsRes.data : []);
-        setCategories(Array.isArray(categoriesRes?.data) ? categoriesRes.data : []);
+        setCategories(
+          Array.isArray(categoriesRes?.data) ? categoriesRes.data : [],
+        );
         setModels(Array.isArray(modelsRes?.data) ? modelsRes.data : []);
         setUnits(Array.isArray(unitsRes?.data) ? unitsRes.data : []);
       })
@@ -248,7 +278,12 @@ export default function ItemForm({
       });
 
       if (item.technicalSpecs && typeof item.technicalSpecs === "object") {
-        setSpecs(Object.entries(item.technicalSpecs).map(([label, value]) => ({ label, value: String(value) })));
+        setSpecs(
+          Object.entries(item.technicalSpecs).map(([label, value]) => ({
+            label,
+            value: String(value),
+          })),
+        );
       } else {
         setSpecs([]);
       }
@@ -261,8 +296,11 @@ export default function ItemForm({
           setPriceLevels(
             Array.from({ length: 8 }, (_, i) => {
               const found = existing.find((pl) => pl.level === i + 1);
-              return { level: i + 1, priceForeign: found ? Number(found.priceForeign) : 0 };
-            })
+              return {
+                level: i + 1,
+                priceForeign: found ? Number(found.priceForeign) : 0,
+              };
+            }),
           );
         }
       }
@@ -278,6 +316,57 @@ export default function ItemForm({
     }
   }, [item, reset, isLoading]);
 
+  const handleBrandSave = async (created?: any) => {
+    setBrandDialog(false);
+    setLoadingBrands(true);
+    try {
+      const res = await brandsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setBrands(updated);
+      if (created?.id) setValue("brandId", created.id);
+    } finally {
+      setLoadingBrands(false);
+    }
+  };
+
+  const handleCategorySuccess = async (created?: any) => {
+    setLoadingCategories(true);
+    try {
+      const res = await categoriesService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setCategories(updated);
+      if (created?.id) setValue("categoryId", created.id);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  const handleUnitSave = async (created?: any) => {
+    setUnitDialog(false);
+    setLoadingUnits(true);
+    try {
+      const res = await unitsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setUnits(updated);
+      if (created?.id) setValue("unitId", created.id);
+    } finally {
+      setLoadingUnits(false);
+    }
+  };
+
+  const handleModelSave = async (created?: any) => {
+    setModelDialog(false);
+    setLoadingModels(true);
+    try {
+      const res = await modelsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setModels(updated);
+      if (created?.id) setValue("modelId", created.id);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
   const onSubmit = async (data: FormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
@@ -292,9 +381,13 @@ export default function ItemForm({
       if (!payload.reference) payload.reference = null;
       if (!payload.contraindications) payload.contraindications = null;
 
-      payload.technicalSpecs = specs.length > 0
-        ? specs.reduce((acc: any, spec) => { if (spec.label.trim()) acc[spec.label.trim()] = spec.value; return acc; }, {})
-        : null;
+      payload.technicalSpecs =
+        specs.length > 0
+          ? specs.reduce((acc: any, spec) => {
+              if (spec.label.trim()) acc[spec.label.trim()] = spec.value;
+              return acc;
+            }, {})
+          : null;
 
       if (data.costPrice || data.salePrice || pricing?.costForeign) {
         const activeLevels = priceLevels.filter((pl) => pl.priceForeign > 0);
@@ -332,55 +425,217 @@ export default function ItemForm({
   if (isLoading) {
     return (
       <div className="flex flex-column align-items-center justify-content-center p-4">
-        <ProgressSpinner style={{ width: "40px", height: "40px" }} strokeWidth="4" fill="var(--surface-ground)" animationDuration=".5s" />
+        <ProgressSpinner
+          style={{ width: "40px", height: "40px" }}
+          strokeWidth="4"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
         <p className="mt-3 text-600 font-medium">Preparando formulario...</p>
       </div>
     );
   }
 
   return (
-    <form id={formId || "item-form"} onSubmit={handleSubmit(onSubmit)}>
-      <TabView activeIndex={activeTab} onTabChange={(e) => setActiveTab(e.index)}>
-        <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
-          <BasicDataTab
-            control={control}
-            errors={errors}
-            brands={brands}
-            categories={categories}
-            models={models}
-            units={units}
-            isEditMode={!!item?.id}
+    <>
+      <form id={formId || "item-form"} onSubmit={handleSubmit(onSubmit)}>
+        <TabView
+          activeIndex={activeTab}
+          onTabChange={(e) => setActiveTab(e.index)}
+        >
+          <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
+            <BasicDataTab
+              control={control}
+              errors={errors}
+              brands={brands}
+              categories={categories}
+              models={models}
+              units={units}
+              isEditMode={!!item?.id}
+              loadingBrands={loadingBrands}
+              loadingCategories={loadingCategories}
+              loadingModels={loadingModels}
+              loadingUnits={loadingUnits}
+              onAddBrand={() => setBrandDialog(true)}
+              onAddCategory={() => setCategoryDialog(true)}
+              onAddUnit={() => setUnitDialog(true)}
+              onAddModel={() => setModelDialog(true)}
+            />
+          </TabPanel>
+
+          <TabPanel header="Precios" leftIcon="pi pi-dollar">
+            <PricingTab
+              control={control}
+              errors={errors}
+              calculatedMargin={calculatedMargin}
+              pricing={pricing}
+              onPricingChange={setPricing}
+              priceLevels={priceLevels}
+              onPriceLevelsChange={setPriceLevels}
+            />
+          </TabPanel>
+
+          <TabPanel header="Precios Escalonados" leftIcon="pi pi-chart-bar">
+            <PricingTiersTab
+              tiers={tiers}
+              onTiersChange={setTiers}
+              salePrice={salePrice}
+            />
+          </TabPanel>
+
+          <TabPanel header="Imágenes" leftIcon="pi pi-images">
+            <ImagesTab images={images} onImagesChange={setImages} />
+          </TabPanel>
+
+          <TabPanel header="Especificaciones" leftIcon="pi pi-list">
+            <SpecificationsTab specs={specs} onSpecsChange={setSpecs} />
+          </TabPanel>
+        </TabView>
+      </form>
+
+      {/* Brand quick-create */}
+      <Dialog
+        visible={brandDialog}
+        onHide={() => setBrandDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-tag mr-3 text-primary text-3xl"></i>
+                Nueva Marca
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="brand-form-inline"
+            isUpdate={false}
+            onCancel={() => setBrandDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
           />
-        </TabPanel>
+        }
+      >
+        <BrandForm
+          brand={null}
+          formId="brand-form-inline"
+          onSave={() => {}}
+          onCreated={handleBrandSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Precios" leftIcon="pi pi-dollar">
-          <PricingTab
-            control={control}
-            errors={errors}
-            calculatedMargin={calculatedMargin}
-            pricing={pricing}
-            onPricingChange={setPricing}
-            priceLevels={priceLevels}
-            onPriceLevelsChange={setPriceLevels}
+      {/* Category quick-create */}
+      <Dialog
+        visible={categoryDialog}
+        onHide={() => setCategoryDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-list mr-3 text-primary text-3xl"></i>
+                Nueva Categoría
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="category-form-inline"
+            isUpdate={false}
+            onCancel={() => setCategoryDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
           />
-        </TabPanel>
+        }
+      >
+        <CategoryForm
+          category={null}
+          formId="category-form-inline"
+          hideFormDialog={() => setCategoryDialog(false)}
+          onCreated={handleCategorySuccess}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Precios Escalonados" leftIcon="pi pi-chart-bar">
-          <PricingTiersTab
-            tiers={tiers}
-            onTiersChange={setTiers}
-            salePrice={salePrice}
+      {/* Unit quick-create */}
+      <Dialog
+        visible={unitDialog}
+        onHide={() => setUnitDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-box mr-3 text-primary text-3xl"></i>
+                Nueva Unidad
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="unit-form-inline"
+            isUpdate={false}
+            onCancel={() => setUnitDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
           />
-        </TabPanel>
+        }
+      >
+        <UnitForm
+          model={null}
+          formId="unit-form-inline"
+          onSave={() => {}}
+          onCreated={handleUnitSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Imágenes" leftIcon="pi pi-images">
-          <ImagesTab images={images} onImagesChange={setImages} />
-        </TabPanel>
-
-        <TabPanel header="Especificaciones" leftIcon="pi pi-list">
-          <SpecificationsTab specs={specs} onSpecsChange={setSpecs} />
-        </TabPanel>
-      </TabView>
-    </form>
+      {/* Model quick-create */}
+      <Dialog
+        visible={modelDialog}
+        onHide={() => setModelDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-objects-column mr-3 text-primary text-3xl"></i>
+                Nuevo Modelo
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="model-form-inline"
+            isUpdate={false}
+            onCancel={() => setModelDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
+          />
+        }
+      >
+        <ItemModelForm
+          model={null}
+          formId="model-form-inline"
+          onSave={() => {}}
+          onCreated={handleModelSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
+    </>
   );
 }

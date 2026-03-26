@@ -327,6 +327,8 @@ export default function WarehouseList() {
       <Dialog
         visible={formDialog}
         style={{ width: "450px" }}
+        breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+        maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">

@@ -23,7 +23,7 @@ interface ExitNoteDetailDialogProps {
   onHide: () => void;
   exitNote: ExitNote | null;
   onUpdate: () => void;
-  toast: React.RefObject<Toast | null>;
+  toast: React.RefObject<Toast>;
   warehouses: Warehouse[];
 }
 
@@ -224,11 +224,12 @@ const ExitNoteDetailDialog = ({
           </div>
         }
         visible={visible}
-        style={{ width: "80vw" }}
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        maximizable
         onHide={onHide}
         footer={renderFooter()}
         modal
-        maximizable
       >
         {/* ── Stepper ── */}
         <div className="mb-4">

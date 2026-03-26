@@ -189,7 +189,7 @@ const ReceiveOrderDialog = ({
         detail: `Orden ${order!.orderNumber} recepcionada correctamente`,
       });
 
-      const updatedOrder = response.purchaseOrder || response.data || response;
+      const updatedOrder = response.data;
       onSuccess(updatedOrder);
       onHide();
     } catch (error) {

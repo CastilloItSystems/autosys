@@ -524,6 +524,8 @@ export const CompatibilityMatrix = () => {
         header="Confirmar Cambios"
         modal
         style={{ width: "450px" }}
+        breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+        maximizable
         footer={
           <div className="flex gap-2 pb-3 px-1">
             <Button

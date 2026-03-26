@@ -68,11 +68,99 @@ const response = await serviceService.getAll({
 
 - **Antes**: Botones en línea (`Button`) por cada acción en cada fila.
 - **Ahora**: Un único botón de engranaje (cog) que despliega un menú contextual (`Menu` de PrimeReact).
-- **Implementación**:
-  - Usar un `useRef<Menu>` y estado `actionItem` (ej. `actionCategory`).
-  - En el `actionBodyTemplate`, renderizar un `Button` con icono `pi-cog`, `aria-controls="popup_menu"` y `aria-haspopup`. Al hacer clic, se actualiza el `actionItem` y se llama a `menuRef.current?.toggle(e)`. **Importante:** Añadir `tooltip="Opciones"` y `tooltipOptions={{ position: "left" }}` al botón de acciones.
-  - Utilizar una función `getMenuItems(item)` que devuelve un arreglo de `MenuItem[]` con las acciones (Editar, Cambiar Estado, Eliminar, etc.).
-  - Incluir el componente `<Menu model={getMenuItems(actionItem)} popup ref={menuRef} id="popup_menu" />` al final del componente principal.
+
+**Imports necesarios**:
+
+```tsx
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
+```
+
+**State y Refs**:
+
+```tsx
+const menuRef = useRef<Menu>(null);
+const [actionItem, setActionItem] = useState<Item | null>(null);
+```
+
+**Función getMenuItems()**:
+
+```tsx
+const getMenuItems = (item: Item | null): MenuItem[] => {
+  if (!item) return [];
+  return [
+    {
+      label: "Editar",
+      icon: "pi pi-pencil",
+      command: () => editItem(item),
+    },
+    {
+      label: "Cambiar Estado",
+      icon: item.isActive ? "pi pi-pause" : "pi pi-play",
+      command: () => handleToggleItem(item),
+    },
+    {
+      separator: true,
+    },
+    {
+      label: "Eliminar",
+      icon: "pi pi-trash",
+      className: "p-menuitem-danger", // ← Estilos para acción destructiva
+      command: () => confirmDeleteItem(item),
+    },
+  ];
+};
+```
+
+**Template de acciones en la columna**:
+
+```tsx
+const actionBodyTemplate = (rowData: Item) => {
+  return (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="item-menu"
+      aria-haspopup
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
+  );
+};
+```
+
+**Columna en DataTable**:
+
+```tsx
+<Column
+  header="Acciones"
+  body={actionBodyTemplate}
+  exportable={false}
+  frozen={true}
+  alignFrozen="right"
+  style={{ width: "6rem", textAlign: "center" }}
+  headerStyle={{ textAlign: "center" }}
+/>
+```
+
+**Menu component al final del JSX** (antes del cierre de `motion.div` o componente raíz):
+
+```tsx
+<Menu model={getMenuItems(actionItem)} popup ref={menuRef} id="item-menu" />
+```
+
+**Notas importantes**:
+
+- El `id` del Menu debe coincidir con `aria-controls` del Button
+- `popup` habilita el comportamiento de menú flotante context
+- `menuRef.current?.toggle(e)` abre/cierra el menú (no usar `hide()`)
+- El Menu se renderiza **una sola vez** al final, no en cada fila
+- `actionItem` almacena el item sobre el cual se abrió el menú
 
 ### Botón de Crear
 

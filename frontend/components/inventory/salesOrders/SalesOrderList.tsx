@@ -338,6 +338,8 @@ const SalesOrderList = () => {
         <Dialog
           visible={deleteDialog}
           style={{ width: "450px" }}
+          breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+          maximizable
           header="Confirmar"
           modal
           footer={deleteDialogFooter}

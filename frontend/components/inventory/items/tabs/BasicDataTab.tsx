@@ -7,6 +7,7 @@ import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { InputSwitch } from "primereact/inputswitch";
 import { Chips } from "primereact/chips";
+import { Button } from "primereact/button";
 
 interface BasicDataTabProps {
   control: Control<any>;
@@ -16,6 +17,14 @@ interface BasicDataTabProps {
   models: any[];
   units: any[];
   isEditMode: boolean;
+  loadingBrands?: boolean;
+  loadingCategories?: boolean;
+  loadingModels?: boolean;
+  loadingUnits?: boolean;
+  onAddBrand: () => void;
+  onAddCategory: () => void;
+  onAddUnit: () => void;
+  onAddModel: () => void;
 }
 
 export default function BasicDataTab({
@@ -26,7 +35,70 @@ export default function BasicDataTab({
   models,
   units,
   isEditMode,
+  loadingBrands,
+  loadingCategories,
+  loadingModels,
+  loadingUnits,
+  onAddBrand,
+  onAddCategory,
+  onAddUnit,
+  onAddModel,
 }: BasicDataTabProps) {
+  const brandFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nueva marca"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={onAddBrand}
+      />
+    </div>
+  );
+
+  const categoryFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nueva categoría"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={onAddCategory}
+      />
+    </div>
+  );
+
+  const modelFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nuevo modelo"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={onAddModel}
+      />
+    </div>
+  );
+
+  const unitFooter = (
+    <div className="p-2 border-top-1 surface-border">
+      <Button
+        label="Nueva unidad"
+        icon="pi pi-plus"
+        text
+        size="small"
+        type="button"
+        className="w-full justify-content-start"
+        onClick={onAddUnit}
+      />
+    </div>
+  );
   return (
     <div className="grid">
       {/* Row 1: SKU, Código, Barcode, Identidad */}
@@ -264,6 +336,8 @@ export default function BasicDataTab({
               placeholder="Marca"
               filter
               showClear
+              loading={loadingBrands}
+              panelFooterTemplate={brandFooter}
               className={errors.brandId ? "p-invalid" : ""}
             />
           )}
@@ -292,6 +366,8 @@ export default function BasicDataTab({
               placeholder="Categoría"
               filter
               showClear
+              loading={loadingCategories}
+              panelFooterTemplate={categoryFooter}
               className={errors.categoryId ? "p-invalid" : ""}
             />
           )}
@@ -320,6 +396,8 @@ export default function BasicDataTab({
               placeholder="Modelo"
               filter
               showClear
+              loading={loadingModels}
+              panelFooterTemplate={modelFooter}
             />
           )}
         />
@@ -342,6 +420,8 @@ export default function BasicDataTab({
               placeholder="Unidad"
               filter
               showClear
+              loading={loadingUnits}
+              panelFooterTemplate={unitFooter}
               className={errors.unitId ? "p-invalid" : ""}
             />
           )}

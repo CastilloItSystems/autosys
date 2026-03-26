@@ -89,7 +89,7 @@ export default function TransferList({
         search: searchQuery || undefined,
       });
       setTransfers(response.data || []);
-      setTotalRecords(response.pagination?.total || 0);
+      setTotalRecords(response.meta?.total || 0);
     } catch (error) {
       console.error("Error loading transfers:", error);
       toast.current?.show({
@@ -708,6 +708,8 @@ export default function TransferList({
       <Dialog
         visible={showRejectDialog}
         style={{ width: "450px" }}
+        breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+        maximizable
         header="Rechazar Transferencia"
         modal
         footer={

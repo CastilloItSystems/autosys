@@ -12,6 +12,9 @@ import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
 import { SelectButton } from "primereact/selectbutton";
 import { Skeleton } from "primereact/skeleton";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
+import FormActionButtons from "@/components/common/FormActionButtons";
 import { motion } from "framer-motion";
 import { ProgressSpinner } from "primereact/progressspinner";
 import stockService, {
@@ -55,6 +58,12 @@ export default function StockList() {
   const [layout, setLayout] = useState<"table" | "list" | "grid">("table");
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [adjustDialog, setAdjustDialog] = useState<boolean>(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [isAdjustSubmitting, setIsAdjustSubmitting] = useState<boolean>(false);
+  const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [actionItem, setActionItem] = useState<Stock | null>(null);
+  const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
 
   // Historial de movimientos (inline dialog)
@@ -182,6 +191,81 @@ export default function StockList() {
     loadStocks();
     loadDashboard();
     setAdjustDialog(false);
+  };
+
+  const confirmDeleteStock = (stock: Stock) => {
+    setActionItem(stock);
+    setDeleteDialog(true);
+  };
+
+  const handleDeleteStock = async () => {
+    if (!actionItem?.id) return;
+    setIsDeleting(true);
+    try {
+      // TODO: Implement delete method in stockService
+      // await stockService.delete(actionItem.id);
+      toast.current?.show({
+        severity: "info",
+        summary: "Información",
+        detail: "Eliminación de stocks aún no disponible",
+        life: 3000,
+      });
+    } catch (error) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo eliminar el stock",
+        life: 3000,
+      });
+      console.error("Error deleting stock:", error);
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialog(false);
+      setActionItem(null);
+    }
+  };
+
+  const getMenuItems = (stock: Stock | null): MenuItem[] => {
+    if (!stock) return [];
+    return [
+      {
+        label: "Ver Stock",
+        icon: "pi pi-eye",
+        command: () => {
+          router.push(`/empresa/inventario/stock/item/${stock.itemId}`);
+        },
+      },
+      {
+        label: "Historial de Movimientos",
+        icon: "pi pi-history",
+        command: () => {
+          openHistory(stock);
+        },
+      },
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => {
+          editStock(stock);
+        },
+      },
+      {
+        label: "Ajustar Stock",
+        icon: "pi pi-sliders-h",
+        command: () => {
+          openAdjust(stock);
+        },
+      },
+      { separator: true },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => {
+          confirmDeleteStock(stock);
+        },
+      },
+    ];
   };
 
   // ── Helpers ────────────────────────────────────────────────────────────
@@ -379,9 +463,23 @@ export default function StockList() {
     </div>
   );
 
-  // ── DataTable column templates ─────────────────────────────────────────
+  const actionBodyTemplate = (rowData: Stock) => (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="stock-menu"
+      aria-haspopup
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
+  );
 
-  const actionBodyTemplate = (rowData: Stock) => renderActions(rowData);
+  // ── DataTable column templates ───────────────────────────────────
 
   const quantityBodyTemplate = (rowData: Stock) => {
     return (
@@ -936,9 +1034,13 @@ export default function StockList() {
                 style={{ minWidth: "110px" }}
               />
               <Column
+                header="Acciones"
                 body={actionBodyTemplate}
                 exportable={false}
-                style={{ minWidth: "140px" }}
+                frozen={true}
+                alignFrozen="right"
+                style={{ width: "6rem", textAlign: "center" }}
+                headerStyle={{ textAlign: "center" }}
               />
             </DataTable>
           </>
@@ -990,14 +1092,29 @@ export default function StockList() {
             </div>
           </div>
         }
+        footer={
+          <FormActionButtons
+            formId="stock-form"
+            isSubmitting={isSubmitting}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelectedStock(null);
+            }}
+            submitLabel="Actualizar"
+          />
+        }
         modal
         className="p-fluid"
-        onHide={() => setFormDialog(false)}
+        onHide={() => {
+          setFormDialog(false);
+          setSelectedStock(null);
+        }}
       >
         <StockForm
+          formId="stock-form"
           stock={selectedStock}
           onSave={handleSave}
-          onCancel={() => setFormDialog(false)}
+          onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
       </Dialog>
@@ -1006,8 +1123,16 @@ export default function StockList() {
       <StockAdjustDialog
         visible={adjustDialog}
         stock={selectedStock}
-        onSave={handleAdjustSave}
-        onCancel={() => setAdjustDialog(false)}
+        onSave={() => {
+          handleAdjustSave();
+          setAdjustDialog(false);
+          setSelectedStock(null);
+        }}
+        onCancel={() => {
+          setAdjustDialog(false);
+          setSelectedStock(null);
+        }}
+        onSubmittingChange={setIsAdjustSubmitting}
         toast={toast}
       />
 
@@ -1188,6 +1313,13 @@ export default function StockList() {
           toast={toast}
         />
       </Dialog>
+
+      <Menu
+        model={getMenuItems(actionItem)}
+        popup
+        ref={menuRef}
+        id="stock-menu"
+      />
     </motion.div>
   );
 }

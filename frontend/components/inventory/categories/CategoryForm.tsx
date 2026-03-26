@@ -42,6 +42,7 @@ interface CategoryFormProps {
   category: Category | null;
   hideFormDialog: () => void;
   onSuccess?: () => void;
+  onCreated?: (item: any) => void;
   toast?: React.RefObject<any>;
   formId?: string;
   onSubmittingChange?: (isSubmitting: boolean) => void;
@@ -51,6 +52,7 @@ export default function CategoryForm({
   category,
   hideFormDialog,
   onSuccess,
+  onCreated,
   toast,
   formId = "category-form",
   onSubmittingChange,
@@ -139,13 +141,17 @@ export default function CategoryForm({
           life: 3000,
         });
       } else {
-        await categoryService.create(data);
+        const res = await categoryService.create(data);
         toast?.current?.show({
           severity: "success",
           summary: "Éxito",
           detail: "Categoría creada exitosamente",
           life: 3000,
         });
+        hideFormDialog();
+        if (onSuccess) onSuccess();
+        if (onCreated) onCreated(res?.data ?? res);
+        return;
       }
       hideFormDialog();
       if (onSuccess) onSuccess();
