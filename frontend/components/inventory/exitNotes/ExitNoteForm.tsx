@@ -32,7 +32,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 const COLS: ItemRowColWidths = {
   handle: { width: "1.75rem", flexShrink: 0 },
   product: { width: "12rem", flexShrink: 0 },
-  itemName: { flex: "1 1 0", minWidth: 0 },
+  itemName: { flex: "1 1 0", minWidth: "8rem" },
   quantity: { width: "5.5rem", flexShrink: 0 },
   location: { width: "6rem", flexShrink: 0 },
   batch: { width: "5.5rem", flexShrink: 0 },
@@ -407,10 +407,11 @@ export default function ExitNoteForm({
             { label: "Lote", style: COLS.batch! },
             { label: "", style: COLS.remove },
           ]}
-          renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
+          renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
             <ItemRow
               control={control}
               register={register}
+              autoFocus={autoFocus}
               rowErrors={(errors.items as any)?.[index]}
               itemOptions={itemOptions}
               fieldPaths={{

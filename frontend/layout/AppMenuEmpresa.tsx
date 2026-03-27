@@ -222,6 +222,11 @@ const AppMenuEmpresa = () => {
                   icon: "pi pi-fw pi-exchange",
                   to: "/empresa/inventario/movimientos",
                 },
+                {
+                  label: "operaciones masivas",
+                  icon: "pi pi-fw pi-upload",
+                  to: "/empresa/inventario/stock/bulk",
+                },
               ],
             },
             {

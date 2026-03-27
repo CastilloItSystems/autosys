@@ -252,6 +252,10 @@ enum BulkOperationType {
   EXPORT
   UPDATE
   DELETE
+  STOCK_IMPORT      // Carga inicial / entrada masiva de stock
+  STOCK_ADJUSTMENT  // Ajustes masivos de stock (entradas/salidas)
+  STOCK_TRANSFER    // Transferencias masivas entre almacenes
+  STOCK_EXPORT      // Exportar niveles de stock
 }
 
 enum BulkOperationStatus {

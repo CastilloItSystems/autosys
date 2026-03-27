@@ -102,6 +102,10 @@ export const BulkHistory = ({ refreshKey = 0 }: BulkHistoryProps) => {
       EXPORT: { severity: "success", label: "Exportación" },
       UPDATE: { severity: "warning", label: "Actualización" },
       DELETE: { severity: "danger", label: "Eliminación" },
+      STOCK_IMPORT: { severity: "info", label: "Carga Stock" },
+      STOCK_ADJUSTMENT: { severity: "warning", label: "Ajuste Stock" },
+      STOCK_TRANSFER: { severity: "secondary", label: "Transferencia Stock" },
+      STOCK_EXPORT: { severity: "success", label: "Exportar Stock" },
     };
 
     const config = typeConfig[rowData.operationType || ""] || {

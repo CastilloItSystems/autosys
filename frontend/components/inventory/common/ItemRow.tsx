@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Controller, Control, UseFormRegister } from "react-hook-form";
 import { Dropdown } from "primereact/dropdown";
 import {
@@ -83,6 +83,7 @@ export interface ItemRowProps {
   batchPlaceholder?: string;
   onItemChange?: (itemId: string) => void;
   selectedItemsMap?: Record<string, any>;
+  autoFocus?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -113,11 +114,20 @@ export default function ItemRow({
   itemTemplate,
   items = [],
   selectedItemsMap = {},
+  autoFocus = false,
 }: ItemRowProps) {
   const [mounted, setMounted] = useState(false);
+  const autoCompleteRef = useRef<any>(null);
 
   useEffect(() => {
     setMounted(true);
+  }, []);
+
+  useEffect(() => {
+    if (autoFocus && autoCompleteRef.current) {
+      autoCompleteRef.current.focus();
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const itemIdKey = leafKey(fieldPaths.itemId);
@@ -227,6 +237,7 @@ export default function ItemRow({
           control={control}
           render={({ field: f }) => (
             <AutoComplete
+              ref={autoCompleteRef}
               value={resolveValue(f.value)}
               suggestions={suggestions}
               completeMethod={onSearch}

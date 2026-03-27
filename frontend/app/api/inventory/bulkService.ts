@@ -205,11 +205,11 @@ const bulkService = {
   async getOperations(
     params?: GetOperationsParams,
   ): Promise<BulkOperationsResponse> {
-    const res = await apiClient.get<{ data: BulkOperationsResponse }>(
+    const res = await apiClient.get<BulkOperationsResponse>(
       `/inventory/items/bulk/operations`,
       { params },
     );
-    return res.data.data;
+    return res.data;
   },
 
   // Get single operation details

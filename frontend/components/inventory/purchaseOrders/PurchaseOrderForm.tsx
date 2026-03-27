@@ -36,7 +36,7 @@ import type { Warehouse } from "@/app/api/inventory/warehouseService";
 const COLS: ItemRowColWidths = {
   handle: { width: "1.75rem", flexShrink: 0 },
   product: { width: "12rem", flexShrink: 0 },
-  itemName: { flex: "1 1 0", minWidth: 0 },
+  itemName: { flex: "1 1 0", minWidth: "8rem" },
   quantity: { width: "5.5rem", flexShrink: 0 },
   unitCost: { width: "8rem", flexShrink: 0 },
   discountPercent: { width: "6rem", flexShrink: 0 },
@@ -684,10 +684,11 @@ const PurchaseOrderForm = ({
               { label: "Total", style: COLS.totalLine! },
               { label: "", style: COLS.remove },
             ]}
-            renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
+            renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
               <ItemRow
                 control={control}
                 register={register}
+                autoFocus={autoFocus}
                 rowErrors={(errors.items as any)?.[index]}
                 itemOptions={itemOptions.map((opt) => ({
                   label: opt.label,

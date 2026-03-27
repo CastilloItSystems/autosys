@@ -1,41 +1,32 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useSession } from "next-auth/react";
-import "primereact/resources/themes/lara-light-blue/theme.css";
 import { motion } from "framer-motion";
 
-import { classNames } from "primereact/utils";
-import { FileUpload } from "primereact/fileupload";
 import { Toast } from "primereact/toast";
 import { Avatar } from "primereact/avatar";
 import { Tag } from "primereact/tag";
-import { InputText } from "primereact/inputtext";
-import { Password } from "primereact/password";
-import { Card } from "primereact/card";
-import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dialog } from "primereact/dialog";
 import UsuarioChangePasswordForm from "../usuarioComponents/UsuarioChangePasswordForm";
 import { Tooltip } from "primereact/tooltip";
 import MyprofileForm from "./MyprofileForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 const MyProfileList: React.FC = () => {
-  const { data: session, update } = useSession();
+  const { data: session } = useSession();
   const profile = session?.user;
   const toast = useRef<Toast>(null);
   const [usuarioFormDialog, setMyprofileFormDialog] = useState(false);
-  const [name, setName] = useState(profile?.usuario?.nombre || "");
-  const [email, setEmail] = useState(profile?.usuario?.correo || "");
-  const [currentPassword, setCurrentPassword] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const [name, setName] = useState(profile?.nombre || "");
   const [avatar, setAvatar] = useState(
-    profile?.usuario?.img ||
+    profile?.img ||
       "https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png"
   );
   const [usuarioPasswordFormDialog, setUsuarioPasswordFormDialog] =
     useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isPasswordSubmitting, setIsPasswordSubmitting] = useState(false);
 
   const showToast = (
     severity: "success" | "info" | "warn" | "error",
@@ -47,34 +38,16 @@ const MyProfileList: React.FC = () => {
   const hideUsuarioPasswordFormDialog = () => {
     setUsuarioPasswordFormDialog(false);
   };
-  const handleSaveProfile = async () => {
-    setIsLoading(true);
-    try {
-      // Simular actualización de perfil en el backend
-      await new Promise((resolve) => setTimeout(resolve, 1500));
 
-      // Actualizar sesión
-      await update({
-        ...session,
-        user: {
-          ...session?.user,
-          usuario: {
-            ...session?.user?.usuario,
-            nombre: name,
-            correo: email,
-          },
-        },
-      });
-
-      showToast("success", "Éxito", "Perfil actualizado correctamente");
-      setMyprofileFormDialog(false);
-    } catch (error) {
-      showToast("error", "Error", "No se pudo actualizar el perfil");
-    } finally {
-      setIsLoading(false);
-    }
+  const handlePasswordChanged = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Contraseña actualizada correctamente",
+      life: 3000,
+    });
+    setUsuarioPasswordFormDialog(false);
   };
-
   const handleAvatarUpload = (e: any) => {
     const file = e.files[0];
     if (file) {
@@ -89,25 +62,33 @@ const MyProfileList: React.FC = () => {
   const hideMyprofileFormDialog = () => {
     setMyprofileFormDialog(false);
   };
+
+  const handleSave = () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Perfil actualizado correctamente",
+      life: 3000,
+    });
+    setMyprofileFormDialog(false);
+  };
   useEffect(() => {
-    if (profile?.usuario) {
-      setName(profile.usuario.nombre || "");
-      setEmail(profile.usuario.correo || "");
-      if (profile.usuario.img) {
-        setAvatar(profile.usuario.img);
+    if (profile) {
+      setName(profile.nombre || "");
+      if (profile.img) {
+        setAvatar(profile.img);
       }
     }
   }, [profile]);
 
   useEffect(() => {
-    if (!isLoading && session) {
-      // Pequeño retardo para que el efecto de animación se aprecie
+    if (session) {
       const timeout = setTimeout(() => setShowProfile(true), 250);
       return () => clearTimeout(timeout);
     } else {
       setShowProfile(false);
     }
-  }, [isLoading, session]);
+  }, [session]);
 
   const renderProfileInfo = () => (
     <>
@@ -128,7 +109,7 @@ const MyProfileList: React.FC = () => {
                   >
                     <Tag
                       severity={
-                        profile?.usuario?.estado === "true"
+                        profile?.estado === "activo"
                           ? "success"
                           : "danger"
                       }
@@ -136,12 +117,12 @@ const MyProfileList: React.FC = () => {
                     >
                       <i
                         className={
-                          profile?.usuario?.estado === "true"
+                          profile?.estado === "activo"
                             ? "pi pi-check-circle"
                             : "pi pi-exclamation-triangle"
                         }
                       />
-                      {profile?.usuario?.estado === "true"
+                      {profile?.estado === "activo"
                         ? "Activo"
                         : "Inactivo"}
                     </Tag>
@@ -250,7 +231,7 @@ const MyProfileList: React.FC = () => {
                       className="text-900 font-semibold text-sm lg:text-lg overflow-hidden text-overflow-ellipsis white-space-nowrap block"
                       style={{ maxWidth: "100%" }}
                     >
-                      {profile?.usuario?.correo}
+                      {profile?.correo}
                     </span>
                   </div>
                   <Tooltip
@@ -268,7 +249,7 @@ const MyProfileList: React.FC = () => {
                   >
                     <i className="pi pi-briefcase text-primary text-xl" />
                     <span className="text-900 font-semibold text-lg">
-                      {profile?.usuario?.rol || "-"}
+                      {profile?.empresas?.[0]?.role?.name || "-"}
                     </span>
                   </div>
                   <Tooltip
@@ -287,7 +268,7 @@ const MyProfileList: React.FC = () => {
                   >
                     <i className="pi pi-phone text-primary text-xl" />
                     <span className="text-900 font-semibold text-lg">
-                      {profile?.usuario?.telefono || "-"}
+                      {profile?.telefono || "-"}
                     </span>
                   </div>
                   <Tooltip
@@ -305,10 +286,10 @@ const MyProfileList: React.FC = () => {
                   >
                     <i className="pi pi-building text-primary text-xl" />
                     <div className="flex flex-wrap gap-2">
-                      {profile?.usuario?.departamento &&
-                      Array.isArray(profile.usuario.departamento) &&
-                      profile.usuario.departamento.length > 0 ? (
-                        profile.usuario.departamento.map((dep, idx) => (
+                      {profile?.departamento &&
+                      Array.isArray(profile.departamento) &&
+                      profile.departamento.length > 0 ? (
+                        profile.departamento.map((dep, idx) => (
                           <span
                             key={idx}
                             className="p-tag p-tag-rounded bg-primary text-white border-none px-3 py-1"
@@ -340,7 +321,7 @@ const MyProfileList: React.FC = () => {
                   >
                     <i className="pi pi-key text-primary text-xl" />
                     <span className="text-900 font-semibold text-lg">
-                      {profile?.usuario?.acceso || "-"}
+                      {profile?.acceso || "-"}
                     </span>
                   </div>
                   <Tooltip
@@ -359,23 +340,15 @@ const MyProfileList: React.FC = () => {
                     {/* Icono de refinería: usando pi pi-industry */}
                     <i className="pi pi-list-check text-primary text-xl" />
                     <div className="flex flex-column h-full justify-content-center">
-                      {profile?.usuario?.idRefineria &&
-                      Array.isArray(profile.usuario.idRefineria) &&
-                      profile.usuario.idRefineria.length > 0 ? (
+                      {profile?.empresas && profile.empresas.length > 0 ? (
                         <div className="flex flex-wrap gap-2 mt-1">
-                          {profile.usuario.idRefineria.map((refineria, idx) => (
+                          {profile.empresas.map((empresa, idx) => (
                             <span
                               key={idx}
                               className="p-tag p-tag-rounded bg-primary text-white border-none px-3 py-1"
-                              title={
-                                typeof refineria === "string"
-                                  ? refineria
-                                  : refineria.nombre
-                              }
+                              title={empresa.nombre}
                             >
-                              {typeof refineria === "string"
-                                ? refineria
-                                : refineria.nombre}
+                              {empresa.nombre}
                             </span>
                           ))}
                         </div>
@@ -402,7 +375,7 @@ const MyProfileList: React.FC = () => {
     </>
   );
 
-  if (isLoading || (!session && !usuarioFormDialog)) {
+  if (!session && !usuarioFormDialog) {
     return (
       <div className="flex justify-content-center align-items-center h-screen">
         <ProgressSpinner />
@@ -415,58 +388,89 @@ const MyProfileList: React.FC = () => {
       <Toast ref={toast} position="top-right" />
 
       <div className="mb-6">
-        {!isLoading && (
-          <>
-            {showProfile && (
-              <motion.div
-                initial={{
-                  opacity: 0,
-                  scale: 0.95,
-                  y: 40,
-                  filter: "blur(8px)",
-                }}
-                animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
-                transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
-              >
-                {renderProfileInfo()}
-              </motion.div>
-            )}
-          </>
+        {showProfile && (
+          <motion.div
+            initial={{
+              opacity: 0,
+              scale: 0.95,
+              y: 40,
+              filter: "blur(8px)",
+            }}
+            animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
+          >
+            {renderProfileInfo()}
+          </motion.div>
         )}
       </div>
-      {profile?.usuario && (
+      {profile && (
         <Dialog
           visible={usuarioFormDialog}
-          style={{ minWidth: "300px" }}
-          header="Editar Perfil"
+          style={{ minWidth: "400px" }}
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-user-edit mr-3 text-primary text-3xl"></i>
+                  Editar Perfil
+                </h2>
+              </div>
+            </div>
+          }
           modal
-          // footer={deleteProductDialogFooter}
           onHide={hideMyprofileFormDialog}
-          content={() => (
-            <MyprofileForm
-              usuario={profile.usuario!}
-              hideMyprofileFormDialog={hideMyprofileFormDialog}
-              // usuarios={usuarios}
-              // setUsuarios={setUsuarios}
+          footer={
+            <FormActionButtons
+              formId="profile-form"
+              isUpdate
+              isSubmitting={isSubmitting}
+              onCancel={hideMyprofileFormDialog}
             />
-          )}
-        ></Dialog>
+          }
+        >
+          <MyprofileForm
+            usuario={profile}
+            formId="profile-form"
+            onSave={handleSave}
+            onSubmittingChange={setIsSubmitting}
+            toast={toast}
+          />
+        </Dialog>
       )}
       <Dialog
         visible={usuarioPasswordFormDialog}
         style={{ width: "850px" }}
-        header="Editar Usuario"
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-key mr-3 text-primary text-3xl"></i>
+                Cambiar Contraseña
+              </h2>
+            </div>
+          </div>
+        }
         modal
-        // footer={deleteProductDialogFooter}
         onHide={hideUsuarioPasswordFormDialog}
-        content={() => (
-          <UsuarioChangePasswordForm
-            usuario={profile?.usuario}
-            hideUsuarioPasswordFormDialog={hideUsuarioPasswordFormDialog}
-            showToast={showToast}
+        footer={
+          <FormActionButtons
+            formId="password-form"
+            isUpdate
+            submitLabel="Cambiar Contraseña"
+            isSubmitting={isPasswordSubmitting}
+            onCancel={hideUsuarioPasswordFormDialog}
           />
-        )}
-      ></Dialog>
+        }
+      >
+        <UsuarioChangePasswordForm
+          usuario={profile as any}
+          hideUsuarioPasswordFormDialog={hideUsuarioPasswordFormDialog}
+          onPasswordChanged={handlePasswordChanged}
+          toast={toast}
+          formId="password-form"
+          onSubmittingChange={setIsPasswordSubmitting}
+        />
+      </Dialog>
     </div>
   );
 };
