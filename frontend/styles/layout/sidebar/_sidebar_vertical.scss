@@ -29,6 +29,15 @@
                 font-weight: 700;
                 padding: 1rem 0 0.5rem 0;
                 color: var(--v-menuitem-text-color-secondary);
+                display: flex;
+                align-items: center;
+                cursor: pointer;
+
+                .layout-submenu-toggler {
+                    font-size: 75%;
+                    margin-left: auto;
+                    transition: transform var(--transition-duration);
+                }
 
                 .active-route {
                     font-weight: 700;
@@ -37,6 +46,21 @@
 
             > a {
                 display: none;
+            }
+
+            > ul {
+                overflow: hidden;
+                max-height: 0;
+                transition: max-height 0.45s cubic-bezier(0.86, 0, 0.07, 1);
+            }
+
+            &.active-menuitem > ul {
+                max-height: 1000px;
+                transition: max-height 1s ease-in-out;
+            }
+
+            &.active-menuitem > .layout-menuitem-root-text .layout-submenu-toggler {
+                transform: rotate(-180deg);
             }
         }
 

@@ -144,8 +144,15 @@ const AppMenuitem = (props: AppMenuItemProps) => {
             })}
         >
             {props.root && item?.visible !== false && (
-                <div className="layout-menuitem-root-text">
+                <div
+                    className="layout-menuitem-root-text"
+                    onClick={() => item?.items && setActiveMenu(active ? '' : key)}
+                    style={{ cursor: item?.items ? 'pointer' : 'default' }}
+                >
                     <span>{item?.label}</span>
+                    {item?.items && (
+                        <i className={classNames('pi pi-fw pi-angle-down layout-submenu-toggler')} />
+                    )}
                 </div>
             )}
             {(!item?.to || item?.items) && item?.visible !== false ? (
@@ -182,7 +189,9 @@ const AppMenuitem = (props: AppMenuItemProps) => {
                     >
                         <i className={classNames('layout-menuitem-icon', item?.icon)}></i>
                         <span className="layout-menuitem-text">{item?.label}</span>
-                        {/* {badge} */}
+                        {item?.badge != null && (
+                            <span className={classNames('p-badge ml-2', item?.badgeClassName)}>{item.badge}</span>
+                        )}
                         {item?.items && <i className="pi pi-fw pi-angle-down layout-submenu-toggler"></i>}
                         <Ripple />
                     </Link>

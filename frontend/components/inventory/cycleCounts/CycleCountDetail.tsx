@@ -35,7 +35,9 @@ interface LocalItemState {
   error: boolean;
 }
 
-export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) {
+export default function CycleCountDetail({
+  cycleCount,
+}: CycleCountDetailProps) {
   const statusConfig = CYCLE_COUNT_STATUS_CONFIG[cycleCount.status];
   const toast = useRef<Toast>(null);
   const isInProgress = cycleCount.status === CycleCountStatus.IN_PROGRESS;
@@ -48,18 +50,20 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
       cycleCount.items.forEach((item: any) => {
         init[item.itemId] = {
           countedQuantity: item.countedQuantity ?? null,
-          location: item.locationFound ?? "",  // locationFound = lo que el contador registró
+          location: item.locationFound ?? "", // locationFound = lo que el contador registró
           saving: false,
           saved: false,
           error: false,
         };
       });
       return init;
-    }
+    },
   );
 
   // Debounce refs — un timer y un acumulador de cambios por ítem
-  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>({});
+  const debounceTimers = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
   const pendingUpdates = useRef<
     Record<string, { countedQuantity?: number; newLocation?: string | null }>
   >({});
@@ -68,7 +72,7 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
 
   const scheduleUpdate = (
     itemId: string,
-    update: { countedQuantity?: number; newLocation?: string | null }
+    update: { countedQuantity?: number; newLocation?: string | null },
   ) => {
     // Acumular cambios (cantidad + ubicación pueden llegar en momentos distintos)
     pendingUpdates.current[itemId] = {
@@ -96,11 +100,16 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
           cycleCount.id,
           itemId,
           payload.countedQuantity,
-          payload.newLocation
+          payload.newLocation,
         );
         setLocalItems((prev) => ({
           ...prev,
-          [itemId]: { ...prev[itemId], saving: false, saved: true, error: false },
+          [itemId]: {
+            ...prev[itemId],
+            saving: false,
+            saved: true,
+            error: false,
+          },
         }));
         // Ocultar el ✓ después de 2s
         setTimeout(() => {
@@ -112,7 +121,12 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
       } catch {
         setLocalItems((prev) => ({
           ...prev,
-          [itemId]: { ...prev[itemId], saving: false, saved: false, error: true },
+          [itemId]: {
+            ...prev[itemId],
+            saving: false,
+            saved: false,
+            error: true,
+          },
         }));
         toast.current?.show({
           severity: "error",
@@ -146,11 +160,16 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
   const handleExport = async (format: "csv" | "excel") => {
     try {
       setIsExporting(true);
-      const blob = await cycleCountService.exportRouteSheet(cycleCount.id, format);
+      const blob = await cycleCountService.exportRouteSheet(
+        cycleCount.id,
+        format,
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `hoja-ruta-${cycleCount.cycleCountNumber}.${format === "excel" ? "xlsx" : "csv"}`;
+      a.download = `hoja-ruta-${cycleCount.cycleCountNumber}.${
+        format === "excel" ? "xlsx" : "csv"
+      }`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
@@ -166,15 +185,24 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
   };
 
   const exportMenuItems = [
-    { label: "Exportar Excel", icon: "pi pi-file-excel", command: () => handleExport("excel") },
-    { label: "Exportar CSV",   icon: "pi pi-file",       command: () => handleExport("csv") },
+    {
+      label: "Exportar Excel",
+      icon: "pi pi-file-excel",
+      command: () => handleExport("excel"),
+    },
+    {
+      label: "Exportar CSV",
+      icon: "pi pi-file",
+      command: () => handleExport("csv"),
+    },
   ];
 
   // ─── Templates ─────────────────────────────────────────────────────────────
 
   const varianceRowClass = (rowData: any) => {
     const local = localItems[rowData.itemId];
-    if (local?.countedQuantity === null || local?.countedQuantity === undefined) return "";
+    if (local?.countedQuantity === null || local?.countedQuantity === undefined)
+      return "";
     const variance = local.countedQuantity - rowData.expectedQuantity;
     if (variance === 0) return "";
     return Math.abs(variance) <= 5 ? "bg-yellow-50" : "bg-red-50";
@@ -182,7 +210,9 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
 
   const articleTemplate = (rowData: any) => (
     <div className="flex flex-column">
-      <span className="font-medium">{rowData.item?.name || "Artículo Desconocido"}</span>
+      <span className="font-medium">
+        {rowData.item?.name || "Artículo Desconocido"}
+      </span>
       {rowData.item?.sku && (
         <span className="text-sm text-500 font-mono">{rowData.item.sku}</span>
       )}
@@ -201,7 +231,11 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
         {originalLoc ? (
           <div className="flex align-items-center gap-1">
             <i className="pi pi-map-marker text-blue-400 text-xs" />
-            <span className={`font-mono text-sm ${locationChanged ? "text-blue-400 line-through" : "text-blue-700"}`}>
+            <span
+              className={`font-mono text-sm ${
+                locationChanged ? "text-blue-400 line-through" : "text-blue-700"
+              }`}
+            >
               {originalLoc}
             </span>
           </div>
@@ -212,7 +246,9 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
         {!isInProgress && locationChanged && (
           <div className="flex align-items-center gap-1">
             <i className="pi pi-arrow-right text-orange-500 text-xs" />
-            <span className="font-mono text-sm text-orange-600 font-bold">{foundLoc}</span>
+            <span className="font-mono text-sm text-orange-600 font-bold">
+              {foundLoc}
+            </span>
           </div>
         )}
       </div>
@@ -221,14 +257,18 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
 
   const countedQuantityTemplate = (rowData: any) => {
     if (!isInProgress) {
-      return <span className="font-bold">{rowData.countedQuantity ?? "—"}</span>;
+      return (
+        <span className="font-bold">{rowData.countedQuantity ?? "—"}</span>
+      );
     }
     const local = localItems[rowData.itemId];
     return (
       <div className="flex align-items-center gap-2">
         <InputNumber
           value={local?.countedQuantity ?? undefined}
-          onValueChange={(e) => handleQuantityChange(rowData.itemId, e.value ?? null)}
+          onValueChange={(e) =>
+            handleQuantityChange(rowData.itemId, e.value ?? null)
+          }
           min={0}
           placeholder="0"
           className="flex-1"
@@ -246,9 +286,14 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
             },
           }}
         />
-        {local?.saving && <ProgressSpinner style={{ width: "16px", height: "16px" }} strokeWidth="4" />}
-        {local?.saved   && <i className="pi pi-check text-green-500 text-sm" />}
-        {local?.error   && <i className="pi pi-times text-red-500 text-sm" />}
+        {local?.saving && (
+          <ProgressSpinner
+            style={{ width: "16px", height: "16px" }}
+            strokeWidth="4"
+          />
+        )}
+        {local?.saved && <i className="pi pi-check text-green-500 text-sm" />}
+        {local?.error && <i className="pi pi-times text-red-500 text-sm" />}
       </div>
     );
   };
@@ -256,8 +301,10 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
   const newLocationTemplate = (rowData: any) => {
     if (!isInProgress) return <span className="text-gray-300 text-sm">—</span>;
     const local = localItems[rowData.itemId];
-    const originalLocation = rowData.location ?? "";       // snapshot original
-    const hasChanged = (local?.location ?? "") !== originalLocation && (local?.location ?? "") !== "";
+    const originalLocation = rowData.location ?? ""; // snapshot original
+    const hasChanged =
+      (local?.location ?? "") !== originalLocation &&
+      (local?.location ?? "") !== "";
 
     return (
       <div className="flex flex-column gap-1">
@@ -268,7 +315,11 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
           className="p-inputtext-sm w-full font-mono"
         />
         {hasChanged && (
-          <Tag value="Modificada" severity="warning" style={{ fontSize: "0.6rem" }} />
+          <Tag
+            value="Modificada"
+            severity="warning"
+            style={{ fontSize: "0.6rem" }}
+          />
         )}
       </div>
     );
@@ -280,14 +331,15 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
       return <span className="text-gray-400">—</span>;
     const variance = local.countedQuantity - rowData.expectedQuantity;
     if (variance === 0) return <Badge value="0" severity="success" />;
-    if (variance > 0)   return <Badge value={`+${variance}`} severity="warning" />;
+    if (variance > 0)
+      return <Badge value={`+${variance}`} severity="warning" />;
     return <Badge value={`${variance}`} severity="danger" />;
   };
 
   // Progreso del conteo (solo IN_PROGRESS)
   const totalItems = cycleCount.items.length;
   const countedItems = Object.values(localItems).filter(
-    (s) => s.countedQuantity !== null && s.countedQuantity !== undefined
+    (s) => s.countedQuantity !== null && s.countedQuantity !== undefined,
   ).length;
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -300,15 +352,23 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
       <div className="grid">
         <div className="col-12 md:col-3">
           <span className="text-500 font-medium block mb-2"># Conteo</span>
-          <span className="text-900 text-xl font-bold">{cycleCount.cycleCountNumber}</span>
+          <span className="text-900 text-xl font-bold">
+            {cycleCount.cycleCountNumber}
+          </span>
         </div>
         <div className="col-12 md:col-3">
           <span className="text-500 font-medium block mb-2">Estado</span>
-          <Badge value={statusConfig.label} severity={statusConfig.severity} size="large" />
+          <Badge
+            value={statusConfig.label}
+            severity={statusConfig.severity}
+            size="large"
+          />
         </div>
         <div className="col-12 md:col-3">
           <span className="text-500 font-medium block mb-2">Almacén</span>
-          <span className="text-900 font-medium">{cycleCount.warehouse?.name || "—"}</span>
+          <span className="text-900 font-medium">
+            {cycleCount.warehouse?.name || "—"}
+          </span>
         </div>
 
         {/* Export */}
@@ -358,22 +418,36 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
               Progreso del conteo
             </span>
             <span className="text-sm font-bold">
-              <span className={countedItems === totalItems ? "text-green-600" : "text-blue-600"}>
+              <span
+                className={
+                  countedItems === totalItems
+                    ? "text-green-600"
+                    : "text-blue-600"
+                }
+              >
                 {countedItems}
               </span>
               <span className="text-500"> / {totalItems} ítems</span>
             </span>
           </div>
-          <div className="w-full bg-gray-200 border-round" style={{ height: "6px" }}>
+          <div
+            className="w-full bg-gray-200 border-round"
+            style={{ height: "6px" }}
+          >
             <div
-              className={`border-round transition-all ${countedItems === totalItems ? "bg-green-500" : "bg-blue-500"}`}
-              style={{ height: "6px", width: `${(countedItems / totalItems) * 100}%` }}
+              className={`border-round transition-all ${
+                countedItems === totalItems ? "bg-green-500" : "bg-blue-500"
+              }`}
+              style={{
+                height: "6px",
+                width: `${(countedItems / totalItems) * 100}%`,
+              }}
             />
           </div>
           <p className="text-xs text-500 mt-2 mb-0">
             <i className="pi pi-eye-slash mr-1" />
-            La cantidad del sistema está oculta para no sesgar el conteo. Se revelará al completar.
-            Los cambios se guardan automáticamente.
+            La cantidad del sistema está oculta para no sesgar el conteo. Se
+            revelará al completar. Los cambios se guardan automáticamente.
           </p>
         </div>
       )}
@@ -386,12 +460,20 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
               <i className="pi pi-check-square text-green-500 text-xl" />
               <div>
                 <span className="text-700 font-bold block">Completado por</span>
-                <span className="text-900">{cycleCount.completedBy || "—"}</span>
+                <span className="text-900">
+                  {cycleCount.completedBy || "—"}
+                </span>
                 <div className="text-sm text-500 mt-1">
-                  {new Date(cycleCount.completedAt).toLocaleDateString("es-ES", {
-                    year: "numeric", month: "long", day: "numeric",
-                    hour: "2-digit", minute: "2-digit",
-                  })}
+                  {new Date(cycleCount.completedAt).toLocaleDateString(
+                    "es-ES",
+                    {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    },
+                  )}
                 </div>
               </div>
             </div>
@@ -402,12 +484,20 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
                 <i className="pi pi-check-circle text-orange-500 text-xl" />
                 <div>
                   <span className="text-700 font-bold block">Aprobado por</span>
-                  <span className="text-900">{cycleCount.approvedBy || "—"}</span>
+                  <span className="text-900">
+                    {cycleCount.approvedBy || "—"}
+                  </span>
                   <div className="text-sm text-500 mt-1">
-                    {new Date(cycleCount.approvedAt).toLocaleDateString("es-ES", {
-                      year: "numeric", month: "long", day: "numeric",
-                      hour: "2-digit", minute: "2-digit",
-                    })}
+                    {new Date(cycleCount.approvedAt).toLocaleDateString(
+                      "es-ES",
+                      {
+                        year: "numeric",
+                        month: "long",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      },
+                    )}
                   </div>
                 </div>
               </div>
@@ -417,11 +507,15 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
       )}
 
       {cycleCount.status === CycleCountStatus.REJECTED && (
-        <Message severity="error" className="w-full" content={
-          <div className="flex flex-column gap-1">
-            <span className="font-semibold">Rechazado</span>
-          </div>
-        } />
+        <Message
+          severity="error"
+          className="w-full"
+          content={
+            <div className="flex flex-column gap-1">
+              <span className="font-semibold">Rechazado</span>
+            </div>
+          }
+        />
       )}
 
       <Divider className="my-0" />
@@ -451,8 +545,13 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
           showGridlines
           stripedRows
           scrollable
+          size="small"
         >
-          <Column header="Artículo" body={articleTemplate} style={{ minWidth: "180px" }} />
+          <Column
+            header="Artículo"
+            body={articleTemplate}
+            style={{ minWidth: "180px" }}
+          />
 
           {/* Ubicación: durante conteo mostramos la anterior + campo para la encontrada */}
           <Column
@@ -488,7 +587,12 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
 
           {/* Varianza solo visible cuando ya se tiene la cantidad contada */}
           {!isInProgress && (
-            <Column header="Varianza" body={varianceTemplate} align="center" style={{ width: "100px" }} />
+            <Column
+              header="Varianza"
+              body={varianceTemplate}
+              align="center"
+              style={{ width: "100px" }}
+            />
           )}
         </DataTable>
       </div>
@@ -498,7 +602,9 @@ export default function CycleCountDetail({ cycleCount }: CycleCountDetailProps) 
           <Divider />
           <div className="surface-50 p-3 border-round">
             <span className="text-700 font-bold block mb-2">Notas</span>
-            <p className="m-0 text-gray-700 line-height-3">{cycleCount.notes}</p>
+            <p className="m-0 text-gray-700 line-height-3">
+              {cycleCount.notes}
+            </p>
           </div>
         </>
       )}

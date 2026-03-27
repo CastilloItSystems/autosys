@@ -339,6 +339,45 @@ try {
 }
 ```
 
+### Header del Dialog (`header` prop)
+
+- El Dialog **no usa `header` como string simple**. Siempre se pasa un JSX con título, ícono y separador visual.
+- Usar `maximizable` y `breakpoints` responsivos en todos los dialogs de formulario.
+
+**Implementación correcta**:
+
+```tsx
+<Dialog
+  visible={showForm}
+  onHide={() => setFormDialog(false)}
+  modal
+  maximizable
+  style={{ width: "75vw" }}
+  breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+  header={
+    <div className="mb-2 text-center md:text-left">
+      <div className="border-bottom-2 border-primary pb-2">
+        <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+          <i className="pi pi-ICON mr-3 text-primary text-3xl"></i>
+          {selectedModel ? "Editar Modelo" : "Nuevo Modelo"}
+        </h2>
+      </div>
+    </div>
+  }
+  footer={<FormActionButtons ... />}
+>
+  <MyForm ... />
+</Dialog>
+```
+
+#### ✗ INCORRECTO: Header como string
+
+```tsx
+<Dialog header="Nuevo Modelo" style={{ width: "90vw", maxWidth: "850px" }}>
+```
+
+---
+
 ### Control del Submit Externo (`FormActionButtons`)
 
 - **Antes**: El formulario contenía sus propios botones de Guardar y Cancelar al final del form.

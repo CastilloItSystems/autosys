@@ -29,7 +29,7 @@ const MSG = INVENTORY_MESSAGES.stock
 
 // Include apenas relaciones; los campos escalares (incluyendo location) se incluyen automáticamente
 const STOCK_INCLUDE = {
-  item: true,
+  item: { include: { category: { select: { id: true, name: true } } } },
   warehouse: true,
 } as const
 

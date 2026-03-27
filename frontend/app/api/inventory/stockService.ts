@@ -15,6 +15,7 @@ export interface StockItemSummary {
   maxStock?: number | null;
   reorderPoint: number;
   isActive: boolean;
+  category?: { id: string; name: string } | null;
 }
 
 /** Resumen ligero de Warehouse cuando viene incluido en Stock */
