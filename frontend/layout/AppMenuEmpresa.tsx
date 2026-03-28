@@ -178,7 +178,7 @@ const AppMenuEmpresa = () => {
             },
             {
               label: "Movimientos",
-              icon: "pi pi-fw pi-exchange",
+              icon: "pi pi-fw pi-history",
               to: "/empresa/inventario/movimientos",
             },
             {
@@ -286,7 +286,7 @@ const AppMenuEmpresa = () => {
             },
             {
               label: "Movimientos",
-              icon: "pi pi-fw pi-exchange",
+              icon: "pi pi-fw pi-history",
               to: "/empresa/inventario/reportes/movimientos",
             },
             {

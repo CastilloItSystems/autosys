@@ -111,7 +111,7 @@ const AppMenuAutoSys = () => {
                 },
                 {
                   label: "movimientos",
-                  icon: "pi pi-fw pi-exchange",
+                  icon: "pi pi-fw pi-history",
                   to: "/autosys/inventario/movimientos",
                 },
               ],

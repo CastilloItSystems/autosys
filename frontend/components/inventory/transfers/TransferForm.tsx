@@ -5,13 +5,16 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 // PrimeReact components
+import { AutoComplete, AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
 import { InputTextarea } from "primereact/inputtextarea";
-import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Message } from "primereact/message";
+
+// Common inventory components
+import ItemsTable, { ColumnDef } from "@/components/inventory/common/ItemsTable";
 
 // API functions
 import transferService from "@/app/api/inventory/transferService";
@@ -36,6 +39,26 @@ interface TransferFormProps {
   toast: React.RefObject<any>;
 }
 
+// ── Column layout ──────────────────────────────────────────────────────────────
+
+const COLS: Record<string, React.CSSProperties> = {
+  handle:   { width: "1.75rem", flexShrink: 0 },
+  product:  { flex: "1 1 0", minWidth: "10rem" },
+  quantity: { width: "7rem", flexShrink: 0 },
+  unitCost: { width: "9rem", flexShrink: 0 },
+  remove:   { width: "1.75rem", flexShrink: 0 },
+};
+
+const TABLE_COLS: ColumnDef[] = [
+  { label: "",             style: COLS.handle },
+  { label: "Artículo",     style: COLS.product },
+  { label: "Cantidad",     style: COLS.quantity },
+  { label: "Costo Unit.",  style: COLS.unitCost },
+  { label: "",             style: COLS.remove },
+];
+
+// ── Component ─────────────────────────────────────────────────────────────────
+
 export default function TransferForm({
   transfer,
   warehouses,
@@ -47,6 +70,10 @@ export default function TransferForm({
   const [warehouseStocks, setWarehouseStocks] = useState<Stock[]>([]);
   const [loadingStocks, setLoadingStocks] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [suggestions, setSuggestions] = useState<any[]>([]);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => { setMounted(true); }, []);
 
   const {
     control,
@@ -65,19 +92,16 @@ export default function TransferForm({
     },
   });
 
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove, replace, move } = useFieldArray({
     control,
     name: "items",
   });
 
   const fromWarehouseId = watch("fromWarehouseId");
-  const formItems = watch("items");
 
   // Loading inicial para consistencia visual
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setIsLoading(false);
-    }, 300);
+    const timer = setTimeout(() => setIsLoading(false), 300);
     return () => clearTimeout(timer);
   }, []);
 
@@ -96,7 +120,7 @@ export default function TransferForm({
           (s) => s.quantityAvailable > 0,
         );
         setWarehouseStocks(stocks);
-      } catch (error) {
+      } catch {
         toast.current?.show({
           severity: "error",
           summary: "Error",
@@ -110,7 +134,6 @@ export default function TransferForm({
     };
 
     loadWarehouseStocks();
-    // Reset items when warehouse changes
     replace([{ itemId: "", quantity: 1, unitCost: 0 }]);
   }, [fromWarehouseId]);
 
@@ -137,15 +160,48 @@ export default function TransferForm({
     }
   }, [transfer, reset, isLoading]);
 
-  // Helper: get available quantity for a given item
-  const getAvailableQty = (itemId: string): number => {
-    const stock = warehouseStocks.find((s) => s.itemId === itemId);
-    return stock?.quantityAvailable ?? 0;
+  // ── Derived data ────────────────────────────────────────────────────────────
+
+  // Map stocks to a flat item catalog for AutoComplete
+  const stockItems = warehouseStocks.map((s) => ({
+    id: s.itemId,
+    sku: s.item?.sku || s.itemId,
+    name: s.item?.name || "",
+    quantityAvailable: s.quantityAvailable,
+    averageCost: s.averageCost,
+  }));
+
+  const stockItemsMap = Object.fromEntries(stockItems.map((i) => [i.id, i]));
+
+  const warehouseOptions = warehouses.map((w) => ({
+    label: w.name,
+    value: w.id,
+  }));
+
+  const filteredToWarehouseOptions = warehouses
+    .filter((w) => w.id !== fromWarehouseId)
+    .map((w) => ({ label: w.name, value: w.id }));
+
+  // ── Handlers ────────────────────────────────────────────────────────────────
+
+  const handleSearch = (event: AutoCompleteCompleteEvent) => {
+    const q = event.query.toLowerCase();
+    setSuggestions(
+      q
+        ? stockItems.filter(
+            (i) =>
+              i.sku.toLowerCase().includes(q) ||
+              i.name.toLowerCase().includes(q),
+          )
+        : stockItems,
+    );
   };
 
-  /**
-   * Maneja el envío del formulario
-   */
+  const resolveItem = (val: any): any => {
+    if (!val || typeof val !== "string") return val;
+    return stockItemsMap[val] ?? val;
+  };
+
   const onSubmit = async (data: CreateTransferInput) => {
     try {
       if (isEditing) {
@@ -166,24 +222,7 @@ export default function TransferForm({
     }
   };
 
-  // Build item options from warehouse stocks — show SKU, name, and available qty
-  const itemOptions = warehouseStocks.map((stock) => ({
-    label: stock.item
-      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${
-          stock.quantityAvailable
-        })`
-      : stock.itemId,
-    value: stock.itemId,
-  }));
-
-  const warehouseOptions = warehouses.map((w) => ({
-    label: w.name,
-    value: w.id,
-  }));
-
-  const filteredToWarehouseOptions = warehouses
-    .filter((w) => w.id !== fromWarehouseId)
-    .map((w) => ({ label: w.name, value: w.id }));
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
@@ -291,25 +330,7 @@ export default function TransferForm({
             </div>
           </div>
 
-          <Divider />
-
-          {/* Artículos */}
-          <div className="mb-3 flex align-items-center justify-content-between">
-            <label className="block text-900 font-medium">
-              Artículos <span className="text-red-500">*</span>
-            </label>
-            {!isEditing && (
-              <Button
-                type="button"
-                label="Agregar Artículo"
-                icon="pi pi-plus"
-                size="small"
-                outlined
-                disabled={!fromWarehouseId || warehouseStocks.length === 0}
-                onClick={() => append({ itemId: "", quantity: 1, unitCost: 0 })}
-              />
-            )}
-          </div>
+          {/* ── Items section ─────────────────────────────────────────────── */}
 
           {!fromWarehouseId && !isEditing && (
             <Message
@@ -340,132 +361,222 @@ export default function TransferForm({
             </div>
           )}
 
-          {fields.map((field, index) => {
-            const selectedItemId = formItems?.[index]?.itemId;
-            const maxQty = selectedItemId
-              ? getAvailableQty(selectedItemId)
-              : undefined;
+          <div
+            className="grid"
+            style={
+              isEditing ? { pointerEvents: "none", opacity: 0.7 } : undefined
+            }
+          >
+            <ItemsTable
+              fields={fields}
+              append={append}
+              remove={remove}
+              move={move}
+              defaultItem={{ itemId: "", quantity: 1, unitCost: 0 }}
+              columns={TABLE_COLS}
+              title="Artículos"
+              disabled={
+                isEditing ||
+                !fromWarehouseId ||
+                warehouseStocks.length === 0
+              }
+              minWidth={520}
+              renderRow={({ field, index, dragHandleProps, isDragging }) => (
+                <div
+                  key={field.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderBottom: "1px solid var(--surface-200)",
+                    backgroundColor: isDragging
+                      ? "var(--highlight-bg, #eff6ff)"
+                      : undefined,
+                    opacity: isDragging ? 0.75 : 1,
+                    transition: "background 0.12s",
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") e.preventDefault();
+                  }}
+                >
+                  {/* Drag handle */}
+                  <div
+                    style={{
+                      ...COLS.handle,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      cursor: "grab",
+                    }}
+                    {...(dragHandleProps as React.HTMLAttributes<HTMLDivElement>)}
+                  >
+                    <i
+                      className="pi pi-bars"
+                      style={{
+                        color: "var(--text-color-secondary)",
+                        fontSize: "0.7rem",
+                      }}
+                    />
+                  </div>
 
-            return (
-              <div
-                key={field.id}
-                className="surface-ground border-round p-3 mb-3"
-              >
-                <div className="grid">
-                  <div className="col-12 md:col-5">
-                    <label className="block text-900 font-medium mb-2">
-                      Artículo
-                    </label>
+                  {/* Artículo — AutoComplete */}
+                  <div style={COLS.product}>
                     <Controller
                       name={`items.${index}.itemId`}
                       control={control}
                       render={({ field: f }) => (
-                        <Dropdown
-                          {...f}
-                          onChange={(e) => {
-                            f.onChange(e.value);
-                            // Auto-fill unitCost from stock average cost
-                            const stock = warehouseStocks.find(
-                              (s) => s.itemId === e.value,
-                            );
-                            if (stock) {
-                              setValue(
-                                `items.${index}.unitCost`,
-                                Number(stock.averageCost) || 0,
-                              );
-                            }
+                        <AutoComplete
+                          value={resolveItem(f.value)}
+                          suggestions={suggestions}
+                          completeMethod={handleSearch}
+                          field="sku"
+                          selectedItemTemplate={(item: any) => {
+                            if (!item) return "";
+                            if (typeof item === "string") return item;
+                            return item.name
+                              ? `${item.sku} — ${item.name}`
+                              : (item.sku || "");
                           }}
-                          options={itemOptions}
-                          optionLabel="label"
-                          optionValue="value"
-                          placeholder="Seleccione artículo"
-                          filter
-                          className={
-                            errors.items?.[index]?.itemId ? "p-invalid" : ""
-                          }
-                          disabled={isEditing || !fromWarehouseId}
+                          placeholder="SKU o Nombre..."
+                          className={`w-full ${errors.items?.[index]?.itemId ? "p-invalid" : ""}`}
+                          inputClassName="w-full text-xs"
+                          inputStyle={{
+                            padding: "0.2rem 0.5rem",
+                            height: "30px",
+                            fontSize: "0.8rem",
+                            width: "100%",
+                          }}
+                          style={{ height: "30px", width: "100%" }}
+                          itemTemplate={(item: any) => {
+                            const avail = item.quantityAvailable ?? 0;
+                            return (
+                              <div className="flex justify-content-between align-items-center w-full gap-2">
+                                <div className="flex flex-column overflow-hidden">
+                                  <span
+                                    className="white-space-nowrap overflow-hidden text-overflow-ellipsis"
+                                    style={{ fontSize: "0.85rem" }}
+                                  >
+                                    {item.sku} — {item.name}
+                                  </span>
+                                </div>
+                                <span
+                                  className={`text-xs px-2 py-1 border-round flex-shrink-0 ${avail > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                                >
+                                  {avail}
+                                </span>
+                              </div>
+                            );
+                          }}
+                          onSelect={(e) => {
+                            const item = e.value;
+                            f.onChange(item.id);
+                            setValue(
+                              `items.${index}.unitCost`,
+                              Number(item.averageCost) || 0,
+                            );
+                          }}
+                          onChange={(e) => {
+                            if (typeof e.value === "string") f.onChange(e.value);
+                          }}
+                          appendTo={mounted ? document.body : "self"}
+                          forceSelection={false}
+                          showEmptyMessage
                         />
                       )}
                     />
                     {errors.items?.[index]?.itemId && (
-                      <small className="p-error block mt-1">
+                      <small
+                        className="p-error"
+                        style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+                      >
                         {errors.items[index]?.itemId?.message}
                       </small>
                     )}
                   </div>
 
-                  <div className="col-12 md:col-3">
-                    <label className="block text-900 font-medium mb-2">
-                      Cantidad{" "}
-                      {maxQty !== undefined && (
-                        <span className="text-500 font-normal text-sm">
-                          (máx: {maxQty})
-                        </span>
-                      )}
-                    </label>
+                  {/* Cantidad */}
+                  <div style={COLS.quantity}>
                     <Controller
                       name={`items.${index}.quantity`}
                       control={control}
                       render={({ field: f }) => (
                         <InputNumber
-                          id={`items.${index}.quantity`}
                           value={f.value}
                           onValueChange={(e) => f.onChange(e.value ?? 1)}
                           min={1}
-                          max={maxQty}
-                          className={
-                            errors.items?.[index]?.quantity ? "p-invalid" : ""
-                          }
-                          disabled={isEditing}
+                          className="w-full"
+                          inputClassName={`w-full text-center ${errors.items?.[index]?.quantity ? "p-invalid" : ""}`}
+                          inputStyle={{
+                            padding: "0.25rem 0.4rem",
+                            height: "30px",
+                            fontSize: "0.8rem",
+                          }}
+                          style={{ height: "30px" }}
                         />
                       )}
                     />
                     {errors.items?.[index]?.quantity && (
-                      <small className="p-error block mt-1">
+                      <small
+                        className="p-error"
+                        style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+                      >
                         {errors.items[index]?.quantity?.message}
                       </small>
                     )}
                   </div>
 
-                  <div className="col-12 md:col-3">
-                    <label className="block text-900 font-medium mb-2">
-                      Costo Unit.
-                    </label>
+                  {/* Costo Unitario */}
+                  <div style={COLS.unitCost}>
                     <Controller
                       name={`items.${index}.unitCost`}
                       control={control}
                       render={({ field: f }) => (
                         <InputNumber
-                          id={`items.${index}.unitCost`}
                           value={f.value}
-                          onValueChange={(e) => f.onChange(e.value ?? 0)}
+                          readOnly
                           minFractionDigits={2}
                           maxFractionDigits={2}
                           mode="currency"
                           currency="USD"
-                          disabled={isEditing}
+                          locale="es-VE"
+                          className="w-full"
+                          inputClassName="w-full text-right surface-100"
+                          inputStyle={{
+                            padding: "0.25rem 0.4rem",
+                            height: "30px",
+                            fontSize: "0.8rem",
+                          }}
+                          style={{ height: "30px" }}
                         />
                       )}
                     />
                   </div>
 
-                  <div className="col-12 md:col-1 flex align-items-end justify-content-center">
-                    {!isEditing && fields.length > 1 && (
-                      <Button
-                        type="button"
-                        icon="pi pi-trash"
-                        severity="danger"
-                        rounded
-                        text
-                        onClick={() => remove(index)}
-                        tooltip="Eliminar artículo"
-                      />
-                    )}
+                  {/* Remove */}
+                  <div
+                    style={{
+                      ...COLS.remove,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
+                  >
+                    <Button
+                      type="button"
+                      icon="pi pi-times"
+                      className="p-button-rounded p-button-danger p-button-text"
+                      style={{ width: "1.5rem", height: "1.5rem" }}
+                      onClick={() => remove(index)}
+                      disabled={fields.length <= 1}
+                      tooltip="Eliminar fila"
+                      tooltipOptions={{ position: "top" }}
+                    />
                   </div>
                 </div>
-              </div>
-            );
-          })}
+              )}
+            />
+          </div>
 
           {errors.items && typeof errors.items.message === "string" && (
             <small className="p-error block mt-1">{errors.items.message}</small>

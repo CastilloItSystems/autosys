@@ -540,7 +540,7 @@ const OperationsDashboard = () => {
               </div>
             </TabPanel>
 
-            <TabPanel header="Movimientos" leftIcon="pi pi-exchange">
+            <TabPanel header="Movimientos" leftIcon="pi pi-history">
               <Card className="shadow-2 border-round-lg">
                 <h3 className="text-lg font-bold mb-3 text-900">🔄 Movimientos de Inventario</h3>
                 <DataTable
@@ -709,7 +709,7 @@ const OperationsDashboard = () => {
               </Card>
             </TabPanel>
 
-            <TabPanel header="Movimientos" leftIcon="pi pi-exchange">
+            <TabPanel header="Movimientos" leftIcon="pi pi-history">
               <Card className="shadow-2 border-round-lg">
                 <h3 className="text-lg font-bold mb-3 text-900">🔄 Movimientos de Inventario</h3>
                 <DataTable
