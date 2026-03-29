@@ -48,7 +48,7 @@ const AppMenuEmpresa = () => {
         {
           label: "Clientes",
           icon: "pi pi-fw pi-users",
-          to: "/empresa/inventario/clientes",
+          to: "/empresa/crm/clientes",
         },
         {
           label: "Órdenes de Venta",
@@ -327,33 +327,42 @@ const AppMenuEmpresa = () => {
     // ── CRM ──
     {
       label: "CRM",
-      icon: "pi pi-fw pi-users",
+      icon: "pi pi-fw pi-chart-line",
       items: [
+        {
+          label: "Dashboard",
+          icon: "pi pi-fw pi-home",
+          to: "/empresa/crm",
+        },
         {
           label: "Clientes",
           icon: "pi pi-fw pi-users",
-          to: "/autosys/crm/clientes",
+          to: "/empresa/crm/clientes",
         },
         {
-          label: "Vehículos",
-          icon: "pi pi-fw pi-car",
-          to: "/autosys/crm/vehiculos/",
+          label: "Leads / Oportunidades",
+          icon: "pi pi-fw pi-chart-line",
+          to: "/empresa/crm/leads",
         },
         {
-          label: "Config. Vehículos",
-          icon: "pi pi-fw pi-cog",
-          items: [
-            {
-              label: "Marcas de Vehículos",
-              icon: "pi pi-fw pi-tag",
-              to: "/empresa/crm/vehiculos/marcas",
-            },
-            {
-              label: "Modelos de Vehículos",
-              icon: "pi pi-fw pi-list",
-              to: "/empresa/crm/vehiculos/modelos",
-            },
-          ],
+          label: "Cotizaciones",
+          icon: "pi pi-fw pi-file-text",
+          to: "/empresa/crm/cotizaciones",
+        },
+        {
+          label: "Casos / Reclamos",
+          icon: "pi pi-fw pi-exclamation-circle",
+          to: "/empresa/crm/casos",
+        },
+        {
+          label: "Actividades",
+          icon: "pi pi-fw pi-check-square",
+          to: "/empresa/crm/actividades",
+        },
+        {
+          label: "Interacciones",
+          icon: "pi pi-fw pi-comments",
+          to: "/empresa/crm/interacciones",
         },
       ],
     },

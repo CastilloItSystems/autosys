@@ -97,6 +97,44 @@ const ALL_REPORTS = [
   'reports.approve',
 ] as const
 
+const ALL_CRM = [
+  'crm.customers.view',
+  'crm.customers.create',
+  'crm.customers.update',
+  'crm.customers.delete',
+  'crm.vehicles.view',
+  'crm.vehicles.create',
+  'crm.vehicles.update',
+  'crm.vehicles.delete',
+  'crm.leads.view',
+  'crm.leads.create',
+  'crm.leads.update',
+  'crm.leads.delete',
+  'crm.interactions.view',
+  'crm.interactions.create',
+  'crm.interactions.update',
+  'crm.interactions.delete',
+  'crm.activities.view',
+  'crm.activities.create',
+  'crm.activities.update',
+  'crm.activities.delete',
+] as const
+
+const VIEW_CRM = [
+  'crm.customers.view',
+  'crm.vehicles.view',
+  'crm.leads.view',
+  'crm.interactions.view',
+  'crm.activities.view',
+] as const
+
+const ALL_WORKSHOP = [
+  'workshop.view',
+  'workshop.create',
+  'workshop.update',
+  'workshop.delete',
+] as const
+
 const ROLE_DEFINITIONS = {
   OWNER: [
     ...ALL_USERS,
@@ -113,6 +151,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   ADMIN: [
     'users.view',
@@ -132,6 +172,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   GERENTE: [
     'users.view',
@@ -151,6 +193,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   ALMACENISTA: [
     'inventory.view',
@@ -173,6 +217,9 @@ const ROLE_DEFINITIONS = {
     'transfers.view',
     'transfers.create',
     'transfers.update',
+    'workshop.view',
+    'workshop.create',
+    'workshop.update',
   ],
   VENDEDOR: [
     'inventory.view',
@@ -185,6 +232,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     'reports.view',
+    ...ALL_CRM,
+    'workshop.view',
   ],
   VIEWER: [
     'users.view',
@@ -201,6 +250,8 @@ const ROLE_DEFINITIONS = {
     'quotes.view',
     'payments.view',
     'reports.view',
+    ...VIEW_CRM,
+    'workshop.view',
   ],
 } as const
 

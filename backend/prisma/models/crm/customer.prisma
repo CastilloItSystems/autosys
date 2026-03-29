@@ -1,0 +1,104 @@
+// backend/prisma/models/crm/customer.prisma
+// El Customer es una entidad CORE del CRM.
+// Todos los módulos (sales, taller, vehiculos) referencian este modelo.
+
+enum CustomerType {
+  INDIVIDUAL  // Persona natural
+  COMPANY     // Empresa
+}
+
+enum CustomerSegment {
+  PROSPECT    // Prospecto (aún no ha comprado)
+  REGULAR     // Cliente regular
+  VIP         // Cliente VIP / alto valor
+  WHOLESALE   // Mayorista
+  INACTIVE    // Inactivo
+}
+
+enum CustomerChannel {
+  REPUESTOS
+  TALLER
+  VEHICULOS
+  ALL         // Usa todos los canales
+}
+
+model Customer {
+  id                String          @id @default(uuid())
+  code              String
+  taxId             String?         // RIF/Cédula
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?
+  website           String?
+  contactPerson     String?
+
+  // Direcciones
+  address           String?         @db.Text
+  shippingAddress   String?         @db.Text
+  billingAddress    String?         @db.Text
+
+  // Fiscal / Configuración
+  type              CustomerType    @default(INDIVIDUAL)
+  isSpecialTaxpayer Boolean         @default(false)
+  priceList         Int             @default(1)
+
+  // Condiciones de crédito
+  creditLimit       Float           @default(0)
+  creditDays        Int             @default(0)
+  defaultDiscount   Float           @default(0)
+
+  // CRM
+  segment           CustomerSegment @default(PROSPECT)
+  preferredChannel  CustomerChannel @default(ALL)
+  assignedSellerId  String?         // userId del vendedor/asesor asignado
+  customerSince     DateTime?       // Fecha en que se convirtió en cliente
+  referredById      String?         // FK a otro Customer que lo refirió
+  referredBy        Customer?       @relation("CustomerReferrals", fields: [referredById], references: [id])
+  referrals         Customer[]      @relation("CustomerReferrals")
+
+  notes             String?         @db.Text
+  metadata          Json?
+
+  isActive          Boolean         @default(true)
+
+  // Multi-tenancy
+  empresaId         String
+  empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones sales (existentes)
+  orders            Order[]
+  preInvoices       PreInvoice[]
+  payments          Payment[]
+  invoices          Invoice[]
+
+  // Relaciones CRM (nuevas)
+  contacts          CustomerContact[]
+  vehicles          CustomerVehicle[]
+  leads             Lead[]
+  interactions      Interaction[]
+  activities        Activity[]
+
+  // Relaciones Taller
+  serviceOrders     ServiceOrder[]
+
+  // Relaciones CRM: Cotizaciones
+  quotes            Quote[]
+
+  // Relaciones CRM: Casos / Reclamos
+  cases             Case[]
+
+  // Auditoría
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
+  @@map("customers")
+  @@index([code])
+  @@index([taxId])
+  @@index([isActive])
+  @@index([segment])
+  @@index([assignedSellerId])
+  @@index([empresaId])
+}

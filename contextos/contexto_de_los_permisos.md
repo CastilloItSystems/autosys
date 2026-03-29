@@ -105,10 +105,49 @@ cd backend && npx tsx src/index.ts
 
 ---
 
-Si quieres, puedo:
+## Actualización — Módulo CRM (2026-03-28)
 
-- Añadir una checklist de cambios pendientes dentro del mismo archivo.
-- Crear scripts pequeños para buscar referencias a permisos antiguos.
-- Añadir un resumen en inglés también.
+### Cambios realizados
 
-Dime cómo prefieres que lo amplíe.
+**Módulo CRM agregado:** 20 permisos nuevos en 5 grupos — `crm.customers`, `crm.vehicles`, `crm.leads`, `crm.interactions`, `crm.activities`. Cada grupo tiene `.view`, `.create`, `.update`, `.delete`.
+
+**Los 4 archivos de permisos del backend** se actualizaron en sincronía con los mismos arrays `ALL_CRM` / `VIEW_CRM`:
+
+| Archivo | Cambio |
+|---|---|
+| `backend/src/services/empresa-setup.service.ts` | Fuente de verdad — `PERMISSION_CATALOG` + roles actualizados |
+| `backend/prisma/seeds/permissions.seed.ts` | 20 permisos CRM agregados |
+| `backend/prisma/seeds/companyRoles.seed.ts` | `ALL_CRM`/`VIEW_CRM` spreads en roles |
+| `backend/prisma/seeds/roles.seed.ts` | Mismo patrón (sincronía) |
+
+**Distribución de permisos CRM por rol:**
+- `OWNER`, `ADMIN`, `GERENTE`, `VENDEDOR` → `...ALL_CRM` (todos los 20)
+- `VIEWER` → `...VIEW_CRM` (solo los 5 `.view`)
+- `ALMACENISTA` → ninguno
+
+**Auto-sync en arranque del servidor** (`backend/src/index.ts`):
+```typescript
+await ensurePermissionCatalog()
+const empresas = await prisma.empresa.findMany({ where: { eliminado: false }, select: { id_empresa: true } })
+for (const empresa of empresas) {
+  await seedDefaultRolesForEmpresa(empresa.id_empresa)
+}
+```
+Esto hace que cada vez que se levanta el backend, los nuevos permisos se propaguen automáticamente a todas las empresas activas sin intervención manual.
+
+**Frontend — catálogo de permisos unificado:**
+
+Se creó `frontend/lib/permissions.ts` con `PERMISSION_GROUPS`, `PERMISSION_LABELS` y `ALL_PERMISSIONS` como única fuente de verdad del catálogo en el frontend.
+
+Los siguientes componentes ahora importan desde ese archivo (ya no tienen definiciones locales):
+- `frontend/components/empresas/EmpresaRoles.tsx`
+- `frontend/components/usuarioComponents/MembershipPermissions.tsx`
+
+**Regla de oro:** cuando agregues un nuevo módulo al sistema, toca estos archivos en orden:
+1. `empresa-setup.service.ts` → `PERMISSION_CATALOG` + `DEFAULT_ROLE_PERMISSIONS`
+2. `permissions.seed.ts` → array `PERMISSIONS`
+3. `companyRoles.seed.ts` → arrays de permisos por rol
+4. `roles.seed.ts` → mismo patrón
+5. `frontend/lib/permissions.ts` → `PERMISSION_GROUPS` + `PERMISSION_LABELS`
+
+Los puntos 1-4 son idempotentes (upsert), por lo que un simple reinicio del servidor propagará los cambios a todas las empresas existentes.

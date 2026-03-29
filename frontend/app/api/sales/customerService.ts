@@ -44,24 +44,24 @@ interface CustomerParams {
 
 const customerService = {
   async getAll(params?: CustomerParams): Promise<PaginatedResponse<Customer>> {
-    const res = await apiClient.get("/sales/customers", { params });
+    const res = await apiClient.get("/crm/customers", { params });
     return res.data;
   },
 
   async getActive(): Promise<PaginatedResponse<Customer>> {
-    const res = await apiClient.get("/sales/customers", {
+    const res = await apiClient.get("/crm/customers", {
       params: { isActive: true, limit: 500 },
     });
     return res.data;
   },
 
   async getById(id: string): Promise<ApiResponse<Customer>> {
-    const res = await apiClient.get(`/sales/customers/${id}`);
+    const res = await apiClient.get(`/crm/customers/${id}`);
     return res.data;
   },
 
   async create(data: Partial<Customer>): Promise<ApiResponse<Customer>> {
-    const res = await apiClient.post("/sales/customers", data);
+    const res = await apiClient.post("/crm/customers", data);
     return res.data;
   },
 
@@ -69,12 +69,12 @@ const customerService = {
     id: string,
     data: Partial<Customer>,
   ): Promise<ApiResponse<Customer>> {
-    const res = await apiClient.put(`/sales/customers/${id}`, data);
+    const res = await apiClient.put(`/crm/customers/${id}`, data);
     return res.data;
   },
 
   async delete(id: string): Promise<ApiResponse<Customer>> {
-    const res = await apiClient.delete(`/sales/customers/${id}`);
+    const res = await apiClient.delete(`/crm/customers/${id}`);
     return res.data;
   },
 };

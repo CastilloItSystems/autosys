@@ -98,6 +98,42 @@ export const PERMISSIONS = [
   { code: 'reports.view', description: 'Ver reportes' },
   { code: 'reports.export', description: 'Exportar reportes' },
   { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
+
+  // CRM: Clientes
+  { code: 'crm.customers.view', description: 'Ver clientes CRM' },
+  { code: 'crm.customers.create', description: 'Crear clientes CRM' },
+  { code: 'crm.customers.update', description: 'Actualizar clientes CRM' },
+  { code: 'crm.customers.delete', description: 'Eliminar clientes CRM' },
+
+  // CRM: Vehículos del cliente
+  { code: 'crm.vehicles.view', description: 'Ver vehículos de clientes' },
+  { code: 'crm.vehicles.create', description: 'Registrar vehículos de clientes' },
+  { code: 'crm.vehicles.update', description: 'Actualizar vehículos de clientes' },
+  { code: 'crm.vehicles.delete', description: 'Eliminar vehículos de clientes' },
+
+  // CRM: Leads / Oportunidades
+  { code: 'crm.leads.view', description: 'Ver leads y oportunidades' },
+  { code: 'crm.leads.create', description: 'Crear leads y oportunidades' },
+  { code: 'crm.leads.update', description: 'Actualizar leads y oportunidades' },
+  { code: 'crm.leads.delete', description: 'Eliminar leads y oportunidades' },
+
+  // CRM: Interacciones
+  { code: 'crm.interactions.view', description: 'Ver interacciones con clientes' },
+  { code: 'crm.interactions.create', description: 'Registrar interacciones con clientes' },
+  { code: 'crm.interactions.update', description: 'Actualizar interacciones con clientes' },
+  { code: 'crm.interactions.delete', description: 'Eliminar interacciones con clientes' },
+
+  // CRM: Actividades / Seguimientos
+  { code: 'crm.activities.view', description: 'Ver actividades CRM' },
+  { code: 'crm.activities.create', description: 'Crear actividades CRM' },
+  { code: 'crm.activities.update', description: 'Actualizar actividades CRM' },
+  { code: 'crm.activities.delete', description: 'Eliminar actividades CRM' },
+
+  // Taller
+  { code: 'workshop.view', description: 'Ver órdenes de taller' },
+  { code: 'workshop.create', description: 'Crear órdenes de taller' },
+  { code: 'workshop.update', description: 'Actualizar órdenes de taller' },
+  { code: 'workshop.delete', description: 'Eliminar órdenes de taller' },
 ]
 
 export default async function seedPermissions(prisma: PrismaClient) {

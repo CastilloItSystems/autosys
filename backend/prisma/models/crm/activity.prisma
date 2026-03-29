@@ -1,0 +1,62 @@
+// backend/prisma/models/crm/activity.prisma
+// Tareas de seguimiento pendientes para el equipo de ventas/asesores.
+// Permite que cada asesor tenga su agenda de acciones a tomar.
+
+enum ActivityType {
+  CALL      // Llamar al cliente
+  EMAIL     // Enviar correo
+  WHATSAPP  // Enviar WhatsApp
+  MEETING   // Agendar reunión / visita
+  QUOTE     // Preparar cotización
+  TASK      // Tarea general
+}
+
+enum ActivityStatus {
+  PENDING     // Pendiente
+  IN_PROGRESS // En proceso
+  DONE        // Completada
+  CANCELLED   // Cancelada
+}
+
+model Activity {
+  id          String         @id @default(uuid())
+
+  empresaId   String
+  empresa     Empresa        @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Contexto opcional (puede estar ligada a un lead)
+  leadId      String?
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  type        ActivityType
+  status      ActivityStatus @default(PENDING)
+
+  // Contenido
+  title       String
+  description String?        @db.Text
+
+  // Asignación y tiempos
+  assignedTo  String         // userId del responsable
+  dueAt       DateTime       // Fecha límite
+  completedAt DateTime?      // Cuándo se completó
+  completedBy String?        // userId de quien completó
+
+  // Resultado al completar
+  outcome     String?        @db.Text
+
+  createdBy   String         // userId
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("crm_activities")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueAt])
+}

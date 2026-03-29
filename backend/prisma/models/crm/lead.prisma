@@ -1,0 +1,85 @@
+// backend/prisma/models/crm/lead.prisma
+// Pipeline de oportunidades unificado para los 3 canales del negocio.
+// Cuando el lead se convierte, se llena la FK del módulo correspondiente.
+
+enum LeadSource {
+  WALK_IN       // Visita espontánea
+  REFERRAL      // Referido por otro cliente
+  PHONE         // Llamada entrante
+  WHATSAPP      // WhatsApp
+  SOCIAL_MEDIA  // Redes sociales
+  WEBSITE       // Página web
+  EMAIL         // Correo
+  OTHER
+}
+
+enum LeadStatus {
+  NEW           // Nuevo / Sin contactar
+  CONTACTED     // Contactado
+  QUALIFIED     // Calificado (tiene intención real de compra)
+  PROPOSAL      // Propuesta / Cotización enviada
+  NEGOTIATION   // En negociación
+  WON           // Ganado / Convertido
+  LOST          // Perdido
+}
+
+enum LeadChannel {
+  REPUESTOS   // Venta de repuestos y accesorios
+  TALLER      // Servicio de taller / reparación
+  VEHICULOS   // Venta de vehículos
+}
+
+model Lead {
+  id              String      @id @default(uuid())
+
+  empresaId       String
+  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // El cliente puede no existir aún (prospecto sin ficha)
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  channel         LeadChannel
+  source          LeadSource  @default(WALK_IN)
+  status          LeadStatus  @default(NEW)
+
+  // Descripción de la oportunidad
+  title           String      // Ej: "Compra Hilux 2024", "Reparación caja de cambios", "Repuestos Ford F150"
+  description     String?     @db.Text
+
+  // Valor estimado
+  estimatedValue  Decimal?    @db.Decimal(12, 2)
+  currency        String      @default("USD")
+
+  // Asignación
+  assignedTo      String?     // userId del vendedor/asesor responsable
+
+  // Fechas
+  expectedCloseAt DateTime?   // Fecha estimada de cierre
+  closedAt        DateTime?   // Fecha real de cierre (WON o LOST)
+  lostReason      String?     @db.Text
+
+  // FK al documento generado cuando se convierte el lead
+  // Solo uno de estos se llenará según el canal
+  orderId         String?     @unique  // → sales.Order       (REPUESTOS)
+  // serviceOrderId se agregará cuando exista el módulo taller
+  // vehicleSaleId  se agregará cuando exista el módulo vehiculos
+
+  // Relaciones CRM
+  interactions    Interaction[]
+  activities      Activity[]
+  quotes          Quote[]
+  cases           Case[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("crm_leads")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([channel])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([expectedCloseAt])
+}

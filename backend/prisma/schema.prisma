@@ -50,6 +50,638 @@ model CompanyRole {
   @@map("company_roles")
 }
 
+// backend/prisma/models/crm/activity.prisma
+// Tareas de seguimiento pendientes para el equipo de ventas/asesores.
+// Permite que cada asesor tenga su agenda de acciones a tomar.
+
+enum ActivityType {
+  CALL      // Llamar al cliente
+  EMAIL     // Enviar correo
+  WHATSAPP  // Enviar WhatsApp
+  MEETING   // Agendar reunión / visita
+  QUOTE     // Preparar cotización
+  TASK      // Tarea general
+}
+
+enum ActivityStatus {
+  PENDING     // Pendiente
+  IN_PROGRESS // En proceso
+  DONE        // Completada
+  CANCELLED   // Cancelada
+}
+
+model Activity {
+  id          String         @id @default(uuid())
+
+  empresaId   String
+  empresa     Empresa        @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Contexto opcional (puede estar ligada a un lead)
+  leadId      String?
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  type        ActivityType
+  status      ActivityStatus @default(PENDING)
+
+  // Contenido
+  title       String
+  description String?        @db.Text
+
+  // Asignación y tiempos
+  assignedTo  String         // userId del responsable
+  dueAt       DateTime       // Fecha límite
+  completedAt DateTime?      // Cuándo se completó
+  completedBy String?        // userId de quien completó
+
+  // Resultado al completar
+  outcome     String?        @db.Text
+
+  createdBy   String         // userId
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("crm_activities")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueAt])
+}
+
+
+// backend/prisma/models/crm/case.prisma
+// Módulo de Casos / Reclamos / PQRS del CRM.
+
+enum CaseType {
+  SALE_COMPLAINT       // Reclamo de venta
+  WORKSHOP_COMPLAINT   // Reclamo de taller
+  PARTS_COMPLAINT      // Reclamo de repuesto
+  WARRANTY             // Solicitud de garantía
+  GENERAL_INQUIRY      // Consulta general
+  SUGGESTION           // Sugerencia
+  INCIDENT             // Incidente
+  SERVICE_COMPLAINT    // Queja por atención
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  OPEN            // Abierto
+  IN_ANALYSIS     // En análisis
+  IN_PROGRESS     // En proceso
+  WAITING_CLIENT  // Esperando respuesta del cliente
+  ESCALATED       // Escalado
+  RESOLVED        // Resuelto
+  CLOSED          // Cerrado
+  REJECTED        // Rechazado
+}
+
+model Case {
+  id            String        @id @default(cuid())
+  caseNumber    String        // CASE-0001 auto-generated per empresa
+
+  type          CaseType
+  priority      CasePriority  @default(MEDIUM)
+  status        CaseStatus    @default(OPEN)
+
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Optional links to related documents
+  customerVehicleId  String?
+  customerVehicle    CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  leadId        String?
+  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Optional reference to external document (invoice number, SO folio, order number, etc.)
+  refDocType    String?       // 'invoice' | 'service_order' | 'order' | 'other'
+  refDocId      String?
+  refDocNumber  String?
+
+  title         String
+  description   String        @db.Text
+
+  // Resolution
+  resolution    String?       @db.Text
+  rootCause     String?
+
+  // SLA
+  slaDeadline   DateTime?     // Calculated from priority on creation
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+
+  assignedTo    String?       // userId
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  comments      CaseComment[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([empresaId, caseNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([priority])
+  @@map("crm_cases")
+}
+
+model CaseComment {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  comment   String   @db.Text
+  isInternal Boolean @default(false)  // true = internal note, not visible to customer
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@map("crm_case_comments")
+}
+
+
+// backend/prisma/models/crm/customer.prisma
+// El Customer es una entidad CORE del CRM.
+// Todos los módulos (sales, taller, vehiculos) referencian este modelo.
+
+enum CustomerType {
+  INDIVIDUAL  // Persona natural
+  COMPANY     // Empresa
+}
+
+enum CustomerSegment {
+  PROSPECT    // Prospecto (aún no ha comprado)
+  REGULAR     // Cliente regular
+  VIP         // Cliente VIP / alto valor
+  WHOLESALE   // Mayorista
+  INACTIVE    // Inactivo
+}
+
+enum CustomerChannel {
+  REPUESTOS
+  TALLER
+  VEHICULOS
+  ALL         // Usa todos los canales
+}
+
+model Customer {
+  id                String          @id @default(uuid())
+  code              String
+  taxId             String?         // RIF/Cédula
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?
+  website           String?
+  contactPerson     String?
+
+  // Direcciones
+  address           String?         @db.Text
+  shippingAddress   String?         @db.Text
+  billingAddress    String?         @db.Text
+
+  // Fiscal / Configuración
+  type              CustomerType    @default(INDIVIDUAL)
+  isSpecialTaxpayer Boolean         @default(false)
+  priceList         Int             @default(1)
+
+  // Condiciones de crédito
+  creditLimit       Float           @default(0)
+  creditDays        Int             @default(0)
+  defaultDiscount   Float           @default(0)
+
+  // CRM
+  segment           CustomerSegment @default(PROSPECT)
+  preferredChannel  CustomerChannel @default(ALL)
+  assignedSellerId  String?         // userId del vendedor/asesor asignado
+  customerSince     DateTime?       // Fecha en que se convirtió en cliente
+  referredById      String?         // FK a otro Customer que lo refirió
+  referredBy        Customer?       @relation("CustomerReferrals", fields: [referredById], references: [id])
+  referrals         Customer[]      @relation("CustomerReferrals")
+
+  notes             String?         @db.Text
+  metadata          Json?
+
+  isActive          Boolean         @default(true)
+
+  // Multi-tenancy
+  empresaId         String
+  empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones sales (existentes)
+  orders            Order[]
+  preInvoices       PreInvoice[]
+  payments          Payment[]
+  invoices          Invoice[]
+
+  // Relaciones CRM (nuevas)
+  contacts          CustomerContact[]
+  vehicles          CustomerVehicle[]
+  leads             Lead[]
+  interactions      Interaction[]
+  activities        Activity[]
+
+  // Relaciones Taller
+  serviceOrders     ServiceOrder[]
+
+  // Relaciones CRM: Cotizaciones
+  quotes            Quote[]
+
+  // Relaciones CRM: Casos / Reclamos
+  cases             Case[]
+
+  // Auditoría
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
+  @@map("customers")
+  @@index([code])
+  @@index([taxId])
+  @@index([isActive])
+  @@index([segment])
+  @@index([assignedSellerId])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/customerContact.prisma
+// Contactos adicionales de un cliente empresa.
+// Útil cuando el cliente es una compañía con múltiples personas de contacto
+// (contador, gerente de flota, encargado de compras, etc.)
+
+model CustomerContact {
+  id            String    @id @default(uuid())
+
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  name          String
+  role          String?   // Cargo: "Gerente de Flota", "Contador", "Compras"
+  phone         String?
+  mobile        String?
+  email         String?
+  isPrimary     Boolean   @default(false)
+  notes         String?   @db.Text
+
+  isActive      Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([customerId, email])
+  @@map("customer_contacts")
+  @@index([customerId])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/customerVehicle.prisma
+// Vehículos registrados a nombre de un cliente.
+// Compartido entre módulos: taller (service orders) y vehiculos (trade-in, historial).
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  ELECTRIC
+  HYBRID
+  GAS
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  CVT
+}
+
+model CustomerVehicle {
+  id            String            @id @default(uuid())
+
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  empresaId     String
+  empresa       Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Identificación
+  plate         String            // Placa
+  vin           String?           // Número de chasis / VIN
+
+  // Marca y modelo centralizados desde inventario
+  brandId       String?
+  brand         Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  modelId       String?
+  vehicleModel  Model?            @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  // El año se toma de Model.year; este campo es override cuando difiere
+  year          Int?
+
+  color         String?
+  fuelType      FuelType?
+  transmission  TransmissionType?
+
+  // Kilometraje al momento del registro
+  mileage       Int?
+
+  // Fue adquirido en el concesionario?
+  purchasedHere Boolean           @default(false)
+
+  notes         String?           @db.Text
+  isActive      Boolean           @default(true)
+
+  // Taller
+  serviceOrders ServiceOrder[]
+
+  // CRM: Casos / Reclamos
+  cases         Case[]
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([empresaId, plate])
+  @@map("customer_vehicles")
+  @@index([customerId])
+  @@index([brandId])
+  @@index([modelId])
+  @@index([vin])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/interaction.prisma
+// Historial de cada comunicación / punto de contacto con el cliente.
+// Se registra manualmente por el asesor o automáticamente por el sistema.
+
+enum InteractionType {
+  CALL          // Llamada telefónica
+  WHATSAPP      // Mensaje WhatsApp
+  EMAIL         // Correo electrónico
+  VISIT         // Visita presencial
+  NOTE          // Nota interna
+  QUOTE         // Cotización enviada
+  FOLLOW_UP     // Seguimiento
+  MEETING       // Reunión
+}
+
+enum InteractionChannel {
+  REPUESTOS
+  TALLER
+  VEHICULOS
+  GENERAL
+}
+
+enum InteractionDirection {
+  INBOUND   // El cliente contactó a la empresa
+  OUTBOUND  // La empresa contactó al cliente
+}
+
+model Interaction {
+  id            String               @id @default(uuid())
+
+  empresaId     String
+  empresa       Empresa              @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId    String
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Contexto opcional
+  leadId        String?
+  lead          Lead?                @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  type          InteractionType
+  channel       InteractionChannel   @default(GENERAL)
+  direction     InteractionDirection @default(OUTBOUND)
+
+  // Contenido
+  subject       String?
+  notes         String               @db.Text
+
+  // Resultado y próximo paso
+  outcome       String?              // Ej: "Cliente interesado", "Solicitó cotización", "No contesta"
+  nextAction    String?              // Ej: "Llamar en 3 días", "Enviar proforma"
+  nextActionAt  DateTime?            // Fecha del próximo seguimiento
+
+  // Quién la registró
+  createdBy     String               // userId
+
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@map("crm_interactions")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([type])
+  @@index([channel])
+  @@index([createdAt])
+  @@index([nextActionAt])
+}
+
+
+// backend/prisma/models/crm/lead.prisma
+// Pipeline de oportunidades unificado para los 3 canales del negocio.
+// Cuando el lead se convierte, se llena la FK del módulo correspondiente.
+
+enum LeadSource {
+  WALK_IN       // Visita espontánea
+  REFERRAL      // Referido por otro cliente
+  PHONE         // Llamada entrante
+  WHATSAPP      // WhatsApp
+  SOCIAL_MEDIA  // Redes sociales
+  WEBSITE       // Página web
+  EMAIL         // Correo
+  OTHER
+}
+
+enum LeadStatus {
+  NEW           // Nuevo / Sin contactar
+  CONTACTED     // Contactado
+  QUALIFIED     // Calificado (tiene intención real de compra)
+  PROPOSAL      // Propuesta / Cotización enviada
+  NEGOTIATION   // En negociación
+  WON           // Ganado / Convertido
+  LOST          // Perdido
+}
+
+enum LeadChannel {
+  REPUESTOS   // Venta de repuestos y accesorios
+  TALLER      // Servicio de taller / reparación
+  VEHICULOS   // Venta de vehículos
+}
+
+model Lead {
+  id              String      @id @default(uuid())
+
+  empresaId       String
+  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // El cliente puede no existir aún (prospecto sin ficha)
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  channel         LeadChannel
+  source          LeadSource  @default(WALK_IN)
+  status          LeadStatus  @default(NEW)
+
+  // Descripción de la oportunidad
+  title           String      // Ej: "Compra Hilux 2024", "Reparación caja de cambios", "Repuestos Ford F150"
+  description     String?     @db.Text
+
+  // Valor estimado
+  estimatedValue  Decimal?    @db.Decimal(12, 2)
+  currency        String      @default("USD")
+
+  // Asignación
+  assignedTo      String?     // userId del vendedor/asesor responsable
+
+  // Fechas
+  expectedCloseAt DateTime?   // Fecha estimada de cierre
+  closedAt        DateTime?   // Fecha real de cierre (WON o LOST)
+  lostReason      String?     @db.Text
+
+  // FK al documento generado cuando se convierte el lead
+  // Solo uno de estos se llenará según el canal
+  orderId         String?     @unique  // → sales.Order       (REPUESTOS)
+  // serviceOrderId se agregará cuando exista el módulo taller
+  // vehicleSaleId  se agregará cuando exista el módulo vehiculos
+
+  // Relaciones CRM
+  interactions    Interaction[]
+  activities      Activity[]
+  quotes          Quote[]
+  cases           Case[]
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("crm_leads")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([channel])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([expectedCloseAt])
+}
+
+
+// backend/prisma/models/crm/quote.prisma
+
+enum QuoteStatus {
+  DRAFT        // Borrador
+  ISSUED       // Emitida
+  SENT         // Enviada al cliente
+  NEGOTIATING  // En negociación
+  APPROVED     // Aprobada
+  REJECTED     // Rechazada
+  EXPIRED      // Vencida
+  CONVERTED    // Convertida a venta/OT
+}
+
+enum QuoteType {
+  VEHICLE    // Cotización de vehículo
+  PARTS      // Cotización de repuestos
+  SERVICE    // Cotización de servicio/taller
+  CORPORATE  // Convenio/paquete corporativo
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  quoteNumber   String      // Q-0001 auto-generated per empresa
+  version       Int         @default(1)
+  parentId      String?     // For versioned re-quotes
+
+  type          QuoteType
+  status        QuoteStatus @default(DRAFT)
+
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  leadId        String?
+  lead          Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  title         String
+  description   String?     @db.Text
+
+  subtotal      Decimal     @default(0) @db.Decimal(12,2)
+  discountPct   Decimal     @default(0) @db.Decimal(5,2)
+  discountAmt   Decimal     @default(0) @db.Decimal(12,2)
+  taxPct        Decimal     @default(0) @db.Decimal(5,2)
+  taxAmt        Decimal     @default(0) @db.Decimal(12,2)
+  total         Decimal     @default(0) @db.Decimal(12,2)
+  currency      String      @default("USD")
+
+  issuedAt      DateTime?
+  validUntil    DateTime?
+  paymentTerms  String?
+  deliveryTerms String?
+  notes         String?     @db.Text
+
+  convertedAt      DateTime?
+  convertedTo      String?   // 'order' | 'service_order'
+  convertedRefId   String?
+
+  assignedTo    String?
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  items         QuoteItem[]
+  parent        Quote?      @relation("QuoteVersions", fields: [parentId], references: [id])
+  versions      Quote[]     @relation("QuoteVersions")
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([empresaId, quoteNumber, version])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
+  @@index([assignedTo])
+  @@map("crm_quotes")
+}
+
+model QuoteItem {
+  id           String   @id @default(cuid())
+  quoteId      String
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  description  String
+  quantity     Decimal  @db.Decimal(10,3)
+  unitPrice    Decimal  @db.Decimal(12,2)
+  discountPct  Decimal  @default(0) @db.Decimal(5,2)
+  taxPct       Decimal  @default(0) @db.Decimal(5,2)
+  total        Decimal  @db.Decimal(12,2)
+  itemId       String?
+  notes        String?
+
+  @@map("crm_quote_items")
+}
+
+
 model Empresa {
   id_empresa      String       @id @default(cuid())
   nombre          String
@@ -85,16 +717,30 @@ model Empresa {
 
   warehouses      Warehouse[]
   items           Item[]
-  customers       Customer[]
   suppliers       Supplier[]
-  orders          Order[]
-  preInvoices     PreInvoice[]
-  invoices        Invoice[]
-  payments        Payment[]
   brands          Brand[]
   categories      Category[]
   units           Unit[]
   models          Model[]
+
+  // Sales
+  customers       Customer[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  // CRM
+  customerContacts CustomerContact[]
+  customerVehicles CustomerVehicle[]
+  leads            Lead[]
+  interactions     Interaction[]
+  activities       Activity[]
+  quotes           Quote[]
+  cases            Case[]
+
+  // Workshop (Taller)
+  serviceOrders    ServiceOrder[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -229,8 +875,9 @@ model Brand {
   empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  items       Item[]
-  models      Model[]
+  items            Item[]
+  models           Model[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -977,7 +1624,8 @@ model Model {
   compatibleParts    ModelCompatibility[] @relation("VehicleModel")
   
   // Relaciones
-  items       Item[]
+  items            Item[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -1926,69 +2574,6 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// backend/prisma/models/sales/customer.prisma
-
-enum CustomerType {
-  INDIVIDUAL  // Persona natural
-  COMPANY     // Empresa
-}
-
-model Customer {
-  id                String       @id @default(uuid())
-  code              String
-  taxId             String?      // RIF/Cédula unificado
-  name              String
-  email             String?
-  phone             String?
-  mobile            String?      // telefono_movil
-  website           String?      // wwwcli
-  contactPerson     String?      // perscont
-  
-  // Direcciones
-  address           String?      @db.Text
-  shippingAddress   String?      @db.Text // direcenvio
-  billingAddress    String?      @db.Text // direccobro
-  
-  // Fiscal / Configuración
-  type              CustomerType @default(INDIVIDUAL)
-  isSpecialTaxpayer Boolean      @default(false) // contribespecial
-  priceList         Int          @default(1)     // precio
-  
-  // Condiciones de Crédito y Venta
-  creditLimit       Float        @default(0)     // limite
-  creditDays        Int          @default(0)     // dias
-  defaultDiscount   Float        @default(0)     // descuento
-  sellerId          String?                      // vendedor
-  
-  // CRM / Extra
-  notes             String?      @db.Text        // nota / historia
-  metadata          Json?                        // Para reemplazar campo1..5, hashtag, etc.
-
-  isActive          Boolean      @default(true)
-  
-  // Multi-tenancy
-  empresaId         String
-  empresa           Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relaciones
-  orders            Order[]
-  preInvoices       PreInvoice[]
-  payments          Payment[]
-  invoices          Invoice[]
-  
-  // Auditoría
-  createdAt         DateTime     @default(now())
-  updatedAt         DateTime     @updatedAt
-
-  @@unique([empresaId, code])
-  @@unique([empresaId, taxId])
-  @@map("customers")
-  @@index([code])
-  @@index([taxId])
-  @@index([isActive])
-  @@index([empresaId])
-}
-
 // backend/prisma/models/sales/invoice.prisma
 
 enum InvoiceStatus {
@@ -2496,4 +3081,91 @@ enum Access {
   limitado
   completo
   ninguno
+}
+
+// backend/prisma/models/workshop/serviceOrder.prisma
+// Orden de servicio del taller mecánico (MVP)
+// Flujo: RECEIVED → IN_PROGRESS → DONE → DELIVERED | CANCELLED
+
+enum ServiceOrderStatus {
+  RECEIVED      // Recibido en taller
+  IN_PROGRESS   // En trabajo
+  DONE          // Listo para entregar
+  DELIVERED     // Entregado al cliente
+  CANCELLED     // Cancelado
+}
+
+enum ServiceOrderItemType {
+  LABOR   // Mano de obra
+  PART    // Refacción / material
+  OTHER   // Otro cargo
+}
+
+model ServiceOrder {
+  id        String  @id @default(cuid())
+  folio     String  // SO-0001, SO-0002 ... generado por empresa
+
+  // Cliente y vehículo
+  customerId          String
+  customerVehicleId   String?
+
+  // Snapshot del vehículo al momento de recibir
+  vehiclePlate  String?
+  vehicleDesc   String?  // "Honda Civic 2019 Blanco"
+  mileageIn     Int?
+  mileageOut    Int?
+
+  // Trabajo
+  diagnosisNotes  String?   @db.Text
+  observations    String?   @db.Text
+
+  // Estado y asignación
+  status                ServiceOrderStatus  @default(RECEIVED)
+  assignedTechnicianId  String?             // userId del técnico
+
+  // Fechas
+  receivedAt          DateTime   @default(now())
+  estimatedDelivery   DateTime?
+  deliveredAt         DateTime?
+
+  // Totales
+  laborTotal  Decimal  @default(0)  @db.Decimal(12, 2)
+  partsTotal  Decimal  @default(0)  @db.Decimal(12, 2)
+  total       Decimal  @default(0)  @db.Decimal(12, 2)
+
+  // Multi-tenancy y auditoría
+  empresaId  String
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relaciones
+  empresa         Empresa          @relation(fields: [empresaId], references: [id_empresa])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  customerVehicle CustomerVehicle? @relation(fields: [customerVehicleId], references: [id])
+  items           ServiceOrderItem[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([status])
+  @@index([assignedTechnicianId])
+  @@index([receivedAt])
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id              String               @id @default(cuid())
+  serviceOrderId  String
+  type            ServiceOrderItemType @default(LABOR)
+  description     String
+  quantity        Decimal              @default(1)  @db.Decimal(10, 2)
+  unitPrice       Decimal              @default(0)  @db.Decimal(12, 2)
+  total           Decimal              @default(0)  @db.Decimal(12, 2)
+
+  serviceOrder  ServiceOrder  @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOrderId])
+  @@map("service_order_items")
 }

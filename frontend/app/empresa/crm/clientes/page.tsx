@@ -1,9 +1,7 @@
 "use client";
 
-// import CustomerList from "@/components/inventory/customers/CustomerList";
+import CustomerCrmList from "@/components/crm/customer/CustomerCrmList";
 
-function Clientes() {
-  return <>{/* <CustomerList /> */}</>;
+export default function ClientesCrmPage() {
+  return <CustomerCrmList />;
 }
-
-export default Clientes;

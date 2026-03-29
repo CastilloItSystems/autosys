@@ -1,0 +1,100 @@
+// backend/prisma/models/crm/case.prisma
+// Módulo de Casos / Reclamos / PQRS del CRM.
+
+enum CaseType {
+  SALE_COMPLAINT       // Reclamo de venta
+  WORKSHOP_COMPLAINT   // Reclamo de taller
+  PARTS_COMPLAINT      // Reclamo de repuesto
+  WARRANTY             // Solicitud de garantía
+  GENERAL_INQUIRY      // Consulta general
+  SUGGESTION           // Sugerencia
+  INCIDENT             // Incidente
+  SERVICE_COMPLAINT    // Queja por atención
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  OPEN            // Abierto
+  IN_ANALYSIS     // En análisis
+  IN_PROGRESS     // En proceso
+  WAITING_CLIENT  // Esperando respuesta del cliente
+  ESCALATED       // Escalado
+  RESOLVED        // Resuelto
+  CLOSED          // Cerrado
+  REJECTED        // Rechazado
+}
+
+model Case {
+  id            String        @id @default(cuid())
+  caseNumber    String        // CASE-0001 auto-generated per empresa
+
+  type          CaseType
+  priority      CasePriority  @default(MEDIUM)
+  status        CaseStatus    @default(OPEN)
+
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Optional links to related documents
+  customerVehicleId  String?
+  customerVehicle    CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  leadId        String?
+  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Optional reference to external document (invoice number, SO folio, order number, etc.)
+  refDocType    String?       // 'invoice' | 'service_order' | 'order' | 'other'
+  refDocId      String?
+  refDocNumber  String?
+
+  title         String
+  description   String        @db.Text
+
+  // Resolution
+  resolution    String?       @db.Text
+  rootCause     String?
+
+  // SLA
+  slaDeadline   DateTime?     // Calculated from priority on creation
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+
+  assignedTo    String?       // userId
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  comments      CaseComment[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([empresaId, caseNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([priority])
+  @@map("crm_cases")
+}
+
+model CaseComment {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  comment   String   @db.Text
+  isInternal Boolean @default(false)  // true = internal note, not visible to customer
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@map("crm_case_comments")
+}

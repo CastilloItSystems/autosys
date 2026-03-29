@@ -14,110 +14,11 @@ import {
   MembershipPermissionsResponse,
 } from "@/app/api/userService";
 
-// ── Catálogo de permisos (igual que EmpresaRoles.tsx) ─────────────────────
-
-const PERMISSION_GROUPS = [
-  { label: "Usuarios", icon: "pi pi-users", prefix: "users" },
-  { label: "Inventario", icon: "pi pi-box", prefix: "inventory" },
-  { label: "Artículos", icon: "pi pi-tag", prefix: "items" },
-  { label: "Almacenes", icon: "pi pi-database", prefix: "warehouses" },
-  { label: "Stock", icon: "pi pi-chart-bar", prefix: "stock" },
-  { label: "Movimientos", icon: "pi pi-arrows-h", prefix: "movements" },
-  { label: "Préstamos", icon: "pi pi-share-alt", prefix: "loans" },
-  { label: "Transferencias", icon: "pi pi-send", prefix: "transfers" },
-  { label: "Clientes", icon: "pi pi-id-card", prefix: "customers" },
-  { label: "Órdenes", icon: "pi pi-shopping-cart", prefix: "orders" },
-  { label: "Facturas", icon: "pi pi-file", prefix: "invoices" },
-  { label: "Cotizaciones", icon: "pi pi-file-edit", prefix: "quotes" },
-  { label: "Pagos", icon: "pi pi-credit-card", prefix: "payments" },
-  { label: "Reportes", icon: "pi pi-chart-line", prefix: "reports" },
-];
-
-const PERMISSION_LABELS: Record<string, string> = {
-  // Usuarios
-  "users.view": "Ver",
-  "users.create": "Crear",
-  "users.update": "Editar",
-  "users.delete": "Eliminar",
-  "users.approve": "Aprobar",
-  // Inventario
-  "inventory.view": "Ver",
-  "inventory.create": "Crear",
-  "inventory.update": "Editar",
-  "inventory.delete": "Eliminar",
-  "inventory.approve": "Aprobar",
-  // Artículos
-  "items.view": "Ver",
-  "items.create": "Crear",
-  "items.update": "Editar",
-  "items.delete": "Eliminar",
-  "items.approve": "Aprobar",
-  // Almacenes
-  "warehouses.view": "Ver",
-  "warehouses.create": "Crear",
-  "warehouses.update": "Editar",
-  "warehouses.delete": "Eliminar",
-  "warehouses.approve": "Aprobar",
-  // Stock
-  "stock.view": "Ver",
-  "stock.adjust": "Ajustar",
-  "stock.transfer": "Transferir",
-  "stock.approve": "Aprobar",
-  // Movimientos
-  "movements.view": "Ver",
-  "movements.create": "Crear",
-  "movements.update": "Editar",
-  "movements.delete": "Eliminar",
-  "movements.approve": "Aprobar",
-  // Préstamos
-  "loans.view": "Ver",
-  "loans.create": "Crear",
-  "loans.update": "Editar",
-  "loans.delete": "Eliminar",
-  "loans.approve": "Aprobar",
-  // Transferencias
-  "transfers.view": "Ver",
-  "transfers.create": "Crear",
-  "transfers.update": "Editar",
-  "transfers.delete": "Eliminar",
-  "transfers.approve": "Aprobar",
-  // Clientes
-  "customers.view": "Ver",
-  "customers.create": "Crear",
-  "customers.update": "Editar",
-  "customers.delete": "Eliminar",
-  "customers.approve": "Aprobar",
-  // Órdenes
-  "orders.view": "Ver",
-  "orders.create": "Crear",
-  "orders.update": "Editar",
-  "orders.delete": "Eliminar",
-  "orders.approve": "Aprobar",
-  // Facturas
-  "invoices.view": "Ver",
-  "invoices.create": "Crear",
-  "invoices.update": "Editar",
-  "invoices.delete": "Eliminar",
-  "invoices.approve": "Aprobar",
-  // Cotizaciones
-  "quotes.view": "Ver",
-  "quotes.create": "Crear",
-  "quotes.update": "Editar",
-  "quotes.delete": "Eliminar",
-  "quotes.approve": "Aprobar",
-  // Pagos
-  "payments.view": "Ver",
-  "payments.create": "Crear",
-  "payments.update": "Editar",
-  "payments.delete": "Eliminar",
-  "payments.approve": "Aprobar",
-  // Reportes
-  "reports.view": "Ver",
-  "reports.export": "Exportar",
-  "reports.approve": "Aprobar",
-};
-
-const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS);
+import {
+  PERMISSION_GROUPS,
+  PERMISSION_LABELS,
+  ALL_PERMISSIONS,
+} from "@/lib/permissions";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 

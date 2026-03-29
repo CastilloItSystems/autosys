@@ -1,0 +1,94 @@
+// backend/prisma/models/crm/quote.prisma
+
+enum QuoteStatus {
+  DRAFT        // Borrador
+  ISSUED       // Emitida
+  SENT         // Enviada al cliente
+  NEGOTIATING  // En negociación
+  APPROVED     // Aprobada
+  REJECTED     // Rechazada
+  EXPIRED      // Vencida
+  CONVERTED    // Convertida a venta/OT
+}
+
+enum QuoteType {
+  VEHICLE    // Cotización de vehículo
+  PARTS      // Cotización de repuestos
+  SERVICE    // Cotización de servicio/taller
+  CORPORATE  // Convenio/paquete corporativo
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  quoteNumber   String      // Q-0001 auto-generated per empresa
+  version       Int         @default(1)
+  parentId      String?     // For versioned re-quotes
+
+  type          QuoteType
+  status        QuoteStatus @default(DRAFT)
+
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  leadId        String?
+  lead          Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  title         String
+  description   String?     @db.Text
+
+  subtotal      Decimal     @default(0) @db.Decimal(12,2)
+  discountPct   Decimal     @default(0) @db.Decimal(5,2)
+  discountAmt   Decimal     @default(0) @db.Decimal(12,2)
+  taxPct        Decimal     @default(0) @db.Decimal(5,2)
+  taxAmt        Decimal     @default(0) @db.Decimal(12,2)
+  total         Decimal     @default(0) @db.Decimal(12,2)
+  currency      String      @default("USD")
+
+  issuedAt      DateTime?
+  validUntil    DateTime?
+  paymentTerms  String?
+  deliveryTerms String?
+  notes         String?     @db.Text
+
+  convertedAt      DateTime?
+  convertedTo      String?   // 'order' | 'service_order'
+  convertedRefId   String?
+
+  assignedTo    String?
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  items         QuoteItem[]
+  parent        Quote?      @relation("QuoteVersions", fields: [parentId], references: [id])
+  versions      Quote[]     @relation("QuoteVersions")
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([empresaId, quoteNumber, version])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
+  @@index([assignedTo])
+  @@map("crm_quotes")
+}
+
+model QuoteItem {
+  id           String   @id @default(cuid())
+  quoteId      String
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  description  String
+  quantity     Decimal  @db.Decimal(10,3)
+  unitPrice    Decimal  @db.Decimal(12,2)
+  discountPct  Decimal  @default(0) @db.Decimal(5,2)
+  taxPct       Decimal  @default(0) @db.Decimal(5,2)
+  total        Decimal  @db.Decimal(12,2)
+  itemId       String?
+  notes        String?
+
+  @@map("crm_quote_items")
+}

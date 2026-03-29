@@ -1,7 +1,6 @@
 // backend/src/features/sales/index.ts
 
 import { Router } from 'express'
-import customerRoutes from './customers/customers.routes.js'
 import orderRoutes from './orders/orders.routes.js'
 import preInvoiceRoutes from './preInvoices/preInvoices.routes.js'
 import paymentRoutes from './payments/payments.routes.js'
@@ -16,9 +15,6 @@ const router = Router()
  * Rutas de Sales (Ventas)
  * Base: /api/sales
  */
-
-// Clientes
-router.use('/customers', customerRoutes)
 
 // Órdenes de Venta
 router.use('/orders', orderRoutes)

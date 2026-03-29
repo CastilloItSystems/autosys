@@ -1,0 +1,86 @@
+// backend/prisma/models/workshop/serviceOrder.prisma
+// Orden de servicio del taller mecánico (MVP)
+// Flujo: RECEIVED → IN_PROGRESS → DONE → DELIVERED | CANCELLED
+
+enum ServiceOrderStatus {
+  RECEIVED      // Recibido en taller
+  IN_PROGRESS   // En trabajo
+  DONE          // Listo para entregar
+  DELIVERED     // Entregado al cliente
+  CANCELLED     // Cancelado
+}
+
+enum ServiceOrderItemType {
+  LABOR   // Mano de obra
+  PART    // Refacción / material
+  OTHER   // Otro cargo
+}
+
+model ServiceOrder {
+  id        String  @id @default(cuid())
+  folio     String  // SO-0001, SO-0002 ... generado por empresa
+
+  // Cliente y vehículo
+  customerId          String
+  customerVehicleId   String?
+
+  // Snapshot del vehículo al momento de recibir
+  vehiclePlate  String?
+  vehicleDesc   String?  // "Honda Civic 2019 Blanco"
+  mileageIn     Int?
+  mileageOut    Int?
+
+  // Trabajo
+  diagnosisNotes  String?   @db.Text
+  observations    String?   @db.Text
+
+  // Estado y asignación
+  status                ServiceOrderStatus  @default(RECEIVED)
+  assignedTechnicianId  String?             // userId del técnico
+
+  // Fechas
+  receivedAt          DateTime   @default(now())
+  estimatedDelivery   DateTime?
+  deliveredAt         DateTime?
+
+  // Totales
+  laborTotal  Decimal  @default(0)  @db.Decimal(12, 2)
+  partsTotal  Decimal  @default(0)  @db.Decimal(12, 2)
+  total       Decimal  @default(0)  @db.Decimal(12, 2)
+
+  // Multi-tenancy y auditoría
+  empresaId  String
+  createdBy  String
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  // Relaciones
+  empresa         Empresa          @relation(fields: [empresaId], references: [id_empresa])
+  customer        Customer         @relation(fields: [customerId], references: [id])
+  customerVehicle CustomerVehicle? @relation(fields: [customerVehicleId], references: [id])
+  items           ServiceOrderItem[]
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([status])
+  @@index([assignedTechnicianId])
+  @@index([receivedAt])
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id              String               @id @default(cuid())
+  serviceOrderId  String
+  type            ServiceOrderItemType @default(LABOR)
+  description     String
+  quantity        Decimal              @default(1)  @db.Decimal(10, 2)
+  unitPrice       Decimal              @default(0)  @db.Decimal(12, 2)
+  total           Decimal              @default(0)  @db.Decimal(12, 2)
+
+  serviceOrder  ServiceOrder  @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  @@index([serviceOrderId])
+  @@map("service_order_items")
+}

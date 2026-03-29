@@ -33,16 +33,30 @@ model Empresa {
 
   warehouses      Warehouse[]
   items           Item[]
-  customers       Customer[]
   suppliers       Supplier[]
-  orders          Order[]
-  preInvoices     PreInvoice[]
-  invoices        Invoice[]
-  payments        Payment[]
   brands          Brand[]
   categories      Category[]
   units           Unit[]
   models          Model[]
+
+  // Sales
+  customers       Customer[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  // CRM
+  customerContacts CustomerContact[]
+  customerVehicles CustomerVehicle[]
+  leads            Lead[]
+  interactions     Interaction[]
+  activities       Activity[]
+  quotes           Quote[]
+  cases            Case[]
+
+  // Workshop (Taller)
+  serviceOrders    ServiceOrder[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
