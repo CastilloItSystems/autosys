@@ -62,15 +62,18 @@ model Lead {
 
   // FK al documento generado cuando se convierte el lead
   // Solo uno de estos se llenará según el canal
-  orderId         String?     @unique  // → sales.Order       (REPUESTOS)
-  // serviceOrderId se agregará cuando exista el módulo taller
-  // vehicleSaleId  se agregará cuando exista el módulo vehiculos
+  orderId        String?  @unique // → sales.Order        (REPUESTOS)
+  serviceOrderId String?  @unique // → workshop.ServiceOrder (TALLER)
+  // vehicleSaleId se agregará cuando exista el módulo vehiculos
 
   // Relaciones CRM
   interactions    Interaction[]
   activities      Activity[]
   quotes          Quote[]
   cases           Case[]
+
+  // Relaciones Workshop
+  serviceOrder    ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
 
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt

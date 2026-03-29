@@ -64,6 +64,9 @@ model Quote {
   parent        Quote?      @relation("QuoteVersions", fields: [parentId], references: [id])
   versions      Quote[]     @relation("QuoteVersions")
 
+  // Relación Workshop: OT generada cuando se convierte una cotización de taller
+  serviceOrders ServiceOrder[]
+
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
 

@@ -29,6 +29,9 @@ model Invoice {
   // Relaciones
   items              InvoiceItem[]
 
+  // Workshop: OT facturada con esta invoice
+  serviceOrder       ServiceOrder?
+
   // ── Moneda ──
   currency           OrderCurrency @default(USD)
   exchangeRate       Decimal?      @db.Decimal(14, 4)

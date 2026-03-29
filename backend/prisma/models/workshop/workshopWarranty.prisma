@@ -1,0 +1,69 @@
+// backend/prisma/models/workshop/workshopWarranty.prisma
+// Gestión de garantías y retrabajos del taller.
+// Una garantía siempre referencia la OT original.
+// Cuando se aprueba, genera una nueva OT de retrabajo (a costo interno).
+
+enum WarrantyType {
+  LABOR    // Garantía de mano de obra
+  PARTS    // Garantía de repuesto
+  MIXED    // Ambas
+  COMMERCIAL // Garantía comercial (decisión gerencial)
+}
+
+enum WarrantyStatus {
+  OPEN        // Abierta / en evaluación
+  IN_PROGRESS // Se abrió OT de retrabajo
+  RESOLVED    // Resuelto
+  REJECTED    // Rechazada (no aplica garantía)
+  CLOSED      // Cerrada
+}
+
+model WorkshopWarranty {
+  id              String @id @default(cuid())
+  warrantyNumber  String // WRN-0001 auto-generado por empresa
+
+  type   WarrantyType
+  status WarrantyStatus @default(OPEN)
+
+  // OT de origen (trabajo que se está reclamando)
+  originalOrderId String
+  originalOrder   ServiceOrder @relation("OriginalOrder", fields: [originalOrderId], references: [id], onDelete: Restrict)
+
+  // OT de retrabajo generada (cuando se aprueba la garantía)
+  reworkOrderId String?
+  reworkOrder   ServiceOrder? @relation("ReworkOrder", fields: [reworkOrderId], references: [id], onDelete: SetNull)
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Descripción del reclamo
+  description String @db.Text
+
+  // Análisis y resolución
+  rootCause   String? @db.Text
+  resolution  String? @db.Text
+
+  // Responsable técnico
+  technicianId String? // userId del técnico responsable
+
+  // Vigencia
+  expiresAt  DateTime?
+  resolvedAt DateTime?
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, warrantyNumber])
+  @@index([empresaId])
+  @@index([originalOrderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([technicianId])
+  @@map("workshop_warranties")
+}

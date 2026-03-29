@@ -1,8 +1,10 @@
-// Workshop API Services
-export * from "./workshopService";
-export * from "./workOrderService";
-export * from "./workOrderStatusService";
-export * from "./serviceService";
-export * from "./serviceCategoryService";
-export * from "./invoiceService";
-export * from "./paymentService";
+// app/api/workshop/index.ts
+export { default as serviceTypeService } from './serviceTypeService'
+export { default as workshopBayService } from './workshopBayService'
+export { default as workshopOperationService } from './workshopOperationService'
+export { default as appointmentService } from './appointmentService'
+export { default as receptionService } from './receptionService'
+export { default as serviceOrderService } from './serviceOrderService'
+export { default as laborTimeService } from './laborTimeService'
+export { default as qualityCheckService } from './qualityCheckService'
+export { default as warrantyService } from './warrantyService'

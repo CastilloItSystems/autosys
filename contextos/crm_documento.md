@@ -1103,4 +1103,1822 @@ Al finalizar, la empresa debe poder:
 - reducir reclamos no atendidos
 - preparar la base para el módulo de taller y ERP completo
 
+Perfecto. Ahora te entrego **lo mismo para el CRM**, en los mismos 4 bloques:
+
+1. **Modelo de base de datos del CRM**
+2. **Flujo de pantallas y menú del CRM**
+3. **Documento técnico más detallado**
+4. **Integración CRM + Taller**
+
+Lo voy a dejar enfocado a una empresa automotriz que vende:
+
+- vehículos
+- repuestos
+- servicios de taller
+
+y que necesita un **CRM robusto, no genérico**.
+
+---
+
+# 1. MODELO DE BASE DE DATOS DEL CRM
+
+Voy a plantearlo como un **modelo relacional funcional**, preparado para crecer e integrarse con taller, ventas, repuestos y facturación.
+
+---
+
+## 1.1. Entidades principales
+
+---
+
+## A. Maestros y catálogos
+
+### tabla: `crm_linea_negocio`
+
+- id
+- codigo
+- nombre
+  - vehiculos
+  - repuestos
+  - taller
+  - postventa
+  - flotillas
+- descripcion
+- activo
+
+### tabla: `crm_fuente_lead`
+
+- id
+- codigo
+- nombre
+  - web
+  - whatsapp
+  - llamada
+  - showroom
+  - facebook
+  - instagram
+  - referido
+  - campaña
+  - feria
+- activo
+
+### tabla: `crm_tipo_lead`
+
+- id
+- codigo
+- nombre
+- linea_negocio_id
+- activo
+
+### tabla: `crm_etapa_pipeline`
+
+- id
+- codigo
+- nombre
+- linea_negocio_id
+- orden
+- probabilidad_default
+- es_cierre_ganado
+- es_cierre_perdido
+- activo
+
+### tabla: `crm_motivo_perdida`
+
+- id
+- codigo
+- nombre
+- descripcion
+- linea_negocio_id nullable
+- activo
+
+### tabla: `crm_tipo_actividad`
+
+- id
+- codigo
+- nombre
+  - llamada
+  - whatsapp
+  - email
+  - visita
+  - reunion
+  - prueba_manejo
+  - seguimiento
+  - tarea
+  - cita
+  - encuesta
+- activo
+
+### tabla: `crm_resultado_actividad`
+
+- id
+- codigo
+- nombre
+- tipo_actividad_id nullable
+- activo
+
+### tabla: `crm_tipo_caso`
+
+- id
+- codigo
+- nombre
+  - reclamo
+  - garantia
+  - consulta
+  - sugerencia
+  - incidente
+  - pqrs
+- activo
+
+### tabla: `crm_prioridad_caso`
+
+- id
+- codigo
+- nombre
+  - baja
+  - media
+  - alta
+  - critica
+- nivel
+- activo
+
+### tabla: `crm_estado_caso`
+
+- id
+- codigo
+- nombre
+- orden
+- es_final
+- activo
+
+### tabla: `crm_tipo_campania`
+
+- id
+- codigo
+- nombre
+- activo
+
+### tabla: `crm_canal_campania`
+
+- id
+- codigo
+- nombre
+  - email
+  - whatsapp
+  - sms
+  - llamada
+  - mixta
+- activo
+
+### tabla: `crm_segmento`
+
+- id
+- codigo
+- nombre
+- descripcion
+- activo
+
+### tabla: `crm_etiqueta`
+
+- id
+- codigo
+- nombre
+- color
+- activo
+
+### tabla: `sucursal`
+
+- id
+- codigo
+- nombre
+- direccion
+- telefono
+- activo
+
+### tabla: `empleado`
+
+- id
+- persona_id
+- sucursal_id
+- codigo
+- tipo_empleado
+  - vendedor
+  - asesor_servicio
+  - call_center
+  - marketing
+  - supervisor
+  - gerente
+- activo
+
+---
+
+## B. Clientes, contactos y cuentas
+
+Esto debe ser base maestra compartida con otros módulos.
+
+### tabla: `cliente`
+
+- id
+- tipo_cliente
+  - persona
+  - empresa
+- codigo
+- estado
+  - prospecto
+  - activo
+  - inactivo
+  - bloqueado
+- fecha_alta
+- origen_principal_id nullable
+- asesor_responsable_id nullable
+- sucursal_id nullable
+- observaciones
+- activo
+
+### tabla: `cliente_persona`
+
+- id
+- cliente_id
+- nombres
+- apellidos
+- tipo_documento
+- numero_documento
+- fecha_nacimiento
+- genero
+- telefono
+- whatsapp
+- email
+- direccion
+- ciudad
+- pais
+- canal_preferido
+- profesion nullable
+
+### tabla: `cliente_empresa`
+
+- id
+- cliente_id
+- razon_social
+- nombre_comercial
+- tipo_documento
+- numero_documento
+- industria
+- telefono
+- email
+- direccion
+- ciudad
+- pais
+- tamano_empresa
+- numero_unidades_flota nullable
+
+### tabla: `cliente_contacto`
+
+- id
+- cliente_empresa_id
+- nombres
+- apellidos
+- cargo
+- telefono
+- whatsapp
+- email
+- es_principal
+- activo
+
+### tabla: `cliente_etiqueta`
+
+- id
+- cliente_id
+- etiqueta_id
+
+### tabla: `cliente_segmento`
+
+- id
+- cliente_id
+- segmento_id
+
+### tabla: `cliente_preferencia`
+
+- id
+- cliente_id
+- acepta_email
+- acepta_whatsapp
+- acepta_sms
+- acepta_llamadas
+- acepta_promociones
+- fecha_actualizacion
+
+---
+
+## C. Vehículos asociados al cliente
+
+Compartido con ventas y taller, pero visible desde CRM.
+
+### tabla: `vehiculo`
+
+- id
+- cliente_id
+- placa
+- vin
+- marca_id
+- modelo_id
+- version
+- anio
+- color
+- motor
+- transmision
+- combustible
+- kilometraje_actual
+- fecha_compra nullable
+- estado
+- activo
+
+### tabla: `vehiculo_relacion_contacto`
+
+- id
+- vehiculo_id
+- cliente_contacto_id nullable
+- cliente_id nullable
+- tipo_relacion
+  - propietario
+  - conductor
+  - encargado
+  - autorizado
+
+---
+
+## D. Leads
+
+### tabla: `crm_lead`
+
+- id
+- numero
+- cliente_id nullable
+- contacto_temporal_nombre
+- contacto_temporal_telefono
+- contacto_temporal_email
+- linea_negocio_id
+- tipo_lead_id
+- fuente_id
+- campania_id nullable
+- sucursal_id nullable
+- asesor_id nullable
+- producto_interes
+- necesidad
+- presupuesto_estimado
+- urgencia
+- score
+- estado
+  - nuevo
+  - asignado
+  - contactado
+  - seguimiento
+  - calificado
+  - no_calificado
+  - convertido
+  - perdido
+- fecha_ingreso
+- fecha_ultimo_contacto nullable
+- fecha_conversion nullable
+- motivo_perdida_id nullable
+- observaciones
+
+### tabla: `crm_lead_historial`
+
+- id
+- lead_id
+- estado_anterior
+- estado_nuevo
+- comentario
+- usuario_id
+- fecha
+
+### tabla: `crm_lead_producto_interes`
+
+- id
+- lead_id
+- tipo_item
+  - vehiculo
+  - repuesto
+  - servicio
+- referencia_id nullable
+- descripcion
+
+---
+
+## E. Oportunidades
+
+### tabla: `crm_oportunidad`
+
+- id
+- numero
+- lead_id nullable
+- cliente_id
+- linea_negocio_id
+- sucursal_id
+- asesor_id
+- nombre
+- descripcion
+- etapa_id
+- probabilidad
+- monto_estimado
+- fecha_estimada_cierre
+- fecha_cierre_real nullable
+- competidor nullable
+- estado
+  - abierta
+  - ganada
+  - perdida
+  - pausada
+  - cancelada
+- motivo_perdida_id nullable
+- observaciones
+- creada_en
+- creada_por
+
+### tabla: `crm_oportunidad_historial_etapa`
+
+- id
+- oportunidad_id
+- etapa_anterior_id
+- etapa_nueva_id
+- probabilidad_anterior
+- probabilidad_nueva
+- comentario
+- usuario_id
+- fecha
+
+### tabla: `crm_oportunidad_item`
+
+- id
+- oportunidad_id
+- tipo_item
+  - vehiculo
+  - repuesto
+  - servicio
+  - paquete
+- referencia_id nullable
+- descripcion
+- cantidad
+- precio_estimado
+- subtotal_estimado
+
+---
+
+## F. Actividades e interacciones
+
+### tabla: `crm_actividad`
+
+- id
+- tipo_actividad_id
+- cliente_id nullable
+- lead_id nullable
+- oportunidad_id nullable
+- vehiculo_id nullable
+- caso_id nullable
+- asunto
+- descripcion
+- responsable_id
+- fecha_programada
+- fecha_realizada nullable
+- estado
+  - pendiente
+  - realizada
+  - vencida
+  - cancelada
+  - reprogramada
+- resultado_id nullable
+- proxima_accion
+- fecha_proxima_accion nullable
+- creado_por
+- creado_en
+
+### tabla: `crm_interaccion`
+
+- id
+- cliente_id nullable
+- lead_id nullable
+- oportunidad_id nullable
+- actividad_id nullable
+- canal
+  - llamada
+  - whatsapp
+  - email
+  - visita
+  - presencial
+  - formulario_web
+- direccion
+  - entrante
+  - saliente
+- fecha
+- resumen
+- detalle
+- usuario_id
+- adjunto_url nullable
+
+---
+
+## G. Cotizaciones CRM
+
+### tabla: `crm_cotizacion`
+
+- id
+- numero
+- oportunidad_id
+- cliente_id
+- linea_negocio_id
+- version
+- fecha_emision
+- fecha_vigencia
+- subtotal
+- descuento
+- impuesto
+- total
+- estado
+  - borrador
+  - emitida
+  - enviada
+  - vista
+  - negociacion
+  - aprobada
+  - rechazada
+  - vencida
+  - convertida
+- observaciones
+- emitida_por
+- creada_en
+
+### tabla: `crm_cotizacion_detalle`
+
+- id
+- cotizacion_id
+- tipo_item
+- referencia_id nullable
+- descripcion
+- cantidad
+- precio_unitario
+- descuento
+- impuesto
+- subtotal
+- total
+- orden
+
+### tabla: `crm_cotizacion_historial`
+
+- id
+- cotizacion_id
+- estado_anterior
+- estado_nuevo
+- comentario
+- usuario_id
+- fecha
+
+---
+
+## H. Casos / reclamos / PQRS
+
+### tabla: `crm_caso`
+
+- id
+- numero
+- cliente_id
+- contacto_id nullable
+- vehiculo_id nullable
+- oportunidad_id nullable
+- tipo_caso_id
+- prioridad_id
+- estado_id
+- origen
+  - llamada
+  - whatsapp
+  - email
+  - web
+  - presencial
+  - postventa
+- documento_referencia_tipo nullable
+- documento_referencia_id nullable
+- asunto
+- descripcion
+- responsable_id
+- fecha_apertura
+- fecha_compromiso nullable
+- fecha_cierre nullable
+- resolucion nullable
+- causa_raiz nullable
+- satisfaccion_cliente nullable
+
+### tabla: `crm_caso_historial`
+
+- id
+- caso_id
+- estado_anterior_id
+- estado_nuevo_id
+- comentario
+- usuario_id
+- fecha
+
+### tabla: `crm_caso_seguimiento`
+
+- id
+- caso_id
+- fecha
+- comentario
+- usuario_id
+- es_interno
+
+---
+
+## I. Campañas y marketing
+
+### tabla: `crm_campania`
+
+- id
+- codigo
+- nombre
+- tipo_campania_id
+- canal_id
+- linea_negocio_id nullable
+- sucursal_id nullable
+- objetivo
+- descripcion
+- fecha_inicio
+- fecha_fin
+- presupuesto
+- estado
+  - borrador
+  - programada
+  - activa
+  - pausada
+  - finalizada
+  - cancelada
+- responsable_id
+- creada_en
+
+### tabla: `crm_campania_segmento`
+
+- id
+- campania_id
+- segmento_id
+
+### tabla: `crm_campania_destinatario`
+
+- id
+- campania_id
+- cliente_id
+- vehiculo_id nullable
+- estado_envio
+  - pendiente
+  - enviado
+  - entregado
+  - leido
+  - respondido
+  - fallido
+- fecha_envio nullable
+- fecha_respuesta nullable
+- observacion
+
+### tabla: `crm_campania_resultado`
+
+- id
+- campania_id
+- cliente_id
+- lead_id nullable
+- oportunidad_id nullable
+- tipo_resultado
+  - lead_generado
+  - cita_generada
+  - venta_generada
+  - sin_respuesta
+  - rechazo
+- monto_generado nullable
+- fecha
+
+---
+
+## J. Postventa y fidelización
+
+### tabla: `crm_fidelizacion_evento`
+
+- id
+- cliente_id
+- vehiculo_id nullable
+- tipo_evento
+  - bienvenida
+  - cumpleanos
+  - recordatorio_mantenimiento
+  - cliente_inactivo
+  - post_servicio
+  - renovacion
+  - recomendacion_pendiente
+- fecha_evento
+- estado
+  - pendiente
+  - ejecutado
+  - cancelado
+- referencia_tipo nullable
+- referencia_id nullable
+- observacion
+
+### tabla: `crm_encuesta`
+
+- id
+- cliente_id
+- vehiculo_id nullable
+- referencia_tipo
+  - venta
+  - taller
+  - repuesto
+  - caso
+- referencia_id
+- fecha_envio
+- fecha_respuesta nullable
+- puntaje
+- comentario
+- estado
+
+---
+
+## K. Auditoría y adjuntos
+
+### tabla: `crm_documento_adjunto`
+
+- id
+- entidad_tipo
+- entidad_id
+- nombre
+- url
+- tipo_archivo
+- descripcion
+- subido_por
+- fecha
+
+### tabla: `crm_auditoria`
+
+- id
+- entidad
+- entidad_id
+- accion
+- valor_anterior_json
+- valor_nuevo_json
+- usuario_id
+- fecha
+- ip
+
+---
+
+## 1.2. Relaciones clave
+
+- `cliente 1:1 cliente_persona` o `cliente 1:1 cliente_empresa`
+- `cliente_empresa 1:N cliente_contacto`
+- `cliente 1:N vehiculo`
+- `crm_lead N:1 cliente` opcional
+- `crm_lead 1:N crm_lead_historial`
+- `crm_lead 1:1..N crm_oportunidad`
+- `crm_oportunidad 1:N crm_actividad`
+- `crm_oportunidad 1:N crm_cotizacion`
+- `crm_cotizacion 1:N crm_cotizacion_detalle`
+- `cliente 1:N crm_caso`
+- `crm_campania N:M cliente` por `crm_campania_destinatario`
+- `cliente 1:N crm_fidelizacion_evento`
+- `cliente 1:N crm_interaccion`
+
+---
+
+## 1.3. Recomendaciones de modelado para CRM
+
+- cliente debe ser entidad maestra compartida
+- contacto empresa debe manejarse separado del cliente empresa
+- oportunidades deben soportar varios pipelines por línea de negocio
+- actividades e interacciones deben quedar separadas:
+  - actividad = acción planificada/ejecutada
+  - interacción = comunicación real registrada
+- motivos de pérdida y etapas deben ser parametrizables
+- campañas deben permitir trazabilidad a leads y oportunidades
+- auditar:
+  - cambio de responsable
+  - cambio de etapa
+  - cierre perdido
+  - descuentos en cotizaciones
+  - cambios en casos
+
+---
+
+# 2. FLUJO DE PANTALLAS Y MENÚ DEL CRM
+
+Te propongo una navegación robusta y orientada al negocio.
+
+---
+
+## 2.1. Menú principal del CRM
+
+### CRM
+
+- Dashboard General
+- Leads
+- Oportunidades
+- Contactos / Clientes
+- Empresas / Cuentas
+- Vehículos Asociados
+- Actividades
+- Interacciones
+- Cotizaciones
+- Casos / Reclamos
+- Campañas
+- Fidelización / Postventa
+- Reportes
+- Configuración
+
+---
+
+## 2.2. Flujo de pantallas
+
+---
+
+### A. Dashboard General
+
+#### Objetivo
+
+Mostrar el estado comercial y de relación con clientes en tiempo real.
+
+#### Widgets sugeridos
+
+- leads nuevos del día
+- leads pendientes de gestión
+- oportunidades abiertas
+- valor del pipeline
+- actividades vencidas
+- cotizaciones por vencer
+- casos abiertos
+- clientes inactivos
+- campañas activas
+- conversión por línea de negocio
+
+#### Acciones rápidas
+
+- nuevo lead
+- nueva oportunidad
+- nueva actividad
+- nueva cotización
+- nuevo caso
+- nueva campaña
+
+---
+
+### B. Pantalla de Leads
+
+#### Vista listado
+
+- número lead
+- nombre/contacto
+- teléfono
+- línea de negocio
+- fuente
+- asesor
+- estado
+- score
+- fecha ingreso
+
+#### Filtros
+
+- fecha
+- estado
+- asesor
+- fuente
+- sucursal
+- línea de negocio
+- campaña
+
+#### Acciones
+
+- crear lead
+- editar
+- asignar
+- registrar gestión
+- convertir en oportunidad
+- marcar perdido
+- ver historial
+
+#### Formulario de lead
+
+Secciones:
+
+1. Datos del contacto
+2. Línea de negocio
+3. Interés/necesidad
+4. Fuente/campaña
+5. Asignación
+6. Score y prioridad
+7. Observaciones
+
+---
+
+### C. Pantalla de Oportunidades
+
+#### Vista pipeline
+
+- columnas por etapa
+- tarjetas con:
+  - cliente
+  - monto estimado
+  - asesor
+  - fecha estimada
+  - probabilidad
+
+#### Vista listado
+
+- número
+- oportunidad
+- cliente
+- línea de negocio
+- etapa
+- monto estimado
+- fecha cierre
+- asesor
+- estado
+
+#### Acciones
+
+- crear
+- mover etapa
+- editar
+- registrar actividad
+- crear cotización
+- marcar ganada
+- marcar perdida
+
+#### Pantalla detalle oportunidad
+
+Pestañas:
+
+- resumen
+- actividades
+- cotizaciones
+- interacciones
+- productos/servicios de interés
+- historial de etapa
+- adjuntos
+
+---
+
+### D. Pantalla de Contactos / Clientes
+
+#### Vista listado
+
+- código
+- nombre / razón social
+- documento
+- teléfono
+- email
+- tipo
+- asesor
+- estado
+
+#### Acciones
+
+- nuevo cliente
+- editar
+- asociar etiqueta
+- asociar segmento
+- ver vista 360
+
+#### Pantalla ficha cliente 360
+
+Pestañas:
+
+- datos generales
+- contactos
+- vehículos
+- leads
+- oportunidades
+- cotizaciones
+- compras / historial comercial
+- taller
+- reclamos/casos
+- campañas
+- fidelización
+- interacciones
+- documentos
+
+---
+
+### E. Pantalla de Empresas / Cuentas
+
+Para clientes corporativos o cuentas con varios contactos.
+
+#### Acciones
+
+- crear empresa
+- agregar contactos
+- asociar vehículos
+- ver oportunidades corporativas
+- ver convenios
+
+---
+
+### F. Pantalla de Vehículos Asociados
+
+#### Vista listado
+
+- placa
+- VIN
+- cliente
+- marca/modelo
+- año
+- kilometraje
+- estado
+
+#### Acciones
+
+- registrar vehículo
+- editar
+- asociar a cliente/contacto
+- ver historial comercial y técnico
+- programar seguimiento
+
+---
+
+### G. Pantalla de Actividades
+
+#### Vista agenda/calendario
+
+- actividades del día
+- actividades vencidas
+- próximas actividades
+
+#### Vista listado
+
+- tipo
+- cliente/lead/oportunidad
+- responsable
+- fecha programada
+- estado
+- resultado
+
+#### Acciones
+
+- crear actividad
+- reprogramar
+- marcar realizada
+- cancelar
+- crear próxima actividad
+
+---
+
+### H. Pantalla de Interacciones
+
+#### Vista timeline
+
+- llamadas
+- WhatsApp
+- emails
+- visitas
+- formularios
+
+#### Filtros
+
+- cliente
+- usuario
+- canal
+- fecha
+- línea de negocio
+
+---
+
+### I. Pantalla de Cotizaciones
+
+#### Vista listado
+
+- número
+- cliente
+- oportunidad
+- línea
+- fecha
+- vigencia
+- total
+- estado
+
+#### Acciones
+
+- nueva cotización
+- editar
+- enviar
+- duplicar
+- cambiar estado
+- convertir
+
+#### Pantalla detalle cotización
+
+Pestañas:
+
+- encabezado
+- ítems
+- impuestos/descuentos
+- historial
+- adjuntos
+
+---
+
+### J. Pantalla de Casos / Reclamos
+
+#### Vista listado
+
+- número caso
+- cliente
+- tipo
+- prioridad
+- responsable
+- estado
+- fecha apertura
+- fecha compromiso
+
+#### Acciones
+
+- crear caso
+- asignar
+- escalar
+- cerrar
+- ver seguimiento
+
+#### Pantalla detalle caso
+
+Pestañas:
+
+- resumen
+- seguimiento
+- documentos
+- referencias
+- historial
+
+---
+
+### K. Pantalla de Campañas
+
+#### Vista listado
+
+- nombre campaña
+- tipo
+- canal
+- objetivo
+- fecha inicio/fin
+- responsable
+- estado
+
+#### Acciones
+
+- crear
+- segmentar
+- programar
+- ejecutar
+- ver resultados
+
+#### Pantalla detalle campaña
+
+Pestañas:
+
+- datos generales
+- segmento
+- destinatarios
+- resultados
+- leads generados
+- oportunidades generadas
+
+---
+
+### L. Pantalla de Fidelización / Postventa
+
+#### Vistas recomendadas
+
+- clientes inactivos
+- mantenimientos pendientes
+- cumpleaños
+- renovaciones sugeridas
+- recomendaciones de taller sin aprobar
+- encuestas pendientes
+
+#### Acciones
+
+- crear campaña
+- crear actividad
+- programar cita
+- abrir oportunidad postventa
+
+---
+
+### M. Reportes
+
+- leads por fuente
+- conversión por asesor
+- pipeline por línea de negocio
+- actividades vencidas
+- cotizaciones aprobadas
+- motivos de pérdida
+- campañas convertidas
+- clientes inactivos
+- reclamos por tipo
+- valor total del cliente
+
+---
+
+### N. Configuración
+
+- líneas de negocio
+- fuentes de leads
+- tipos de leads
+- etapas de pipeline
+- motivos de pérdida
+- tipos de actividad
+- resultados de actividad
+- tipos de caso
+- prioridades
+- segmentos
+- etiquetas
+- tipos de campaña
+- canales
+- reglas automáticas
+
+---
+
+# 3. DOCUMENTO TÉCNICO MÁS DETALLADO DEL CRM
+
+Ahora te lo bajo a:
+
+- actores
+- casos de uso
+- validaciones
+- estados
+- reglas de transición
+- historias de usuario
+
+---
+
+## 3.1. Actores
+
+- asesor comercial
+- asesor de servicio
+- vendedor de repuestos
+- call center
+- supervisor comercial
+- gerente comercial
+- marketing
+- atención al cliente
+- administrador
+- cliente (indirecto)
+
+---
+
+## 3.2. Casos de uso principales
+
+---
+
+### CU01. Registrar lead
+
+**Actor:** asesor / call center / marketing  
+**Descripción:** registrar un nuevo prospecto.  
+**Precondición:** ninguna.  
+**Postcondición:** lead creado y asignable.
+
+**Validaciones**
+
+- línea de negocio obligatoria
+- fuente obligatoria
+- teléfono o email recomendado/obligatorio según canal
+- evitar duplicado si ya existe cliente/contacto
+
+---
+
+### CU02. Asignar lead
+
+**Actor:** supervisor / sistema automático  
+**Descripción:** asignar lead a un asesor.  
+**Postcondición:** lead con responsable y actividad inicial.
+
+**Validaciones**
+
+- asesor activo
+- sucursal válida si aplica
+
+---
+
+### CU03. Gestionar lead
+
+**Actor:** asesor  
+**Descripción:** registrar seguimiento, actualizar estado y calificar.  
+**Postcondición:** lead actualizado.
+
+**Validaciones**
+
+- motivo obligatorio si se marca no calificado o perdido
+- fecha de seguimiento coherente
+- historial obligatorio
+
+---
+
+### CU04. Convertir lead en oportunidad
+
+**Actor:** asesor  
+**Descripción:** pasar un lead calificado a oportunidad comercial.  
+**Precondición:** lead existente.  
+**Postcondición:** oportunidad creada.
+
+**Validaciones**
+
+- cliente/contacto asociado o creado
+- línea de negocio heredada
+- asesor responsable obligatorio
+
+---
+
+### CU05. Crear oportunidad
+
+**Actor:** asesor  
+**Descripción:** registrar una oportunidad manual o desde lead.  
+**Postcondición:** oportunidad abierta en pipeline.
+
+**Validaciones**
+
+- cliente obligatorio
+- etapa inicial obligatoria
+- línea de negocio obligatoria
+- monto estimado no negativo
+
+---
+
+### CU06. Mover oportunidad de etapa
+
+**Actor:** asesor / supervisor  
+**Descripción:** cambiar etapa del pipeline.  
+**Postcondición:** historial de etapa actualizado.
+
+**Validaciones**
+
+- etapa válida para la línea de negocio
+- motivo obligatorio si se pierde
+- permisos especiales para revertir cierre
+
+---
+
+### CU07. Registrar actividad
+
+**Actor:** asesor  
+**Descripción:** programar seguimiento o registrar uno realizado.  
+**Postcondición:** actividad visible en agenda.
+
+**Validaciones**
+
+- responsable obligatorio
+- tipo actividad obligatorio
+- al menos una entidad relacionada
+
+---
+
+### CU08. Emitir cotización
+
+**Actor:** asesor  
+**Descripción:** generar propuesta comercial.  
+**Postcondición:** cotización emitida.
+
+**Validaciones**
+
+- oportunidad obligatoria
+- al menos un detalle
+- vigencia obligatoria
+- total calculado
+
+---
+
+### CU09. Crear caso
+
+**Actor:** atención al cliente / asesor / postventa  
+**Descripción:** registrar reclamo, consulta o incidente.  
+**Postcondición:** caso abierto con responsable.
+
+**Validaciones**
+
+- cliente obligatorio
+- tipo y prioridad obligatorios
+- descripción obligatoria
+
+---
+
+### CU10. Ejecutar campaña
+
+**Actor:** marketing  
+**Descripción:** lanzar campaña a segmentos de clientes.  
+**Postcondición:** campaña activa y destinatarios trazables.
+
+**Validaciones**
+
+- segmento obligatorio
+- canal obligatorio
+- fecha de campaña válida
+
+---
+
+### CU11. Registrar resultado de campaña
+
+**Actor:** sistema / marketing  
+**Descripción:** registrar respuesta, lead u oportunidad generada.  
+**Postcondición:** campaña medible.
+
+---
+
+### CU12. Registrar evento de fidelización
+
+**Actor:** sistema / postventa  
+**Descripción:** crear acciones por mantenimiento, inactividad o renovación.  
+**Postcondición:** evento disponible para seguimiento.
+
+---
+
+## 3.3. Validaciones funcionales clave
+
+- no duplicar cliente por documento principal
+- no cerrar oportunidad como perdida sin motivo
+- no dejar oportunidad activa sin próxima actividad visible
+- no permitir etapas de otra línea de negocio
+- no emitir cotización sin oportunidad o cliente válido
+- no cerrar caso sin resolución
+- no ejecutar campaña sin destinatarios
+- no convertir lead si no existe relación clara con cliente/contacto
+- clientes con restricción de contacto deben respetar preferencias
+
+---
+
+## 3.4. Estados y transiciones
+
+---
+
+### Lead
+
+Estados:
+
+- nuevo
+- asignado
+- contactado
+- seguimiento
+- calificado
+- no_calificado
+- convertido
+- perdido
+
+Transiciones ejemplo:
+
+- nuevo → asignado
+- asignado → contactado
+- contactado → seguimiento
+- seguimiento → calificado
+- calificado → convertido
+- seguimiento → perdido
+- seguimiento → no_calificado
+
+---
+
+### Oportunidad
+
+Estados:
+
+- abierta
+- pausada
+- ganada
+- perdida
+- cancelada
+
+Etapas:
+
+- dependen del pipeline por línea de negocio
+
+Reglas:
+
+- ganada y perdida son cierres
+- perdida requiere motivo
+- ganada debe permitir conversión a venta/cita/pedido/OT
+
+---
+
+### Actividad
+
+Estados:
+
+- pendiente
+- realizada
+- vencida
+- cancelada
+- reprogramada
+
+---
+
+### Cotización
+
+Estados:
+
+- borrador
+- emitida
+- enviada
+- vista
+- negociacion
+- aprobada
+- rechazada
+- vencida
+- convertida
+
+---
+
+### Caso
+
+Estados:
+
+- abierto
+- en_analisis
+- en_proceso
+- esperando_cliente
+- escalado
+- resuelto
+- cerrado
+- rechazado
+
+---
+
+### Campaña
+
+Estados:
+
+- borrador
+- programada
+- activa
+- pausada
+- finalizada
+- cancelada
+
+---
+
+## 3.5. Historias de usuario resumidas
+
+### HU01
+
+Como asesor, quiero registrar leads por múltiples canales para no perder oportunidades.
+
+### HU02
+
+Como supervisor, quiero asignar leads automáticamente para reducir tiempos de respuesta.
+
+### HU03
+
+Como asesor, quiero mover oportunidades por pipeline para controlar mejor mis cierres.
+
+### HU04
+
+Como usuario comercial, quiero ver una ficha 360 del cliente para conocer su historial antes de contactarlo.
+
+### HU05
+
+Como asesor, quiero programar y registrar actividades para dar seguimiento ordenado.
+
+### HU06
+
+Como comercial, quiero emitir cotizaciones con versiones para negociar con el cliente.
+
+### HU07
+
+Como marketing, quiero lanzar campañas segmentadas y medir resultados.
+
+### HU08
+
+Como atención al cliente, quiero gestionar casos y reclamos con SLA para mejorar el servicio.
+
+### HU09
+
+Como postventa, quiero detectar clientes inactivos y generar seguimiento automático.
+
+### HU10
+
+Como gerente, quiero dashboards por línea de negocio para medir conversión y productividad.
+
+---
+
+# 4. INTEGRACIÓN CRM + TALLER
+
+Aunque ya te di integración desde el lado de taller, aquí te la dejo **desde la perspectiva CRM**, para que quede simétrica y más clara.
+
+---
+
+## 4.1. Objetivo de la integración
+
+Hacer que el CRM no termine en la venta o en el lead, sino que continúe la relación del cliente en postventa, servicio y fidelización.
+
+El CRM debe ser la capa de relación, y Taller la capa operativa del servicio.
+
+---
+
+## 4.2. Entidades compartidas
+
+Ambos módulos deben compartir como base única:
+
+- cliente
+- contacto
+- empresa/cuenta
+- vehículo
+- sucursal
+- empleado/asesor
+- documentos relacionados
+- casos/reclamos
+- historial de interacción
+
+---
+
+## 4.3. Flujos integrados principales
+
+---
+
+### Flujo A. Cliente del CRM agenda cita en taller
+
+1. El CRM detecta:
+   - oportunidad de mantenimiento
+   - recomendación pendiente
+   - campaña respondida
+   - reclamo técnico
+2. Usuario crea cita.
+3. La cita pasa al módulo taller.
+4. Taller atiende y devuelve resultado.
+
+**Beneficio:** el CRM genera tráfico real al taller.
+
+---
+
+### Flujo B. Servicio de taller alimenta la vista 360 del CRM
+
+1. Se cierra recepción/OT.
+2. El CRM recibe:
+   - fecha de visita
+   - trabajos realizados
+   - monto
+   - kilometraje
+   - recomendaciones
+   - satisfacción
+3. En la ficha del cliente aparece la visita técnica.
+
+**Beneficio:** el asesor comercial sabe todo lo que ha pasado con el cliente.
+
+---
+
+### Flujo C. Trabajo no aprobado se vuelve oportunidad CRM
+
+1. Taller detecta reparación recomendada.
+2. Cliente no aprueba hoy.
+3. Sistema envía al CRM:
+   - oportunidad postventa
+   - actividad futura
+   - evento de fidelización
+
+**Beneficio:** ventas futuras no se pierden.
+
+---
+
+### Flujo D. Reclamo CRM crea caso técnico en taller
+
+1. Cliente reclama desde CRM.
+2. Atención al cliente abre caso.
+3. Si el reclamo es técnico:
+   - se genera cita
+   - o inspección
+   - o proceso de garantía
+4. Taller resuelve y retroalimenta CRM.
+
+**Beneficio:** el reclamo tiene trazabilidad total.
+
+---
+
+### Flujo E. CRM usa historial de taller para campañas inteligentes
+
+Ejemplos:
+
+- clientes que no cambian frenos hace 18 meses
+- clientes con mantenimiento pendiente
+- clientes con recomendación no atendida
+- clientes que compraron vehículo y se acerca primer servicio
+
+**Beneficio:** marketing y postventa son realmente inteligentes.
+
+---
+
+## 4.4. Información que CRM recibe desde Taller
+
+- última visita al taller
+- tipo de servicio realizado
+- fecha de próxima visita sugerida
+- kilometraje
+- repuestos relevantes instalados
+- recomendaciones pendientes
+- OT abierta/cerrada
+- garantía asociada
+- encuesta de satisfacción
+- retrasos o incidencias importantes
+
+---
+
+## 4.5. Información que CRM envía a Taller
+
+- datos del cliente
+- vehículo
+- contacto principal
+- etiqueta de cliente VIP/corporativo/flotilla
+- observaciones comerciales relevantes
+- cita agendada
+- origen de la cita/campaña
+- caso o reclamo relacionado
+- prioridad o SLA
+
+---
+
+## 4.6. Casos de uso integrados
+
+### Caso 1: recuperación de cliente inactivo
+
+- CRM detecta inactividad
+- crea actividad de contacto
+- cliente acepta cita
+- taller atiende
+- CRM marca cliente recuperado
+
+### Caso 2: recomendación técnica
+
+- taller recomienda amortiguadores
+- no aprueba
+- CRM crea oportunidad postventa a 20 días
+- asesor llama y logra cita
+
+### Caso 3: reclamo postservicio
+
+- CRM recibe mala encuesta
+- abre caso
+- si requiere retrabajo, taller genera atención
+- CRM registra cierre y satisfacción final
+
+### Caso 4: campaña por kilometraje
+
+- CRM identifica vehículos cercanos al servicio
+- envía campaña
+- se generan leads/citas
+- taller convierte y atiende
+- CRM mide resultado campaña → facturación
+
+---
+
+## 4.7. Dashboard conjunto CRM + Taller
+
+Recomendado tener un tablero cruzado con:
+
+- clientes atendidos en taller provenientes de campaña
+- tasa de retorno al taller
+- oportunidades postservicio generadas
+- recomendaciones convertidas en venta
+- clientes inactivos recuperados
+- satisfacción postservicio
+- valor acumulado del cliente
+- frecuencia de servicios por vehículo
+- ingresos originados desde CRM
+
+---
+
+## 4.8. Reglas de integración
+
+- cliente y vehículo deben existir una sola vez
+- toda cita creada en CRM debe ser visible en Taller
+- toda atención concluida en Taller debe reflejarse en CRM
+- casos/reclamos deben tener referencia cruzada
+- recomendaciones pendientes deben poder pasar a oportunidad CRM
+- campañas CRM deben poder usar datos técnicos del historial de taller
+
+---
+
+# RECOMENDACIÓN FINAL PARA EL CRM
+
+Si lo implementas por fases, yo haría esto:
+
+## Fase 1
+
+- clientes/contactos/cuentas
+- leads
+- oportunidades
+- actividades
+- dashboard básico
+
+## Fase 2
+
+- cotizaciones
+- pipeline por línea de negocio
+- interacciones
+- vista 360 del cliente
+
+## Fase 3
+
+- campañas
+- segmentación
+- casos/reclamos
+- fidelización
+
+## Fase 4
+
+- integración total con taller
+- integración con ventas de vehículos
+- integración con repuestos
+- automatizaciones avanzadas
+- BI y scoring
+
 ---

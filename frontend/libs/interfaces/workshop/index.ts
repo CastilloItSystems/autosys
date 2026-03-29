@@ -1,9 +1,11 @@
-// Export all workshop interfaces
-export * from "./workOrderStatus.interface";
-export * from "./workOrderMain.interface";
-export * from "./service.interface";
-export * from "./serviceCategoryMain.interface";
-export * from "./invoice.interface";
-export * from "./payment.interface";
-export * from "./serviceBay.interface";
-export * from "./serviceBayDashboard.interface";
+// libs/interfaces/workshop/index.ts
+export * from './shared.interface'
+export * from './serviceType.interface'
+export * from './workshopBay.interface'
+export * from './workshopOperation.interface'
+export * from './serviceOrder.interface'
+export * from './appointment.interface'
+export * from './reception.interface'
+export * from './laborTime.interface'
+export * from './qualityCheck.interface'
+export * from './warranty.interface'

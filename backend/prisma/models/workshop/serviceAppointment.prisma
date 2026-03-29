@@ -1,0 +1,65 @@
+// backend/prisma/models/workshop/serviceAppointment.prisma
+// Citas / agenda del taller.
+// Flujo: SCHEDULED → CONFIRMED → ARRIVED → COMPLETED | NO_SHOW | CANCELLED
+
+enum AppointmentStatus {
+  SCHEDULED   // Agendada
+  CONFIRMED   // Confirmada por el cliente
+  ARRIVED     // Cliente llegó al taller
+  COMPLETED   // Se generó OT / se concretó la atención
+  NO_SHOW     // No se presentó
+  CANCELLED   // Cancelada
+}
+
+model ServiceAppointment {
+  id    String @id @default(cuid())
+  folio String // APT-0001 auto-generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot al agendar
+  vehiclePlate String?
+  vehicleDesc  String? // "Toyota Hilux 2021 Gris"
+
+  // Tipo de servicio solicitado
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Programación
+  scheduledDate      DateTime // Fecha de la cita
+  estimatedMinutes   Int?     // Duración estimada
+
+  // Asignación
+  assignedAdvisorId String? // userId del asesor de servicio
+
+  // Estado y detalles
+  status      AppointmentStatus @default(SCHEDULED)
+  clientNotes String?           @db.Text // Lo que el cliente describió al agendar
+  internalNotes String?         @db.Text
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación inversa: recepciones generadas desde esta cita
+  receptions VehicleReception[]
+
+  // Relación inversa: la OT creada desde esta cita
+  serviceOrder ServiceOrder?
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([assignedAdvisorId])
+  @@map("workshop_appointments")
+}

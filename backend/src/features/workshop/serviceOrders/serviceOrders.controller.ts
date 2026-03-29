@@ -19,7 +19,7 @@ import {
 
 export const getAll = async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
-  const result = await findAllServiceOrders(prisma, empresaId, req.query as any)
+  const result = await findAllServiceOrders(prisma, empresaId, req.validatedQuery as any)
   return ApiResponse.success(res, {
     ...result,
     data: result.data.map((o) => new ServiceOrderResponseDTO(o)),

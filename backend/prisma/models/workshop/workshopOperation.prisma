@@ -1,0 +1,36 @@
+// backend/prisma/models/workshop/workshopOperation.prisma
+// Operaciones estándar del taller con tiempos y precios de referencia.
+// Se usan para cotizar y controlar tiempos técnicos por operación.
+// Ej: "Cambio de aceite y filtro", "Alineación y balanceo", "Diagnóstico eléctrico"
+
+model WorkshopOperation {
+  id          String  @id @default(cuid())
+  code        String
+  name        String
+  description String? @db.Text
+
+  // Tipo de servicio al que pertenece (opcional, para agrupar)
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Tiempo estándar en minutos (para control de eficiencia)
+  standardMinutes Int?
+
+  // Precio lista de la operación (mano de obra)
+  listPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  isActive Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones
+  serviceOrderItems ServiceOrderItem[]
+  laborTimes        LaborTime[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([serviceTypeId])
+  @@index([isActive])
+  @@map("workshop_operations")
+}

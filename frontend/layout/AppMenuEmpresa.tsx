@@ -373,64 +373,48 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-wrench",
       items: [
         {
-          label: "Dashboard Órdenes",
-          icon: "pi pi-fw pi-chart-line",
-          to: "/empresa/operation/workshop",
-        },
-        {
-          label: "Órdenes de Trabajo",
+          label: "Órdenes de Servicio",
           icon: "pi pi-fw pi-file-edit",
-          to: "/empresa/workshop",
+          to: "/empresa/workshop/service-orders",
         },
         {
-          label: "Bahías de Servicio",
-          icon: "pi pi-fw pi-cog",
-          to: "/empresa/operation/service-bays",
+          label: "Citas",
+          icon: "pi pi-fw pi-calendar",
+          to: "/empresa/workshop/appointments",
         },
         {
-          label: "Puestos de Servicio",
-          icon: "pi pi-fw pi-sitemap",
-          to: "/empresa/workshop/service-bays",
+          label: "Recepciones",
+          icon: "pi pi-fw pi-car",
+          to: "/empresa/workshop/receptions",
         },
         {
-          label: "Facturación",
-          icon: "pi pi-fw pi-dollar",
-          items: [
-            {
-              label: "Facturas",
-              icon: "pi pi-fw pi-file",
-              to: "/empresa/workshop/invoices",
-            },
-            {
-              label: "Pagos",
-              icon: "pi pi-fw pi-money-bill",
-              to: "/empresa/workshop/payments",
-            },
-          ],
+          label: "Tiempos de Mano de Obra",
+          icon: "pi pi-fw pi-stopwatch",
+          to: "/empresa/workshop/labor-times",
+        },
+        {
+          label: "Control de Calidad",
+          icon: "pi pi-fw pi-list-check",
+          to: "/empresa/workshop/quality-checks",
+        },
+        {
+          label: "Garantías",
+          icon: "pi pi-fw pi-shield",
+          to: "/empresa/workshop/warranties",
         },
         {
           label: "Configuración",
           icon: "pi pi-fw pi-cog",
           items: [
             {
-              label: "Categorías de Servicios",
+              label: "Tipos de Servicio",
               icon: "pi pi-fw pi-tags",
-              to: "/empresa/workshop/service-categories",
+              to: "/empresa/workshop/service-types",
             },
             {
-              label: "Subcategorías de Servicios",
-              icon: "pi pi-fw pi-tag",
-              to: "/empresa/workshop/service-subcategories",
-            },
-            {
-              label: "Estados de Órdenes",
-              icon: "pi pi-fw pi-tags",
-              to: "/empresa/workshop/work-order-statuses",
-            },
-            {
-              label: "Servicios",
-              icon: "pi pi-fw pi-cog",
-              to: "/empresa/workshop/services",
+              label: "Bahías",
+              icon: "pi pi-fw pi-sitemap",
+              to: "/empresa/workshop/bays",
             },
           ],
         },

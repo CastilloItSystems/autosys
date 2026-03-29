@@ -87,7 +87,9 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
-  stockAlerts         StockAlert[]       
+  stockAlerts         StockAlert[]
+  // Workshop: repuestos consumidos en OT
+  serviceOrderItems   ServiceOrderItem[]
   // Auditoría con historial de cambios
   historial      Json?
 

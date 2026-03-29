@@ -34,17 +34,22 @@ export const updateServiceOrderSchema = Joi.object({
   items: Joi.array().items(itemSchema).optional(),
 })
 
+const SO_STATUSES = [
+  'DRAFT', 'OPEN', 'DIAGNOSING', 'PENDING_APPROVAL', 'APPROVED',
+  'IN_PROGRESS', 'PAUSED', 'WAITING_PARTS', 'WAITING_AUTH',
+  'QUALITY_CHECK', 'READY', 'DELIVERED', 'INVOICED', 'CLOSED', 'CANCELLED',
+]
+
 export const updateStatusSchema = Joi.object({
-  status: Joi.string()
-    .valid('RECEIVED', 'IN_PROGRESS', 'DONE', 'DELIVERED', 'CANCELLED')
-    .required(),
+  status: Joi.string().valid(...SO_STATUSES).required().messages({
+    'any.only': `El estado debe ser uno de: ${SO_STATUSES.join(', ')}`,
+    'any.required': 'El estado es requerido',
+  }),
   mileageOut: Joi.number().integer().min(0).optional(),
 })
 
 export const serviceOrderFiltersSchema = Joi.object({
-  status: Joi.string()
-    .valid('RECEIVED', 'IN_PROGRESS', 'DONE', 'DELIVERED', 'CANCELLED')
-    .optional(),
+  status: Joi.string().valid(...SO_STATUSES).optional(),
   customerId: Joi.string().optional(),
   assignedTechnicianId: Joi.string().optional(),
   search: Joi.string().trim().optional(),

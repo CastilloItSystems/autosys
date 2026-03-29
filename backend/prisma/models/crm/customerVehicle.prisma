@@ -52,10 +52,13 @@ model CustomerVehicle {
   isActive      Boolean           @default(true)
 
   // Taller
-  serviceOrders ServiceOrder[]
+  serviceOrders    ServiceOrder[]
+  appointments     ServiceAppointment[]
+  receptions       VehicleReception[]
+  warranties       WorkshopWarranty[]
 
   // CRM: Casos / Reclamos
-  cases         Case[]
+  cases            Case[]
 
   createdAt     DateTime          @default(now())
   updatedAt     DateTime          @updatedAt

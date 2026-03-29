@@ -1,0 +1,112 @@
+"use client";
+import React from "react";
+import { useForm, Controller } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
+import { handleFormError } from "@/utils/errorHandlers";
+import { qualityCheckService } from "@/app/api/workshop";
+
+const schema = z.object({
+  serviceOrderId: z.string({ required_error: "La OT es requerida" }).min(1),
+  inspectorId: z.string({ required_error: "El inspector es requerido" }).min(1),
+  notes: z.string().max(500).nullable().optional(),
+});
+
+type FormData = z.infer<typeof schema>;
+
+interface Props {
+  onSave: () => void | Promise<void>;
+  formId?: string;
+  onSubmittingChange?: (v: boolean) => void;
+  toast: React.RefObject<any>;
+}
+
+export default function QualityCheckForm({ onSave, formId, onSubmittingChange, toast }: Props) {
+  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+    resolver: zodResolver(schema),
+    mode: "onBlur",
+    defaultValues: { serviceOrderId: "", inspectorId: "", notes: "" },
+  });
+
+  const onSubmit = async (data: FormData) => {
+    onSubmittingChange?.(true);
+    try {
+      await qualityCheckService.create({
+        serviceOrderId: data.serviceOrderId,
+        inspectorId: data.inspectorId,
+        notes: data.notes ?? undefined,
+      });
+      await onSave();
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      onSubmittingChange?.(false);
+    }
+  };
+
+  return (
+    <form id={formId ?? "quality-check-create-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      <div className="grid">
+        <div className="col-12">
+          <label htmlFor="serviceOrderId" className="block text-900 font-medium mb-2">
+            ID Orden de Trabajo <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="serviceOrderId"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="serviceOrderId"
+                {...field}
+                placeholder="ID de la OT a revisar"
+                className={errors.serviceOrderId ? "p-invalid" : ""}
+                autoFocus
+              />
+            )}
+          />
+          {errors.serviceOrderId && <small className="p-error block mt-1">{errors.serviceOrderId.message}</small>}
+        </div>
+
+        <div className="col-12">
+          <label htmlFor="inspectorId" className="block text-900 font-medium mb-2">
+            ID Inspector <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="inspectorId"
+            control={control}
+            render={({ field }) => (
+              <InputText
+                id="inspectorId"
+                {...field}
+                placeholder="ID del inspector"
+                className={errors.inspectorId ? "p-invalid" : ""}
+              />
+            )}
+          />
+          {errors.inspectorId && <small className="p-error block mt-1">{errors.inspectorId.message}</small>}
+        </div>
+
+        <div className="col-12">
+          <label htmlFor="notes" className="block text-900 font-medium mb-2">
+            Notas iniciales
+          </label>
+          <Controller
+            name="notes"
+            control={control}
+            render={({ field }) => (
+              <InputTextarea
+                id="notes"
+                {...field}
+                value={field.value ?? ""}
+                rows={3}
+                placeholder="Notas previas a la inspección..."
+              />
+            )}
+          />
+        </div>
+      </div>
+    </form>
+  );
+}

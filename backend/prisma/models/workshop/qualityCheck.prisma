@@ -1,0 +1,44 @@
+// backend/prisma/models/workshop/qualityCheck.prisma
+// Control de calidad pre-entrega del vehículo.
+// Se ejecuta antes de mover la OT a READY.
+// Si falla → se registra motivo y se regresa a IN_PROGRESS.
+
+enum QualityCheckStatus {
+  PENDING     // Por realizar
+  IN_PROGRESS // En proceso de revisión
+  PASSED      // Aprobado - vehículo listo para entregar
+  FAILED      // Reprobado - requiere retrabajo
+}
+
+model QualityCheck {
+  id             String       @id @default(cuid())
+
+  serviceOrderId String       @unique // 1:1 con ServiceOrder
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  inspectorId String // userId del inspector (técnico jefe, asesor QC, etc.)
+
+  status QualityCheckStatus @default(PENDING)
+
+  // Checklist flexible (lista de ítems con resultado)
+  // Ej: [{ item: "Prueba de ruta", passed: true }, { item: "Limpieza interior", passed: false }]
+  checklistItems Json?
+
+  // Si falla
+  failureNotes String? @db.Text
+  retryCount   Int     @default(0) // Cuántas veces reprobó
+
+  // Fechas
+  startedAt  DateTime?
+  completedAt DateTime?
+
+  notes     String? @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([inspectorId])
+  @@index([status])
+  @@map("workshop_quality_checks")
+}

@@ -11,11 +11,21 @@ import type { ServiceOrderStatus, IServiceOrderFilters } from './serviceOrders.i
 type PrismaClientType = PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
-  RECEIVED:    ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS: ['DONE', 'CANCELLED'],
-  DONE:        ['DELIVERED', 'IN_PROGRESS'],
-  DELIVERED:   [],
-  CANCELLED:   [],
+  DRAFT:            ['OPEN', 'CANCELLED'],
+  OPEN:             ['DIAGNOSING', 'IN_PROGRESS', 'CANCELLED'],
+  DIAGNOSING:       ['PENDING_APPROVAL', 'APPROVED', 'CANCELLED'],
+  PENDING_APPROVAL: ['APPROVED', 'CANCELLED'],
+  APPROVED:         ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS:      ['PAUSED', 'WAITING_PARTS', 'WAITING_AUTH', 'QUALITY_CHECK', 'CANCELLED'],
+  PAUSED:           ['IN_PROGRESS', 'CANCELLED'],
+  WAITING_PARTS:    ['IN_PROGRESS', 'CANCELLED'],
+  WAITING_AUTH:     ['IN_PROGRESS', 'CANCELLED'],
+  QUALITY_CHECK:    ['READY', 'IN_PROGRESS'],
+  READY:            ['DELIVERED', 'IN_PROGRESS'],
+  DELIVERED:        ['INVOICED'],
+  INVOICED:         ['CLOSED'],
+  CLOSED:           [],
+  CANCELLED:        [],
 }
 
 // Genera folio SO-XXXX por empresa (transaccional)
@@ -192,8 +202,8 @@ export async function updateServiceOrder(
   dto: UpdateServiceOrderDTO
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
-  if (existing.status === 'DELIVERED' || existing.status === 'CANCELLED') {
-    throw new BadRequestError('No se puede editar una orden entregada o cancelada')
+  if (['DELIVERED', 'INVOICED', 'CLOSED', 'CANCELLED'].includes(existing.status)) {
+    throw new BadRequestError('No se puede editar una orden entregada, facturada, cerrada o cancelada')
   }
 
   const { items, ...fields } = dto
@@ -240,6 +250,7 @@ export async function updateServiceOrderStatus(
 
   const extra: any = {}
   if (dto.status === 'DELIVERED') extra.deliveredAt = new Date()
+  if (dto.status === 'CLOSED') extra.closedAt = new Date()
   if (dto.mileageOut != null) extra.mileageOut = dto.mileageOut
 
   const updated = await (prisma as PrismaClient).serviceOrder.update({
@@ -290,8 +301,8 @@ export async function deleteServiceOrder(
   empresaId: string
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
-  if (!['RECEIVED', 'CANCELLED'].includes(existing.status)) {
-    throw new BadRequestError('Solo se pueden eliminar órdenes en estado RECEIVED o CANCELLED')
+  if (!['DRAFT', 'CANCELLED'].includes(existing.status)) {
+    throw new BadRequestError('Solo se pueden eliminar órdenes en estado DRAFT o CANCELLED')
   }
   await (prisma as PrismaClient).serviceOrder.delete({ where: { id } })
 }

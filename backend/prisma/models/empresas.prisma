@@ -56,7 +56,13 @@ model Empresa {
   cases            Case[]
 
   // Workshop (Taller)
-  serviceOrders    ServiceOrder[]
+  serviceOrders       ServiceOrder[]
+  serviceAppointments ServiceAppointment[]
+  vehicleReceptions   VehicleReception[]
+  serviceTypes        ServiceType[]
+  workshopBays        WorkshopBay[]
+  workshopOperations  WorkshopOperation[]
+  workshopWarranties  WorkshopWarranty[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

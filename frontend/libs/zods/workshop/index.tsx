@@ -1,6 +1,8 @@
-// Export all workshop Zod schemas
-export * from "./workOrderStatusZod";
-export * from "./workOrderZod";
-export * from "./serviceCategoryZod";
-export * from "./serviceZod";
-export * from "./invoiceZod";
+// libs/zods/workshop/index.tsx
+export * from './serviceTypeZod'
+export * from './workshopBayZod'
+export * from './workshopOperationZod'
+export * from './serviceOrderZod'
+export * from './appointmentZod'
+export * from './receptionZod'
+export * from './warrantyZod'

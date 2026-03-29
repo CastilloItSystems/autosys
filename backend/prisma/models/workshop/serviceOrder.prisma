@@ -1,86 +1,160 @@
 // backend/prisma/models/workshop/serviceOrder.prisma
-// Orden de servicio del taller mecánico (MVP)
-// Flujo: RECEIVED → IN_PROGRESS → DONE → DELIVERED | CANCELLED
+// Orden de Trabajo (OT) del taller mecánico.
+// Flujo completo: DRAFT → OPEN → DIAGNOSING → PENDING_APPROVAL → APPROVED
+//                 → IN_PROGRESS → PAUSED | WAITING_PARTS | WAITING_AUTH
+//                 → QUALITY_CHECK → READY → DELIVERED → INVOICED → CLOSED
+//                 | CANCELLED
 
 enum ServiceOrderStatus {
-  RECEIVED      // Recibido en taller
-  IN_PROGRESS   // En trabajo
-  DONE          // Listo para entregar
-  DELIVERED     // Entregado al cliente
-  CANCELLED     // Cancelado
+  DRAFT            // Borrador (en creación)
+  OPEN             // Abierta / Vehículo recibido
+  DIAGNOSING       // En diagnóstico
+  PENDING_APPROVAL // Cotización enviada, esperando aprobación del cliente
+  APPROVED         // Cliente aprobó los trabajos
+  IN_PROGRESS      // Trabajos en ejecución
+  PAUSED           // Pausada (falta técnico, recurso, etc.)
+  WAITING_PARTS    // Esperando repuesto
+  WAITING_AUTH     // Esperando autorización para trabajo adicional
+  QUALITY_CHECK    // En control de calidad pre-entrega
+  READY            // Lista para entregar
+  DELIVERED        // Vehículo entregado al cliente
+  INVOICED         // Facturada
+  CLOSED           // Cerrada y liquidada
+  CANCELLED        // Cancelada / Anulada
+}
+
+enum ServiceOrderPriority {
+  LOW    // Normal / sin urgencia
+  NORMAL // Prioridad estándar
+  HIGH   // Urgente
+  ASAP   // Inmediata (cliente esperando en taller)
 }
 
 enum ServiceOrderItemType {
-  LABOR   // Mano de obra
-  PART    // Refacción / material
-  OTHER   // Otro cargo
+  LABOR   // Mano de obra / operación técnica
+  PART    // Repuesto o material
+  OTHER   // Otro cargo (subcontrato, servicio externo, etc.)
 }
 
 model ServiceOrder {
-  id        String  @id @default(cuid())
-  folio     String  // SO-0001, SO-0002 ... generado por empresa
+  id    String @id @default(cuid())
+  folio String // SO-0001, SO-0002 ... generado por empresa
 
   // Cliente y vehículo
-  customerId          String
-  customerVehicleId   String?
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
 
   // Snapshot del vehículo al momento de recibir
-  vehiclePlate  String?
-  vehicleDesc   String?  // "Honda Civic 2019 Blanco"
-  mileageIn     Int?
-  mileageOut    Int?
+  vehiclePlate String?
+  vehicleDesc  String? // "Honda Civic 2019 Blanco"
+  mileageIn    Int?
+  mileageOut   Int?
+
+  // Origen: cita y/o recepción formal
+  appointmentId String?             @unique
+  appointment   ServiceAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  receptionId String?          @unique
+  reception   VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+
+  // Tipo de servicio principal
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Bahía / estación de trabajo asignada
+  bayId String?
+  bay   WorkshopBay? @relation(fields: [bayId], references: [id], onDelete: SetNull)
+
+  // Cotización CRM de origen (si aplica)
+  workshopQuoteId String?
+  workshopQuote   Quote? @relation(fields: [workshopQuoteId], references: [id], onDelete: SetNull)
+
+  // Factura generada al cerrar
+  invoiceId String? @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   // Trabajo
-  diagnosisNotes  String?   @db.Text
-  observations    String?   @db.Text
+  diagnosisNotes String? @db.Text
+  observations   String? @db.Text
 
-  // Estado y asignación
-  status                ServiceOrderStatus  @default(RECEIVED)
-  assignedTechnicianId  String?             // userId del técnico
+  // Estado, prioridad y asignación
+  status                ServiceOrderStatus   @default(DRAFT)
+  priority              ServiceOrderPriority @default(NORMAL)
+  assignedAdvisorId     String?              // userId del asesor de servicio
+  assignedTechnicianId  String?              // userId del técnico principal
 
-  // Fechas
-  receivedAt          DateTime   @default(now())
-  estimatedDelivery   DateTime?
-  deliveredAt         DateTime?
+  // Fechas clave
+  receivedAt        DateTime  @default(now())
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  closedAt          DateTime?
 
-  // Totales
-  laborTotal  Decimal  @default(0)  @db.Decimal(12, 2)
-  partsTotal  Decimal  @default(0)  @db.Decimal(12, 2)
-  total       Decimal  @default(0)  @db.Decimal(12, 2)
+  // Totales calculados
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
 
   // Multi-tenancy y auditoría
-  empresaId  String
-  createdBy  String
-  createdAt  DateTime  @default(now())
-  updatedAt  DateTime  @updatedAt
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  // Relaciones
-  empresa         Empresa          @relation(fields: [empresaId], references: [id_empresa])
-  customer        Customer         @relation(fields: [customerId], references: [id])
-  customerVehicle CustomerVehicle? @relation(fields: [customerVehicleId], references: [id])
-  items           ServiceOrderItem[]
+  // Relaciones hijas
+  items          ServiceOrderItem[]
+  laborTimes     LaborTime[]
+  qualityCheck   QualityCheck?
+  warranties     WorkshopWarranty[] @relation("OriginalOrder")
+  reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
+
+  // Lead generado o asociado
+  lead Lead?
 
   @@unique([empresaId, folio])
   @@index([empresaId])
   @@index([customerId])
   @@index([customerVehicleId])
   @@index([status])
+  @@index([priority])
+  @@index([assignedAdvisorId])
   @@index([assignedTechnicianId])
   @@index([receivedAt])
+  @@index([estimatedDelivery])
   @@map("service_orders")
 }
 
 model ServiceOrderItem {
-  id              String               @id @default(cuid())
-  serviceOrderId  String
-  type            ServiceOrderItemType @default(LABOR)
-  description     String
-  quantity        Decimal              @default(1)  @db.Decimal(10, 2)
-  unitPrice       Decimal              @default(0)  @db.Decimal(12, 2)
-  total           Decimal              @default(0)  @db.Decimal(12, 2)
+  id             String               @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
-  serviceOrder  ServiceOrder  @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  type        ServiceOrderItemType @default(LABOR)
+  description String
+  quantity    Decimal              @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal             @default(0) @db.Decimal(12, 2)
+  discountPct Decimal             @default(0) @db.Decimal(5, 2)
+  total       Decimal             @default(0) @db.Decimal(12, 2)
+
+  // LABOR: operación estándar de referencia (opcional)
+  operationId String?
+  operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // PART: ítem de inventario vinculado (opcional)
+  itemId        String?
+  item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  stockDeducted Boolean  @default(false) // true cuando ya se descontó del inventario
+
+  // Registro de tiempo real si aplica (inversas de LaborTime)
+  laborTimes LaborTime[]
 
   @@index([serviceOrderId])
+  @@index([operationId])
+  @@index([itemId])
   @@map("service_order_items")
 }

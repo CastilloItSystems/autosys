@@ -1,0 +1,71 @@
+// backend/prisma/models/workshop/vehicleReception.prisma
+// Recepción formal del vehículo en el taller.
+// Registra el estado físico del vehículo al ingresar.
+// Puede generarse desde una cita o directamente (walk-in).
+
+enum FuelLevel {
+  EMPTY          // Vacío
+  QUARTER        // 1/4
+  HALF           // 1/2
+  THREE_QUARTERS // 3/4
+  FULL           // Lleno
+}
+
+model VehicleReception {
+  id    String @id @default(cuid())
+  folio String // REC-0001 auto-generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot del vehículo al ingresar
+  vehiclePlate String?
+  vehicleDesc  String? // "Toyota Hilux 2021 Gris"
+
+  // Datos de ingreso
+  mileageIn  Int?
+  fuelLevel  FuelLevel?
+
+  // Inventario de accesorios y condición
+  accessories      Json?    // Ej: ["gata", "llanta de repuesto", "radio", "manual"]
+  hasPreExistingDamage Boolean @default(false)
+  damageNotes      String? @db.Text // Descripción de daños pre-existentes
+
+  // Descripción del cliente de lo que necesita
+  clientDescription String? @db.Text
+
+  // Autorización de ingreso
+  authorizationName  String? // Nombre de quien autoriza (puede ser el mismo cliente)
+  authorizationPhone String?
+
+  // Entrega estimada al recibir
+  estimatedDelivery DateTime?
+
+  // Asesor que recibe
+  advisorId String? // userId
+
+  // Cita de origen (opcional - puede ser walk-in)
+  appointmentId String?
+  appointment   ServiceAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación inversa: la OT generada desde esta recepción
+  serviceOrder ServiceOrder?
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([appointmentId])
+  @@index([createdAt])
+  @@map("workshop_receptions")
+}
