@@ -1,15 +1,53 @@
 // backend/src/features/workshop/receptions/receptions.service.ts
 import type { PrismaClient } from '../../../generated/prisma/client.js'
-import { NotFoundError, BadRequestError, ConflictError } from '../../../shared/utils/apiError.js'
-import type { IReceptionFilters, ICreateReceptionInput, IUpdateReceptionInput } from './receptions.interface.js'
+import {
+  NotFoundError,
+  BadRequestError,
+  ConflictError,
+} from '../../../shared/utils/apiError.js'
+import type {
+  IReceptionFilters,
+  ICreateReceptionInput,
+  IUpdateReceptionInput,
+  IChangeReceptionStatusInput,
+  ReceptionStatus,
+} from './receptions.interface.js'
 
-type Db = PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+// Transiciones válidas del estado de recepción
+const RECEPTION_STATUS_TRANSITIONS: Record<ReceptionStatus, ReceptionStatus[]> = {
+  OPEN:            ['DIAGNOSING', 'QUOTED', 'CANCELLED'],
+  DIAGNOSING:      ['QUOTED', 'OPEN'],
+  QUOTED:          ['CONVERTED_TO_SO', 'OPEN', 'CANCELLED'],
+  CONVERTED_TO_SO: [],
+  CANCELLED:       [],
+}
+
+type Db =
+  | PrismaClient
+  | Omit<
+      PrismaClient,
+      '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+    >
 
 const INCLUDE = {
-  customer: { select: { id: true, name: true, code: true, phone: true, mobile: true } },
-  customerVehicle: { select: { id: true, plate: true, vehicleModel: { select: { name: true } }, brand: { select: { name: true } }, year: true, color: true } },
-  appointment: { select: { id: true, folio: true, scheduledDate: true, status: true } },
+  customer: {
+    select: { id: true, name: true, code: true, phone: true, mobile: true },
+  },
+  customerVehicle: {
+    select: {
+      id: true,
+      plate: true,
+      vehicleModel: { select: { name: true } },
+      brand: { select: { name: true } },
+      year: true,
+      color: true,
+    },
+  },
+  appointment: {
+    select: { id: true, folio: true, scheduledDate: true, status: true },
+  },
   serviceOrder: { select: { id: true, folio: true, status: true } },
+  ingressMotive: { select: { id: true, name: true } },
 } as const
 
 async function generateFolio(db: Db, empresaId: string): Promise<string> {
@@ -22,8 +60,23 @@ async function generateFolio(db: Db, empresaId: string): Promise<string> {
   return `REC-${String(lastNum + 1).padStart(4, '0')}`
 }
 
-export async function findAllReceptions(db: Db, empresaId: string, filters: IReceptionFilters) {
-  const { customerId, advisorId, appointmentId, dateFrom, dateTo, search, page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = filters
+export async function findAllReceptions(
+  db: Db,
+  empresaId: string,
+  filters: IReceptionFilters
+) {
+  const {
+    customerId,
+    advisorId,
+    appointmentId,
+    dateFrom,
+    dateTo,
+    search,
+    page = 1,
+    limit = 20,
+    sortBy = 'createdAt',
+    sortOrder = 'desc',
+  } = filters
   const where: any = { empresaId }
   if (customerId) where.customerId = customerId
   if (advisorId) where.advisorId = advisorId
@@ -42,20 +95,39 @@ export async function findAllReceptions(db: Db, empresaId: string, filters: IRec
   }
   const skip = (page - 1) * limit
   const [data, total] = await Promise.all([
-    (db as PrismaClient).vehicleReception.findMany({ where, skip, take: limit, orderBy: { [sortBy]: sortOrder }, include: INCLUDE }),
+    (db as PrismaClient).vehicleReception.findMany({
+      where,
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      include: INCLUDE,
+    }),
     (db as PrismaClient).vehicleReception.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return {
+    data,
+    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+  }
 }
 
 export async function findReceptionById(db: Db, id: string, empresaId: string) {
-  const item = await (db as PrismaClient).vehicleReception.findFirst({ where: { id, empresaId }, include: INCLUDE })
+  const item = await (db as PrismaClient).vehicleReception.findFirst({
+    where: { id, empresaId },
+    include: INCLUDE,
+  })
   if (!item) throw new NotFoundError('Recepción no encontrada')
   return item
 }
 
-export async function createReception(db: Db, empresaId: string, userId: string, data: ICreateReceptionInput) {
-  const customer = await (db as PrismaClient).customer.findFirst({ where: { id: data.customerId, empresaId } })
+export async function createReception(
+  db: Db,
+  empresaId: string,
+  userId: string,
+  data: ICreateReceptionInput
+) {
+  const customer = await (db as PrismaClient).customer.findFirst({
+    where: { id: data.customerId, empresaId },
+  })
   if (!customer) throw new NotFoundError('Cliente no encontrado')
 
   let vehiclePlate = data.vehiclePlate
@@ -63,22 +135,37 @@ export async function createReception(db: Db, empresaId: string, userId: string,
   if (data.customerVehicleId) {
     const v = await (db as PrismaClient).customerVehicle.findFirst({
       where: { id: data.customerVehicleId, customerId: data.customerId },
-      select: { plate: true, vehicleModel: { select: { name: true } }, brand: { select: { name: true } }, year: true, color: true },
+      select: {
+        plate: true,
+        vehicleModel: { select: { name: true } },
+        brand: { select: { name: true } },
+        year: true,
+        color: true,
+      },
     })
     if (!v) throw new NotFoundError('Vehículo no encontrado para este cliente')
     vehiclePlate = vehiclePlate ?? v.plate
-    vehicleDesc = vehicleDesc ?? [v.brand?.name, v.vehicleModel?.name, v.year, v.color].filter(Boolean).join(' ')
+    vehicleDesc =
+      vehicleDesc ??
+      [v.brand?.name, v.vehicleModel?.name, v.year, v.color]
+        .filter(Boolean)
+        .join(' ')
   }
 
   // Validar cita si se proveyó
   if (data.appointmentId) {
-    const apt = await (db as PrismaClient).serviceAppointment.findFirst({ where: { id: data.appointmentId, empresaId } })
+    const apt = await (db as PrismaClient).serviceAppointment.findFirst({
+      where: { id: data.appointmentId, empresaId },
+    })
     if (!apt) throw new NotFoundError('Cita no encontrada')
     if (['COMPLETED', 'CANCELLED'].includes(apt.status)) {
       throw new BadRequestError('La cita ya está completada o cancelada')
     }
     // Marcar cita como ARRIVED
-    await (db as PrismaClient).serviceAppointment.update({ where: { id: data.appointmentId }, data: { status: 'ARRIVED' } })
+    await (db as PrismaClient).serviceAppointment.update({
+      where: { id: data.appointmentId },
+      data: { status: 'ARRIVED' },
+    })
   }
 
   const folio = await generateFolio(db, empresaId)
@@ -92,12 +179,15 @@ export async function createReception(db: Db, empresaId: string, userId: string,
       vehicleDesc: vehicleDesc ?? null,
       mileageIn: data.mileageIn ?? null,
       fuelLevel: data.fuelLevel ?? null,
+      ingressMotiveId: data.ingressMotiveId ?? null,
       accessories: data.accessories ?? [],
       hasPreExistingDamage: data.hasPreExistingDamage ?? false,
       damageNotes: data.damageNotes ?? null,
       clientDescription: data.clientDescription ?? null,
       authorizationName: data.authorizationName ?? null,
       authorizationPhone: data.authorizationPhone ?? null,
+      clientSignature: data.clientSignature ?? null,
+      diagnosticAuthorized: data.diagnosticAuthorized ?? false,
       estimatedDelivery: data.estimatedDelivery ?? null,
       advisorId: data.advisorId ?? null,
       appointmentId: data.appointmentId ?? null,
@@ -107,19 +197,58 @@ export async function createReception(db: Db, empresaId: string, userId: string,
   })
 }
 
-export async function updateReception(db: Db, id: string, empresaId: string, data: IUpdateReceptionInput) {
+export async function updateReception(
+  db: Db,
+  id: string,
+  empresaId: string,
+  data: IUpdateReceptionInput
+) {
   const existing = await findReceptionById(db, id, empresaId)
   // No editar si ya tiene OT cerrada
-  if (existing.serviceOrder && ['CLOSED', 'CANCELLED'].includes((existing.serviceOrder as any).status)) {
-    throw new BadRequestError('No se puede editar: la recepción tiene una orden de trabajo cerrada o cancelada')
+  if (
+    existing.serviceOrder &&
+    ['CLOSED', 'CANCELLED'].includes((existing.serviceOrder as any).status)
+  ) {
+    throw new BadRequestError(
+      'No se puede editar: la recepción tiene una orden de trabajo cerrada o cancelada'
+    )
   }
-  return (db as PrismaClient).vehicleReception.update({ where: { id }, data, include: INCLUDE })
+  return (db as PrismaClient).vehicleReception.update({
+    where: { id },
+    data,
+    include: INCLUDE,
+  })
+}
+
+export async function changeReceptionStatus(
+  db: Db,
+  id: string,
+  empresaId: string,
+  input: IChangeReceptionStatusInput
+) {
+  const existing = await findReceptionById(db, id, empresaId)
+  const currentStatus = (existing as any).status as ReceptionStatus
+  const allowed = RECEPTION_STATUS_TRANSITIONS[currentStatus] ?? []
+
+  if (!allowed.includes(input.status)) {
+    throw new BadRequestError(
+      `No se puede cambiar el estado de ${currentStatus} a ${input.status}`
+    )
+  }
+
+  return (db as PrismaClient).vehicleReception.update({
+    where: { id },
+    data: { status: input.status },
+    include: INCLUDE,
+  })
 }
 
 export async function deleteReception(db: Db, id: string, empresaId: string) {
   const existing = await findReceptionById(db, id, empresaId)
   if (existing.serviceOrder) {
-    throw new ConflictError('No se puede eliminar: la recepción tiene una orden de trabajo asociada')
+    throw new ConflictError(
+      'No se puede eliminar: la recepción tiene una orden de trabajo asociada'
+    )
   }
   await (db as PrismaClient).vehicleReception.delete({ where: { id } })
 }

@@ -10,6 +10,10 @@ model WorkshopBay {
 
   isActive  Boolean @default(true)
 
+  // Sucursal a la que pertenece esta bahía
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
 

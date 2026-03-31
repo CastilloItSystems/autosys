@@ -63,6 +63,39 @@ model Empresa {
   workshopBays        WorkshopBay[]
   workshopOperations  WorkshopOperation[]
   workshopWarranties  WorkshopWarranty[]
+  
+  // Nuevas entidades Workshop ERP Opción 3
+  checklistTemplates          ChecklistTemplate[]
+  checklistItems              ChecklistItem[]
+  checklistResponses          ChecklistResponse[]
+  serviceDiagnoses            ServiceDiagnosis[]
+  diagnosisFindings           DiagnosisFinding[]
+  diagnosisSuggestedOps       DiagnosisSuggestedOperation[]
+  diagnosisSuggestedParts     DiagnosisSuggestedPart[]
+  diagnosisEvidences          DiagnosisEvidence[]
+  serviceOrderStatusHistories ServiceOrderStatusHistory[]
+  appointmentStatusHistories  AppointmentStatusHistory[]
+  vehicleDeliveries           VehicleDelivery[]
+
+  // Nuevas entidades Workshop Adicionales
+  ingressMotives              IngressMotive[]
+  technicianSpecialties       TechnicianSpecialty[]
+  laborTimePauses             LaborTimePause[]
+  serviceOrderMaterials       ServiceOrderMaterial[]
+  serviceOrderAdditionals     ServiceOrderAdditional[]
+  serviceOrderObservations    ServiceOrderObservation[]
+
+  // Workshop Prioridad 2
+  receptionDamages            ReceptionDamage[]
+  receptionPhotos             ReceptionPhoto[]
+  workshopAttachments         WorkshopAttachment[]
+  materialMovements           ServiceOrderMaterialMovement[]
+
+  // Workshop Prioridad 3
+  workshopReworks             WorkshopRework[]
+  workshopAuditLogs           WorkshopAuditLog[]
+  workshopBranches            WorkshopBranch[]
+  workshopShifts              WorkshopShift[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

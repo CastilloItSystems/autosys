@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
+import CustomerSelector from "@/components/common/CustomerSelector";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
@@ -269,18 +270,17 @@ export default function WarrantyForm({ warranty, onSave, formId, onSubmittingCha
         </div>
 
         <div className="col-12 md:col-6">
-          <label htmlFor="customerId" className="block text-900 font-medium mb-2">
-            ID Cliente <span className="text-red-500">*</span>
+          <label className="block text-900 font-medium mb-2">
+            Cliente <span className="text-red-500">*</span>
           </label>
           <Controller
             name="customerId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="customerId"
-                {...field}
-                placeholder="ID del cliente"
-                className={errors.customerId ? "p-invalid" : ""}
+              <CustomerSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.customerId}
               />
             )}
           />

@@ -11,6 +11,14 @@ enum QuoteStatus {
   CONVERTED    // Convertida a venta/OT
 }
 
+enum QuoteApprovalChannel {
+  IN_PERSON        // Presencial
+  WHATSAPP         // WhatsApp
+  EMAIL            // Correo electrónico
+  PHONE            // Llamada telefónica
+  DIGITAL_SIGNATURE // Firma digital
+}
+
 enum QuoteType {
   VEHICLE    // Cotización de vehículo
   PARTS      // Cotización de repuestos
@@ -50,9 +58,18 @@ model Quote {
   deliveryTerms String?
   notes         String?     @db.Text
 
+  // Aprobación formal del cliente
+  approvalChannel  QuoteApprovalChannel? // Canal por el que aprobó el cliente
+  approvedByName   String?               // Nombre de quien aprobó (puede diferir del cliente registrado)
+  approvedAt       DateTime?             // Momento exacto de la aprobación
+  rejectedReason   String?  @db.Text     // Motivo del rechazo si aplica
+
   convertedAt      DateTime?
   convertedTo      String?   // 'order' | 'service_order'
   convertedRefId   String?
+  
+  // Workshop-specific conversion tracking
+  convertedToSOId  String?   // Direct FK to ServiceOrder when converted to SO
 
   assignedTo    String?
   createdBy     String
@@ -66,6 +83,13 @@ model Quote {
 
   // Relación Workshop: OT generada cuando se convierte una cotización de taller
   serviceOrders ServiceOrder[]
+
+  // Workshop-specific fields (optional, for taller operations)
+  isWorkshopQuote         Boolean   @default(false)  // Flag para identificar cotizaciones de taller
+  vehicleReceptionNotes   String?   @db.Text        // Notas pre-llenadas para recepción del vehículo
+  estimatedLaborHours     Decimal?  @db.Decimal(10,2)  // Horas de mano de obra estimadas
+  diagnosisRecommendation String?   @db.Text        // Sistema de diagnóstico recomendado
+  workshopApprovalFlow    String?   // 'CLIENT_APPROVAL_REQUIRED' | 'INTERNAL_ONLY' | 'AUTO'
 
   createdAt     DateTime    @default(now())
   updatedAt     DateTime    @updatedAt
@@ -84,14 +108,17 @@ model QuoteItem {
   quoteId      String
   quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
 
-  description  String
-  quantity     Decimal  @db.Decimal(10,3)
-  unitPrice    Decimal  @db.Decimal(12,2)
-  discountPct  Decimal  @default(0) @db.Decimal(5,2)
-  taxPct       Decimal  @default(0) @db.Decimal(5,2)
-  total        Decimal  @db.Decimal(12,2)
-  itemId       String?
-  notes        String?
+  description    String
+  quantity       Decimal  @db.Decimal(10,3)
+  unitPrice      Decimal  @db.Decimal(12,2)
+  discountPct    Decimal  @default(0) @db.Decimal(5,2)
+  taxPct         Decimal  @default(0) @db.Decimal(5,2)
+  total          Decimal  @db.Decimal(12,2)
+  itemId         String?
+  notes          String?
+
+  // Aprobación parcial: null = pendiente, true = aprobado, false = rechazado
+  clientApproved Boolean?
 
   @@map("crm_quote_items")
 }

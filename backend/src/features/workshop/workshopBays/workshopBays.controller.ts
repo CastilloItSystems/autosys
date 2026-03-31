@@ -14,7 +14,7 @@ export const getAll = async (req: Request, res: Response) => {
 }
 
 export const getOne = async (req: Request, res: Response) => {
-  const item = await findWorkshopBayById(prisma, req.params.id, req.empresaId!)
+  const item = await findWorkshopBayById(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new WorkshopBayResponseDTO(item))
 }
 
@@ -24,16 +24,16 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const update = async (req: Request, res: Response) => {
-  const item = await updateWorkshopBay(prisma, req.params.id, req.empresaId!, new UpdateWorkshopBayDTO(req.body))
+  const item = await updateWorkshopBay(prisma, req.params.id as string, req.empresaId!, new UpdateWorkshopBayDTO(req.body))
   return ApiResponse.success(res, new WorkshopBayResponseDTO(item), 'Bahía actualizada')
 }
 
 export const toggleActive = async (req: Request, res: Response) => {
-  const item = await toggleWorkshopBayActive(prisma, req.params.id, req.empresaId!)
+  const item = await toggleWorkshopBayActive(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new WorkshopBayResponseDTO(item), `Bahía ${item.isActive ? 'activada' : 'desactivada'}`)
 }
 
 export const remove = async (req: Request, res: Response) => {
-  await deleteWorkshopBay(prisma, req.params.id, req.empresaId!)
+  await deleteWorkshopBay(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, null, 'Bahía eliminada')
 }

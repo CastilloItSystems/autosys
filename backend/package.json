@@ -7,6 +7,8 @@
     "prisma:merge": "prisma-merge -b prisma/base.prisma -s 'prisma/models/**/*.prisma' -o prisma/schema.prisma",
     "prisma:migrate": "npm run prisma:merge && prisma migrate dev",
     "prisma:generate": "npm run prisma:merge && prisma generate",
+    "seed": "prisma db seed",
+    "seed:diagnostic-templates": "tsx prisma/seeds/workshop-diagnostic-templates.seed.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",
     "start": "node dist/index.js",

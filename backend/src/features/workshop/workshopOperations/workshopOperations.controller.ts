@@ -14,7 +14,7 @@ export const getAll = async (req: Request, res: Response) => {
 }
 
 export const getOne = async (req: Request, res: Response) => {
-  const item = await findWorkshopOperationById(prisma, req.params.id, req.empresaId!)
+  const item = await findWorkshopOperationById(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new WorkshopOperationResponseDTO(item))
 }
 
@@ -24,16 +24,16 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const update = async (req: Request, res: Response) => {
-  const item = await updateWorkshopOperation(prisma, req.params.id, req.empresaId!, new UpdateWorkshopOperationDTO(req.body))
+  const item = await updateWorkshopOperation(prisma, req.params.id as string, req.empresaId!, new UpdateWorkshopOperationDTO(req.body))
   return ApiResponse.success(res, new WorkshopOperationResponseDTO(item), 'Operación actualizada')
 }
 
 export const toggleActive = async (req: Request, res: Response) => {
-  const item = await toggleWorkshopOperationActive(prisma, req.params.id, req.empresaId!)
+  const item = await toggleWorkshopOperationActive(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new WorkshopOperationResponseDTO(item), `Operación ${item.isActive ? 'activada' : 'desactivada'}`)
 }
 
 export const remove = async (req: Request, res: Response) => {
-  await deleteWorkshopOperation(prisma, req.params.id, req.empresaId!)
+  await deleteWorkshopOperation(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, null, 'Operación eliminada')
 }

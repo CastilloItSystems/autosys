@@ -20,9 +20,13 @@ model QualityCheck {
 
   status QualityCheckStatus @default(PENDING)
 
-  // Checklist flexible (lista de ítems con resultado)
-  // Ej: [{ item: "Prueba de ruta", passed: true }, { item: "Limpieza interior", passed: false }]
+  // Checklist flexible (antiguo/hardcoded)
   checklistItems Json?
+
+  // Checklist dinámico
+  checklistTemplateId String?
+  checklistTemplate   ChecklistTemplate?  @relation(fields: [checklistTemplateId], references: [id], onDelete: SetNull)
+  checklistResponses  ChecklistResponse[]
 
   // Si falla
   failureNotes String? @db.Text

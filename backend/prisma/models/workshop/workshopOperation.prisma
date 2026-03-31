@@ -27,6 +27,7 @@ model WorkshopOperation {
   // Relaciones
   serviceOrderItems ServiceOrderItem[]
   laborTimes        LaborTime[]
+  diagnosisSuggestions DiagnosisSuggestedOperation[]
 
   @@unique([empresaId, code])
   @@index([empresaId])

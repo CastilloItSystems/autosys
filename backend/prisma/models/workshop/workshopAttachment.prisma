@@ -1,0 +1,43 @@
+// backend/prisma/models/workshop/workshopAttachment.prisma
+// Documento adjunto polimórfico para cualquier entidad del módulo de taller.
+// Permite adjuntar archivos a OTs, recepciones, garantías, diagnósticos, etc.
+
+enum AttachmentEntityType {
+  SERVICE_ORDER         // Orden de trabajo
+  VEHICLE_RECEPTION     // Recepción de vehículo
+  SERVICE_DIAGNOSIS     // Diagnóstico técnico
+  WORKSHOP_WARRANTY     // Garantía
+  SERVICE_APPOINTMENT   // Cita
+  QUALITY_CHECK         // Control de calidad
+}
+
+enum AttachmentFileType {
+  IMAGE    // jpg, png, webp
+  VIDEO    // mp4, mov
+  PDF      // Documentos PDF
+  DOCUMENT // doc, xls, etc.
+  OTHER
+}
+
+model WorkshopAttachment {
+  id         String @id @default(cuid())
+
+  entityType AttachmentEntityType
+  entityId   String               // ID de la entidad relacionada (no FK - relación polimórfica)
+
+  fileType    AttachmentFileType @default(OTHER)
+  url         String
+  name        String             // Nombre descriptivo del archivo
+  description String?            @db.Text
+  mimeType    String?            // Ej: "image/jpeg", "application/pdf"
+  sizeBytes   Int?               // Tamaño en bytes
+
+  uploadedBy  String             // userId
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId]) // Principal: buscar adjuntos de una entidad
+  @@index([empresaId])
+  @@map("workshop_attachments")
+}

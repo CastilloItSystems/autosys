@@ -44,10 +44,33 @@ model LaborTime {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  pauses LaborTimePause[]
+
   @@index([serviceOrderId])
   @@index([serviceOrderItemId])
   @@index([technicianId])
   @@index([status])
   @@index([startedAt])
+  @@index([technicianId, status]) // Buscar timer activo de un técnico
   @@map("workshop_labor_times")
 }
+
+model LaborTimePause {
+  id             String    @id @default(cuid())
+  laborTimeId    String
+  laborTime      LaborTime @relation(fields: [laborTimeId], references: [id], onDelete: Cascade)
+
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationMinutes Int?     // Calculado al finalizar la pausa
+  reason         String?   @db.Text
+
+  empresaId      String
+  empresa        Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+
+  @@index([laborTimeId])
+  @@index([empresaId])
+  @@map("workshop_labor_time_pauses")
+}
+

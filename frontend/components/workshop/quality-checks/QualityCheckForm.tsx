@@ -1,12 +1,21 @@
 "use client";
-import React from "react";
+import React, { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
+import { Dropdown } from "primereact/dropdown";
+import { Button } from "primereact/button";
+import { Divider } from "primereact/divider";
+import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
-import { qualityCheckService } from "@/app/api/workshop";
+import { qualityCheckService, checklistService } from "@/app/api/workshop";
+import DynamicChecklist, {
+  type ChecklistItemDef,
+  type ChecklistItemResponse,
+} from "@/components/workshop/shared/DynamicChecklist";
+import type { ChecklistTemplate } from "@/libs/interfaces/workshop";
 
 const schema = z.object({
   serviceOrderId: z.string({ required_error: "La OT es requerida" }).min(1),
@@ -24,11 +33,46 @@ interface Props {
 }
 
 export default function QualityCheckForm({ onSave, formId, onSubmittingChange, toast }: Props) {
+  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
+  const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>([]);
+  const [checklistResponses, setChecklistResponses] = useState<ChecklistItemResponse[]>([]);
+  const [loadingTemplate, setLoadingTemplate] = useState(false);
+  const [templatesLoaded, setTemplatesLoaded] = useState(false);
+
   const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: "onBlur",
     defaultValues: { serviceOrderId: "", inspectorId: "", notes: "" },
   });
+
+  const loadTemplates = async () => {
+    if (templatesLoaded) return;
+    try {
+      const res = await checklistService.getAll({ category: "QUALITY_CONTROL", limit: 50 } as any);
+      setChecklistTemplates(res.data?.data ?? []);
+      setTemplatesLoaded(true);
+    } catch {
+      // silent — templates are optional
+    }
+  };
+
+  const handleTemplateChange = async (templateId: string) => {
+    setSelectedTemplateId(templateId);
+    setChecklistItems([]);
+    setChecklistResponses([]);
+    if (!templateId) return;
+    setLoadingTemplate(true);
+    try {
+      const res = await checklistService.getById(templateId);
+      const items = (res.data?.items ?? []) as ChecklistItemDef[];
+      setChecklistItems(items.sort((a, b) => a.order - b.order));
+    } catch (err) {
+      handleFormError(err, toast.current ?? toast);
+    } finally {
+      setLoadingTemplate(false);
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     onSubmittingChange?.(true);
@@ -37,7 +81,9 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
         serviceOrderId: data.serviceOrderId,
         inspectorId: data.inspectorId,
         notes: data.notes ?? undefined,
-      });
+        checklistTemplateId: selectedTemplateId || undefined,
+        responses: checklistResponses.length > 0 ? checklistResponses : undefined,
+      } as any);
       await onSave();
     } catch (error) {
       handleFormError(error, toast);
@@ -45,6 +91,11 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
       onSubmittingChange?.(false);
     }
   };
+
+  const templateOptions = [
+    { label: "Sin checklist", value: "" },
+    ...checklistTemplates.map((t) => ({ label: t.name, value: t.id })),
+  ];
 
   return (
     <form id={formId ?? "quality-check-create-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
@@ -106,6 +157,44 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
             )}
           />
         </div>
+
+        {/* ── Checklist ── */}
+        <div className="col-12">
+          <Divider align="left">
+            <span className="text-700 font-semibold text-sm flex align-items-center gap-2">
+              <i className="pi pi-list-check" />
+              Checklist de inspección (opcional)
+            </span>
+          </Divider>
+        </div>
+
+        <div className="col-12">
+          <label className="block text-900 font-medium mb-2">Plantilla de checklist</label>
+          <Dropdown
+            value={selectedTemplateId}
+            options={templateOptions}
+            onChange={(e) => handleTemplateChange(e.value)}
+            onShow={loadTemplates}
+            placeholder="Seleccionar plantilla..."
+            filter
+          />
+        </div>
+
+        {loadingTemplate && (
+          <div className="col-12 flex justify-content-center py-3">
+            <ProgressSpinner style={{ width: 32, height: 32 }} />
+          </div>
+        )}
+
+        {checklistItems.length > 0 && (
+          <div className="col-12">
+            <DynamicChecklist
+              items={checklistItems}
+              responses={checklistResponses}
+              onChange={setChecklistResponses}
+            />
+          </div>
+        )}
       </div>
     </form>
   );

@@ -15,6 +15,7 @@ import seedWarehouses from './warehouses.seed.js'
 import seedSuppliers from './suppliers.seed.js'
 import seedItems from './items.seed.js'
 import seedPermissions from './permissions.seed.js'
+import seedWorkshop from './workshop.seed.js'
 
 const connectionString = process.env.DATABASE_URL
 
@@ -71,6 +72,10 @@ async function main() {
 
     // Fase 8: Memberships usuario-empresa-rol
     await seedMemberships(prisma, empresaId)
+    console.log('')
+
+    // Workshop catalogs (service types, bays, operations, ingress motives, specialties, branches, shifts, checklists)
+    await seedWorkshop(prisma, empresaId)
     console.log('')
 
     console.log('\n🎉 Database seeding completed successfully!')

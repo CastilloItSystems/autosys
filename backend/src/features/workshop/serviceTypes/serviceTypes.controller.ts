@@ -18,7 +18,7 @@ export const getAll = async (req: Request, res: Response) => {
 }
 
 export const getOne = async (req: Request, res: Response) => {
-  const item = await findServiceTypeById(prisma, req.params.id, req.empresaId!)
+  const item = await findServiceTypeById(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new ServiceTypeResponseDTO(item))
 }
 
@@ -28,16 +28,16 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const update = async (req: Request, res: Response) => {
-  const item = await updateServiceType(prisma, req.params.id, req.empresaId!, new UpdateServiceTypeDTO(req.body))
+  const item = await updateServiceType(prisma, req.params.id as string, req.empresaId!, new UpdateServiceTypeDTO(req.body))
   return ApiResponse.success(res, new ServiceTypeResponseDTO(item), 'Tipo de servicio actualizado')
 }
 
 export const toggleActive = async (req: Request, res: Response) => {
-  const item = await toggleServiceTypeActive(prisma, req.params.id, req.empresaId!)
+  const item = await toggleServiceTypeActive(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new ServiceTypeResponseDTO(item), `Tipo de servicio ${item.isActive ? 'activado' : 'desactivado'}`)
 }
 
 export const remove = async (req: Request, res: Response) => {
-  await deleteServiceType(prisma, req.params.id, req.empresaId!)
+  await deleteServiceType(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, null, 'Tipo de servicio eliminado')
 }

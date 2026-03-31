@@ -6,8 +6,8 @@ model PreInvoiceItem {
   preInvoiceId    String
   preInvoice      PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Cascade)
 
-  itemId          String
-  item            Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemId          String?
+  item            Item?         @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   // ── Snapshot ──
   itemName        String?       @db.VarChar(255)

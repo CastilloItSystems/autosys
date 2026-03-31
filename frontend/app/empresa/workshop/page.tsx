@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import ServiceOrderList from "@/components/workshop/service-orders/ServiceOrderList";
+import WorkshopDashboard from "@/components/workshop/dashboard/WorkshopDashboard";
 
 const WorkshopPage = () => {
-  return <ServiceOrderList />;
+  return <WorkshopDashboard />;
 };
 
 export default WorkshopPage;

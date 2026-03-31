@@ -36,6 +36,15 @@ enum ServiceOrderItemType {
   OTHER   // Otro cargo (subcontrato, servicio externo, etc.)
 }
 
+enum ServiceOrderItemStatus {
+  PENDING     // Pendiente de asignación
+  ASSIGNED    // Técnico asignado
+  IN_PROGRESS // En ejecución
+  PAUSED      // Pausada temporalmente
+  COMPLETED   // Finalizada
+  CANCELLED   // Anulada
+}
+
 model ServiceOrder {
   id    String @id @default(cuid())
   folio String // SO-0001, SO-0002 ... generado por empresa
@@ -71,13 +80,16 @@ model ServiceOrder {
   workshopQuoteId String?
   workshopQuote   Quote? @relation(fields: [workshopQuoteId], references: [id], onDelete: SetNull)
 
+  // FASE 2: PreInvoice (preparación de factura) - back-reference only (FK is in PreInvoice)
+  preInvoice    PreInvoice?   @relation("PreInvoiceServiceOrder")
+
   // Factura generada al cerrar
   invoiceId String? @unique
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   // Trabajo
   diagnosisNotes String? @db.Text
-  observations   String? @db.Text
+  internalNotes  String? @db.Text // Renamed from observations to resolve conflict with relation
 
   // Estado, prioridad y asignación
   status                ServiceOrderStatus   @default(DRAFT)
@@ -108,13 +120,31 @@ model ServiceOrder {
 
   // Relaciones hijas
   items          ServiceOrderItem[]
+  materials      ServiceOrderMaterial[]
+  additionals    ServiceOrderAdditional[]
+  observations   ServiceOrderObservation[]
   laborTimes     LaborTime[]
   qualityCheck   QualityCheck?
   warranties     WorkshopWarranty[] @relation("OriginalOrder")
   reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
 
+  // Historial y Entrega
+  statusHistory  ServiceOrderStatusHistory[]
+  delivery       VehicleDelivery?
+
+  // Diagnóstico desacoplado
+  serviceDiagnosis ServiceDiagnosis?
+
   // Lead generado o asociado
   lead Lead?
+
+  // Retrabajos
+  reworksAsOriginal   WorkshopRework[] @relation("ReworkOriginalOrder")
+  reworksAsCorrection WorkshopRework[] @relation("ReworkCorrectionOrder")
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@unique([empresaId, folio])
   @@index([empresaId])
@@ -126,6 +156,7 @@ model ServiceOrder {
   @@index([assignedTechnicianId])
   @@index([receivedAt])
   @@index([estimatedDelivery])
+  @@index([empresaId, status, receivedAt]) // Búsqueda de OTs activas por fecha
   @@map("service_orders")
 }
 
@@ -134,12 +165,27 @@ model ServiceOrderItem {
   serviceOrderId String
   serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
-  type        ServiceOrderItemType @default(LABOR)
+  type        ServiceOrderItemType   @default(LABOR)
+  status      ServiceOrderItemStatus @default(PENDING)
   description String
+
+  // Snapshots para preservar historial (el nombre puede cambiar en el catálogo)
+  operationName String? // Snapshot del nombre de la operación al momento de agregar
+  itemName      String? // Snapshot del nombre del ítem/repuesto al momento de agregar
+
   quantity    Decimal              @default(1) @db.Decimal(10, 2)
   unitPrice   Decimal             @default(0) @db.Decimal(12, 2)
   discountPct Decimal             @default(0) @db.Decimal(5, 2)
+  
+  // Tax fields (now standardized across SO and CRM Quote)
+  taxType     TaxType             @default(IVA)  // Import from inventory.purchaseOrderItem
+  taxRate     Decimal             @default(0.16) @db.Decimal(5, 2)  // 16% by default for IVA
+  taxAmount   Decimal             @default(0) @db.Decimal(12, 2)   // Calculated: (unitPrice * quantity - discountPct) * taxRate
+  
   total       Decimal             @default(0) @db.Decimal(12, 2)
+
+  // Item-level notes (align with Quote)
+  notes       String?             @db.Text
 
   // LABOR: operación estándar de referencia (opcional)
   operationId String?
@@ -154,7 +200,146 @@ model ServiceOrderItem {
   laborTimes LaborTime[]
 
   @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Operaciones pendientes/activas por OT
   @@index([operationId])
   @@index([itemId])
   @@map("service_order_items")
 }
+
+enum MaterialStatus {
+  REQUESTED
+  RESERVED
+  DISPATCHED
+  CONSUMED
+  RETURNED
+  CANCELLED
+}
+
+model ServiceOrderMaterial {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  itemId         String?
+  item           Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description    String         @db.Text
+
+  quantityRequested  Decimal @default(0) @db.Decimal(12, 2)
+  quantityReserved   Decimal @default(0) @db.Decimal(12, 2)
+  quantityDispatched Decimal @default(0) @db.Decimal(12, 2)
+  quantityConsumed   Decimal @default(0) @db.Decimal(12, 2)
+  quantityReturned   Decimal @default(0) @db.Decimal(12, 2)
+
+  unitCost  Decimal @default(0) @db.Decimal(12, 2)
+  unitPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  status    MaterialStatus @default(REQUESTED)
+
+  // Historial de movimientos
+  movements ServiceOrderMaterialMovement[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Materiales por estado en una OT
+  @@index([itemId])
+  @@index([empresaId])
+  @@map("service_order_materials")
+}
+
+enum AdditionalStatus {
+  PROPOSED
+  QUOTED
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+model ServiceOrderAdditional {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  // Puede venir de un hallazgo diagnóstico previo no aprobado, o ser un hallazgo nuevo
+  diagnosisFindingId String?
+  diagnosisFinding   DiagnosisFinding? @relation(fields: [diagnosisFindingId], references: [id], onDelete: SetNull)
+
+  description    String @db.Text
+  technicianId   String? // userId del técnico que lo propuso/ejecutó
+  status         AdditionalStatus @default(PROPOSED)
+
+  estimatedPrice Decimal @default(0) @db.Decimal(12, 2)
+  estimatedTimeMins Int @default(0)
+
+  // Detalle de ítems aprobados/rechazados por el cliente
+  additionalItems ServiceOrderAdditionalItem[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_additionals")
+}
+
+enum AdditionalItemType {
+  LABOR    // Mano de obra / operación
+  PART     // Repuesto
+  OTHER    // Servicio externo u otro
+}
+
+model ServiceOrderAdditionalItem {
+  id           String                  @id @default(cuid())
+  additionalId String
+  additional   ServiceOrderAdditional  @relation(fields: [additionalId], references: [id], onDelete: Cascade)
+
+  type          AdditionalItemType @default(LABOR)
+  description   String
+  referenceId   String?  // ID de operación o ítem de inventario (soft reference)
+  quantity      Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice     Decimal  @default(0) @db.Decimal(12, 2)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+  total         Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Aprobación individual del cliente
+  clientApproved Boolean? // null=pendiente, true=aprobado, false=rechazado
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([additionalId])
+  @@map("service_order_additional_items")
+}
+
+enum ObservationType {
+  INTERNAL
+  CLIENT
+  TECHNICAL
+  QUALITY
+}
+
+model ServiceOrderObservation {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  type        ObservationType @default(INTERNAL)
+  observation String          @db.Text
+  userId      String
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_observations")
+}
+

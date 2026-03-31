@@ -3,6 +3,8 @@ import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import VehicleSelector from "@/components/common/VehicleSelector";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
@@ -49,6 +51,7 @@ export default function ReceptionForm({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateReceptionForm>({
     resolver: zodResolver(reception ? updateReceptionSchema : createReceptionSchema),
@@ -164,19 +167,17 @@ export default function ReceptionForm({
         </div>
 
         <div className="col-12 md:col-6">
-          <label htmlFor="customerId" className="block text-900 font-medium mb-2">
-            ID Cliente <span className="text-red-500">*</span>
+          <label className="block text-900 font-medium mb-2">
+            Cliente <span className="text-red-500">*</span>
           </label>
           <Controller
             name="customerId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="customerId"
-                {...field}
-                placeholder="ID del cliente"
-                className={errors.customerId ? "p-invalid" : ""}
-                autoFocus={!reception}
+              <CustomerSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.customerId}
                 disabled={!!reception?.id}
               />
             )}
@@ -185,38 +186,18 @@ export default function ReceptionForm({
         </div>
 
         <div className="col-12 md:col-6">
-          <label htmlFor="vehiclePlate" className="block text-900 font-medium mb-2">
-            Placa
-          </label>
-          <Controller
-            name="vehiclePlate"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="vehiclePlate"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="Ej: ABC-123"
-              />
-            )}
-          />
-        </div>
-
-        <div className="col-12 md:col-6">
-          <label htmlFor="vehicleDesc" className="block text-900 font-medium mb-2">
-            Descripción del vehículo
-          </label>
-          <Controller
-            name="vehicleDesc"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="vehicleDesc"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="Ej: Nissan Versa 2020 Plata"
-              />
-            )}
+          <label className="block text-900 font-medium mb-2">Vehículo</label>
+          <VehicleSelector
+            customerId={watch("customerId")}
+            value={watch("customerVehicleId" as any) ?? null}
+            onChange={(id) => {
+              setValue("customerVehicleId" as any, id ?? undefined);
+            }}
+            onVehicleSelect={(v) => {
+              setValue("vehiclePlate", v?.plate ?? "");
+              setValue("vehicleDesc", v?.description ?? "");
+            }}
+            disabled={!!reception?.id}
           />
         </div>
 

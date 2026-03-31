@@ -14,7 +14,7 @@ export const getAll = async (req: Request, res: Response) => {
 }
 
 export const getOne = async (req: Request, res: Response) => {
-  const item = await findWarrantyById(prisma, req.params.id, req.empresaId!)
+  const item = await findWarrantyById(prisma, req.params.id as string, req.empresaId!)
   return ApiResponse.success(res, new WarrantyResponseDTO(item))
 }
 
@@ -25,11 +25,11 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const update = async (req: Request, res: Response) => {
-  const item = await updateWarranty(prisma, req.params.id, req.empresaId!, new UpdateWarrantyDTO(req.body))
+  const item = await updateWarranty(prisma, req.params.id as string, req.empresaId!, new UpdateWarrantyDTO(req.body))
   return ApiResponse.success(res, new WarrantyResponseDTO(item), 'Garantía actualizada')
 }
 
 export const updateStatus = async (req: Request, res: Response) => {
-  const item = await updateWarrantyStatus(prisma, req.params.id, req.empresaId!, req.body.status as WarrantyStatus)
+  const item = await updateWarrantyStatus(prisma, req.params.id as string, req.empresaId!, req.body.status as WarrantyStatus)
   return ApiResponse.success(res, new WarrantyResponseDTO(item), 'Estado de garantía actualizado')
 }

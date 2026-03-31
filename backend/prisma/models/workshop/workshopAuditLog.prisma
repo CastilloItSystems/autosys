@@ -1,0 +1,52 @@
+// backend/prisma/models/workshop/workshopAuditLog.prisma
+// Auditoría general polimórfica del módulo de taller.
+// Registra cualquier acción crítica: cambios de estado, descuentos, reaperturas, etc.
+
+enum AuditEntityType {
+  SERVICE_ORDER
+  VEHICLE_RECEPTION
+  SERVICE_APPOINTMENT
+  WORKSHOP_WARRANTY
+  WORKSHOP_REWORK
+  QUALITY_CHECK
+  LABOR_TIME
+  SERVICE_ORDER_MATERIAL
+  VEHICLE_DELIVERY
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  REOPEN
+  APPROVE
+  REJECT
+  CANCEL
+  ASSIGN
+  DELIVER
+}
+
+model WorkshopAuditLog {
+  id         String @id @default(cuid())
+
+  entityType AuditEntityType
+  entityId   String
+
+  action     AuditAction
+  previousValue Json?   // Estado anterior (snapshot)
+  newValue      Json?   // Estado nuevo (snapshot)
+
+  description String? @db.Text  // Descripción legible del cambio
+  userId      String             // Quien ejecutó la acción
+  userIp      String?            // IP del usuario
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId]) // Principal: historial de una entidad
+  @@index([empresaId, createdAt]) // Auditoría por empresa en el tiempo
+  @@index([userId])
+  @@map("workshop_audit_logs")
+}

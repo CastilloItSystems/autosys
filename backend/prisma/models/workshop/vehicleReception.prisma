@@ -11,6 +11,14 @@ enum FuelLevel {
   FULL           // Lleno
 }
 
+enum ReceptionStatus {
+  OPEN             // Abierta / vehículo recibido
+  DIAGNOSING       // Técnico realizando diagnóstico
+  QUOTED           // Diagnóstico listo, cotización generada
+  CONVERTED_TO_SO  // Convertida en Orden de Trabajo
+  CANCELLED        // Cancelada
+}
+
 model VehicleReception {
   id    String @id @default(cuid())
   folio String // REC-0001 auto-generado por empresa
@@ -29,6 +37,10 @@ model VehicleReception {
   mileageIn  Int?
   fuelLevel  FuelLevel?
 
+  // Motivo de Ingreso
+  ingressMotiveId String?
+  ingressMotive   IngressMotive? @relation(fields: [ingressMotiveId], references: [id], onDelete: SetNull)
+
   // Inventario de accesorios y condición
   accessories      Json?    // Ej: ["gata", "llanta de repuesto", "radio", "manual"]
   hasPreExistingDamage Boolean @default(false)
@@ -43,6 +55,13 @@ model VehicleReception {
 
   // Entrega estimada al recibir
   estimatedDelivery DateTime?
+
+  // Estado del ciclo de vida de la recepción
+  status    ReceptionStatus @default(OPEN)
+
+  // Autorización digital
+  clientSignature      String?  // URL de firma digital del cliente
+  diagnosticAuthorized Boolean  @default(false) // Cliente autorizó diagnóstico
 
   // Asesor que recibe
   advisorId String? // userId
@@ -60,6 +79,22 @@ model VehicleReception {
 
   // Relación inversa: la OT generada desde esta recepción
   serviceOrder ServiceOrder?
+
+  // Checklist dinámico
+  checklistTemplateId String?
+  checklistTemplate   ChecklistTemplate?  @relation(fields: [checklistTemplateId], references: [id], onDelete: SetNull)
+  checklistResponses  ChecklistResponse[]
+
+  // Diagnóstico desacoplado
+  serviceDiagnosis ServiceDiagnosis?
+
+  // Daños y fotos detalladas
+  damages ReceptionDamage[]
+  photos  ReceptionPhoto[]
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
 
   @@unique([empresaId, folio])
   @@index([empresaId])

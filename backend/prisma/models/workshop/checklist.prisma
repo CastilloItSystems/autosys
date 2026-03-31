@@ -1,0 +1,95 @@
+// backend/prisma/models/workshop/checklist.prisma
+
+enum ChecklistCategory {
+  RECEPTION
+  DIAGNOSIS
+  QUALITY_CONTROL
+}
+
+enum ChecklistItemType {
+  BOOLEAN
+  TEXT
+  NUMBER
+  SELECTION
+}
+
+model ChecklistTemplate {
+  id          String            @id @default(cuid())
+  code        String
+  name        String
+  description String?           @db.Text
+  category    ChecklistCategory
+  isActive    Boolean           @default(true)
+
+  items       ChecklistItem[]
+  receptions  VehicleReception[] 
+  qualityChecks QualityCheck[]   
+
+  // FASE 3.3: Conditional rules for dynamic field requirements
+  // Structure: { "rules": [{ "id": "rule1", "condition": {...}, "action": {...} }] }
+  conditionalRules Json?
+
+  empresaId   String
+  empresa     Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@map("workshop_checklist_templates")
+}
+
+model ChecklistItem {
+  id                 String            @id @default(cuid())
+  checklistTemplateId String
+  template           ChecklistTemplate @relation(fields: [checklistTemplateId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  description        String?           @db.Text
+  responseType       ChecklistItemType @default(BOOLEAN)
+  isRequired         Boolean           @default(false)
+  order              Int               @default(0)
+  options            Json?             // Array of strings if SELECTION
+
+  isActive           Boolean           @default(true)
+
+  responses          ChecklistResponse[]
+
+  empresaId          String
+  empresa            Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([checklistTemplateId, code])
+  @@index([empresaId])
+  @@map("workshop_checklist_items")
+}
+
+model ChecklistResponse {
+  id                 String            @id @default(cuid())
+  checklistItemId    String
+  item               ChecklistItem     @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  receptionId        String?
+  reception          VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  qualityCheckId     String?
+  qualityCheck       QualityCheck?     @relation(fields: [qualityCheckId], references: [id], onDelete: Cascade)
+
+  boolValue          Boolean?
+  textValue          String?           @db.Text
+  numValue           Decimal?          @db.Decimal(12, 2)
+  selectionValue     String?
+  observation        String?           @db.Text
+
+  empresaId          String
+  empresa            Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([empresaId])
+  @@index([receptionId])
+  @@index([qualityCheckId])
+  @@map("workshop_checklist_responses")
+}

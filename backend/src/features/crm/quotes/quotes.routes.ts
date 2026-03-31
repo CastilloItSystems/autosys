@@ -8,6 +8,7 @@ import {
   createQuoteSchema,
   updateQuoteSchema,
   updateQuoteStatusSchema,
+  approveQuoteSchema,
   quoteFiltersSchema,
 } from './quotes.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
@@ -46,6 +47,13 @@ router.patch(
   authorize(PERMISSIONS.CRM_QUOTES_UPDATE),
   validateBody(updateQuoteStatusSchema),
   quotesController.updateStatus
+)
+
+router.patch(
+  '/:id/approve',
+  authorize(PERMISSIONS.CRM_QUOTES_UPDATE),
+  validateBody(approveQuoteSchema),
+  quotesController.approve
 )
 
 router.post(

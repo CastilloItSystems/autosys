@@ -91,6 +91,13 @@ class QuotesController {
     return ApiResponse.created(res, quote, 'Nueva versión de cotización creada exitosamente')
   })
 
+  approve = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const quote = await quotesService.approve(req.prisma, id, empresaId, req.body)
+    return ApiResponse.success(res, quote, 'Cotización procesada exitosamente')
+  })
+
   remove = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
     const { id } = req.params as { id: string }

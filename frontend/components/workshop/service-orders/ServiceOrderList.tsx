@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -24,6 +25,7 @@ import ServiceOrderForm from "./ServiceOrderForm";
 import ServiceOrderStatusDialog from "./ServiceOrderStatusDialog";
 
 export default function ServiceOrderList() {
+  const router = useRouter();
   const [items, setItems] = useState<ServiceOrder[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
@@ -304,7 +306,10 @@ export default function ServiceOrderList() {
                 {
                   label: "Ver detalle",
                   icon: "pi pi-eye",
-                  command: () => editItem(actionItem),
+                  command: () =>
+                    router.push(
+                      `/empresa/workshop/service-orders/${actionItem.id}`
+                    ),
                 },
                 {
                   label: "Cambiar estado",

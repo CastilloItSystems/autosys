@@ -90,6 +90,10 @@ model Item {
   stockAlerts         StockAlert[]
   // Workshop: repuestos consumidos en OT
   serviceOrderItems   ServiceOrderItem[]
+  // Workshop: materiales solicitados/despachados en OT
+  serviceOrderMaterials ServiceOrderMaterial[]
+  // Workshop: repuestos sugeridos en diagnósticos
+  diagnosisSuggestedParts DiagnosisSuggestedPart[]
   // Auditoría con historial de cambios
   historial      Json?
 

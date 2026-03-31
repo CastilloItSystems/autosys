@@ -373,34 +373,113 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-wrench",
       items: [
         {
-          label: "Órdenes de Servicio",
-          icon: "pi pi-fw pi-file-edit",
-          to: "/empresa/workshop/service-orders",
+          label: "Dashboard Operativo",
+          icon: "pi pi-fw pi-chart-line",
+          to: "/empresa/workshop",
         },
         {
-          label: "Citas",
-          icon: "pi pi-fw pi-calendar",
-          to: "/empresa/workshop/appointments",
+          label: "Operaciones Diarias",
+          icon: "pi pi-fw pi-refresh",
+          items: [
+            {
+              label: "Citas",
+              icon: "pi pi-fw pi-calendar",
+              to: "/empresa/workshop/appointments",
+            },
+            {
+              label: "Recepciones",
+              icon: "pi pi-fw pi-inbox",
+              to: "/empresa/workshop/receptions",
+            },
+            {
+              label: "Órdenes de Trabajo",
+              icon: "pi pi-fw pi-file-edit",
+              to: "/empresa/workshop/service-orders",
+            },
+            {
+              label: "Tablero de Planeación",
+              icon: "pi pi-fw pi-th-large",
+              to: "/empresa/workshop/planning",
+            },
+            {
+              label: "Control de Tiempos",
+              icon: "pi pi-fw pi-stopwatch",
+              to: "/empresa/workshop/labor-times",
+            },
+          ],
         },
         {
-          label: "Recepciones",
-          icon: "pi pi-fw pi-car",
-          to: "/empresa/workshop/receptions",
+          label: "Diagnóstico y Cotización",
+          icon: "pi pi-fw pi-search",
+          items: [
+            {
+              label: "Diagnósticos",
+              icon: "pi pi-fw pi-search-plus",
+              to: "/empresa/workshop/diagnoses",
+            },
+            {
+              label: "Trabajos Adicionales",
+              icon: "pi pi-fw pi-plus-circle",
+              to: "/empresa/workshop/additionals",
+            },
+            {
+              label: "Cotizaciones",
+              icon: "pi pi-fw pi-file-edit",
+              to: "/empresa/workshop/quotations",
+            },
+          ],
         },
         {
-          label: "Tiempos de Mano de Obra",
-          icon: "pi pi-fw pi-stopwatch",
-          to: "/empresa/workshop/labor-times",
+          label: "Facturación",
+          icon: "pi pi-fw pi-dollar",
+          to: "/empresa/workshop/billing",
         },
         {
-          label: "Control de Calidad",
-          icon: "pi pi-fw pi-list-check",
-          to: "/empresa/workshop/quality-checks",
+          label: "Materiales",
+          icon: "pi pi-fw pi-box",
+          to: "/empresa/workshop/materials",
         },
         {
-          label: "Garantías",
-          icon: "pi pi-fw pi-shield",
-          to: "/empresa/workshop/warranties",
+          label: "Calidad y Entrega",
+          icon: "pi pi-fw pi-verified",
+          items: [
+            {
+              label: "Control de Calidad",
+              icon: "pi pi-fw pi-check-square",
+              to: "/empresa/workshop/quality-checks",
+            },
+            {
+              label: "Entregas",
+              icon: "pi pi-fw pi-sign-out",
+              to: "/empresa/workshop/deliveries",
+            },
+          ],
+        },
+        {
+          label: "Historial",
+          icon: "pi pi-fw pi-history",
+          items: [
+            {
+              label: "Historial de Vehículo",
+              icon: "pi pi-fw pi-car",
+              to: "/empresa/workshop/vehicle-history",
+            },
+            {
+              label: "Garantías",
+              icon: "pi pi-fw pi-shield",
+              to: "/empresa/workshop/warranties",
+            },
+            {
+              label: "Retrabajo",
+              icon: "pi pi-fw pi-replay",
+              to: "/empresa/workshop/reworks",
+            },
+          ],
+        },
+        {
+          label: "Reportes",
+          icon: "pi pi-fw pi-chart-bar",
+          to: "/empresa/workshop/reports",
         },
         {
           label: "Configuración",
@@ -412,9 +491,39 @@ const AppMenuEmpresa = () => {
               to: "/empresa/workshop/service-types",
             },
             {
+              label: "Operaciones",
+              icon: "pi pi-fw pi-list",
+              to: "/empresa/workshop/operations",
+            },
+            {
               label: "Bahías",
               icon: "pi pi-fw pi-sitemap",
               to: "/empresa/workshop/bays",
+            },
+            {
+              label: "Checklists",
+              icon: "pi pi-fw pi-list-check",
+              to: "/empresa/workshop/checklists",
+            },
+            {
+              label: "Motivos de Ingreso",
+              icon: "pi pi-fw pi-sign-in",
+              to: "/empresa/workshop/ingress-motives",
+            },
+            {
+              label: "Especialidades Técnicas",
+              icon: "pi pi-fw pi-star",
+              to: "/empresa/workshop/technician-specialties",
+            },
+            {
+              label: "Sucursales",
+              icon: "pi pi-fw pi-building",
+              to: "/empresa/workshop/branches",
+            },
+            {
+              label: "Turnos",
+              icon: "pi pi-fw pi-clock",
+              to: "/empresa/workshop/shifts",
             },
           ],
         },

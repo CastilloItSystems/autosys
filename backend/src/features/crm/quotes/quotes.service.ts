@@ -460,6 +460,74 @@ class QuotesService {
   }
 
   // ---------------------------------------------------------------------------
+  // APPROVE (total o parcial por ítem)
+  // ---------------------------------------------------------------------------
+
+  async approve(
+    db: PrismaClientType,
+    id: string,
+    empresaId: string,
+    data: {
+      approvalChannel: string
+      approvedByName?: string
+      rejectedReason?: string
+      // Map de itemId -> true (aprobado) | false (rechazado). Si undefined = aprobación total
+      itemApprovals?: Record<string, boolean>
+    }
+  ): Promise<IQuote> {
+    const quote = await (db as PrismaClient).quote.findFirst({
+      where: { id, empresaId },
+      include: { items: true },
+    })
+    if (!quote) throw new NotFoundError('Cotización no encontrada')
+
+    const currentStatus = quote.status as string
+    if (!['ISSUED', 'SENT', 'NEGOTIATING'].includes(currentStatus)) {
+      throw new BadRequestError(
+        `Solo se puede aprobar una cotización en estado ISSUED, SENT o NEGOTIATING. Estado actual: ${currentStatus}`
+      )
+    }
+
+    const isRejection = !!data.rejectedReason && !data.itemApprovals
+    const newStatus = isRejection ? 'REJECTED' : 'APPROVED'
+
+    // Si hay aprobación parcial por ítem, actualizar cada uno
+    if (data.itemApprovals) {
+      const itemIds = Object.keys(data.itemApprovals)
+      await Promise.all(
+        itemIds.map((itemId) =>
+          (db as PrismaClient).quoteItem.update({
+            where: { id: itemId },
+            data: { clientApproved: data.itemApprovals![itemId] },
+          })
+        )
+      )
+      // Si al menos un ítem fue aprobado, la cotización queda APPROVED
+      const anyApproved = Object.values(data.itemApprovals).some(Boolean)
+      if (!anyApproved) throw new BadRequestError('Debe aprobar al menos un ítem')
+    }
+
+    const updated = await (db as PrismaClient).quote.update({
+      where: { id },
+      data: {
+        status: newStatus as any,
+        approvalChannel: data.approvalChannel as any,
+        approvedByName: data.approvedByName ?? null,
+        approvedAt: isRejection ? null : new Date(),
+        rejectedReason: data.rejectedReason ?? null,
+      },
+      include: {
+        customer: { select: { id: true, name: true, code: true } },
+        lead: { select: { id: true, title: true, channel: true } },
+        items: true,
+      },
+    })
+
+    logger.info(`CRM - Cotización ${newStatus}: ${id} via ${data.approvalChannel}`, { empresaId })
+    return updated as unknown as IQuote
+  }
+
+  // ---------------------------------------------------------------------------
   // DELETE
   // ---------------------------------------------------------------------------
 

@@ -6,8 +6,8 @@ model InvoiceItem {
   invoiceId       String
   invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
 
-  itemId          String
-  item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  itemId          String?
+  item            Item?     @relation(fields: [itemId], references: [id], onDelete: SetNull)
 
   // ── Snapshot ──
   itemName        String?   @db.VarChar(255)

@@ -54,6 +54,13 @@ model ServiceAppointment {
   // Relación inversa: la OT creada desde esta cita
   serviceOrder ServiceOrder?
 
+  // Historial de cambios de estado
+  statusHistory AppointmentStatusHistory[]
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
   @@unique([empresaId, folio])
   @@index([empresaId])
   @@index([customerId])
@@ -61,5 +68,6 @@ model ServiceAppointment {
   @@index([scheduledDate])
   @@index([status])
   @@index([assignedAdvisorId])
+  @@index([empresaId, scheduledDate, status]) // Citas del día por estado
   @@map("workshop_appointments")
 }

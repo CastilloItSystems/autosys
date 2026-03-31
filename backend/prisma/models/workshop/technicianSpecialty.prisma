@@ -1,0 +1,25 @@
+// backend/prisma/models/workshop/technicianSpecialty.prisma
+// Especialidades técnicas (ej. Electricista, Mecánico General, Pintor)
+
+model TechnicianSpecialty {
+  id          String   @id @default(cuid())
+  code        String
+  name        String
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones intermedias con técnicos (usuarios) si es necesario, 
+  // o se puede relacionar directamente en un nuevo modelo TechnicianProfile.
+  // Por simplicidad, agregaremos el ID al modelo si se necesita.
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_technician_specialties")
+}

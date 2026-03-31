@@ -8,7 +8,9 @@ import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
+import { SelectButton } from "primereact/selectbutton";
 import { motion } from "framer-motion";
+import AppointmentCalendar from "./AppointmentCalendar";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
@@ -22,11 +24,17 @@ import {
 } from "@/components/workshop/shared/AppointmentStatusBadge";
 import AppointmentForm from "./AppointmentForm";
 
+const VIEW_OPTIONS = [
+  { label: "Lista", value: "list", icon: "pi pi-list" },
+  { label: "Semana", value: "calendar", icon: "pi pi-calendar" },
+];
+
 export default function AppointmentList() {
   const [items, setItems] = useState<ServiceAppointment[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceAppointment | null>(null);
   const [actionItem, setActionItem] = useState<ServiceAppointment | null>(null);
+  const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AppointmentStatus | "">("");
@@ -194,6 +202,13 @@ export default function AppointmentList() {
           style={{ width: "14rem" }}
         />
         <CreateButton label="Nueva cita" onClick={openNew} tooltip="Programar cita" />
+        <SelectButton
+          value={viewMode}
+          onChange={(e) => setViewMode(e.value ?? "list")}
+          options={VIEW_OPTIONS}
+          optionLabel="label"
+          optionValue="value"
+        />
       </div>
     </div>
   );
@@ -201,6 +216,27 @@ export default function AppointmentList() {
   return (
     <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
       <Toast ref={toast} />
+
+      {viewMode === "calendar" ? (
+        <div className="card">
+          <div className="flex justify-content-between align-items-center mb-3">
+            <h4 className="m-0">Citas</h4>
+            <div className="flex gap-2">
+              <CreateButton label="Nueva cita" onClick={openNew} tooltip="Programar cita" />
+              <SelectButton
+                value={viewMode}
+                onChange={(e) => setViewMode(e.value ?? "list")}
+                options={VIEW_OPTIONS}
+                optionLabel="label"
+                optionValue="value"
+              />
+            </div>
+          </div>
+          <AppointmentCalendar
+            onEditAppointment={(appt) => { setSelected(appt); setFormDialog(true); }}
+          />
+        </div>
+      ) : (
       <div className="card">
         <DataTable
           value={items}
@@ -237,6 +273,7 @@ export default function AppointmentList() {
           />
         </DataTable>
       </div>
+      )}
 
       {/* Form Dialog */}
       <Dialog
@@ -334,6 +371,7 @@ export default function AppointmentList() {
         ref={menuRef}
         id="appointment-menu"
       />
+      )}
     </motion.div>
   );
 }

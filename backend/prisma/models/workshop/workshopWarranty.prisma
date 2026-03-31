@@ -4,10 +4,21 @@
 // Cuando se aprueba, genera una nueva OT de retrabajo (a costo interno).
 
 enum WarrantyType {
-  LABOR    // Garantía de mano de obra
-  PARTS    // Garantía de repuesto
-  MIXED    // Ambas
-  COMMERCIAL // Garantía comercial (decisión gerencial)
+  LABOR       // Garantía de mano de obra
+  PARTS       // Garantía de repuesto
+  MIXED       // Ambas (mano de obra + repuesto)
+  COMMERCIAL  // Garantía comercial (decisión gerencial)
+  FACTORY     // Garantía de fábrica / fabricante
+  SUPPLIER    // Garantía de proveedor
+  CAMPAIGN    // Garantía de campaña / recall
+}
+
+enum WarrantyResponsibleCost {
+  COMPANY     // La empresa absorbe el costo
+  SUPPLIER    // El proveedor cubre el costo
+  MANUFACTURER // El fabricante cubre el costo
+  INSURER     // Aseguradora
+  CLIENT      // El cliente paga (no aplica garantía)
 }
 
 enum WarrantyStatus {
@@ -45,6 +56,9 @@ model WorkshopWarranty {
   // Análisis y resolución
   rootCause   String? @db.Text
   resolution  String? @db.Text
+
+  // Responsable del costo
+  responsibleForCost WarrantyResponsibleCost @default(COMPANY)
 
   // Responsable técnico
   technicianId String? // userId del técnico responsable

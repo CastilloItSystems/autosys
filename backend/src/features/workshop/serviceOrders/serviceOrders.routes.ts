@@ -2,7 +2,10 @@
 import { Router } from 'express'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 import { authorize } from '../../../shared/middleware/authorize.middleware.js'
-import { validateBody, validateQuery } from '../../../shared/middleware/validateRequest.middleware.js'
+import {
+  validateBody,
+  validateQuery,
+} from '../../../shared/middleware/validateRequest.middleware.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import {
   createServiceOrderSchema,
@@ -52,6 +55,38 @@ router.delete(
   '/:id',
   authorize(PERMISSIONS.WORKSHOP_DELETE),
   asyncHandler(ctrl.remove)
+)
+
+// FASE 1.2: Quote to ServiceOrder conversion routes
+router.post(
+  '/from-quote/:quoteId',
+  authorize(PERMISSIONS.WORKSHOP_CREATE),
+  asyncHandler(ctrl.convertFromQuote)
+)
+
+router.get(
+  '/:id/quote',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  asyncHandler(ctrl.getQuoteForServiceOrder)
+)
+
+// FASE 2.7: Invoice generation routes
+router.post(
+  '/:id/generate-invoice',
+  authorize(PERMISSIONS.WORKSHOP_CREATE),
+  asyncHandler(ctrl.generatePreInvoice)
+)
+
+router.post(
+  '/bulk-generate-invoices',
+  authorize(PERMISSIONS.WORKSHOP_CREATE),
+  asyncHandler(ctrl.bulkGenerateInvoices)
+)
+
+router.get(
+  '/:id/billing',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  asyncHandler(ctrl.getBillingTrail)
 )
 
 export default router

@@ -16,15 +16,20 @@ model PreInvoice {
   empresaId           String
   empresa             Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
 
-  // Relación 1 a 1 con Order
-  orderId             String            @unique
-  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  // Relación 1 a 1 con Order (nullable para permitir SO también)
+  orderId             String?           @unique
+  order               Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // FASE 2: Relación 1 a 1 con ServiceOrder (para workshop invoicing)
+  serviceOrderId      String?           @unique
+  serviceOrder        ServiceOrder?     @relation("PreInvoiceServiceOrder", fields: [serviceOrderId], references: [id], onDelete: Restrict)
 
   customerId          String
   customer            Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
-  warehouseId         String
-  warehouse           Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+  // Warehouse nullable para path de ServiceOrder (workshop tiene su propia ubicación)
+  warehouseId         String?
+  warehouse           Warehouse?        @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
 
   // Relaciones
   items               PreInvoiceItem[]

@@ -88,6 +88,20 @@ export const updateQuoteStatusSchema = Joi.object({
   notes: Joi.string().optional().allow(null, ''),
 })
 
+export const approveQuoteSchema = Joi.object({
+  approvalChannel: Joi.string()
+    .valid('IN_PERSON', 'WHATSAPP', 'EMAIL', 'PHONE', 'DIGITAL_SIGNATURE')
+    .required()
+    .messages({
+      'any.required': 'El canal de aprobación es requerido',
+      'any.only': 'Canal inválido. Valores: IN_PERSON, WHATSAPP, EMAIL, PHONE, DIGITAL_SIGNATURE',
+    }),
+  approvedByName: Joi.string().trim().max(150).optional().allow('', null),
+  rejectedReason: Joi.string().trim().max(1000).optional().allow('', null),
+  // itemApprovals: { "itemId1": true, "itemId2": false }
+  itemApprovals: Joi.object().pattern(Joi.string(), Joi.boolean()).optional(),
+})
+
 export const quoteFiltersSchema = Joi.object({
   type: Joi.string().valid('VEHICLE', 'PARTS', 'SERVICE', 'CORPORATE').optional(),
   status: Joi.string()

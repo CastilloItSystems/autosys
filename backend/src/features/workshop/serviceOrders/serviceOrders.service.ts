@@ -1,35 +1,57 @@
 // backend/src/features/workshop/serviceOrders/serviceOrders.service.ts
 import type { PrismaClient } from '../../../generated/prisma/client.js'
-import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import {
+  NotFoundError,
+  BadRequestError,
+} from '../../../shared/utils/apiError.js'
 import type {
   CreateServiceOrderDTO,
   UpdateServiceOrderDTO,
   UpdateStatusDTO,
 } from './serviceOrders.dto.js'
-import type { ServiceOrderStatus, IServiceOrderFilters } from './serviceOrders.interface.js'
+import type {
+  ServiceOrderStatus,
+  IServiceOrderFilters,
+} from './serviceOrders.interface.js'
+// FASE 1.5: Import quote validation
+import { validateSOQuoteApproval } from '../integrations/quote-so-converter.service.js'
 
-type PrismaClientType = PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
+type PrismaClientType =
+  | PrismaClient
+  | Omit<
+      PrismaClient,
+      '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+    >
 
 const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
-  DRAFT:            ['OPEN', 'CANCELLED'],
-  OPEN:             ['DIAGNOSING', 'IN_PROGRESS', 'CANCELLED'],
-  DIAGNOSING:       ['PENDING_APPROVAL', 'APPROVED', 'CANCELLED'],
+  DRAFT: ['OPEN', 'CANCELLED'],
+  OPEN: ['DIAGNOSING', 'IN_PROGRESS', 'CANCELLED'],
+  DIAGNOSING: ['PENDING_APPROVAL', 'APPROVED', 'CANCELLED'],
   PENDING_APPROVAL: ['APPROVED', 'CANCELLED'],
-  APPROVED:         ['IN_PROGRESS', 'CANCELLED'],
-  IN_PROGRESS:      ['PAUSED', 'WAITING_PARTS', 'WAITING_AUTH', 'QUALITY_CHECK', 'CANCELLED'],
-  PAUSED:           ['IN_PROGRESS', 'CANCELLED'],
-  WAITING_PARTS:    ['IN_PROGRESS', 'CANCELLED'],
-  WAITING_AUTH:     ['IN_PROGRESS', 'CANCELLED'],
-  QUALITY_CHECK:    ['READY', 'IN_PROGRESS'],
-  READY:            ['DELIVERED', 'IN_PROGRESS'],
-  DELIVERED:        ['INVOICED'],
-  INVOICED:         ['CLOSED'],
-  CLOSED:           [],
-  CANCELLED:        [],
+  APPROVED: ['IN_PROGRESS', 'CANCELLED'],
+  IN_PROGRESS: [
+    'PAUSED',
+    'WAITING_PARTS',
+    'WAITING_AUTH',
+    'QUALITY_CHECK',
+    'CANCELLED',
+  ],
+  PAUSED: ['IN_PROGRESS', 'CANCELLED'],
+  WAITING_PARTS: ['IN_PROGRESS', 'CANCELLED'],
+  WAITING_AUTH: ['IN_PROGRESS', 'CANCELLED'],
+  QUALITY_CHECK: ['READY', 'IN_PROGRESS'],
+  READY: ['DELIVERED', 'IN_PROGRESS'],
+  DELIVERED: ['INVOICED'],
+  INVOICED: ['CLOSED'],
+  CLOSED: [],
+  CANCELLED: [],
 }
 
 // Genera folio SO-XXXX por empresa (transaccional)
-async function generateFolio(prisma: PrismaClientType, empresaId: string): Promise<string> {
+export async function generateFolio(
+  prisma: PrismaClientType,
+  empresaId: string
+): Promise<string> {
   const last = await (prisma as PrismaClient).serviceOrder.findFirst({
     where: { empresaId },
     orderBy: { createdAt: 'desc' },
@@ -40,7 +62,9 @@ async function generateFolio(prisma: PrismaClientType, empresaId: string): Promi
   return `SO-${String(next).padStart(4, '0')}`
 }
 
-function calcTotals(items: { type: string; quantity: number; unitPrice: number }[]) {
+function calcTotals(
+  items: { type: string; quantity: number; unitPrice: number }[]
+) {
   let laborTotal = 0
   let partsTotal = 0
   for (const item of items) {
@@ -70,13 +94,24 @@ export async function createServiceOrder(
   if (dto.customerVehicleId) {
     const vehicle = await (prisma as PrismaClient).customerVehicle.findFirst({
       where: { id: dto.customerVehicleId, customerId: dto.customerId },
-      select: { plate: true, vehicleModel: { select: { name: true } }, brand: { select: { name: true } }, year: true, color: true },
+      select: {
+        plate: true,
+        vehicleModel: { select: { name: true } },
+        brand: { select: { name: true } },
+        year: true,
+        color: true,
+      },
     })
     if (vehicle) {
       vehiclePlate = vehiclePlate ?? vehicle.plate
       vehicleDesc =
         vehicleDesc ??
-        [vehicle.brand?.name, vehicle.vehicleModel?.name, vehicle.year, vehicle.color]
+        [
+          vehicle.brand?.name,
+          vehicle.vehicleModel?.name,
+          vehicle.year,
+          vehicle.color,
+        ]
           .filter(Boolean)
           .join(' ')
     }
@@ -99,7 +134,7 @@ export async function createServiceOrder(
       vehicleDesc: vehicleDesc ?? null,
       mileageIn: dto.mileageIn ?? null,
       diagnosisNotes: dto.diagnosisNotes ?? null,
-      observations: dto.observations ?? null,
+      // observations removed - it's a relation, not a field
       assignedTechnicianId: dto.assignedTechnicianId ?? null,
       estimatedDelivery: dto.estimatedDelivery ?? null,
       laborTotal,
@@ -186,8 +221,12 @@ export async function findServiceOrderById(
   const order = await (prisma as PrismaClient).serviceOrder.findFirst({
     where: { id, empresaId },
     include: {
-      customer: { select: { id: true, name: true, code: true, phone: true, mobile: true } },
-      customerVehicle: { select: { id: true, plate: true, vin: true, year: true, color: true } },
+      customer: {
+        select: { id: true, name: true, code: true, phone: true, mobile: true },
+      },
+      customerVehicle: {
+        select: { id: true, plate: true, vin: true, year: true, color: true },
+      },
       items: true,
     },
   })
@@ -202,20 +241,29 @@ export async function updateServiceOrder(
   dto: UpdateServiceOrderDTO
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
-  if (['DELIVERED', 'INVOICED', 'CLOSED', 'CANCELLED'].includes(existing.status)) {
-    throw new BadRequestError('No se puede editar una orden entregada, facturada, cerrada o cancelada')
+  if (
+    ['DELIVERED', 'INVOICED', 'CLOSED', 'CANCELLED'].includes(existing.status)
+  ) {
+    throw new BadRequestError(
+      'No se puede editar una orden entregada, facturada, cerrada o cancelada'
+    )
   }
 
-  const { items, ...fields } = dto
+  const { items, observations, ...fields } = dto
   let totalsUpdate = {}
 
   if (items !== undefined) {
-    const itemsWithTotals = items.map((i) => ({ ...i, total: i.quantity * i.unitPrice }))
+    const itemsWithTotals = items.map((i) => ({
+      ...i,
+      total: i.quantity * i.unitPrice,
+    }))
     const { laborTotal, partsTotal, total } = calcTotals(itemsWithTotals)
     totalsUpdate = { laborTotal, partsTotal, total }
 
     // Reemplazar items
-    await (prisma as PrismaClient).serviceOrderItem.deleteMany({ where: { serviceOrderId: id } })
+    await (prisma as PrismaClient).serviceOrderItem.deleteMany({
+      where: { serviceOrderId: id },
+    })
     await (prisma as PrismaClient).serviceOrderItem.createMany({
       data: itemsWithTotals.map((i) => ({ ...i, serviceOrderId: id })),
     })
@@ -246,6 +294,29 @@ export async function updateServiceOrderStatus(
     throw new BadRequestError(
       `No se puede pasar de ${existing.status} a ${dto.status}`
     )
+  }
+
+  // FASE 1.5: Validate that SO cannot advance past certain states without quote approval
+  await validateSOQuoteApproval(prisma, id, dto.status)
+
+  // FASE 2.8: Validate PreInvoice status before marking SO as INVOICED
+  if (dto.status === 'INVOICED') {
+    // Check if ServiceOrder has a PreInvoice (1-to-1 relationship)
+    const preInvoice = await (prisma as PrismaClient).preInvoice.findFirst({
+      where: { serviceOrderId: id },
+    })
+
+    if (!preInvoice) {
+      throw new BadRequestError(
+        'Cannot mark ServiceOrder as INVOICED without a PreInvoice. Generate PreInvoice first.'
+      )
+    }
+
+    if (!['READY_FOR_PAYMENT', 'PAID'].includes(preInvoice.status)) {
+      throw new BadRequestError(
+        `PreInvoice must be in READY_FOR_PAYMENT or PAID status before marking SO as INVOICED. Current: ${preInvoice.status}`
+      )
+    }
   }
 
   const extra: any = {}
@@ -302,7 +373,9 @@ export async function deleteServiceOrder(
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
   if (!['DRAFT', 'CANCELLED'].includes(existing.status)) {
-    throw new BadRequestError('Solo se pueden eliminar órdenes en estado DRAFT o CANCELLED')
+    throw new BadRequestError(
+      'Solo se pueden eliminar órdenes en estado DRAFT o CANCELLED'
+    )
   }
   await (prisma as PrismaClient).serviceOrder.delete({ where: { id } })
 }
