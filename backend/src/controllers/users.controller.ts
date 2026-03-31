@@ -1,6 +1,54 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import prisma from '../services/prisma.service.js'
+import r2StorageService from '../services/r2-storage.service.js'
+
+export const uploadProfilePicture = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const file = req.file
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se subió ninguna imagen.' })
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: String(id) },
+    })
+
+    if (!user) {
+      return res.status(404).json({ error: 'Usuario no encontrado.' })
+    }
+
+    // Eliminar imagen anterior si existe en R2
+    if (user.img && user.img.includes('r2.cloudflarestorage.com')) {
+      await r2StorageService.deleteFile(user.img)
+    }
+
+    const imageUrl = await r2StorageService.uploadFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      'profiles'
+    )
+
+    const updatedUser = await prisma.user.update({
+      where: { id: String(id) },
+      data: { img: imageUrl },
+      select: {
+        id: true,
+        img: true,
+        nombre: true,
+        correo: true,
+      },
+    })
+
+    return res.json(updatedUser)
+  } catch (error) {
+    console.error('Error subiendo imagen de perfil:', error)
+    return res.status(500).json({ error: 'Error al subir la imagen.' })
+  }
+}
 
 export const getAllUsers = async (_req: Request, res: Response) => {
   try {

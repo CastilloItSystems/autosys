@@ -121,7 +121,7 @@ const DashboardMain = () => {
               <div className="card h-full flex flex-column surface-card hover:surface-hover transition-colors transition-duration-300">
                 <div className="flex flex-column md:flex-row align-items-center ">
                   <img
-                    src="/demo/images/nature/nature1.jpg"
+                    src={empresa.logo_url || "/demo/images/nature/nature1.jpg"}
                     alt={empresa.nombre}
                     width={100}
                     height={100}

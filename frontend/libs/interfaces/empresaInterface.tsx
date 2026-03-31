@@ -28,6 +28,7 @@ export interface Empresa {
   dprefijobd?: string;
   dprefijosrv?: string;
   dprefijousr?: string;
+  logo_url?: string;
   eliminado: boolean;
   createdAt: string;
   updatedAt: string;
@@ -61,6 +62,7 @@ export interface EmpresaCreate {
   dprefijobd?: string;
   dprefijosrv?: string;
   dprefijousr?: string;
+  logo_url?: string;
 }
 
 export interface EmpresaUpdate extends Partial<EmpresaCreate> {}

@@ -7,10 +7,16 @@ import { classNames } from "primereact/utils";
 import { InputSwitch } from "primereact/inputswitch";
 import { InputTextarea } from "primereact/inputtextarea";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { FileUpload, FileUploadSelectEvent } from "primereact/fileupload";
+import { Image } from "primereact/image";
 import { handleFormError } from "@/utils/errorHandlers";
 import { empresaSchema, EmpresaFormData } from "@/libs/zods/empresaZod";
 import { Empresa } from "@/libs/interfaces/empresaInterface";
-import { createEmpresa, updateEmpresa } from "@/app/api/empresaService";
+import {
+  createEmpresa,
+  updateEmpresa,
+  uploadEmpresaLogo,
+} from "@/app/api/empresaService";
 import RifInput from "../common/RifInput";
 import PhoneInput from "../common/PhoneInput";
 
@@ -32,6 +38,8 @@ const EmpresaForm = ({
   onSubmittingChange,
 }: EmpresaFormProps) => {
   const [isLoading, setIsLoading] = useState(true);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const {
     register,
@@ -104,6 +112,7 @@ const EmpresaForm = ({
         dprefijosrv: empresa.dprefijosrv || "",
         dprefijousr: empresa.dprefijousr || "",
       });
+      setPreviewUrl(empresa.logo_url || null);
     } else {
       reset({
         nombre: "",
@@ -137,11 +146,29 @@ const EmpresaForm = ({
     setIsLoading(false);
   }, [empresa, reset]);
 
+  const onFileSelect = (e: FileUploadSelectEvent) => {
+    const file = e.files[0];
+    if (file) {
+      setSelectedFile(file);
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        setPreviewUrl(event.target?.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const clearLogo = () => {
+    setSelectedFile(null);
+    setPreviewUrl(empresa?.logo_url || null);
+  };
+
   const onSubmit = async (data: EmpresaFormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
+      let savedEmpresa: Empresa;
       if (empresa) {
-        await updateEmpresa(empresa.id_empresa, data);
+        savedEmpresa = await updateEmpresa(empresa.id_empresa, data);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -149,7 +176,7 @@ const EmpresaForm = ({
           life: 3000,
         });
       } else {
-        await createEmpresa(data);
+        savedEmpresa = await createEmpresa(data);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -157,6 +184,21 @@ const EmpresaForm = ({
           life: 3000,
         });
       }
+
+      // Subir logo si hay uno seleccionado
+      if (selectedFile && savedEmpresa.id_empresa) {
+        try {
+          await uploadEmpresaLogo(savedEmpresa.id_empresa, selectedFile);
+        } catch (uploadError) {
+          toast.current?.show({
+            severity: "warn",
+            summary: "Logo no subido",
+            detail: "La empresa se guardó pero hubo un error con el logo.",
+            life: 5000,
+          });
+        }
+      }
+
       onSave();
     } catch (error) {
       handleFormError(error, toast);
@@ -180,62 +222,115 @@ const EmpresaForm = ({
       ) : (
         <>
           <div className="grid formgrid">
+            {/* Logo de la Empresa */}
+            <div className="col-12 md:col-4 flex flex-column align-items-center mb-4">
+              <h5 className="text-900 font-medium mb-3 align-self-start">
+                Logo
+              </h5>
+              <div className="flex flex-column align-items-center gap-3 w-full p-3 border-1 border-round border-300 surface-50">
+                {previewUrl ? (
+                  <div className="relative">
+                    <Image
+                      src={previewUrl}
+                      alt="Logo Preview"
+                      width="150"
+                      height="150"
+                      className="border-round shadow-2"
+                      preview
+                    />
+                    <Button
+                      type="button"
+                      icon="pi pi-times"
+                      className="p-button-rounded p-button-danger p-button-sm absolute -top-2 -right-2"
+                      onClick={clearLogo}
+                      tooltip="Quitar logo seleccionado"
+                    />
+                  </div>
+                ) : (
+                  <div
+                    className="flex align-items-center justify-content-center border-round border-dashed border-2 border-300 text-400"
+                    style={{ width: "150px", height: "150px" }}
+                  >
+                    <i className="pi pi-image text-5xl"></i>
+                  </div>
+                )}
+                <FileUpload
+                  mode="basic"
+                  name="image"
+                  accept="image/*"
+                  maxFileSize={5000000}
+                  onSelect={onFileSelect}
+                  chooseLabel={previewUrl ? "Cambiar Logo" : "Subir Logo"}
+                  className="p-button-outlined w-full"
+                />
+                <small className="text-500 text-center">
+                  Máximo 5MB. Formatos: JPG, PNG, WEBP.
+                </small>
+              </div>
+            </div>
+
             {/* Información Básica */}
-            <div className="col-12">
-              <h5 className="text-900 font-medium mb-4">Información Básica</h5>
-            </div>
+            <div className="col-12 md:col-8">
+              <div className="grid">
+                <div className="col-12">
+                  <h5 className="text-900 font-medium mb-4">
+                    Información Básica
+                  </h5>
+                </div>
 
-            <div className="field mb-4 col-12 md:col-6">
-              <label
-                htmlFor="nombre"
-                className="block text-900 font-medium mb-2"
-              >
-                Nombre de la Empresa <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="nombre"
-                control={control}
-                render={({ field }) => (
-                  <InputText
-                    id="nombre"
-                    {...field}
-                    className={classNames("w-full", {
-                      "p-invalid": errors.nombre,
-                    })}
+                <div className="field mb-4 col-12">
+                  <label
+                    htmlFor="nombre"
+                    className="block text-900 font-medium mb-2"
+                  >
+                    Nombre de la Empresa <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="nombre"
+                    control={control}
+                    render={({ field }) => (
+                      <InputText
+                        id="nombre"
+                        {...field}
+                        className={classNames("w-full", {
+                          "p-invalid": errors.nombre,
+                        })}
+                      />
+                    )}
                   />
-                )}
-              />
-              {errors.nombre && (
-                <small className="p-error block mt-1">
-                  {errors.nombre.message}
-                </small>
-              )}
-            </div>
+                  {errors.nombre && (
+                    <small className="p-error block mt-1">
+                      {errors.nombre.message}
+                    </small>
+                  )}
+                </div>
 
-            <div className="field mb-4 col-12 md:col-6">
-              <label
-                htmlFor="numerorif"
-                className="block text-900 font-medium mb-2"
-              >
-                Número RIF <span className="text-red-500">*</span>
-              </label>
-              <Controller
-                name="numerorif"
-                control={control}
-                render={({ field }) => (
-                  <RifInput
-                    id="numerorif"
-                    value={field.value}
-                    onChange={field.onChange}
-                    error={errors.numerorif}
+                <div className="field mb-4 col-12">
+                  <label
+                    htmlFor="numerorif"
+                    className="block text-900 font-medium mb-2"
+                  >
+                    Número RIF <span className="text-red-500">*</span>
+                  </label>
+                  <Controller
+                    name="numerorif"
+                    control={control}
+                    render={({ field }) => (
+                      <RifInput
+                        id="numerorif"
+                        value={field.value}
+                        onChange={field.onChange}
+                        error={errors.numerorif}
+                      />
+                    )}
                   />
-                )}
-              />
-              {errors.numerorif && (
-                <small className="p-error block mt-1">
-                  {errors.numerorif.message}
-                </small>
-              )}
+                  {errors.numerorif && (
+                    <small className="p-error block mt-1">
+                      {errors.numerorif.message}
+                    </small>
+                  )}
+                </div>
+              </div>
             </div>
 
             <div className="field mb-4 col-12">

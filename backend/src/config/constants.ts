@@ -44,6 +44,15 @@ export const FILE_UPLOAD = {
   UPLOAD_PATH: './public/uploads',
 }
 
+export const CLOUDFLARE_R2 = {
+  ACCOUNT_ID: process.env.R2_ACCOUNT_ID || '',
+  ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || '',
+  SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || '',
+  BUCKET_NAME: process.env.R2_BUCKET_NAME || '',
+  PUBLIC_URL: process.env.R2_PUBLIC_URL || '',
+  ENDPOINT: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
+}
+
 export const JWT_CONFIG = {
   SECRET: process.env.JWT_SECRET || 'your-secret-key-change-this',
   EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',

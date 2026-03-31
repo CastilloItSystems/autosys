@@ -11,9 +11,10 @@ import UsuarioChangePasswordForm from "../usuarioComponents/UsuarioChangePasswor
 import { Tooltip } from "primereact/tooltip";
 import MyprofileForm from "./MyprofileForm";
 import FormActionButtons from "@/components/common/FormActionButtons";
+import { uploadUserProfilePicture } from "@/app/api/userService";
 
 const MyProfileList: React.FC = () => {
-  const { data: session } = useSession();
+  const { data: session, update } = useSession();
   const profile = session?.user;
   const toast = useRef<Toast>(null);
   const [usuarioFormDialog, setMyprofileFormDialog] = useState(false);
@@ -48,15 +49,30 @@ const MyProfileList: React.FC = () => {
     });
     setUsuarioPasswordFormDialog(false);
   };
-  const handleAvatarUpload = (e: any) => {
+  const handleAvatarUpload = async (e: any) => {
     const file = e.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setAvatar(event.target?.result as string);
+    if (file && profile?.id) {
+      try {
+        // Subir a R2 a través del backend
+        const res = await uploadUserProfilePicture(profile.id, file);
+        
+        // Actualizar estado local
+        setAvatar(res.img || "");
+        
+        // Actualizar sesión de NextAuth para que el cambio persista en toda la app
+        await update({
+          ...session,
+          user: {
+            ...session?.user,
+            img: res.img
+          }
+        });
+
         showToast("success", "Éxito", "Avatar actualizado correctamente");
-      };
-      reader.readAsDataURL(file);
+      } catch (error) {
+        console.error("Error uploading avatar:", error);
+        showToast("error", "Error", "No se pudo subir la imagen");
+      }
     }
   };
   const hideMyprofileFormDialog = () => {

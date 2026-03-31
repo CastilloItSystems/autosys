@@ -19,6 +19,7 @@ model Empresa {
   data_password   String?
   data_port       String?
   licencia        String?
+  logo_url        String?
   historizada     Boolean      @default(false)
   masinfo         String?
   usa_prefijo     Boolean      @default(false)

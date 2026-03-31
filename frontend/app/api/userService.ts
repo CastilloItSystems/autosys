@@ -157,6 +157,24 @@ export const updateUser = async (
   return response.data;
 };
 
+export const uploadUserProfilePicture = async (
+  id: string,
+  file: File,
+): Promise<User> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await apiClient.post<User>(
+    `/users/${id}/profile-picture`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
+  return response.data;
+};
+
 export const deleteUser = async (id: string): Promise<void> => {
   await apiClient.delete(`/users/${id}`);
 };
