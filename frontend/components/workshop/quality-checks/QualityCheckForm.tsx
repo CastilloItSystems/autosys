@@ -50,7 +50,7 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
     if (templatesLoaded) return;
     try {
       const res = await checklistService.getAll({ category: "QUALITY_CONTROL", limit: 50 } as any);
-      setChecklistTemplates(res.data?.data ?? []);
+      setChecklistTemplates(res.data ?? []);
       setTemplatesLoaded(true);
     } catch {
       // silent — templates are optional

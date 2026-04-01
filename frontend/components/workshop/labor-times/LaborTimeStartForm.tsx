@@ -42,7 +42,7 @@ export default function LaborTimeStartForm({ onSave, formId, onSubmittingChange,
     const init = async () => {
       try {
         const res = await workshopOperationService.getAll({ isActive: "true", limit: 200 });
-        setOperations(res.data?.data ?? []);
+        setOperations(res.data ?? []);
       } catch {
         // silently fail
       } finally {

@@ -28,14 +28,12 @@ export interface PaginationMeta {
   totalPages: number
 }
 
-/** Shape returned by workshop list endpoints: ApiResponse.success wrapping { data, pagination } */
+/** Shape returned by workshop list endpoints */
 export interface WorkshopPagedResponse<T> {
   success: boolean
   message: string
-  data: {
-    data: T[]
-    pagination: PaginationMeta
-  }
+  data: T[]
+  meta: PaginationMeta
 }
 
 export interface WorkshopResponse<T> {

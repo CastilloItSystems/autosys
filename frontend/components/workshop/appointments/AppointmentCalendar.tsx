@@ -61,7 +61,7 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
         sortBy: "scheduledDate",
         sortOrder: "asc",
       });
-      setAppointments(res.data?.data ?? []);
+      setAppointments(res.data ?? []);
     } catch (err) {
       handleFormError(err, toast.current!);
     } finally {

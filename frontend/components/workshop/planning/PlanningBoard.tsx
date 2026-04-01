@@ -281,7 +281,7 @@ export default function PlanningBoard() {
       if (search) params.search = search;
       if (priorityFilter) params.priority = priorityFilter;
       const res = await serviceOrderService.getAll(params as any);
-      setOrders(res.data?.data ?? []);
+      setOrders(res.data ?? []);
     } catch (err) {
       handleFormError(err, toast.current!);
     } finally {

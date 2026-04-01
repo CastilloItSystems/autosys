@@ -74,8 +74,8 @@ export default function DiagnosisList() {
         search: searchQuery || undefined,
         status: statusFilter !== "ALL" ? (statusFilter as DiagnosisStatus) : undefined,
       });
-      setItems(res.data?.data ?? []);
-      setTotalRecords(res.data?.pagination?.total ?? 0);
+      setItems(res.data ?? []);
+      setTotalRecords(res.meta?.total ?? 0);
     } catch (error) {
       handleFormError(error, toast);
       setItems([]);

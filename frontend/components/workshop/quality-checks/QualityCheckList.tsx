@@ -59,8 +59,8 @@ export default function QualityCheckList() {
         page: page + 1,
         limit: rows,
       });
-      setItems(res.data?.data ?? []);
-      setTotalRecords(res.data?.pagination?.total ?? 0);
+      setItems(res.data ?? []);
+      setTotalRecords(res.meta?.total ?? 0);
     } catch (error) {
       handleFormError(error, toast);
       setItems([]);

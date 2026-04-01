@@ -64,7 +64,7 @@ export default function AppointmentForm({
     const init = async () => {
       try {
         const res = await serviceTypeService.getAll({ isActive: "true", limit: 100 });
-        setServiceTypes(res.data?.data ?? []);
+        setServiceTypes(res.data ?? []);
       } catch {
         // silently fail
       } finally {

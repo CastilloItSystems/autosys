@@ -36,6 +36,7 @@ router.put(
   ctrl.update
 )
 router.delete('/:id', authorize(PERMISSIONS.WORKSHOP_DELETE), ctrl.remove)
+router.patch('/:id/toggle-active', authorize(PERMISSIONS.WORKSHOP_UPDATE), ctrl.toggleActive)
 
 // FASE 3.3: Conditional QC Rules evaluation
 router.post(
