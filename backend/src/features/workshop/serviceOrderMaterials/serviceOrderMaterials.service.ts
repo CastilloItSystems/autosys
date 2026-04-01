@@ -24,7 +24,7 @@ export async function findAll(
   db: DbType,
   serviceOrderId: string,
   filters: IServiceOrderMaterialFilters
-): Promise<{ data: IServiceOrderMaterialWithRelations[]; pagination: any }> {
+): Promise<{ data: IServiceOrderMaterialWithRelations[]; page: number; limit: number; total: number }> {
   const { status, search, page = 1, limit = 50 } = filters
 
   const where: any = { serviceOrderId }
@@ -59,7 +59,9 @@ export async function findAll(
 
   return {
     data: data as unknown as IServiceOrderMaterialWithRelations[],
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
+    page,
+    limit,
+    total,
   }
 }
 

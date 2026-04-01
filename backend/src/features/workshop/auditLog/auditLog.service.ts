@@ -31,7 +31,7 @@ export async function findAuditLogs(db: Db, empresaId: string, filters: IAuditLo
     (db as PrismaClient).workshopAuditLog.findMany({ where, skip, take: limit, orderBy: { createdAt: 'desc' } }),
     (db as PrismaClient).workshopAuditLog.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function createAuditLog(

@@ -44,7 +44,7 @@ export async function findAllBranches(db: Db, empresaId: string, filters: IBranc
     (db as PrismaClient).workshopBranch.findMany({ where, skip, take: limit, orderBy: { name: 'asc' } }),
     (db as PrismaClient).workshopBranch.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findBranchById(db: Db, id: string, empresaId: string) {

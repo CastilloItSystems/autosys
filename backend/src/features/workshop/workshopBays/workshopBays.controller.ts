@@ -10,7 +10,8 @@ import { CreateWorkshopBayDTO, UpdateWorkshopBayDTO, WorkshopBayResponseDTO } fr
 
 export const getAll = async (req: Request, res: Response) => {
   const result = await findAllWorkshopBays(prisma, req.empresaId!, req.validatedQuery as any)
-  return ApiResponse.success(res, { ...result, data: result.data.map(i => new WorkshopBayResponseDTO(i)) })
+  const items = result.data.map(i => new WorkshopBayResponseDTO(i))
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {

@@ -71,6 +71,20 @@ export class FileUploadHelper {
     }).single(fieldName)
   }
 
+  static createMemoryArrayUploader(
+    fieldName: string = 'image',
+    maxCount: number = 10,
+    maxSize: number = this.MAX_FILE_SIZE
+  ) {
+    return multer({
+      storage: multer.memoryStorage(),
+      limits: {
+        fileSize: maxSize,
+      },
+      fileFilter: this.createImageFilter(),
+    }).array(fieldName, maxCount)
+  }
+
   static createImageFilter() {
     return (
       req: Request,

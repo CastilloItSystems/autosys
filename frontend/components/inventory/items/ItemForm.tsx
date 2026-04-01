@@ -484,7 +484,12 @@ export default function ItemForm({
           </TabPanel>
 
           <TabPanel header="Imágenes" leftIcon="pi pi-images">
-            <ImagesTab images={images} onImagesChange={setImages} />
+            <ImagesTab
+              itemId={item?.id}
+              images={images}
+              onImagesChange={setImages}
+              toast={toast}
+            />
           </TabPanel>
 
           <TabPanel header="Especificaciones" leftIcon="pi pi-list">

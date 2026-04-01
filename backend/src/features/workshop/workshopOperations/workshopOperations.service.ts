@@ -23,7 +23,7 @@ export async function findAllWorkshopOperations(db: Db, empresaId: string, filte
     (db as PrismaClient).workshopOperation.findMany({ where, skip, take: limit, orderBy: { [sortBy]: sortOrder }, include: INCLUDE }),
     (db as PrismaClient).workshopOperation.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findWorkshopOperationById(db: Db, id: string, empresaId: string) {

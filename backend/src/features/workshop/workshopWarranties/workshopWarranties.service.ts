@@ -51,7 +51,7 @@ export async function findAllWarranties(db: Db, empresaId: string, filters: IWar
     (db as PrismaClient).workshopWarranty.findMany({ where, skip, take: limit, orderBy: { [sortBy]: sortOrder }, include: INCLUDE }),
     (db as PrismaClient).workshopWarranty.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findWarrantyById(db: Db, id: string, empresaId: string) {

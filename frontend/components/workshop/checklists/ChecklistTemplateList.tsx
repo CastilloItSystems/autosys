@@ -70,8 +70,9 @@ export default function ChecklistTemplateList() {
         isActive: showActive ? "true" : undefined,
         category: categoryFilter ?? undefined,
       });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
+      setItems(res.data);
+      
+      setTotalRecords(res.meta.total);
     } catch (error) {
       handleFormError(error, toast);
       setItems([]);

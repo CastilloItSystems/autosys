@@ -9,7 +9,8 @@ import { CreateReceptionDTO, UpdateReceptionDTO, ReceptionResponseDTO } from './
 
 export const getAll = async (req: Request, res: Response) => {
   const result = await findAllReceptions(prisma, req.empresaId!, req.validatedQuery as any)
-  return ApiResponse.success(res, { ...result, data: result.data.map(i => new ReceptionResponseDTO(i)) })
+  const items = result.data.map(i => new ReceptionResponseDTO(i))
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {

@@ -56,7 +56,7 @@ export async function findAllReworks(db: Db, empresaId: string, filters: IRework
     (db as PrismaClient).workshopRework.findMany({ where, include: BASE_INCLUDE, skip, take: limit, orderBy: { createdAt: 'desc' } }),
     (db as PrismaClient).workshopRework.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findReworkById(db: Db, id: string, empresaId: string) {

@@ -9,7 +9,8 @@ export const getAll = async (req: Request, res: Response) => {
   const limit = parseInt(req.query.limit as string) || 10
   const serviceOrderId = req.query.serviceOrderId as string | undefined
   const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId)
-  return ApiResponse.paginated(res, result.data, result.total, page, limit)
+  const items = result.data.map((i) => new DiagnosisResponseDTO(i))
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 // FASE 3.2: Import diagnostic templates manager
 import {

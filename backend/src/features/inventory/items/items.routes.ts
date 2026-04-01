@@ -143,6 +143,7 @@ import {
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import bulkRouter from './bulk/bulk.routes.js'
 import searchRouter from './search/search.routes.js'
+import imagesRouter from './images/images.routes.js'
 
 const router = Router()
 
@@ -151,6 +152,7 @@ const router = Router()
 // ---------------------------------------------------------------------------
 router.use('/bulk', bulkRouter)
 router.use('/search', searchRouter) // Sub-router for /search endpoints
+router.use('/images', imagesRouter) // Sub-router for /images endpoints
 
 // ---------------------------------------------------------------------------
 // Rutas específicas ANTES de /:id

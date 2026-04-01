@@ -104,10 +104,7 @@ export async function findAllReceptions(
     }),
     (db as PrismaClient).vehicleReception.count({ where }),
   ])
-  return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  }
+  return { data, page, limit, total }
 }
 
 export async function findReceptionById(db: Db, id: string, empresaId: string) {

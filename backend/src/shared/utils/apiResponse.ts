@@ -1,6 +1,7 @@
 // backend/src/shared/utils/apiResponse.ts
 
 import { Response } from 'express'
+import { PaginationHelper } from './pagination.js'
 
 interface ApiResponseData<T = unknown> {
   success: boolean
@@ -11,6 +12,8 @@ interface ApiResponseData<T = unknown> {
     limit?: number
     total?: number
     totalPages?: number
+    hasNext?: boolean
+    hasPrev?: boolean
   }
   errors?: unknown[]
   timestamp?: string
@@ -47,17 +50,12 @@ export class ApiResponse {
     total: number,
     message = 'Datos obtenidos exitosamente'
   ): Response {
-    const safeLimit = limit > 0 ? limit : 1
+    const meta = PaginationHelper.getMeta(page, limit, total)
     return res.status(200).json({
       success: true,
       message,
       data,
-      meta: {
-        page,
-        limit,
-        total,
-        totalPages: Math.ceil(total / safeLimit),
-      },
+      meta,
       timestamp: new Date().toISOString(),
     } as ApiResponseData<T[]>)
   }

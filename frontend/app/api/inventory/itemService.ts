@@ -317,6 +317,41 @@ const itemService = {
     const response = await apiClient.get(`${BASE_ROUTE}/out-of-stock`);
     return response.data;
   },
+
+  // IMAGES
+  uploadItemImages: async (
+    itemId: string,
+    files: File[],
+  ): Promise<ApiResponse<IItemImage[]>> => {
+    const formData = new FormData();
+    formData.append("itemId", itemId);
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+
+    const response = await apiClient.post(
+      `${BASE_ROUTE}/images/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  deleteItemImage: async (id: string): Promise<ApiResponse<void>> => {
+    const response = await apiClient.delete(`${BASE_ROUTE}/images/${id}`);
+    return response.data;
+  },
+
+  setPrimaryImage: async (id: string): Promise<ApiResponse<IItemImage>> => {
+    const response = await apiClient.patch(
+      `${BASE_ROUTE}/images/${id}/primary`,
+    );
+    return response.data;
+  },
 };
 
 export default itemService;

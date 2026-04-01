@@ -19,7 +19,7 @@ export async function findAll(db: Db, empresaId: string, filters: ITechnicianSpe
     (db as PrismaClient).technicianSpecialty.findMany({ where, skip, take: limit, orderBy: { name: 'asc' } }),
     (db as PrismaClient).technicianSpecialty.count({ where })
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findById(db: Db, id: string, empresaId: string) {

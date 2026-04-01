@@ -10,7 +10,8 @@ import type { WarrantyStatus } from './workshopWarranties.interface.js'
 
 export const getAll = async (req: Request, res: Response) => {
   const result = await findAllWarranties(prisma, req.empresaId!, req.validatedQuery as any)
-  return ApiResponse.success(res, { ...result, data: result.data.map(i => new WarrantyResponseDTO(i)) })
+  const items = result.data.map(i => new WarrantyResponseDTO(i))
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {

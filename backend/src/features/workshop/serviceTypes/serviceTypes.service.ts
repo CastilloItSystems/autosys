@@ -20,7 +20,7 @@ export async function findAllServiceTypes(db: Db, empresaId: string, filters: IS
     (db as PrismaClient).serviceType.findMany({ where, skip, take: limit, orderBy: { [sortBy]: sortOrder } }),
     (db as PrismaClient).serviceType.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findServiceTypeById(db: Db, id: string, empresaId: string) {

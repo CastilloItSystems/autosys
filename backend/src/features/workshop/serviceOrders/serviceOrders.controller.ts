@@ -35,10 +35,8 @@ export const getAll = async (req: Request, res: Response) => {
     empresaId,
     req.validatedQuery as any
   )
-  return ApiResponse.success(res, {
-    ...result,
-    data: result.data.map((o) => new ServiceOrderResponseDTO(o)),
-  })
+  const items = result.data.map((o) => new ServiceOrderResponseDTO(o))
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {

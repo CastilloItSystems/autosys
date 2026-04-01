@@ -21,7 +21,7 @@ const MyProfileList: React.FC = () => {
   const [name, setName] = useState(profile?.nombre || "");
   const [avatar, setAvatar] = useState(
     profile?.img ||
-      "https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png"
+      "https://primefaces.org/cdn/primevue/images/avatar/amyelsner.png",
   );
   const [usuarioPasswordFormDialog, setUsuarioPasswordFormDialog] =
     useState(false);
@@ -32,7 +32,7 @@ const MyProfileList: React.FC = () => {
   const showToast = (
     severity: "success" | "info" | "warn" | "error",
     summary: string,
-    detail: string
+    detail: string,
   ) => {
     toast.current?.show({ severity, summary, detail, life: 3000 });
   };
@@ -55,17 +55,17 @@ const MyProfileList: React.FC = () => {
       try {
         // Subir a R2 a través del backend
         const res = await uploadUserProfilePicture(profile.id, file);
-        
+
         // Actualizar estado local
         setAvatar(res.img || "");
-        
+
         // Actualizar sesión de NextAuth para que el cambio persista en toda la app
         await update({
           ...session,
           user: {
             ...session?.user,
-            img: res.img
-          }
+            img: res.img,
+          },
         });
 
         showToast("success", "Éxito", "Avatar actualizado correctamente");
@@ -125,9 +125,7 @@ const MyProfileList: React.FC = () => {
                   >
                     <Tag
                       severity={
-                        profile?.estado === "activo"
-                          ? "success"
-                          : "danger"
+                        profile?.estado === "activo" ? "success" : "danger"
                       }
                       className="px-1 py-1 text-sm flex align-items-center gap-2 border-round-2xl shadow-2"
                     >
@@ -138,9 +136,7 @@ const MyProfileList: React.FC = () => {
                             : "pi pi-exclamation-triangle"
                         }
                       />
-                      {profile?.estado === "activo"
-                        ? "Activo"
-                        : "Inactivo"}
+                      {profile?.estado === "activo" ? "Activo" : "Inactivo"}
                     </Tag>
                   </span>
                 )}

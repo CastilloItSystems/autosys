@@ -2,6 +2,8 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
+import { WORKSHOP_MESSAGES } from '../shared/constants/messages.js'
 import {
   findAllServiceTypes,
   findServiceTypeById,
@@ -14,7 +16,9 @@ import { CreateServiceTypeDTO, UpdateServiceTypeDTO, ServiceTypeResponseDTO } fr
 
 export const getAll = async (req: Request, res: Response) => {
   const result = await findAllServiceTypes(prisma, req.empresaId!, req.validatedQuery as any)
-  return ApiResponse.success(res, { ...result, data: result.data.map(i => new ServiceTypeResponseDTO(i)) })
+  const items = result.data.map(i => new ServiceTypeResponseDTO(i))
+  const meta = PaginationHelper.getMeta(result.page, result.limit, result.total)
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {

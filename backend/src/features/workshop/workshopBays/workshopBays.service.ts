@@ -20,7 +20,7 @@ export async function findAllWorkshopBays(db: Db, empresaId: string, filters: IW
     (db as PrismaClient).workshopBay.findMany({ where, skip, take: limit, orderBy: { [sortBy]: sortOrder } }),
     (db as PrismaClient).workshopBay.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findWorkshopBayById(db: Db, id: string, empresaId: string) {

@@ -57,7 +57,7 @@ export async function findAllShifts(db: Db, empresaId: string, filters: IShiftFi
     (db as PrismaClient).workshopShift.findMany({ where, skip, take: limit, orderBy: { startTime: 'asc' } }),
     (db as PrismaClient).workshopShift.count({ where }),
   ])
-  return { data, pagination: { page, limit, total, totalPages: Math.ceil(total / limit) } }
+  return { data, page, limit, total }
 }
 
 export async function findShiftById(db: Db, id: string, empresaId: string) {

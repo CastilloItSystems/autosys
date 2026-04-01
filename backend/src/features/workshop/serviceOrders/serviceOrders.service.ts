@@ -207,10 +207,7 @@ export async function findAllServiceOrders(
     (prisma as PrismaClient).serviceOrder.count({ where }),
   ])
 
-  return {
-    data,
-    pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
-  }
+  return { data, page, limit, total }
 }
 
 export async function findServiceOrderById(
