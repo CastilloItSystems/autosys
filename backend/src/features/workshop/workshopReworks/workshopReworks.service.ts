@@ -45,8 +45,8 @@ export interface IUpdateReworkInput {
   reworkOrderId?: string
 }
 
-export async function findAllReworks(db: Db, empresaId: string, filters: IReworkFilters) {
-  const { status, technicianId, originalOrderId, page = 1, limit = 20 } = filters
+export async function findAllReworks(db: Db, empresaId: string, filters: IReworkFilters = {}) {
+  const { status, technicianId, originalOrderId, page = 1, limit = 20 } = filters ?? {}
   const where: any = { empresaId }
   if (status) where.status = status
   if (technicianId) where.technicianId = technicianId

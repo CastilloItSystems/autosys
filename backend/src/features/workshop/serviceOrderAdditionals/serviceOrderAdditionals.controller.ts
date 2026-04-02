@@ -2,6 +2,8 @@
 
 import type { Request, Response, NextFunction } from 'express'
 import prisma from '../../../services/prisma.service.js'
+import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import * as service from './serviceOrderAdditionals.service.js'
 
 export async function getAll(req: Request, res: Response, next: NextFunction) {
@@ -24,7 +26,14 @@ export async function getAll(req: Request, res: Response, next: NextFunction) {
     }
 
     const result = await service.findAll(prisma, serviceOrderId, filters)
-    res.json(result)
+    const meta = PaginationHelper.getMeta(result.page, result.limit, result.total)
+    return res.status(200).json({
+      success: true,
+      message: 'Datos obtenidos exitosamente',
+      data: result.data,
+      meta,
+      timestamp: new Date().toISOString(),
+    })
   } catch (error) {
     next(error)
   }
@@ -34,7 +43,7 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
   try {
     const id = req.params.id as string
     const result = await service.findById(prisma, id)
-    res.json(result)
+    return ApiResponse.success(res, result)
   } catch (error) {
     next(error)
   }
@@ -43,7 +52,7 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await service.create(prisma, req.body)
-    res.status(201).json(result)
+    return ApiResponse.created(res, result, 'Trabajo adicional creado')
   } catch (error) {
     next(error)
   }
@@ -53,7 +62,7 @@ export async function update(req: Request, res: Response, next: NextFunction) {
   try {
     const id = req.params.id as string
     const result = await service.update(prisma, id, req.body)
-    res.json(result)
+    return ApiResponse.success(res, result, 'Trabajo adicional actualizado')
   } catch (error) {
     next(error)
   }
@@ -63,7 +72,7 @@ export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
     const id = req.params.id as string
     await service.remove(prisma, id)
-    res.status(204).send()
+    return ApiResponse.noContent(res)
   } catch (error) {
     next(error)
   }
@@ -78,7 +87,7 @@ export async function updateStatus(
     const { status } = req.body
     const id = req.params.id as string
     const result = await service.changeStatus(prisma, id, status)
-    res.json(result)
+    return ApiResponse.success(res, result, 'Estado actualizado')
   } catch (error) {
     next(error)
   }

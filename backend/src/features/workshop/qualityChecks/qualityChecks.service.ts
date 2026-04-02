@@ -9,6 +9,17 @@ const INCLUDE = {
   serviceOrder: { select: { id: true, folio: true, status: true, vehiclePlate: true } },
 } as const
 
+export async function findAllQualityChecks(db: Db, empresaId: string, filters: any = {}) {
+  const { page = 1, limit = 20 } = filters ?? {}
+  const where = { serviceOrder: { empresaId } }
+  const skip = (page - 1) * limit
+  const [data, total] = await Promise.all([
+    (db as PrismaClient).qualityCheck.findMany({ where, skip, take: limit, include: INCLUDE }),
+    (db as PrismaClient).qualityCheck.count({ where }),
+  ])
+  return { data, page, limit, total }
+}
+
 export async function findQualityCheckBySOId(db: Db, serviceOrderId: string, empresaId: string) {
   const item = await (db as PrismaClient).qualityCheck.findFirst({
     where: { serviceOrderId, serviceOrder: { empresaId } },

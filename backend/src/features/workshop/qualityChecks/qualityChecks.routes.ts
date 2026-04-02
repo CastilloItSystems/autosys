@@ -9,6 +9,8 @@ import * as ctrl from './qualityChecks.controller.js'
 
 const router = Router()
 
+// Listar todos los QC (paginado)
+router.get('/', authorize(PERMISSIONS.WORKSHOP_VIEW), asyncHandler(ctrl.getAll))
 // Obtener QC por OT (desde la vista de la OT)
 router.get('/by-order/:serviceOrderId', authorize(PERMISSIONS.WORKSHOP_VIEW), asyncHandler(ctrl.getByServiceOrder))
 // CRUD directo por ID

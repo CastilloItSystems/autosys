@@ -42,8 +42,8 @@ export interface IUpdateShiftInput {
   isActive?: boolean
 }
 
-export async function findAllShifts(db: Db, empresaId: string, filters: IShiftFilters) {
-  const { search, isActive, page = 1, limit = 20 } = filters
+export async function findAllShifts(db: Db, empresaId: string, filters: IShiftFilters = {}) {
+  const { search, isActive, page = 1, limit = 20 } = filters ?? {}
   const where: any = { empresaId }
   if (isActive !== undefined) where.isActive = isActive
   if (search) {

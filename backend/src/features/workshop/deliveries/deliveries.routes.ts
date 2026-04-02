@@ -9,6 +9,11 @@ import { createDeliverySchema } from './deliveries.validation.js'
 
 const router = Router()
 
+router.get(
+  '/',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  asyncHandler(ctrl.getAll)
+)
 router.post(
   '/',
   authorize(PERMISSIONS.WORKSHOP_CREATE),

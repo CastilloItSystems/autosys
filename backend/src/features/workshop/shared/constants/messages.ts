@@ -41,8 +41,8 @@ export const WORKSHOP_MESSAGES = {
     deleted: 'Control de calidad eliminado exitosamente',
     notFound: 'Control de calidad no encontrado',
     checklist: 'Checklist de calidad completado exitosamente',
-    passed: 'Control de calidad aprobado',
-    failed: 'Control de calidad rechazado',
+    passed: 'Control de calidad aprobado — OT lista para entrega',
+    failed: 'Control de calidad reprobado — OT regresó a IN_PROGRESS',
   },
   checklistTemplate: {
     created: 'Plantilla de checklist creada exitosamente',
@@ -141,5 +141,10 @@ export const WORKSHOP_MESSAGES = {
     notFound: 'Entrega no encontrada',
     completed: 'Entrega completada exitosamente',
     cancelled: 'Entrega cancelada exitosamente',
+  },
+  rework: {
+    created: 'Retrabajo registrado exitosamente',
+    updated: 'Retrabajo actualizado exitosamente',
+    statusChanged: 'Retrabajo actualizado',
   },
 } as const

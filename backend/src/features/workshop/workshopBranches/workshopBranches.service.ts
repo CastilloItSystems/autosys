@@ -29,8 +29,8 @@ export interface IUpdateBranchInput {
   isActive?: boolean
 }
 
-export async function findAllBranches(db: Db, empresaId: string, filters: IBranchFilters) {
-  const { search, isActive, page = 1, limit = 20 } = filters
+export async function findAllBranches(db: Db, empresaId: string, filters: IBranchFilters = {}) {
+  const { search, isActive, page = 1, limit = 20 } = filters ?? {}
   const where: any = { empresaId }
   if (isActive !== undefined) where.isActive = isActive
   if (search) {

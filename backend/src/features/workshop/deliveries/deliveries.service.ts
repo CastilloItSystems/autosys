@@ -10,6 +10,26 @@ type Db =
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >
 
+export async function findAllDeliveries(
+  db: Db,
+  empresaId: string,
+  filters: any = {}
+) {
+  const { page = 1, limit = 20, sortBy = 'createdAt', sortOrder = 'desc' } = filters ?? {}
+  const skip = (page - 1) * limit
+  const [data, total] = await Promise.all([
+    (db as PrismaClient).vehicleDelivery.findMany({
+      where: { empresaId },
+      skip,
+      take: limit,
+      orderBy: { [sortBy]: sortOrder },
+      include: { serviceOrder: { select: { id: true, folio: true, status: true } } },
+    }),
+    (db as PrismaClient).vehicleDelivery.count({ where: { empresaId } }),
+  ])
+  return { data, page, limit, total }
+}
+
 export async function createDelivery(
   db: Db,
   empresaId: string,

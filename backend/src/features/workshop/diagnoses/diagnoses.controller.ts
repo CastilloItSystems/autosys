@@ -2,17 +2,8 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import * as diagnosesService from './diagnoses.service.js'
-
-export const getAll = async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1
-  const limit = parseInt(req.query.limit as string) || 10
-  const serviceOrderId = req.query.serviceOrderId as string | undefined
-  const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId)
-  const items = result.data.map((i) => new DiagnosisResponseDTO(i))
-  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
-}
-// FASE 3.2: Import diagnostic templates manager
 import {
   getRecommendedDiagnosticTemplate,
   getAllDiagnosticTemplates,
@@ -27,6 +18,23 @@ import {
   CreateDiagnosisSuggestedOpDTO,
   CreateDiagnosisSuggestedPartDTO,
 } from './diagnoses.dto.js'
+import { WORKSHOP_MESSAGES } from '../shared/constants/messages.js'
+
+export const getAll = async (req: Request, res: Response) => {
+  const page = parseInt(req.query.page as string) || 1
+  const limit = parseInt(req.query.limit as string) || 10
+  const serviceOrderId = req.query.serviceOrderId as string | undefined
+  const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId)
+  const items = result.data.map((i) => new DiagnosisResponseDTO(i))
+  const meta = PaginationHelper.getMeta(result.page, result.limit, result.total)
+  return res.status(200).json({
+    success: true,
+    message: 'Datos obtenidos exitosamente',
+    data: items,
+    meta,
+    timestamp: new Date().toISOString(),
+  })
+}
 
 export const getOne = async (req: Request, res: Response) => {
   const item = await diagnosesService.findDiagnosisById(
@@ -58,7 +66,7 @@ export const create = async (req: Request, res: Response) => {
   return ApiResponse.created(
     res,
     new DiagnosisResponseDTO(item),
-    'Diagnóstico creado'
+    WORKSHOP_MESSAGES.diagnosis.created
   )
 }
 
@@ -73,7 +81,7 @@ export const update = async (req: Request, res: Response) => {
   return ApiResponse.success(
     res,
     new DiagnosisResponseDTO(item),
-    'Diagnóstico actualizado'
+    WORKSHOP_MESSAGES.diagnosis.updated
   )
 }
 

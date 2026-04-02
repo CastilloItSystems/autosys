@@ -13,15 +13,15 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
-import { ingressMotiveService } from "@/app/api/workshop";
-import type { IngressMotive } from "@/libs/interfaces/workshop";
-import IngressMotiveForm from "./IngressMotiveForm";
+import { workshopOperationService } from "@/app/api/workshop";
+import type { WorkshopOperation } from "@/libs/interfaces/workshop";
+import WorkshopOperationForm from "./WorkshopOperationForm";
 
-export default function IngressMotiveList() {
-  const [items, setItems] = useState<IngressMotive[]>([]);
+export default function WorkshopOperationList() {
+  const [items, setItems] = useState<WorkshopOperation[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
-  const [selected, setSelected] = useState<IngressMotive | null>(null);
-  const [actionItem, setActionItem] = useState<IngressMotive | null>(null);
+  const [selected, setSelected] = useState<WorkshopOperation | null>(null);
+  const [actionItem, setActionItem] = useState<WorkshopOperation | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -44,13 +44,12 @@ export default function IngressMotiveList() {
   const loadItems = async () => {
     try {
       setLoading(true);
-      const res = await ingressMotiveService.getAll({
+      const res = await workshopOperationService.getAll({
         page: page + 1,
         limit: rows,
         search: searchQuery || undefined,
         isActive: showActive ? "true" : undefined,
       });
-      console.log(res);
       setItems(res.data ?? []);
       setTotalRecords(res.meta?.total ?? 0);
     } catch (error) {
@@ -65,11 +64,13 @@ export default function IngressMotiveList() {
     setSelected(null);
     setFormDialog(true);
   };
-  const editItem = (item: IngressMotive) => {
+
+  const editItem = (item: WorkshopOperation) => {
     setSelected({ ...item });
     setFormDialog(true);
   };
-  const confirmDelete = (item: IngressMotive) => {
+
+  const confirmDelete = (item: WorkshopOperation) => {
     setSelected(item);
     setDeleteDialog(true);
   };
@@ -78,11 +79,11 @@ export default function IngressMotiveList() {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
-      await ingressMotiveService.delete(selected.id);
+      await workshopOperationService.delete(selected.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: "Motivo de ingreso eliminado",
+        detail: "Operación eliminada",
         life: 3000,
       });
       await loadItems();
@@ -95,15 +96,13 @@ export default function IngressMotiveList() {
     }
   };
 
-  const handleToggle = async (item: IngressMotive) => {
+  const handleToggle = async (item: WorkshopOperation) => {
     try {
-      await ingressMotiveService.update(item.id, { isActive: !item.isActive });
+      await workshopOperationService.toggleActive(item.id);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Motivo de ingreso ${
-          item.isActive ? "desactivado" : "activado"
-        }`,
+        detail: `Operación ${item.isActive ? "desactivada" : "activada"}`,
         life: 3000,
       });
       await loadItems();
@@ -118,8 +117,8 @@ export default function IngressMotiveList() {
         severity: "success",
         summary: "Éxito",
         detail: selected?.id
-          ? "Motivo de ingreso actualizado"
-          : "Motivo de ingreso creado",
+          ? "Operación actualizada"
+          : "Operación creada",
         life: 3000,
       });
       await loadItems();
@@ -128,7 +127,7 @@ export default function IngressMotiveList() {
     })();
   };
 
-  const actionBodyTemplate = (rowData: IngressMotive) => (
+  const actionBodyTemplate = (rowData: WorkshopOperation) => (
     <Button
       icon="pi pi-cog"
       rounded
@@ -143,7 +142,7 @@ export default function IngressMotiveList() {
     />
   );
 
-  const statusBodyTemplate = (rowData: IngressMotive) => (
+  const statusBodyTemplate = (rowData: WorkshopOperation) => (
     <Tag
       value={rowData.isActive ? "Activo" : "Inactivo"}
       severity={rowData.isActive ? "success" : "secondary"}
@@ -151,14 +150,28 @@ export default function IngressMotiveList() {
     />
   );
 
-  const codeBodyTemplate = (rowData: IngressMotive) => (
+  const codeBodyTemplate = (rowData: WorkshopOperation) => (
     <span className="font-bold text-primary">{rowData.code}</span>
   );
+
+  const serviceTypeBodyTemplate = (rowData: WorkshopOperation) =>
+    rowData.serviceType?.name ?? "—";
+
+  const minutesBodyTemplate = (rowData: WorkshopOperation) =>
+    rowData.standardMinutes != null ? `${rowData.standardMinutes} min` : "—";
+
+  const priceBodyTemplate = (rowData: WorkshopOperation) =>
+    rowData.listPrice != null
+      ? new Intl.NumberFormat("es-MX", {
+          style: "currency",
+          currency: "MXN",
+        }).format(rowData.listPrice)
+      : "—";
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
-        <h4 className="m-0">Motivos de Ingreso</h4>
+        <h4 className="m-0">Operaciones de Taller</h4>
         <span className="text-600 text-sm">({totalRecords} total)</span>
       </div>
       <div className="flex gap-2">
@@ -185,9 +198,9 @@ export default function IngressMotiveList() {
           />
         </span>
         <CreateButton
-          label="Nuevo motivo"
+          label="Nueva operación"
           onClick={openNew}
-          tooltip="Crear motivo de ingreso"
+          tooltip="Crear operación de taller"
         />
       </div>
     </div>
@@ -216,7 +229,7 @@ export default function IngressMotiveList() {
           dataKey="id"
           loading={loading}
           header={header}
-          emptyMessage="No se encontraron motivos de ingreso"
+          emptyMessage="No se encontraron operaciones"
           sortMode="multiple"
           scrollable
         >
@@ -234,9 +247,22 @@ export default function IngressMotiveList() {
             style={{ minWidth: "180px" }}
           />
           <Column
-            field="description"
-            header="Descripción"
-            style={{ minWidth: "220px" }}
+            field="serviceType.name"
+            header="Tipo de Servicio"
+            body={serviceTypeBodyTemplate}
+            style={{ minWidth: "150px" }}
+          />
+          <Column
+            field="standardMinutes"
+            header="Min. estándar"
+            body={minutesBodyTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="listPrice"
+            header="Precio lista"
+            body={priceBodyTemplate}
+            style={{ minWidth: "150px" }}
           />
           <Column
             field="isActive"
@@ -259,17 +285,17 @@ export default function IngressMotiveList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "500px" }}
+        style={{ width: "550px" }}
         breakpoints={{ "900px": "65vw", "600px": "90vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-sign-in mr-3 text-primary text-3xl" />
+                <i className="pi pi-cog mr-3 text-primary text-3xl" />
                 {selected?.id
-                  ? "Modificar Motivo de Ingreso"
-                  : "Crear Motivo de Ingreso"}
+                  ? "Modificar Operación"
+                  : "Crear Operación"}
               </h2>
             </div>
           </div>
@@ -279,17 +305,17 @@ export default function IngressMotiveList() {
         onHide={() => setFormDialog(false)}
         footer={
           <FormActionButtons
-            formId="ingress-motive-form"
+            formId="workshop-operation-form"
             isUpdate={!!selected?.id}
             onCancel={() => setFormDialog(false)}
             isSubmitting={isSubmitting}
           />
         }
       >
-        <IngressMotiveForm
-          ingressMotive={selected}
+        <WorkshopOperationForm
+          operation={selected}
           onSave={handleSave}
-          formId="ingress-motive-form"
+          formId="workshop-operation-form"
           onSubmittingChange={setIsSubmitting}
           toast={toast}
         />
@@ -332,7 +358,7 @@ export default function IngressMotiveList() {
         }
         popup
         ref={menuRef}
-        id="ingress-motive-menu"
+        id="workshop-operation-menu"
       />
     </motion.div>
   );
