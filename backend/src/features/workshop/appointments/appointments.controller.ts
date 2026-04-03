@@ -27,7 +27,13 @@ export const getAll = async (req: Request, res: Response) => {
     req.validatedQuery as any
   )
   const items = result.data.map((i) => new AppointmentResponseDTO(i))
-  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
+  return ApiResponse.paginated(
+    res,
+    items,
+    result.page,
+    result.limit,
+    result.total
+  )
 }
 
 export const getOne = async (req: Request, res: Response) => {
@@ -40,7 +46,7 @@ export const getOne = async (req: Request, res: Response) => {
 }
 
 export const create = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id as string
+  const userId = (req as any).user?.userId as string
   const item = await createAppointment(
     prisma,
     req.empresaId!,

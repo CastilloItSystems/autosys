@@ -5,7 +5,10 @@ import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
 import { appointmentService } from "@/app/api/workshop";
-import type { ServiceAppointment, AppointmentStatus } from "@/libs/interfaces/workshop";
+import type {
+  ServiceAppointment,
+  AppointmentStatus,
+} from "@/libs/interfaces/workshop";
 
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
   SCHEDULED: "#3b82f6",
@@ -16,14 +19,23 @@ const STATUS_COLORS: Record<AppointmentStatus, string> = {
   CANCELLED: "#9ca3af",
 };
 
-const HOURS = Array.from({ length: 11 }, (_, i) => i + 8); // 08:00 – 18:00
+const HOURS = Array.from({ length: 15 }, (_, i) => i + 6); // 06:00 – 20:00
 const DAYS = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
-const DAYS_FULL = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+const DAYS_FULL = [
+  "Domingo",
+  "Lunes",
+  "Martes",
+  "Miércoles",
+  "Jueves",
+  "Viernes",
+  "Sábado",
+];
 
 function getWeekDates(baseDate: Date): Date[] {
   const day = baseDate.getDay();
   const monday = new Date(baseDate);
-  monday.setDate(baseDate.getDate() - day + 1);
+  const diff = day === 0 ? -6 : 1 - day;
+  monday.setDate(baseDate.getDate() + diff);
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(monday);
     d.setDate(monday.getDate() + i);
@@ -32,14 +44,20 @@ function getWeekDates(baseDate: Date): Date[] {
 }
 
 function sameDay(a: Date, b: Date) {
-  return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
 }
 
 interface AppointmentCalendarProps {
-  onEditAppointment: (appt: ServiceAppointment) => void;
+  onAppointmentClick: (appt: ServiceAppointment) => void;
 }
 
-export default function AppointmentCalendar({ onEditAppointment }: AppointmentCalendarProps) {
+export default function AppointmentCalendar({
+  onAppointmentClick,
+}: AppointmentCalendarProps) {
   const toast = useRef<Toast>(null);
   const [currentDate, setCurrentDate] = useState(new Date());
   const [appointments, setAppointments] = useState<ServiceAppointment[]>([]);
@@ -52,24 +70,33 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
   const load = async () => {
     setLoading(true);
     try {
-      const startStr = new Date(weekStart.setHours(0, 0, 0, 0)).toISOString();
-      const endStr = new Date(weekEnd.setHours(23, 59, 59, 999)).toISOString();
+      const startDate = new Date(weekStart);
+      startDate.setHours(0, 0, 0, 0);
+      const startStr = startDate.toISOString();
+
+      const endDate = new Date(weekEnd);
+      endDate.setHours(23, 59, 59, 999);
+      const endStr = endDate.toISOString();
+
       const res = await appointmentService.getAll({
         dateFrom: startStr,
         dateTo: endStr,
-        limit: 200,
+        limit: 100,
         sortBy: "scheduledDate",
         sortOrder: "asc",
       });
+      console.log(res);
       setAppointments(res.data ?? []);
     } catch (err) {
-      handleFormError(err, toast.current!);
+      handleFormError(err, toast);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [currentDate]);
+  useEffect(() => {
+    load();
+  }, [currentDate]);
 
   const prevWeek = () => {
     const d = new Date(currentDate);
@@ -92,7 +119,13 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
 
   const formatWeekRange = () => {
     const opts: Intl.DateTimeFormatOptions = { day: "numeric", month: "short" };
-    return `${weekDates[0].toLocaleDateString("es-MX", opts)} – ${weekDates[6].toLocaleDateString("es-MX", { ...opts, year: "numeric" })}`;
+    return `${weekDates[0].toLocaleDateString(
+      "es-MX",
+      opts,
+    )} – ${weekDates[6].toLocaleDateString("es-MX", {
+      ...opts,
+      year: "numeric",
+    })}`;
   };
 
   const today = new Date();
@@ -118,14 +151,23 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
       <div style={{ overflowX: "auto" }}>
         <div style={{ minWidth: "700px" }}>
           {/* Day headers */}
-          <div style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: "1px", marginBottom: "1px" }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "60px repeat(7, 1fr)",
+              gap: "1px",
+              marginBottom: "1px",
+            }}
+          >
             <div />
             {weekDates.map((date, i) => {
               const isToday = sameDay(date, today);
               return (
                 <div
                   key={i}
-                  className={`text-center py-2 font-semibold text-sm border-round ${isToday ? "bg-primary text-white" : "surface-100 text-700"}`}
+                  className={`text-center py-2 font-semibold text-sm border-round ${
+                    isToday ? "bg-primary text-white" : "surface-100 text-700"
+                  }`}
                 >
                   <div>{DAYS[date.getDay()]}</div>
                   <div className="text-lg">{date.getDate()}</div>
@@ -138,10 +180,18 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
           {HOURS.map((hour) => (
             <div
               key={hour}
-              style={{ display: "grid", gridTemplateColumns: "60px repeat(7, 1fr)", gap: "1px", marginBottom: "1px" }}
+              style={{
+                display: "grid",
+                gridTemplateColumns: "60px repeat(7, 1fr)",
+                gap: "1px",
+                marginBottom: "1px",
+              }}
             >
               {/* Hour label */}
-              <div className="text-xs text-500 text-right pr-2 pt-1" style={{ lineHeight: "40px" }}>
+              <div
+                className="text-xs text-500 text-right pr-2 pt-1"
+                style={{ lineHeight: "40px" }}
+              >
                 {`${String(hour).padStart(2, "0")}:00`}
               </div>
 
@@ -154,7 +204,9 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
                     key={di}
                     style={{
                       minHeight: "48px",
-                      backgroundColor: isToday ? "var(--blue-50)" : "var(--surface-50)",
+                      backgroundColor: isToday
+                        ? "var(--blue-50)"
+                        : "var(--surface-50)",
                       border: "1px solid var(--surface-200)",
                       borderRadius: "4px",
                       padding: "2px",
@@ -167,19 +219,33 @@ export default function AppointmentCalendar({ onEditAppointment }: AppointmentCa
                           key={appt.id}
                           className="cursor-pointer border-round px-1 py-1 mb-1 text-xs"
                           style={{
-                            backgroundColor: STATUS_COLORS[appt.status] ?? "#3b82f6",
+                            backgroundColor:
+                              STATUS_COLORS[appt.status] ?? "#3b82f6",
                             color: "white",
                             fontSize: "10px",
                             lineHeight: "1.3",
                             overflow: "hidden",
                           }}
-                          onClick={() => onEditAppointment(appt)}
+                          onClick={() => onAppointmentClick(appt)}
                           title={`${appt.folio} — ${appt.customer?.name ?? ""}`}
                         >
-                          <div className="font-bold" style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            className="font-bold"
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {appt.folio}
                           </div>
-                          <div style={{ whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                          <div
+                            style={{
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
                             {appt.customer?.name ?? appt.vehiclePlate ?? "—"}
                           </div>
                         </div>

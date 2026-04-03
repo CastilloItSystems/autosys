@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { TabView, TabPanel } from "primereact/tabview";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
@@ -9,7 +9,6 @@ import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
-import { Toast } from "primereact/toast";
 import { Galleria } from "primereact/galleria";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -42,10 +41,10 @@ const PHOTO_TYPE_OPTIONS = Object.entries(PHOTO_TYPE_LABELS).map(([value, label]
 interface Props {
   receptionId: string;
   readOnly?: boolean;
+  toast: React.RefObject<any>;
 }
 
-export default function ReceptionMediaPanel({ receptionId, readOnly = false }: Props) {
-  const toast = useRef<Toast>(null);
+export default function ReceptionMediaPanel({ receptionId, readOnly = false, toast }: Props) {
   const [damages, setDamages] = useState<ReceptionDamage[]>([]);
   const [photos, setPhotos] = useState<ReceptionPhoto[]>([]);
   const [loading, setLoading] = useState(false);
@@ -153,8 +152,6 @@ export default function ReceptionMediaPanel({ receptionId, readOnly = false }: P
 
   return (
     <>
-      <Toast ref={toast} />
-
       <TabView>
         {/* ── Daños ── */}
         <TabPanel header="Daños" leftIcon="pi pi-exclamation-triangle mr-2">

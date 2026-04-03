@@ -25,13 +25,17 @@ export class CreateReceptionDTO {
     this.vehicleDesc = data.vehicleDesc?.trim() ?? undefined
     this.mileageIn = data.mileageIn != null ? Number(data.mileageIn) : undefined
     this.fuelLevel = data.fuelLevel ?? undefined
-    this.accessories = Array.isArray(data.accessories) ? data.accessories.map(String) : undefined
+    this.accessories = Array.isArray(data.accessories)
+      ? data.accessories.map(String)
+      : undefined
     this.hasPreExistingDamage = Boolean(data.hasPreExistingDamage ?? false)
     this.damageNotes = data.damageNotes?.trim() ?? undefined
     this.clientDescription = data.clientDescription?.trim() ?? undefined
     this.authorizationName = data.authorizationName?.trim() ?? undefined
     this.authorizationPhone = data.authorizationPhone?.trim() ?? undefined
-    this.estimatedDelivery = data.estimatedDelivery ? new Date(data.estimatedDelivery) : undefined
+    this.estimatedDelivery = data.estimatedDelivery
+      ? new Date(data.estimatedDelivery)
+      : undefined
     this.advisorId = data.advisorId ?? undefined
     this.appointmentId = data.appointmentId ?? undefined
   }
@@ -52,13 +56,22 @@ export class UpdateReceptionDTO {
   constructor(data: any) {
     if (data.mileageIn != null) this.mileageIn = Number(data.mileageIn)
     if ('fuelLevel' in data) this.fuelLevel = data.fuelLevel ?? null
-    if (Array.isArray(data.accessories)) this.accessories = data.accessories.map(String)
-    if (data.hasPreExistingDamage !== undefined) this.hasPreExistingDamage = Boolean(data.hasPreExistingDamage)
-    if ('damageNotes' in data) this.damageNotes = data.damageNotes?.trim() ?? null
-    if (data.clientDescription !== undefined) this.clientDescription = data.clientDescription.trim()
-    if (data.authorizationName !== undefined) this.authorizationName = data.authorizationName.trim()
-    if (data.authorizationPhone !== undefined) this.authorizationPhone = data.authorizationPhone.trim()
-    if ('estimatedDelivery' in data) this.estimatedDelivery = data.estimatedDelivery ? new Date(data.estimatedDelivery) : null
+    if (Array.isArray(data.accessories))
+      this.accessories = data.accessories.map(String)
+    if (data.hasPreExistingDamage !== undefined)
+      this.hasPreExistingDamage = Boolean(data.hasPreExistingDamage)
+    if ('damageNotes' in data)
+      this.damageNotes = data.damageNotes?.trim() ?? null
+    if (data.clientDescription !== undefined)
+      this.clientDescription = data.clientDescription.trim()
+    if (data.authorizationName !== undefined)
+      this.authorizationName = data.authorizationName.trim()
+    if (data.authorizationPhone !== undefined)
+      this.authorizationPhone = data.authorizationPhone.trim()
+    if ('estimatedDelivery' in data)
+      this.estimatedDelivery = data.estimatedDelivery
+        ? new Date(data.estimatedDelivery)
+        : null
     if ('advisorId' in data) this.advisorId = data.advisorId ?? null
   }
 }
@@ -85,6 +98,8 @@ export class ReceptionResponseDTO {
   appointmentId: string | null
   appointment: any | null
   serviceOrder: any | null
+  clientSignature: string | null
+  diagnosticAuthorized: boolean
   createdBy: string
   createdAt: Date
   updatedAt: Date
@@ -110,7 +125,15 @@ export class ReceptionResponseDTO {
     this.advisorId = data.advisorId ?? null
     this.appointmentId = data.appointmentId ?? null
     this.appointment = data.appointment ?? null
-    this.serviceOrder = data.serviceOrder ? { id: data.serviceOrder.id, folio: data.serviceOrder.folio, status: data.serviceOrder.status } : null
+    this.serviceOrder = data.serviceOrder
+      ? {
+          id: data.serviceOrder.id,
+          folio: data.serviceOrder.folio,
+          status: data.serviceOrder.status,
+        }
+      : null
+    this.clientSignature = data.clientSignature ?? null
+    this.diagnosticAuthorized = data.diagnosticAuthorized ?? false
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt

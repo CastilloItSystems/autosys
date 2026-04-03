@@ -1,17 +1,9 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { InputText } from "primereact/inputtext";
-import CustomerSelector from "@/components/common/CustomerSelector";
-import VehicleSelector from "@/components/common/VehicleSelector";
-import { InputNumber } from "primereact/inputnumber";
-import { InputTextarea } from "primereact/inputtextarea";
-import { Dropdown } from "primereact/dropdown";
-import { Checkbox } from "primereact/checkbox";
-import { Chips } from "primereact/chips";
-import { Divider } from "primereact/divider";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { TabView, TabPanel } from "primereact/tabview";
+import { Card } from "primereact/card";
 import { handleFormError } from "@/utils/errorHandlers";
 import { receptionService } from "@/app/api/workshop";
 import {
@@ -20,21 +12,28 @@ import {
   type CreateReceptionForm,
 } from "@/libs/zods/workshop/receptionZod";
 import type { VehicleReception } from "@/libs/interfaces/workshop";
+import checklistService from "@/app/api/workshop/checklistService";
 
-const FUEL_LEVEL_OPTIONS = [
-  { label: "Vacío", value: "EMPTY" },
-  { label: "1/4", value: "QUARTER" },
-  { label: "1/2", value: "HALF" },
-  { label: "3/4", value: "THREE_QUARTERS" },
-  { label: "Lleno", value: "FULL" },
-];
+// Secciones
+import ReceptionBasicInfoSection from "./sections/ReceptionBasicInfoSection";
+import ReceptionVehicleStatusSection from "./sections/ReceptionVehicleStatusSection";
+import ReceptionMediaPanel from "./ReceptionMediaPanel";
+import ReceptionChecklistSection from "./sections/ReceptionChecklistSection";
+import ReceptionSignatureSection from "./sections/ReceptionSignatureSection";
+import ReceptionHeader from "./ReceptionHeader";
 
 interface ReceptionFormProps {
   reception: VehicleReception | null;
-  onSave: () => void | Promise<void>;
+  onSave: (newReceptionId?: string) => void | Promise<void>;
   formId?: string;
   onSubmittingChange?: (v: boolean) => void;
   toast: React.RefObject<any>;
+  preloadData?: {
+    appointmentId?: string;
+    customerId?: string;
+    customerVehicleId?: string;
+    advisorId?: string;
+  };
 }
 
 export default function ReceptionForm({
@@ -43,15 +42,22 @@ export default function ReceptionForm({
   formId,
   onSubmittingChange,
   toast,
+  preloadData,
 }: ReceptionFormProps) {
-  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [checklistLoaded, setChecklistLoaded] = useState(false);
+  const [checklistResponses, setChecklistResponses] = useState<any[]>([]);
+  const [checklistTemplateName, setChecklistTemplateName] = useState<string>("");
+  const [currentSignature, setCurrentSignature] = useState<string | null | undefined>(
+    reception?.clientSignature,
+  );
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
-    setValue,
     formState: { errors },
   } = useForm<CreateReceptionForm>({
     resolver: zodResolver(reception ? updateReceptionSchema : createReceptionSchema),
@@ -74,15 +80,40 @@ export default function ReceptionForm({
     },
   });
 
-  const hasPreExistingDamage = watch("hasPreExistingDamage");
-
+  // Cargar respuestas de checklist para recepciones existentes
   useEffect(() => {
-    const t = setTimeout(() => setIsLoading(false), 250);
-    return () => clearTimeout(t);
-  }, []);
+    if (reception?.id && !checklistLoaded) {
+      checklistService
+        .getChecklistResponses(reception.id)
+        .then((res) => {
+          const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data;
+          if (data && Array.isArray(data) && data.length > 0) {
+            const templateId = data[0]?.item?.checklistTemplateId;
+            if (templateId) setSelectedTemplateId(templateId);
+            setChecklistResponses(
+              data.map((r: any) => ({
+                itemName: r.item?.name ?? "—",
+                boolValue: r.boolValue,
+                textValue: r.textValue,
+                numValue: r.numValue != null ? Number(r.numValue) : null,
+                selectionValue: r.selectionValue,
+                observation: r.observation,
+              })),
+            );
+            if (data[0]?.item?.template?.name) {
+              setChecklistTemplateName(data[0].item.template.name);
+            }
+          }
+        })
+        .catch((err) => {
+          console.error("[ReceptionForm] Error cargando checklist responses:", err);
+        })
+        .finally(() => setChecklistLoaded(true));
+    }
+  }, [reception?.id]);
 
+  // Reset form al cambiar reception o preloadData
   useEffect(() => {
-    if (isLoading) return;
     if (reception) {
       reset({
         customerId: reception.customerId ?? "",
@@ -103,6 +134,25 @@ export default function ReceptionForm({
         advisorId: reception.advisorId ?? undefined,
         appointmentId: reception.appointmentId ?? undefined,
       });
+      setCurrentSignature(reception.clientSignature);
+    } else if (preloadData) {
+      reset({
+        customerId: preloadData.customerId ?? "",
+        customerVehicleId: preloadData.customerVehicleId ?? undefined,
+        vehiclePlate: "",
+        vehicleDesc: "",
+        mileageIn: undefined,
+        fuelLevel: undefined,
+        accessories: [],
+        hasPreExistingDamage: false,
+        damageNotes: "",
+        clientDescription: "",
+        authorizationName: "",
+        authorizationPhone: "",
+        estimatedDelivery: undefined,
+        advisorId: preloadData.advisorId ?? undefined,
+        appointmentId: preloadData.appointmentId ?? undefined,
+      });
     } else {
       reset({
         customerId: "",
@@ -119,13 +169,14 @@ export default function ReceptionForm({
         estimatedDelivery: undefined,
       });
     }
-  }, [reception, reset, isLoading]);
+  }, [reception, reset, preloadData]);
 
   const onSubmit = async (data: CreateReceptionForm) => {
     onSubmittingChange?.(true);
     try {
       const payload = {
         ...data,
+        mileageIn: data.mileageIn ?? undefined,
         vehiclePlate: data.vehiclePlate || undefined,
         vehicleDesc: data.vehicleDesc || undefined,
         damageNotes: data.damageNotes || undefined,
@@ -133,12 +184,23 @@ export default function ReceptionForm({
         authorizationName: data.authorizationName || undefined,
         authorizationPhone: data.authorizationPhone || undefined,
       };
+
+      let newId: string | undefined;
       if (reception?.id) {
         await receptionService.update(reception.id, payload);
       } else {
-        await receptionService.create(payload as any);
+        const res = await receptionService.create(payload as any);
+        newId = res.data?.id;
       }
-      await onSave();
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Guardado",
+        detail: reception?.id ? "Cambios guardados exitosamente" : "Recepción creada exitosamente",
+        life: 3000,
+      });
+
+      await onSave(newId);
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -146,255 +208,169 @@ export default function ReceptionForm({
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex flex-column align-items-center justify-content-center p-4">
-        <ProgressSpinner style={{ width: "40px", height: "40px" }} strokeWidth="4" fill="var(--surface-ground)" animationDuration=".5s" />
-        <p className="mt-3 text-600 font-medium">Preparando formulario...</p>
-      </div>
-    );
-  }
+  const progressItems = [
+    {
+      label: "Info base",
+      completed: !!watch("customerId"),
+      required: true,
+    },
+    {
+      label: "Vehículo",
+      completed: !!(watch("vehiclePlate") && watch("mileageIn") !== undefined),
+      required: true,
+    },
+    {
+      label: "Evidencia",
+      completed: !!reception?.id,
+      required: false,
+    },
+    {
+      label: "Checklist",
+      completed: !!(selectedTemplateId && checklistResponses.length > 0),
+      required: false,
+    },
+    {
+      label: "Firma",
+      completed: !!(currentSignature && reception?.diagnosticAuthorized),
+      required: false,
+    },
+  ];
 
   return (
-    <form id={formId ?? "reception-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
-      <div className="grid">
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+      {/* HEADER FIJO — fuera del scroll */}
+      <ReceptionHeader
+        reception={reception}
+        currentSignature={currentSignature}
+        checklistTemplateName={checklistTemplateName}
+        checklistResponses={checklistResponses}
+        progressItems={progressItems}
+      />
 
-        {/* ── Cliente y vehículo ─────────────────────────────────────────── */}
-        <div className="col-12">
-          <Divider align="left" className="mt-0">
-            <span className="text-700 font-semibold text-sm">Cliente y vehículo</span>
-          </Divider>
-        </div>
+      {/* CONTENIDO SCROLLABLE */}
+      <div style={{ overflowY: "auto", flex: 1 }} className="p-3 md:p-4">
+        <form
+          id={formId ?? "reception-form"}
+          onSubmit={handleSubmit(onSubmit)}
+          className="p-fluid"
+        >
+          {!reception?.id ? (
+            /* ── MODO CREACIÓN: formulario simple ── */
+            <>
+              <div className="mb-4 p-3 surface-100 border-round border-left-3 border-primary">
+                <p className="text-600 m-0 text-sm">
+                  <i className="pi pi-info-circle mr-2 text-primary" />
+                  Completa la información básica y guarda para acceder a fotos,
+                  checklist y firma del cliente.
+                </p>
+              </div>
 
-        <div className="col-12 md:col-6">
-          <label className="block text-900 font-medium mb-2">
-            Cliente <span className="text-red-500">*</span>
-          </label>
-          <Controller
-            name="customerId"
-            control={control}
-            render={({ field }) => (
-              <CustomerSelector
-                value={field.value}
-                onChange={field.onChange}
-                invalid={!!errors.customerId}
-                disabled={!!reception?.id}
-              />
-            )}
-          />
-          {errors.customerId && <small className="p-error block mt-1">{errors.customerId.message}</small>}
-        </div>
-
-        <div className="col-12 md:col-6">
-          <label className="block text-900 font-medium mb-2">Vehículo</label>
-          <VehicleSelector
-            customerId={watch("customerId")}
-            value={watch("customerVehicleId" as any) ?? null}
-            onChange={(id) => {
-              setValue("customerVehicleId" as any, id ?? undefined);
-            }}
-            onVehicleSelect={(v) => {
-              setValue("vehiclePlate", v?.plate ?? "");
-              setValue("vehicleDesc", v?.description ?? "");
-            }}
-            disabled={!!reception?.id}
-          />
-        </div>
-
-        <div className="col-12 md:col-3">
-          <label htmlFor="mileageIn" className="block text-900 font-medium mb-2">
-            Kilometraje entrada
-          </label>
-          <Controller
-            name="mileageIn"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="mileageIn"
-                value={field.value ?? null}
-                onValueChange={(e) => field.onChange(e.value ?? undefined)}
-                min={0}
-                placeholder="km"
-              />
-            )}
-          />
-        </div>
-
-        <div className="col-12 md:col-3">
-          <label htmlFor="fuelLevel" className="block text-900 font-medium mb-2">
-            Nivel de combustible
-          </label>
-          <Controller
-            name="fuelLevel"
-            control={control}
-            render={({ field }) => (
-              <Dropdown
-                id="fuelLevel"
-                value={field.value ?? null}
-                onChange={(e) => field.onChange(e.value ?? undefined)}
-                options={FUEL_LEVEL_OPTIONS}
-                placeholder="Seleccionar"
-                showClear
-              />
-            )}
-          />
-        </div>
-
-        {/* ── Estado del vehículo ───────────────────────────────────────── */}
-        <div className="col-12">
-          <Divider align="left">
-            <span className="text-700 font-semibold text-sm">Estado del vehículo</span>
-          </Divider>
-        </div>
-
-        <div className="col-12">
-          <label htmlFor="accessories" className="block text-900 font-medium mb-2">
-            Accesorios (presiona Enter para agregar)
-          </label>
-          <Controller
-            name="accessories"
-            control={control}
-            render={({ field }) => (
-              <Chips
-                id="accessories"
-                value={field.value ?? []}
-                onChange={(e) => field.onChange(e.value ?? [])}
-                placeholder="Ej: tapetes, llanta de refacción..."
-                separator=","
-              />
-            )}
-          />
-        </div>
-
-        <div className="col-12">
-          <div className="flex align-items-center gap-2">
-            <Controller
-              name="hasPreExistingDamage"
-              control={control}
-              render={({ field }) => (
-                <Checkbox
-                  inputId="hasPreExistingDamage"
-                  checked={field.value ?? false}
-                  onChange={(e) => field.onChange(e.checked ?? false)}
+              <Card className="mb-4">
+                <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+                  <i className="pi pi-user text-primary" />
+                  <span className="font-semibold text-base text-700">
+                    Información de la Recepción
+                  </span>
+                </div>
+                <ReceptionBasicInfoSection
+                  control={control}
+                  errors={errors}
+                  isEditMode={false}
                 />
-              )}
-            />
-            <label htmlFor="hasPreExistingDamage" className="text-900 font-medium cursor-pointer">
-              El vehículo presenta daños preexistentes
-            </label>
-          </div>
-        </div>
+              </Card>
 
-        {hasPreExistingDamage && (
-          <div className="col-12">
-            <label htmlFor="damageNotes" className="block text-900 font-medium mb-2">
-              Descripción de daños
-            </label>
-            <Controller
-              name="damageNotes"
-              control={control}
-              render={({ field }) => (
-                <InputTextarea
-                  id="damageNotes"
-                  {...field}
-                  value={field.value ?? ""}
-                  rows={3}
-                  placeholder="Describa los daños existentes..."
-                  className={errors.damageNotes ? "p-invalid" : ""}
+              <Card className="mb-4">
+                <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+                  <i className="pi pi-car text-primary" />
+                  <span className="font-semibold text-base text-700">
+                    Estado del Vehículo al Ingreso
+                  </span>
+                </div>
+                <ReceptionVehicleStatusSection
+                  control={control}
+                  errors={errors}
+                  watch={watch}
                 />
-              )}
-            />
-          </div>
-        )}
+              </Card>
+            </>
+          ) : (
+            /* ── MODO EDICIÓN: TabView ── */
+            <TabView
+              activeIndex={activeTab}
+              onTabChange={(e) => setActiveTab(e.index)}
+            >
+              {/* Tab 1: Recepción */}
+              <TabPanel header="Recepción" leftIcon="pi pi-file-edit mr-2">
+                <div className="pt-2">
+                  <div className="mb-4">
+                    <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+                      <i className="pi pi-user text-primary" />
+                      <span className="font-semibold text-base text-700">
+                        Información de la Recepción
+                      </span>
+                    </div>
+                    <ReceptionBasicInfoSection
+                      control={control}
+                      errors={errors}
+                      isEditMode={true}
+                    />
+                  </div>
 
-        {/* ── Descripción del cliente ───────────────────────────────────── */}
-        <div className="col-12">
-          <Divider align="left">
-            <span className="text-700 font-semibold text-sm">Solicitud del cliente</span>
-          </Divider>
-        </div>
+                  <div className="mb-2">
+                    <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+                      <i className="pi pi-car text-primary" />
+                      <span className="font-semibold text-base text-700">
+                        Estado del Vehículo al Ingreso
+                      </span>
+                    </div>
+                    <ReceptionVehicleStatusSection
+                      control={control}
+                      errors={errors}
+                      watch={watch}
+                    />
+                  </div>
+                </div>
+              </TabPanel>
 
-        <div className="col-12">
-          <label htmlFor="clientDescription" className="block text-900 font-medium mb-2">
-            Descripción del problema / solicitud
-          </label>
-          <Controller
-            name="clientDescription"
-            control={control}
-            render={({ field }) => (
-              <InputTextarea
-                id="clientDescription"
-                {...field}
-                value={field.value ?? ""}
-                rows={3}
-                placeholder="Lo que el cliente describe del problema..."
-              />
-            )}
-          />
-        </div>
+              {/* Tab 2: Evidencia visual */}
+              <TabPanel header="Evidencia" leftIcon="pi pi-images mr-2">
+                <div className="pt-2">
+                  <ReceptionMediaPanel
+                    receptionId={reception.id}
+                    readOnly={false}
+                    toast={toast}
+                  />
+                </div>
+              </TabPanel>
 
-        <div className="col-12 md:col-6">
-          <label htmlFor="estimatedDelivery" className="block text-900 font-medium mb-2">
-            Entrega estimada
-          </label>
-          <Controller
-            name="estimatedDelivery"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="estimatedDelivery"
-                type="datetime-local"
-                {...field}
-                value={field.value ?? ""}
-              />
-            )}
-          />
-        </div>
+              {/* Tab 3: Checklist */}
+              <TabPanel header="Checklist" leftIcon="pi pi-check-square mr-2">
+                <div className="pt-2">
+                  <ReceptionChecklistSection
+                    receptionId={reception.id}
+                    selectedTemplateId={selectedTemplateId}
+                    onTemplateSelect={setSelectedTemplateId}
+                    toast={toast}
+                  />
+                </div>
+              </TabPanel>
 
-        {/* ── Autorización ──────────────────────────────────────────────── */}
-        <div className="col-12">
-          <Divider align="left">
-            <span className="text-700 font-semibold text-sm">Persona que autoriza</span>
-          </Divider>
-        </div>
-
-        <div className="col-12 md:col-6">
-          <label htmlFor="authorizationName" className="block text-900 font-medium mb-2">
-            Nombre
-          </label>
-          <Controller
-            name="authorizationName"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="authorizationName"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="Nombre completo"
-              />
-            )}
-          />
-        </div>
-
-        <div className="col-12 md:col-6">
-          <label htmlFor="authorizationPhone" className="block text-900 font-medium mb-2">
-            Teléfono de contacto
-          </label>
-          <Controller
-            name="authorizationPhone"
-            control={control}
-            render={({ field }) => (
-              <InputText
-                id="authorizationPhone"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="Ej: 555-123-4567"
-              />
-            )}
-          />
-        </div>
-
+              {/* Tab 4: Firma */}
+              <TabPanel header="Firma" leftIcon="pi pi-pencil mr-2">
+                <div className="pt-2">
+                  <ReceptionSignatureSection
+                    receptionId={reception.id}
+                    currentSignature={currentSignature}
+                    currentDiagnosticAuth={reception.diagnosticAuthorized}
+                    onSignatureSaved={setCurrentSignature}
+                    toast={toast}
+                  />
+                </div>
+              </TabPanel>
+            </TabView>
+          )}
+        </form>
       </div>
-    </form>
+    </div>
   );
 }

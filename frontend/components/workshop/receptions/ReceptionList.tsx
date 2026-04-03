@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,7 +15,7 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { receptionService } from "@/app/api/workshop";
-import type { VehicleReception } from "@/libs/interfaces/workshop";
+import type { VehicleReception, ReceptionStatus } from "@/libs/interfaces/workshop";
 import ReceptionForm from "./ReceptionForm";
 
 const FUEL_LABELS: Record<string, string> = {
@@ -25,7 +26,18 @@ const FUEL_LABELS: Record<string, string> = {
   FULL: "Lleno",
 };
 
+const STATUS_CONFIG: Record<
+  ReceptionStatus,
+  { label: string; severity: "warning" | "info" | "secondary" | "success" }
+> = {
+  OPEN: { label: "Abierta", severity: "warning" },
+  DIAGNOSING: { label: "Diagnosticando", severity: "info" },
+  QUOTED: { label: "Cotizada", severity: "secondary" },
+  CONVERTED_TO_SO: { label: "OT generada", severity: "success" },
+};
+
 export default function ReceptionList() {
+  const searchParams = useSearchParams();
   const [items, setItems] = useState<VehicleReception[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<VehicleReception | null>(null);
@@ -40,11 +52,38 @@ export default function ReceptionList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [preloadData, setPreloadData] = useState<{
+    appointmentId?: string;
+    customerId?: string;
+    customerVehicleId?: string;
+    advisorId?: string;
+  } | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery]);
+  useEffect(() => {
+    const action = searchParams.get("action");
+    const appointmentId = searchParams.get("appointmentId");
+    const customerId = searchParams.get("customerId");
+    const customerVehicleId = searchParams.get("customerVehicleId");
+    const advisorId = searchParams.get("advisorId");
+
+    if (action === "new" && appointmentId && customerId) {
+      setPreloadData({
+        appointmentId,
+        customerId,
+        customerVehicleId: customerVehicleId || undefined,
+        advisorId: advisorId || undefined,
+      });
+      setSelected(null);
+      setFormDialog(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery]);
 
   const loadItems = async () => {
     try {
@@ -66,16 +105,38 @@ export default function ReceptionList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: VehicleReception) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: VehicleReception) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setPreloadData(null);
+    setSelected(null);
+    setFormDialog(true);
+  };
+
+  const editItem = async (item: VehicleReception) => {
+    try {
+      const res = await receptionService.getById(item.id);
+      setSelected(res.data ?? item);
+    } catch {
+      setSelected({ ...item });
+    }
+    setFormDialog(true);
+  };
+
+  const confirmDelete = (item: VehicleReception) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await receptionService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Recepción eliminada", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Recepción eliminada",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -86,18 +147,25 @@ export default function ReceptionList() {
     }
   };
 
-  const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Recepción actualizada" : "Recepción registrada",
-        life: 3000,
-      });
-      await loadItems();
+  const handleSave = async (newReceptionId?: string) => {
+    await loadItems();
+    if (newReceptionId) {
+      // Auto-transición: mantener dialog abierto en modo edición
+      try {
+        const res = await receptionService.getById(newReceptionId);
+        setSelected(res.data ?? null);
+        setPreloadData(null);
+        // El dialog permanece abierto con la recepción cargada en modo edición
+      } catch {
+        setFormDialog(false);
+        setSelected(null);
+        setPreloadData(null);
+      }
+    } else {
       setFormDialog(false);
       setSelected(null);
-    })();
+      setPreloadData(null);
+    }
   };
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -105,6 +173,12 @@ export default function ReceptionList() {
   const folioTemplate = (row: VehicleReception) => (
     <span className="font-bold text-primary">{row.folio}</span>
   );
+
+  const statusTemplate = (row: VehicleReception) => {
+    const cfg = STATUS_CONFIG[row.status];
+    if (!cfg) return <span className="text-400">—</span>;
+    return <Tag value={cfg.label} severity={cfg.severity} rounded />;
+  };
 
   const customerTemplate = (row: VehicleReception) => (
     <div>
@@ -118,7 +192,9 @@ export default function ReceptionList() {
       <div className="font-semibold">
         {row.customerVehicle?.plate ?? row.vehiclePlate ?? "—"}
       </div>
-      {row.vehicleDesc && <div className="text-xs text-500">{row.vehicleDesc}</div>}
+      {row.vehicleDesc && (
+        <div className="text-xs text-500">{row.vehicleDesc}</div>
+      )}
     </div>
   );
 
@@ -127,7 +203,9 @@ export default function ReceptionList() {
       <span className="px-2 py-1 surface-200 border-round text-sm">
         {FUEL_LABELS[row.fuelLevel] ?? row.fuelLevel}
       </span>
-    ) : <span className="text-500">—</span>;
+    ) : (
+      <span className="text-500">—</span>
+    );
 
   const damageTemplate = (row: VehicleReception) => (
     <Tag
@@ -140,7 +218,9 @@ export default function ReceptionList() {
   const orderTemplate = (row: VehicleReception) =>
     row.serviceOrder ? (
       <span className="font-bold text-primary">{row.serviceOrder.folio}</span>
-    ) : <span className="text-500">—</span>;
+    ) : (
+      <span className="text-500">—</span>
+    );
 
   const dateTemplate = (row: VehicleReception) =>
     new Date(row.createdAt).toLocaleDateString("es-MX", {
@@ -155,13 +235,18 @@ export default function ReceptionList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const isDeletable = (item: VehicleReception) => !item.serviceOrder;
+
+  const isInEditMode = !!selected?.id;
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -176,17 +261,28 @@ export default function ReceptionList() {
             type="search"
             placeholder="Folio, cliente, placa..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "16rem" }}
           />
         </span>
-        <CreateButton label="Nueva recepción" onClick={openNew} tooltip="Registrar recepción de vehículo" />
+        <CreateButton
+          label="Nueva recepción"
+          onClick={openNew}
+          tooltip="Registrar recepción de vehículo"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -197,7 +293,10 @@ export default function ReceptionList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -206,14 +305,56 @@ export default function ReceptionList() {
           scrollable
           size="small"
         >
-          <Column field="folio" header="Folio" sortable body={folioTemplate} style={{ minWidth: "110px" }} />
-          <Column header="Cliente" body={customerTemplate} style={{ minWidth: "180px" }} />
-          <Column header="Vehículo" body={vehicleTemplate} style={{ minWidth: "140px" }} />
-          <Column field="mileageIn" header="Km entrada" style={{ minWidth: "100px" }} />
-          <Column header="Combustible" body={fuelTemplate} style={{ minWidth: "110px" }} />
-          <Column header="Estado previo" body={damageTemplate} style={{ minWidth: "120px" }} />
-          <Column header="OT generada" body={orderTemplate} style={{ minWidth: "120px" }} />
-          <Column field="createdAt" header="Fecha" body={dateTemplate} sortable style={{ minWidth: "110px" }} />
+          <Column
+            field="folio"
+            header="Folio"
+            sortable
+            body={folioTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Cliente"
+            body={customerTemplate}
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            header="Vehículo"
+            body={vehicleTemplate}
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            field="mileageIn"
+            header="Km entrada"
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            header="Combustible"
+            body={fuelTemplate}
+            style={{ minWidth: "110px" }}
+          />
+          <Column
+            header="Estado previo"
+            body={damageTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            header="OT generada"
+            body={orderTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="createdAt"
+            header="Fecha"
+            body={dateTemplate}
+            sortable
+            style={{ minWidth: "110px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -228,27 +369,45 @@ export default function ReceptionList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "700px" }}
-        breakpoints={{ "900px": "85vw", "600px": "95vw" }}
+        style={{ width: isInEditMode ? "75vw" : "55vw" }}
+        breakpoints={{ "1200px": isInEditMode ? "80vw" : "65vw", "900px": "90vw", "600px": "95vw" }}
         maximizable
         header={
-          <div className="mb-2 text-center md:text-left">
-            <div className="border-bottom-2 border-primary pb-2">
-              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-car mr-3 text-primary text-3xl" />
-                {selected?.id ? `Editar ${selected.folio}` : "Nueva Recepción"}
-              </h2>
-            </div>
+          <div className="flex align-items-center gap-3">
+            <i className="pi pi-car text-primary text-xl" />
+            <span className="text-xl font-bold text-900">
+              {selected?.id
+                ? `Recepción ${selected.folio}`
+                : preloadData
+                ? "Recepción desde Cita"
+                : "Nueva Recepción"}
+            </span>
+            {selected?.id && selected.status && (
+              <Tag
+                value={STATUS_CONFIG[selected.status]?.label ?? selected.status}
+                severity={STATUS_CONFIG[selected.status]?.severity ?? "info"}
+                rounded
+              />
+            )}
           </div>
         }
         modal
         className="p-fluid"
-        onHide={() => { setFormDialog(false); setSelected(null); }}
+        contentStyle={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+        onHide={() => {
+          setFormDialog(false);
+          setSelected(null);
+          setPreloadData(null);
+        }}
         footer={
           <FormActionButtons
             formId="reception-form"
             isUpdate={!!selected?.id}
-            onCancel={() => { setFormDialog(false); setSelected(null); }}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelected(null);
+              setPreloadData(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -259,12 +418,16 @@ export default function ReceptionList() {
           formId="reception-form"
           onSubmittingChange={setIsSubmitting}
           toast={toast}
+          preloadData={preloadData ?? undefined}
         />
       </Dialog>
 
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.folio}
         isDeleting={isDeleting}
@@ -274,7 +437,18 @@ export default function ReceptionList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
+                { separator: true },
+                {
+                  label: "Generar OT",
+                  icon: "pi pi-wrench",
+                  disabled: !!actionItem.serviceOrder,
+                  command: () => editItem(actionItem),
+                },
                 { separator: true },
                 {
                   label: "Eliminar",

@@ -17,7 +17,7 @@ const DeleteConfirmDialog = ({
   isDeleting = false,
 }: DeleteConfirmDialogProps) => {
   const footer = (
-    <div className="flex justify-content-end gap-2 mb-4">
+    <div className="flex justify-content-end gap-2 ">
       <Button
         label="No"
         icon="pi pi-times"

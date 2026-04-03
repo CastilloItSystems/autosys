@@ -12,7 +12,9 @@ import type {
 const BASE = "/workshop/checklists";
 
 const checklistService = {
-  async getAll(filters?: ChecklistTemplateFilters): Promise<WorkshopPagedResponse<ChecklistTemplate>> {
+  async getAll(
+    filters?: ChecklistTemplateFilters,
+  ): Promise<WorkshopPagedResponse<ChecklistTemplate>> {
     const res = await apiClient.get(BASE, { params: filters });
     return res.data;
   },
@@ -22,12 +24,17 @@ const checklistService = {
     return res.data;
   },
 
-  async create(data: CreateChecklistTemplateInput): Promise<WorkshopResponse<ChecklistTemplate>> {
+  async create(
+    data: CreateChecklistTemplateInput,
+  ): Promise<WorkshopResponse<ChecklistTemplate>> {
     const res = await apiClient.post(BASE, data);
     return res.data;
   },
 
-  async update(id: string, data: UpdateChecklistTemplateInput): Promise<WorkshopResponse<ChecklistTemplate>> {
+  async update(
+    id: string,
+    data: UpdateChecklistTemplateInput,
+  ): Promise<WorkshopResponse<ChecklistTemplate>> {
     const res = await apiClient.put(`${BASE}/${id}`, data);
     return res.data;
   },
@@ -41,6 +48,25 @@ const checklistService = {
     const res = await apiClient.patch(`${BASE}/${id}/toggle-active`);
     return res.data;
   },
-};
 
+  async getChecklistResponses(
+    receptionId: string,
+  ): Promise<WorkshopResponse<any>> {
+    const res = await apiClient.get(
+      `/workshop/receptions/${receptionId}/checklist-responses`,
+    );
+    return res.data;
+  },
+
+  async saveChecklistResponses(
+    receptionId: string,
+    responses: any[],
+  ): Promise<WorkshopResponse<any>> {
+    const res = await apiClient.post(
+      `/workshop/receptions/${receptionId}/checklist-responses`,
+      responses,
+    );
+    return res.data;
+  },
+};
 export default checklistService;
