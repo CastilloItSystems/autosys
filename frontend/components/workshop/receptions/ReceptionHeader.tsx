@@ -5,6 +5,7 @@ import { Dialog } from "primereact/dialog";
 import dynamic from "next/dynamic";
 import receptionMediaService, { type ReceptionDamage, type ReceptionPhoto } from "@/app/api/workshop/receptionMediaService";
 import type { VehicleReception, ReceptionStatus } from "@/libs/interfaces/workshop";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 const ReceptionPDFPreview = dynamic(() => import("./ReceptionPDFPreview"), {
   ssr: false,
@@ -39,6 +40,7 @@ export default function ReceptionHeader({
   checklistResponses,
   progressItems = [],
 }: ReceptionHeaderProps) {
+  const { activeEmpresa } = useEmpresasStore();
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [loadingPDF, setLoadingPDF] = useState(false);
   const [pdfDamages, setPdfDamages] = useState<ReceptionDamage[]>([]);
@@ -228,6 +230,8 @@ export default function ReceptionHeader({
             serviceOrderFolio={(reception.serviceOrder as any)?.folio ?? undefined}
             damages={pdfDamages}
             photos={pdfPhotos}
+            empresaName={activeEmpresa?.name}
+            empresaLogo={activeEmpresa?.logoUrl}
           />
         </Dialog>
       )}
