@@ -1,6 +1,6 @@
 services:
   api-backend:
-   # build: ./backend
+    # build: ./backend
     image: ghcr.io/castilloitsystems/autosys-backend:latest
     container_name: mi_backend_autosys
     restart: always
@@ -22,15 +22,13 @@ services:
       - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
       - R2_BUCKET_NAME=${R2_BUCKET_NAME}
       - R2_PUBLIC_URL=${R2_PUBLIC_URL}
-      
 
   web-frontend:
-  
-  #  build:
-   #   context: ./frontend
+    #  build:
+    #   context: ./frontend
     #  args:
-        # Pasamos la variable pública para la compilación de Next.js
-     #   - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+    # Pasamos la variable pública para la compilación de Next.js
+    #   - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
     image: ghcr.io/castilloitsystems/autosys-frontend:latest
     container_name: mi_frontend_autosys
     restart: always

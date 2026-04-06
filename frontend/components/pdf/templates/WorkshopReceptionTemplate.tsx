@@ -123,7 +123,7 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   headerDate: { fontSize: 9, color: "#475569" },
-  
+
   // 2 Column Layout
   grid2Col: {
     flexDirection: "row",
@@ -133,7 +133,7 @@ const styles = StyleSheet.create({
   colHalf: {
     width: "48%",
   },
-  
+
   section: { marginBottom: 12 },
   sectionTitle: {
     backgroundColor: "#f8fafc",
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
   label: { width: "40%", fontWeight: "bold", color: "#64748b", fontSize: 9 },
   value: { width: "60%", fontSize: 9, color: "#1e293b" },
   valueFull: { width: "100%", fontSize: 9, color: "#1e293b", lineHeight: 1.4 },
-  
+
   badge: {
     paddingVertical: 2,
     paddingHorizontal: 5,
@@ -162,7 +162,7 @@ const styles = StyleSheet.create({
   badgeSuccess: { backgroundColor: "#dcfce7", color: "#166534" },
   badgeWarning: { backgroundColor: "#fef9c3", color: "#854d0e" },
   badgeDanger: { backgroundColor: "#fecaca", color: "#991b1b" },
-  
+
   // Tablas
   table: {
     width: "100%",
@@ -192,7 +192,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
   tableCell: { padding: 6, fontSize: 8, color: "#334155" },
-  
+
   // Fotos (Polaroid Style)
   photoGrid: {
     flexDirection: "row",
@@ -232,7 +232,7 @@ const styles = StyleSheet.create({
     textAlign: "center",
     marginTop: 2,
   },
-  
+
   // Firma
   signatureContainer: {
     marginTop: 30,
@@ -245,10 +245,15 @@ const styles = StyleSheet.create({
     borderTopColor: "#94a3b8",
     paddingTop: 8,
   },
-  signatureImage: { width: 180, height: 70, marginBottom: 5, objectFit: "contain" },
+  signatureImage: {
+    width: 180,
+    height: 70,
+    marginBottom: 5,
+    objectFit: "contain",
+  },
   signatureTitle: { fontSize: 10, fontWeight: "bold", color: "#334155" },
   signatureSubtitle: { fontSize: 8, color: "#64748b", marginTop: 2 },
-  
+
   // Footer Paginación
   footer: {
     position: "absolute",
@@ -332,7 +337,9 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
               <Text style={styles.headerTitle}>
                 {data.empresaName || "Taller Mecánico"}
               </Text>
-              <Text style={styles.headerSubtitle}>Documento de Recepción de Vehículo</Text>
+              <Text style={styles.headerSubtitle}>
+                Documento de Recepción de Vehículo
+              </Text>
             </View>
           </View>
           <View style={styles.headerRight}>
@@ -364,7 +371,9 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
                 <View style={styles.row}>
                   <Text style={styles.label}>Vehículo:</Text>
                   <Text style={styles.value}>
-                    {[data.vehicleBrand, data.vehicleModel, data.vehicleYear].filter(Boolean).join(" ")}
+                    {[data.vehicleBrand, data.vehicleModel, data.vehicleYear]
+                      .filter(Boolean)
+                      .join(" ")}
                   </Text>
                 </View>
               )}
@@ -425,12 +434,16 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
               <Text style={styles.sectionTitle}>Recepción</Text>
               <View style={styles.row}>
                 <Text style={styles.label}>Autoriza:</Text>
-                <Text style={styles.value}>{data.authorizationName || data.customerName}</Text>
+                <Text style={styles.value}>
+                  {data.authorizationName || data.customerName}
+                </Text>
               </View>
               {data.estimatedDelivery && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Entrega est.:</Text>
-                  <Text style={styles.value}>{formatDate(data.estimatedDelivery)}</Text>
+                  <Text style={styles.value}>
+                    {formatDate(data.estimatedDelivery)}
+                  </Text>
                 </View>
               )}
               {data.serviceOrderFolio && (
@@ -446,10 +459,10 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
         {/* Motivo de Ingreso / Solicitud */}
         {data.clientDescription && (
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Motivo de Ingreso / Solicitud del Cliente</Text>
-            <Text style={styles.valueFull}>
-              {data.clientDescription}
+            <Text style={styles.sectionTitle}>
+              Motivo de Ingreso / Solicitud del Cliente
             </Text>
+            <Text style={styles.valueFull}>{data.clientDescription}</Text>
           </View>
         )}
 
@@ -467,10 +480,15 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
             <Text
               style={[
                 styles.value,
-                { color: data.hasPreExistingDamage ? "#dc2626" : "#16a34a", fontWeight: "bold" },
+                {
+                  color: data.hasPreExistingDamage ? "#dc2626" : "#16a34a",
+                  fontWeight: "bold",
+                },
               ]}
             >
-              {data.hasPreExistingDamage ? "Sí reporta daños" : "No reporta daños"}
+              {data.hasPreExistingDamage
+                ? "Sí reporta daños"
+                : "No reporta daños"}
             </Text>
           </View>
           {data.hasPreExistingDamage && data.damageNotes && (
@@ -487,9 +505,15 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
             <Text style={styles.sectionTitle}>Registro de Daños Físicos</Text>
             <View style={styles.table}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { width: "30%" }]}>Zona</Text>
-                <Text style={[styles.tableHeaderCell, { width: "45%" }]}>Descripción</Text>
-                <Text style={[styles.tableHeaderCell, { width: "25%" }]}>Severidad</Text>
+                <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
+                  Zona
+                </Text>
+                <Text style={[styles.tableHeaderCell, { width: "45%" }]}>
+                  Descripción
+                </Text>
+                <Text style={[styles.tableHeaderCell, { width: "25%" }]}>
+                  Severidad
+                </Text>
               </View>
               {data.damages.map((dmg, idx) => (
                 <View
@@ -497,11 +521,17 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
                   style={[
                     styles.tableRow,
                     idx % 2 === 1 ? styles.tableRowStriped : {},
-                    idx === data.damages!.length - 1 ? { borderBottomWidth: 0 } : {}
+                    idx === data.damages!.length - 1
+                      ? { borderBottomWidth: 0 }
+                      : {},
                   ]}
                 >
-                  <Text style={[styles.tableCell, { width: "30%" }]}>{dmg.zone}</Text>
-                  <Text style={[styles.tableCell, { width: "45%" }]}>{dmg.description}</Text>
+                  <Text style={[styles.tableCell, { width: "30%" }]}>
+                    {dmg.zone}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "45%" }]}>
+                    {dmg.description}
+                  </Text>
                   <View style={[styles.tableCell, { width: "25%" }]}>
                     <Text
                       style={[
@@ -509,8 +539,8 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
                         dmg.severity === "MINOR"
                           ? styles.badgeSuccess
                           : dmg.severity === "MODERATE"
-                            ? styles.badgeWarning
-                            : styles.badgeDanger,
+                          ? styles.badgeWarning
+                          : styles.badgeDanger,
                       ]}
                     >
                       {severityLabel[dmg.severity] || dmg.severity}
@@ -526,13 +556,20 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
         {data.checklistResponses && data.checklistResponses.length > 0 && (
           <View style={styles.section} wrap={false}>
             <Text style={styles.sectionTitle}>
-              Checklist de Inspección {data.checklistName ? `(${data.checklistName})` : ""}
+              Checklist de Inspección{" "}
+              {data.checklistName ? `(${data.checklistName})` : ""}
             </Text>
             <View style={styles.table}>
               <View style={styles.tableHeader}>
-                <Text style={[styles.tableHeaderCell, { width: "45%" }]}>Punto de Inspección</Text>
-                <Text style={[styles.tableHeaderCell, { width: "20%" }]}>Estado</Text>
-                <Text style={[styles.tableHeaderCell, { width: "35%" }]}>Observaciones</Text>
+                <Text style={[styles.tableHeaderCell, { width: "45%" }]}>
+                  Punto de Inspección
+                </Text>
+                <Text style={[styles.tableHeaderCell, { width: "20%" }]}>
+                  Estado
+                </Text>
+                <Text style={[styles.tableHeaderCell, { width: "35%" }]}>
+                  Observaciones
+                </Text>
               </View>
               {data.checklistResponses.map((r, idx) => (
                 <View
@@ -540,12 +577,30 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
                   style={[
                     styles.tableRow,
                     idx % 2 === 1 ? styles.tableRowStriped : {},
-                    idx === data.checklistResponses!.length - 1 ? { borderBottomWidth: 0 } : {}
+                    idx === data.checklistResponses!.length - 1
+                      ? { borderBottomWidth: 0 }
+                      : {},
                   ]}
                 >
-                  <Text style={[styles.tableCell, { width: "45%", fontWeight: "bold" }]}>{r.itemName}</Text>
-                  <Text style={[styles.tableCell, { width: "20%" }]}>{formatChecklistValue(r)}</Text>
-                  <Text style={[styles.tableCell, { width: "35%", color: "#64748b" }]}>{r.observation || "—"}</Text>
+                  <Text
+                    style={[
+                      styles.tableCell,
+                      { width: "45%", fontWeight: "bold" },
+                    ]}
+                  >
+                    {r.itemName}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "20%" }]}>
+                    {formatChecklistValue(r)}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.tableCell,
+                      { width: "35%", color: "#64748b" },
+                    ]}
+                  >
+                    {r.observation || "—"}
+                  </Text>
                 </View>
               ))}
             </View>
@@ -562,11 +617,20 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
                   {photo.url ? (
                     <Image src={photo.url} style={styles.photoImage} />
                   ) : (
-                    <View style={[styles.photoImage, { justifyContent: "center", alignItems: "center" }]}>
-                      <Text style={{ fontSize: 8, color: "#cbd5e1" }}>Sin imagen</Text>
+                    <View
+                      style={[
+                        styles.photoImage,
+                        { justifyContent: "center", alignItems: "center" },
+                      ]}
+                    >
+                      <Text style={{ fontSize: 8, color: "#cbd5e1" }}>
+                        Sin imagen
+                      </Text>
                     </View>
                   )}
-                  <Text style={styles.photoLabel}>{photoTypeLabel[photo.type] || photo.type}</Text>
+                  <Text style={styles.photoLabel}>
+                    {photoTypeLabel[photo.type] || photo.type}
+                  </Text>
                   {photo.description && (
                     <Text style={styles.photoDesc}>{photo.description}</Text>
                   )}
@@ -584,20 +648,39 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
             <View style={{ height: 60 }} />
           )}
           <View style={styles.signatureLineBox}>
-            <Text style={styles.signatureTitle}>Firma de Conformidad del Cliente</Text>
-            <Text style={styles.signatureSubtitle}>{data.authorizationName || data.customerName}</Text>
+            <Text style={styles.signatureTitle}>
+              Firma de Conformidad del Cliente
+            </Text>
+            <Text style={styles.signatureSubtitle}>
+              {data.authorizationName || data.customerName}
+            </Text>
           </View>
-          <Text style={{ fontSize: 7, color: "#94a3b8", marginTop: 8, textAlign: "center", maxWidth: 400 }}>
-            Al firmar este documento, el cliente autoriza la revisión y/o reparación del vehículo descrito, aceptando que el taller no se hace responsable por objetos de valor no declarados en este inventario.
+          <Text
+            style={{
+              fontSize: 7,
+              color: "#94a3b8",
+              marginTop: 8,
+              textAlign: "center",
+              maxWidth: 400,
+            }}
+          >
+            Al firmar este documento, el cliente autoriza la revisión y/o
+            reparación del vehículo descrito, aceptando que el taller no se hace
+            responsable por objetos de valor no declarados en este inventario.
           </Text>
         </View>
 
         {/* Footer (Paginación) */}
         <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>Generado por AutoSys el {formatDate(new Date().toISOString())}</Text>
-          <Text style={styles.footerText} render={({ pageNumber, totalPages }) => (
-            `Página ${pageNumber} de ${totalPages}`
-          )} />
+          <Text style={styles.footerText}>
+            Generado por AutoSys el {formatDate(new Date().toISOString())}
+          </Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) =>
+              `Página ${pageNumber} de ${totalPages}`
+            }
+          />
         </View>
       </Page>
     </Document>

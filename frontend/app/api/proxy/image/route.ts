@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     process.env.NEXT_PUBLIC_R2_URL,
     "r2.cloudflarestorage.com",
     "pub-",
-    "castilloitsystems.com"
+    "castilloitsystems.com",
   ].filter(Boolean);
 
   const requestOrigin = req.headers.get("origin") || req.nextUrl.origin;
@@ -40,7 +40,9 @@ export async function GET(req: NextRequest) {
     console.log(`[Proxy Image] Fetching: ${finalUrl}`);
     const response = await fetch(finalUrl);
     if (!response.ok) {
-      console.error(`[Proxy Image] Failed to fetch image. Status: ${response.status}`);
+      console.error(
+        `[Proxy Image] Failed to fetch image. Status: ${response.status}`,
+      );
       return NextResponse.json(
         { error: "Failed to fetch image" },
         { status: response.status },

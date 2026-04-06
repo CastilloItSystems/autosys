@@ -3,13 +3,21 @@ import React, { useState } from "react";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import dynamic from "next/dynamic";
-import receptionMediaService, { type ReceptionDamage, type ReceptionPhoto } from "@/app/api/workshop/receptionMediaService";
-import type { VehicleReception, ReceptionStatus } from "@/libs/interfaces/workshop";
+import receptionMediaService, {
+  type ReceptionDamage,
+  type ReceptionPhoto,
+} from "@/app/api/workshop/receptionMediaService";
+import type {
+  VehicleReception,
+  ReceptionStatus,
+} from "@/libs/interfaces/workshop";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 const ReceptionPDFPreview = dynamic(() => import("./ReceptionPDFPreview"), {
   ssr: false,
-  loading: () => <div className="text-center py-4">Generando comprobante...</div>,
+  loading: () => (
+    <div className="text-center py-4">Generando comprobante...</div>
+  ),
 });
 
 interface ProgressItem {
@@ -26,12 +34,25 @@ interface ReceptionHeaderProps {
   progressItems?: ProgressItem[];
 }
 
-const STATUS_MAP: Record<ReceptionStatus, { label: string; classes: string }> = {
-  OPEN: { label: "Abierta", classes: "bg-yellow-50 text-yellow-700 border-yellow-200" },
-  DIAGNOSING: { label: "En diagnóstico", classes: "bg-blue-50 text-blue-700 border-blue-200" },
-  QUOTED: { label: "Cotizada", classes: "bg-purple-50 text-purple-700 border-purple-200" },
-  CONVERTED_TO_SO: { label: "OT generada", classes: "bg-green-50 text-green-700 border-green-200" },
-};
+const STATUS_MAP: Record<ReceptionStatus, { label: string; classes: string }> =
+  {
+    OPEN: {
+      label: "Abierta",
+      classes: "bg-yellow-50 text-yellow-700 border-yellow-200",
+    },
+    DIAGNOSING: {
+      label: "En diagnóstico",
+      classes: "bg-blue-50 text-blue-700 border-blue-200",
+    },
+    QUOTED: {
+      label: "Cotizada",
+      classes: "bg-purple-50 text-purple-700 border-purple-200",
+    },
+    CONVERTED_TO_SO: {
+      label: "OT generada",
+      classes: "bg-green-50 text-green-700 border-green-200",
+    },
+  };
 
 export default function ReceptionHeader({
   reception,
@@ -101,7 +122,9 @@ export default function ReceptionHeader({
               )}
             </>
           ) : (
-            <span className="text-sm text-500 font-medium">Nueva recepción</span>
+            <span className="text-sm text-500 font-medium">
+              Nueva recepción
+            </span>
           )}
         </div>
 
@@ -114,7 +137,9 @@ export default function ReceptionHeader({
                 <React.Fragment key={i}>
                   {i > 0 && (
                     <div
-                      className={`border-top-1 ${item.completed ? "border-green-400" : "border-200"}`}
+                      className={`border-top-1 ${
+                        item.completed ? "border-green-400" : "border-200"
+                      }`}
                       style={{ width: 16 }}
                     />
                   )}
@@ -177,7 +202,11 @@ export default function ReceptionHeader({
           modal
           maximizable
           onHide={() => setShowPDFPreview(false)}
-          contentStyle={{ display: "flex", flexDirection: "column", height: "100%" }}
+          contentStyle={{
+            display: "flex",
+            flexDirection: "column",
+            height: "100%",
+          }}
           footer={
             <div className="flex gap-2 justify-content-end">
               <Button
@@ -221,13 +250,24 @@ export default function ReceptionHeader({
                 ? checklistResponses
                 : undefined
             }
-            vehicleBrand={(reception.customerVehicle as any)?.brand?.name ?? undefined}
-            vehicleModel={(reception.customerVehicle as any)?.vehicleModel?.name ?? undefined}
+            vehicleBrand={
+              (reception.customerVehicle as any)?.brand?.name ?? undefined
+            }
+            vehicleModel={
+              (reception.customerVehicle as any)?.vehicleModel?.name ??
+              undefined
+            }
             vehicleYear={(reception.customerVehicle as any)?.year ?? undefined}
-            vehicleColor={(reception.customerVehicle as any)?.color ?? undefined}
+            vehicleColor={
+              (reception.customerVehicle as any)?.color ?? undefined
+            }
             vehicleVin={(reception.customerVehicle as any)?.vin ?? undefined}
-            appointmentFolio={(reception.appointment as any)?.folio ?? undefined}
-            serviceOrderFolio={(reception.serviceOrder as any)?.folio ?? undefined}
+            appointmentFolio={
+              (reception.appointment as any)?.folio ?? undefined
+            }
+            serviceOrderFolio={
+              (reception.serviceOrder as any)?.folio ?? undefined
+            }
             damages={pdfDamages}
             photos={pdfPhotos}
             empresaName={activeEmpresa?.name}

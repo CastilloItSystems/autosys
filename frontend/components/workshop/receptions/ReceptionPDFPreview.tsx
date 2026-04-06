@@ -63,14 +63,20 @@ const urlToBase64ViaProxy = async (url: string): Promise<string | null> => {
   try {
     let absoluteUrl = url;
     if (url.startsWith("/")) {
-      const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:4000/api";
+      const apiBase =
+        process.env.NEXT_PUBLIC_API_BASE_URL || "http://127.0.0.1:4000/api";
       // Si la base termina en /api, la quitamos para apuntar a la raíz del backend
       const backendRoot = apiBase.replace(/\/api\/?$/, "");
       absoluteUrl = `${backendRoot}${url}`;
     }
-    
+
     // Y en caso de que sea del mismo frontend (public local)
-    if (url.startsWith("/templates") || url.startsWith("/images") || url.startsWith("/logo") || url.startsWith("/favicon")) {
+    if (
+      url.startsWith("/templates") ||
+      url.startsWith("/images") ||
+      url.startsWith("/logo") ||
+      url.startsWith("/favicon")
+    ) {
       absoluteUrl = `${window.location.origin}${url}`;
     }
 
@@ -81,7 +87,9 @@ const urlToBase64ViaProxy = async (url: string): Promise<string | null> => {
 
     console.log("Resolving image proxy for:", url, "->", absoluteUrl);
 
-    const res = await fetch(`/api/proxy/image?url=${encodeURIComponent(absoluteUrl)}`);
+    const res = await fetch(
+      `/api/proxy/image?url=${encodeURIComponent(absoluteUrl)}`,
+    );
     if (!res.ok) {
       console.warn(`Proxy falló para ${absoluteUrl}:`, res.statusText);
       return null;
@@ -95,9 +103,8 @@ const urlToBase64ViaProxy = async (url: string): Promise<string | null> => {
 };
 
 const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
-  const [processedProps, setProcessedProps] = useState<
-    ReceptionPDFPreviewProps | null
-  >(null);
+  const [processedProps, setProcessedProps] =
+    useState<ReceptionPDFPreviewProps | null>(null);
 
   useEffect(() => {
     let isMounted = true;
@@ -126,7 +133,7 @@ const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
           newProps.photos.map(async (p) => ({
             ...p,
             url: (await resolveImage(p.url)) || p.url,
-          }))
+          })),
         );
       }
 
@@ -136,7 +143,7 @@ const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
           newProps.damages.map(async (d) => ({
             ...d,
             photoUrl: await resolveImage(d.photoUrl),
-          }))
+          })),
         );
       }
 
@@ -158,17 +165,20 @@ const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
         className="flex align-items-center justify-content-center p-4 text-center flex-column gap-3"
         style={{ height: 400 }}
       >
-        <i className="pi pi-spin pi-spinner" style={{ fontSize: '2rem', color: '#2563eb' }}></i>
-        <span className="text-600 font-medium">Procesando documento y multimedia...</span>
+        <i
+          className="pi pi-spin pi-spinner"
+          style={{ fontSize: "2rem", color: "#2563eb" }}
+        ></i>
+        <span className="text-600 font-medium">
+          Procesando documento y multimedia...
+        </span>
       </div>
     );
   }
 
   return (
     <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-      <WorkshopReceptionTemplate
-        data={processedProps}
-      />
+      <WorkshopReceptionTemplate data={processedProps} />
     </PDFViewer>
   );
 };
