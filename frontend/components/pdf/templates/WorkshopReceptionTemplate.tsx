@@ -19,6 +19,19 @@ interface ChecklistResponsePDF {
   observation?: string | null;
 }
 
+interface DamagePDF {
+  zone: string;
+  description: string;
+  severity: string;
+  photoUrl?: string | null;
+}
+
+interface PhotoPDF {
+  url: string;
+  type: string;
+  description?: string | null;
+}
+
 interface ReceptionPDFData {
   folio: string;
   status: string;
@@ -32,21 +45,32 @@ interface ReceptionPDFData {
   vehicleDesc?: string;
   mileageIn?: number | null;
   fuelLevel?: string | null;
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehicleYear?: number | null;
+  vehicleColor?: string | null;
+  vehicleVin?: string | null;
   // Accesorios y daños
   accessories?: string[];
   hasPreExistingDamage: boolean;
   damageNotes?: string;
+  damages?: DamagePDF[];
   // Solicitud
   clientDescription?: string;
   // Autorización
   authorizationName?: string;
   authorizationPhone?: string;
+  estimatedDelivery?: string | null;
+  appointmentFolio?: string | null;
+  serviceOrderFolio?: string | null;
   diagnosticAuthorized: boolean;
   // Firma
   clientSignature?: string | null;
   // Checklist
   checklistName?: string;
   checklistResponses?: ChecklistResponsePDF[];
+  // Fotos
+  photos?: PhotoPDF[];
   // Empresa
   empresaName?: string;
   empresaLogo?: string;
@@ -141,6 +165,33 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: "#94a3b8",
   },
+  // Grid de fotos
+  photoGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  photoCell: {
+    width: "31%",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 4,
+    padding: 4,
+  },
+  photoImage: {
+    width: "100%",
+    height: 80,
+    marginBottom: 4,
+  },
+  photoLabel: {
+    fontSize: 7,
+    color: "#64748b",
+    textAlign: "center",
+  },
+  badgeSeverityMinor: { backgroundColor: "#dcfce7", color: "#166534" },
+  badgeSeverityModerate: { backgroundColor: "#fef9c3", color: "#854d0e" },
+  badgeSeveritySevere: { backgroundColor: "#fecaca", color: "#991b1b" },
 });
 
 const fuelLevelLabel: Record<string, string> = {
@@ -157,6 +208,23 @@ const statusLabel: Record<string, string> = {
   QUOTED: "Cotizada",
   CONVERTED_TO_SO: "Convertida a OT",
   CANCELLED: "Cancelada",
+};
+
+const severityLabel: Record<string, string> = {
+  MINOR: "Menor",
+  MODERATE: "Moderado",
+  SEVERE: "Severo",
+};
+
+const photoTypeLabel: Record<string, string> = {
+  FRONTAL: "Frontal",
+  REAR: "Trasera",
+  LEFT: "Lateral Izq.",
+  RIGHT: "Lateral Der.",
+  INTERIOR: "Interior",
+  DAMAGE: "Daño",
+  DOCUMENT: "Documento",
+  OTHER: "Otra",
 };
 
 const formatDate = (d: string) => {
@@ -227,6 +295,32 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
               <Text style={styles.value}>{data.vehiclePlate}</Text>
             </View>
           )}
+          {(data.vehicleBrand || data.vehicleModel) && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Marca/Modelo:</Text>
+              <Text style={styles.value}>
+                {[data.vehicleBrand, data.vehicleModel].filter(Boolean).join(" ")}
+              </Text>
+            </View>
+          )}
+          {data.vehicleYear && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Año:</Text>
+              <Text style={styles.value}>{data.vehicleYear}</Text>
+            </View>
+          )}
+          {data.vehicleColor && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Color:</Text>
+              <Text style={styles.value}>{data.vehicleColor}</Text>
+            </View>
+          )}
+          {data.vehicleVin && (
+            <View style={styles.row}>
+              <Text style={styles.label}>VIN:</Text>
+              <Text style={styles.value}>{data.vehicleVin}</Text>
+            </View>
+          )}
           {data.vehicleDesc && (
             <View style={styles.row}>
               <Text style={styles.label}>Descripción:</Text>
@@ -278,6 +372,82 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
             </View>
           )}
         </View>
+
+        {/* Daños Registrados */}
+        {data.damages && data.damages.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Daños Registrados</Text>
+            <View style={styles.tableHeader}>
+              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>
+                Zona
+              </Text>
+              <Text style={[styles.tableHeaderCell, { width: "45%" }]}>
+                Descripción
+              </Text>
+              <Text style={[styles.tableHeaderCell, { width: "25%" }]}>
+                Severidad
+              </Text>
+            </View>
+            {data.damages.map((dmg, idx) => (
+              <View
+                key={idx}
+                style={[
+                  styles.tableRow,
+                  { backgroundColor: idx % 2 === 0 ? "#fff" : "#f8fafc" },
+                ]}
+              >
+                <Text style={[styles.tableCell, { width: "30%" }]}>
+                  {dmg.zone}
+                </Text>
+                <Text style={[styles.tableCell, { width: "45%" }]}>
+                  {dmg.description}
+                </Text>
+                <Text
+                  style={[
+                    styles.badge,
+                    dmg.severity === "MINOR"
+                      ? styles.badgeSeverityMinor
+                      : dmg.severity === "MODERATE"
+                        ? styles.badgeSeverityModerate
+                        : styles.badgeSeveritySevere,
+                  ]}
+                >
+                  {severityLabel[dmg.severity] || dmg.severity}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Evidencia Fotográfica */}
+        {data.photos && data.photos.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Evidencia Fotográfica</Text>
+            <View style={styles.photoGrid}>
+              {data.photos.map((photo, idx) => (
+                <View key={idx} style={styles.photoCell}>
+                  {photo.url && (
+                    <Image
+                      src={photo.url}
+                      style={styles.photoImage}
+                      onError={() => null}
+                    />
+                  )}
+                  <Text style={styles.photoLabel}>
+                    {photoTypeLabel[photo.type] || photo.type}
+                  </Text>
+                  {photo.description && (
+                    <Text
+                      style={[styles.photoLabel, { marginTop: 2, fontSize: 6 }]}
+                    >
+                      {photo.description}
+                    </Text>
+                  )}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Solicitud del Cliente */}
         {data.clientDescription && (
@@ -338,7 +508,7 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
 
         {/* Autorización */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Autorización</Text>
+          <Text style={styles.sectionTitle}>Autorización y Entrega</Text>
           {data.authorizationName && (
             <View style={styles.row}>
               <Text style={styles.label}>Persona que autoriza:</Text>
@@ -349,6 +519,24 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
             <View style={styles.row}>
               <Text style={styles.label}>Teléfono:</Text>
               <Text style={styles.value}>{data.authorizationPhone}</Text>
+            </View>
+          )}
+          {data.estimatedDelivery && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Entrega estimada:</Text>
+              <Text style={styles.value}>{formatDate(data.estimatedDelivery)}</Text>
+            </View>
+          )}
+          {data.appointmentFolio && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Cita relacionada:</Text>
+              <Text style={styles.value}>{data.appointmentFolio}</Text>
+            </View>
+          )}
+          {data.serviceOrderFolio && (
+            <View style={styles.row}>
+              <Text style={styles.label}>Orden de trabajo:</Text>
+              <Text style={styles.value}>{data.serviceOrderFolio}</Text>
             </View>
           )}
           <View style={styles.row}>

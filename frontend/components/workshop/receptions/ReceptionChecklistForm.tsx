@@ -5,14 +5,11 @@ import useSWR from "swr";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { ProgressBar } from "primereact/progressbar";
-import { Skeleton } from "primereact/skeleton";
+import { ProgressSpinner } from "primereact/progressspinner";
 import { Message } from "primereact/message";
-import { InputSwitch } from "primereact/inputswitch";
-import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";
-import { Divider } from "primereact/divider";
 import { useRef } from "react";
 import checklistService from "@/app/api/workshop/checklistService";
 import type {
@@ -205,15 +202,15 @@ export default function ReceptionChecklistForm({
 
   if (templateLoading || isLoadingSavedResponses) {
     return (
-      <Card className="p-4">
-        <Skeleton height="2rem" className="mb-4" />
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="mb-4">
-            <Skeleton height="1rem" className="mb-2" />
-            <Skeleton height="2rem" />
-          </div>
-        ))}
-      </Card>
+      <div className="flex flex-column align-items-center justify-content-center p-4">
+        <ProgressSpinner
+          style={{ width: "40px", height: "40px" }}
+          strokeWidth="4"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
+        <p className="mt-3 text-600 font-medium">Cargando checklist...</p>
+      </div>
     );
   }
 
@@ -230,122 +227,201 @@ export default function ReceptionChecklistForm({
     return <Message severity="info" text="No hay ítems en esta plantilla" />;
   }
 
+  // Contar completados
+  const completedCount = template.items.filter((item) => {
+    const response = responses.get(item.id!);
+    return (
+      response &&
+      (response.boolValue !== undefined ||
+        response.textValue !== undefined ||
+        response.numValue !== undefined ||
+        response.selectionValue !== undefined)
+    );
+  }).length;
+
   return (
-    <div className="space-y-4">
-      <Card title={template.name} subTitle={template.description}>
-        <ProgressBar value={completionPercent} />
-        <p className="text-sm text-gray-500 mt-2">
-          {completionPercent}% completado
-        </p>
-      </Card>
+    <div className="space-y-3">
+      {/* Header Section */}
+      <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+        <i className="pi pi-list-check text-primary"></i>
+        <span className="font-semibold text-base text-700">{template.name}</span>
+      </div>
 
-      <Card>
-        <div className="space-y-6">
-          {template.items.map((item: ChecklistItem, index) => (
-            <div key={item.id}>
-              {index > 0 && <Divider />}
+      {/* Progress Banner */}
+      <div className="mb-4 p-3 surface-100 border-round border-left-3 border-primary">
+        <div className="flex align-items-center justify-content-between mb-2">
+          <span className="text-600 text-sm">
+            <i className="pi pi-check-circle mr-2 text-primary"></i>
+            {completedCount} de {template.items.length} ítems completados
+          </span>
+          <span className="font-bold text-primary">{completionPercent}%</span>
+        </div>
+        <ProgressBar value={completionPercent} style={{ height: "6px" }} />
+      </div>
 
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="font-semibold text-lg">
-                      {item.order}. {item.name}
-                    </span>
-                    {item.isRequired && (
-                      <span className="bg-red-100 text-red-700 text-xs px-2 py-1 rounded">
-                        Requerido
-                      </span>
+      {/* Checklist Items */}
+      <div className="space-y-3">
+        {template.items.map((item: ChecklistItem) => {
+          const isCompleted = Boolean(
+            responses.get(item.id!) &&
+            (responses.get(item.id!)?.boolValue !== undefined ||
+             responses.get(item.id!)?.textValue !== undefined ||
+             responses.get(item.id!)?.numValue !== undefined ||
+             responses.get(item.id!)?.selectionValue !== undefined)
+          );
+
+          return (
+            <Card key={item.id} className="mb-0">
+              {/* Item Header */}
+              <div className="flex align-items-start justify-content-between mb-3">
+                <div className="flex align-items-start gap-2 flex-grow-1">
+                  <div className="flex align-items-center justify-content-center w-2rem h-2rem bg-primary border-circle text-white font-bold text-sm flex-shrink-0">
+                    {item.order}
+                  </div>
+                  <div className="flex-grow-1">
+                    <div className="flex align-items-center gap-2">
+                      <span className="font-semibold text-900">{item.name}</span>
+                      {item.isRequired && (
+                        <span className="text-red-500 font-bold">*</span>
+                      )}
+                    </div>
+                    {item.description && (
+                      <p className="text-600 text-sm mt-1 mb-0">
+                        {item.description}
+                      </p>
                     )}
                   </div>
-                  {item.description && (
-                    <p className="text-sm text-gray-600 mt-1">
-                      {item.description}
-                    </p>
-                  )}
                 </div>
+
+                {/* Status Icon */}
+                {isCompleted && (
+                  <i className="pi pi-check-circle text-green-500 text-xl flex-shrink-0 ml-2"></i>
+                )}
               </div>
 
-              {/* Renderizo el tipo de respuesta según responseType */}
-              <div className="ml-4 mb-3">
+              {/* Input Fields */}
+              <div className="grid">
+                {/* Boolean Response */}
                 {item.responseType === "BOOLEAN" && (
-                  <div className="flex items-center gap-3">
-                    <InputSwitch
-                      checked={responses.get(item.id!)?.boolValue ?? false}
-                      onChange={(e) => handleResponseChange(item.id!, e.value)}
-                    />
-                    <span className="text-sm">
-                      {responses.get(item.id!)?.boolValue
-                        ? "Sí / Conforme"
-                        : "No / No Conforme"}
-                    </span>
+                  <div className="col-12">
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        label="Conforme"
+                        icon="pi pi-check"
+                        size="small"
+                        severity={
+                          responses.get(item.id!)?.boolValue === true
+                            ? "success"
+                            : "secondary"
+                        }
+                        outlined={responses.get(item.id!)?.boolValue !== true}
+                        onClick={() => handleResponseChange(item.id!, true)}
+                      />
+                      <Button
+                        type="button"
+                        label="No Conforme"
+                        icon="pi pi-times"
+                        size="small"
+                        severity={
+                          responses.get(item.id!)?.boolValue === false
+                            ? "danger"
+                            : "secondary"
+                        }
+                        outlined={responses.get(item.id!)?.boolValue !== false}
+                        onClick={() => handleResponseChange(item.id!, false)}
+                      />
+                    </div>
                   </div>
                 )}
 
+                {/* Text Response */}
                 {item.responseType === "TEXT" && (
-                  <InputTextarea
-                    value={responses.get(item.id!)?.textValue ?? ""}
-                    onChange={(e) =>
-                      handleResponseChange(item.id!, e.target.value)
-                    }
-                    placeholder="Escribe tu respuesta..."
-                    rows={2}
-                    className="w-full"
-                  />
+                  <div className="col-12 md:col-6">
+                    <label className="block text-900 font-medium mb-1">
+                      Respuesta
+                    </label>
+                    <InputTextarea
+                      value={responses.get(item.id!)?.textValue ?? ""}
+                      onChange={(e) =>
+                        handleResponseChange(item.id!, e.target.value)
+                      }
+                      placeholder="Escribe aquí..."
+                      rows={2}
+                      className="w-full"
+                    />
+                  </div>
                 )}
 
+                {/* Number Response */}
                 {item.responseType === "NUMBER" && (
-                  <InputNumber
-                    value={responses.get(item.id!)?.numValue ?? null}
-                    onValueChange={(e) =>
-                      handleResponseChange(item.id!, e.value)
-                    }
-                    placeholder="Ingresa un número..."
-                    className="w-full"
-                  />
+                  <div className="col-12 md:col-6">
+                    <label className="block text-900 font-medium mb-1">
+                      Valor Numérico
+                    </label>
+                    <InputNumber
+                      value={responses.get(item.id!)?.numValue ?? null}
+                      onValueChange={(e) =>
+                        handleResponseChange(item.id!, e.value)
+                      }
+                      placeholder="Ingresa un número..."
+                      className="w-full"
+                    />
+                  </div>
                 )}
 
+                {/* Selection Response */}
                 {item.responseType === "SELECTION" && (
-                  <Dropdown
-                    value={responses.get(item.id!)?.selectionValue ?? null}
-                    onChange={(e) => handleResponseChange(item.id!, e.value)}
-                    options={(item.options || []).map((opt: string) => ({
-                      label: opt,
-                      value: opt,
-                    }))}
-                    placeholder="Selecciona una opción..."
-                    className="w-full"
-                  />
+                  <div className="col-12 md:col-6">
+                    <label className="block text-900 font-medium mb-1">
+                      Selecciona una Opción
+                    </label>
+                    <Dropdown
+                      value={responses.get(item.id!)?.selectionValue ?? null}
+                      onChange={(e) => handleResponseChange(item.id!, e.value)}
+                      options={(item.options || []).map((opt: string) => ({
+                        label: opt,
+                        value: opt,
+                      }))}
+                      placeholder="Selecciona..."
+                      className="w-full"
+                    />
+                  </div>
+                )}
+
+                {/* Observation Field */}
+                {item.responseType !== "BOOLEAN" && (
+                  <div className="col-12 md:col-6">
+                    <label className="block text-900 font-medium mb-1">
+                      <i className="pi pi-file-edit text-sm mr-2"></i>
+                      Observación (opcional)
+                    </label>
+                    <InputTextarea
+                      value={responses.get(item.id!)?.observation ?? ""}
+                      onChange={(e) =>
+                        handleObservationChange(item.id!, e.target.value)
+                      }
+                      placeholder="Notas adicionales..."
+                      rows={1}
+                      className="w-full"
+                    />
+                  </div>
                 )}
               </div>
+            </Card>
+          );
+        })}
+      </div>
 
-              {/* Campo de observación */}
-              <div className="ml-4">
-                <label className="block text-sm font-medium mb-1">
-                  Observaciones (opcional)
-                </label>
-                <InputTextarea
-                  value={responses.get(item.id!)?.observation ?? ""}
-                  onChange={(e) =>
-                    handleObservationChange(item.id!, e.target.value)
-                  }
-                  placeholder="Notas adicionales..."
-                  rows={1}
-                  className="w-full"
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </Card>
-
-      <div className="flex justify-end gap-3">
+      {/* Save Button */}
+      <div className="flex justify-content-end mt-4 pt-3 border-top-1 border-200">
         <Button
-          label="Guardar Respuestas"
+          label="Guardar Checklist"
           icon="pi pi-check"
+          severity="success"
           onClick={handleSave}
           loading={isSaving}
           disabled={completionPercent < 100 || isSaving}
-          severity={completionPercent === 100 ? "success" : "secondary"}
         />
       </div>
     </div>

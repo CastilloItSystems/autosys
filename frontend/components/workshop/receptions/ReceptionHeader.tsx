@@ -3,6 +3,7 @@ import React, { useState } from "react";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import dynamic from "next/dynamic";
+import receptionMediaService, { type ReceptionDamage, type ReceptionPhoto } from "@/app/api/workshop/receptionMediaService";
 import type { VehicleReception, ReceptionStatus } from "@/libs/interfaces/workshop";
 
 const ReceptionPDFPreview = dynamic(() => import("./ReceptionPDFPreview"), {
@@ -39,8 +40,32 @@ export default function ReceptionHeader({
   progressItems = [],
 }: ReceptionHeaderProps) {
   const [showPDFPreview, setShowPDFPreview] = useState(false);
+  const [loadingPDF, setLoadingPDF] = useState(false);
+  const [pdfDamages, setPdfDamages] = useState<ReceptionDamage[]>([]);
+  const [pdfPhotos, setPdfPhotos] = useState<ReceptionPhoto[]>([]);
 
   const status = reception?.status ? STATUS_MAP[reception.status] : null;
+
+  const handleOpenPDF = async () => {
+    if (!reception?.id) return;
+
+    setLoadingPDF(true);
+    try {
+      const [dmgRes, phRes] = await Promise.all([
+        receptionMediaService.getDamages(reception.id),
+        receptionMediaService.getPhotos(reception.id),
+      ]);
+      setPdfDamages(dmgRes.data ?? []);
+      setPdfPhotos(phRes.data ?? []);
+      setShowPDFPreview(true);
+    } catch (error) {
+      console.error("Error al cargar daños y fotos:", error);
+      // Abrir PDF igual aunque falle la carga de media
+      setShowPDFPreview(true);
+    } finally {
+      setLoadingPDF(false);
+    }
+  };
 
   return (
     <>
@@ -128,10 +153,12 @@ export default function ReceptionHeader({
           {/* Botón PDF solo para recepciones guardadas */}
           {reception?.id && (
             <Button
-              icon="pi pi-file-pdf"
+              icon={loadingPDF ? "pi pi-spin pi-spinner" : "pi pi-file-pdf"}
               tooltip="Ver comprobante PDF"
               tooltipOptions={{ position: "left" }}
-              onClick={() => setShowPDFPreview(true)}
+              onClick={handleOpenPDF}
+              loading={loadingPDF}
+              disabled={loadingPDF}
               className="p-button-text p-button-secondary p-button-sm"
               type="button"
             />
@@ -183,6 +210,7 @@ export default function ReceptionHeader({
             clientDescription={reception.clientDescription ?? undefined}
             authorizationName={reception.authorizationName ?? undefined}
             authorizationPhone={reception.authorizationPhone ?? undefined}
+            estimatedDelivery={reception.estimatedDelivery ?? undefined}
             diagnosticAuthorized={reception.diagnosticAuthorized ?? false}
             clientSignature={currentSignature}
             checklistName={checklistTemplateName || undefined}
@@ -191,6 +219,15 @@ export default function ReceptionHeader({
                 ? checklistResponses
                 : undefined
             }
+            vehicleBrand={(reception.customerVehicle as any)?.brand?.name ?? undefined}
+            vehicleModel={(reception.customerVehicle as any)?.vehicleModel?.name ?? undefined}
+            vehicleYear={(reception.customerVehicle as any)?.year ?? undefined}
+            vehicleColor={(reception.customerVehicle as any)?.color ?? undefined}
+            vehicleVin={(reception.customerVehicle as any)?.vin ?? undefined}
+            appointmentFolio={(reception.appointment as any)?.folio ?? undefined}
+            serviceOrderFolio={(reception.serviceOrder as any)?.folio ?? undefined}
+            damages={pdfDamages}
+            photos={pdfPhotos}
           />
         </Dialog>
       )}

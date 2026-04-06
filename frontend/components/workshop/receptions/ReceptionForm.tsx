@@ -45,13 +45,16 @@ export default function ReceptionForm({
   preloadData,
 }: ReceptionFormProps) {
   const [activeTab, setActiveTab] = useState(0);
-  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
+  const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(
+    null,
+  );
   const [checklistLoaded, setChecklistLoaded] = useState(false);
   const [checklistResponses, setChecklistResponses] = useState<any[]>([]);
-  const [checklistTemplateName, setChecklistTemplateName] = useState<string>("");
-  const [currentSignature, setCurrentSignature] = useState<string | null | undefined>(
-    reception?.clientSignature,
-  );
+  const [checklistTemplateName, setChecklistTemplateName] =
+    useState<string>("");
+  const [currentSignature, setCurrentSignature] = useState<
+    string | null | undefined
+  >(reception?.clientSignature);
 
   const {
     control,
@@ -60,7 +63,9 @@ export default function ReceptionForm({
     watch,
     formState: { errors },
   } = useForm<CreateReceptionForm>({
-    resolver: zodResolver(reception ? updateReceptionSchema : createReceptionSchema),
+    resolver: zodResolver(
+      reception ? updateReceptionSchema : createReceptionSchema,
+    ),
     mode: "onBlur",
     defaultValues: {
       customerId: "",
@@ -86,7 +91,9 @@ export default function ReceptionForm({
       checklistService
         .getChecklistResponses(reception.id)
         .then((res) => {
-          const data = Array.isArray(res.data) ? res.data : res.data?.data ?? res.data;
+          const data = Array.isArray(res.data)
+            ? res.data
+            : res.data?.data ?? res.data;
           if (data && Array.isArray(data) && data.length > 0) {
             const templateId = data[0]?.item?.checklistTemplateId;
             if (templateId) setSelectedTemplateId(templateId);
@@ -106,7 +113,10 @@ export default function ReceptionForm({
           }
         })
         .catch((err) => {
-          console.error("[ReceptionForm] Error cargando checklist responses:", err);
+          console.error(
+            "[ReceptionForm] Error cargando checklist responses:",
+            err,
+          );
         })
         .finally(() => setChecklistLoaded(true));
     }
@@ -196,7 +206,9 @@ export default function ReceptionForm({
       toast.current?.show({
         severity: "success",
         summary: "Guardado",
-        detail: reception?.id ? "Cambios guardados exitosamente" : "Recepción creada exitosamente",
+        detail: reception?.id
+          ? "Cambios guardados exitosamente"
+          : "Recepción creada exitosamente",
         life: 3000,
       });
 
@@ -230,14 +242,21 @@ export default function ReceptionForm({
       required: false,
     },
     {
-      label: "Firma",
+      label: "Autorización y Firma",
       completed: !!(currentSignature && reception?.diagnosticAuthorized),
       required: false,
     },
   ];
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", overflow: "hidden" }}>
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        height: "100%",
+        overflow: "hidden",
+      }}
+    >
       {/* HEADER FIJO — fuera del scroll */}
       <ReceptionHeader
         reception={reception}
@@ -355,8 +374,8 @@ export default function ReceptionForm({
                 </div>
               </TabPanel>
 
-              {/* Tab 4: Firma */}
-              <TabPanel header="Firma" leftIcon="pi pi-pencil mr-2">
+              {/* Tab 4: Autorización y Firma */}
+              <TabPanel header="Autorización y Firma" leftIcon="pi pi-pencil mr-2">
                 <div className="pt-2">
                   <ReceptionSignatureSection
                     receptionId={reception.id}
@@ -364,6 +383,8 @@ export default function ReceptionForm({
                     currentDiagnosticAuth={reception.diagnosticAuthorized}
                     onSignatureSaved={setCurrentSignature}
                     toast={toast}
+                    control={control}
+                    errors={errors}
                   />
                 </div>
               </TabPanel>

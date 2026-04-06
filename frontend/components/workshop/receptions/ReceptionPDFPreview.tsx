@@ -11,6 +11,19 @@ interface ChecklistResponsePDF {
   observation?: string | null;
 }
 
+interface DamagePDF {
+  zone: string;
+  description: string;
+  severity: string;
+  photoUrl?: string | null;
+}
+
+interface PhotoPDF {
+  url: string;
+  type: string;
+  description?: string | null;
+}
+
 interface ReceptionPDFPreviewProps {
   folio: string;
   status: string;
@@ -28,10 +41,20 @@ interface ReceptionPDFPreviewProps {
   clientDescription?: string;
   authorizationName?: string;
   authorizationPhone?: string;
+  estimatedDelivery?: string | null;
   diagnosticAuthorized: boolean;
   clientSignature?: string | null;
   checklistName?: string;
   checklistResponses?: ChecklistResponsePDF[];
+  vehicleBrand?: string | null;
+  vehicleModel?: string | null;
+  vehicleYear?: number | null;
+  vehicleColor?: string | null;
+  vehicleVin?: string | null;
+  appointmentFolio?: string | null;
+  serviceOrderFolio?: string | null;
+  damages?: DamagePDF[];
+  photos?: PhotoPDF[];
   empresaName?: string;
   empresaLogo?: string;
 }

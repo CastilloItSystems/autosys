@@ -4,8 +4,13 @@ import SignatureCanvas from "react-signature-canvas";
 import { Button } from "primereact/button";
 import { Checkbox } from "primereact/checkbox";
 import { Tag } from "primereact/tag";
-import { Divider } from "primereact/divider";
+import { InputText } from "primereact/inputtext";
+import { Calendar } from "primereact/calendar";
+import { Controller } from "react-hook-form";
+import PhoneInput from "@/components/common/PhoneInput";
 import { receptionService } from "@/app/api/workshop";
+import type { Control, FieldErrors } from "react-hook-form";
+import type { CreateReceptionForm } from "@/libs/zods/workshop/receptionZod";
 
 interface ReceptionSignaturePanelProps {
   receptionId: string;
@@ -13,6 +18,8 @@ interface ReceptionSignaturePanelProps {
   currentDiagnosticAuth?: boolean;
   onSaved?: (signatureUrl: string | null) => void;
   toast: React.RefObject<any>;
+  control?: Control<CreateReceptionForm>;
+  errors?: FieldErrors<CreateReceptionForm>;
 }
 
 export default function ReceptionSignaturePanel({
@@ -21,24 +28,28 @@ export default function ReceptionSignaturePanel({
   currentDiagnosticAuth = false,
   onSaved,
   toast,
+  control,
 }: ReceptionSignaturePanelProps) {
   const sigCanvasRef = useRef<SignatureCanvas>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [diagnosticAuthorized, setDiagnosticAuthorized] = useState(currentDiagnosticAuth);
+  const [diagnosticAuthorized, setDiagnosticAuthorized] = useState(
+    currentDiagnosticAuth,
+  );
   const [saving, setSaving] = useState(false);
-  const [hasSignature, setHasSignature] = useState(!!currentSignature);
-  const [savedSignatureUrl, setSavedSignatureUrl] = useState<string | null>(currentSignature ?? null);
+  const [savedSignatureUrl, setSavedSignatureUrl] = useState<string | null>(
+    currentSignature ?? null,
+  );
 
   useEffect(() => {
     setDiagnosticAuthorized(currentDiagnosticAuth);
     setSavedSignatureUrl(currentSignature ?? null);
-    setHasSignature(!!currentSignature);
   }, [currentDiagnosticAuth, currentSignature]);
 
   // Fix HiDPI blurry canvas
   useLayoutEffect(() => {
     if (!containerRef.current || !sigCanvasRef.current) return;
-    const dpr = typeof window !== "undefined" ? (window.devicePixelRatio || 1) : 1;
+    const dpr =
+      typeof window !== "undefined" ? window.devicePixelRatio || 1 : 1;
     const w = containerRef.current.offsetWidth;
     const canvas = sigCanvasRef.current.getCanvas();
     canvas.width = w * dpr;
@@ -51,18 +62,22 @@ export default function ReceptionSignaturePanel({
 
   const handleClear = () => {
     sigCanvasRef.current?.clear();
-    setHasSignature(false);
-  };
-
-  const handleEnd = () => {
-    if (sigCanvasRef.current && !sigCanvasRef.current.isEmpty()) {
-      setHasSignature(true);
-    }
   };
 
   const handleSave = async () => {
     const canvas = sigCanvasRef.current;
     const hasNewSignature = canvas && !canvas.isEmpty();
+
+    // Validación: ambos requeridos
+    if (!diagnosticAuthorized) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Autorización requerida",
+        detail: "El cliente debe autorizar el diagnóstico",
+        life: 3000,
+      });
+      return;
+    }
 
     if (!hasNewSignature && !savedSignatureUrl) {
       toast.current?.show({
@@ -90,10 +105,10 @@ export default function ReceptionSignaturePanel({
         finalUrl = result.data?.signatureUrl ?? base64;
         setSavedSignatureUrl(finalUrl);
       } else {
+        // Actualizar autorización (firma ya existe)
         await receptionService.update(receptionId, { diagnosticAuthorized });
       }
 
-      setHasSignature(true);
       toast.current?.show({
         severity: "success",
         summary: "Firma guardada",
@@ -115,100 +130,201 @@ export default function ReceptionSignaturePanel({
   };
 
   return (
-    <div className="p-fluid">
-      {/* Autorización de diagnóstico */}
-      <div className="border-1 border-200 border-round p-3 mb-4 surface-50">
-        <div className="flex align-items-center gap-3">
-          <Checkbox
-            inputId="diagnosticAuth"
-            checked={diagnosticAuthorized}
-            onChange={(e) => setDiagnosticAuthorized(e.checked ?? false)}
-          />
-          <label htmlFor="diagnosticAuth" className="text-900 font-semibold cursor-pointer">
-            El cliente autoriza el diagnóstico del vehículo
-          </label>
-          {diagnosticAuthorized && (
-            <Tag severity="success" value="Autorizado" icon="pi pi-check" />
-          )}
-        </div>
-        <p className="text-600 text-sm mt-2 mb-0 ml-5">
-          Al marcar esta casilla, el cliente confirma que autoriza la revisión y
-          diagnóstico del vehículo por parte del taller.
-        </p>
-      </div>
-
-      <Divider align="left">
-        <span className="text-700 font-semibold text-sm">Firma del cliente</span>
-      </Divider>
-
-      {/* Firma guardada */}
-      {savedSignatureUrl && (
-        <div className="mb-4">
-          <div className="flex align-items-center justify-content-between mb-2">
-            <span className="text-700 font-semibold text-sm">Firma almacenada</span>
-            <Tag severity="success" value="Guardada" icon="pi pi-check" />
+    <div className="space-y-4">
+      {/* Datos de autorización */}
+      {control && (
+        <div className="grid">
+          <div className="col-12">
+            <div className="flex align-items-center gap-2 mb-3 pb-2 border-bottom-1 border-200">
+              <i className="pi pi-user text-primary" />
+              <span className="font-semibold text-base text-700">
+                Autorización y Entrega
+              </span>
+            </div>
           </div>
-          <div
-            className="border-1 border-200 border-round p-2 flex align-items-center justify-content-center surface-50"
-            style={{ minHeight: 100 }}
-          >
-            <img
-              src={savedSignatureUrl}
-              alt="Firma del cliente"
-              style={{ maxWidth: "100%", maxHeight: 140 }}
+
+          <div className="col-12 md:col-4">
+            <label className="block text-900 font-medium mb-2">Nombre</label>
+            <Controller
+              name="authorizationName"
+              control={control}
+              render={({ field }) => (
+                <InputText
+                  id="authorizationName"
+                  {...field}
+                  value={field.value ?? ""}
+                  placeholder="Nombre completo"
+                />
+              )}
+            />
+          </div>
+
+          <div className="col-12 md:col-4">
+            <label className="block text-900 font-medium mb-2">
+              Teléfono de contacto
+            </label>
+            <Controller
+              name="authorizationPhone"
+              control={control}
+              render={({ field }) => (
+                <PhoneInput
+                  id="authorizationPhone"
+                  value={field.value ?? ""}
+                  onChange={field.onChange}
+                />
+              )}
+            />
+          </div>
+
+          <div className="col-12 md:col-4">
+            <label className="block text-900 font-medium mb-2">
+              <i className="pi pi-calendar mr-2"></i>
+              Entrega estimada
+            </label>
+            <Controller
+              name="estimatedDelivery"
+              control={control}
+              render={({ field }) => (
+                <Calendar
+                  id="estimatedDelivery"
+                  value={field.value ? new Date(field.value) : null}
+                  onChange={(e) =>
+                    field.onChange(e.value ? e.value.toISOString() : null)
+                  }
+                  showTime
+                  hourFormat="24"
+                  placeholder="Fecha y hora"
+                  showIcon
+                  className="w-full"
+                />
+              )}
             />
           </div>
         </div>
       )}
 
-      {/* Canvas de firma */}
-      <div className="mb-3">
-        <div className="flex align-items-center justify-content-between mb-2">
-          <span className="text-700 font-semibold text-sm">
-            {savedSignatureUrl ? "Actualizar firma" : "Capturar firma"}
-          </span>
-          <Button
-            label="Limpiar"
-            icon="pi pi-eraser"
-            className="p-button-text p-button-sm"
-            onClick={handleClear}
-            type="button"
+      {/* ══ Zona 1: Autorización ══ */}
+      <div
+        className="border-round p-4 flex align-items-start justify-content-between gap-4"
+        style={{
+          backgroundColor: "var(--surface-50)",
+          borderLeft: "4px solid var(--primary-color)",
+          borderTop: "1px solid var(--surface-200)",
+          borderRight: "1px solid var(--surface-200)",
+          borderBottom: "1px solid var(--surface-200)",
+        }}
+      >
+        <div className="flex align-items-start gap-3 flex-grow-1">
+          <Checkbox
+            inputId="diagnosticAuth"
+            checked={diagnosticAuthorized}
+            onChange={(e) => setDiagnosticAuthorized(e.checked ?? false)}
+            className="mt-1"
           />
+          <label htmlFor="diagnosticAuth" className="cursor-pointer">
+            <span className="block font-bold text-900">
+              El cliente autoriza el diagnóstico del vehículo
+            </span>
+            <span className="block text-sm text-600 mt-2">
+              Requerido para generar la cotización posterior.
+            </span>
+          </label>
         </div>
 
-        <div
-          ref={containerRef}
-          className="border-1 border-300 border-round"
-          style={{ backgroundColor: "#fff", touchAction: "none" }}
-        >
-          <SignatureCanvas
-            ref={sigCanvasRef}
-            penColor="black"
-            canvasProps={{
-              style: {
-                width: "100%",
-                height: "200px",
-                borderRadius: "6px",
-                display: "block",
-              },
-            }}
-            onEnd={handleEnd}
-          />
+        {/* Status badge */}
+        <div className="flex-shrink-0">
+          {diagnosticAuthorized ? (
+            <Tag severity="success" value="Autorizado" icon="pi pi-check" />
+          ) : (
+            <Tag severity="warning" value="Pendiente" icon="pi pi-clock" />
+          )}
         </div>
-
-        <p className="text-500 text-xs mt-2 mb-0">
-          <i className="pi pi-info-circle mr-1" />
-          Dibuje la firma del cliente usando el ratón o pantalla táctil
-        </p>
       </div>
 
-      <div className="flex justify-content-end">
+      {/* ══ Zona 2: Firma del cliente ══ */}
+      <div className="border-1 border-surface-200 border-round p-4">
+        {/* Header */}
+        <div className="flex align-items-center justify-content-between mb-3 pb-3 border-bottom-1 border-surface-200">
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-pen-to-square text-primary text-lg"></i>
+            <span className="font-bold text-lg text-900">
+              {savedSignatureUrl ? "Firma almacenada" : "Firma del cliente"}
+            </span>
+          </div>
+          {savedSignatureUrl && (
+            <Tag severity="success" value="Guardada" icon="pi pi-check" />
+          )}
+        </div>
+
+        {/* Preview de firma guardada */}
+        {savedSignatureUrl && (
+          <div className="mb-4">
+            <div
+              className="border-1 border-surface-200 border-round surface-50 flex align-items-center justify-content-center p-3"
+              style={{ minHeight: 100 }}
+            >
+              <img
+                src={savedSignatureUrl}
+                alt="Firma del cliente"
+                style={{ maxWidth: "100%", maxHeight: 120 }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Canvas de firma */}
+        <div className="mb-3">
+          <div className="text-sm text-700 font-medium mb-2">
+            {savedSignatureUrl ? "Actualizar firma" : "Capturar firma"}
+          </div>
+
+          <div
+            ref={containerRef}
+            className="border-2 border-surface-300 border-round"
+            style={{ backgroundColor: "#fff", touchAction: "none" }}
+          >
+            <SignatureCanvas
+              ref={sigCanvasRef}
+              penColor="black"
+              canvasProps={{
+                style: {
+                  width: "100%",
+                  height: "200px",
+                  borderRadius: "6px",
+                  display: "block",
+                  cursor: "crosshair",
+                },
+              }}
+            />
+          </div>
+
+          {/* Hint + Clear button */}
+          <div className="flex align-items-center justify-content-between mt-2">
+            <span className="text-500 text-xs">
+              <i className="pi pi-info-circle mr-1" />
+              Usa ratón o pantalla táctil para firmar
+            </span>
+            <Button
+              label="Limpiar"
+              icon="pi pi-eraser"
+              text
+              size="small"
+              onClick={handleClear}
+              type="button"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Botón guardar */}
+      <div className="flex justify-content-end pt-2">
         <Button
           label={saving ? "Guardando..." : "Guardar Firma y Autorización"}
-          icon={saving ? "pi pi-spin pi-spinner" : "pi pi-save"}
+          icon={saving ? "pi pi-spin pi-spinner" : "pi pi-check"}
+          severity="success"
           onClick={handleSave}
-          disabled={saving || (!hasSignature && !savedSignatureUrl)}
-          className="p-button-success"
+          loading={saving}
+          disabled={saving}
           type="button"
         />
       </div>

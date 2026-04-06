@@ -2,7 +2,28 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import r2StorageService from '../../../services/r2-storage.service.js'
 import * as svc from './receptionMedia.service.js'
+import { BadRequestError } from '../../../shared/utils/apiError.js'
+
+// ── Upload ──
+export const uploadMedia = async (req: Request, res: Response) => {
+  if (!req.file) {
+    throw new BadRequestError('No se recibió ningún archivo')
+  }
+
+  const receptionId = req.params.receptionId
+  const fileName = `${Date.now()}-${req.file.originalname}`
+  const key = `workshop/receptions/${receptionId}/${fileName}`
+
+  const url = await r2StorageService.uploadFile(
+    req.file.buffer,
+    key,
+    req.file.mimetype
+  )
+
+  return ApiResponse.success(res, { url }, 'Archivo subido exitosamente')
+}
 
 // ── Daños ──
 export const getDamages = async (req: Request, res: Response) => {

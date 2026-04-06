@@ -96,44 +96,6 @@ export default function ReceptionBasicInfoSection({
         />
       </div>
 
-      {/* Persona que autoriza */}
-      <div className="col-12">
-        <Divider align="left" className="my-3">
-          <span className="text-sm font-semibold text-600">Persona que autoriza</span>
-        </Divider>
-      </div>
-
-      <div className="col-12 md:col-6">
-        <label className="block text-900 font-medium mb-2">Nombre</label>
-        <Controller
-          name="authorizationName"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="authorizationName"
-              {...field}
-              value={field.value ?? ""}
-              placeholder="Nombre completo"
-            />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-6">
-        <label className="block text-900 font-medium mb-2">Teléfono de contacto</label>
-        <Controller
-          name="authorizationPhone"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="authorizationPhone"
-              {...field}
-              value={field.value ?? ""}
-              placeholder="Ej: 555-123-4567"
-            />
-          )}
-        />
-      </div>
     </div>
   );
 }
