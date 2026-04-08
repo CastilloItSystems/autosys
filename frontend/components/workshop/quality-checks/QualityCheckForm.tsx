@@ -3,7 +3,6 @@ import React, { useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
@@ -11,6 +10,8 @@ import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
 import { qualityCheckService, checklistService } from "@/app/api/workshop";
+import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
+import TechnicianSelector from "@/components/common/TechnicianSelector";
 import DynamicChecklist, {
   type ChecklistItemDef,
   type ChecklistItemResponse,
@@ -32,15 +33,28 @@ interface Props {
   toast: React.RefObject<any>;
 }
 
-export default function QualityCheckForm({ onSave, formId, onSubmittingChange, toast }: Props) {
-  const [checklistTemplates, setChecklistTemplates] = useState<ChecklistTemplate[]>([]);
+export default function QualityCheckForm({
+  onSave,
+  formId,
+  onSubmittingChange,
+  toast,
+}: Props) {
+  const [checklistTemplates, setChecklistTemplates] = useState<
+    ChecklistTemplate[]
+  >([]);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string>("");
   const [checklistItems, setChecklistItems] = useState<ChecklistItemDef[]>([]);
-  const [checklistResponses, setChecklistResponses] = useState<ChecklistItemResponse[]>([]);
+  const [checklistResponses, setChecklistResponses] = useState<
+    ChecklistItemResponse[]
+  >([]);
   const [loadingTemplate, setLoadingTemplate] = useState(false);
   const [templatesLoaded, setTemplatesLoaded] = useState(false);
 
-  const { control, handleSubmit, formState: { errors } } = useForm<FormData>({
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: "onBlur",
     defaultValues: { serviceOrderId: "", inspectorId: "", notes: "" },
@@ -49,7 +63,10 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
   const loadTemplates = async () => {
     if (templatesLoaded) return;
     try {
-      const res = await checklistService.getAll({ category: "QUALITY_CONTROL", limit: 50 } as any);
+      const res = await checklistService.getAll({
+        category: "QUALITY_CONTROL",
+        limit: 50,
+      } as any);
       setChecklistTemplates(res.data ?? []);
       setTemplatesLoaded(true);
     } catch {
@@ -82,7 +99,8 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
         inspectorId: data.inspectorId,
         notes: data.notes ?? undefined,
         checklistTemplateId: selectedTemplateId || undefined,
-        responses: checklistResponses.length > 0 ? checklistResponses : undefined,
+        responses:
+          checklistResponses.length > 0 ? checklistResponses : undefined,
       } as any);
       await onSave();
     } catch (error) {
@@ -98,45 +116,54 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
   ];
 
   return (
-    <form id={formId ?? "quality-check-create-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "quality-check-create-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
         <div className="col-12">
-          <label htmlFor="serviceOrderId" className="block text-900 font-medium mb-2">
-            ID Orden de Trabajo <span className="text-red-500">*</span>
+          <label className="block text-900 font-medium mb-2">
+            Orden de Trabajo <span className="text-red-500">*</span>
           </label>
           <Controller
             name="serviceOrderId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="serviceOrderId"
-                {...field}
-                placeholder="ID de la OT a revisar"
-                className={errors.serviceOrderId ? "p-invalid" : ""}
-                autoFocus
+              <ServiceOrderSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.serviceOrderId}
               />
             )}
           />
-          {errors.serviceOrderId && <small className="p-error block mt-1">{errors.serviceOrderId.message}</small>}
+          {errors.serviceOrderId && (
+            <small className="p-error block mt-1">
+              {errors.serviceOrderId.message}
+            </small>
+          )}
         </div>
 
         <div className="col-12">
-          <label htmlFor="inspectorId" className="block text-900 font-medium mb-2">
-            ID Inspector <span className="text-red-500">*</span>
+          <label className="block text-900 font-medium mb-2">
+            Inspector <span className="text-red-500">*</span>
           </label>
           <Controller
             name="inspectorId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="inspectorId"
-                {...field}
-                placeholder="ID del inspector"
-                className={errors.inspectorId ? "p-invalid" : ""}
+              <TechnicianSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.inspectorId}
               />
             )}
           />
-          {errors.inspectorId && <small className="p-error block mt-1">{errors.inspectorId.message}</small>}
+          {errors.inspectorId && (
+            <small className="p-error block mt-1">
+              {errors.inspectorId.message}
+            </small>
+          )}
         </div>
 
         <div className="col-12">
@@ -169,7 +196,9 @@ export default function QualityCheckForm({ onSave, formId, onSubmittingChange, t
         </div>
 
         <div className="col-12">
-          <label className="block text-900 font-medium mb-2">Plantilla de checklist</label>
+          <label className="block text-900 font-medium mb-2">
+            Plantilla de checklist
+          </label>
           <Dropdown
             value={selectedTemplateId}
             options={templateOptions}

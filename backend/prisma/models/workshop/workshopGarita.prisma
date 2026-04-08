@@ -1,0 +1,82 @@
+// backend/prisma/models/workshop/workshopGarita.prisma
+// Control de Garita / Vigilancia
+// Registra todo movimiento de vehículos y piezas que entran o salen del taller.
+
+enum GaritaEventType {
+  VEHICLE_IN     // Ingreso de vehículo de cliente
+  VEHICLE_OUT    // Egreso de vehículo de cliente (entrega)
+  PART_OUT       // Salida de pieza a proveedor externo (T.O.T.)
+  PART_IN        // Reingreso de pieza desde proveedor externo (T.O.T.)
+  ROAD_TEST_OUT  // Salida del vehículo para prueba de carretera
+  ROAD_TEST_IN   // Reingreso del vehículo después de prueba de carretera
+  OTHER          // Otro movimiento
+}
+
+enum GaritaEventStatus {
+  PENDING    // Registrado, pendiente de autorización
+  AUTHORIZED // Pase de salida validado por vigilancia
+  COMPLETED  // Ciclo cerrado (regresó el vehículo o pieza)
+  FLAGGED    // Irregularidad detectada
+  CANCELLED  // Cancelado
+}
+
+model WorkshopGarita {
+  id String @id @default(cuid())
+
+  type   GaritaEventType
+  status GaritaEventStatus @default(PENDING)
+
+  // OS vinculada (requerida para VEHICLE_IN/OUT, ROAD_TEST_*)
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // T.O.T. vinculado (requerido para PART_OUT/PART_IN)
+  totId String?
+  tot   WorkshopTOT? @relation(fields: [totId], references: [id], onDelete: SetNull)
+
+  // Datos del vehículo
+  plateNumber   String?
+  vehicleDesc   String?  // Marca, modelo, color
+  serialMotor   String?  // Serial de motor
+  serialBody    String?  // Serial de carrocería
+  kmIn          Int?     // Kilometraje de entrada
+  kmOut         Int?     // Kilometraje de salida
+
+  // Datos del conductor / responsable
+  driverName    String?
+  driverId      String?  // Cédula del conductor
+
+  // Pase / orden de salida
+  exitPassRef    String?   // Referencia del pase de salida firmado
+  authorizedById String?   // userId que autorizó la salida
+  authorizedAt   DateTime?
+
+  // Registro fotográfico
+  photoUrls Json?
+
+  // Irregularidades
+  hasIrregularity   Boolean @default(false)
+  irregularityNotes String? @db.Text
+
+  // Tiempos del evento
+  eventAt     DateTime  @default(now()) // Momento del registro
+  completedAt DateTime?                 // Cierre del ciclo (reingreso)
+
+  notes String? @db.Text
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String  // userId del vigilante que registró
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([totId])
+  @@index([type])
+  @@index([status])
+  @@index([plateNumber])
+  @@index([empresaId, eventAt])
+  @@map("workshop_garita")
+}

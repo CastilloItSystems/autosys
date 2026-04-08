@@ -72,6 +72,9 @@ model PreInvoice {
   exitNote            ExitNote?
   invoice             Invoice?
 
+  // Facturación consolidada: OTs agrupadas en esta prefactura
+  consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
+
   payments            Payment[]
 
   createdAt           DateTime          @default(now())

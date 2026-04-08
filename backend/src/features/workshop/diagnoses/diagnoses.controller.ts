@@ -2,7 +2,6 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
-import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import * as diagnosesService from './diagnoses.service.js'
 import {
   getRecommendedDiagnosticTemplate,
@@ -21,19 +20,10 @@ import {
 import { WORKSHOP_MESSAGES } from '../shared/constants/messages.js'
 
 export const getAll = async (req: Request, res: Response) => {
-  const page = parseInt(req.query.page as string) || 1
-  const limit = parseInt(req.query.limit as string) || 10
-  const serviceOrderId = req.query.serviceOrderId as string | undefined
-  const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId)
+  const { page = 1, limit = 10, serviceOrderId, status } = req.validatedQuery as any
+  const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId, status)
   const items = result.data.map((i) => new DiagnosisResponseDTO(i))
-  const meta = PaginationHelper.getMeta(result.page, result.limit, result.total)
-  return res.status(200).json({
-    success: true,
-    message: 'Datos obtenidos exitosamente',
-    data: items,
-    meta,
-    timestamp: new Date().toISOString(),
-  })
+  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
 }
 
 export const getOne = async (req: Request, res: Response) => {
@@ -121,10 +111,36 @@ export const addSuggestedPart = async (req: Request, res: Response) => {
 export const removeFinding = async (req: Request, res: Response) => {
   await diagnosesService.removeDiagnosisFinding(
     prisma,
+    req.params.id as string,
     req.params.findingId as string,
     req.empresaId!
   )
   return ApiResponse.success(res, null, 'Hallazgo eliminado')
+}
+
+export const removeSuggestedOp = async (req: Request, res: Response) => {
+  await diagnosesService.removeDiagnosisSuggestedOp(prisma, req.params.id, req.params.opId, req.empresaId!)
+  return ApiResponse.success(res, null, 'Operación sugerida eliminada')
+}
+
+export const removeSuggestedPart = async (req: Request, res: Response) => {
+  await diagnosesService.removeDiagnosisSuggestedPart(prisma, req.params.id, req.params.partId, req.empresaId!)
+  return ApiResponse.success(res, null, 'Repuesto sugerido eliminado')
+}
+
+export const addEvidence = async (req: Request, res: Response) => {
+  const item = await diagnosesService.addDiagnosisEvidence(prisma, req.params.id, req.empresaId!, req.body)
+  return ApiResponse.created(res, item, 'Evidencia agregada')
+}
+
+export const removeEvidence = async (req: Request, res: Response) => {
+  await diagnosesService.removeDiagnosisEvidence(prisma, req.params.id, req.params.evidenceId, req.empresaId!)
+  return ApiResponse.success(res, null, 'Evidencia eliminada')
+}
+
+export const remove = async (req: Request, res: Response) => {
+  await diagnosesService.removeDiagnosis(prisma, req.params.id as string, req.empresaId!)
+  return ApiResponse.success(res, null, 'Diagnóstico eliminado')
 }
 
 // FASE 3.2: Get diagnostic template recommendations for a service type

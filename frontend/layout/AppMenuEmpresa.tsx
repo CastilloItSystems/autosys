@@ -382,6 +382,11 @@ const AppMenuEmpresa = () => {
           icon: "pi pi-fw pi-refresh",
           items: [
             {
+              label: "Garita / Vigilancia",
+              icon: "pi pi-fw pi-shield",
+              to: "/empresa/workshop/garita",
+            },
+            {
               label: "Citas",
               icon: "pi pi-fw pi-calendar",
               to: "/empresa/workshop/appointments",
@@ -405,6 +410,11 @@ const AppMenuEmpresa = () => {
               label: "Control de Tiempos",
               icon: "pi pi-fw pi-stopwatch",
               to: "/empresa/workshop/labor-times",
+            },
+            {
+              label: "Servicios Externos (T.O.T.)",
+              icon: "pi pi-fw pi-send",
+              to: "/empresa/workshop/tot",
             },
           ],
         },

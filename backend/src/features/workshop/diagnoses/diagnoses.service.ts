@@ -21,11 +21,13 @@ export async function findAllDiagnoses(
   empresaId: string,
   page: number = 1,
   limit: number = 10,
-  serviceOrderId?: string
+  serviceOrderId?: string,
+  status?: string
 ) {
   const skip = (page - 1) * limit
   const where: Prisma.ServiceDiagnosisWhereInput = { empresaId }
   if (serviceOrderId) where.serviceOrderId = serviceOrderId
+  if (status) where.status = status as any
 
   const [data, total] = await Promise.all([
     (db as PrismaClient).serviceDiagnosis.findMany({
@@ -170,14 +172,55 @@ export async function addDiagnosisSuggestedPart(
 
 export async function removeDiagnosisFinding(
   db: Db,
+  diagnosisId: string,
   findingId: string,
   empresaId: string
 ) {
+  await findDiagnosisById(db, diagnosisId, empresaId)
   const item = await (db as PrismaClient).diagnosisFinding.findFirst({
-    where: { id: findingId, empresaId },
+    where: { id: findingId, diagnosisId, empresaId },
   })
   if (!item) throw new NotFoundError('Hallazgo no encontrado')
-  return (db as PrismaClient).diagnosisFinding.delete({
-    where: { id: item.id },
+  return (db as PrismaClient).diagnosisFinding.delete({ where: { id: item.id } })
+}
+
+export async function removeDiagnosisSuggestedOp(db: Db, diagnosisId: string, opId: string, empresaId: string) {
+  await findDiagnosisById(db, diagnosisId, empresaId)
+  const item = await (db as PrismaClient).diagnosisSuggestedOperation.findFirst({ where: { id: opId, diagnosisId, empresaId } })
+  if (!item) throw new NotFoundError('Operación sugerida no encontrada')
+  await (db as PrismaClient).diagnosisSuggestedOperation.delete({ where: { id: opId } })
+}
+
+export async function removeDiagnosisSuggestedPart(db: Db, diagnosisId: string, partId: string, empresaId: string) {
+  await findDiagnosisById(db, diagnosisId, empresaId)
+  const item = await (db as PrismaClient).diagnosisSuggestedPart.findFirst({ where: { id: partId, diagnosisId, empresaId } })
+  if (!item) throw new NotFoundError('Repuesto sugerido no encontrado')
+  await (db as PrismaClient).diagnosisSuggestedPart.delete({ where: { id: partId } })
+}
+
+export async function addDiagnosisEvidence(
+  db: Db,
+  diagnosisId: string,
+  empresaId: string,
+  data: { type: string; url: string; description?: string }
+) {
+  await findDiagnosisById(db, diagnosisId, empresaId)
+  return (db as PrismaClient).diagnosisEvidence.create({
+    data: { diagnosisId, empresaId, type: data.type, url: data.url, description: data.description ?? null },
   })
+}
+
+export async function removeDiagnosisEvidence(db: Db, diagnosisId: string, evidenceId: string, empresaId: string) {
+  await findDiagnosisById(db, diagnosisId, empresaId)
+  const item = await (db as PrismaClient).diagnosisEvidence.findFirst({ where: { id: evidenceId, diagnosisId, empresaId } })
+  if (!item) throw new NotFoundError('Evidencia no encontrada')
+  await (db as PrismaClient).diagnosisEvidence.delete({ where: { id: evidenceId } })
+}
+
+export async function removeDiagnosis(db: Db, id: string, empresaId: string) {
+  const item = await findDiagnosisById(db, id, empresaId)
+  if (item.status !== 'DRAFT') {
+    throw new ConflictError('Solo se pueden eliminar diagnósticos en estado DRAFT')
+  }
+  await (db as PrismaClient).serviceDiagnosis.delete({ where: { id } })
 }

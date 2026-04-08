@@ -14,25 +14,41 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { additionalService } from "@/app/api/workshop";
-import type { ServiceOrderAdditional, AdditionalStatus } from "@/libs/interfaces/workshop";
+import type {
+  ServiceOrderAdditional,
+  AdditionalStatus,
+} from "@/libs/interfaces/workshop";
 import AdditionalStatusBadge from "@/components/workshop/shared/AdditionalStatusBadge";
 import AdditionalForm from "./AdditionalForm";
 
 const ADDITIONAL_STATUS_OPTIONS = [
   { label: "Propuesto", value: "PROPOSED" },
-  { label: "Cotizado",  value: "QUOTED" },
-  { label: "Aprobado",  value: "APPROVED" },
+  { label: "Cotizado", value: "QUOTED" },
+  { label: "Aprobado", value: "APPROVED" },
   { label: "Ejecutado", value: "EXECUTED" },
   { label: "Rechazado", value: "REJECTED" },
 ];
 
-const currencyFormatter = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const currencyFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
 
-export default function AdditionalList() {
+interface AdditionalListProps {
+  serviceOrderId?: string;
+  embedded?: boolean;
+}
+
+export default function AdditionalList({
+  serviceOrderId,
+  embedded,
+}: AdditionalListProps) {
   const [items, setItems] = useState<ServiceOrderAdditional[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderAdditional | null>(null);
-  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(null);
+  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(
+    null,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdditionalStatus | "">("");
@@ -49,7 +65,14 @@ export default function AdditionalList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, statusFilter, soIdFilter]);
+  // Use prop serviceOrderId when embedded, otherwise use state filter
+  const finalServiceOrderId = embedded ? serviceOrderId : soIdFilter;
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
+    setPage(0); // Reset to page 1 when filter changes
+    loadItems();
+  }, [searchQuery, statusFilter, finalServiceOrderId, embedded]);
 
   const loadItems = async () => {
     try {
@@ -59,7 +82,7 @@ export default function AdditionalList() {
         limit: rows,
         search: searchQuery || undefined,
         status: (statusFilter as AdditionalStatus) || undefined,
-        serviceOrderId: soIdFilter || undefined,
+        serviceOrderId: finalServiceOrderId || undefined,
       });
       setItems(res.data ?? []);
       setTotalRecords(res.meta?.total ?? 0);
@@ -71,16 +94,30 @@ export default function AdditionalList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: ServiceOrderAdditional) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: ServiceOrderAdditional) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: ServiceOrderAdditional) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: ServiceOrderAdditional) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await additionalService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Trabajo adicional eliminado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Trabajo adicional eliminado",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -96,7 +133,9 @@ export default function AdditionalList() {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: selected?.id ? "Trabajo adicional actualizado" : "Trabajo adicional creado",
+        detail: selected?.id
+          ? "Trabajo adicional actualizado"
+          : "Trabajo adicional creado",
         life: 3000,
       });
       await loadItems();
@@ -105,10 +144,18 @@ export default function AdditionalList() {
     })();
   };
 
-  const handleStatusChange = async (item: ServiceOrderAdditional, newStatus: string) => {
+  const handleStatusChange = async (
+    item: ServiceOrderAdditional,
+    newStatus: string,
+  ) => {
     try {
       await additionalService.updateStatus(item.id, newStatus);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Estado del trabajo actualizado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Estado del trabajo actualizado",
+        life: 3000,
+      });
       await loadItems();
     } catch (error) {
       handleFormError(error, toast);
@@ -141,7 +188,10 @@ export default function AdditionalList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
@@ -154,14 +204,31 @@ export default function AdditionalList() {
     ];
 
     if (item.status === "PROPOSED") {
-      menuItems.push({ label: "Cotizar", icon: "pi pi-file-o", command: () => handleStatusChange(item, "QUOTED") });
+      menuItems.push({
+        label: "Cotizar",
+        icon: "pi pi-file-o",
+        command: () => handleStatusChange(item, "QUOTED"),
+      });
     }
     if (item.status === "QUOTED") {
-      menuItems.push({ label: "Aprobar", icon: "pi pi-check", command: () => handleStatusChange(item, "APPROVED") });
-      menuItems.push({ label: "Rechazar", icon: "pi pi-times", className: "p-menuitem-danger", command: () => handleStatusChange(item, "REJECTED") });
+      menuItems.push({
+        label: "Aprobar",
+        icon: "pi pi-check",
+        command: () => handleStatusChange(item, "APPROVED"),
+      });
+      menuItems.push({
+        label: "Rechazar",
+        icon: "pi pi-times",
+        className: "p-menuitem-danger",
+        command: () => handleStatusChange(item, "REJECTED"),
+      });
     }
     if (item.status === "APPROVED") {
-      menuItems.push({ label: "Marcar Ejecutado", icon: "pi pi-check-circle", command: () => handleStatusChange(item, "EXECUTED") });
+      menuItems.push({
+        label: "Marcar Ejecutado",
+        icon: "pi pi-check-circle",
+        command: () => handleStatusChange(item, "EXECUTED"),
+      });
     }
 
     menuItems.push({ separator: true });
@@ -190,30 +257,50 @@ export default function AdditionalList() {
             type="search"
             placeholder="Buscar descripción..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "14rem" }}
           />
         </span>
         <InputText
           placeholder="Filtrar por ID de OT"
           value={soIdFilter}
-          onChange={(e) => { setSoIdFilter(e.target.value); setPage(0); }}
+          onChange={(e) => {
+            setSoIdFilter(e.target.value);
+            setPage(0);
+          }}
           style={{ width: "14rem" }}
         />
         <Dropdown
           value={statusFilter}
-          options={[{ label: "Todos los estados", value: "" }, ...ADDITIONAL_STATUS_OPTIONS]}
-          onChange={(e) => { setStatusFilter(e.value); setPage(0); }}
+          options={[
+            { label: "Todos los estados", value: "" },
+            ...ADDITIONAL_STATUS_OPTIONS,
+          ]}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Estado"
           style={{ width: "12rem" }}
         />
-        <CreateButton label="Nuevo adicional" onClick={openNew} tooltip="Agregar trabajo adicional" />
+        <CreateButton
+          label="Nuevo adicional"
+          onClick={openNew}
+          tooltip="Agregar trabajo adicional"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -224,7 +311,10 @@ export default function AdditionalList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -233,10 +323,29 @@ export default function AdditionalList() {
           scrollable
           size="small"
         >
-          <Column field="description" header="Descripción" body={descriptionTemplate} style={{ minWidth: "200px" }} />
-          <Column header="Folio OT" body={folioTemplate} style={{ minWidth: "120px" }} />
-          <Column field="estimatedPrice" header="Precio estimado" body={priceTemplate} style={{ minWidth: "140px" }} />
-          <Column field="status" header="Estado" body={statusTemplate} style={{ minWidth: "130px" }} />
+          <Column
+            field="description"
+            header="Descripción"
+            body={descriptionTemplate}
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            header="Folio OT"
+            body={folioTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="estimatedPrice"
+            header="Precio estimado"
+            body={priceTemplate}
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "130px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -260,19 +369,27 @@ export default function AdditionalList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-plus-circle mr-3 text-primary text-3xl" />
-                {selected?.id ? "Editar Trabajo Adicional" : "Nuevo Trabajo Adicional"}
+                {selected?.id
+                  ? "Editar Trabajo Adicional"
+                  : "Nuevo Trabajo Adicional"}
               </h2>
             </div>
           </div>
         }
         modal
         className="p-fluid"
-        onHide={() => { setFormDialog(false); setSelected(null); }}
+        onHide={() => {
+          setFormDialog(false);
+          setSelected(null);
+        }}
         footer={
           <FormActionButtons
             formId="additional-form"
             isUpdate={!!selected?.id}
-            onCancel={() => { setFormDialog(false); setSelected(null); }}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelected(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -289,7 +406,10 @@ export default function AdditionalList() {
       {/* Delete Dialog */}
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.description}
         isDeleting={isDeleting}

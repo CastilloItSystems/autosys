@@ -1,5 +1,5 @@
 // backend/src/features/workshop/appointments/appointments.dto.ts
-import type { AppointmentStatus } from './appointments.interface.js'
+import type { AppointmentStatus, AppointmentOrigin } from './appointments.interface.js'
 
 export class CreateAppointmentDTO {
   customerId: string
@@ -10,6 +10,10 @@ export class CreateAppointmentDTO {
   scheduledDate: Date
   estimatedMinutes?: number
   assignedAdvisorId?: string
+  origin: AppointmentOrigin
+  preDiagnosis?: string
+  preIdentifiedParts?: any
+  estimatedCost?: number
   clientNotes?: string
   internalNotes?: string
 
@@ -22,6 +26,10 @@ export class CreateAppointmentDTO {
     this.scheduledDate = new Date(data.scheduledDate)
     this.estimatedMinutes = data.estimatedMinutes != null ? Number(data.estimatedMinutes) : undefined
     this.assignedAdvisorId = data.assignedAdvisorId ?? undefined
+    this.origin = data.origin ?? 'PRESENTIAL'
+    this.preDiagnosis = data.preDiagnosis?.trim() ?? undefined
+    this.preIdentifiedParts = data.preIdentifiedParts ?? undefined
+    this.estimatedCost = data.estimatedCost != null ? Number(data.estimatedCost) : undefined
     this.clientNotes = data.clientNotes?.trim() ?? undefined
     this.internalNotes = data.internalNotes?.trim() ?? undefined
   }
@@ -35,6 +43,10 @@ export class UpdateAppointmentDTO {
   scheduledDate?: Date
   estimatedMinutes?: number | null
   assignedAdvisorId?: string | null
+  origin?: AppointmentOrigin
+  preDiagnosis?: string | null
+  preIdentifiedParts?: any | null
+  estimatedCost?: number | null
   clientNotes?: string
   internalNotes?: string
 
@@ -46,6 +58,10 @@ export class UpdateAppointmentDTO {
     if (data.scheduledDate !== undefined) this.scheduledDate = new Date(data.scheduledDate)
     if ('estimatedMinutes' in data) this.estimatedMinutes = data.estimatedMinutes != null ? Number(data.estimatedMinutes) : null
     if ('assignedAdvisorId' in data) this.assignedAdvisorId = data.assignedAdvisorId ?? null
+    if (data.origin !== undefined) this.origin = data.origin
+    if ('preDiagnosis' in data) this.preDiagnosis = data.preDiagnosis?.trim() ?? null
+    if ('preIdentifiedParts' in data) this.preIdentifiedParts = data.preIdentifiedParts ?? null
+    if ('estimatedCost' in data) this.estimatedCost = data.estimatedCost != null ? Number(data.estimatedCost) : null
     if (data.clientNotes !== undefined) this.clientNotes = data.clientNotes.trim()
     if (data.internalNotes !== undefined) this.internalNotes = data.internalNotes.trim()
   }
@@ -73,6 +89,10 @@ export class AppointmentResponseDTO {
   scheduledDate: Date
   estimatedMinutes: number | null
   assignedAdvisorId: string | null
+  origin: AppointmentOrigin
+  preDiagnosis: string | null
+  preIdentifiedParts: any | null
+  estimatedCost: number | null
   status: AppointmentStatus
   clientNotes: string | null
   internalNotes: string | null
@@ -94,6 +114,10 @@ export class AppointmentResponseDTO {
     this.scheduledDate = data.scheduledDate
     this.estimatedMinutes = data.estimatedMinutes ?? null
     this.assignedAdvisorId = data.assignedAdvisorId ?? null
+    this.origin = data.origin ?? 'PRESENTIAL'
+    this.preDiagnosis = data.preDiagnosis ?? null
+    this.preIdentifiedParts = data.preIdentifiedParts ?? null
+    this.estimatedCost = data.estimatedCost != null ? Number(data.estimatedCost) : null
     this.status = data.status
     this.clientNotes = data.clientNotes ?? null
     this.internalNotes = data.internalNotes ?? null

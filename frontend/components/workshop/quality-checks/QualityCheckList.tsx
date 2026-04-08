@@ -13,11 +13,26 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { qualityCheckService } from "@/app/api/workshop";
-import type { QualityCheck, QualityCheckStatus } from "@/libs/interfaces/workshop";
+import type {
+  QualityCheck,
+  QualityCheckStatus,
+} from "@/libs/interfaces/workshop";
 import QualityCheckForm from "./QualityCheckForm";
 import QualityCheckSubmitForm from "./QualityCheckSubmitForm";
 
-type TagSeverity = "info" | "success" | "warning" | "danger" | "secondary" | "contrast" | undefined;
+interface QualityCheckListProps {
+  serviceOrderId?: string;
+  embedded?: boolean;
+}
+
+type TagSeverity =
+  | "info"
+  | "success"
+  | "warning"
+  | "danger"
+  | "secondary"
+  | "contrast"
+  | undefined;
 
 const QC_STATUS_LABELS: Record<QualityCheckStatus, string> = {
   PENDING: "Pendiente",
@@ -33,7 +48,10 @@ const QC_STATUS_SEVERITY: Record<QualityCheckStatus, TagSeverity> = {
   FAILED: "danger",
 };
 
-export default function QualityCheckList() {
+export default function QualityCheckList({
+  serviceOrderId,
+  embedded,
+}: QualityCheckListProps) {
   const [items, setItems] = useState<QualityCheck[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<QualityCheck | null>(null);
@@ -49,13 +67,20 @@ export default function QualityCheckList() {
 
   const toast = useRef<Toast>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery]);
+  // Use prop serviceOrderId when embedded
+  const finalServiceOrderId = embedded ? serviceOrderId : searchQuery;
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
+    setPage(0); // Reset to page 1 when filter changes
+    loadItems();
+  }, [finalServiceOrderId, embedded]);
 
   const loadItems = async () => {
     try {
       setLoading(true);
       const res = await qualityCheckService.getAll({
-        serviceOrderId: searchQuery || undefined,
+        serviceOrderId: finalServiceOrderId || undefined,
         page: page + 1,
         limit: rows,
       });
@@ -71,7 +96,12 @@ export default function QualityCheckList() {
 
   const handleCreateSaved = () => {
     (async () => {
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Control de calidad creado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Control de calidad creado",
+        life: 3000,
+      });
       await loadItems();
       setCreateDialog(false);
     })();
@@ -79,7 +109,12 @@ export default function QualityCheckList() {
 
   const handleSubmitSaved = () => {
     (async () => {
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Control de calidad enviado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Control de calidad enviado",
+        life: 3000,
+      });
       await loadItems();
       setSubmitDialog(false);
       setSelected(null);
@@ -89,21 +124,38 @@ export default function QualityCheckList() {
   // ── Templates ──────────────────────────────────────────────────────────────
 
   const statusTemplate = (row: QualityCheck) => (
-    <Tag value={QC_STATUS_LABELS[row.status]} severity={QC_STATUS_SEVERITY[row.status]} rounded />
+    <Tag
+      value={QC_STATUS_LABELS[row.status]}
+      severity={QC_STATUS_SEVERITY[row.status]}
+      rounded
+    />
   );
 
   const orderTemplate = (row: QualityCheck) =>
     row.serviceOrder ? (
       <span className="font-bold text-primary">{row.serviceOrder.folio}</span>
-    ) : <span className="text-500 text-sm">{row.serviceOrderId.slice(0, 8)}…</span>;
+    ) : (
+      <span className="text-500 text-sm">
+        {row.serviceOrderId.slice(0, 8)}…
+      </span>
+    );
 
   const checklistTemplate = (row: QualityCheck) => {
     if (!row.totalItems) return <span className="text-500">Sin checklist</span>;
     const pct = Math.round((row.passedItems / row.totalItems) * 100);
     return (
-      <div className="flex align-items-center gap-2" style={{ minWidth: "120px" }}>
-        <ProgressBar value={pct} showValue={false} style={{ height: "8px", flex: 1 }} />
-        <span className="text-sm font-medium">{row.passedItems}/{row.totalItems}</span>
+      <div
+        className="flex align-items-center gap-2"
+        style={{ minWidth: "120px" }}
+      >
+        <ProgressBar
+          value={pct}
+          showValue={false}
+          style={{ height: "8px", flex: 1 }}
+        />
+        <span className="text-sm font-medium">
+          {row.passedItems}/{row.totalItems}
+        </span>
       </div>
     );
   };
@@ -111,20 +163,37 @@ export default function QualityCheckList() {
   const retryTemplate = (row: QualityCheck) =>
     row.retryCount > 0 ? (
       <Tag value={`Intento ${row.retryCount}`} severity="warning" rounded />
-    ) : <span className="text-500">—</span>;
+    ) : (
+      <span className="text-500">—</span>
+    );
 
   const dateTemplate = (row: QualityCheck) =>
-    new Date(row.createdAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" });
+    new Date(row.createdAt).toLocaleDateString("es-MX", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+    });
 
   const actionsTemplate = (row: QualityCheck) => (
     <Button
       icon="pi pi-clipboard"
       rounded
       text
-      severity={row.status === "IN_PROGRESS" || row.status === "PENDING" ? "warning" : "secondary"}
+      severity={
+        row.status === "IN_PROGRESS" || row.status === "PENDING"
+          ? "warning"
+          : "secondary"
+      }
       disabled={row.status === "PASSED" || row.status === "FAILED"}
-      onClick={() => { setSelected({ ...row }); setSubmitDialog(true); }}
-      tooltip={row.status === "PASSED" || row.status === "FAILED" ? "Ya cerrado" : "Revisar / Enviar resultado"}
+      onClick={() => {
+        setSelected({ ...row });
+        setSubmitDialog(true);
+      }}
+      tooltip={
+        row.status === "PASSED" || row.status === "FAILED"
+          ? "Ya cerrado"
+          : "Revisar / Enviar resultado"
+      }
       tooltipOptions={{ position: "left" }}
     />
   );
@@ -142,17 +211,28 @@ export default function QualityCheckList() {
             type="search"
             placeholder="ID de orden..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "14rem" }}
           />
         </span>
-        <CreateButton label="Nueva revisión" onClick={() => setCreateDialog(true)} tooltip="Crear control de calidad" />
+        <CreateButton
+          label="Nueva revisión"
+          onClick={() => setCreateDialog(true)}
+          tooltip="Crear control de calidad"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -163,7 +243,10 @@ export default function QualityCheckList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -172,12 +255,39 @@ export default function QualityCheckList() {
           scrollable
           size="small"
         >
-          <Column header="OT" body={orderTemplate} style={{ minWidth: "120px" }} />
-          <Column field="status" header="Estado" body={statusTemplate} style={{ minWidth: "120px" }} />
-          <Column field="inspectorId" header="Inspector" style={{ minWidth: "160px" }} />
-          <Column header="Checklist" body={checklistTemplate} style={{ minWidth: "160px" }} />
-          <Column header="Reintentos" body={retryTemplate} style={{ minWidth: "110px" }} />
-          <Column field="createdAt" header="Fecha" body={dateTemplate} sortable style={{ minWidth: "110px" }} />
+          <Column
+            header="OT"
+            body={orderTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="inspectorId"
+            header="Inspector"
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            header="Checklist"
+            body={checklistTemplate}
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            header="Reintentos"
+            body={retryTemplate}
+            style={{ minWidth: "110px" }}
+          />
+          <Column
+            field="createdAt"
+            header="Fecha"
+            body={dateTemplate}
+            sortable
+            style={{ minWidth: "110px" }}
+          />
           <Column
             header="Revisar"
             body={actionsTemplate}
@@ -244,12 +354,18 @@ export default function QualityCheckList() {
         }
         modal
         className="p-fluid"
-        onHide={() => { setSubmitDialog(false); setSelected(null); }}
+        onHide={() => {
+          setSubmitDialog(false);
+          setSelected(null);
+        }}
         footer={
           <FormActionButtons
             formId="quality-check-submit-form"
             isUpdate={false}
-            onCancel={() => { setSubmitDialog(false); setSelected(null); }}
+            onCancel={() => {
+              setSubmitDialog(false);
+              setSelected(null);
+            }}
             isSubmitting={isSubmitting}
             submitLabel="Enviar resultado"
           />

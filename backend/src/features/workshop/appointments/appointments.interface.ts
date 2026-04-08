@@ -1,6 +1,11 @@
 // backend/src/features/workshop/appointments/appointments.interface.ts
 
-export type AppointmentStatus = 'SCHEDULED' | 'CONFIRMED' | 'ARRIVED' | 'COMPLETED' | 'NO_SHOW' | 'CANCELLED'
+export type AppointmentStatus =
+  | 'SCHEDULED' | 'CONFIRMED' | 'ARRIVED' | 'COMPLETED'
+  | 'NO_SHOW' | 'CANCELLED' | 'RESCHEDULED' | 'WAITING'
+
+export type AppointmentOrigin =
+  | 'PHONE' | 'SOCIAL_MEDIA' | 'PRESENTIAL' | 'WEB' | 'CRM'
 
 export interface IAppointment {
   id: string
@@ -13,6 +18,10 @@ export interface IAppointment {
   scheduledDate: Date
   estimatedMinutes?: number | null
   assignedAdvisorId?: string | null
+  origin: AppointmentOrigin
+  preDiagnosis?: string | null
+  preIdentifiedParts?: any | null
+  estimatedCost?: number | null
   status: AppointmentStatus
   clientNotes?: string | null
   internalNotes?: string | null
@@ -31,6 +40,10 @@ export interface ICreateAppointmentInput {
   scheduledDate: Date
   estimatedMinutes?: number
   assignedAdvisorId?: string
+  origin?: AppointmentOrigin
+  preDiagnosis?: string
+  preIdentifiedParts?: any
+  estimatedCost?: number
   clientNotes?: string
   internalNotes?: string
 }
@@ -43,6 +56,10 @@ export interface IUpdateAppointmentInput {
   scheduledDate?: Date
   estimatedMinutes?: number | null
   assignedAdvisorId?: string | null
+  origin?: AppointmentOrigin
+  preDiagnosis?: string | null
+  preIdentifiedParts?: any | null
+  estimatedCost?: number | null
   clientNotes?: string
   internalNotes?: string
 }

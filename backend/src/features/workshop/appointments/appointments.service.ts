@@ -26,12 +26,14 @@ type Db =
     >
 
 const VALID_TRANSITIONS: Record<AppointmentStatus, AppointmentStatus[]> = {
-  SCHEDULED: ['CONFIRMED', 'ARRIVED', 'NO_SHOW', 'CANCELLED'],
-  CONFIRMED: ['ARRIVED', 'NO_SHOW', 'CANCELLED'],
-  ARRIVED: ['COMPLETED', 'CANCELLED'],
-  COMPLETED: [],
-  NO_SHOW: ['SCHEDULED'], // permite re-agendar
-  CANCELLED: [],
+  SCHEDULED:   ['CONFIRMED', 'ARRIVED', 'NO_SHOW', 'CANCELLED', 'RESCHEDULED', 'WAITING'],
+  CONFIRMED:   ['ARRIVED', 'NO_SHOW', 'CANCELLED', 'RESCHEDULED'],
+  ARRIVED:     ['COMPLETED', 'CANCELLED'],
+  COMPLETED:   [],
+  NO_SHOW:     ['SCHEDULED', 'RESCHEDULED'],
+  CANCELLED:   [],
+  RESCHEDULED: ['SCHEDULED', 'CONFIRMED', 'CANCELLED'],
+  WAITING:     ['SCHEDULED', 'CANCELLED'],
 }
 
 const INCLUDE = {
@@ -181,6 +183,10 @@ export async function createAppointment(
       scheduledDate: data.scheduledDate,
       estimatedMinutes: data.estimatedMinutes ?? null,
       assignedAdvisorId: data.assignedAdvisorId ?? null,
+      origin: data.origin ?? 'PRESENTIAL',
+      preDiagnosis: data.preDiagnosis ?? null,
+      preIdentifiedParts: data.preIdentifiedParts ?? undefined,
+      estimatedCost: data.estimatedCost ?? null,
       clientNotes: data.clientNotes ?? null,
       internalNotes: data.internalNotes ?? null,
       createdBy: userId,
@@ -258,9 +264,9 @@ export async function updateAppointmentStatus(
 
 export async function deleteAppointment(db: Db, id: string, empresaId: string) {
   const existing = await findAppointmentById(db, id, empresaId)
-  if (!['SCHEDULED', 'CANCELLED'].includes(existing.status)) {
+  if (!['SCHEDULED', 'CANCELLED', 'RESCHEDULED', 'WAITING'].includes(existing.status)) {
     throw new BadRequestError(
-      'Solo se pueden eliminar citas en estado SCHEDULED o CANCELLED'
+      'Solo se pueden eliminar citas en estado SCHEDULED, WAITING, RESCHEDULED o CANCELLED'
     )
   }
   // Verificar que no tenga OT asociada

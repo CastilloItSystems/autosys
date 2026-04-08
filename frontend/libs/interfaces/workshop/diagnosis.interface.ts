@@ -1,6 +1,7 @@
 // libs/interfaces/workshop/diagnosis.interface.ts
 
-export type DiagnosisStatus = 'DRAFT' | 'IN_PROGRESS' | 'COMPLETED' | 'APPROVED'
+// Alineado con el backend: DRAFT | COMPLETED | APPROVED_INTERNAL
+export type DiagnosisStatus = 'DRAFT' | 'COMPLETED' | 'APPROVED_INTERNAL'
 
 export type DiagnosisFindingSeverity = 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
 
@@ -11,7 +12,18 @@ export interface DiagnosisFinding {
   description: string
   severity: DiagnosisFindingSeverity
   requiresClientAuth: boolean
+  isHiddenFinding: boolean
+  clientApproved?: boolean | null
   observation?: string | null
+  createdAt?: string
+}
+
+export interface DiagnosisEvidence {
+  id: string
+  diagnosisId: string
+  type: string // 'photo' | 'video' | 'document'
+  url: string
+  description?: string | null
   createdAt?: string
 }
 
@@ -57,11 +69,14 @@ export interface Diagnosis {
   generalNotes?: string | null
   severity?: DiagnosisFindingSeverity | null
   status: DiagnosisStatus
+  startedAt?: string | null
+  finishedAt?: string | null
   reception?: DiagnosisReceptionRef | null
   serviceOrder?: DiagnosisServiceOrderRef | null
   technician?: DiagnosisTechnicianRef | null
   findings?: DiagnosisFinding[]
-  suggestedOps?: DiagnosisSuggestedOp[]
+  evidences?: DiagnosisEvidence[]
+  suggestedOperations?: DiagnosisSuggestedOp[]
   suggestedParts?: DiagnosisSuggestedPart[]
   createdAt: string
   updatedAt: string
@@ -98,6 +113,7 @@ export interface CreateFindingInput {
   description: string
   severity: DiagnosisFindingSeverity
   requiresClientAuth?: boolean
+  isHiddenFinding?: boolean
   observation?: string
 }
 

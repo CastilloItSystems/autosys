@@ -19,6 +19,7 @@ import {
 import activityService from "@/app/api/crm/activityService";
 import customerCrmService from "@/app/api/crm/customerCrmService";
 import { handleFormError } from "@/utils/errorHandlers";
+import UserSelector from "@/components/common/UserSelector";
 
 interface Props {
   activity?: Activity | null;
@@ -40,13 +41,23 @@ export default function ActivityForm({
   toast,
 }: Props) {
   const isEditing = !!activity;
-  const [customers, setCustomers] = React.useState<{ label: string; value: string }[]>([]);
+  const [customers, setCustomers] = React.useState<
+    { label: string; value: string }[]
+  >([]);
 
   React.useEffect(() => {
-    customerCrmService.getActive().then((res) => {
-      const list = (res as any)?.data ?? res ?? [];
-      setCustomers(list.map((c: any) => ({ label: `${c.name} (${c.code})`, value: c.id })));
-    }).catch(() => {});
+    customerCrmService
+      .getActive()
+      .then((res) => {
+        const list = (res as any)?.data ?? res ?? [];
+        setCustomers(
+          list.map((c: any) => ({
+            label: `${c.name} (${c.code})`,
+            value: c.id,
+          })),
+        );
+      })
+      .catch(() => {});
   }, []);
 
   const {
@@ -95,13 +106,18 @@ export default function ActivityForm({
   };
 
   return (
-    <form id={formId || "activity-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "activity-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid row-gap-2">
-
         {/* Cliente */}
         {!defaultCustomerId && (
           <div className="col-12 field">
-            <label className="font-semibold">Cliente <span className="text-red-500">*</span></label>
+            <label className="font-semibold">
+              Cliente <span className="text-red-500">*</span>
+            </label>
             <Controller
               name="customerId"
               control={control}
@@ -118,24 +134,32 @@ export default function ActivityForm({
                 />
               )}
             />
-            {errors.customerId && <small className="p-error">{errors.customerId.message}</small>}
+            {errors.customerId && (
+              <small className="p-error">{errors.customerId.message}</small>
+            )}
           </div>
         )}
 
         {/* Título */}
         <div className="col-12 field">
-          <label className="font-semibold">Título <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Título <span className="text-red-500">*</span>
+          </label>
           <InputText
             {...register("title")}
             placeholder="Ej: Llamar para seguimiento"
             className={errors.title ? "p-invalid" : ""}
           />
-          {errors.title && <small className="p-error">{errors.title.message}</small>}
+          {errors.title && (
+            <small className="p-error">{errors.title.message}</small>
+          )}
         </div>
 
         {/* Tipo + Vencimiento */}
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Tipo <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Tipo <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="type"
             control={control}
@@ -151,11 +175,15 @@ export default function ActivityForm({
               />
             )}
           />
-          {errors.type && <small className="p-error">{errors.type.message}</small>}
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Fecha Límite <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Fecha Límite <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="dueAt"
             control={control}
@@ -173,18 +201,30 @@ export default function ActivityForm({
               />
             )}
           />
-          {errors.dueAt && <small className="p-error">{errors.dueAt.message}</small>}
+          {errors.dueAt && (
+            <small className="p-error">{errors.dueAt.message}</small>
+          )}
         </div>
 
         {/* Asignado a */}
         <div className="col-12 field">
-          <label className="font-semibold">Asignado a (User ID) <span className="text-red-500">*</span></label>
-          <InputText
-            {...register("assignedTo")}
-            placeholder="UUID del usuario responsable"
-            className={errors.assignedTo ? "p-invalid" : ""}
+          <label className="font-semibold">
+            Asignado a <span className="text-red-500">*</span>
+          </label>
+          <Controller
+            name="assignedTo"
+            control={control}
+            render={({ field }) => (
+              <UserSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.assignedTo}
+              />
+            )}
           />
-          {errors.assignedTo && <small className="p-error">{errors.assignedTo.message}</small>}
+          {errors.assignedTo && (
+            <small className="p-error">{errors.assignedTo.message}</small>
+          )}
         </div>
 
         {/* Descripción */}
@@ -196,7 +236,6 @@ export default function ActivityForm({
             placeholder="Detalles adicionales de la actividad"
           />
         </div>
-
       </div>
     </form>
   );

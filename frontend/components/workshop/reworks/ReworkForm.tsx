@@ -8,8 +8,15 @@ import { InputNumber } from "primereact/inputnumber";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
 import { reworkService } from "@/app/api/workshop";
-import { createReworkSchema, updateReworkSchema } from "@/libs/zods/workshop/reworkZod";
-import type { CreateReworkForm, UpdateReworkForm } from "@/libs/zods/workshop/reworkZod";
+import TechnicianSelector from "@/components/common/TechnicianSelector";
+import {
+  createReworkSchema,
+  updateReworkSchema,
+} from "@/libs/zods/workshop/reworkZod";
+import type {
+  CreateReworkForm,
+  UpdateReworkForm,
+} from "@/libs/zods/workshop/reworkZod";
 import type { WorkshopRework } from "@/libs/interfaces/workshop";
 
 interface Props {
@@ -20,7 +27,13 @@ interface Props {
   toast: React.RefObject<any>;
 }
 
-export default function ReworkForm({ rework, onSave, formId, onSubmittingChange, toast }: Props) {
+export default function ReworkForm({
+  rework,
+  onSave,
+  formId,
+  onSubmittingChange,
+  toast,
+}: Props) {
   const isUpdate = !!rework?.id;
   const [isLoading, setIsLoading] = useState(true);
 
@@ -126,22 +139,41 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
 
   // ── UPDATE form ────────────────────────────────────────────────────────
   if (isUpdate) {
-    const { control, handleSubmit, formState: { errors } } = updateForm;
+    const {
+      control,
+      handleSubmit,
+      formState: { errors },
+    } = updateForm;
     return (
-      <form id={formId ?? "rework-form"} onSubmit={handleSubmit(onUpdateSubmit)} className="p-fluid">
+      <form
+        id={formId ?? "rework-form"}
+        onSubmit={handleSubmit(onUpdateSubmit)}
+        className="p-fluid"
+      >
         <div className="grid">
           {/* Info bar */}
           <div className="col-12">
             <div className="p-3 surface-100 border-round flex gap-4 text-sm mb-1 flex-wrap">
-              <span><b>OT original:</b> {rework.originalOrder?.folio ?? rework.originalOrderId.slice(0, 8) + "..."}</span>
-              <span><b>Estado:</b> {rework.status}</span>
-              <span><b>Creado por:</b> {rework.createdBy}</span>
+              <span>
+                <b>OT original:</b>{" "}
+                {rework.originalOrder?.folio ??
+                  rework.originalOrderId.slice(0, 8) + "..."}
+              </span>
+              <span>
+                <b>Estado:</b> {rework.status}
+              </span>
+              <span>
+                <b>Creado por:</b> {rework.createdBy}
+              </span>
             </div>
           </div>
 
           {/* Causa raíz */}
           <div className="col-12">
-            <label htmlFor="rootCause" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="rootCause"
+              className="block text-900 font-medium mb-2"
+            >
               Causa raíz
             </label>
             <Controller
@@ -157,23 +189,25 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
                 />
               )}
             />
-            {errors.rootCause && <small className="p-error block mt-1">{errors.rootCause.message}</small>}
+            {errors.rootCause && (
+              <small className="p-error block mt-1">
+                {errors.rootCause.message}
+              </small>
+            )}
           </div>
 
           {/* Técnico */}
           <div className="col-12 md:col-6">
-            <label htmlFor="technicianId" className="block text-900 font-medium mb-2">
-              ID Técnico responsable
+            <label className="block text-900 font-medium mb-2">
+              Técnico responsable
             </label>
             <Controller
               name="technicianId"
               control={control}
               render={({ field }) => (
-                <InputText
-                  id="technicianId"
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="ID del técnico asignado"
+                <TechnicianSelector
+                  value={field.value}
+                  onChange={field.onChange}
                 />
               )}
             />
@@ -181,7 +215,10 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
 
           {/* OT Retrabajo */}
           <div className="col-12 md:col-6">
-            <label htmlFor="reworkOrderId" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="reworkOrderId"
+              className="block text-900 font-medium mb-2"
+            >
               ID OT de retrabajo generada
             </label>
             <Controller
@@ -200,7 +237,10 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
 
           {/* Costo estimado */}
           <div className="col-12 md:col-6">
-            <label htmlFor="estimatedCost" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="estimatedCost"
+              className="block text-900 font-medium mb-2"
+            >
               Costo estimado (MXN)
             </label>
             <Controller
@@ -219,12 +259,19 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
                 />
               )}
             />
-            {errors.estimatedCost && <small className="p-error block mt-1">{errors.estimatedCost.message}</small>}
+            {errors.estimatedCost && (
+              <small className="p-error block mt-1">
+                {errors.estimatedCost.message}
+              </small>
+            )}
           </div>
 
           {/* Costo real */}
           <div className="col-12 md:col-6">
-            <label htmlFor="realCost" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="realCost"
+              className="block text-900 font-medium mb-2"
+            >
               Costo real (MXN)
             </label>
             <Controller
@@ -243,7 +290,11 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
                 />
               )}
             />
-            {errors.realCost && <small className="p-error block mt-1">{errors.realCost.message}</small>}
+            {errors.realCost && (
+              <small className="p-error block mt-1">
+                {errors.realCost.message}
+              </small>
+            )}
           </div>
 
           {/* Notas */}
@@ -264,7 +315,11 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
                 />
               )}
             />
-            {errors.notes && <small className="p-error block mt-1">{errors.notes.message}</small>}
+            {errors.notes && (
+              <small className="p-error block mt-1">
+                {errors.notes.message}
+              </small>
+            )}
           </div>
         </div>
       </form>
@@ -272,13 +327,24 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
   }
 
   // ── CREATE form ────────────────────────────────────────────────────────
-  const { control, handleSubmit, formState: { errors } } = createForm;
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = createForm;
   return (
-    <form id={formId ?? "rework-form"} onSubmit={handleSubmit(onCreateSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "rework-form"}
+      onSubmit={handleSubmit(onCreateSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
         {/* OT Original */}
         <div className="col-12">
-          <label htmlFor="originalOrderId" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="originalOrderId"
+            className="block text-900 font-medium mb-2"
+          >
             ID Orden de Trabajo original <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -294,7 +360,9 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
             )}
           />
           {errors.originalOrderId && (
-            <small className="p-error block mt-1">{errors.originalOrderId.message}</small>
+            <small className="p-error block mt-1">
+              {errors.originalOrderId.message}
+            </small>
           )}
         </div>
 
@@ -317,13 +385,18 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
             )}
           />
           {errors.motive && (
-            <small className="p-error block mt-1">{errors.motive.message}</small>
+            <small className="p-error block mt-1">
+              {errors.motive.message}
+            </small>
           )}
         </div>
 
         {/* Causa raíz */}
         <div className="col-12">
-          <label htmlFor="rootCause" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="rootCause"
+            className="block text-900 font-medium mb-2"
+          >
             Causa raíz (preliminar)
           </label>
           <Controller
@@ -340,24 +413,24 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
             )}
           />
           {errors.rootCause && (
-            <small className="p-error block mt-1">{errors.rootCause.message}</small>
+            <small className="p-error block mt-1">
+              {errors.rootCause.message}
+            </small>
           )}
         </div>
 
         {/* Técnico */}
         <div className="col-12 md:col-6">
-          <label htmlFor="technicianId" className="block text-900 font-medium mb-2">
-            ID Técnico responsable
+          <label className="block text-900 font-medium mb-2">
+            Técnico responsable
           </label>
           <Controller
             name="technicianId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="technicianId"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="ID del técnico asignado (opcional)"
+              <TechnicianSelector
+                value={field.value}
+                onChange={field.onChange}
               />
             )}
           />
@@ -365,7 +438,10 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
 
         {/* Costo estimado */}
         <div className="col-12 md:col-6">
-          <label htmlFor="estimatedCost" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="estimatedCost"
+            className="block text-900 font-medium mb-2"
+          >
             Costo estimado (MXN)
           </label>
           <Controller
@@ -385,7 +461,9 @@ export default function ReworkForm({ rework, onSave, formId, onSubmittingChange,
             )}
           />
           {errors.estimatedCost && (
-            <small className="p-error block mt-1">{errors.estimatedCost.message}</small>
+            <small className="p-error block mt-1">
+              {errors.estimatedCost.message}
+            </small>
           )}
         </div>
 

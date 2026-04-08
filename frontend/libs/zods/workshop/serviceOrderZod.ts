@@ -7,9 +7,14 @@ const itemSchema = z.object({
   description: z.string().min(1, 'La descripción es requerida').max(500),
   quantity: z.number({ invalid_type_error: 'Debe ser un número' }).min(0.01, 'Debe ser > 0'),
   unitPrice: z.number({ invalid_type_error: 'Debe ser un número' }).min(0, 'Debe ser >= 0'),
+  unitCost: z.number().min(0).default(0),
   discountPct: z.number().min(0).max(100).default(0),
+  taxType: z.enum(['IVA', 'EXEMPT', 'REDUCED']).default('IVA'),
+  taxRate: z.number().min(0).max(1).default(0.16),
   operationId: z.string().nullable().optional(),
   itemId: z.string().nullable().optional(),
+  technicianId: z.string().nullable().optional(),
+  notes: z.string().max(1000).nullable().optional(),
 })
 
 export const createServiceOrderSchema = z.object({

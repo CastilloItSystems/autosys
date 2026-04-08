@@ -9,6 +9,10 @@ import {
   updateServiceOrder,
   updateServiceOrderStatus,
   deleteServiceOrder,
+  syncMaterialsToItems,
+  generateConsolidatedPreInvoice,
+  getPendingBillingByCustomer,
+  getStalledOrders,
 } from './serviceOrders.service.js'
 import {
   CreateServiceOrderDTO,
@@ -26,6 +30,7 @@ import {
   generatePreInvoiceFromServiceOrder,
   bulkGeneratePreInvoices,
   getBillingAuditTrail,
+  getBudgetInvoiceVariance,
 } from '../integrations/so-invoice-generator.service.js'
 
 export const getAll = async (req: Request, res: Response) => {
@@ -36,7 +41,13 @@ export const getAll = async (req: Request, res: Response) => {
     req.validatedQuery as any
   )
   const items = result.data.map((o) => new ServiceOrderResponseDTO(o))
-  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
+  return ApiResponse.paginated(
+    res,
+    items,
+    result.page,
+    result.limit,
+    result.total
+  )
 }
 
 export const getOne = async (req: Request, res: Response) => {
@@ -50,23 +61,107 @@ export const getOne = async (req: Request, res: Response) => {
 }
 
 export const create = async (req: Request, res: Response) => {
-  const empresaId = req.empresaId!
-  const userId = (req as any).user?.id as string
-  const dto = new CreateServiceOrderDTO(req.body)
-  const order = await createServiceOrder(prisma, empresaId, userId, dto)
-  return ApiResponse.created(res, new ServiceOrderResponseDTO(order))
+  try {
+    const empresaId = req.empresaId!
+    const userId = (req as any).user?.userId as string
+    const dto = new CreateServiceOrderDTO(req.body)
+    const order = await createServiceOrder(prisma, empresaId, userId, dto)
+    return ApiResponse.created(res, new ServiceOrderResponseDTO(order))
+  } catch (error: any) {
+    console.error('Error creating service order:', error)
+
+    // Prisma specific errors
+    if (error.code === 'P2002') {
+      return ApiResponse.error(
+        res,
+        `Violación de restricción única: ${error.meta?.target?.join(', ')}`,
+        409
+      )
+    }
+    if (error.code === 'P2025') {
+      return ApiResponse.error(res, 'Registro no encontrado', 404)
+    }
+    if (error.code === 'P2003') {
+      return ApiResponse.error(
+        res,
+        `Referencia inválida: ${error.meta?.field_name}`,
+        400
+      )
+    }
+    if (error.code === 'P2014') {
+      return ApiResponse.error(
+        res,
+        'No se puede eliminar debido a relaciones',
+        400
+      )
+    }
+
+    // Validation errors
+    if (error.details) {
+      return ApiResponse.error(
+        res,
+        `Validación: ${error.message}\nDetalles: ${JSON.stringify(error.details)}`,
+        400
+      )
+    }
+
+    // Generic error
+    return ApiResponse.error(
+      res,
+      error.message || 'Error al crear la orden de servicio',
+      500
+    )
+  }
 }
 
 export const update = async (req: Request, res: Response) => {
-  const empresaId = req.empresaId!
-  const dto = new UpdateServiceOrderDTO(req.body)
-  const order = await updateServiceOrder(
-    prisma,
-    req.params.id as string,
-    empresaId,
-    dto
-  )
-  return ApiResponse.success(res, new ServiceOrderResponseDTO(order))
+  try {
+    const empresaId = req.empresaId!
+    const dto = new UpdateServiceOrderDTO(req.body)
+    const order = await updateServiceOrder(
+      prisma,
+      req.params.id as string,
+      empresaId,
+      dto
+    )
+    return ApiResponse.success(res, new ServiceOrderResponseDTO(order))
+  } catch (error: any) {
+    console.error('Error updating service order:', error)
+
+    // Prisma specific errors
+    if (error.code === 'P2002') {
+      return ApiResponse.error(
+        res,
+        `Violación de restricción única: ${error.meta?.target?.join(', ')}`,
+        409
+      )
+    }
+    if (error.code === 'P2025') {
+      return ApiResponse.error(res, 'Registro no encontrado', 404)
+    }
+    if (error.code === 'P2003') {
+      return ApiResponse.error(
+        res,
+        `Referencia inválida: ${error.meta?.field_name}`,
+        400
+      )
+    }
+
+    // Validation errors
+    if (error.details) {
+      return ApiResponse.error(
+        res,
+        `Validación: ${error.message}\nDetalles: ${JSON.stringify(error.details)}`,
+        400
+      )
+    }
+
+    return ApiResponse.error(
+      res,
+      error.message || 'Error al actualizar la orden de servicio',
+      500
+    )
+  }
 }
 
 export const updateStatus = async (req: Request, res: Response) => {
@@ -96,7 +191,7 @@ export const remove = async (req: Request, res: Response) => {
  * Result: Quote.status → CONVERTED, new ServiceOrder created with status=DRAFT
  */
 export const convertFromQuote = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id as string
+  const userId = (req as any).user?.userId as string
   const quoteId = req.params.quoteId as string
 
   const serviceOrder = await convertQuoteToServiceOrder(prisma, quoteId, userId)
@@ -212,4 +307,66 @@ export const getBillingTrail = async (req: Request, res: Response) => {
       error instanceof Error ? error.message : 'Error retrieving billing trail'
     return ApiResponse.error(res, message, 400)
   }
+}
+
+// M3: Sincronizar materiales consumidos como ítems facturables
+export const syncMaterials = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const userId = (req as any).user?.userId as string
+  const result = await syncMaterialsToItems(
+    prisma,
+    req.params.id as string,
+    empresaId,
+    userId
+  )
+  return ApiResponse.success(res, result)
+}
+
+// M1: Generar prefactura consolidada para varias OTs
+export const generateConsolidated = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const userId = (req as any).user?.userId as string
+  const { serviceOrderIds } = req.body as { serviceOrderIds: string[] }
+  const preInvoice = await generateConsolidatedPreInvoice(
+    prisma,
+    serviceOrderIds,
+    empresaId,
+    userId
+  )
+  return ApiResponse.created(res, preInvoice, 'Prefactura consolidada generada')
+}
+
+// B2: Saldo pendiente de facturación por cliente
+export const pendingBilling = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const customerId = req.params.customerId as string
+  const result = await getPendingBillingByCustomer(
+    prisma,
+    customerId,
+    empresaId
+  )
+  return ApiResponse.success(res, result)
+}
+
+// F3-12: Conciliación presupuesto vs factura
+export const getVariance = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const result = await getBudgetInvoiceVariance(
+    prisma,
+    req.params.id as string,
+    empresaId
+  )
+  return ApiResponse.success(res, result)
+}
+
+// B3: OTs estancadas
+export const stalled = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const q = req.validatedQuery as any
+  const result = await getStalledOrders(prisma, empresaId, {
+    waitingPartsDays: q.waitingPartsDays ?? 3,
+    pausedDays: q.pausedDays ?? 2,
+    waitingAuthDays: q.waitingAuthDays ?? 1,
+  })
+  return ApiResponse.success(res, result)
 }

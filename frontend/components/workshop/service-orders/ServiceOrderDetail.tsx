@@ -10,7 +10,7 @@ import { motion } from "framer-motion";
 import { serviceOrderService } from "@/app/api/workshop";
 import type { ServiceOrder } from "@/libs/interfaces/workshop";
 import { handleFormError } from "@/utils/errorHandlers";
-import ServiceOrderStatusBadge from "@/components/workshop/shared/ServiceOrderStatusBadge";
+import { ServiceOrderStatusBadge } from "@/components/workshop/shared/ServiceOrderStatusBadge";
 import ServiceOrderSummaryTab from "./ServiceOrderSummaryTab";
 import AttachmentPanel from "@/components/workshop/shared/AttachmentPanel";
 import AuditLogPanel from "@/components/workshop/shared/AuditLogPanel";
@@ -33,13 +33,23 @@ const LaborTimeList = React.lazy(
 const QualityCheckList = React.lazy(
   () => import("@/components/workshop/quality-checks/QualityCheckList")
 );
+const TOTList = React.lazy(
+  () => import("@/components/workshop/tot/TOTList")
+);
+const GaritaList = React.lazy(
+  () => import("@/components/workshop/garita/GaritaList")
+);
 
 interface ServiceOrderDetailProps {
   serviceOrderId: string;
+  onClose?: () => void;
+  embedded?: boolean;
 }
 
 export default function ServiceOrderDetail({
   serviceOrderId,
+  onClose,
+  embedded = false,
 }: ServiceOrderDetailProps) {
   const [serviceOrder, setServiceOrder] = useState<ServiceOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -63,10 +73,15 @@ export default function ServiceOrderDetail({
     }
   };
 
+  const handleBack = () => {
+    if (onClose) onClose();
+    else router.push("/empresa/workshop/service-orders");
+  };
+
   const breadcrumbItems = [
     {
       label: "Órdenes de Trabajo",
-      command: () => router.push("/empresa/workshop/service-orders"),
+      command: handleBack,
     },
     { label: serviceOrder?.folio ?? "Cargando..." },
   ];
@@ -92,7 +107,7 @@ export default function ServiceOrderDetail({
         <Button
           label="Volver al listado"
           icon="pi pi-arrow-left"
-          onClick={() => router.push("/empresa/workshop/service-orders")}
+          onClick={handleBack}
         />
       </div>
     );
@@ -107,79 +122,82 @@ export default function ServiceOrderDetail({
     >
       <Toast ref={toast} />
 
-      {/* Breadcrumb */}
-      <BreadCrumb
-        model={breadcrumbItems}
-        home={breadcrumbHome}
-        className="mb-3 border-none p-0 bg-transparent"
-      />
-
-      {/* Header */}
-      <div className="card mb-3">
-        <div className="flex flex-wrap justify-content-between align-items-start gap-3">
-          <div className="flex align-items-start gap-2">
-            <Button
-              icon="pi pi-arrow-left"
-              text
-              rounded
-              onClick={() => router.push("/empresa/workshop/service-orders")}
-              tooltip="Volver"
-              tooltipOptions={{ position: "right" }}
-            />
-            <div>
-              <div className="flex align-items-center gap-2 mb-1">
-                <h2 className="text-2xl font-bold text-900 m-0">
-                  {serviceOrder.folio}
-                </h2>
-                <ServiceOrderStatusBadge status={serviceOrder.status} />
-              </div>
-              <div className="flex flex-wrap gap-3 text-600 text-sm">
-                {serviceOrder.customer && (
-                  <span>
-                    <i className="pi pi-user mr-1" />
-                    {serviceOrder.customer.name}
-                  </span>
-                )}
-                {serviceOrder.vehiclePlate && (
-                  <span>
-                    <i className="pi pi-car mr-1" />
-                    {serviceOrder.vehiclePlate}
-                    {serviceOrder.vehicleDesc && ` — ${serviceOrder.vehicleDesc}`}
-                  </span>
-                )}
-                {serviceOrder.estimatedDelivery && (
-                  <span>
-                    <i className="pi pi-calendar mr-1" />
-                    Prometido:{" "}
-                    {new Date(serviceOrder.estimatedDelivery).toLocaleDateString(
-                      "es-MX"
+      {/* Breadcrumb + Header — hidden in embedded/modal mode */}
+      {!embedded && (
+        <>
+          <BreadCrumb
+            model={breadcrumbItems}
+            home={breadcrumbHome}
+            className="mb-3 border-none p-0 bg-transparent"
+          />
+          <div className="card mb-3">
+            <div className="flex flex-wrap justify-content-between align-items-start gap-3">
+              <div className="flex align-items-start gap-2">
+                <Button
+                  icon="pi pi-arrow-left"
+                  text
+                  rounded
+                  onClick={handleBack}
+                  tooltip="Volver"
+                  tooltipOptions={{ position: "right" }}
+                />
+                <div>
+                  <div className="flex align-items-center gap-2 mb-1">
+                    <h2 className="text-2xl font-bold text-900 m-0">
+                      {serviceOrder.folio}
+                    </h2>
+                    <ServiceOrderStatusBadge status={serviceOrder.status} />
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-600 text-sm">
+                    {serviceOrder.customer && (
+                      <span>
+                        <i className="pi pi-user mr-1" />
+                        {serviceOrder.customer.name}
+                      </span>
                     )}
-                  </span>
-                )}
+                    {serviceOrder.vehiclePlate && (
+                      <span>
+                        <i className="pi pi-car mr-1" />
+                        {serviceOrder.vehiclePlate}
+                        {serviceOrder.vehicleDesc && ` — ${serviceOrder.vehicleDesc}`}
+                      </span>
+                    )}
+                    {serviceOrder.estimatedDelivery && (
+                      <span>
+                        <i className="pi pi-calendar mr-1" />
+                        Prometido:{" "}
+                        {new Date(serviceOrder.estimatedDelivery).toLocaleDateString(
+                          "es-MX"
+                        )}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  label="Actualizar"
+                  icon="pi pi-refresh"
+                  outlined
+                  size="small"
+                  onClick={loadServiceOrder}
+                />
+                <Button
+                  label="Editar"
+                  icon="pi pi-pencil"
+                  size="small"
+                  onClick={() =>
+                    router.push(
+                      `/empresa/workshop/service-orders?edit=${serviceOrderId}`
+                    )
+                  }
+                />
               </div>
             </div>
           </div>
-          <div className="flex gap-2">
-            <Button
-              label="Actualizar"
-              icon="pi pi-refresh"
-              outlined
-              size="small"
-              onClick={loadServiceOrder}
-            />
-            <Button
-              label="Editar"
-              icon="pi pi-pencil"
-              size="small"
-              onClick={() =>
-                router.push(
-                  `/empresa/workshop/service-orders?edit=${serviceOrderId}`
-                )
-              }
-            />
-          </div>
-        </div>
-      </div>
+        </>
+      )}
+
 
       {/* TabView */}
       <div className="card">
@@ -223,6 +241,20 @@ export default function ServiceOrderDetail({
             <React.Suspense fallback={<ProgressSpinner />}>
               {/* @ts-ignore */}
               <QualityCheckList serviceOrderId={serviceOrderId} embedded />
+            </React.Suspense>
+          </TabPanel>
+
+          <TabPanel header="Garita" leftIcon="pi pi-shield mr-2">
+            <React.Suspense fallback={<ProgressSpinner />}>
+              {/* @ts-ignore */}
+              <GaritaList serviceOrderId={serviceOrderId} embedded />
+            </React.Suspense>
+          </TabPanel>
+
+          <TabPanel header="T.O.T." leftIcon="pi pi-send mr-2">
+            <React.Suspense fallback={<ProgressSpinner />}>
+              {/* @ts-ignore */}
+              <TOTList serviceOrderId={serviceOrderId} embedded />
             </React.Suspense>
           </TabPanel>
 

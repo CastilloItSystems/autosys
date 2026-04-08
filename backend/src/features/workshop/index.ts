@@ -26,6 +26,9 @@ import branchRoutes from './workshopBranches/workshopBranches.routes.js'
 import shiftRoutes from './workshopShifts/workshopShifts.routes.js'
 import reworkRoutes from './workshopReworks/workshopReworks.routes.js'
 import auditLogRoutes from './auditLog/auditLog.routes.js'
+import quotationRoutes from './workshopQuotations/workshopQuotations.routes.js'
+import totRoutes from './workshopTOT/workshopTOT.routes.js'
+import garitaRoutes from './workshopGarita/workshopGarita.routes.js'
 
 const router = Router()
 
@@ -73,5 +76,8 @@ router.use('/branches', branchRoutes)
 router.use('/shifts', shiftRoutes)
 router.use('/reworks', reworkRoutes)
 router.use('/audit-log', auditLogRoutes)
+router.use('/quotations', quotationRoutes)
+router.use('/tot', totRoutes)
+router.use('/garita', garitaRoutes)
 
 export default router

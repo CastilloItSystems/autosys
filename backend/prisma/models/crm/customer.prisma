@@ -84,6 +84,7 @@ model Customer {
   appointments      ServiceAppointment[]
   receptions        VehicleReception[]
   warranties        WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
 
   // Relaciones CRM: Cotizaciones
   quotes            Quote[]

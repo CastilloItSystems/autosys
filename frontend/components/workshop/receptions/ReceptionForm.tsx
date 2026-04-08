@@ -61,6 +61,7 @@ export default function ReceptionForm({
     handleSubmit,
     reset,
     watch,
+    setValue,
     formState: { errors },
   } = useForm<CreateReceptionForm>({
     resolver: zodResolver(
@@ -181,6 +182,11 @@ export default function ReceptionForm({
     }
   }, [reception, reset, preloadData]);
 
+  const handleVehicleSelect = (data: { id: string; plate: string; description: string } | null) => {
+    setValue("vehiclePlate", data?.plate ?? "", { shouldDirty: true });
+    setValue("vehicleDesc", data?.description ?? "", { shouldDirty: true });
+  };
+
   const onSubmit = async (data: CreateReceptionForm) => {
     onSubmittingChange?.(true);
     try {
@@ -295,6 +301,7 @@ export default function ReceptionForm({
                   control={control}
                   errors={errors}
                   isEditMode={false}
+                  onVehicleSelect={handleVehicleSelect}
                 />
               </Card>
 
@@ -332,6 +339,7 @@ export default function ReceptionForm({
                       control={control}
                       errors={errors}
                       isEditMode={true}
+                      onVehicleSelect={handleVehicleSelect}
                     />
                   </div>
 

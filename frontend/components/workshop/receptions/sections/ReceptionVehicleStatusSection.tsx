@@ -12,6 +12,19 @@ import { Controller } from "react-hook-form";
 import type { Control, FieldErrors } from "react-hook-form";
 import type { CreateReceptionForm } from "@/libs/zods/workshop/receptionZod";
 
+const ACCESSORIES_LIST = [
+  { id: "gata", label: "Gata/Gato hidráulico" },
+  { id: "llanta_repuesto", label: "Llanta de repuesto" },
+  { id: "herramientas", label: "Kit de herramientas" },
+  { id: "extintor", label: "Extintor" },
+  { id: "triangulos", label: "Triángulos de seguridad" },
+  { id: "radio", label: "Radio/Panel frontal" },
+  { id: "antena", label: "Antena" },
+  { id: "manuales", label: "Manuales del vehículo" },
+];
+
+const ACCESSORIES_IDS = new Set(ACCESSORIES_LIST.map((a) => a.id));
+
 const FUEL_LEVEL_OPTIONS = [
   { label: "Vacío", value: "EMPTY" },
   { label: "1/4", value: "QUARTER" },
@@ -138,14 +151,56 @@ export default function ReceptionVehicleStatusSection({
         <Controller
           name="accessories"
           control={control}
-          render={({ field }) => (
-            <Chips
-              value={field.value ?? []}
-              onChange={(e) => field.onChange(e.value ?? [])}
-              separator=","
-              placeholder="Ej: tapetes, repuesto, herramientas (presionar Enter)"
-            />
-          )}
+          render={({ field }) => {
+            const values: string[] = field.value ?? [];
+
+            const togglePredefined = (id: string) => {
+              if (values.includes(id)) {
+                field.onChange(values.filter((v) => v !== id));
+              } else {
+                field.onChange([...values, id]);
+              }
+            };
+
+            const customValues = values.filter((v) => !ACCESSORIES_IDS.has(v));
+
+            return (
+              <div className="flex flex-column gap-3">
+                <div className="grid">
+                  {ACCESSORIES_LIST.map((acc) => (
+                    <div key={acc.id} className="col-12 md:col-6 lg:col-3">
+                      <div
+                        className="flex align-items-center gap-2 p-2 border-round surface-100 hover:surface-200 cursor-pointer transition-colors transition-duration-150"
+                        onClick={() => togglePredefined(acc.id)}
+                      >
+                        <Checkbox
+                          inputId={acc.id}
+                          checked={values.includes(acc.id)}
+                          onChange={() => togglePredefined(acc.id)}
+                        />
+                        <label htmlFor={acc.id} className="cursor-pointer text-sm">
+                          {acc.label}
+                        </label>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div>
+                  <label className="block text-600 text-sm mb-1">Otros accesorios</label>
+                  <Chips
+                    value={customValues}
+                    onChange={(e) => {
+                      const newCustom = e.value ?? [];
+                      const predefined = values.filter((v) => ACCESSORIES_IDS.has(v));
+                      field.onChange([...predefined, ...newCustom]);
+                    }}
+                    separator=","
+                    placeholder="Agregar otro accesorio (presionar Enter)"
+                  />
+                </div>
+              </div>
+            );
+          }}
         />
       </div>
 

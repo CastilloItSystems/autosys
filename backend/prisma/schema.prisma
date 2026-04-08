@@ -302,6 +302,7 @@ model Customer {
   appointments      ServiceAppointment[]
   receptions        VehicleReception[]
   warranties        WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
 
   // Relaciones CRM: Cotizaciones
   quotes            Quote[]
@@ -417,6 +418,7 @@ model CustomerVehicle {
   appointments     ServiceAppointment[]
   receptions       VehicleReception[]
   warranties       WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
 
   // CRM: Casos / Reclamos
   cases            Case[]
@@ -820,6 +822,9 @@ model Empresa {
   workshopAuditLogs           WorkshopAuditLog[]
   workshopBranches            WorkshopBranch[]
   workshopShifts              WorkshopShift[]
+  workshopQuotations          WorkshopQuotation[]
+  workshopTOTs                WorkshopTOT[]
+  workshopGarita              WorkshopGarita[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
@@ -2383,8 +2388,9 @@ model Supplier {
   notes             String?         @db.Text        // notas / historia
   metadata          Json?           // info bancaria, campos extra, etc.
 
+  specialty         String?                         // Para proveedores externos de taller (rectificadora, A/C, etc.)
   isActive          Boolean         @default(true)
-  
+
   // Multi-tenancy
   empresaId         String
   empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -2392,6 +2398,7 @@ model Supplier {
   // Relaciones
   purchaseOrders    PurchaseOrder[]
   entryNotes        EntryNote[]
+  workshopTOTs      WorkshopTOT[]
   
   // Auditoría
   createdAt         DateTime        @default(now())
@@ -3076,6 +3083,9 @@ model PreInvoice {
   exitNote            ExitNote?
   invoice             Invoice?
 
+  // Facturación consolidada: OTs agrupadas en esta prefactura
+  consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
+
   payments            Payment[]
 
   createdAt           DateTime          @default(now())
@@ -3154,6 +3164,7 @@ model User {
   online        Boolean      @default(false)
   fcmTokens     String[]
   google        Boolean      @default(false)
+  isTechnician  Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
@@ -3533,7 +3544,7 @@ model ReceptionPhoto {
 
 // backend/prisma/models/workshop/serviceAppointment.prisma
 // Citas / agenda del taller.
-// Flujo: SCHEDULED → CONFIRMED → ARRIVED → COMPLETED | NO_SHOW | CANCELLED
+// Flujo: SCHEDULED → CONFIRMED → ARRIVED → COMPLETED | NO_SHOW | CANCELLED | RESCHEDULED
 
 enum AppointmentStatus {
   SCHEDULED   // Agendada
@@ -3542,6 +3553,16 @@ enum AppointmentStatus {
   COMPLETED   // Se generó OT / se concretó la atención
   NO_SHOW     // No se presentó
   CANCELLED   // Cancelada
+  RESCHEDULED // Reagendada
+  WAITING     // En espera (lista de espera)
+}
+
+enum AppointmentOrigin {
+  PHONE        // Teléfono
+  SOCIAL_MEDIA // Redes sociales
+  PRESENTIAL   // Presencial / walk-in
+  WEB          // Sitio web / portal
+  CRM          // Generada desde CRM
 }
 
 model ServiceAppointment {
@@ -3568,6 +3589,14 @@ model ServiceAppointment {
 
   // Asignación
   assignedAdvisorId String? // userId del asesor de servicio
+
+  // Origen de la cita
+  origin AppointmentOrigin @default(PRESENTIAL)
+
+  // Pre-diagnóstico (entrevista breve para estimar tipo y repuestos)
+  preDiagnosis        String?  @db.Text  // Síntomas / pre-diagnóstico telefónico
+  preIdentifiedParts  Json?              // Repuestos pre-identificados [{ description, qty }]
+  estimatedCost       Decimal? @db.Decimal(12, 2) // Costo estimado comunicado al cliente
 
   // Estado y detalles
   status      AppointmentStatus @default(SCHEDULED)
@@ -3639,6 +3668,7 @@ model ServiceDiagnosis {
   evidences     DiagnosisEvidence[]
   suggestedOperations DiagnosisSuggestedOperation[]
   suggestedParts      DiagnosisSuggestedPart[]
+  quotations    WorkshopQuotation[]
 
   empresaId     String
   empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -3658,6 +3688,7 @@ model DiagnosisFinding {
   description         String             @db.Text
   severity            DiagnosisFindingSeverity @default(MEDIUM)
   requiresClientAuth  Boolean            @default(true)
+  isHiddenFinding     Boolean            @default(false) // Hallazgo oculto detectado durante el desarme
   clientApproved      Boolean?           // Para cuando el cliente acepta o rechaza
   observation         String?            @db.Text
 
@@ -3816,6 +3847,10 @@ model ServiceOrder {
   // FASE 2: PreInvoice (preparación de factura) - back-reference only (FK is in PreInvoice)
   preInvoice    PreInvoice?   @relation("PreInvoiceServiceOrder")
 
+  // Facturación consolidada: cuando varias OTs se facturan juntas en una sola PreInvoice
+  consolidatedPreInvoiceId String?
+  consolidatedPreInvoice   PreInvoice? @relation("ConsolidatedSOPreInvoice", fields: [consolidatedPreInvoiceId], references: [id], onDelete: SetNull)
+
   // Factura generada al cerrar
   invoiceId String? @unique
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -3860,6 +3895,9 @@ model ServiceOrder {
   qualityCheck   QualityCheck?
   warranties     WorkshopWarranty[] @relation("OriginalOrder")
   reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
+  quotations     WorkshopQuotation[]
+  tots           WorkshopTOT[]
+  garitaEvents   WorkshopGarita[]
 
   // Historial y Entrega
   statusHistory  ServiceOrderStatusHistory[]
@@ -3928,6 +3966,12 @@ model ServiceOrderItem {
   itemId        String?
   item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   stockDeducted Boolean  @default(false) // true cuando ya se descontó del inventario
+
+  // Costo unitario para calcular margen (precio - costo = ganancia por línea)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Técnico asignado a este ítem específico (para tablero de carga)
+  technicianId  String?
 
   // Registro de tiempo real si aplica (inversas de LaborTime)
   laborTimes LaborTime[]
@@ -4290,6 +4334,9 @@ model VehicleReception {
   // Diagnóstico desacoplado
   serviceDiagnosis ServiceDiagnosis?
 
+  // Cotizaciones generadas desde esta recepción
+  quotations WorkshopQuotation[]
+
   // Daños y fotos detalladas
   damages ReceptionDamage[]
   photos  ReceptionPhoto[]
@@ -4468,6 +4515,90 @@ model WorkshopBranch {
 }
 
 
+// backend/prisma/models/workshop/workshopGarita.prisma
+// Control de Garita / Vigilancia
+// Registra todo movimiento de vehículos y piezas que entran o salen del taller.
+
+enum GaritaEventType {
+  VEHICLE_IN     // Ingreso de vehículo de cliente
+  VEHICLE_OUT    // Egreso de vehículo de cliente (entrega)
+  PART_OUT       // Salida de pieza a proveedor externo (T.O.T.)
+  PART_IN        // Reingreso de pieza desde proveedor externo (T.O.T.)
+  ROAD_TEST_OUT  // Salida del vehículo para prueba de carretera
+  ROAD_TEST_IN   // Reingreso del vehículo después de prueba de carretera
+  OTHER          // Otro movimiento
+}
+
+enum GaritaEventStatus {
+  PENDING    // Registrado, pendiente de autorización
+  AUTHORIZED // Pase de salida validado por vigilancia
+  COMPLETED  // Ciclo cerrado (regresó el vehículo o pieza)
+  FLAGGED    // Irregularidad detectada
+  CANCELLED  // Cancelado
+}
+
+model WorkshopGarita {
+  id String @id @default(cuid())
+
+  type   GaritaEventType
+  status GaritaEventStatus @default(PENDING)
+
+  // OS vinculada (requerida para VEHICLE_IN/OUT, ROAD_TEST_*)
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // T.O.T. vinculado (requerido para PART_OUT/PART_IN)
+  totId String?
+  tot   WorkshopTOT? @relation(fields: [totId], references: [id], onDelete: SetNull)
+
+  // Datos del vehículo
+  plateNumber   String?
+  vehicleDesc   String?  // Marca, modelo, color
+  serialMotor   String?  // Serial de motor
+  serialBody    String?  // Serial de carrocería
+  kmIn          Int?     // Kilometraje de entrada
+  kmOut         Int?     // Kilometraje de salida
+
+  // Datos del conductor / responsable
+  driverName    String?
+  driverId      String?  // Cédula del conductor
+
+  // Pase / orden de salida
+  exitPassRef    String?   // Referencia del pase de salida firmado
+  authorizedById String?   // userId que autorizó la salida
+  authorizedAt   DateTime?
+
+  // Registro fotográfico
+  photoUrls Json?
+
+  // Irregularidades
+  hasIrregularity   Boolean @default(false)
+  irregularityNotes String? @db.Text
+
+  // Tiempos del evento
+  eventAt     DateTime  @default(now()) // Momento del registro
+  completedAt DateTime?                 // Cierre del ciclo (reingreso)
+
+  notes String? @db.Text
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String  // userId del vigilante que registró
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([totId])
+  @@index([type])
+  @@index([status])
+  @@index([plateNumber])
+  @@index([empresaId, eventAt])
+  @@map("workshop_garita")
+}
+
+
 // backend/prisma/models/workshop/workshopOperation.prisma
 // Operaciones estándar del taller con tiempos y precios de referencia.
 // Se usan para cotizar y controlar tiempos técnicos por operación.
@@ -4504,6 +4635,152 @@ model WorkshopOperation {
   @@index([serviceTypeId])
   @@index([isActive])
   @@map("workshop_operations")
+}
+
+
+// backend/prisma/models/workshop/workshopQuotation.prisma
+// Cotizaciones / Presupuestos propios del taller.
+// Independiente de las cotizaciones CRM.
+// Soporta presupuestos suplementarios (hallazgos ocultos) y versionamiento.
+
+enum QuotationStatus {
+  DRAFT             // Borrador
+  ISSUED            // Emitida
+  SENT              // Enviada al cliente
+  PENDING_APPROVAL  // Pendiente de aprobación
+  APPROVED_TOTAL    // Aprobada total
+  APPROVED_PARTIAL  // Aprobada parcial
+  REJECTED          // Rechazada
+  EXPIRED           // Vencida
+  CONVERTED         // Convertida en OS
+}
+
+enum QuotationItemType {
+  LABOR             // Mano de obra / operación
+  PART              // Repuesto
+  CONSUMABLE        // Insumo / lubricante
+  EXTERNAL_SERVICE  // Servicio externo T.O.T.
+  COURTESY          // Cortesía (sin cargo)
+}
+
+enum ApprovalChannel {
+  PRESENTIAL        // Firma presencial
+  WHATSAPP          // WhatsApp verificable
+  EMAIL             // Correo electrónico
+  CALL              // Llamada registrada
+  DIGITAL_SIGNATURE // Firma digital en sistema
+}
+
+enum ApprovalType {
+  TOTAL      // Aprobación total
+  PARTIAL    // Aprobación parcial (solo algunos ítems)
+  REJECTION  // Rechazo
+}
+
+model WorkshopQuotation {
+  id               String          @id @default(cuid())
+  quotationNumber  String          // COT-0001 auto-generado por empresa
+
+  status  QuotationStatus @default(DRAFT)
+  version Int             @default(1) // Se incrementa en cada re-emisión
+
+  // Presupuesto suplementario (hallazgo oculto)
+  isSupplementary   Boolean              @default(false)
+  parentQuotationId String?
+  parentQuotation   WorkshopQuotation?  @relation("SupplementaryQuotations", fields: [parentQuotationId], references: [id], onDelete: SetNull)
+  supplementaries   WorkshopQuotation[] @relation("SupplementaryQuotations")
+
+  // Origen del presupuesto
+  receptionId   String?
+  reception     VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  diagnosisId   String?
+  diagnosis     ServiceDiagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+
+  // Destino: OS generada al convertir
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Vigencia
+  validUntil DateTime?
+  expiredAt  DateTime?
+  convertedAt DateTime?
+
+  // Totales (calculados a partir de los ítems)
+  subtotal Decimal @default(0) @db.Decimal(12, 2)
+  discount Decimal @default(0) @db.Decimal(12, 2)
+  tax      Decimal @default(0) @db.Decimal(12, 2)
+  total    Decimal @default(0) @db.Decimal(12, 2)
+
+  // Observaciones
+  notes         String? @db.Text // Visibles al cliente
+  internalNotes String? @db.Text // Solo internas
+
+  // Ítems y aprobaciones
+  items     WorkshopQuotationItem[]
+  approvals WorkshopQuotationApproval[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, quotationNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([receptionId])
+  @@index([status])
+  @@index([empresaId, createdAt])
+  @@map("workshop_quotations")
+}
+
+model WorkshopQuotationItem {
+  id           String  @id @default(cuid())
+  quotationId  String
+  quotation    WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type        QuotationItemType
+  referenceId String?  // ID de operación o ítem de inventario (opcional)
+  description String
+  quantity    Decimal  @default(1)   @db.Decimal(10, 2)
+  unitPrice   Decimal  @default(0)   @db.Decimal(12, 2)
+  unitCost    Decimal  @default(0)   @db.Decimal(12, 2)
+  discount    Decimal  @default(0)   @db.Decimal(12, 2) // Descuento sobre subtotal
+  tax         Decimal  @default(0)   @db.Decimal(12, 2)
+  subtotal    Decimal  @default(0)   @db.Decimal(12, 2) // quantity * unitPrice
+  total       Decimal  @default(0)   @db.Decimal(12, 2) // subtotal - discount + tax
+  approved    Boolean  @default(true) // Se pone en false en aprobación parcial
+
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quotationId])
+  @@map("workshop_quotation_items")
+}
+
+model WorkshopQuotationApproval {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type            ApprovalType
+  channel         ApprovalChannel
+  approvedByName  String           // Nombre del aprobador (puede ser el cliente)
+  notes           String?  @db.Text
+  rejectionReason String?  @db.Text
+
+  approvedAt DateTime @default(now())
+
+  @@index([quotationId])
+  @@map("workshop_quotation_approvals")
 }
 
 
@@ -4583,6 +4860,104 @@ model WorkshopShift {
   @@index([empresaId])
   @@index([isActive])
   @@map("workshop_shifts")
+}
+
+
+// backend/prisma/models/workshop/workshopTOT.prisma
+// Servicios Externos / T.O.T. (Trabajo en Otros Talleres)
+// Gestiona piezas que salen del taller a ser reparadas por proveedores especializados externos.
+// El catálogo de proveedores reutiliza el modelo Supplier (inventory) con el campo specialty.
+
+enum TOTStatus {
+  REQUESTED   // Solicitado por el asesor
+  APPROVED    // Aprobado por Gerente de Servicio, listo para salir
+  DEPARTED    // Pieza salió del taller (garita verificó)
+  IN_PROGRESS // En proceso con el proveedor externo
+  RETURNED    // Pieza reingresó al taller
+  INVOICED    // Factura del proveedor recibida y enviada a administración
+  CANCELLED   // Cancelado
+}
+
+enum TOTDocumentType {
+  PROVIDER_QUOTE   // Presupuesto del proveedor
+  DELIVERY_ACT     // Acta de entrega de pieza al proveedor
+  RETURN_ACT       // Acta de reingreso de pieza
+  PROVIDER_INVOICE // Factura del proveedor (para pago y costos)
+  OTHER            // Otro documento
+}
+
+// Registro de T.O.T. vinculado a una Orden de Servicio
+model WorkshopTOT {
+  id        String @id @default(cuid())
+  totNumber String // TOT-0001 auto-generado por empresa
+
+  status TOTStatus @default(REQUESTED)
+
+  // Orden de Servicio origen
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+
+  // Proveedor externo (reutiliza Supplier de inventario)
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  providerName String?   // Nombre libre si no está en catálogo
+
+  // Detalle de la pieza a enviar
+  partDescription      String  @db.Text  // Descripción de la pieza
+  partSerial           String?            // Serial / número de identificación
+  photoUrls            Json?              // URLs de fotos antes de la salida
+
+  // Trabajo solicitado
+  requestedWork        String  @db.Text  // Descripción del trabajo a realizar
+  technicalInstruction String? @db.Text  // Instrucción técnica específica al proveedor
+
+  // Autorización de salida
+  approvedById  String? // userId del Gerente de Servicio que aprobó
+  departureRef  String? // Referencia de la orden de salida firmada
+
+  // Control de tiempos
+  departedAt         DateTime? // Fecha/hora de salida del taller
+  estimatedReturnAt  DateTime? // Fecha estimada de reingreso
+  returnedAt         DateTime? // Fecha/hora real de reingreso
+
+  // Costos
+  providerQuote      Decimal? @db.Decimal(12, 2) // Presupuesto del proveedor
+  finalCost          Decimal? @db.Decimal(12, 2) // Costo final (se suma a la OS para facturar)
+  providerInvoiceRef String?                     // Referencia/número de factura del proveedor
+
+  notes String? @db.Text
+
+  documents    WorkshopTOTDocument[]
+  garitaEvents WorkshopGarita[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, totNumber])
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([status])
+  @@index([supplierId])
+  @@index([empresaId, createdAt])
+  @@map("workshop_tot")
+}
+
+// Documentos adjuntos a un T.O.T. (presupuesto, actas, factura)
+model WorkshopTOTDocument {
+  id          String @id @default(cuid())
+  totId       String
+  tot         WorkshopTOT     @relation(fields: [totId], references: [id], onDelete: Cascade)
+  type        TOTDocumentType
+  url         String
+  description String? @db.Text
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  @@index([totId])
+  @@map("workshop_tot_documents")
 }
 
 

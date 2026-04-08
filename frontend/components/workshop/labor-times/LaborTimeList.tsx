@@ -15,10 +15,21 @@ import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { laborTimeService } from "@/app/api/workshop";
 import type { LaborTime, LaborTimeStatus } from "@/libs/interfaces/workshop";
-import { LaborTimeStatusBadge, LABOR_STATUS_LABELS } from "@/components/workshop/shared/LaborTimeStatusBadge";
+import {
+  LaborTimeStatusBadge,
+  LABOR_STATUS_LABELS,
+} from "@/components/workshop/shared/LaborTimeStatusBadge";
 import LaborTimeStartForm from "./LaborTimeStartForm";
 
-export default function LaborTimeList() {
+interface LaborTimeListProps {
+  serviceOrderId?: string;
+  embedded?: boolean;
+}
+
+export default function LaborTimeList({
+  serviceOrderId,
+  embedded,
+}: LaborTimeListProps) {
   const [items, setItems] = useState<LaborTime[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [actionItem, setActionItem] = useState<LaborTime | null>(null);
@@ -35,7 +46,14 @@ export default function LaborTimeList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, serviceOrderFilter, statusFilter]);
+  // Use prop serviceOrderId when embedded, otherwise use state filter
+  const finalServiceOrderId = embedded ? serviceOrderId : serviceOrderFilter;
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
+    setPage(0); // Reset to page 1 when filter changes
+    loadItems();
+  }, [finalServiceOrderId, statusFilter, embedded]);
 
   const loadItems = async () => {
     try {
@@ -43,7 +61,7 @@ export default function LaborTimeList() {
       const res = await laborTimeService.getAll({
         page: page + 1,
         limit: rows,
-        serviceOrderId: serviceOrderFilter || undefined,
+        serviceOrderId: finalServiceOrderId || undefined,
         status: (statusFilter as LaborTimeStatus) || undefined,
       });
       setItems(res.data ?? []);
@@ -56,11 +74,24 @@ export default function LaborTimeList() {
     }
   };
 
-  const handleAction = async (action: "pause" | "resume" | "finish" | "cancel", item: LaborTime) => {
+  const handleAction = async (
+    action: "pause" | "resume" | "finish" | "cancel",
+    item: LaborTime,
+  ) => {
     try {
       await laborTimeService[action](item.id);
-      const labels = { pause: "pausado", resume: "reanudado", finish: "completado", cancel: "cancelado" };
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: `Tiempo ${labels[action]}`, life: 3000 });
+      const labels = {
+        pause: "pausado",
+        resume: "reanudado",
+        finish: "completado",
+        cancel: "cancelado",
+      };
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Tiempo ${labels[action]}`,
+        life: 3000,
+      });
       await loadItems();
     } catch (error) {
       handleFormError(error, toast);
@@ -69,7 +100,12 @@ export default function LaborTimeList() {
 
   const handleStartSaved = () => {
     (async () => {
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Tiempo iniciado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Tiempo iniciado",
+        life: 3000,
+      });
       await loadItems();
       setStartDialog(false);
     })();
@@ -77,7 +113,9 @@ export default function LaborTimeList() {
 
   // ── Templates ──────────────────────────────────────────────────────────────
 
-  const statusTemplate = (row: LaborTime) => <LaborTimeStatusBadge status={row.status} />;
+  const statusTemplate = (row: LaborTime) => (
+    <LaborTimeStatusBadge status={row.status} />
+  );
 
   const operationTemplate = (row: LaborTime) =>
     row.operation ? (
@@ -85,13 +123,16 @@ export default function LaborTimeList() {
         <div className="font-semibold text-sm">{row.operation.name}</div>
         <div className="text-xs text-500">{row.operation.code}</div>
       </div>
-    ) : <span className="text-500">—</span>;
+    ) : (
+      <span className="text-500">—</span>
+    );
 
   const durationTemplate = (row: LaborTime) => {
     if (row.realMinutes != null) return `${row.realMinutes} min`;
     if (row.status === "ACTIVE" || row.status === "PAUSED") {
       const started = new Date(row.startedAt).getTime();
-      const elapsed = Math.floor((Date.now() - started) / 60000) - row.pausedMinutes;
+      const elapsed =
+        Math.floor((Date.now() - started) / 60000) - row.pausedMinutes;
       return `~${Math.max(0, elapsed)} min`;
     }
     return "—";
@@ -99,13 +140,21 @@ export default function LaborTimeList() {
 
   const efficiencyTemplate = (row: LaborTime) => {
     if (row.efficiency == null) return "—";
-    const color = row.efficiency >= 90 ? "text-green-600" : row.efficiency >= 70 ? "text-yellow-600" : "text-red-600";
+    const color =
+      row.efficiency >= 90
+        ? "text-green-600"
+        : row.efficiency >= 70
+        ? "text-yellow-600"
+        : "text-red-600";
     return <span className={`font-bold ${color}`}>{row.efficiency}%</span>;
   };
 
   const dateTemplate = (row: LaborTime) =>
     new Date(row.startedAt).toLocaleString("es-MX", {
-      day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
     });
 
   const actionBodyTemplate = (rowData: LaborTime) => (
@@ -114,7 +163,10 @@ export default function LaborTimeList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
@@ -122,7 +174,10 @@ export default function LaborTimeList() {
 
   const STATUS_FILTER_OPTIONS = [
     { label: "Todos los estados", value: "" },
-    ...Object.entries(LABOR_STATUS_LABELS).map(([v, l]) => ({ label: l, value: v })),
+    ...Object.entries(LABOR_STATUS_LABELS).map(([v, l]) => ({
+      label: l,
+      value: v,
+    })),
   ];
 
   const header = (
@@ -138,24 +193,38 @@ export default function LaborTimeList() {
             type="search"
             placeholder="ID de orden..."
             value={serviceOrderFilter}
-            onChange={(e) => { setServiceOrderFilter(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setServiceOrderFilter(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "14rem" }}
           />
         </span>
         <Dropdown
           value={statusFilter}
           options={STATUS_FILTER_OPTIONS}
-          onChange={(e) => { setStatusFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Estado"
           style={{ width: "12rem" }}
         />
-        <CreateButton label="Iniciar tiempo" onClick={() => setStartDialog(true)} tooltip="Registrar nuevo tiempo de trabajo" />
+        <CreateButton
+          label="Iniciar tiempo"
+          onClick={() => setStartDialog(true)}
+          tooltip="Registrar nuevo tiempo de trabajo"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -166,7 +235,10 @@ export default function LaborTimeList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -175,13 +247,44 @@ export default function LaborTimeList() {
           scrollable
           size="small"
         >
-          <Column field="status" header="Estado" body={statusTemplate} style={{ minWidth: "110px" }} />
-          <Column header="Operación" body={operationTemplate} style={{ minWidth: "180px" }} />
-          <Column field="technicianId" header="Técnico" style={{ minWidth: "160px" }} />
-          <Column field="startedAt" header="Inicio" body={dateTemplate} sortable style={{ minWidth: "140px" }} />
-          <Column header="Duración" body={durationTemplate} style={{ minWidth: "100px" }} />
-          <Column field="standardMinutes" header="Est. (min)" style={{ minWidth: "90px" }} />
-          <Column header="Eficiencia" body={efficiencyTemplate} style={{ minWidth: "100px" }} />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "110px" }}
+          />
+          <Column
+            header="Operación"
+            body={operationTemplate}
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            field="technicianId"
+            header="Técnico"
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            field="startedAt"
+            header="Inicio"
+            body={dateTemplate}
+            sortable
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            header="Duración"
+            body={durationTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="standardMinutes"
+            header="Est. (min)"
+            style={{ minWidth: "90px" }}
+          />
+          <Column
+            header="Eficiencia"
+            body={efficiencyTemplate}
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}

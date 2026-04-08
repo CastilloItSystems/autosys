@@ -1,7 +1,11 @@
 // backend/src/features/workshop/appointments/appointments.validation.ts
 import Joi from 'joi'
 
-const APPOINTMENT_STATUSES = ['SCHEDULED', 'CONFIRMED', 'ARRIVED', 'COMPLETED', 'NO_SHOW', 'CANCELLED']
+const APPOINTMENT_STATUSES = [
+  'SCHEDULED', 'CONFIRMED', 'ARRIVED', 'COMPLETED',
+  'NO_SHOW', 'CANCELLED', 'RESCHEDULED', 'WAITING',
+]
+const APPOINTMENT_ORIGINS = ['PHONE', 'SOCIAL_MEDIA', 'PRESENTIAL', 'WEB', 'CRM']
 
 export const createAppointmentSchema = Joi.object({
   customerId: Joi.string().required().messages({ 'any.required': 'El cliente es requerido' }),
@@ -15,6 +19,13 @@ export const createAppointmentSchema = Joi.object({
   }),
   estimatedMinutes: Joi.number().integer().min(15).optional(),
   assignedAdvisorId: Joi.string().optional(),
+  origin: Joi.string().valid(...APPOINTMENT_ORIGINS).optional().default('PRESENTIAL'),
+  preDiagnosis: Joi.string().trim().max(2000).optional().allow(''),
+  preIdentifiedParts: Joi.array().items(Joi.object({
+    description: Joi.string().required(),
+    qty: Joi.number().positive().optional().default(1),
+  })).optional(),
+  estimatedCost: Joi.number().min(0).optional(),
   clientNotes: Joi.string().trim().max(1000).optional().allow(''),
   internalNotes: Joi.string().trim().max(1000).optional().allow(''),
 })
@@ -27,6 +38,13 @@ export const updateAppointmentSchema = Joi.object({
   scheduledDate: Joi.date().iso().optional(),
   estimatedMinutes: Joi.number().integer().min(15).optional().allow(null),
   assignedAdvisorId: Joi.string().optional().allow(null),
+  origin: Joi.string().valid(...APPOINTMENT_ORIGINS).optional(),
+  preDiagnosis: Joi.string().trim().max(2000).optional().allow('', null),
+  preIdentifiedParts: Joi.array().items(Joi.object({
+    description: Joi.string().required(),
+    qty: Joi.number().positive().optional().default(1),
+  })).optional().allow(null),
+  estimatedCost: Joi.number().min(0).optional().allow(null),
   clientNotes: Joi.string().trim().max(1000).optional().allow(''),
   internalNotes: Joi.string().trim().max(1000).optional().allow(''),
 }).min(1).messages({ 'object.min': 'Debe proporcionar al menos un campo para actualizar' })
@@ -40,6 +58,7 @@ export const updateAppointmentStatusSchema = Joi.object({
 
 export const appointmentFiltersSchema = Joi.object({
   status: Joi.string().valid(...APPOINTMENT_STATUSES).optional(),
+  origin: Joi.string().valid(...APPOINTMENT_ORIGINS).optional(),
   customerId: Joi.string().optional(),
   assignedAdvisorId: Joi.string().optional(),
   dateFrom: Joi.date().iso().optional(),

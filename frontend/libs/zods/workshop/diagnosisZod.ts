@@ -5,7 +5,7 @@ const severityEnum = z.enum(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'], {
   errorMap: () => ({ message: 'Severidad inválida' }),
 })
 
-const statusEnum = z.enum(['DRAFT', 'IN_PROGRESS', 'COMPLETED', 'APPROVED'], {
+const statusEnum = z.enum(['DRAFT', 'COMPLETED', 'APPROVED_INTERNAL'], {
   errorMap: () => ({ message: 'Estado inválido' }),
 })
 

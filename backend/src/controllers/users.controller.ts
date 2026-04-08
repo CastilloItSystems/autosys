@@ -66,6 +66,7 @@ export const getAllUsers = async (_req: Request, res: Response) => {
         eliminado: true,
         online: true,
         google: true,
+        isTechnician: true,
         createdAt: true,
         updatedAt: true,
         memberships: {
@@ -151,6 +152,7 @@ export const createUser = async (req: Request, res: Response) => {
         eliminado: true,
         online: true,
         google: true,
+        isTechnician: true,
         createdAt: true,
         updatedAt: true,
       },
@@ -184,6 +186,7 @@ export const getUserById = async (req: Request, res: Response) => {
         eliminado: true,
         online: true,
         google: true,
+        isTechnician: true,
         createdAt: true,
         updatedAt: true,
         memberships: {
@@ -264,6 +267,7 @@ export const updateUser = async (req: Request, res: Response) => {
         eliminado: true,
         online: true,
         google: true,
+        isTechnician: true,
         createdAt: true,
         updatedAt: true,
       },

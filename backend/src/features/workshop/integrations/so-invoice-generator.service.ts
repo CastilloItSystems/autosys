@@ -107,10 +107,9 @@ export async function generatePreInvoiceFromServiceOrder(
     const lineDiscount = (Number(item.discountPct || 0) * lineSubtotal) / 100
     const lineBase = lineSubtotal - lineDiscount
 
+    // taxRate ya está almacenado como decimal (0.16 = 16%), no dividir entre 100
     const lineTax =
-      item.taxType === 'EXEMPT'
-        ? 0
-        : lineBase * (Number(item.taxRate || 0.16) / 100)
+      item.taxType === 'EXEMPT' ? 0 : lineBase * Number(item.taxRate || 0.16)
 
     if (item.taxType === 'EXEMPT') {
       baseExenta += lineBase
@@ -413,5 +412,202 @@ export async function getBillingAuditTrail(
     preInvoice: so.preInvoice,
     invoice: so.invoice,
     payments: so.invoice?.payment ? [so.invoice.payment] : [],
+  }
+}
+
+// ─── F3-12: Budget vs Invoice Reconciliation ─────────────────────────────────
+
+export type ReconciliationStatus =
+  | 'IN_BUDGET'
+  | 'OVER_BUDGET'
+  | 'UNDER_BUDGET'
+  | 'NO_QUOTATION'
+  | 'NO_BILLING'
+
+export interface BudgetInvoiceVariance {
+  hasQuotation: boolean
+  hasBilling: boolean
+  quotation: {
+    id: string
+    quotationNumber: string
+    status: string
+    version: number
+    approvedTotal: number
+    totalItems: number
+    approvedItems: number
+    approvalType: string | null
+    approvalChannel: string | null
+    approvedAt: Date | null
+    breakdown: { labor: number; parts: number; external: number; other: number }
+  } | null
+  billing: {
+    source: 'INVOICE' | 'PRE_INVOICE'
+    number: string
+    status: string
+    total: number
+    baseImponible: number
+    taxAmount: number
+    igtfAmount: number
+  } | null
+  reconciliation: {
+    status: ReconciliationStatus
+    variance: number
+    variancePct: number | null
+    breakdown: {
+      labor: { quoted: number; billed: number; variance: number }
+      parts: { quoted: number; billed: number; variance: number }
+      other: { quoted: number; billed: number; variance: number }
+    }
+  }
+}
+
+/**
+ * F3-12: Compare approved WorkshopQuotation vs actual PreInvoice/Invoice
+ * for a given ServiceOrder. Returns variance analysis.
+ */
+export async function getBudgetInvoiceVariance(
+  prisma: PrismaClientType,
+  serviceOrderId: string,
+  empresaId: string
+): Promise<BudgetInvoiceVariance> {
+  const db = prisma as PrismaClient
+
+  const so = await db.serviceOrder.findFirst({
+    where: { id: serviceOrderId, empresaId },
+    include: {
+      quotations: {
+        include: {
+          items: true,
+          approvals: { orderBy: { approvedAt: 'desc' }, take: 1 },
+        },
+        orderBy: { createdAt: 'desc' },
+      },
+      invoice: true,
+      items: true,
+    },
+  })
+
+  if (!so) throw new NotFoundError(`ServiceOrder ${serviceOrderId} not found`)
+
+  // ── Pick best quotation: approved first, then latest ──────────────────────
+  const APPROVED_STATUSES = ['APPROVED_TOTAL', 'APPROVED_PARTIAL', 'CONVERTED']
+  const approvedQ =
+    so.quotations.find((q) => APPROVED_STATUSES.includes(q.status)) ??
+    so.quotations[0] ??
+    null
+
+  // ── Quotation side ────────────────────────────────────────────────────────
+  let quotationData: BudgetInvoiceVariance['quotation'] = null
+  let qBreakdown = { labor: 0, parts: 0, external: 0, other: 0 }
+
+  if (approvedQ) {
+    const approvedItems = approvedQ.items.filter((i) => i.approved)
+    const latestApproval = approvedQ.approvals[0] ?? null
+
+    for (const item of approvedItems) {
+      const v = Number(item.total)
+      if (item.type === 'LABOR') qBreakdown.labor += v
+      else if (item.type === 'PART' || item.type === 'CONSUMABLE')
+        qBreakdown.parts += v
+      else if (item.type === 'EXTERNAL_SERVICE') qBreakdown.external += v
+      else qBreakdown.other += v
+    }
+
+    const approvedTotal =
+      qBreakdown.labor +
+      qBreakdown.parts +
+      qBreakdown.external +
+      qBreakdown.other
+
+    quotationData = {
+      id: approvedQ.id,
+      quotationNumber: approvedQ.quotationNumber,
+      status: approvedQ.status,
+      version: approvedQ.version,
+      approvedTotal,
+      totalItems: approvedQ.items.length,
+      approvedItems: approvedItems.length,
+      approvalType: latestApproval?.type ?? null,
+      approvalChannel: latestApproval?.channel ?? null,
+      approvedAt: latestApproval?.approvedAt ?? null,
+      breakdown: qBreakdown,
+    }
+  }
+
+  // ── Billing side (invoice preferred over pre-invoice) ─────────────────────
+  let billingData: BudgetInvoiceVariance['billing'] = null
+  let billingTotal = 0
+  let bBreakdown = { labor: 0, parts: 0, other: 0 }
+
+  const billingSource = so.invoice ?? null
+
+  if (billingSource) {
+    const isInvoice = !!so.invoice
+    billingTotal = Number(billingSource.total)
+    billingData = {
+      source: isInvoice ? 'INVOICE' : 'PRE_INVOICE',
+      number: isInvoice ? (so.invoice as any).invoiceNumber : 'N/A',
+      status: billingSource.status,
+      total: billingTotal,
+      baseImponible: Number((billingSource as any).baseImponible ?? 0),
+      taxAmount: Number((billingSource as any).taxAmount ?? 0),
+      igtfAmount: Number((billingSource as any).igtfAmount ?? 0),
+    }
+
+    // SO items breakdown for billing side
+    for (const item of so.items) {
+      const v = Number(item.total)
+      if (item.type === 'LABOR') bBreakdown.labor += v
+      else if (item.type === 'PART') bBreakdown.parts += v
+      else bBreakdown.other += v
+    }
+  }
+
+  // ── Reconciliation ────────────────────────────────────────────────────────
+  let reconcStatus: ReconciliationStatus = 'NO_QUOTATION'
+  let variance = 0
+  let variancePct: number | null = null
+
+  if (!approvedQ) {
+    reconcStatus = 'NO_QUOTATION'
+  } else if (!billingSource) {
+    reconcStatus = 'NO_BILLING'
+  } else {
+    const approvedTotal = quotationData!.approvedTotal
+    variance = billingTotal - approvedTotal
+    variancePct = approvedTotal > 0 ? (variance / approvedTotal) * 100 : null
+
+    if (Math.abs(variance) < 0.01) reconcStatus = 'IN_BUDGET'
+    else if (variance > 0) reconcStatus = 'OVER_BUDGET'
+    else reconcStatus = 'UNDER_BUDGET'
+  }
+
+  return {
+    hasQuotation: !!approvedQ,
+    hasBilling: !!billingSource,
+    quotation: quotationData,
+    billing: billingData,
+    reconciliation: {
+      status: reconcStatus,
+      variance,
+      variancePct,
+      breakdown: {
+        labor: {
+          quoted: qBreakdown.labor,
+          billed: bBreakdown.labor,
+          variance: bBreakdown.labor - qBreakdown.labor,
+        },
+        parts: {
+          quoted: qBreakdown.parts + qBreakdown.external,
+          billed: bBreakdown.parts,
+          variance: bBreakdown.parts - (qBreakdown.parts + qBreakdown.external),
+        },
+        other: {
+          quoted: qBreakdown.other,
+          billed: bBreakdown.other,
+          variance: bBreakdown.other - qBreakdown.other,
+        },
+      },
+    },
   }
 }

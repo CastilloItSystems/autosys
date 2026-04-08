@@ -19,6 +19,7 @@ export interface Supplier {
   isSpecialTaxpayer: boolean;
   creditDays: number;
   currency?: string | null;
+  specialty?: string | null;
   notes?: string | null;
   metadata?: any | null;
   isActive: boolean;

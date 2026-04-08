@@ -43,6 +43,7 @@ export interface User {
   online: boolean;
   fcmTokens: string[];
   google: boolean;
+  isTechnician: boolean;
   createdAt: string;
   updatedAt: string;
   memberships?: Membership[];
@@ -116,6 +117,7 @@ export interface UpdateUserRequest {
   estado?: UserStatus;
   img?: string | null;
   online?: boolean;
+  isTechnician?: boolean;
 }
 
 // ── DTOs Memberships ────────────────────────────────────────────────────────

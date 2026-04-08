@@ -25,3 +25,7 @@ export { default as attachmentService } from './attachmentService'
 export { default as auditLogService } from './auditLogService'
 export { default as receptionMediaService } from './receptionMediaService'
 export { default as billingBridgeService } from './billingBridgeService'
+export { default as quotationService } from './quotationService'
+export { default as totService } from './totService'
+export { default as garitaService } from './garitaService'
+

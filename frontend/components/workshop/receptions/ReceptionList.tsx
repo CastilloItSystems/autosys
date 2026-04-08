@@ -1,6 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -15,7 +15,10 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { receptionService } from "@/app/api/workshop";
-import type { VehicleReception, ReceptionStatus } from "@/libs/interfaces/workshop";
+import type {
+  VehicleReception,
+  ReceptionStatus,
+} from "@/libs/interfaces/workshop";
 import ReceptionForm from "./ReceptionForm";
 
 const FUEL_LABELS: Record<string, string> = {
@@ -38,6 +41,7 @@ const STATUS_CONFIG: Record<
 
 export default function ReceptionList() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [items, setItems] = useState<VehicleReception[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<VehicleReception | null>(null);
@@ -370,7 +374,11 @@ export default function ReceptionList() {
       <Dialog
         visible={formDialog}
         style={{ width: isInEditMode ? "75vw" : "55vw" }}
-        breakpoints={{ "1200px": isInEditMode ? "80vw" : "65vw", "900px": "90vw", "600px": "95vw" }}
+        breakpoints={{
+          "1200px": isInEditMode ? "80vw" : "65vw",
+          "900px": "90vw",
+          "600px": "95vw",
+        }}
         maximizable
         header={
           <div className="flex align-items-center gap-3">
@@ -393,7 +401,12 @@ export default function ReceptionList() {
         }
         modal
         className="p-fluid"
-        contentStyle={{ padding: 0, display: "flex", flexDirection: "column", overflow: "hidden" }}
+        contentStyle={{
+          padding: 0,
+          display: "flex",
+          flexDirection: "column",
+          overflow: "hidden",
+        }}
         onHide={() => {
           setFormDialog(false);
           setSelected(null);
@@ -447,7 +460,19 @@ export default function ReceptionList() {
                   label: "Generar OT",
                   icon: "pi pi-wrench",
                   disabled: !!actionItem.serviceOrder,
-                  command: () => editItem(actionItem),
+                  command: () => {
+                    const q = new URLSearchParams({
+                      action: "new",
+                      receptionId: actionItem.id,
+                      customerId: actionItem.customerId,
+                      customerVehicleId: actionItem.customerVehicleId || "",
+                      vehiclePlate: actionItem.vehiclePlate || "",
+                      mileageIn: actionItem.mileageIn?.toString() || "",
+                    });
+                    router.push(
+                      `/empresa/workshop/service-orders?${q.toString()}`,
+                    );
+                  },
                 },
                 { separator: true },
                 {

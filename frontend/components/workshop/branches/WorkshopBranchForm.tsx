@@ -6,6 +6,7 @@ import { InputText } from "primereact/inputtext";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { workshopBranchService } from "@/app/api/workshop";
 import { handleFormError } from "@/utils/errorHandlers";
+import UserSelector from "@/components/common/UserSelector";
 import {
   createWorkshopBranchSchema,
   updateWorkshopBranchSchema,
@@ -36,9 +37,17 @@ export default function WorkshopBranchForm({
     reset,
     formState: { errors },
   } = useForm<CreateWorkshopBranchForm>({
-    resolver: zodResolver(branch ? updateWorkshopBranchSchema : createWorkshopBranchSchema),
+    resolver: zodResolver(
+      branch ? updateWorkshopBranchSchema : createWorkshopBranchSchema,
+    ),
     mode: "onBlur",
-    defaultValues: { code: "", name: "", address: "", phone: "", managerUserId: "" },
+    defaultValues: {
+      code: "",
+      name: "",
+      address: "",
+      phone: "",
+      managerUserId: "",
+    },
   });
 
   useEffect(() => {
@@ -86,14 +95,23 @@ export default function WorkshopBranchForm({
   if (isLoading) {
     return (
       <div className="flex flex-column align-items-center justify-content-center p-4">
-        <ProgressSpinner style={{ width: "40px", height: "40px" }} strokeWidth="4" fill="var(--surface-ground)" animationDuration=".5s" />
+        <ProgressSpinner
+          style={{ width: "40px", height: "40px" }}
+          strokeWidth="4"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
         <p className="mt-3 text-600 font-medium">Preparando formulario...</p>
       </div>
     );
   }
 
   return (
-    <form id={formId ?? "workshop-branch-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "workshop-branch-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
         {/* Código */}
         <div className="col-12 md:col-6">
@@ -115,7 +133,9 @@ export default function WorkshopBranchForm({
               />
             )}
           />
-          {errors.code && <small className="p-error block mt-1">{errors.code.message}</small>}
+          {errors.code && (
+            <small className="p-error block mt-1">{errors.code.message}</small>
+          )}
         </div>
 
         {/* Nombre */}
@@ -135,7 +155,9 @@ export default function WorkshopBranchForm({
               />
             )}
           />
-          {errors.name && <small className="p-error block mt-1">{errors.name.message}</small>}
+          {errors.name && (
+            <small className="p-error block mt-1">{errors.name.message}</small>
+          )}
         </div>
 
         {/* Teléfono */}
@@ -156,28 +178,30 @@ export default function WorkshopBranchForm({
               />
             )}
           />
-          {errors.phone && <small className="p-error block mt-1">{errors.phone.message}</small>}
+          {errors.phone && (
+            <small className="p-error block mt-1">{errors.phone.message}</small>
+          )}
         </div>
 
-        {/* ID del responsable */}
+        {/* Responsable */}
         <div className="col-12 md:col-6">
-          <label htmlFor="managerUserId" className="block text-900 font-medium mb-2">
-            ID del responsable
-          </label>
+          <label className="block text-900 font-medium mb-2">Responsable</label>
           <Controller
             name="managerUserId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="managerUserId"
-                {...field}
-                value={field.value ?? ""}
-                placeholder="UUID del usuario responsable"
-                className={errors.managerUserId ? "p-invalid" : ""}
+              <UserSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.managerUserId}
               />
             )}
           />
-          {errors.managerUserId && <small className="p-error block mt-1">{errors.managerUserId.message}</small>}
+          {errors.managerUserId && (
+            <small className="p-error block mt-1">
+              {errors.managerUserId.message}
+            </small>
+          )}
         </div>
 
         {/* Dirección */}
@@ -198,7 +222,11 @@ export default function WorkshopBranchForm({
               />
             )}
           />
-          {errors.address && <small className="p-error block mt-1">{errors.address.message}</small>}
+          {errors.address && (
+            <small className="p-error block mt-1">
+              {errors.address.message}
+            </small>
+          )}
         </div>
       </div>
     </form>

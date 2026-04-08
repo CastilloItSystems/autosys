@@ -57,6 +57,24 @@ export const updateServiceOrderMaterialSchema = Joi.object({
   itemId: Joi.string().optional(),
 }).min(1)
 
+export const changeStatusSchema = Joi.object({
+  status: Joi.string()
+    .valid(
+      'REQUESTED',
+      'RESERVED',
+      'DISPATCHED',
+      'CONSUMED',
+      'RETURNED',
+      'CANCELLED'
+    )
+    .required()
+    .messages({ 'any.required': 'El estado es requerido' }),
+  // Requerido para transiciones que tocan inventario (RESERVED, DISPATCHED, RETURNED, CANCELLED)
+  warehouseId: Joi.string().optional(),
+  // Cantidad a retornar (solo para RETURNED)
+  quantityReturned: Joi.number().positive().optional(),
+})
+
 export const materialFiltersSchema = Joi.object({
   status: Joi.string()
     .valid(

@@ -12,6 +12,7 @@ model User {
   online        Boolean      @default(false)
   fcmTokens     String[]
   google        Boolean      @default(false)
+  isTechnician  Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 

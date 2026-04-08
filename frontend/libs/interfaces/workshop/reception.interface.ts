@@ -12,7 +12,8 @@ export type ReceptionStatus =
   | "OPEN"
   | "DIAGNOSING"
   | "QUOTED"
-  | "CONVERTED_TO_SO";
+  | "CONVERTED_TO_SO"
+  | "CANCELLED";
 
 export interface VehicleReception {
   id: string;
@@ -36,15 +37,19 @@ export interface VehicleReception {
   clientSignature: string | null;
   diagnosticAuthorized: boolean;
   status: ReceptionStatus;
+  ingressMotiveId: string | null;
+  ingressMotive: { id: string; name: string; code: string } | null;
   appointmentId: string | null;
   appointment: { id: string; folio: string; status: string } | null;
   serviceOrder: { id: string; folio: string; status: string } | null;
+  quotations?: { id: string; quotationNumber: string; status: string; total: number }[];
   createdBy: string;
   createdAt: string;
   updatedAt: string;
 }
 
 export interface ReceptionFilters {
+  status?: ReceptionStatus;
   customerId?: string;
   advisorId?: string;
   appointmentId?: string;

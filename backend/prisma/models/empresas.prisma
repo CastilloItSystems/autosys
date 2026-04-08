@@ -97,6 +97,9 @@ model Empresa {
   workshopAuditLogs           WorkshopAuditLog[]
   workshopBranches            WorkshopBranch[]
   workshopShifts              WorkshopShift[]
+  workshopQuotations          WorkshopQuotation[]
+  workshopTOTs                WorkshopTOT[]
+  workshopGarita              WorkshopGarita[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

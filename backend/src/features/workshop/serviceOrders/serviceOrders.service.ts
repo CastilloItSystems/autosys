@@ -47,32 +47,64 @@ const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
   CANCELLED: [],
 }
 
-// Genera folio SO-XXXX por empresa (transaccional)
+// Genera folio SO-XXXX por empresa usando SELECT FOR UPDATE para evitar duplicados
 export async function generateFolio(
   prisma: PrismaClientType,
   empresaId: string
 ): Promise<string> {
-  const last = await (prisma as PrismaClient).serviceOrder.findFirst({
-    where: { empresaId },
-    orderBy: { createdAt: 'desc' },
-    select: { folio: true },
-  })
+  // Raw query con lock para evitar race condition en creaciones concurrentes
+  const result = await (prisma as PrismaClient).$queryRaw<{ folio: string }[]>`
+    SELECT folio FROM service_orders
+    WHERE "empresaId" = ${empresaId}
+    ORDER BY "createdAt" DESC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  `
+  const last = result[0]
   const lastNum = last ? parseInt(last.folio.replace('SO-', ''), 10) : 0
   const next = lastNum + 1
   return `SO-${String(next).padStart(4, '0')}`
 }
 
 function calcTotals(
-  items: { type: string; quantity: number; unitPrice: number }[]
+  items: {
+    type: string
+    quantity: number
+    unitPrice: number
+    discountPct?: number
+    taxRate?: number
+    taxType?: string
+  }[]
 ) {
   let laborTotal = 0
   let partsTotal = 0
+  let otherTotal = 0
+  let subtotal = 0
+  let taxAmt = 0
+
   for (const item of items) {
-    const t = item.quantity * item.unitPrice
-    if (item.type === 'LABOR') laborTotal += t
-    else partsTotal += t
+    const gross = item.quantity * item.unitPrice
+    const discount = ((item.discountPct ?? 0) * gross) / 100
+    const base = gross - discount
+    const rate = item.taxType === 'EXEMPT' ? 0 : (item.taxRate ?? 0.16)
+    const tax = base * rate
+
+    subtotal += base
+    taxAmt += tax
+
+    if (item.type === 'LABOR') laborTotal += base
+    else if (item.type === 'PART') partsTotal += base
+    else otherTotal += base
   }
-  return { laborTotal, partsTotal, total: laborTotal + partsTotal }
+
+  return {
+    laborTotal,
+    partsTotal,
+    otherTotal,
+    subtotal,
+    taxAmt,
+    total: subtotal + taxAmt,
+  }
 }
 
 export async function createServiceOrder(
@@ -118,39 +150,111 @@ export async function createServiceOrder(
   }
 
   const folio = await generateFolio(prisma, empresaId)
-  const itemsWithTotals = (dto.items ?? []).map((i) => ({
-    ...i,
-    total: i.quantity * i.unitPrice,
-  }))
-  const { laborTotal, partsTotal, total } = calcTotals(itemsWithTotals)
 
-  const order = await (prisma as PrismaClient).serviceOrder.create({
-    data: {
-      folio,
-      empresaId,
-      customerId: dto.customerId,
-      customerVehicleId: dto.customerVehicleId ?? null,
-      vehiclePlate: vehiclePlate ?? null,
-      vehicleDesc: vehicleDesc ?? null,
-      mileageIn: dto.mileageIn ?? null,
-      diagnosisNotes: dto.diagnosisNotes ?? null,
-      // observations removed - it's a relation, not a field
-      assignedTechnicianId: dto.assignedTechnicianId ?? null,
-      estimatedDelivery: dto.estimatedDelivery ?? null,
-      laborTotal,
-      partsTotal,
-      total,
-      createdBy: userId,
-      items: {
-        create: itemsWithTotals,
-      },
-    },
-    include: {
-      customer: { select: { id: true, name: true, code: true } },
-      customerVehicle: { select: { id: true, plate: true } },
-      items: true,
-    },
+  // M2: Para items tipo PART con itemId, tomar snapshot del nombre del catálogo
+  const enrichedItems = await Promise.all(
+    (dto.items ?? []).map(async (i) => {
+      if (i.itemId) {
+        const catalogItem = await (prisma as PrismaClient).item.findFirst({
+          where: { id: i.itemId, empresaId },
+          select: { name: true, sku: true },
+        })
+        if (catalogItem) {
+          return { ...i, itemName: catalogItem.name }
+        }
+      }
+      return i
+    })
+  )
+
+  // M3: Calcular totales ANTES de hacer string conversion
+  const { laborTotal, partsTotal, otherTotal, subtotal, taxAmt, total } =
+    calcTotals(enrichedItems as any)
+
+  // M4: Convertir items para Prisma (todos los Decimals como strings)
+  const itemsWithTotals = enrichedItems.map((i) => {
+    const qty = Number(i.quantity) || 1
+    const price = Number(i.unitPrice) || 0
+    const discount = Number((i as any).discountPct ?? 0) / 100
+    const taxRate =
+      (i as any).taxType === 'EXEMPT' ? 0 : Number((i as any).taxRate ?? 0.16)
+    const total = qty * price * (1 - discount) * (1 + taxRate)
+
+    return {
+      ...i,
+      quantity: qty.toString(),
+      unitPrice: price.toString(),
+      unitCost: Number((i as any).unitCost ?? 0).toString(),
+      discountPct: Number((i as any).discountPct ?? 0).toString(),
+      taxRate: taxRate.toString(),
+      total: total.toString(),
+    }
   })
+
+  // Utilizar transacción si es PrismaClient
+  const client = prisma as any
+
+  let order
+  const createData: any = {
+    folio,
+    empresaId,
+    customerId: dto.customerId,
+    priority: dto.priority,
+    serviceTypeId: dto.serviceTypeId ?? null,
+    bayId: dto.bayId ?? null,
+    customerVehicleId: dto.customerVehicleId ?? null,
+    receptionId: dto.receptionId ?? null,
+    vehiclePlate: vehiclePlate ?? null,
+    vehicleDesc: vehicleDesc ?? null,
+    mileageIn: dto.mileageIn ?? null,
+    diagnosisNotes: dto.diagnosisNotes ?? null,
+    internalNotes: dto.observations ?? null, // Map observations to internalNotes (Prisma schema naming)
+    assignedTechnicianId: dto.assignedTechnicianId ?? null,
+    estimatedDelivery: dto.estimatedDelivery ?? null,
+    laborTotal: laborTotal.toString(),
+    partsTotal: partsTotal.toString(),
+    otherTotal: otherTotal.toString(),
+    subtotal: subtotal.toString(),
+    taxAmt: taxAmt.toString(),
+    total: total.toString(),
+    createdBy: userId,
+    items: {
+      create: itemsWithTotals,
+    },
+  }
+
+  console.log(
+    'Creating service order with data:',
+    JSON.stringify(createData, null, 2)
+  )
+
+  const includeConfig = {
+    customer: { select: { id: true, name: true, code: true } },
+    customerVehicle: { select: { id: true, plate: true } },
+    items: true,
+  }
+
+  if (client.$transaction && dto.receptionId) {
+    // Si viene receptionId, actualizamos su estado y la vinculamos
+    const [createdOrder] = await client.$transaction([
+      client.serviceOrder.create({
+        data: createData,
+        include: includeConfig,
+      }),
+      // Usar updateMany cuando queremos filtrar por empresaId además del id
+      // (update espera una clave única; pasar empresaId provoca error de validación)
+      client.vehicleReception.updateMany({
+        where: { id: dto.receptionId, empresaId },
+        data: { status: 'CONVERTED_TO_SO' },
+      }),
+    ])
+    order = createdOrder
+  } else {
+    order = await (prisma as PrismaClient).serviceOrder.create({
+      data: createData as any,
+      include: includeConfig,
+    })
+  }
 
   return order
 }
@@ -252,23 +356,43 @@ export async function updateServiceOrder(
   if (items !== undefined) {
     const itemsWithTotals = items.map((i) => ({
       ...i,
-      total: i.quantity * i.unitPrice,
+      total:
+        i.quantity *
+        i.unitPrice *
+        (1 - (i.discountPct ?? 0) / 100) *
+        (1 + (i.taxType === 'EXEMPT' ? 0 : (i.taxRate ?? 0.16))),
     }))
-    const { laborTotal, partsTotal, total } = calcTotals(itemsWithTotals)
-    totalsUpdate = { laborTotal, partsTotal, total }
+    const { laborTotal, partsTotal, otherTotal, subtotal, taxAmt, total } =
+      calcTotals(itemsWithTotals)
+    totalsUpdate = {
+      laborTotal,
+      partsTotal,
+      otherTotal,
+      subtotal,
+      taxAmt,
+      total,
+    }
 
-    // Reemplazar items
-    await (prisma as PrismaClient).serviceOrderItem.deleteMany({
-      where: { serviceOrderId: id },
-    })
-    await (prisma as PrismaClient).serviceOrderItem.createMany({
-      data: itemsWithTotals.map((i) => ({ ...i, serviceOrderId: id })),
-    })
+    // Reemplazar items en transacción para evitar pérdida de datos si createMany falla
+    await (prisma as PrismaClient).$transaction([
+      (prisma as PrismaClient).serviceOrderItem.deleteMany({
+        where: { serviceOrderId: id },
+      }),
+      (prisma as PrismaClient).serviceOrderItem.createMany({
+        data: itemsWithTotals.map((i) => ({ ...i, serviceOrderId: id })) as any,
+      }),
+    ])
+  }
+
+  // Map observations to internalNotes (Prisma schema naming)
+  const updateData = { ...(fields as any), ...totalsUpdate }
+  if (observations !== undefined) {
+    updateData.internalNotes = observations
   }
 
   const updated = await (prisma as PrismaClient).serviceOrder.update({
     where: { id },
-    data: { ...fields, ...totalsUpdate },
+    data: updateData,
     include: {
       customer: { select: { id: true, name: true, code: true } },
       customerVehicle: { select: { id: true, plate: true } },
@@ -297,21 +421,30 @@ export async function updateServiceOrderStatus(
   await validateSOQuoteApproval(prisma, id, dto.status)
 
   // FASE 2.8: Validate PreInvoice status before marking SO as INVOICED
+  // Acepta tanto prefactura individual como consolidada
   if (dto.status === 'INVOICED') {
-    // Check if ServiceOrder has a PreInvoice (1-to-1 relationship)
-    const preInvoice = await (prisma as PrismaClient).preInvoice.findFirst({
-      where: { serviceOrderId: id },
+    const soWithPreInvoice = await (
+      prisma as PrismaClient
+    ).serviceOrder.findFirst({
+      where: { id },
+      select: {
+        preInvoice: { select: { id: true, status: true } },
+        consolidatedPreInvoice: { select: { id: true, status: true } },
+      },
     })
+
+    const preInvoice =
+      soWithPreInvoice?.preInvoice ?? soWithPreInvoice?.consolidatedPreInvoice
 
     if (!preInvoice) {
       throw new BadRequestError(
-        'Cannot mark ServiceOrder as INVOICED without a PreInvoice. Generate PreInvoice first.'
+        'La OT no tiene una pre-factura. Genera una pre-factura antes de marcar como INVOICED.'
       )
     }
 
     if (!['READY_FOR_PAYMENT', 'PAID'].includes(preInvoice.status)) {
       throw new BadRequestError(
-        `PreInvoice must be in READY_FOR_PAYMENT or PAID status before marking SO as INVOICED. Current: ${preInvoice.status}`
+        `La pre-factura debe estar en READY_FOR_PAYMENT o PAID antes de marcar como INVOICED. Estado actual: ${preInvoice.status}`
       )
     }
   }
@@ -375,4 +508,329 @@ export async function deleteServiceOrder(
     )
   }
   await (prisma as PrismaClient).serviceOrder.delete({ where: { id } })
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// M3: Sincronizar materiales CONSUMED → ítems facturables de la SO
+// ─────────────────────────────────────────────────────────────────────────────
+export async function syncMaterialsToItems(
+  prisma: PrismaClientType,
+  id: string,
+  empresaId: string,
+  userId: string
+) {
+  const order = await findServiceOrderById(prisma, id, empresaId)
+
+  const consumedMaterials = await (
+    prisma as PrismaClient
+  ).serviceOrderMaterial.findMany({
+    where: { serviceOrderId: id, status: 'CONSUMED' },
+  })
+
+  if (consumedMaterials.length === 0) {
+    return { synced: 0, message: 'Sin materiales consumidos para sincronizar' }
+  }
+
+  // Evitar duplicados: buscar items PART que ya tengan el mismo itemId
+  const existingPartItemIds = new Set(
+    (order.items as any[])
+      .filter((i: any) => i.type === 'PART' && i.itemId)
+      .map((i: any) => i.itemId)
+  )
+
+  const toCreate = consumedMaterials.filter(
+    (m) => m.itemId && !existingPartItemIds.has(m.itemId)
+  )
+
+  if (toCreate.length === 0) {
+    return {
+      synced: 0,
+      message: 'Todos los materiales consumidos ya tienen ítem correspondiente',
+    }
+  }
+
+  const newItems = toCreate.map((m) => {
+    const qty = Number(m.quantityConsumed) || Number(m.quantityRequested)
+    const base = qty * Number(m.unitPrice)
+    const taxRate = 0.16
+    return {
+      serviceOrderId: id,
+      type: 'PART' as const,
+      description: m.description,
+      itemName: m.description,
+      itemId: m.itemId,
+      quantity: qty,
+      unitPrice: Number(m.unitPrice),
+      unitCost: Number(m.unitCost),
+      discountPct: 0,
+      taxType: 'IVA',
+      taxRate,
+      taxAmount: base * taxRate,
+      total: base * (1 + taxRate),
+      stockDeducted: true,
+    }
+  })
+
+  await (prisma as PrismaClient).serviceOrderItem.createMany({
+    data: newItems as any,
+  })
+
+  // Recalcular totales
+  const allItems = await (prisma as PrismaClient).serviceOrderItem.findMany({
+    where: { serviceOrderId: id },
+  })
+  const totals = calcTotals(
+    allItems.map((i) => ({
+      type: i.type,
+      quantity: Number(i.quantity),
+      unitPrice: Number(i.unitPrice),
+      discountPct: Number((i as any).discountPct ?? 0),
+      taxType: (i as any).taxType ?? 'IVA',
+      taxRate: Number((i as any).taxRate ?? 0.16),
+    }))
+  )
+
+  await (prisma as PrismaClient).serviceOrder.update({
+    where: { id },
+    data: totals,
+  })
+
+  return { synced: newItems.length }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// M1: Facturación consolidada — generar una PreInvoice para varias OTs del mismo cliente
+// ─────────────────────────────────────────────────────────────────────────────
+export async function generateConsolidatedPreInvoice(
+  prisma: PrismaClientType,
+  serviceOrderIds: string[],
+  empresaId: string,
+  userId: string
+) {
+  if (serviceOrderIds.length < 2) {
+    throw new BadRequestError(
+      'Se requieren al menos 2 órdenes para facturación consolidada'
+    )
+  }
+
+  const orders = await (prisma as PrismaClient).serviceOrder.findMany({
+    where: { id: { in: serviceOrderIds }, empresaId },
+    include: { items: true },
+  })
+
+  if (orders.length !== serviceOrderIds.length) {
+    throw new NotFoundError('Una o más órdenes no encontradas')
+  }
+
+  // Todas deben ser del mismo cliente
+  const customerIds = new Set(orders.map((o) => o.customerId))
+  if (customerIds.size > 1) {
+    throw new BadRequestError(
+      'Todas las órdenes deben pertenecer al mismo cliente'
+    )
+  }
+
+  // Solo OTs facturables (READY o DELIVERED)
+  const nonBillable = orders.filter(
+    (o) => !['READY', 'DELIVERED'].includes(o.status)
+  )
+  if (nonBillable.length > 0) {
+    throw new BadRequestError(
+      `Las siguientes órdenes no están listas para facturar: ${nonBillable.map((o) => o.folio).join(', ')}`
+    )
+  }
+
+  // Verificar que ninguna ya tenga PreInvoice
+  const alreadyInvoiced = await (prisma as PrismaClient).preInvoice.findMany({
+    where: {
+      OR: [
+        { serviceOrderId: { in: serviceOrderIds } },
+        {
+          consolidatedServiceOrders: { some: { id: { in: serviceOrderIds } } },
+        },
+      ],
+    },
+    select: {
+      serviceOrderId: true,
+      consolidatedServiceOrders: { select: { id: true } },
+    },
+  })
+  if (alreadyInvoiced.length > 0) {
+    throw new BadRequestError('Una o más órdenes ya tienen prefactura generada')
+  }
+
+  const customerId = orders[0].customerId
+
+  // Combinar todos los ítems
+  let subtotalBruto = 0
+  let baseImponible = 0
+  let baseExenta = 0
+  let taxAmount = 0
+
+  const allPreInvoiceItems: any[] = []
+
+  for (const order of orders) {
+    for (const item of order.items as any[]) {
+      const lineSubtotal = Number(item.quantity) * Number(item.unitPrice)
+      const lineDiscount = (Number(item.discountPct || 0) * lineSubtotal) / 100
+      const lineBase = lineSubtotal - lineDiscount
+      const taxRate = Number(item.taxRate || 0.16)
+      const lineTax = item.taxType === 'EXEMPT' ? 0 : lineBase * taxRate
+
+      if (item.taxType === 'EXEMPT') baseExenta += lineBase
+      else baseImponible += lineBase
+
+      subtotalBruto += lineSubtotal
+      taxAmount += lineTax
+
+      allPreInvoiceItems.push({
+        itemName: `[${order.folio}] ${item.description}`,
+        quantity: Number(item.quantity),
+        unitPrice: Number(item.unitPrice),
+        discountPercent: Number(item.discountPct || 0),
+        discountAmount: lineDiscount,
+        taxType: item.taxType ?? 'IVA',
+        taxRate,
+        taxAmount: lineTax,
+        subtotal: lineBase,
+        totalLine: lineBase + lineTax,
+        discount: lineDiscount,
+        tax: lineTax,
+      })
+    }
+  }
+
+  const total = baseImponible + baseExenta + taxAmount
+
+  // Generar número de prefactura
+  const now = new Date()
+  const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
+  const lastPI = await (prisma as PrismaClient).preInvoice.findFirst({
+    where: { empresaId, preInvoiceNumber: { startsWith: `PFC-${yearMonth}` } },
+    orderBy: { createdAt: 'desc' },
+  })
+  const seq = lastPI
+    ? parseInt(lastPI.preInvoiceNumber.split('-')[2] || '0') + 1
+    : 1
+  const preInvoiceNumber = `PFC-${yearMonth}-${String(seq).padStart(6, '0')}`
+
+  const preInvoice = await (prisma as PrismaClient).preInvoice.create({
+    data: {
+      preInvoiceNumber,
+      status: 'PENDING_PREPARATION',
+      empresaId,
+      customerId,
+      currency: 'USD',
+      discountAmount: 0,
+      subtotalBruto,
+      baseImponible,
+      baseExenta,
+      taxAmount,
+      taxRate: 16,
+      igtfApplies: false,
+      igtfRate: 3,
+      igtfAmount: 0,
+      total,
+      notes: `Prefactura consolidada: ${orders.map((o) => o.folio).join(', ')}`,
+      preparedBy: userId,
+      preparedAt: now,
+      consolidatedServiceOrders: {
+        connect: serviceOrderIds.map((id) => ({ id })),
+      },
+      items: { create: allPreInvoiceItems },
+    },
+    include: {
+      items: true,
+      consolidatedServiceOrders: { select: { id: true, folio: true } },
+    },
+  })
+
+  return preInvoice
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B2: Saldo pendiente de facturación por cliente
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getPendingBillingByCustomer(
+  prisma: PrismaClientType,
+  customerId: string,
+  empresaId: string
+) {
+  const orders = await (prisma as PrismaClient).serviceOrder.findMany({
+    where: {
+      customerId,
+      empresaId,
+      status: { in: ['READY', 'DELIVERED'] },
+      consolidatedPreInvoiceId: null,
+      preInvoice: null,
+    },
+    select: {
+      id: true,
+      folio: true,
+      status: true,
+      total: true,
+      subtotal: true,
+      taxAmt: true,
+      receivedAt: true,
+      deliveredAt: true,
+      vehiclePlate: true,
+      vehicleDesc: true,
+    },
+    orderBy: { receivedAt: 'asc' },
+  })
+
+  const pendingTotal = orders.reduce((sum, o) => sum + Number(o.total), 0)
+
+  return {
+    customerId,
+    pendingOrders: orders.map((o) => ({ ...o, total: Number(o.total) })),
+    pendingCount: orders.length,
+    pendingTotal,
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// B3: OTs estancadas (sin actividad por más días de lo esperado según su estado)
+// ─────────────────────────────────────────────────────────────────────────────
+export async function getStalledOrders(
+  prisma: PrismaClientType,
+  empresaId: string,
+  thresholds = { waitingPartsDays: 3, pausedDays: 2, waitingAuthDays: 1 }
+) {
+  const now = new Date()
+  const dayMs = 24 * 60 * 60 * 1000
+
+  const cutoffs = {
+    WAITING_PARTS: new Date(
+      now.getTime() - thresholds.waitingPartsDays * dayMs
+    ),
+    PAUSED: new Date(now.getTime() - thresholds.pausedDays * dayMs),
+    WAITING_AUTH: new Date(now.getTime() - thresholds.waitingAuthDays * dayMs),
+  }
+
+  const stalled = await (prisma as PrismaClient).serviceOrder.findMany({
+    where: {
+      empresaId,
+      OR: [
+        { status: 'WAITING_PARTS', updatedAt: { lt: cutoffs.WAITING_PARTS } },
+        { status: 'PAUSED', updatedAt: { lt: cutoffs.PAUSED } },
+        { status: 'WAITING_AUTH', updatedAt: { lt: cutoffs.WAITING_AUTH } },
+      ],
+    },
+    include: {
+      customer: { select: { id: true, name: true } },
+      customerVehicle: { select: { plate: true } },
+    },
+    orderBy: { updatedAt: 'asc' },
+  })
+
+  return stalled.map((o) => ({
+    id: o.id,
+    folio: o.folio,
+    status: o.status,
+    customer: o.customer,
+    vehiclePlate: o.vehiclePlate,
+    updatedAt: o.updatedAt,
+    stalledDays: Math.floor((now.getTime() - o.updatedAt.getTime()) / dayMs),
+  }))
 }

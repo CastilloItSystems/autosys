@@ -6,6 +6,7 @@ import {
   ConflictError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import stockService from '../../inventory/stock/stock.service.js'
 import type {
   ICreateServiceOrderMaterial,
   IUpdateServiceOrderMaterial,
@@ -80,7 +81,8 @@ export async function findById(
 
 export async function create(
   db: DbType,
-  data: ICreateServiceOrderMaterial
+  data: ICreateServiceOrderMaterial,
+  userId = 'system'
 ): Promise<IServiceOrderMaterialWithRelations> {
   // Verify serviceOrder exists
   const serviceOrder = await (db as PrismaClient).serviceOrder.findUnique({
@@ -111,7 +113,7 @@ export async function create(
       serviceOrderId: data.serviceOrderId,
       itemId: data.itemId,
       empresaId: serviceOrder.empresaId,
-      createdBy: 'system',
+      createdBy: userId,
     },
     include: BASE_INCLUDE,
   })
@@ -218,13 +220,18 @@ export async function changeStatus(
     | 'DISPATCHED'
     | 'CONSUMED'
     | 'RETURNED'
-    | 'CANCELLED'
+    | 'CANCELLED',
+  context?: {
+    warehouseId?: string
+    quantityReturned?: number
+    empresaId?: string
+    userId?: string
+  }
 ): Promise<IServiceOrderMaterialWithRelations> {
   const material = await findById(db, id)
 
-  // Validate status transitions if needed
   const validTransitions: Record<string, string[]> = {
-    REQUESTED: ['RESERVED', 'RETURNED', 'CANCELLED'],
+    REQUESTED: ['RESERVED', 'CANCELLED'],
     RESERVED: ['DISPATCHED', 'RETURNED', 'CANCELLED'],
     DISPATCHED: ['CONSUMED', 'RETURNED', 'CANCELLED'],
     CONSUMED: ['RETURNED'],
@@ -238,9 +245,77 @@ export async function changeStatus(
     )
   }
 
+  const { warehouseId, empresaId, userId = 'system' } = context ?? {}
+  const itemId = material.itemId
+
+  // Ajustes de inventario solo si el material está vinculado a un item y se proveyó almacén
+  if (itemId && warehouseId && empresaId) {
+    try {
+      if (status === 'RESERVED') {
+        // Reservar en inventario: quantityReserved += qty, quantityAvailable -= qty
+        await stockService.reserve(
+          { itemId, warehouseId, quantity: Number(material.quantityRequested) },
+          empresaId,
+          userId,
+          db
+        )
+      } else if (status === 'DISPATCHED') {
+        const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
+        // 1. Liberar la reserva
+        await stockService.releaseReservation(
+          { itemId, warehouseId, quantity: qty },
+          empresaId,
+          userId,
+          db
+        )
+        // 2. Descontar del stock físico
+        await stockService.adjust(
+          { itemId, warehouseId, quantityChange: -qty, reason: `Despacho OT material ${id}` },
+          empresaId,
+          userId,
+          db
+        )
+      } else if (status === 'RETURNED') {
+        const returnQty = context?.quantityReturned ?? Number(material.quantityDispatched) ?? Number(material.quantityRequested)
+        // Reponer al stock físico
+        await stockService.adjust(
+          { itemId, warehouseId, quantityChange: returnQty, reason: `Devolución OT material ${id}` },
+          empresaId,
+          userId,
+          db
+        )
+      } else if (status === 'CANCELLED' && material.status === 'RESERVED') {
+        // Liberar la reserva si se cancela estando reservado
+        await stockService.releaseReservation(
+          { itemId, warehouseId, quantity: Number(material.quantityReserved) },
+          empresaId,
+          userId,
+          db
+        )
+      }
+    } catch (err: any) {
+      // Si el error viene de insuficiencia de stock, lo propagamos al usuario
+      if (err?.statusCode === 400 || err?.name === 'BadRequestError') throw err
+      // Otros errores de inventario: logear pero no bloquear el cambio de estado
+      console.error(`[workshop-materials] Error ajustando stock para material ${id}:`, err?.message)
+    }
+  }
+
+  // Actualizar cantidades según el nuevo estado
+  const quantityUpdate: Record<string, number> = {}
+  if (status === 'DISPATCHED') {
+    quantityUpdate.quantityDispatched =
+      Number(material.quantityReserved) || Number(material.quantityRequested)
+  } else if (status === 'CONSUMED') {
+    quantityUpdate.quantityConsumed = Number(material.quantityDispatched)
+  } else if (status === 'RETURNED') {
+    quantityUpdate.quantityReturned =
+      context?.quantityReturned ?? Number(material.quantityDispatched) ?? Number(material.quantityRequested)
+  }
+
   const updated = await (db as PrismaClient).serviceOrderMaterial.update({
     where: { id },
-    data: { status },
+    data: { status, ...quantityUpdate },
     include: BASE_INCLUDE,
   })
 

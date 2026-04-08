@@ -12,6 +12,8 @@ import {
   updateServiceOrderSchema,
   updateStatusSchema,
   serviceOrderFiltersSchema,
+  consolidatedPreInvoiceSchema,
+  stalledFiltersSchema,
 } from './serviceOrders.validation.js'
 import * as ctrl from './serviceOrders.controller.js'
 
@@ -29,6 +31,27 @@ router.post(
   authorize(PERMISSIONS.WORKSHOP_CREATE),
   validateBody(createServiceOrderSchema),
   asyncHandler(ctrl.create)
+)
+
+// Rutas estáticas ANTES de /:id para que Express no las capture como IDs
+router.post(
+  '/consolidated-pre-invoice',
+  authorize(PERMISSIONS.WORKSHOP_CREATE),
+  validateBody(consolidatedPreInvoiceSchema),
+  asyncHandler(ctrl.generateConsolidated)
+)
+
+router.get(
+  '/stalled',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  validateQuery(stalledFiltersSchema),
+  asyncHandler(ctrl.stalled)
+)
+
+router.get(
+  '/customer/:customerId/pending-billing',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  asyncHandler(ctrl.pendingBilling)
 )
 
 router.get(
@@ -87,6 +110,20 @@ router.get(
   '/:id/billing',
   authorize(PERMISSIONS.WORKSHOP_VIEW),
   asyncHandler(ctrl.getBillingTrail)
+)
+
+// M3: Sincronizar materiales consumidos → ítems facturables
+router.post(
+  '/:id/sync-materials',
+  authorize(PERMISSIONS.WORKSHOP_UPDATE),
+  asyncHandler(ctrl.syncMaterials)
+)
+
+// F3-12: Conciliación presupuesto vs factura
+router.get(
+  '/:id/budget-variance',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  asyncHandler(ctrl.getVariance)
 )
 
 export default router

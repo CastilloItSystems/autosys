@@ -8,6 +8,7 @@ import { InputText } from "primereact/inputtext";
 import { Password } from "primereact/password";
 import { Dropdown } from "primereact/dropdown";
 import { MultiSelect } from "primereact/multiselect";
+import { Checkbox } from "primereact/checkbox";
 import { classNames } from "primereact/utils";
 import PhoneInput from "../common/PhoneInput";
 
@@ -34,6 +35,7 @@ const baseUsuarioSchema = {
     .min(1, "Seleccione al menos un departamento"),
   acceso: z.enum(["completo", "limitado", "ninguno"]),
   estado: z.enum(["activo", "pendiente", "suspendido"]),
+  isTechnician: z.boolean().optional(),
 };
 
 const createUserSchema = z
@@ -125,6 +127,7 @@ const UsuarioForm = ({
       departamento: [],
       acceso: "ninguno",
       estado: "activo",
+      isTechnician: false,
       password: "",
       confirmPassword: "",
     },
@@ -139,6 +142,7 @@ const UsuarioForm = ({
         departamento: usuario.departamento ?? [],
         acceso: usuario.acceso,
         estado: usuario.estado,
+        isTechnician: usuario.isTechnician ?? false,
         password: "",
         confirmPassword: "",
       });
@@ -150,6 +154,7 @@ const UsuarioForm = ({
         departamento: [],
         acceso: "ninguno",
         estado: "activo",
+        isTechnician: false,
         password: "",
         confirmPassword: "",
       });
@@ -169,6 +174,7 @@ const UsuarioForm = ({
           departamento: departamentoArray,
           acceso: data.acceso,
           estado: data.estado,
+          isTechnician: data.isTechnician ?? false,
           ...(data.password ? { password: data.password } : {}),
         };
 
@@ -373,6 +379,29 @@ const UsuarioForm = ({
               {errors.estado.message}
             </small>
           )}
+        </div>
+
+        {/* Es técnico */}
+        <div className="col-12 md:col-6">
+          <label className="block text-900 font-medium mb-2">
+            Rol de técnico
+          </label>
+          <Controller
+            name="isTechnician"
+            control={control}
+            render={({ field }) => (
+              <div className="flex align-items-center gap-2 mt-2">
+                <Checkbox
+                  inputId="isTechnician"
+                  checked={field.value ?? false}
+                  onChange={(e) => field.onChange(e.checked)}
+                />
+                <label htmlFor="isTechnician" className="cursor-pointer">
+                  Es técnico de taller
+                </label>
+              </div>
+            )}
+          />
         </div>
 
         {/* Password */}

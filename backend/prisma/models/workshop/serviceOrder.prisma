@@ -83,6 +83,10 @@ model ServiceOrder {
   // FASE 2: PreInvoice (preparación de factura) - back-reference only (FK is in PreInvoice)
   preInvoice    PreInvoice?   @relation("PreInvoiceServiceOrder")
 
+  // Facturación consolidada: cuando varias OTs se facturan juntas en una sola PreInvoice
+  consolidatedPreInvoiceId String?
+  consolidatedPreInvoice   PreInvoice? @relation("ConsolidatedSOPreInvoice", fields: [consolidatedPreInvoiceId], references: [id], onDelete: SetNull)
+
   // Factura generada al cerrar
   invoiceId String? @unique
   invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
@@ -127,6 +131,9 @@ model ServiceOrder {
   qualityCheck   QualityCheck?
   warranties     WorkshopWarranty[] @relation("OriginalOrder")
   reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
+  quotations     WorkshopQuotation[]
+  tots           WorkshopTOT[]
+  garitaEvents   WorkshopGarita[]
 
   // Historial y Entrega
   statusHistory  ServiceOrderStatusHistory[]
@@ -195,6 +202,12 @@ model ServiceOrderItem {
   itemId        String?
   item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
   stockDeducted Boolean  @default(false) // true cuando ya se descontó del inventario
+
+  // Costo unitario para calcular margen (precio - costo = ganancia por línea)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Técnico asignado a este ítem específico (para tablero de carga)
+  technicianId  String?
 
   // Registro de tiempo real si aplica (inversas de LaborTime)
   laborTimes LaborTime[]

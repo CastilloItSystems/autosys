@@ -27,8 +27,9 @@ model Supplier {
   notes             String?         @db.Text        // notas / historia
   metadata          Json?           // info bancaria, campos extra, etc.
 
+  specialty         String?                         // Para proveedores externos de taller (rectificadora, A/C, etc.)
   isActive          Boolean         @default(true)
-  
+
   // Multi-tenancy
   empresaId         String
   empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -36,6 +37,7 @@ model Supplier {
   // Relaciones
   purchaseOrders    PurchaseOrder[]
   entryNotes        EntryNote[]
+  workshopTOTs      WorkshopTOT[]
   
   // Auditoría
   createdAt         DateTime        @default(now())

@@ -88,6 +88,9 @@ model VehicleReception {
   // Diagnóstico desacoplado
   serviceDiagnosis ServiceDiagnosis?
 
+  // Cotizaciones generadas desde esta recepción
+  quotations WorkshopQuotation[]
+
   // Daños y fotos detalladas
   damages ReceptionDamage[]
   photos  ReceptionPhoto[]

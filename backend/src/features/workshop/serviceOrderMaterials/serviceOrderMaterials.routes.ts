@@ -11,6 +11,7 @@ import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import {
   createServiceOrderMaterialSchema,
   updateServiceOrderMaterialSchema,
+  changeStatusSchema,
   materialFiltersSchema,
 } from './serviceOrderMaterials.validation.js'
 import * as controller from './serviceOrderMaterials.controller.js'
@@ -48,6 +49,7 @@ router.delete(
 router.patch(
   '/:id/status',
   authorize(PERMISSIONS.WORKSHOP_UPDATE),
+  validateBody(changeStatusSchema),
   asyncHandler(controller.updateStatus)
 )
 

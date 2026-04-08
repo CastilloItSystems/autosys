@@ -5,7 +5,9 @@ import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Controller } from "react-hook-form";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import VehicleSelector from "@/components/common/VehicleSelector";
+import VehicleSelector, {
+  type VehicleSelectedData,
+} from "@/components/common/VehicleSelector";
 import type { Control, FieldErrors } from "react-hook-form";
 import type { CreateReceptionForm } from "@/libs/zods/workshop/receptionZod";
 
@@ -14,6 +16,7 @@ interface ReceptionBasicInfoSectionProps {
   errors: FieldErrors<CreateReceptionForm>;
   isEditMode: boolean;
   onCustomerChange?: (id: string) => void;
+  onVehicleSelect?: (data: VehicleSelectedData | null) => void;
 }
 
 export default function ReceptionBasicInfoSection({
@@ -21,13 +24,16 @@ export default function ReceptionBasicInfoSection({
   errors,
   isEditMode,
   onCustomerChange,
+  onVehicleSelect,
 }: ReceptionBasicInfoSectionProps) {
   return (
     <div className="grid">
       {/* Cliente y Vehículo */}
       <div className="col-12">
         <Divider align="left" className="mt-0 mb-3">
-          <span className="text-sm font-semibold text-600">Cliente y vehículo</span>
+          <span className="text-sm font-semibold text-600">
+            Cliente y vehículo
+          </span>
         </Divider>
       </div>
 
@@ -51,7 +57,9 @@ export default function ReceptionBasicInfoSection({
           )}
         />
         {errors.customerId && (
-          <small className="p-error block mt-1">{errors.customerId.message}</small>
+          <small className="p-error block mt-1">
+            {errors.customerId.message}
+          </small>
         )}
       </div>
 
@@ -65,6 +73,7 @@ export default function ReceptionBasicInfoSection({
               value={field.value ?? undefined}
               onChange={field.onChange}
               customerId={control._formValues.customerId}
+              onVehicleSelect={onVehicleSelect}
             />
           )}
         />
@@ -73,7 +82,9 @@ export default function ReceptionBasicInfoSection({
       {/* Solicitud del cliente */}
       <div className="col-12">
         <Divider align="left" className="my-3">
-          <span className="text-sm font-semibold text-600">Solicitud del cliente</span>
+          <span className="text-sm font-semibold text-600">
+            Solicitud del cliente
+          </span>
         </Divider>
       </div>
 
@@ -95,7 +106,6 @@ export default function ReceptionBasicInfoSection({
           )}
         />
       </div>
-
     </div>
   );
 }

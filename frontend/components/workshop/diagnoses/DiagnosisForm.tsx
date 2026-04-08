@@ -2,12 +2,14 @@
 import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { WorkshopFormSection } from "@/components/workshop/shared";
 import { diagnosisService } from "@/app/api/workshop";
+import ReceptionSelector from "@/components/common/ReceptionSelector";
+import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
+import TechnicianSelector from "@/components/common/TechnicianSelector";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   createDiagnosisSchema,
@@ -46,7 +48,9 @@ export default function DiagnosisForm({
     reset,
     formState: { errors },
   } = useForm<CreateDiagnosisForm>({
-    resolver: zodResolver(diagnosis ? updateDiagnosisSchema : createDiagnosisSchema),
+    resolver: zodResolver(
+      diagnosis ? updateDiagnosisSchema : createDiagnosisSchema,
+    ),
     mode: "onBlur",
     defaultValues: {
       receptionId: "",
@@ -73,7 +77,13 @@ export default function DiagnosisForm({
         severity: (diagnosis.severity as any) ?? undefined,
       });
     } else {
-      reset({ receptionId: "", serviceOrderId: "", technicianId: "", generalNotes: "", severity: undefined });
+      reset({
+        receptionId: "",
+        serviceOrderId: "",
+        technicianId: "",
+        generalNotes: "",
+        severity: undefined,
+      });
     }
   }, [diagnosis, reset, isLoading]);
 
@@ -115,81 +125,84 @@ export default function DiagnosisForm({
   }
 
   return (
-    <form id={formId ?? "diagnosis-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "diagnosis-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <WorkshopFormSection title="Información General" icon="pi-info-circle">
         <div className="grid">
-          {/* Recepción ID */}
+          {/* Recepción */}
           <div className="col-12 md:col-6">
-            <label htmlFor="receptionId" className="block text-900 font-medium mb-2">
-              ID de Recepción
-            </label>
+            <label className="block text-900 font-medium mb-2">Recepción</label>
             <Controller
               name="receptionId"
               control={control}
               render={({ field }) => (
-                <InputText
-                  id="receptionId"
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="UUID de la recepción"
-                  className={errors.receptionId ? "p-invalid" : ""}
+                <ReceptionSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={!!errors.receptionId}
                 />
               )}
             />
             {errors.receptionId && (
-              <small className="p-error block mt-1">{errors.receptionId.message}</small>
+              <small className="p-error block mt-1">
+                {errors.receptionId.message}
+              </small>
             )}
           </div>
 
-          {/* Orden de Servicio ID */}
+          {/* Orden de Servicio */}
           <div className="col-12 md:col-6">
-            <label htmlFor="serviceOrderId" className="block text-900 font-medium mb-2">
-              ID de Orden de Servicio
+            <label className="block text-900 font-medium mb-2">
+              Orden de Servicio
             </label>
             <Controller
               name="serviceOrderId"
               control={control}
               render={({ field }) => (
-                <InputText
-                  id="serviceOrderId"
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="UUID de la orden de servicio"
-                  className={errors.serviceOrderId ? "p-invalid" : ""}
+                <ServiceOrderSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={!!errors.serviceOrderId}
                 />
               )}
             />
             {errors.serviceOrderId && (
-              <small className="p-error block mt-1">{errors.serviceOrderId.message}</small>
+              <small className="p-error block mt-1">
+                {errors.serviceOrderId.message}
+              </small>
             )}
           </div>
 
-          {/* Técnico ID */}
+          {/* Técnico */}
           <div className="col-12 md:col-6">
-            <label htmlFor="technicianId" className="block text-900 font-medium mb-2">
-              ID de Técnico
-            </label>
+            <label className="block text-900 font-medium mb-2">Técnico</label>
             <Controller
               name="technicianId"
               control={control}
               render={({ field }) => (
-                <InputText
-                  id="technicianId"
-                  {...field}
-                  value={field.value ?? ""}
-                  placeholder="UUID del técnico"
-                  className={errors.technicianId ? "p-invalid" : ""}
+                <TechnicianSelector
+                  value={field.value}
+                  onChange={field.onChange}
+                  invalid={!!errors.technicianId}
                 />
               )}
             />
             {errors.technicianId && (
-              <small className="p-error block mt-1">{errors.technicianId.message}</small>
+              <small className="p-error block mt-1">
+                {errors.technicianId.message}
+              </small>
             )}
           </div>
 
           {/* Severidad */}
           <div className="col-12 md:col-6">
-            <label htmlFor="severity" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="severity"
+              className="block text-900 font-medium mb-2"
+            >
               Severidad
             </label>
             <Controller
@@ -208,13 +221,18 @@ export default function DiagnosisForm({
               )}
             />
             {errors.severity && (
-              <small className="p-error block mt-1">{errors.severity.message}</small>
+              <small className="p-error block mt-1">
+                {errors.severity.message}
+              </small>
             )}
           </div>
 
           {/* Notas generales */}
           <div className="col-12">
-            <label htmlFor="generalNotes" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="generalNotes"
+              className="block text-900 font-medium mb-2"
+            >
               Notas Generales
             </label>
             <Controller
@@ -232,7 +250,9 @@ export default function DiagnosisForm({
               )}
             />
             {errors.generalNotes && (
-              <small className="p-error block mt-1">{errors.generalNotes.message}</small>
+              <small className="p-error block mt-1">
+                {errors.generalNotes.message}
+              </small>
             )}
           </div>
         </div>

@@ -14,26 +14,42 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { materialService } from "@/app/api/workshop";
-import type { ServiceOrderMaterial, MaterialStatus } from "@/libs/interfaces/workshop";
+import type {
+  ServiceOrderMaterial,
+  MaterialStatus,
+} from "@/libs/interfaces/workshop";
 import MaterialStatusBadge from "@/components/workshop/shared/MaterialStatusBadge";
 import MaterialForm from "./MaterialForm";
 
 const MATERIAL_STATUS_OPTIONS = [
   { label: "Solicitado", value: "REQUESTED" },
-  { label: "Reservado",  value: "RESERVED" },
+  { label: "Reservado", value: "RESERVED" },
   { label: "Despachado", value: "DISPATCHED" },
-  { label: "Consumido",  value: "CONSUMED" },
-  { label: "Devuelto",   value: "RETURNED" },
-  { label: "Cancelado",  value: "CANCELLED" },
+  { label: "Consumido", value: "CONSUMED" },
+  { label: "Devuelto", value: "RETURNED" },
+  { label: "Cancelado", value: "CANCELLED" },
 ];
 
-const currencyFormatter = new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" });
+const currencyFormatter = new Intl.NumberFormat("es-MX", {
+  style: "currency",
+  currency: "MXN",
+});
 
-export default function MaterialList() {
+interface MaterialListProps {
+  serviceOrderId?: string;
+  embedded?: boolean;
+}
+
+export default function MaterialList({
+  serviceOrderId,
+  embedded,
+}: MaterialListProps) {
   const [items, setItems] = useState<ServiceOrderMaterial[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderMaterial | null>(null);
-  const [actionItem, setActionItem] = useState<ServiceOrderMaterial | null>(null);
+  const [actionItem, setActionItem] = useState<ServiceOrderMaterial | null>(
+    null,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<MaterialStatus | "">("");
@@ -50,7 +66,14 @@ export default function MaterialList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, statusFilter, soIdFilter]);
+  // Use prop serviceOrderId when embedded, otherwise use state filter
+  const finalServiceOrderId = embedded ? serviceOrderId : soIdFilter;
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
+    setPage(0); // Reset to page 1 when filter changes
+    loadItems();
+  }, [searchQuery, statusFilter, finalServiceOrderId, embedded]);
 
   const loadItems = async () => {
     try {
@@ -60,7 +83,7 @@ export default function MaterialList() {
         limit: rows,
         search: searchQuery || undefined,
         status: (statusFilter as MaterialStatus) || undefined,
-        serviceOrderId: soIdFilter || undefined,
+        serviceOrderId: finalServiceOrderId || undefined,
       });
       setItems(res.data ?? []);
       setTotalRecords(res.meta?.total ?? 0);
@@ -72,16 +95,30 @@ export default function MaterialList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: ServiceOrderMaterial) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: ServiceOrderMaterial) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: ServiceOrderMaterial) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: ServiceOrderMaterial) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await materialService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Material eliminado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Material eliminado",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -106,10 +143,18 @@ export default function MaterialList() {
     })();
   };
 
-  const handleStatusChange = async (item: ServiceOrderMaterial, newStatus: string) => {
+  const handleStatusChange = async (
+    item: ServiceOrderMaterial,
+    newStatus: string,
+  ) => {
     try {
       await materialService.updateStatus(item.id, newStatus);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Estado del material actualizado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Estado del material actualizado",
+        life: 3000,
+      });
       await loadItems();
     } catch (error) {
       handleFormError(error, toast);
@@ -136,7 +181,9 @@ export default function MaterialList() {
     <span>
       <span className="font-semibold">{row.quantityRequested}</span>
       <span className="text-500"> / </span>
-      <span className="text-green-600 font-semibold">{row.quantityConsumed}</span>
+      <span className="text-green-600 font-semibold">
+        {row.quantityConsumed}
+      </span>
     </span>
   );
 
@@ -154,7 +201,10 @@ export default function MaterialList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
@@ -167,16 +217,33 @@ export default function MaterialList() {
     ];
 
     if (item.status === "REQUESTED") {
-      items.push({ label: "Reservar", icon: "pi pi-lock", command: () => handleStatusChange(item, "RESERVED") });
+      items.push({
+        label: "Reservar",
+        icon: "pi pi-lock",
+        command: () => handleStatusChange(item, "RESERVED"),
+      });
     }
     if (item.status === "RESERVED") {
-      items.push({ label: "Despachar", icon: "pi pi-box", command: () => handleStatusChange(item, "DISPATCHED") });
+      items.push({
+        label: "Despachar",
+        icon: "pi pi-box",
+        command: () => handleStatusChange(item, "DISPATCHED"),
+      });
     }
     if (item.status === "DISPATCHED") {
-      items.push({ label: "Marcar Consumido", icon: "pi pi-check", command: () => handleStatusChange(item, "CONSUMED") });
+      items.push({
+        label: "Marcar Consumido",
+        icon: "pi pi-check",
+        command: () => handleStatusChange(item, "CONSUMED"),
+      });
     }
     if (!["CONSUMED", "RETURNED", "CANCELLED"].includes(item.status)) {
-      items.push({ label: "Cancelar", icon: "pi pi-times", className: "p-menuitem-danger", command: () => handleStatusChange(item, "CANCELLED") });
+      items.push({
+        label: "Cancelar",
+        icon: "pi pi-times",
+        className: "p-menuitem-danger",
+        command: () => handleStatusChange(item, "CANCELLED"),
+      });
     }
 
     items.push({ separator: true });
@@ -205,30 +272,50 @@ export default function MaterialList() {
             type="search"
             placeholder="Buscar descripción..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "14rem" }}
           />
         </span>
         <InputText
           placeholder="Filtrar por ID de OT"
           value={soIdFilter}
-          onChange={(e) => { setSoIdFilter(e.target.value); setPage(0); }}
+          onChange={(e) => {
+            setSoIdFilter(e.target.value);
+            setPage(0);
+          }}
           style={{ width: "14rem" }}
         />
         <Dropdown
           value={statusFilter}
-          options={[{ label: "Todos los estados", value: "" }, ...MATERIAL_STATUS_OPTIONS]}
-          onChange={(e) => { setStatusFilter(e.value); setPage(0); }}
+          options={[
+            { label: "Todos los estados", value: "" },
+            ...MATERIAL_STATUS_OPTIONS,
+          ]}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Estado"
           style={{ width: "12rem" }}
         />
-        <CreateButton label="Nuevo material" onClick={openNew} tooltip="Agregar material a OT" />
+        <CreateButton
+          label="Nuevo material"
+          onClick={openNew}
+          tooltip="Agregar material a OT"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -239,7 +326,10 @@ export default function MaterialList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -248,12 +338,39 @@ export default function MaterialList() {
           scrollable
           size="small"
         >
-          <Column field="description" header="Descripción" body={descriptionTemplate} style={{ minWidth: "180px" }} />
-          <Column header="Folio OT" body={folioTemplate} style={{ minWidth: "120px" }} />
-          <Column header="Ítem" body={itemTemplate} style={{ minWidth: "160px" }} />
-          <Column header="Req / Cons" body={qtyTemplate} style={{ minWidth: "110px" }} />
-          <Column field="unitPrice" header="Precio unitario" body={priceTemplate} style={{ minWidth: "140px" }} />
-          <Column field="status" header="Estado" body={statusTemplate} style={{ minWidth: "140px" }} />
+          <Column
+            field="description"
+            header="Descripción"
+            body={descriptionTemplate}
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            header="Folio OT"
+            body={folioTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            header="Ítem"
+            body={itemTemplate}
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            header="Req / Cons"
+            body={qtyTemplate}
+            style={{ minWidth: "110px" }}
+          />
+          <Column
+            field="unitPrice"
+            header="Precio unitario"
+            body={priceTemplate}
+            style={{ minWidth: "140px" }}
+          />
+          <Column
+            field="status"
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "140px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -284,12 +401,18 @@ export default function MaterialList() {
         }
         modal
         className="p-fluid"
-        onHide={() => { setFormDialog(false); setSelected(null); }}
+        onHide={() => {
+          setFormDialog(false);
+          setSelected(null);
+        }}
         footer={
           <FormActionButtons
             formId="material-form"
             isUpdate={!!selected?.id}
-            onCancel={() => { setFormDialog(false); setSelected(null); }}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelected(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -306,7 +429,10 @@ export default function MaterialList() {
       {/* Delete Dialog */}
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.description}
         isDeleting={isDeleting}

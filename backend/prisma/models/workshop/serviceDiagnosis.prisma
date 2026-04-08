@@ -31,6 +31,7 @@ model ServiceDiagnosis {
   evidences     DiagnosisEvidence[]
   suggestedOperations DiagnosisSuggestedOperation[]
   suggestedParts      DiagnosisSuggestedPart[]
+  quotations    WorkshopQuotation[]
 
   empresaId     String
   empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -50,6 +51,7 @@ model DiagnosisFinding {
   description         String             @db.Text
   severity            DiagnosisFindingSeverity @default(MEDIUM)
   requiresClientAuth  Boolean            @default(true)
+  isHiddenFinding     Boolean            @default(false) // Hallazgo oculto detectado durante el desarme
   clientApproved      Boolean?           // Para cuando el cliente acepta o rechaza
   observation         String?            @db.Text
 

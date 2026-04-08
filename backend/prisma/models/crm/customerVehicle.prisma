@@ -56,6 +56,7 @@ model CustomerVehicle {
   appointments     ServiceAppointment[]
   receptions       VehicleReception[]
   warranties       WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
 
   // CRM: Casos / Reclamos
   cases            Case[]

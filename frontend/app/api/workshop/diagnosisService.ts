@@ -55,12 +55,37 @@ const diagnosisService = {
   },
 
   async addSuggestedOp(id: string, data: CreateSuggestedOpInput): Promise<WorkshopResponse<DiagnosisSuggestedOp>> {
-    const res = await apiClient.post(`${BASE}/${id}/suggested-ops`, data)
+    const res = await apiClient.post(`${BASE}/${id}/operations`, data)
     return res.data
   },
 
   async addSuggestedPart(id: string, data: CreateSuggestedPartInput): Promise<WorkshopResponse<DiagnosisSuggestedPart>> {
-    const res = await apiClient.post(`${BASE}/${id}/suggested-parts`, data)
+    const res = await apiClient.post(`${BASE}/${id}/parts`, data)
+    return res.data
+  },
+
+  async removeSuggestedOp(diagnosisId: string, opId: string): Promise<WorkshopResponse<null>> {
+    const res = await apiClient.delete(`${BASE}/${diagnosisId}/operations/${opId}`)
+    return res.data
+  },
+
+  async removeSuggestedPart(diagnosisId: string, partId: string): Promise<WorkshopResponse<null>> {
+    const res = await apiClient.delete(`${BASE}/${diagnosisId}/parts/${partId}`)
+    return res.data
+  },
+
+  async addEvidence(id: string, data: { type: string; url: string; description?: string }): Promise<WorkshopResponse<DiagnosisEvidence>> {
+    const res = await apiClient.post(`${BASE}/${id}/evidences`, data)
+    return res.data
+  },
+
+  async removeEvidence(diagnosisId: string, evidenceId: string): Promise<WorkshopResponse<null>> {
+    const res = await apiClient.delete(`${BASE}/${diagnosisId}/evidences/${evidenceId}`)
+    return res.data
+  },
+
+  async updateStatus(id: string, status: string): Promise<WorkshopResponse<Diagnosis>> {
+    const res = await apiClient.put(`${BASE}/${id}`, { status })
     return res.data
   },
 }

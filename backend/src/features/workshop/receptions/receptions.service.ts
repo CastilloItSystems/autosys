@@ -16,8 +16,8 @@ import type {
 // Transiciones válidas del estado de recepción
 const RECEPTION_STATUS_TRANSITIONS: Record<ReceptionStatus, ReceptionStatus[]> =
   {
-    OPEN: ['DIAGNOSING', 'QUOTED', 'CANCELLED'],
-    DIAGNOSING: ['QUOTED', 'OPEN'],
+    OPEN: ['DIAGNOSING', 'QUOTED', 'CANCELLED', 'CONVERTED_TO_SO'],
+    DIAGNOSING: ['QUOTED', 'OPEN', 'CONVERTED_TO_SO'],
     QUOTED: ['CONVERTED_TO_SO', 'OPEN', 'CANCELLED'],
     CONVERTED_TO_SO: [],
     CANCELLED: [],

@@ -8,6 +8,20 @@ export type AppointmentStatus =
   | 'COMPLETED'
   | 'NO_SHOW'
   | 'CANCELLED'
+  | 'RESCHEDULED'
+  | 'WAITING'
+
+export type AppointmentOrigin =
+  | 'PHONE'
+  | 'SOCIAL_MEDIA'
+  | 'PRESENTIAL'
+  | 'WEB'
+  | 'CRM'
+
+export interface PreIdentifiedPart {
+  description: string
+  qty?: number
+}
 
 export interface ServiceAppointment {
   id: string
@@ -23,6 +37,10 @@ export interface ServiceAppointment {
   scheduledDate: string
   estimatedMinutes: number | null
   assignedAdvisorId: string | null
+  origin: AppointmentOrigin
+  preDiagnosis: string | null
+  preIdentifiedParts: PreIdentifiedPart[] | null
+  estimatedCost: number | null
   status: AppointmentStatus
   clientNotes: string | null
   internalNotes: string | null
@@ -53,6 +71,10 @@ export interface CreateAppointmentInput {
   scheduledDate: string
   estimatedMinutes?: number
   assignedAdvisorId?: string
+  origin?: AppointmentOrigin
+  preDiagnosis?: string
+  preIdentifiedParts?: PreIdentifiedPart[]
+  estimatedCost?: number
   clientNotes?: string
   internalNotes?: string
 }
@@ -65,6 +87,10 @@ export interface UpdateAppointmentInput {
   scheduledDate?: string
   estimatedMinutes?: number | null
   assignedAdvisorId?: string | null
+  origin?: AppointmentOrigin
+  preDiagnosis?: string | null
+  preIdentifiedParts?: PreIdentifiedPart[] | null
+  estimatedCost?: number | null
   clientNotes?: string
   internalNotes?: string
 }

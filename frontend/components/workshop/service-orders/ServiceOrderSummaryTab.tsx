@@ -2,7 +2,7 @@
 import React from "react";
 import { Card } from "primereact/card";
 import type { ServiceOrder } from "@/libs/interfaces/workshop";
-import { WorkshopFormSection } from "@/components/workshop/shared/WorkshopFormSection";
+import WorkshopFormSection from "@/components/workshop/shared/WorkshopFormSection";
 import { ServiceOrderStatusBadge } from "@/components/workshop/shared/ServiceOrderStatusBadge";
 
 interface ServiceOrderSummaryTabProps {
