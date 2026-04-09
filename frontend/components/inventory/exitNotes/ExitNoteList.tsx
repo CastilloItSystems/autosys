@@ -1,16 +1,16 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { FilterMatchMode } from "primereact/api";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
-import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import exitNoteService from "@/app/api/inventory/exitNoteService";
@@ -18,7 +18,6 @@ import {
   ExitNote,
   ExitNoteItem,
   ExitNoteStatus,
-  ExitNoteType,
   EXIT_NOTE_STATUS_CONFIG,
   EXIT_NOTE_TYPE_CONFIG,
 } from "@/libs/interfaces/inventory/exitNote.interface";
@@ -27,30 +26,54 @@ import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import ExitNoteForm from "./ExitNoteForm";
+import ExitNoteDetailDialog from "./ExitNoteDetailDialog";
 import ExitNoteStepper from "./ExitNoteStepper";
+import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import {
+  confirmAction,
+  ConfirmActionPopup,
+} from "@/components/common/ConfirmAction";
 
 const ExitNoteList = () => {
   const [exitNotes, setExitNotes] = useState<ExitNote[]>([]);
   const [selectedExitNote, setSelectedExitNote] = useState<ExitNote | null>(
     null,
   );
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deliverDialog, setDeliverDialog] = useState(false);
-  const [cancelDialog, setCancelDialog] = useState(false);
-  const [cancelReason, setCancelReason] = useState("");
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [actionExitNote, setActionExitNote] = useState<ExitNote | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
+  const menuRef = useRef<Menu>(null);
+
+  // ── Debounced search ──
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(globalFilterValue);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [globalFilterValue]);
 
   useEffect(() => {
-    fetchData();
+    loadExitNotes();
+  }, [page, rows, sortField, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
     loadFormData();
   }, []);
 
@@ -67,29 +90,88 @@ const ExitNoteList = () => {
     }
   };
 
-  const fetchData = async () => {
+  const loadExitNotes = async () => {
     try {
-      const res = await exitNoteService.getAll();
+      setLoading(true);
+      const res = await exitNoteService.getAll({
+        page: page + 1,
+        limit: rows,
+        search: debouncedSearch || undefined,
+      });
       setExitNotes(Array.isArray(res.data) ? res.data : []);
+      setTotalRecords(res.meta?.total || 0);
     } catch (error) {
       console.error("Error al obtener notas de salida:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar las notas de salida",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  /* ── Actions ── */
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
 
+  const onSort = (event: any) => {
+    const newField = event.sortField;
+    const newOrder = event.sortOrder === 1 ? "asc" : "desc";
+    if (newField !== sortField || newOrder !== sortOrder) {
+      setSortField(newField);
+      setSortOrder(newOrder as "asc" | "desc");
+    }
+  };
+
+  /* ── Helpers ── */
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  };
+
+  /* ── Actions ── */
+  const openNew = () => {
+    setSelectedExitNote(null);
+    setFormDialog(true);
+  };
   const hideDeleteDialog = () => {
     setSelectedExitNote(null);
     setDeleteDialog(false);
+  };
+
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selectedExitNote?.id
+        ? "Nota de salida actualizada"
+        : "Nota de salida creada",
+      life: 3000,
+    });
+    await loadExitNotes();
+    setFormDialog(false);
+    setSelectedExitNote(null);
   };
 
   const handleDelete = async () => {
     try {
       if (selectedExitNote?.id) {
         await exitNoteService.delete(selectedExitNote.id);
-        setExitNotes(exitNotes.filter((n) => n.id !== selectedExitNote.id));
+        await loadExitNotes();
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -106,11 +188,8 @@ const ExitNoteList = () => {
 
   const handleStart = async (note: ExitNote) => {
     try {
-      const result = await exitNoteService.start(note.id);
-      const updated = result.data;
-      setExitNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await exitNoteService.start(note.id);
+      await loadExitNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -124,11 +203,8 @@ const ExitNoteList = () => {
 
   const handleReady = async (note: ExitNote) => {
     try {
-      const result = await exitNoteService.markReady(note.id);
-      const updated = result.data;
-      setExitNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await exitNoteService.markReady(note.id);
+      await loadExitNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -143,11 +219,8 @@ const ExitNoteList = () => {
   const handleDeliver = async () => {
     if (!selectedExitNote) return;
     try {
-      const result = await exitNoteService.deliver(selectedExitNote.id);
-      const updated = result.data;
-      setExitNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await exitNoteService.deliver(selectedExitNote.id);
+      await loadExitNotes();
       toast.current?.show({
         severity: "success",
         summary: "Entregada",
@@ -162,117 +235,77 @@ const ExitNoteList = () => {
     }
   };
 
-  const handleCancel = async () => {
-    if (!selectedExitNote) return;
+  const handleCancel = async (note: ExitNote) => {
     try {
-      const result = await exitNoteService.cancel(
-        selectedExitNote.id,
-        cancelReason,
-      );
-      const updated = result.data;
-      setExitNotes((prev) =>
-        prev.map((n) => (n.id === updated.id ? updated : n)),
-      );
+      await exitNoteService.cancel(note.id, "Cancelada por el usuario");
+      await loadExitNotes();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Nota ${selectedExitNote.exitNoteNumber} cancelada`,
+        detail: `Nota ${note.exitNoteNumber} cancelada`,
         life: 3000,
       });
     } catch (error) {
       handleFormError(error, toast);
-    } finally {
-      setSelectedExitNote(null);
-      setCancelDialog(false);
-      setCancelReason("");
     }
   };
 
-  /* ── Filters ── */
-
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
-    setGlobalFilterValue(value);
+    setGlobalFilterValue(e.target.value);
+    setPage(0);
   };
 
-  /* ── Helpers ── */
-
-  const formatDate = (dateStr?: string | null) => {
-    if (!dateStr) return "—";
-    return new Date(dateStr).toLocaleDateString("es-VE", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
-  /* ── Table header ── */
+  /* ── Table header (same pattern as EntryNoteList) ── */
   const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+    <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0 font-bold text-900">Notas de Salida</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2 align-items-center w-full sm:w-auto">
+        <span className="p-input-icon-left w-full sm:w-20rem">
+          <i className="pi pi-search" />
+          <InputText
+            value={globalFilterValue}
+            onChange={onGlobalFilterChange}
+            placeholder="Buscar nota (nro, tipo, destinatario...)"
+            className="w-full"
+          />
+        </span>
+        <CreateButton
+          label="Nueva Nota"
+          onClick={openNew}
+          tooltip="Crear nueva nota de salida"
+          className="w-full sm:w-auto"
         />
-      </span>
-      <Button
-        label="Nueva Nota de Salida"
-        icon="pi pi-plus"
-        severity="success"
-        onClick={() => {
-          setSelectedExitNote(null);
-          setFormDialog(true);
-        }}
-      />
+      </div>
     </div>
   );
 
-  /* ── Column templates ── */
+  /* ── Column: Status-transition actions (Proceso) ── */
   const actionBodyTemplate = (rowData: ExitNote) => {
     const { status } = rowData;
-
     return (
       <div className="flex gap-1 flex-nowrap">
-        {/* PENDING → Iniciar / Editar / Eliminar */}
         {status === ExitNoteStatus.PENDING && (
-          <>
-            <Button
-              icon="pi pi-play"
-              className="p-button-rounded p-button-info p-button-sm"
-              tooltip="Iniciar Preparación"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => handleStart(rowData)}
-            />
-            <Button
-              icon="pi pi-pencil"
-              className="p-button-rounded p-button-warning p-button-sm"
-              tooltip="Editar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedExitNote(rowData);
-                setFormDialog(true);
-              }}
-            />
-            <Button
-              icon="pi pi-trash"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Eliminar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedExitNote(rowData);
-                setDeleteDialog(true);
-              }}
-            />
-          </>
+          <Button
+            icon="pi pi-play"
+            className="p-button-rounded p-button-info p-button-sm"
+            tooltip="Iniciar Preparación"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Iniciar preparación de ${rowData.exitNoteNumber}?`,
+                icon: "pi pi-play",
+                iconClass: "text-blue-500",
+                acceptLabel: "Iniciar",
+                acceptSeverity: "info",
+                onAccept: () => handleStart(rowData),
+              })
+            }
+          />
         )}
-
-        {/* IN_PROGRESS → Marcar lista / Cancelar */}
         {status === ExitNoteStatus.IN_PROGRESS && (
           <>
             <Button
@@ -280,23 +313,37 @@ const ExitNoteList = () => {
               className="p-button-rounded p-button-success p-button-sm"
               tooltip="Marcar como Lista"
               tooltipOptions={{ position: "top" }}
-              onClick={() => handleReady(rowData)}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Marcar ${rowData.exitNoteNumber} como lista para entrega?`,
+                  icon: "pi pi-check",
+                  iconClass: "text-green-500",
+                  acceptLabel: "Marcar Lista",
+                  acceptSeverity: "success",
+                  onAccept: () => handleReady(rowData),
+                })
+              }
             />
             <Button
               icon="pi pi-times"
               className="p-button-rounded p-button-danger p-button-sm"
               tooltip="Cancelar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedExitNote(rowData);
-                setCancelReason("");
-                setCancelDialog(true);
-              }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la nota ${rowData.exitNoteNumber}? Se liberarán las reservas.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
             />
           </>
         )}
-
-        {/* READY → Entregar / Cancelar */}
         {status === ExitNoteStatus.READY && (
           <>
             <Button
@@ -314,16 +361,20 @@ const ExitNoteList = () => {
               className="p-button-rounded p-button-danger p-button-sm"
               tooltip="Cancelar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedExitNote(rowData);
-                setCancelReason("");
-                setCancelDialog(true);
-              }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la nota ${rowData.exitNoteNumber}? Se liberarán las reservas.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
             />
           </>
         )}
-
-        {/* DELIVERED / CANCELLED → Solo ver */}
         {(status === ExitNoteStatus.DELIVERED ||
           status === ExitNoteStatus.CANCELLED) && (
           <Button
@@ -341,6 +392,49 @@ const ExitNoteList = () => {
     );
   };
 
+  /* ── Column: CRUD actions (cog menu - only PENDING) ── */
+  const getMenuItems = (note: ExitNote | null): MenuItem[] => {
+    if (!note || note.status !== ExitNoteStatus.PENDING) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => {
+          setSelectedExitNote(note);
+          setFormDialog(true);
+        },
+      },
+      { separator: true },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => {
+          setSelectedExitNote(note);
+          setDeleteDialog(true);
+        },
+      },
+    ];
+  };
+
+  const crudBodyTemplate = (rowData: ExitNote) => {
+    if (rowData.status !== ExitNoteStatus.PENDING) return null;
+    return (
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        onClick={(e) => {
+          setActionExitNote(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        aria-controls="exit-note-menu"
+        aria-haspopup
+      />
+    );
+  };
+
+  /* ── Column templates ── */
   const statusBodyTemplate = (rowData: ExitNote) => {
     const cfg = EXIT_NOTE_STATUS_CONFIG[rowData.status];
     return (
@@ -377,51 +471,143 @@ const ExitNoteList = () => {
   };
 
   const warehouseBodyTemplate = (rowData: ExitNote) =>
-    rowData.warehouse?.name ||
-    warehouses.find((w) => w.id === rowData.warehouseId)?.name ||
-    "—";
+    rowData.warehouse?.name || "—";
 
-  /* ── Row expansion with stepper ── */
+  /* ── Row expansion with stepper + styled table ── */
   const rowExpansionTemplate = (data: ExitNote) => {
     const noteItems = data.items || [];
-
     return (
       <div className="p-3">
         <ExitNoteStepper currentStatus={data.status} />
         {noteItems.length > 0 && (
           <div className="mt-3">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-bottom-1 surface-border">
-                  <th className="text-left py-2">Artículo</th>
-                  <th className="text-center py-2">Cantidad</th>
-                  <th className="text-center py-2">Ubicación</th>
-                  <th className="text-center py-2">Lote</th>
-                  <th className="text-left py-2">Notas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {noteItems.map((line) => (
-                  <tr key={line.id} className="border-bottom-1 surface-border">
-                    <td className="py-2">
-                      {line.item
-                        ? `${line.item.sku} — ${line.item.name}`
-                        : line.itemId}
-                    </td>
-                    <td className="text-center py-2 font-semibold">
-                      {line.quantity}
-                    </td>
-                    <td className="text-center py-2">
-                      {line.pickedFromLocation || "—"}
-                    </td>
-                    <td className="text-center py-2">{line.batchId || "—"}</td>
-                    <td className="py-2 text-500 text-xs">
-                      {line.notes || "—"}
-                    </td>
-                  </tr>
+            <div
+              style={{
+                border: "1px solid var(--surface-300)",
+                borderRadius: "6px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 8px",
+                  backgroundColor: "var(--surface-100)",
+                  borderBottom: "2px solid var(--surface-300)",
+                }}
+              >
+                {[
+                  { label: "Artículo", style: { flex: "1 1 0", minWidth: 0 } },
+                  {
+                    label: "Cant.",
+                    style: { width: "5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Ubicación",
+                    style: { width: "6rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Lote",
+                    style: { width: "6rem", textAlign: "center" as const },
+                  },
+                  { label: "Notas", style: { width: "10rem" } },
+                ].map((col, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      ...col.style,
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "var(--text-color-secondary)",
+                      userSelect: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {col.label}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+              {noteItems.map((line) => (
+                <div
+                  key={line.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderBottom: "1px solid var(--surface-200)",
+                  }}
+                >
+                  <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <div
+                      className="font-medium text-900"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      {line.item?.sku || "—"}
+                    </div>
+                    <div
+                      className="text-500"
+                      style={{
+                        fontSize: "0.7rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={line.itemName || line.item?.name || ""}
+                    >
+                      {line.itemName || line.item?.name || "Sin nombre"}
+                    </div>
+                  </div>
+                  <div
+                    style={{
+                      width: "5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.quantity}
+                  </div>
+                  <div
+                    style={{
+                      width: "6rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.pickedFromLocation || (
+                      <span className="text-400">—</span>
+                    )}
+                  </div>
+                  <div
+                    style={{
+                      width: "6rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.batchId || <span className="text-400">—</span>}
+                  </div>
+                  <div
+                    style={{
+                      width: "10rem",
+                      fontSize: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                    className="text-500"
+                  >
+                    {line.notes || "—"}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         {noteItems.length === 0 && (
@@ -434,268 +620,13 @@ const ExitNoteList = () => {
     );
   };
 
-  /* ── Delete dialog footer ── */
-  const deleteDialogFooter = (
-    <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
-    </>
-  );
-
-  /* ── Detail dialog content ── */
-  const renderDetailContent = () => {
-    if (!selectedExitNote) return null;
-    const noteItems = selectedExitNote.items || [];
-    const statusCfg = EXIT_NOTE_STATUS_CONFIG[selectedExitNote.status];
-    const typeCfg = EXIT_NOTE_TYPE_CONFIG[selectedExitNote.type];
-
-    return (
-      <div className="flex flex-column gap-3">
-        {/* ── Header info cards ── */}
-        <div className="grid">
-          <div className="col-12 md:col-6 lg:col-3">
-            <div className="surface-100 border-round p-3 h-full">
-              <div className="flex align-items-center gap-2 mb-2">
-                <i className="pi pi-tag text-primary text-lg" />
-                <span className="text-500 text-sm font-medium">Tipo</span>
-              </div>
-              <div className="flex align-items-center gap-2 font-bold text-900 text-lg mb-1">
-                <i className={typeCfg.icon} />
-                <span>{typeCfg.label}</span>
-              </div>
-              <div className="mt-1">
-                <Tag
-                  value={statusCfg.label}
-                  severity={statusCfg.severity}
-                  icon={statusCfg.icon}
-                />
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 md:col-6 lg:col-3">
-            <div className="surface-100 border-round p-3 h-full">
-              <div className="flex align-items-center gap-2 mb-2">
-                <i className="pi pi-building text-orange-500 text-lg" />
-                <span className="text-500 text-sm font-medium">Almacén</span>
-              </div>
-              <div className="font-bold text-900 text-lg">
-                {selectedExitNote.warehouse?.name ||
-                  warehouses.find((w) => w.id === selectedExitNote.warehouseId)
-                    ?.name ||
-                  "—"}
-              </div>
-            </div>
-          </div>
-
-          <div className="col-12 md:col-6 lg:col-3">
-            <div className="surface-100 border-round p-3 h-full">
-              <div className="flex align-items-center gap-2 mb-2">
-                <i className="pi pi-user text-blue-500 text-lg" />
-                <span className="text-500 text-sm font-medium">
-                  Destinatario
-                </span>
-              </div>
-              <div className="font-bold text-900 text-lg">
-                {selectedExitNote.recipientName || "—"}
-              </div>
-              {selectedExitNote.recipientPhone && (
-                <div className="text-500 text-sm mt-1">
-                  <i className="pi pi-phone text-xs mr-1" />
-                  {selectedExitNote.recipientPhone}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="col-12 md:col-6 lg:col-3">
-            <div className="surface-100 border-round p-3 h-full">
-              <div className="flex align-items-center gap-2 mb-2">
-                <i className="pi pi-list text-green-500 text-lg" />
-                <span className="text-500 text-sm font-medium">Artículos</span>
-              </div>
-              <div className="font-bold text-primary text-xl">
-                {noteItems.length}
-              </div>
-              <div className="text-500 text-sm mt-1">
-                {noteItems.length === 1 ? "artículo" : "artículos"} en esta
-                salida
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* ── Additional info ── */}
-        <div className="grid">
-          {selectedExitNote.reference && (
-            <div className="col-12 md:col-6">
-              <div className="surface-100 border-round p-3">
-                <div className="flex align-items-center gap-2 mb-2">
-                  <i className="pi pi-link text-500" />
-                  <span className="text-500 text-sm font-medium">
-                    Referencia
-                  </span>
-                </div>
-                <div className="text-900">{selectedExitNote.reference}</div>
-              </div>
-            </div>
-          )}
-          {selectedExitNote.reason && (
-            <div className="col-12 md:col-6">
-              <div className="surface-100 border-round p-3">
-                <div className="flex align-items-center gap-2 mb-2">
-                  <i className="pi pi-info-circle text-500" />
-                  <span className="text-500 text-sm font-medium">Motivo</span>
-                </div>
-                <div className="text-900">{selectedExitNote.reason}</div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {selectedExitNote.notes && (
-          <div className="surface-100 border-round p-3">
-            <div className="flex align-items-center gap-2 mb-2">
-              <i className="pi pi-comment text-500" />
-              <span className="text-500 text-sm font-medium">Notas</span>
-            </div>
-            <div className="text-900">{selectedExitNote.notes}</div>
-          </div>
-        )}
-
-        {/* ── Items table ── */}
-        <Divider align="left">
-          <span className="text-500 font-medium text-sm">
-            <i className="pi pi-list mr-2" />
-            Artículos en la Salida
-          </span>
-        </Divider>
-
-        {noteItems.length > 0 ? (
-          <DataTable
-            value={noteItems}
-            size="small"
-            stripedRows
-            showGridlines={false}
-            emptyMessage="No hay artículos"
-            className="border-round"
-            dataKey="id"
-          >
-            <Column
-              header="#"
-              body={(_: ExitNoteItem, opts: { rowIndex: number }) =>
-                opts.rowIndex + 1
-              }
-              style={{ width: "3rem" }}
-              className="text-center"
-            />
-            <Column
-              header="Artículo"
-              body={(item: ExitNoteItem) => (
-                <div className="flex flex-column">
-                  <span className="font-semibold text-900">
-                    {item.item?.name || "Artículo desconocido"}
-                  </span>
-                  {item.item?.sku && (
-                    <span className="text-500 text-xs">
-                      SKU: {item.item.sku}
-                    </span>
-                  )}
-                </div>
-              )}
-            />
-            <Column
-              header="Cantidad"
-              className="text-center"
-              style={{ width: "8rem" }}
-              body={(item: ExitNoteItem) => (
-                <Tag
-                  value={item.quantity.toString()}
-                  severity="info"
-                  className="text-sm"
-                />
-              )}
-            />
-            <Column
-              header="Ubicación"
-              className="text-center"
-              style={{ width: "9rem" }}
-              body={(item: ExitNoteItem) =>
-                item.pickedFromLocation ? (
-                  <Tag
-                    value={item.pickedFromLocation}
-                    severity="secondary"
-                    className="text-xs"
-                  />
-                ) : (
-                  <span className="text-400">—</span>
-                )
-              }
-            />
-            <Column
-              header="Lote"
-              className="text-center"
-              style={{ width: "8rem" }}
-              body={(item: ExitNoteItem) =>
-                item.batchId ? (
-                  <Tag
-                    value={item.batchId}
-                    severity="info"
-                    className="text-xs"
-                  />
-                ) : (
-                  <span className="text-400">—</span>
-                )
-              }
-            />
-            <Column
-              header="Notas"
-              body={(item: ExitNoteItem) =>
-                item.notes || <span className="text-400">—</span>
-              }
-            />
-          </DataTable>
-        ) : (
-          <div className="text-center text-500 p-4">
-            <i
-              className="pi pi-inbox text-4xl mb-3"
-              style={{ display: "block" }}
-            />
-            No hay artículos en esta nota de salida
-          </div>
-        )}
-      </div>
-    );
-  };
-
-  /* ── Loading screen ── */
-  if (loading) {
-    return (
-      <div
-        className="flex flex-column align-items-center justify-content-center"
-        style={{ minHeight: "60vh" }}
-      >
-        <ProgressSpinner
-          style={{ width: "50px", height: "50px" }}
-          strokeWidth="4"
-          fill="var(--surface-ground)"
-          animationDuration=".5s"
-        />
-        <p className="mt-3 text-600 font-medium">Cargando notas de salida...</p>
-      </div>
-    );
-  }
-
+  /* ── Render ── */
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmActionPopup />
       <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
+        initial={{ opacity: 0, scale: 0.95, y: 40, filter: "blur(8px)" }}
         animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="card"
@@ -705,24 +636,36 @@ const ExitNoteList = () => {
           value={exitNotes}
           header={renderHeader()}
           paginator
-          rows={10}
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          onSort={onSort}
+          sortField={sortField}
+          sortOrder={sortOrder === "asc" ? 1 : -1}
           responsiveLayout="scroll"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} notas de salida"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           loading={loading}
           emptyMessage="No hay notas de salida disponibles"
           rowClassName={() => "animated-row"}
           size="small"
           dataKey="id"
-          stripedRows
           expandedRows={expandedRows}
           onRowToggle={(e) => setExpandedRows(e.data)}
           rowExpansionTemplate={rowExpansionTemplate}
+          scrollable
+          tableStyle={{ minWidth: "70rem" }}
         >
           <Column expander style={{ width: "3rem" }} />
-          <Column body={actionBodyTemplate} style={{ width: "10rem" }} frozen />
-          <Column field="exitNoteNumber" header="Nro. Nota Salida" sortable />
+          <Column
+            header="Proceso"
+            body={actionBodyTemplate}
+            style={{ width: "7rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column field="exitNoteNumber" header="Nro. Nota" sortable />
           <Column
             header="Tipo"
             body={typeBodyTemplate}
@@ -737,7 +680,6 @@ const ExitNoteList = () => {
           />
           <Column header="Almacén" body={warehouseBodyTemplate} />
           <Column
-            field="recipientName"
             header="Destinatario"
             body={(rowData: ExitNote) => rowData.recipientName || "—"}
           />
@@ -753,15 +695,45 @@ const ExitNoteList = () => {
             style={{ width: "8rem" }}
             className="text-center"
           />
+          <Column
+            header="Acciones"
+            body={crudBodyTemplate}
+            exportable={false}
+            frozen
+            alignFrozen="right"
+            style={{ width: "5rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
         </DataTable>
 
         {/* Delete confirmation */}
         <Dialog
           visible={deleteDialog}
           style={{ width: "450px" }}
+          breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+          maximizable
           header="Confirmar Eliminación"
           modal
-          footer={deleteDialogFooter}
+          footer={
+            <div className="flex w-full gap-2 mb-4">
+              <Button
+                label="No"
+                icon="pi pi-times"
+                severity="secondary"
+                onClick={hideDeleteDialog}
+                type="button"
+                className="flex-1"
+              />
+              <Button
+                label="Sí, Eliminar"
+                icon="pi pi-trash"
+                severity="danger"
+                onClick={handleDelete}
+                type="button"
+                className="flex-1"
+              />
+            </div>
+          }
           onHide={hideDeleteDialog}
         >
           <div className="flex align-items-center gap-3 p-2">
@@ -779,31 +751,26 @@ const ExitNoteList = () => {
         </Dialog>
 
         {/* Detail dialog */}
-        <Dialog
+        <ExitNoteDetailDialog
           visible={detailDialog}
-          style={{ width: "960px" }}
-          header={
-            <div className="flex align-items-center gap-2">
-              <i className="pi pi-external-link text-primary" />
-              <span>
-                Nota de Salida: {selectedExitNote?.exitNoteNumber || ""}
-              </span>
-            </div>
-          }
-          modal
-          maximizable
           onHide={() => {
             setSelectedExitNote(null);
             setDetailDialog(false);
           }}
-        >
-          {renderDetailContent()}
-        </Dialog>
+          exitNote={selectedExitNote}
+          onUpdate={async () => {
+            await loadExitNotes();
+          }}
+          toast={toast}
+          warehouses={warehouses}
+        />
 
         {/* Form dialog */}
         <Dialog
           visible={formDialog}
-          style={{ width: "900px" }}
+          style={{ width: "75vw" }}
+          breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+          maximizable
           header={
             <div className="mb-2 text-center md:text-left">
               <div className="border-bottom-2 border-primary pb-2">
@@ -817,19 +784,27 @@ const ExitNoteList = () => {
             </div>
           }
           modal
-          onHide={() => setFormDialog(false)}
+          onHide={() => {
+            setFormDialog(false);
+            setSelectedExitNote(null);
+          }}
+          footer={
+            <FormActionButtons
+              formId="exit-note-form"
+              isUpdate={!!selectedExitNote?.id}
+              onCancel={() => {
+                setFormDialog(false);
+                setSelectedExitNote(null);
+              }}
+              isSubmitting={isSubmitting}
+            />
+          }
         >
           <ExitNoteForm
             exitNote={selectedExitNote}
-            exitNotes={exitNotes}
-            setExitNotes={setExitNotes}
-            hideFormDialog={() => {
-              setFormDialog(false);
-              fetchData();
-            }}
-            showToast={(severity, summary, detail) =>
-              toast.current?.show({ severity, summary, detail, life: 3000 })
-            }
+            formId="exit-note-form"
+            onSave={handleSave}
+            onSubmittingChange={setIsSubmitting}
             toast={toast}
             items={items}
             warehouses={warehouses}
@@ -840,26 +815,38 @@ const ExitNoteList = () => {
         <Dialog
           visible={deliverDialog}
           style={{ width: "550px" }}
-          header="Confirmar Entrega de Nota de Salida"
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-send mr-3 text-primary text-3xl"></i>
+                  Confirmar Entrega
+                </h2>
+              </div>
+            </div>
+          }
           modal
           footer={
-            <>
+            <div className="flex w-full gap-2 mb-4">
               <Button
                 label="Cancelar"
                 icon="pi pi-times"
-                text
+                severity="secondary"
                 onClick={() => {
                   setSelectedExitNote(null);
                   setDeliverDialog(false);
                 }}
+                type="button"
+                className="flex-1"
               />
               <Button
                 label="Confirmar Entrega"
                 icon="pi pi-send"
-                severity="success"
                 onClick={handleDeliver}
+                type="button"
+                className="flex-1"
               />
-            </>
+            </div>
           }
           onHide={() => {
             setSelectedExitNote(null);
@@ -868,38 +855,27 @@ const ExitNoteList = () => {
         >
           {selectedExitNote && (
             <div className="flex flex-column gap-3">
-              <div className="flex align-items-center gap-3 p-2">
-                <i
-                  className="pi pi-send text-green-500"
-                  style={{ fontSize: "2rem" }}
-                />
+              <div className="flex align-items-center gap-3 p-2 surface-100 border-round">
+                <i className="pi pi-exclamation-triangle text-orange-500 text-2xl" />
                 <div>
-                  <p className="m-0">
-                    ¿Registrar la entrega de la nota{" "}
-                    <b>{selectedExitNote.exitNoteNumber}</b>?
-                  </p>
-                  <p className="m-0 mt-1 text-500 text-sm">
+                  <div className="font-semibold text-900">
+                    Nota <b>{selectedExitNote.exitNoteNumber}</b>
+                  </div>
+                  <div className="text-500 text-sm mt-1">
                     Se descontará el stock del almacén{" "}
-                    <b>
-                      {selectedExitNote.warehouse?.name ||
-                        warehouses.find(
-                          (w) => w.id === selectedExitNote.warehouseId,
-                        )?.name ||
-                        "—"}
-                    </b>{" "}
-                    con los siguientes artículos:
-                  </p>
+                    <b>{selectedExitNote.warehouse?.name || "—"}</b>.
+                  </div>
                 </div>
               </div>
               {selectedExitNote.items && selectedExitNote.items.length > 0 && (
-                <div className="surface-100 border-round p-3">
+                <div className="surface-50 border-round p-3">
                   {selectedExitNote.items.map((item) => (
                     <div
                       key={item.id}
                       className="flex justify-content-between align-items-center py-1 border-bottom-1 surface-border"
                     >
                       <span className="text-sm">
-                        {item.item?.name || item.itemId}
+                        {item.itemName || item.item?.name || item.itemId}
                       </span>
                       <Tag
                         value={`-${item.quantity}`}
@@ -914,67 +890,12 @@ const ExitNoteList = () => {
           )}
         </Dialog>
 
-        {/* Cancel confirmation dialog */}
-        <Dialog
-          visible={cancelDialog}
-          style={{ width: "500px" }}
-          header="Confirmar Cancelación"
-          modal
-          footer={
-            <>
-              <Button
-                label="No"
-                icon="pi pi-times"
-                text
-                onClick={() => {
-                  setSelectedExitNote(null);
-                  setCancelDialog(false);
-                  setCancelReason("");
-                }}
-              />
-              <Button
-                label="Sí, Cancelar"
-                icon="pi pi-ban"
-                severity="danger"
-                onClick={handleCancel}
-              />
-            </>
-          }
-          onHide={() => {
-            setSelectedExitNote(null);
-            setCancelDialog(false);
-            setCancelReason("");
-          }}
-        >
-          {selectedExitNote && (
-            <div className="flex flex-column gap-3 p-2">
-              <div className="flex align-items-center gap-3">
-                <i
-                  className="pi pi-exclamation-triangle text-orange-500"
-                  style={{ fontSize: "2rem" }}
-                />
-                <span>
-                  ¿Estás seguro de cancelar la nota de salida{" "}
-                  <b>{selectedExitNote.exitNoteNumber}</b>? Esta acción no se
-                  puede deshacer.
-                </span>
-              </div>
-              <div className="flex flex-column gap-1">
-                <label className="text-sm font-semibold text-600">
-                  Motivo (opcional)
-                </label>
-                <InputTextarea
-                  value={cancelReason}
-                  onChange={(e) => setCancelReason(e.target.value)}
-                  rows={3}
-                  placeholder="Ingresa el motivo de la cancelación..."
-                  className="w-full"
-                  autoResize
-                />
-              </div>
-            </div>
-          )}
-        </Dialog>
+        <Menu
+          model={getMenuItems(actionExitNote)}
+          popup
+          ref={menuRef}
+          id="exit-note-menu"
+        />
       </motion.div>
     </>
   );

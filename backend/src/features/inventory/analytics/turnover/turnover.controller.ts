@@ -6,22 +6,9 @@ import { Request, Response } from 'express'
 import {
   getTurnoverMetricsForItem,
   getAllTurnoverMetrics,
-  getItemsByClassification,
+  TurnoverClassification,
 } from './turnover.service.js'
 import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
-
-export const getTurnoverMetricsHandler = async (
-  req: Request,
-  res: Response
-): Promise<void> => {
-  try {
-    const itemId = req.params.itemId as string
-    const result = await getTurnoverMetricsForItem(itemId)
-    ApiResponse.success(res, result, 'Turnover metrics retrieved successfully')
-  } catch (error: any) {
-    ApiResponse.error(res, error.message, 500)
-  }
-}
 
 export const getAllTurnoverMetricsHandler = async (
   req: Request,
@@ -30,7 +17,10 @@ export const getAllTurnoverMetricsHandler = async (
   try {
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
-    const result = await getAllTurnoverMetrics(page, limit)
+    const empresaId = (req as any).empresaId as string | undefined
+
+    const result = await getAllTurnoverMetrics(page, limit, null, empresaId, (req as any).prisma)
+
     res.status(200).json({
       success: true,
       message: 'Inventory Turnover Metrics',
@@ -49,6 +39,20 @@ export const getAllTurnoverMetricsHandler = async (
   }
 }
 
+export const getTurnoverMetricsHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  try {
+    const itemId = req.params.itemId as string
+    const empresaId = (req as any).empresaId as string | undefined
+    const result = await getTurnoverMetricsForItem(itemId, empresaId, (req as any).prisma)
+    ApiResponse.success(res, result, 'Turnover metrics retrieved successfully')
+  } catch (error: any) {
+    ApiResponse.error(res, error.message, 500)
+  }
+}
+
 export const getItemsByClassificationHandler = async (
   req: Request,
   res: Response
@@ -57,21 +61,25 @@ export const getItemsByClassificationHandler = async (
     const classification = req.params.classification as string
     const page = parseInt(req.query.page as string) || 1
     const limit = parseInt(req.query.limit as string) || 50
+    const empresaId = (req as any).empresaId as string | undefined
 
-    const valid = ['FAST_MOVING', 'MODERATE', 'SLOW_MOVING', 'STATIC']
+    const valid: string[] = ['FAST_MOVING', 'MODERATE', 'SLOW_MOVING', 'STATIC']
     if (!valid.includes(classification)) {
       ApiResponse.error(res, 'Invalid classification', 400)
       return
     }
 
-    const result = await getItemsByClassification(
-      classification as any,
+    const result = await getAllTurnoverMetrics(
       page,
-      limit
+      limit,
+      classification as TurnoverClassification,
+      empresaId,
+      (req as any).prisma
     )
+
     res.status(200).json({
       success: true,
-      message: `${classification} Items`,
+      message: `${classification} items`,
       data: result.data,
       summary: result.summary,
       pagination: {

@@ -12,8 +12,14 @@ import {
 
 export class BulkOperationDTO {
   id: string
-  operationType: 'import' | 'export' | 'update' | 'delete'
-  status: 'pending' | 'processing' | 'completed' | 'failed'
+  operationType: 'IMPORT' | 'EXPORT' | 'UPDATE' | 'DELETE'
+  status:
+    | 'PENDING'
+    | 'PROCESSING'
+    | 'COMPLETED'
+    | 'FAILED'
+    | 'COMPLETED_WITH_ERRORS'
+    | 'CANCELLED'
   fileName?: string
   fileUrl?: string
   totalRecords: number

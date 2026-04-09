@@ -49,6 +49,7 @@ interface UnitFormProps {
   model: Unit | null;
   formId?: string;
   onSave: () => void | Promise<void>;
+  onCreated?: (item: any) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
@@ -65,6 +66,7 @@ export default function UnitForm({
   model: unit,
   formId,
   onSave,
+  onCreated,
   onSubmittingChange,
   toast,
 }: UnitFormProps) {
@@ -131,10 +133,12 @@ export default function UnitForm({
     try {
       if (unit?.id) {
         await unitsService.update(unit.id, data);
+        await onSave();
       } else {
-        await unitsService.create(data);
+        const res = await unitsService.create(data);
+        await onSave();
+        if (onCreated) onCreated(res?.data ?? res);
       }
-      await onSave();
     } catch (error: any) {
       console.error("Error saving unit:", error);
       handleFormError(error, toast);

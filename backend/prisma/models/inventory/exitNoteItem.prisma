@@ -10,7 +10,8 @@ model ExitNoteItem {
   item            Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
   quantity        Int
-  
+  itemName         String?          @db.VarChar(255)  // ← NUEVO: snapshot del nombre
+  // ... resto ...
   // Ubicación física de donde se tomó
   pickedFromLocation String?
   

@@ -674,7 +674,9 @@ const MovementList = () => {
       {/* ── Detail Modal ──────────────────────────────────── */}
       <Dialog
         visible={detailDialog}
-        style={{ width: "720px" }}
+        style={{ width: "60vw" }}
+        breakpoints={{ "1400px": "60vw", "900px": "80vw", "600px": "95vw" }}
+        maximizable
         header={
           selectedMovement ? (
             <div className="flex align-items-center gap-2">

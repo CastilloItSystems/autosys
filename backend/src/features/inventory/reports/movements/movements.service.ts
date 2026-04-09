@@ -13,6 +13,7 @@ interface MovementsFilter {
   warehouseId?: string
   itemId?: string
   type?: string
+  empresaId?: string
 }
 
 export async function getMovementsReport(
@@ -27,6 +28,10 @@ export async function getMovementsReport(
 
     // Build where clause dynamically
     const where: any = {}
+
+    if (filters.empresaId) {
+      where.item = { empresaId: filters.empresaId }
+    }
 
     // Date range filter
     if (filters.dateFrom || filters.dateTo) {
@@ -146,11 +151,16 @@ interface MovementsSummary {
 export async function getMovementsSummary(
   dateFrom?: Date | string,
   dateTo?: Date | string,
+  empresaId?: string,
   prismaClient?: any
 ): Promise<MovementsSummary> {
   const db = prismaClient || prisma
   try {
     const where: any = {}
+
+    if (empresaId) {
+      where.item = { empresaId }
+    }
 
     // Build date range filter
     if (dateFrom || dateTo) {

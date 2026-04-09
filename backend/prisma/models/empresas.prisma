@@ -19,6 +19,7 @@ model Empresa {
   data_password   String?
   data_port       String?
   licencia        String?
+  logo_url        String?
   historizada     Boolean      @default(false)
   masinfo         String?
   usa_prefijo     Boolean      @default(false)
@@ -33,15 +34,72 @@ model Empresa {
 
   warehouses      Warehouse[]
   items           Item[]
-  customers       Customer[]
   suppliers       Supplier[]
-  orders          Order[]
-  preInvoices     PreInvoice[]
-  invoices        Invoice[]
   brands          Brand[]
   categories      Category[]
   units           Unit[]
   models          Model[]
+
+  // Sales
+  customers       Customer[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  // CRM
+  customerContacts CustomerContact[]
+  customerVehicles CustomerVehicle[]
+  leads            Lead[]
+  interactions     Interaction[]
+  activities       Activity[]
+  quotes           Quote[]
+  cases            Case[]
+
+  // Workshop (Taller)
+  serviceOrders       ServiceOrder[]
+  serviceAppointments ServiceAppointment[]
+  vehicleReceptions   VehicleReception[]
+  serviceTypes        ServiceType[]
+  workshopBays        WorkshopBay[]
+  workshopOperations  WorkshopOperation[]
+  workshopWarranties  WorkshopWarranty[]
+  
+  // Nuevas entidades Workshop ERP Opción 3
+  checklistTemplates          ChecklistTemplate[]
+  checklistItems              ChecklistItem[]
+  checklistResponses          ChecklistResponse[]
+  serviceDiagnoses            ServiceDiagnosis[]
+  diagnosisFindings           DiagnosisFinding[]
+  diagnosisSuggestedOps       DiagnosisSuggestedOperation[]
+  diagnosisSuggestedParts     DiagnosisSuggestedPart[]
+  diagnosisEvidences          DiagnosisEvidence[]
+  serviceOrderStatusHistories ServiceOrderStatusHistory[]
+  appointmentStatusHistories  AppointmentStatusHistory[]
+  vehicleDeliveries           VehicleDelivery[]
+
+  // Nuevas entidades Workshop Adicionales
+  ingressMotives              IngressMotive[]
+  technicianSpecialties       TechnicianSpecialty[]
+  laborTimePauses             LaborTimePause[]
+  serviceOrderMaterials       ServiceOrderMaterial[]
+  serviceOrderAdditionals     ServiceOrderAdditional[]
+  serviceOrderObservations    ServiceOrderObservation[]
+
+  // Workshop Prioridad 2
+  receptionDamages            ReceptionDamage[]
+  receptionPhotos             ReceptionPhoto[]
+  workshopAttachments         WorkshopAttachment[]
+  materialMovements           ServiceOrderMaterialMovement[]
+
+  // Workshop Prioridad 3
+  workshopReworks             WorkshopRework[]
+  workshopAuditLogs           WorkshopAuditLog[]
+  workshopBranches            WorkshopBranch[]
+  workshopShifts              WorkshopShift[]
+  workshopQuotations          WorkshopQuotation[]
+  workshopTOTs                WorkshopTOT[]
+  workshopGarita              WorkshopGarita[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

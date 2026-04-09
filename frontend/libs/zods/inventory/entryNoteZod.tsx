@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const entryTypeEnum = z.enum(
   [
+    "PURCHASE",
     "RETURN",
     "TRANSFER",
     "WARRANTY_RETURN",
@@ -21,6 +22,7 @@ export const entryNoteStatusEnum = z.enum(
 
 export const createEntryNoteItemSchema = z.object({
   itemId: z.string().min(1, "El artículo es requerido"),
+  itemName: z.string().min(1, "El nombre del artículo es requerido"),
   quantityReceived: z.number().min(1, "La cantidad debe ser mayor a 0"),
   unitCost: z.number().min(0, "El costo unitario debe ser mayor o igual a 0"),
   storedToLocation: z.string().optional(),
@@ -29,7 +31,6 @@ export const createEntryNoteItemSchema = z.object({
   notes: z.string().optional(),
   // Fields used for PO validation in the frontend (not sent to backend)
   _maxQuantity: z.number().optional(),
-  _itemName: z.string().optional(),
 });
 
 /**
@@ -41,6 +42,7 @@ export const createEntryNoteSchema = z
     type: entryTypeEnum.default("TRANSFER"),
     warehouseId: z.string().min(1, "El almacén es requerido"),
     purchaseOrderId: z.string().optional().nullable(),
+    catalogSupplierId: z.string().optional().nullable(),
     supplierName: z.string().optional(),
     supplierId: z.string().optional(),
     supplierPhone: z.string().optional(),

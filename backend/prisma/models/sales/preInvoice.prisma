@@ -12,41 +12,71 @@ model PreInvoice {
   id                  String            @id @default(uuid())
   preInvoiceNumber    String            @unique
   status              PreInvoiceStatus  @default(PENDING_PREPARATION)
-  
+
   empresaId           String
   empresa             Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Order
-  orderId             String            @unique
-  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  
+
+  // Relación 1 a 1 con Order (nullable para permitir SO también)
+  orderId             String?           @unique
+  order               Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // FASE 2: Relación 1 a 1 con ServiceOrder (para workshop invoicing)
+  serviceOrderId      String?           @unique
+  serviceOrder        ServiceOrder?     @relation("PreInvoiceServiceOrder", fields: [serviceOrderId], references: [id], onDelete: Restrict)
+
   customerId          String
   customer            Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
-  warehouseId         String
-  warehouse           Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
+
+  // Warehouse nullable para path de ServiceOrder (workshop tiene su propia ubicación)
+  warehouseId         String?
+  warehouse           Warehouse?        @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
   // Relaciones
   items               PreInvoiceItem[]
-  
-  // Totales
+
+  // ── Moneda y tasa ──
+  currency            OrderCurrency     @default(USD)
+  exchangeRate        Decimal?          @db.Decimal(14, 4)
+
+  // ── Descuento general ──
+  discountAmount      Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto       Decimal           @default(0) @db.Decimal(12, 2)
+  baseImponible       Decimal           @default(0) @db.Decimal(12, 2)
+  baseExenta          Decimal           @default(0) @db.Decimal(12, 2)
+  taxAmount           Decimal           @default(0) @db.Decimal(12, 2)
+  taxRate             Decimal           @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies         Boolean           @default(false)
+  igtfRate            Decimal           @default(3) @db.Decimal(5, 2)
+  igtfAmount          Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Total final ──
+  total               Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Campos legacy ──
   subtotal            Decimal           @default(0) @db.Decimal(12, 2)
   discount            Decimal           @default(0) @db.Decimal(12, 2)
   tax                 Decimal           @default(0) @db.Decimal(12, 2)
-  total               Decimal           @default(0) @db.Decimal(12, 2)
-  
+
   notes               String?           @db.Text
-  
+
   // Control de flujo
   preparedAt          DateTime?
   paidAt              DateTime?
-  
   preparedBy          String?
-  
+
   // Relaciones 1 a 1
   exitNote            ExitNote?
   invoice             Invoice?
-  
+
+  // Facturación consolidada: OTs agrupadas en esta prefactura
+  consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
+
+  payments            Payment[]
+
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 

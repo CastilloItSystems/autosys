@@ -13,6 +13,7 @@ export class CreateStockDTO {
   warehouseId: string
   quantityReal?: number
   quantityReserved?: number
+  location?: string | null
   averageCost?: number
 
   constructor(data: Record<string, unknown>) {
@@ -22,6 +23,8 @@ export class CreateStockDTO {
       this.quantityReal = Number(data.quantityReal)
     if (data.quantityReserved !== undefined)
       this.quantityReserved = Number(data.quantityReserved)
+    if (data.location !== undefined)
+      this.location = data.location === null ? null : String(data.location)
     if (data.averageCost !== undefined)
       this.averageCost = Number(data.averageCost)
   }
@@ -30,6 +33,7 @@ export class CreateStockDTO {
 export class UpdateStockDTO {
   quantityReal?: number
   quantityReserved?: number
+  location?: string | null
   averageCost?: number
 
   constructor(data: Record<string, unknown>) {
@@ -37,6 +41,8 @@ export class UpdateStockDTO {
       this.quantityReal = Number(data.quantityReal)
     if (data.quantityReserved !== undefined)
       this.quantityReserved = Number(data.quantityReserved)
+    if (data.location !== undefined)
+      this.location = data.location === null ? null : String(data.location)
     if (data.averageCost !== undefined)
       this.averageCost = Number(data.averageCost)
   }
@@ -128,6 +134,7 @@ export class StockResponseDTO {
   quantityReal: number
   quantityReserved: number
   quantityAvailable: number
+  location?: string | null
   averageCost: number
   lastMovementAt: Date | null
   createdAt: Date
@@ -142,6 +149,7 @@ export class StockResponseDTO {
     this.quantityReal = stock.quantityReal
     this.quantityReserved = stock.quantityReserved
     this.quantityAvailable = stock.quantityAvailable
+    this.location = stock.location ?? null
     this.averageCost = parseFloat(String(stock.averageCost))
     this.lastMovementAt = stock.lastMovementAt ?? null
     this.createdAt = stock.createdAt

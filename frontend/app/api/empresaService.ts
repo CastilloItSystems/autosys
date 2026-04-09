@@ -30,6 +30,7 @@ export interface Empresa {
   dprefijobd?: string | null;
   dprefijosrv?: string | null;
   dprefijousr?: string | null;
+  logo_url?: string | null;
   eliminado: boolean;
   createdAt: string;
   updatedAt: string;
@@ -94,6 +95,7 @@ export interface CreateEmpresaRequest {
   dprefijobd?: string;
   dprefijosrv?: string;
   dprefijousr?: string;
+  logo_url?: string;
 }
 
 export interface UpdateEmpresaRequest {
@@ -155,6 +157,24 @@ export const updateEmpresa = async (
   data: UpdateEmpresaRequest,
 ): Promise<Empresa> => {
   const response = await apiClient.put(`/empresas/${id}`, data);
+  return response.data;
+};
+
+export const uploadEmpresaLogo = async (
+  id: string,
+  file: File,
+): Promise<Empresa> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await apiClient.post<Empresa>(
+    `/empresas/${id}/logo`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
   return response.data;
 };
 

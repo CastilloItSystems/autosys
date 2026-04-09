@@ -1,0 +1,359 @@
+// backend/prisma/models/workshop/serviceOrder.prisma
+// Orden de Trabajo (OT) del taller mecánico.
+// Flujo completo: DRAFT → OPEN → DIAGNOSING → PENDING_APPROVAL → APPROVED
+//                 → IN_PROGRESS → PAUSED | WAITING_PARTS | WAITING_AUTH
+//                 → QUALITY_CHECK → READY → DELIVERED → INVOICED → CLOSED
+//                 | CANCELLED
+
+enum ServiceOrderStatus {
+  DRAFT            // Borrador (en creación)
+  OPEN             // Abierta / Vehículo recibido
+  DIAGNOSING       // En diagnóstico
+  PENDING_APPROVAL // Cotización enviada, esperando aprobación del cliente
+  APPROVED         // Cliente aprobó los trabajos
+  IN_PROGRESS      // Trabajos en ejecución
+  PAUSED           // Pausada (falta técnico, recurso, etc.)
+  WAITING_PARTS    // Esperando repuesto
+  WAITING_AUTH     // Esperando autorización para trabajo adicional
+  QUALITY_CHECK    // En control de calidad pre-entrega
+  READY            // Lista para entregar
+  DELIVERED        // Vehículo entregado al cliente
+  INVOICED         // Facturada
+  CLOSED           // Cerrada y liquidada
+  CANCELLED        // Cancelada / Anulada
+}
+
+enum ServiceOrderPriority {
+  LOW    // Normal / sin urgencia
+  NORMAL // Prioridad estándar
+  HIGH   // Urgente
+  ASAP   // Inmediata (cliente esperando en taller)
+}
+
+enum ServiceOrderItemType {
+  LABOR   // Mano de obra / operación técnica
+  PART    // Repuesto o material
+  OTHER   // Otro cargo (subcontrato, servicio externo, etc.)
+}
+
+enum ServiceOrderItemStatus {
+  PENDING     // Pendiente de asignación
+  ASSIGNED    // Técnico asignado
+  IN_PROGRESS // En ejecución
+  PAUSED      // Pausada temporalmente
+  COMPLETED   // Finalizada
+  CANCELLED   // Anulada
+}
+
+model ServiceOrder {
+  id    String @id @default(cuid())
+  folio String // SO-0001, SO-0002 ... generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot del vehículo al momento de recibir
+  vehiclePlate String?
+  vehicleDesc  String? // "Honda Civic 2019 Blanco"
+  mileageIn    Int?
+  mileageOut   Int?
+
+  // Origen: cita y/o recepción formal
+  appointmentId String?             @unique
+  appointment   ServiceAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  receptionId String?          @unique
+  reception   VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+
+  // Tipo de servicio principal
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Bahía / estación de trabajo asignada
+  bayId String?
+  bay   WorkshopBay? @relation(fields: [bayId], references: [id], onDelete: SetNull)
+
+  // Cotización CRM de origen (si aplica)
+  workshopQuoteId String?
+  workshopQuote   Quote? @relation(fields: [workshopQuoteId], references: [id], onDelete: SetNull)
+
+  // FASE 2: PreInvoice (preparación de factura) - back-reference only (FK is in PreInvoice)
+  preInvoice    PreInvoice?   @relation("PreInvoiceServiceOrder")
+
+  // Facturación consolidada: cuando varias OTs se facturan juntas en una sola PreInvoice
+  consolidatedPreInvoiceId String?
+  consolidatedPreInvoice   PreInvoice? @relation("ConsolidatedSOPreInvoice", fields: [consolidatedPreInvoiceId], references: [id], onDelete: SetNull)
+
+  // Factura generada al cerrar
+  invoiceId String? @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  // Trabajo
+  diagnosisNotes String? @db.Text
+  internalNotes  String? @db.Text // Renamed from observations to resolve conflict with relation
+
+  // Estado, prioridad y asignación
+  status                ServiceOrderStatus   @default(DRAFT)
+  priority              ServiceOrderPriority @default(NORMAL)
+  assignedAdvisorId     String?              // userId del asesor de servicio
+  assignedTechnicianId  String?              // userId del técnico principal
+
+  // Fechas clave
+  receivedAt        DateTime  @default(now())
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  closedAt          DateTime?
+
+  // Totales calculados
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones hijas
+  items          ServiceOrderItem[]
+  materials      ServiceOrderMaterial[]
+  additionals    ServiceOrderAdditional[]
+  observations   ServiceOrderObservation[]
+  laborTimes     LaborTime[]
+  qualityCheck   QualityCheck?
+  warranties     WorkshopWarranty[] @relation("OriginalOrder")
+  reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
+  quotations     WorkshopQuotation[]
+  tots           WorkshopTOT[]
+  garitaEvents   WorkshopGarita[]
+
+  // Historial y Entrega
+  statusHistory  ServiceOrderStatusHistory[]
+  delivery       VehicleDelivery?
+
+  // Diagnóstico desacoplado
+  serviceDiagnosis ServiceDiagnosis?
+
+  // Lead generado o asociado
+  lead Lead?
+
+  // Retrabajos
+  reworksAsOriginal   WorkshopRework[] @relation("ReworkOriginalOrder")
+  reworksAsCorrection WorkshopRework[] @relation("ReworkCorrectionOrder")
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedAdvisorId])
+  @@index([assignedTechnicianId])
+  @@index([receivedAt])
+  @@index([estimatedDelivery])
+  @@index([empresaId, status, receivedAt]) // Búsqueda de OTs activas por fecha
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id             String               @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  type        ServiceOrderItemType   @default(LABOR)
+  status      ServiceOrderItemStatus @default(PENDING)
+  description String
+
+  // Snapshots para preservar historial (el nombre puede cambiar en el catálogo)
+  operationName String? // Snapshot del nombre de la operación al momento de agregar
+  itemName      String? // Snapshot del nombre del ítem/repuesto al momento de agregar
+
+  quantity    Decimal              @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal             @default(0) @db.Decimal(12, 2)
+  discountPct Decimal             @default(0) @db.Decimal(5, 2)
+  
+  // Tax fields (now standardized across SO and CRM Quote)
+  taxType     TaxType             @default(IVA)  // Import from inventory.purchaseOrderItem
+  taxRate     Decimal             @default(0.16) @db.Decimal(5, 2)  // 16% by default for IVA
+  taxAmount   Decimal             @default(0) @db.Decimal(12, 2)   // Calculated: (unitPrice * quantity - discountPct) * taxRate
+  
+  total       Decimal             @default(0) @db.Decimal(12, 2)
+
+  // Item-level notes (align with Quote)
+  notes       String?             @db.Text
+
+  // LABOR: operación estándar de referencia (opcional)
+  operationId String?
+  operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // PART: ítem de inventario vinculado (opcional)
+  itemId        String?
+  item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  stockDeducted Boolean  @default(false) // true cuando ya se descontó del inventario
+
+  // Costo unitario para calcular margen (precio - costo = ganancia por línea)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Técnico asignado a este ítem específico (para tablero de carga)
+  technicianId  String?
+
+  // Registro de tiempo real si aplica (inversas de LaborTime)
+  laborTimes LaborTime[]
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Operaciones pendientes/activas por OT
+  @@index([operationId])
+  @@index([itemId])
+  @@map("service_order_items")
+}
+
+enum MaterialStatus {
+  REQUESTED
+  RESERVED
+  DISPATCHED
+  CONSUMED
+  RETURNED
+  CANCELLED
+}
+
+model ServiceOrderMaterial {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  itemId         String?
+  item           Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description    String         @db.Text
+
+  quantityRequested  Decimal @default(0) @db.Decimal(12, 2)
+  quantityReserved   Decimal @default(0) @db.Decimal(12, 2)
+  quantityDispatched Decimal @default(0) @db.Decimal(12, 2)
+  quantityConsumed   Decimal @default(0) @db.Decimal(12, 2)
+  quantityReturned   Decimal @default(0) @db.Decimal(12, 2)
+
+  unitCost  Decimal @default(0) @db.Decimal(12, 2)
+  unitPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  status    MaterialStatus @default(REQUESTED)
+
+  // Historial de movimientos
+  movements ServiceOrderMaterialMovement[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Materiales por estado en una OT
+  @@index([itemId])
+  @@index([empresaId])
+  @@map("service_order_materials")
+}
+
+enum AdditionalStatus {
+  PROPOSED
+  QUOTED
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+model ServiceOrderAdditional {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  // Puede venir de un hallazgo diagnóstico previo no aprobado, o ser un hallazgo nuevo
+  diagnosisFindingId String?
+  diagnosisFinding   DiagnosisFinding? @relation(fields: [diagnosisFindingId], references: [id], onDelete: SetNull)
+
+  description    String @db.Text
+  technicianId   String? // userId del técnico que lo propuso/ejecutó
+  status         AdditionalStatus @default(PROPOSED)
+
+  estimatedPrice Decimal @default(0) @db.Decimal(12, 2)
+  estimatedTimeMins Int @default(0)
+
+  // Detalle de ítems aprobados/rechazados por el cliente
+  additionalItems ServiceOrderAdditionalItem[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_additionals")
+}
+
+enum AdditionalItemType {
+  LABOR    // Mano de obra / operación
+  PART     // Repuesto
+  OTHER    // Servicio externo u otro
+}
+
+model ServiceOrderAdditionalItem {
+  id           String                  @id @default(cuid())
+  additionalId String
+  additional   ServiceOrderAdditional  @relation(fields: [additionalId], references: [id], onDelete: Cascade)
+
+  type          AdditionalItemType @default(LABOR)
+  description   String
+  referenceId   String?  // ID de operación o ítem de inventario (soft reference)
+  quantity      Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice     Decimal  @default(0) @db.Decimal(12, 2)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+  total         Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Aprobación individual del cliente
+  clientApproved Boolean? // null=pendiente, true=aprobado, false=rechazado
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([additionalId])
+  @@map("service_order_additional_items")
+}
+
+enum ObservationType {
+  INTERNAL
+  CLIENT
+  TECHNICAL
+  QUALITY
+}
+
+model ServiceOrderObservation {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  type        ObservationType @default(INTERNAL)
+  observation String          @db.Text
+  userId      String
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_observations")
+}
+

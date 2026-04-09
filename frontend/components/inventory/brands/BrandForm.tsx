@@ -48,6 +48,7 @@ interface BrandFormProps {
   brand: Brand | null;
   formId?: string;
   onSave: () => void | Promise<void>;
+  onCreated?: (item: any) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
@@ -63,6 +64,7 @@ export default function BrandForm({
   brand,
   formId,
   onSave,
+  onCreated,
   onSubmittingChange,
   toast,
 }: BrandFormProps) {
@@ -119,10 +121,12 @@ export default function BrandForm({
     try {
       if (brand?.id) {
         await brandsService.update(brand.id, data);
+        await onSave();
       } else {
-        await brandsService.create(data);
+        const res = await brandsService.create(data);
+        await onSave();
+        if (onCreated) onCreated(res?.data ?? res);
       }
-      await onSave();
     } catch (error: any) {
       handleFormError(error, toast);
     } finally {

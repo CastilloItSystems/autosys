@@ -14,14 +14,15 @@ const baseItemSchema = Joi.object({
     'any.required': 'itemId is required',
     'string.guid': 'itemId must be a valid UUID',
   }),
+  itemName: Joi.string().max(255).optional().allow(null, ''),
   quantity: Joi.number().integer().min(1).required().messages({
     'any.required': 'quantity is required',
     'number.min': 'quantity must be at least 1',
   }),
-  pickedFromLocation: Joi.string().optional(),
-  batchId: Joi.string().uuid().optional(),
-  serialNumberId: Joi.string().uuid().optional(),
-  notes: Joi.string().optional().max(500),
+  pickedFromLocation: Joi.string().optional().allow(null, ''),
+  batchId: Joi.string().uuid().optional().allow(null, ''),
+  serialNumberId: Joi.string().uuid().optional().allow(null, ''),
+  notes: Joi.string().optional().allow(null, '').max(500),
 })
 
 /**
@@ -136,13 +137,20 @@ export const createExitNoteSchema = Joi.object({
  * Allows partial updates when in PENDING or IN_PROGRESS status
  */
 export const updateExitNoteSchema = Joi.object({
-  recipientName: Joi.string().max(255).optional(),
-  recipientId: Joi.string().max(50).optional(),
-  recipientPhone: Joi.string().max(20).optional(),
-  reason: Joi.string().max(500).optional(),
-  reference: Joi.string().max(100).optional(),
-  notes: Joi.string().max(1000).optional(),
-  expectedReturnDate: Joi.date().optional(),
+  type: Joi.string()
+    .valid(...Object.values(ExitNoteType))
+    .optional(),
+  warehouseId: Joi.string().uuid().optional(),
+  preInvoiceId: Joi.string().uuid().optional().allow(null, ''),
+  recipientName: Joi.string().max(255).optional().allow(null, ''),
+  recipientId: Joi.string().max(50).optional().allow(null, ''),
+  recipientPhone: Joi.string().max(20).optional().allow(null, ''),
+  reason: Joi.string().max(500).optional().allow(null, ''),
+  reference: Joi.string().max(100).optional().allow(null, ''),
+  notes: Joi.string().max(1000).optional().allow(null, ''),
+  expectedReturnDate: Joi.date().optional().allow(null),
+  authorizedBy: Joi.string().optional().allow(null, ''),
+  items: Joi.array().items(baseItemSchema).min(1).optional(),
 })
 
 /**
@@ -180,8 +188,13 @@ export const exitNoteFiltersSchema = Joi.object({
   recipientId: Joi.string().optional(),
   startDate: Joi.date().optional(),
   endDate: Joi.date().optional(),
+  search: Joi.string().max(200).optional().allow(''),
   page: Joi.number().integer().min(1).default(1),
   limit: Joi.number().integer().min(1).max(100).default(20),
+  sortBy: Joi.string()
+    .valid('createdAt', 'exitNoteNumber', 'type', 'status')
+    .default('createdAt'),
+  sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
 })
 
 /**

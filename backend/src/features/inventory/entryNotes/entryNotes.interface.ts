@@ -42,6 +42,7 @@ export interface IEntryNote {
   status: EntryNoteStatus
   purchaseOrderId?: string | null
   warehouseId: string
+  catalogSupplierId?: string | null
   supplierName?: string | null
   supplierId?: string | null
   supplierPhone?: string | null
@@ -60,6 +61,7 @@ export interface IEntryNote {
 export interface IEntryNoteWithRelations extends IEntryNote {
   purchaseOrder?: any
   warehouse?: any
+  catalogSupplier?: any
   items?: IEntryNoteItem[]
   receivedByName?: string | null
 }
@@ -70,6 +72,7 @@ export interface IEntryNoteItem {
   itemId: string
   quantityReceived: number
   unitCost: number | string
+  itemName?: string | null
   storedToLocation?: string | null
   batchId?: string | null
   serialNumberId?: string | null
@@ -86,6 +89,7 @@ export interface ICreateEntryNoteInput {
   type?: EntryType
   purchaseOrderId?: string | null
   warehouseId: string
+  catalogSupplierId?: string | null
   supplierName?: string | null
   supplierId?: string | null
   supplierPhone?: string | null
@@ -102,11 +106,13 @@ export interface IUpdateEntryNoteInput {
   receivedBy?: string | null
   verifiedBy?: string | null
   authorizedBy?: string | null
+  catalogSupplierId?: string | null
   supplierName?: string | null
   supplierId?: string | null
   supplierPhone?: string | null
   reason?: string | null
   reference?: string | null
+  items?: ICreateEntryNoteItemInput[]
 }
 
 export interface IEntryNoteFilters {
@@ -114,6 +120,7 @@ export interface IEntryNoteFilters {
   status?: EntryNoteStatus
   purchaseOrderId?: string
   warehouseId?: string
+  catalogSupplierId?: string
   receivedBy?: string
   receivedFrom?: Date
   receivedTo?: Date
@@ -121,10 +128,12 @@ export interface IEntryNoteFilters {
   limit?: number
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
+  search?: string
 }
 
 export interface ICreateEntryNoteItemInput {
   itemId: string
+  itemName?: string | null
   quantityReceived: number
   unitCost: number
   storedToLocation?: string | null

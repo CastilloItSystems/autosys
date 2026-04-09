@@ -12,6 +12,7 @@ export interface PurchaseOrderParams {
   warehouseId?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  search?: string;
 }
 
 export interface CreatePurchaseOrderData {

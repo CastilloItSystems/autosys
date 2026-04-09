@@ -109,7 +109,10 @@ const ReservationForm = ({
   };
 
   const itemOptions = items.map((item) => ({
-    label: item.sku ? `${item.sku} - ${item.name}` : item.name,
+    label:
+      item.sku || item.code
+        ? `${item.sku || item.code} - ${item.name}`
+        : item.name,
     value: item.id,
   }));
 

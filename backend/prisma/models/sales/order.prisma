@@ -7,44 +7,77 @@ enum OrderStatus {
   CANCELLED          // Cancelado
 }
 
+enum OrderCurrency {
+  USD
+  VES
+  EUR
+}
+
 model Order {
-  id              String      @id @default(uuid())
-  orderNumber     String      @unique
-  status          OrderStatus @default(DRAFT)
-  
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  status          OrderStatus   @default(DRAFT)
+
   empresaId       String
-  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
+  empresa         Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
   customerId      String
-  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   warehouseId     String
-  warehouse       Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
+  warehouse       Warehouse     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
   // Relaciones
   items           OrderItem[]
-  
-  // Totales
-  subtotal        Decimal     @default(0) @db.Decimal(12, 2)
-  discount        Decimal     @default(0) @db.Decimal(12, 2)
-  tax             Decimal     @default(0) @db.Decimal(12, 2)
-  total           Decimal     @default(0) @db.Decimal(12, 2)
-  
-  notes           String?     @db.Text
-  
+
+  // ── Moneda y tasa ──
+  currency          OrderCurrency @default(USD)
+  exchangeRate      Decimal?      @db.Decimal(14, 4)
+  exchangeRateSource String?      // 'BCV_AUTO' | 'MANUAL'
+
+  // ── Condiciones comerciales ──
+  paymentTerms      String?
+  creditDays        Int?
+  deliveryTerms     String?
+
+  // ── Descuento general ──
+  discountAmount    Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto     Decimal       @default(0) @db.Decimal(12, 2)
+  baseImponible     Decimal       @default(0) @db.Decimal(12, 2)
+  baseExenta        Decimal       @default(0) @db.Decimal(12, 2)
+  taxAmount         Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate           Decimal       @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies       Boolean       @default(false)
+  igtfRate          Decimal       @default(3) @db.Decimal(5, 2)
+  igtfAmount        Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Total final ──
+  total             Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Campos legacy (mantener por compatibilidad) ──
+  subtotal          Decimal       @default(0) @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax               Decimal       @default(0) @db.Decimal(12, 2)
+
+  notes             String?       @db.Text
+
   // Fechas
-  orderDate       DateTime    @default(now())
-  approvedAt      DateTime?
-  
+  orderDate         DateTime      @default(now())
+  approvedAt        DateTime?
+
   // Auditoría
-  createdBy       String?
-  approvedBy      String?
-  
+  createdBy         String?
+  approvedBy        String?
+
   // Relación 1 a 1 con Pre-factura
-  preInvoice      PreInvoice?
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  preInvoice        PreInvoice?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@map("orders")
   @@index([orderNumber])

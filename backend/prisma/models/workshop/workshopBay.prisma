@@ -1,0 +1,27 @@
+// backend/prisma/models/workshop/workshopBay.prisma
+// Bahías / estaciones de trabajo del taller.
+// Cada OT puede asignarse a una bahía específica.
+
+model WorkshopBay {
+  id          String  @id @default(cuid())
+  code        String
+  name        String
+  description String?
+
+  isActive  Boolean @default(true)
+
+  // Sucursal a la que pertenece esta bahía
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones
+  serviceOrders ServiceOrder[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_bays")
+}

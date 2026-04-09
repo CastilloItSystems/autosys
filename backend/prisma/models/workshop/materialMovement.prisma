@@ -1,0 +1,41 @@
+// backend/prisma/models/workshop/materialMovement.prisma
+// Historial de movimientos de cada material en una OT.
+// Registra quién hizo qué, cuándo y desde qué almacén.
+// Cada cambio de estado en ServiceOrderMaterial debe generar un registro aquí.
+
+enum MaterialMovementType {
+  RESERVATION   // Cantidad reservada en inventario
+  DISPATCH      // Despacho físico desde almacén a la OT
+  CONSUMPTION   // Consumo registrado por el técnico
+  RETURN        // Devolución al almacén
+  ADJUSTMENT    // Ajuste de cantidad por error u otro motivo
+  CANCELLATION  // Cancelación del material
+}
+
+model ServiceOrderMaterialMovement {
+  id               String @id @default(cuid())
+  materialId       String
+  material         ServiceOrderMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  type             MaterialMovementType
+  quantity         Decimal  @db.Decimal(12, 2)
+  previousQuantity Decimal? @db.Decimal(12, 2) // Snapshot de la cantidad antes del movimiento
+
+  // Trazabilidad de inventario
+  warehouseId      String?  // Almacén origen/destino (referencia soft, no FK)
+  warehouseName    String?  // Snapshot del nombre del almacén
+
+  // Auditoría
+  userId           String   // Quien ejecutó el movimiento
+  notes            String?  @db.Text
+  referenceId      String?  // ID de referencia externa (ej: movimiento de inventario)
+
+  empresaId        String
+  empresa          Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt        DateTime @default(now())
+
+  @@index([materialId])
+  @@index([empresaId])
+  @@index([materialId, type]) // Movimientos de un tipo específico para un material
+  @@map("workshop_material_movements")
+}

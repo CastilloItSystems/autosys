@@ -1,8 +1,15 @@
 import { z } from "zod";
 import { ExitNoteType } from "@/libs/interfaces/inventory/exitNote.interface";
 
+const uuidRegex =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const createExitNoteItemSchema = z.object({
-  itemId: z.string().min(1, "El artículo es requerido"),
+  itemId: z
+    .string()
+    .min(1, "El artículo es requerido")
+    .regex(uuidRegex, "Debe seleccionar un artículo válido de la lista"),
+  itemName: z.string().optional().default(""),
   quantity: z.number().min(1, "La cantidad debe ser mayor a 0"),
   pickedFromLocation: z.string().optional(),
   batchId: z.string().optional(),
@@ -14,7 +21,10 @@ export const createExitNoteSchema = z.object({
   type: z.nativeEnum(ExitNoteType, {
     errorMap: () => ({ message: "Tipo de salida inválido" }),
   }),
-  warehouseId: z.string().min(1, "El almacén es requerido"),
+  warehouseId: z
+    .string()
+    .min(1, "El almacén es requerido")
+    .regex(uuidRegex, "Almacén inválido"),
   preInvoiceId: z.string().optional(),
   recipientName: z.string().optional(),
   recipientId: z.string().optional(),

@@ -1,5 +1,5 @@
 "use client";
-import React, { ReactNode } from "react";
+import React, { ReactNode, useRef, useEffect } from "react";
 import {
   DndContext,
   DragEndEvent,
@@ -71,6 +71,7 @@ export interface ItemsTableRenderRowProps {
   onAddRow: () => void;
   dragHandleProps: Record<string, unknown>;
   isDragging: boolean;
+  autoFocus: boolean;
 }
 
 interface ItemsTableProps {
@@ -85,6 +86,8 @@ interface ItemsTableProps {
   totals?: TotalsLine[];
   currency?: string;
   disabled?: boolean;
+  /** Minimum width in px before horizontal scroll kicks in. Default: 600 */
+  minWidth?: number;
 }
 
 export default function ItemsTable({
@@ -99,12 +102,22 @@ export default function ItemsTable({
   totals,
   currency = "USD",
   disabled = false,
+  minWidth = 600,
 }: ItemsTableProps) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
   );
 
-  const handleAddRow = () => append(defaultItem);
+  const justAddedRef = useRef(false);
+
+  useEffect(() => {
+    justAddedRef.current = false;
+  }, [fields.length]);
+
+  const handleAddRow = () => {
+    justAddedRef.current = true;
+    append(defaultItem);
+  };
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -140,9 +153,10 @@ export default function ItemsTable({
         style={{
           border: "1px solid var(--surface-300)",
           borderRadius: "6px",
-          overflow: "hidden",
+          overflowX: "auto",
         }}
       >
+        <div style={{ minWidth: `${minWidth}px` }}>
         {/* Column headers — rendered by ItemsTable from columns prop */}
         {columns.length > 0 && (
           <div
@@ -196,6 +210,7 @@ export default function ItemsTable({
                     onAddRow: handleAddRow,
                     dragHandleProps,
                     isDragging,
+                    autoFocus: justAddedRef.current && index === fields.length - 1,
                   })
                 }
               />
@@ -221,6 +236,7 @@ export default function ItemsTable({
             />
           </div>
         )}
+        </div>
       </div>
 
       {/* ── Optional totals footer (outside the table border) ── */}

@@ -85,7 +85,7 @@ export class BatchesController {
    */
   create = asyncHandler(async (req: Request, res: Response) => {
     const createDTO = new CreateBatchDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const batch = await BatchesService.create(createDTO, userId)
     const dto = new BatchResponseDTO(batch)
     ApiResponse.created(res, dto, 'Batch created successfully')
@@ -98,7 +98,7 @@ export class BatchesController {
   update = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params as { id: string }
     const updateDTO = new UpdateBatchDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const batch = await BatchesService.update(id, updateDTO, userId)
     const dto = new BatchResponseDTO(batch)
     ApiResponse.success(res, dto, 'Batch updated successfully')

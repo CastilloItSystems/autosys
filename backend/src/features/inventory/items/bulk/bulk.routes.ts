@@ -6,6 +6,51 @@
  *   - name: Inventory - Items - Bulk
  *     description: Operaciones en lote para artículos del inventario
  *
+ * /inventory/items/bulk:
+ *   post:
+ *     summary: Crear artículos en lote
+ *     tags: [Inventory - Items - Bulk]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [items]
+ *             properties:
+ *               items:
+ *                 type: array
+ *                 items:
+ *                   $ref: '#/components/schemas/CreateItemRequest'
+ *     responses:
+ *       200:
+ *         description: Importación completada
+ *   put:
+ *     summary: Actualizar artículos específicos en lote
+ *     tags: [Inventory - Items - Bulk]
+ *     security:
+ *       - BearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [itemIds, updates]
+ *             properties:
+ *               itemIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *               updates:
+ *                 type: object
+ *     responses:
+ *       200:
+ *         description: Actualización masiva completada
+ *
  * /inventory/items/bulk/import:
  *   post:
  *     summary: Importar artículos desde CSV
@@ -181,23 +226,50 @@
  */
 
 import { Router } from 'express'
+import multer from 'multer'
 import { BulkController } from './bulk.controller.js'
+import itemsController from '../items.controller.js'
 import {
   validateBody,
   validateParams,
   validateQuery,
+  validateRequest,
 } from '../../../../shared/middleware/validateRequest.middleware.js'
 import { authenticate } from '../../../../shared/middleware/authenticate.middleware.js'
 import { authorize } from '../../../../shared/middleware/authorize.middleware.js'
 import {
-  bulkImportSchema,
   bulkExportSchema,
   bulkUpdateSchema,
   bulkDeleteSchema,
   operationIdSchema,
   getPaginationSchema,
 } from './bulk.validation.js'
+import {
+  bulkCreateSchema as itemsBulkCreateSchema,
+  bulkUpdateSchema as itemsBulkUpdateSchema,
+} from '../items.validation.js'
 import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
+
+// Accept CSV and Excel files up to 50 MB in memory (no disk I/O)
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    const allowed = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/octet-stream',
+      'text/plain',
+    ]
+    cb(
+      null,
+      allowed.includes(file.mimetype) ||
+        file.originalname.endsWith('.csv') ||
+        file.originalname.endsWith('.xlsx')
+    )
+  },
+})
 
 const router = Router({ mergeParams: true })
 const controller = new BulkController()
@@ -205,15 +277,33 @@ const controller = new BulkController()
 /**
  * Operaciones en lote - Importar, Exportar, Actualizar y Eliminar
  */
-router.post("/test-import", controller.import)
 
+// POST /api/inventory/items/bulk
+router.post(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.ITEMS_CREATE),
+  validateRequest(itemsBulkCreateSchema, 'body'),
+  itemsController.bulkCreate
+)
 
-// POST /api/inventory/items/bulk/import
+// PUT /api/inventory/items/bulk
+router.put(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.ITEMS_UPDATE),
+  validateRequest(itemsBulkUpdateSchema, 'body'),
+  itemsController.bulkUpdate
+)
+
+router.post('/test-import', controller.import)
+
+// POST /api/inventory/items/bulk/import  (multipart/form-data)
 router.post(
   '/import',
   authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
-  validateBody(bulkImportSchema),
+  upload.single('file'), // req.file = uploaded CSV/XLSX buffer
   controller.import
 )
 

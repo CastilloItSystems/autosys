@@ -23,6 +23,7 @@ export interface IStock {
   quantityReserved: number
   quantityConsumed: number
   quantityAvailable: number
+  location?: string | null
   averageCost: number
   lastMovementAt?: Date | null
   createdAt: Date
@@ -40,6 +41,7 @@ export interface ICreateStockInput {
   quantityReal?: number | undefined
   quantityReserved?: number | undefined
   quantityConsumed?: number | undefined
+  location?: string | null
   averageCost?: number | undefined
 }
 
@@ -47,6 +49,7 @@ export interface IUpdateStockInput {
   quantityReal?: number | undefined
   quantityReserved?: number | undefined
   quantityConsumed?: number | undefined
+  location?: string | null
   averageCost?: number | undefined
 }
 

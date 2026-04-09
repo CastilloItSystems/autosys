@@ -6,14 +6,19 @@ const asRecord = (value: unknown): AnyRecord =>
 
 export class CreateItemDTO {
   sku: string
-  barcode?: string
+  code: string
+  barcode?: string | null
+  identity?: string | null
   name: string
-  description?: string
+  shortName?: string | null
+  reference?: string | null
+  description?: string | null
+  contraindications?: string | null
   brandId: string
   categoryId: string
-  modelId?: string
+  modelId?: string | null
   unitId: string
-  location?: string
+  location?: string | null
   costPrice: number
   salePrice: number
   wholesalePrice?: number
@@ -25,6 +30,14 @@ export class CreateItemDTO {
   hasBatch?: boolean
   hasExpiry?: boolean
   allowNegativeStock?: boolean
+  useStock?: boolean
+  isFractionable?: boolean
+  isComposite?: boolean
+  isInternalUse?: boolean
+  useServer?: boolean
+  suspendedForPurchase?: boolean
+  warrantyDays?: number
+  packagingQty?: number
   technicalSpecs?: unknown
   tags?: string[]
 
@@ -32,15 +45,29 @@ export class CreateItemDTO {
     const d = asRecord(data)
 
     this.sku = String(d.sku ?? '').toUpperCase()
+    this.code = String(d.code ?? '')
     this.name = String(d.name ?? '')
     this.brandId = String(d.brandId ?? '')
     this.categoryId = String(d.categoryId ?? '')
     this.unitId = String(d.unitId ?? '')
 
-    if (d.barcode != null) this.barcode = String(d.barcode)
-    if (d.description != null) this.description = String(d.description)
-    if (d.modelId != null) this.modelId = String(d.modelId)
-    if (d.location != null) this.location = String(d.location).toUpperCase()
+    if (d.barcode !== undefined)
+      this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.identity !== undefined)
+      this.identity = d.identity == null ? null : String(d.identity)
+    if (d.shortName !== undefined)
+      this.shortName = d.shortName == null ? null : String(d.shortName)
+    if (d.reference !== undefined)
+      this.reference = d.reference == null ? null : String(d.reference)
+    if (d.description !== undefined)
+      this.description = d.description == null ? null : String(d.description)
+    if (d.contraindications !== undefined)
+      this.contraindications = d.contraindications == null ? null : String(d.contraindications)
+    if (d.modelId !== undefined)
+      this.modelId = d.modelId == null ? null : String(d.modelId)
+    if (d.location !== undefined)
+      this.location =
+        d.location == null ? null : String(d.location).toUpperCase()
 
     this.costPrice = Number(d.costPrice ?? 0)
     this.salePrice = Number(d.salePrice ?? 0)
@@ -58,6 +85,14 @@ export class CreateItemDTO {
     this.hasBatch = (d.hasBatch as boolean) ?? false
     this.hasExpiry = (d.hasExpiry as boolean) ?? false
     this.allowNegativeStock = (d.allowNegativeStock as boolean) ?? false
+    this.useStock = (d.useStock as boolean) ?? true
+    this.isFractionable = (d.isFractionable as boolean) ?? false
+    this.isComposite = (d.isComposite as boolean) ?? false
+    this.isInternalUse = (d.isInternalUse as boolean) ?? false
+    this.useServer = (d.useServer as boolean) ?? false
+    this.suspendedForPurchase = (d.suspendedForPurchase as boolean) ?? false
+    this.warrantyDays = Number(d.warrantyDays ?? 0)
+    this.packagingQty = Number(d.packagingQty ?? 1)
 
     if (d.technicalSpecs !== undefined) this.technicalSpecs = d.technicalSpecs
 
@@ -69,14 +104,19 @@ export class CreateItemDTO {
 
 export class UpdateItemDTO {
   sku?: string
-  barcode?: string
+  code?: string
+  barcode?: string | null
+  identity?: string | null
   name?: string
-  description?: string
+  shortName?: string | null
+  reference?: string | null
+  description?: string | null
+  contraindications?: string | null
   brandId?: string
   categoryId?: string
-  modelId?: string
+  modelId?: string | null
   unitId?: string
-  location?: string
+  location?: string | null
   costPrice?: number
   salePrice?: number
   wholesalePrice?: number
@@ -88,6 +128,14 @@ export class UpdateItemDTO {
   hasBatch?: boolean
   hasExpiry?: boolean
   allowNegativeStock?: boolean
+  useStock?: boolean
+  isFractionable?: boolean
+  isComposite?: boolean
+  isInternalUse?: boolean
+  useServer?: boolean
+  suspendedForPurchase?: boolean
+  warrantyDays?: number
+  packagingQty?: number
   technicalSpecs?: unknown
   tags?: string[]
 
@@ -95,18 +143,28 @@ export class UpdateItemDTO {
     const d = asRecord(data)
 
     if (d.sku !== undefined) this.sku = String(d.sku).toUpperCase()
+    if (d.code !== undefined) this.code = String(d.code)
     if (d.barcode !== undefined)
-      this.barcode = d.barcode == null ? '' : String(d.barcode)
+      this.barcode = d.barcode == null ? null : String(d.barcode)
+    if (d.identity !== undefined)
+      this.identity = d.identity == null ? null : String(d.identity)
     if (d.name !== undefined) this.name = String(d.name)
+    if (d.shortName !== undefined)
+      this.shortName = d.shortName == null ? null : String(d.shortName)
+    if (d.reference !== undefined)
+      this.reference = d.reference == null ? null : String(d.reference)
     if (d.description !== undefined)
-      this.description = d.description == null ? '' : String(d.description)
+      this.description = d.description == null ? null : String(d.description)
+    if (d.contraindications !== undefined)
+      this.contraindications = d.contraindications == null ? null : String(d.contraindications)
     if (d.brandId !== undefined) this.brandId = String(d.brandId)
     if (d.categoryId !== undefined) this.categoryId = String(d.categoryId)
     if (d.modelId !== undefined)
-      this.modelId = d.modelId == null ? '' : String(d.modelId)
+      this.modelId = d.modelId == null ? null : String(d.modelId)
     if (d.unitId !== undefined) this.unitId = String(d.unitId)
     if (d.location !== undefined)
-      this.location = d.location == null ? '' : String(d.location).toUpperCase()
+      this.location =
+        d.location == null ? null : String(d.location).toUpperCase()
     if (d.costPrice !== undefined) this.costPrice = Number(d.costPrice)
     if (d.salePrice !== undefined) this.salePrice = Number(d.salePrice)
     if (d.wholesalePrice !== undefined)
@@ -115,12 +173,18 @@ export class UpdateItemDTO {
     if (d.maxStock !== undefined) this.maxStock = Number(d.maxStock)
     if (d.reorderPoint !== undefined) this.reorderPoint = Number(d.reorderPoint)
     if (d.isActive !== undefined) this.isActive = Boolean(d.isActive)
-    if (d.isSerialized !== undefined)
-      this.isSerialized = Boolean(d.isSerialized)
+    if (d.isSerialized !== undefined) this.isSerialized = Boolean(d.isSerialized)
     if (d.hasBatch !== undefined) this.hasBatch = Boolean(d.hasBatch)
     if (d.hasExpiry !== undefined) this.hasExpiry = Boolean(d.hasExpiry)
-    if (d.allowNegativeStock !== undefined)
-      this.allowNegativeStock = Boolean(d.allowNegativeStock)
+    if (d.allowNegativeStock !== undefined) this.allowNegativeStock = Boolean(d.allowNegativeStock)
+    if (d.useStock !== undefined) this.useStock = Boolean(d.useStock)
+    if (d.isFractionable !== undefined) this.isFractionable = Boolean(d.isFractionable)
+    if (d.isComposite !== undefined) this.isComposite = Boolean(d.isComposite)
+    if (d.isInternalUse !== undefined) this.isInternalUse = Boolean(d.isInternalUse)
+    if (d.useServer !== undefined) this.useServer = Boolean(d.useServer)
+    if (d.suspendedForPurchase !== undefined) this.suspendedForPurchase = Boolean(d.suspendedForPurchase)
+    if (d.warrantyDays !== undefined) this.warrantyDays = Number(d.warrantyDays)
+    if (d.packagingQty !== undefined) this.packagingQty = Number(d.packagingQty)
     if (d.technicalSpecs !== undefined) this.technicalSpecs = d.technicalSpecs
     if (d.tags !== undefined && Array.isArray(d.tags)) {
       this.tags = d.tags.map((tag) => String(tag).toLowerCase())
@@ -131,7 +195,9 @@ export class UpdateItemDTO {
 export class ItemResponseDTO {
   id: string
   sku: string
+  code: string
   barcode?: string | null
+  identity?: string | null
   name: string
   description?: string | null
 
@@ -161,11 +227,24 @@ export class ItemResponseDTO {
   maxStock?: number | null
   reorderPoint: number
 
+  shortName?: string | null
+  reference?: string | null
+  contraindications?: string | null
+
   isActive: boolean
   isSerialized: boolean
   hasBatch: boolean
   hasExpiry: boolean
   allowNegativeStock: boolean
+  useStock: boolean
+  isFractionable: boolean
+  isComposite: boolean
+  isInternalUse: boolean
+  useServer: boolean
+  suspendedForPurchase: boolean
+
+  warrantyDays: number
+  packagingQty: number
 
   technicalSpecs?: unknown
   tags?: string[]
@@ -192,6 +271,7 @@ export class ItemResponseDTO {
 
     this.id = String(i.id ?? '')
     this.sku = String(i.sku ?? '')
+    this.code = String(i.code ?? '')
     this.name = String(i.name ?? '')
     this.brandId = String(i.brandId ?? '')
     this.categoryId = String(i.categoryId ?? '')
@@ -199,6 +279,8 @@ export class ItemResponseDTO {
 
     if (i.barcode !== undefined)
       this.barcode = (i.barcode as string | null) ?? null
+    if (i.identity !== undefined)
+      this.identity = (i.identity as string | null) ?? null
     if (i.description !== undefined)
       this.description = (i.description as string | null) ?? null
     if (i.modelId !== undefined)
@@ -225,11 +307,23 @@ export class ItemResponseDTO {
       this.maxStock = (i.maxStock as number | null) ?? null
     this.reorderPoint = Number(i.reorderPoint ?? 0)
 
+    if (i.shortName !== undefined) this.shortName = (i.shortName as string | null) ?? null
+    if (i.reference !== undefined) this.reference = (i.reference as string | null) ?? null
+    if (i.contraindications !== undefined) this.contraindications = (i.contraindications as string | null) ?? null
+
     this.isActive = Boolean(i.isActive)
     this.isSerialized = Boolean(i.isSerialized)
     this.hasBatch = Boolean(i.hasBatch)
     this.hasExpiry = Boolean(i.hasExpiry)
     this.allowNegativeStock = Boolean(i.allowNegativeStock)
+    this.useStock = Boolean(i.useStock ?? true)
+    this.isFractionable = Boolean(i.isFractionable)
+    this.isComposite = Boolean(i.isComposite)
+    this.isInternalUse = Boolean(i.isInternalUse)
+    this.useServer = Boolean(i.useServer)
+    this.suspendedForPurchase = Boolean(i.suspendedForPurchase)
+    this.warrantyDays = Number(i.warrantyDays ?? 0)
+    this.packagingQty = Number(i.packagingQty ?? 1)
 
     if (i.technicalSpecs !== undefined) this.technicalSpecs = i.technicalSpecs
     if (Array.isArray(i.tags)) this.tags = i.tags as string[]

@@ -82,6 +82,11 @@ class ItemService {
     })
     if (existingSku) throw new ConflictError(MSG.skuExists)
 
+    const existingCode = await (db as PrismaClient).item.findFirst({
+      where: { empresaId, code: data.code },
+    })
+    if (existingCode) throw new ConflictError(MSG.codeExists)
+
     if (data.barcode) {
       const existingBarcode = await (db as PrismaClient).item.findFirst({
         where: { empresaId, barcode: data.barcode },
@@ -135,6 +140,7 @@ class ItemService {
       data: {
         empresaId,
         sku,
+        code: data.code,
         name: data.name,
         brandId: data.brandId,
         categoryId: data.categoryId,
@@ -156,6 +162,7 @@ class ItemService {
           timestamp: new Date().toISOString(),
         } as never,
         ...(data.barcode != null ? { barcode: data.barcode } : {}),
+        ...(data.identity != null ? { identity: data.identity } : {}),
         ...(data.description != null ? { description: data.description } : {}),
         ...(data.modelId != null ? { modelId: data.modelId } : {}),
         ...(data.location != null
@@ -238,6 +245,9 @@ class ItemService {
     const SORT_WHITELIST = new Set([
       'name',
       'sku',
+      'code',
+      'identity',
+      'location',
       'createdAt',
       'costPrice',
       'salePrice',
@@ -249,6 +259,8 @@ class ItemService {
     if (filters.search) {
       where.OR = [
         { sku: { contains: filters.search, mode: 'insensitive' } },
+        { code: { contains: filters.search, mode: 'insensitive' } },
+        { identity: { contains: filters.search, mode: 'insensitive' } },
         { name: { contains: filters.search, mode: 'insensitive' } },
         { barcode: { contains: filters.search, mode: 'insensitive' } },
         { description: { contains: filters.search, mode: 'insensitive' } },
@@ -321,6 +333,7 @@ class ItemService {
         isActive: true,
         OR: [
           { sku: { contains: term, mode: 'insensitive' } },
+          { identity: { contains: term, mode: 'insensitive' } },
           { name: { contains: term, mode: 'insensitive' } },
           { barcode: { contains: term, mode: 'insensitive' } },
           { tags: { has: term.toLowerCase() } },
@@ -434,6 +447,13 @@ class ItemService {
       if (existingSku) throw new ConflictError(MSG.skuExists)
     }
 
+    if (data.code && data.code !== existing.code) {
+      const existingCode = await (db as PrismaClient).item.findFirst({
+        where: { empresaId, code: data.code, id: { not: id } },
+      })
+      if (existingCode) throw new ConflictError(MSG.codeExists)
+    }
+
     if (data.barcode && data.barcode !== existing.barcode) {
       const existingBarcode = await (db as PrismaClient).item.findFirst({
         where: { empresaId, barcode: data.barcode, id: { not: id } },
@@ -443,7 +463,9 @@ class ItemService {
 
     const updateData: Record<string, unknown> = {}
     if (data.sku !== undefined) updateData.sku = data.sku.toUpperCase()
+    if (data.code !== undefined) updateData.code = data.code
     if (data.barcode !== undefined) updateData.barcode = data.barcode ?? null
+    if (data.identity !== undefined) updateData.identity = data.identity ?? null
     if (data.name !== undefined) updateData.name = data.name
     if (data.description !== undefined)
       updateData.description = data.description ?? null
@@ -827,6 +849,7 @@ class ItemService {
 
     const payload: ICreateItemInput = {
       sku: newSku,
+      code: newSku,
       name: `${raw.name} (Copia)`,
       brandId: raw.brandId as string,
       categoryId: raw.categoryId as string,

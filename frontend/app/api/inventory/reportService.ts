@@ -94,10 +94,60 @@ export interface MovementSummary {
   };
 }
 
+export interface StockValueFilters {
+  warehouseId?: string;
+  search?: string;
+  zeroCostOnly?: boolean;
+  sortBy?: "value_desc" | "value_asc" | "quantity_desc" | "name_asc";
+}
+
 export interface StockValueReportResponse
   extends PaginatedResponse<StockValueItem> {
   summary: {
     totalInventoryValue: number;
+    filteredValue: number;
+    isFiltered: boolean;
+    byWarehouse: { warehouseId: string; warehouseName: string; totalValue: number; itemCount: number }[];
+    top5Items: { itemName: string; itemSKU: string; warehouseName: string; totalValue: number; percentage: number }[];
+    zeroCostCount: number;
+    distinctItems: number;
+    totalStockEntries: number;
+  };
+}
+
+export interface KardexEntry {
+  id: string;
+  movementNumber: string;
+  date: string;
+  type: string;
+  reference: string;
+  quantityIn: number;
+  quantityOut: number;
+  balance: number;
+  unitCost: number;
+  totalCost: number;
+  warehouseName: string;
+  notes: string;
+}
+
+export interface KardexReportResponse {
+  success: boolean;
+  message: string;
+  data: KardexEntry[];
+  meta: {
+    itemId: string;
+    itemName: string;
+    itemSKU: string;
+    warehouseId?: string;
+    warehouseName?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page: number;
+    limit: number;
+    total: number;
+    totalPages: number;
+    openingBalance: number;
+    closingBalance: number;
   };
 }
 
@@ -140,10 +190,11 @@ const reportService = {
   async getStockValue(
     page: number = 1,
     limit: number = 20,
+    filters: StockValueFilters = {},
   ): Promise<StockValueReportResponse> {
     const response = await apiClient.get<StockValueReportResponse>(
       `/inventory/reports/stock-value`,
-      { params: { page, limit } },
+      { params: { page, limit, ...filters } },
     );
     return response.data;
   },
@@ -245,6 +296,24 @@ const reportService = {
       },
     );
 
+    return response.data;
+  },
+
+  /**
+   * Get Kardex report for a specific item
+   */
+  async getKardex(params: {
+    itemId: string;
+    warehouseId?: string;
+    dateFrom?: string;
+    dateTo?: string;
+    page?: number;
+    limit?: number;
+  }): Promise<KardexReportResponse> {
+    const response = await apiClient.get<KardexReportResponse>(
+      `/inventory/reports/kardex`,
+      { params },
+    );
     return response.data;
   },
 

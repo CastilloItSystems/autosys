@@ -7,6 +7,20 @@
  *     description: Búsqueda y indexación de artículos en el inventario
  *
  * /inventory/items/search:
+ *   get:
+ *     summary: Buscar artículos
+ *     tags: [Inventory - Items - Search]
+ *     parameters:
+ *       - in: query
+ *         name: term
+ *         required: true
+ *         schema: { type: string }
+ *       - in: query
+ *         name: limit
+ *         schema: { type: integer, default: 20 }
+ *     responses:
+ *       200: { description: OK }
+ *
  *   post:
  *     summary: Búsqueda de artículos
  *     tags: [Inventory - Items - Search]
@@ -53,6 +67,7 @@
 
 import { Router } from 'express'
 import { SearchController } from './search.controller.js'
+import itemsController from '../items.controller.js'
 import {
   validateBody,
   validateParams,
@@ -78,6 +93,14 @@ const controller = new SearchController()
 /**
  * Búsqueda de artículos - Endpoints básicos y avanzados
  */
+
+// GET /api/inventory/items/search
+router.get(
+  '/',
+  authenticate,
+  authorize(PERMISSIONS.ITEMS_VIEW),
+  itemsController.search
+)
 
 // POST /api/inventory/items/search
 router.post(

@@ -9,7 +9,8 @@ model CycleCountItem {
   expectedQuantity  Int
   countedQuantity   Int?
   variance          Int?
-  location          String?     @db.VarChar(255)
+  location          String?     @db.VarChar(255)   // Ubicación original (snapshot del stock al crear)
+  locationFound     String?     @db.VarChar(255)   // Ubicación encontrada por el contador (editable en IN_PROGRESS)
   notes             String?     @db.Text
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt

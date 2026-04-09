@@ -12,16 +12,33 @@ export interface IPricingTier {
   discountPercentage?: number | null;
 }
 
+export interface IPriceLevel {
+  id?: string;
+  level: number;
+  priceForeign: number;
+  price: number;
+  finalPrice: number;
+  utility: number;
+  commission: number;
+}
+
 export interface IPricing {
   id?: string;
   costPrice: number;
   salePrice: number;
   wholesalePrice?: number | null;
-  minMargin: number;
-  maxMargin: number;
+  minMargin?: number;
+  maxMargin?: number;
   discountPercentage?: number | null;
+  costForeign?: number;
+  exchangeRate?: number;
+  costRef?: number;
+  costPrevious?: number;
+  taxRateSale?: number;
+  taxRatePurchase?: number;
   isActive: boolean;
   tiers?: IPricingTier[];
+  priceLevels?: IPriceLevel[];
 }
 
 // ============================================
@@ -48,6 +65,7 @@ export interface Item {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   quantity?: number;
   minStock?: number;
   maxStock?: number;
@@ -72,6 +90,18 @@ export interface Item {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  // Campos extendidos
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   // Additional
   location?: string;
   technicalSpecs?: Record<string, any>;
@@ -97,6 +127,8 @@ export interface GetItemParams {
   brandId?: string;
   categoryId?: string;
   isActive?: boolean;
+  sortBy?: string;
+  sortOrder?: "asc" | "desc";
 }
 
 export interface CreateItemRequest {
@@ -109,6 +141,7 @@ export interface CreateItemRequest {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   minStock?: number;
   maxStock?: number;
   reorderPoint?: number;
@@ -121,13 +154,29 @@ export interface CreateItemRequest {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   technicalSpecs?: Record<string, any>;
   tags?: string[];
   // Pricing
   pricing?: {
-    minMargin: number;
-    maxMargin: number;
+    minMargin?: number;
+    maxMargin?: number;
     discountPercentage?: number | null;
+    costForeign?: number;
+    exchangeRate?: number;
+    taxRateSale?: number;
+    taxRatePurchase?: number;
+    priceLevels?: { level: number; priceForeign: number }[];
     tiers?: IPricingTier[];
   };
   // Images
@@ -144,6 +193,7 @@ export interface UpdateItemRequest {
   unitId?: string;
   sku?: string;
   barcode?: string;
+  identity?: string;
   minStock?: number;
   maxStock?: number;
   reorderPoint?: number;
@@ -156,6 +206,17 @@ export interface UpdateItemRequest {
   hasBatch?: boolean;
   hasExpiry?: boolean;
   allowNegativeStock?: boolean;
+  useStock?: boolean;
+  isFractionable?: boolean;
+  isComposite?: boolean;
+  isInternalUse?: boolean;
+  useServer?: boolean;
+  suspendedForPurchase?: boolean;
+  shortName?: string | null;
+  reference?: string | null;
+  contraindications?: string | null;
+  warrantyDays?: number;
+  packagingQty?: number;
   technicalSpecs?: Record<string, any>;
   tags?: string[];
   // Pricing
@@ -163,6 +224,11 @@ export interface UpdateItemRequest {
     minMargin?: number;
     maxMargin?: number;
     discountPercentage?: number | null;
+    costForeign?: number;
+    exchangeRate?: number;
+    taxRateSale?: number;
+    taxRatePurchase?: number;
+    priceLevels?: { level: number; priceForeign: number }[];
     tiers?: IPricingTier[];
   };
   // Images
@@ -249,6 +315,41 @@ const itemService = {
 
   getOutOfStock: async (): Promise<ApiResponse<Item[]>> => {
     const response = await apiClient.get(`${BASE_ROUTE}/out-of-stock`);
+    return response.data;
+  },
+
+  // IMAGES
+  uploadItemImages: async (
+    itemId: string,
+    files: File[],
+  ): Promise<ApiResponse<IItemImage[]>> => {
+    const formData = new FormData();
+    formData.append("itemId", itemId);
+    files.forEach((file) => {
+      formData.append("images", file);
+    });
+
+    const response = await apiClient.post(
+      `${BASE_ROUTE}/images/upload`,
+      formData,
+      {
+        headers: {
+          "Content-Type": "multipart/form-data",
+        },
+      },
+    );
+    return response.data;
+  },
+
+  deleteItemImage: async (id: string): Promise<ApiResponse<void>> => {
+    const response = await apiClient.delete(`${BASE_ROUTE}/images/${id}`);
+    return response.data;
+  },
+
+  setPrimaryImage: async (id: string): Promise<ApiResponse<IItemImage>> => {
+    const response = await apiClient.patch(
+      `${BASE_ROUTE}/images/${id}/primary`,
+    );
     return response.data;
   },
 };

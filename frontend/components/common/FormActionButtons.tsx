@@ -21,7 +21,7 @@ const FormActionButtons: React.FC<FormActionButtonsProps> = ({
   const defaultSubmitLabel = isUpdate ? "Actualizar" : "Crear";
 
   return (
-    <div className="flex w-full gap-2 mb-4">
+    <div className="flex w-full gap-2">
       <Button
         label={cancelLabel}
         icon="pi pi-times"

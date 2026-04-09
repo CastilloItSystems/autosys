@@ -4,10 +4,13 @@ import { ApiResponse, PaginatedResponse } from "./types";
 export interface ISearchItem {
   id: string;
   sku: string;
+  code?: string;
+  identity?: string;
   name: string;
   description?: string;
   categoryName: string;
   brandName?: string;
+  modelName?: string;
   salePrice: number;
   costPrice?: number;
   minStock?: number;
@@ -50,7 +53,7 @@ export interface ISearchFilters {
 export interface ISearchRequest {
   query: string;
   filters?: ISearchFilters;
-  sortBy?: "relevance" | "price" | "name";
+  sortBy?: string;
   sortOrder?: "asc" | "desc";
   page?: number;
   limit?: number;

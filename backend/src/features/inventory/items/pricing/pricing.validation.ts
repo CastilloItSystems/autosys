@@ -18,18 +18,29 @@ export const createPricingSchema = Joi.object({
   wholesalePrice: Joi.number().min(0).optional().messages({
     'number.min': 'Precio mayorista no puede ser negativo',
   }),
-  minMargin: Joi.number().min(0).required().messages({
+  minMargin: Joi.number().min(0).optional().default(0).messages({
     'number.min': 'Margen mínimo no puede ser negativo',
-    'any.required': 'Margen mínimo es requerido',
   }),
-  maxMargin: Joi.number().min(0).required().messages({
+  maxMargin: Joi.number().min(0).optional().default(0).messages({
     'number.min': 'Margen máximo no puede ser negativo',
-    'any.required': 'Margen máximo es requerido',
   }),
   discountPercentage: Joi.number().min(0).max(100).optional().messages({
     'number.min': 'Descuento no puede ser negativo',
     'number.max': 'Descuento no puede exceder 100',
   }),
+  costForeign: Joi.number().min(0).optional(),
+  exchangeRate: Joi.number().min(0).optional(),
+  taxRateSale: Joi.number().min(0).max(100).optional(),
+  taxRatePurchase: Joi.number().min(0).max(100).optional(),
+  priceLevels: Joi.array()
+    .items(
+      Joi.object({
+        level: Joi.number().integer().min(1).max(8).required(),
+        priceForeign: Joi.number().min(0).required(),
+      })
+    )
+    .max(8)
+    .optional(),
   notes: Joi.string().max(1000).optional().allow('').messages({
     'string.max': 'Notas no pueden exceder 1000 caracteres',
   }),
@@ -55,6 +66,19 @@ export const updatePricingSchema = Joi.object({
     'number.min': 'Descuento no puede ser negativo',
     'number.max': 'Descuento no puede exceder 100',
   }),
+  costForeign: Joi.number().min(0).optional(),
+  exchangeRate: Joi.number().min(0).optional(),
+  taxRateSale: Joi.number().min(0).max(100).optional(),
+  taxRatePurchase: Joi.number().min(0).max(100).optional(),
+  priceLevels: Joi.array()
+    .items(
+      Joi.object({
+        level: Joi.number().integer().min(1).max(8).required(),
+        priceForeign: Joi.number().min(0).required(),
+      })
+    )
+    .max(8)
+    .optional(),
   notes: Joi.string().max(1000).optional().allow('').messages({
     'string.max': 'Notas no pueden exceder 1000 caracteres',
   }),

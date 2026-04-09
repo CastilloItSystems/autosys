@@ -26,6 +26,7 @@ import {
 } from "../../../libs/interfaces/inventory/cycleCount.interface";
 import CycleCountForm from "./CycleCountForm";
 import CycleCountDetail from "./CycleCountDetail";
+import FormActionButtons from "../../common/FormActionButtons";
 import { useSession } from "next-auth/react";
 
 export default function CycleCountList() {
@@ -37,6 +38,7 @@ export default function CycleCountList() {
     useState<CycleCount | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
@@ -210,24 +212,34 @@ export default function CycleCountList() {
     return (
       <div className="flex gap-2">
         <Button
-          icon="pi pi-eye"
+          icon={
+            rowData.status === CycleCountStatus.IN_PROGRESS
+              ? "pi pi-list-check"
+              : "pi pi-eye"
+          }
           rounded
           outlined
-          severity="info"
+          severity={
+            rowData.status === CycleCountStatus.IN_PROGRESS ? "success" : "info"
+          }
           size="small"
           onClick={async () => {
             setSelectedCycleCount(rowData);
             setShowDetail(true);
             try {
               const fullData = await cycleCountService.getById(rowData.id);
-              // @ts-ignore - The response structure might be directly the object or { data: object } depending on interceptors
+              // @ts-ignore
               const cycleCountData = fullData.data || fullData;
               setSelectedCycleCount(cycleCountData);
             } catch (error) {
               console.error("Error fetching full details", error);
             }
           }}
-          tooltip="Ver detalles"
+          tooltip={
+            rowData.status === CycleCountStatus.IN_PROGRESS
+              ? "Cargar Conteo"
+              : "Ver Detalles"
+          }
         />
         {rowData.status === CycleCountStatus.DRAFT && (
           <>
@@ -344,7 +356,7 @@ export default function CycleCountList() {
                 setSelectedCycleCount(null);
                 setShowForm(true);
               }}
-              severity="primary"
+              severity="info"
             />
           )}
         </div>
@@ -458,35 +470,99 @@ export default function CycleCountList() {
       </DataTable>
 
       <Dialog
-        header="Nuevo Conteo Cíclico"
         visible={showForm}
         onHide={() => {
           setShowForm(false);
           setSelectedCycleCount(null);
         }}
         modal
-        style={{ width: "90vw", maxWidth: "850px" }}
+        maximizable
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-sync mr-3 text-primary text-3xl"></i>
+                {selectedCycleCount
+                  ? `Editar Borrador — ${selectedCycleCount.cycleCountNumber}`
+                  : "Nuevo Conteo Cíclico"}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <FormActionButtons
+            formId="cycle-count-form"
+            isUpdate={!!selectedCycleCount}
+            submitLabel={
+              selectedCycleCount ? "Actualizar Borrador" : "Crear Borrador"
+            }
+            onCancel={() => {
+              setShowForm(false);
+              setSelectedCycleCount(null);
+            }}
+            isSubmitting={isSubmitting}
+          />
+        }
       >
         <CycleCountForm
           cycleCount={selectedCycleCount || undefined}
           warehouses={warehouses}
-          onSuccess={() => {
+          formId="cycle-count-form"
+          toast={toast}
+          onSave={() => {
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: selectedCycleCount
+                ? "Conteo actualizado"
+                : "Conteo creado",
+              life: 3000,
+            });
             setShowForm(false);
             setSelectedCycleCount(null);
             loadCycleCounts();
           }}
+          onSubmittingChange={setIsSubmitting}
         />
       </Dialog>
 
       <Dialog
-        header="Detalles de Conteo"
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-sync mr-3 text-primary text-3xl"></i>
+                {selectedCycleCount?.status === CycleCountStatus.IN_PROGRESS
+                  ? `Cargar Conteo — ${selectedCycleCount.cycleCountNumber}`
+                  : `Detalle — ${selectedCycleCount?.cycleCountNumber ?? ""}`}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <div className="flex justify-content-end">
+            <Button
+              label="Cerrar"
+              icon="pi pi-times"
+              severity="secondary"
+              onClick={() => {
+                setShowDetail(false);
+                setSelectedCycleCount(null);
+              }}
+            />
+          </div>
+        }
         visible={showDetail}
         onHide={() => {
           setShowDetail(false);
           setSelectedCycleCount(null);
         }}
         modal
-        style={{ width: "90vw", maxWidth: "1000px" }}
+        maximizable
       >
         {selectedCycleCount && (
           <CycleCountDetail cycleCount={selectedCycleCount} />

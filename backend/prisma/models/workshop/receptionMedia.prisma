@@ -1,0 +1,58 @@
+// backend/prisma/models/workshop/receptionMedia.prisma
+// Registro detallado de daños visibles y fotos del vehículo al ingresar.
+// Reemplaza los campos planos hasPreExistingDamage/damageNotes con tablas estructuradas.
+
+enum DamageSeverity {
+  MINOR    // Rayón, golpe leve
+  MODERATE // Abollo, daño visible
+  SEVERE   // Daño estructural
+}
+
+enum ReceptionPhotoType {
+  FRONTAL   // Foto frontal del vehículo
+  REAR      // Foto trasera
+  LEFT      // Lateral izquierdo
+  RIGHT     // Lateral derecho
+  INTERIOR  // Interior / tablero
+  DAMAGE    // Foto específica de un daño
+  DOCUMENT  // Documento (tarjeta, licencia, etc.)
+  OTHER     // Otro
+}
+
+model ReceptionDamage {
+  id          String @id @default(cuid())
+  receptionId String
+  reception   VehicleReception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  zone        String          // Ej: "Parachoques delantero", "Puerta trasera izquierda"
+  description String          @db.Text
+  severity    DamageSeverity  @default(MINOR)
+  photoUrl    String?         // Foto directa de este daño específico
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([receptionId])
+  @@index([empresaId])
+  @@map("workshop_reception_damages")
+}
+
+model ReceptionPhoto {
+  id          String @id @default(cuid())
+  receptionId String
+  reception   VehicleReception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  type        ReceptionPhotoType @default(OTHER)
+  url         String
+  description String?            @db.Text
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([receptionId])
+  @@index([empresaId])
+  @@map("workshop_reception_photos")
+}

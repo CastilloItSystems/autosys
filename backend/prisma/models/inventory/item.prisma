@@ -3,7 +3,9 @@
 model Item {
   id          String   @id @default(uuid())
   sku         String
+  code        String
   barcode     String?
+  identity    String?
   name        String
   description String?  @db.Text
 
@@ -44,6 +46,23 @@ model Item {
   hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
   allowNegativeStock Boolean  @default(false)
 
+  // Información básica extendida
+  shortName             String?  @db.VarChar(20)  // nombrecorto
+  reference             String?  @db.VarChar(20)  // referencia (texto libre, ≠ barcode)
+  contraindications     String?  @db.Text         // contraindi
+
+  // Flags del formulario de creación
+  useStock              Boolean  @default(true)   // usaexist
+  isFractionable        Boolean  @default(false)  // decimales ("fraccionable")
+  isComposite           Boolean  @default(false)  // compuesto ("integrado")
+  isInternalUse         Boolean  @default(false)  // usointerno
+  useServer             Boolean  @default(false)  // usa_servidor
+  suspendedForPurchase  Boolean  @default(false)  // discontc ("suspendido para la compra")
+
+  // Configuración física/comercial
+  warrantyDays          Int      @default(0)      // garantia
+  packagingQty          Int      @default(1)      // empaque
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
@@ -68,7 +87,13 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
-  stockAlerts         StockAlert[]       
+  stockAlerts         StockAlert[]
+  // Workshop: repuestos consumidos en OT
+  serviceOrderItems   ServiceOrderItem[]
+  // Workshop: materiales solicitados/despachados en OT
+  serviceOrderMaterials ServiceOrderMaterial[]
+  // Workshop: repuestos sugeridos en diagnósticos
+  diagnosisSuggestedParts DiagnosisSuggestedPart[]
   // Auditoría con historial de cambios
   historial      Json?
 
@@ -79,10 +104,13 @@ model Item {
 
   // Únicos por empresa
   @@unique([empresaId, sku], map: "items_empresa_sku_unique")
+  @@unique([empresaId, code], map: "items_empresa_code_unique")
   @@unique([empresaId, barcode], map: "items_empresa_barcode_unique")
 
   @@index([sku])
+  @@index([code])
   @@index([barcode])
+  @@index([identity])
   @@index([brandId])
   @@index([categoryId])
   @@index([modelId])

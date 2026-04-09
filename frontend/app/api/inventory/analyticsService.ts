@@ -35,6 +35,7 @@ export interface ABCItem {
   itemId: string;
   itemName: string;
   sku: string;
+  code?: string;
   totalMovementValue: number;
   movementCount: number;
   percentageOfTotal: number;
@@ -44,12 +45,20 @@ export interface ABCItem {
   recommendations: string[];
 }
 
+export interface ABCParetoPoint {
+  itemName: string;
+  totalMovementValue: number;
+  cumulativePercentage: number;
+  classification: ABCClassification;
+}
+
 export interface ABCSummary {
   totalItems: number;
   classA: number;
   classB: number;
   classC: number;
   totalMovementValue: number;
+  paretoData: ABCParetoPoint[];
 }
 
 export interface TurnoverMetrics {
@@ -78,6 +87,7 @@ export interface ForecastData {
   itemId: string;
   itemName: string;
   sku: string;
+  code?: string;
   currentStock: number;
   estimatedDemand: {
     demand30Days: number;

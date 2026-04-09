@@ -1,16 +1,36 @@
 // backend/src/features/inventory/items/pricing/pricing.interface.ts
 
+import { Decimal } from '@prisma/client/runtime/client'
+
+export interface IPriceLevel {
+  id: string
+  pricingId: string
+  level: number
+  priceForeign: number | Decimal
+  price: number | Decimal
+  finalPrice: number | Decimal
+  utility: number | Decimal
+  commission: number | Decimal
+}
+
 export interface IPricing {
   id: string
   itemId: string
   costPrice: number | any
   salePrice: number | any
   wholesalePrice?: number | any | null
-  minMargin: number
-  maxMargin: number
-  discountPercentage?: number | null
+  minMargin: Decimal
+  maxMargin: Decimal
+  discountPercentage?: number | Decimal | null
+  costForeign: number | Decimal
+  exchangeRate: number | Decimal
+  costRef: number | Decimal
+  costPrevious: number | Decimal
+  taxRateSale: number | Decimal
+  taxRatePurchase: number | Decimal
   notes?: string | null
   isActive: boolean
+  priceLevels?: IPriceLevel[]
   createdAt: Date
   updatedAt: Date
 }
@@ -28,8 +48,8 @@ export interface IPricingTier {
   pricingId: string
   minQuantity: number
   maxQuantity?: number | null
-  tierPrice: number | any
-  discountPercentage?: number | null
+  tierPrice: number | Decimal
+  discountPercentage?: number | Decimal | null
   createdAt: Date
   updatedAt: Date
 }
@@ -39,9 +59,14 @@ export interface ICreatePricingInput {
   costPrice: number
   salePrice: number
   wholesalePrice?: number | null
-  minMargin: number
-  maxMargin: number
+  minMargin?: number
+  maxMargin?: number
   discountPercentage?: number
+  costForeign?: number
+  exchangeRate?: number
+  taxRateSale?: number
+  taxRatePurchase?: number
+  priceLevels?: { level: number; priceForeign: number }[]
   notes?: string
 }
 
@@ -52,6 +77,11 @@ export interface IUpdatePricingInput {
   minMargin?: number
   maxMargin?: number
   discountPercentage?: number
+  costForeign?: number
+  exchangeRate?: number
+  taxRateSale?: number
+  taxRatePurchase?: number
+  priceLevels?: { level: number; priceForeign: number }[]
   notes?: string
   isActive?: boolean
 }

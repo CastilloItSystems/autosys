@@ -13,6 +13,7 @@ import {
   approveCycleCountSchema,
   applyCycleCountSchema,
   addCycleCountItemSchema,
+  updateItemCountedQuantitySchema,
 } from './cycleCounts.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
@@ -473,7 +474,39 @@ router.patch(
   '/:id/items/:itemId',
   authenticate,
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateBody(updateItemCountedQuantitySchema),
   CycleCountController.updateItemCountedQuantity
+)
+
+/**
+ * @swagger
+ * /api/inventory/cycle-counts/{id}/export:
+ *   get:
+ *     summary: Exportar hoja de ruta (CSV o Excel)
+ *     tags: [Cycle Counts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *       - in: query
+ *         name: format
+ *         required: true
+ *         schema:
+ *           type: string
+ *           enum: [csv, excel]
+ *     responses:
+ *       200:
+ *         description: Archivo exportado
+ */
+router.get(
+  '/:id/export',
+  authenticate,
+  authorize(PERMISSIONS.INVENTORY_VIEW),
+  CycleCountController.exportRouteSheet
 )
 
 /**

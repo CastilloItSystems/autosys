@@ -1,9 +1,54 @@
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
+import r2StorageService from '../services/r2-storage.service.js'
 import {
   ensurePermissionCatalog,
   seedDefaultRolesForEmpresa,
 } from '../services/empresa-setup.service.js'
+
+export const uploadLogo = async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params
+    const file = req.file
+
+    if (!file) {
+      return res.status(400).json({ error: 'No se subió ningún logo.' })
+    }
+
+    const empresa = await prisma.empresa.findUnique({
+      where: { id_empresa: String(id) },
+    })
+
+    if (!empresa) {
+      return res.status(404).json({ error: 'Empresa no encontrada.' })
+    }
+
+    // Eliminar logo anterior si existe en R2
+    if (
+      empresa.logo_url &&
+      empresa.logo_url.includes('r2.cloudflarestorage.com')
+    ) {
+      await r2StorageService.deleteFile(empresa.logo_url)
+    }
+
+    const logoUrl = await r2StorageService.uploadFile(
+      file.buffer,
+      file.originalname,
+      file.mimetype,
+      'logos'
+    )
+
+    const updatedEmpresa = await prisma.empresa.update({
+      where: { id_empresa: String(id) },
+      data: { logo_url: logoUrl },
+    })
+
+    return res.json(updatedEmpresa)
+  } catch (error) {
+    console.error('Error subiendo logo de empresa:', error)
+    return res.status(500).json({ error: 'Error al subir el logo.' })
+  }
+}
 
 export const getAllEmpresas = async (_req: Request, res: Response) => {
   try {

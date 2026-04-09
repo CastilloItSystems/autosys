@@ -67,6 +67,7 @@ export interface EntryNoteItem {
   id: string;
   entryNoteId: string;
   itemId: string;
+  itemName?: string | null;
   quantityReceived: number;
   unitCost: number;
   storedToLocation?: string | null;
@@ -78,6 +79,7 @@ export interface EntryNoteItem {
   createdAt?: string;
   item?: {
     id: string;
+    itemName: string;
     sku: string;
     name: string;
   };
@@ -98,6 +100,8 @@ export interface EntryNote {
   status: EntryNoteStatus;
   purchaseOrderId?: string | null;
   warehouseId: string;
+  catalogSupplierId?: string | null;
+  catalogSupplier?: { id: string; name: string };
   supplierName?: string | null;
   supplierId?: string | null;
   supplierPhone?: string | null;

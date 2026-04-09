@@ -22,10 +22,14 @@ export interface ISearchFilters {
 export interface ISearchResult {
   id: string
   sku: string
+  code?: string
+  identity?: string
+  location?: string
   name: string
   description?: string
   categoryName: string
   brandName?: string
+  modelName?: string
   salePrice: number
   costPrice?: number
   minStock?: number

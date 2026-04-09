@@ -516,6 +516,8 @@ const ReservationList = () => {
         <Dialog
           visible={deleteDialog}
           style={{ width: "450px" }}
+          breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+          maximizable
           header="Confirmar Eliminación"
           modal
           footer={deleteDialogFooter}
@@ -534,6 +536,8 @@ const ReservationList = () => {
         <Dialog
           visible={consumeDialog}
           style={{ width: "450px" }}
+          breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+          maximizable
           header="Consumir Reserva"
           modal
           footer={consumeDialogFooter}
@@ -559,6 +563,8 @@ const ReservationList = () => {
         <Dialog
           visible={releaseDialog}
           style={{ width: "450px" }}
+          breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
+          maximizable
           header="Liberar Reserva"
           modal
           footer={releaseDialogFooter}

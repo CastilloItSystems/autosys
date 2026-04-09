@@ -6,7 +6,12 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
 
     // Almacén Principal
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-001' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'PRINCIPAL',
+        },
+      },
       update: {
         name: 'Almacén Principal',
         type: 'PRINCIPAL',
@@ -15,7 +20,7 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
         empresaId,
       },
       create: {
-        code: 'ALM-001',
+        code: 'PRINCIPAL',
         name: 'Almacén Principal',
         type: 'PRINCIPAL',
         address: 'Centro de operaciones',
@@ -25,47 +30,83 @@ async function seedWarehouses(prisma: PrismaClient, empresaId: string) {
     })
     console.log('✅ Warehouse upserted: Almacén Principal')
 
-    // Almacén de Tránsito
+    // Obsolescencia 1
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-TRANSITO' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'OBS-1',
+        },
+      },
       update: {
-        name: 'Almacén Tránsito',
-        type: 'TRANSITO',
-        address: 'Virtual - Mercancía en tránsito',
+        name: 'OBSOLECENCIA 1',
+        type: 'SUCURSAL',
+        address: 'Almacén de Obsolescencia 1',
         isActive: true,
         empresaId,
       },
       create: {
-        code: 'ALM-TRANSITO',
-        name: 'Almacén Tránsito',
-        type: 'TRANSITO',
-        address: 'Virtual - Mercancía en tránsito',
+        code: 'OBS-1',
+        name: 'OBSOLECENCIA 1',
+        type: 'SUCURSAL',
+        address: 'Almacén de Obsolescencia 1',
         isActive: true,
         empresaId,
       },
     })
-    console.log('✅ Warehouse upserted: Almacén Tránsito')
+    console.log('✅ Warehouse upserted: OBSOLECENCIA 1')
 
-    // Almacén Sucursal
+    // Obsolescencia 2
     await prisma.warehouse.upsert({
-      where: { code: 'ALM-SUCURSAL' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'OBS-2',
+        },
+      },
       update: {
-        name: 'Almacén Sucursal',
+        name: 'OBSOLECENCIA 2',
         type: 'SUCURSAL',
-        address: 'Sucursal Zona Este',
+        address: 'Almacén de Obsolescencia 2',
         isActive: true,
         empresaId,
       },
       create: {
-        code: 'ALM-SUCURSAL',
-        name: 'Almacén Sucursal',
+        code: 'OBS-2',
+        name: 'OBSOLECENCIA 2',
         type: 'SUCURSAL',
-        address: 'Sucursal Zona Este',
+        address: 'Almacén de Obsolescencia 2',
         isActive: true,
         empresaId,
       },
     })
-    console.log('✅ Warehouse upserted: Almacén Sucursal')
+    console.log('✅ Warehouse upserted: OBSOLECENCIA 2')
+
+    // Obsolescencia 3
+    await prisma.warehouse.upsert({
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'OBS-3',
+        },
+      },
+      update: {
+        name: 'OBSOLECENCIA 3',
+        type: 'SUCURSAL',
+        address: 'Almacén de Obsolescencia 3',
+        isActive: true,
+        empresaId,
+      },
+      create: {
+        code: 'OBS-3',
+        name: 'OBSOLECENCIA 3',
+        type: 'SUCURSAL',
+        address: 'Almacén de Obsolescencia 3',
+        isActive: true,
+        empresaId,
+      },
+    })
+    console.log('✅ Warehouse upserted: OBSOLECENCIA 3')
 
     console.log('\n✅ All warehouses seeded successfully!')
   } catch (error) {

@@ -17,15 +17,18 @@ import { motion } from "framer-motion";
 import analyticsService, {
   ForecastData,
 } from "@/app/api/inventory/analyticsService";
+import itemService, { Item } from "@/app/api/inventory/itemService";
 import { LayoutContext } from "@/layout/context/layoutcontext";
 
 const ForecastingView = () => {
   const toast = useRef<Toast>(null);
-  const { layoutState, layoutConfig } = useContext(LayoutContext);
+  const { layoutConfig } = useContext(LayoutContext);
+  const isDark = layoutConfig.colorScheme === "dark";
 
   const [items, setItems] = useState<ForecastData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<ForecastData | null>(null);
+  const [selectedItem, setSelectedItem] = useState<Item | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
   const [chartData, setChartData] = useState<any>(null);
   const [page, setPage] = useState(1);
@@ -39,10 +42,16 @@ const ForecastingView = () => {
 
   useEffect(() => {
     if (selectedItem) {
-      loadDetailedForecast(selectedItem.itemId);
+      loadDetailedForecast(selectedItem.id);
+    }
+  }, [selectedItem]);
+
+  useEffect(() => {
+    if (selectedItem) {
       initializeDetailChart();
     }
-  }, [selectedItem, layoutConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItem, detailedMetrics, isDark]);
 
   const loadForecasts = async () => {
     setLoading(true);
@@ -68,107 +77,115 @@ const ForecastingView = () => {
 
   const loadDetailedForecast = async (itemId: string) => {
     try {
-      const forecast = await analyticsService.getForecastByItem(itemId);
-      setDetailedMetrics(forecast);
+      const response = await analyticsService.getForecastByItem(itemId);
+      // Unwrap { data: ForecastData } or plain ForecastData
+      setDetailedMetrics((response as any).data ?? response);
     } catch (error) {
       console.error("Error loading detailed forecast:", error);
     }
   };
 
-  const searchItems = (event: AutoCompleteCompleteEvent) => {
-    const query = event.query.toLowerCase();
-    const filtered = items.filter(
-      (item) =>
-        item.itemName.toLowerCase().includes(query) ||
-        item.sku.toLowerCase().includes(query),
-    );
-    setItemSuggestions(filtered);
+  const searchItems = async (event: AutoCompleteCompleteEvent) => {
+    const query = event.query.trim();
+    if (!query) {
+      setItemSuggestions([]);
+      return;
+    }
+    try {
+      const response = await itemService.search(query);
+      setItemSuggestions(response.data ?? []);
+    } catch {
+      setItemSuggestions([]);
+    }
   };
 
   const initializeDetailChart = () => {
-    if (!selectedItem) return;
+    if (!selectedItem || !detailedMetrics) return;
 
-    const days = [
-      "Hoy",
-      "Día 7",
-      "Día 14",
-      "Día 21",
-      "Día 30",
-      "Día 45",
-      "Día 60",
-      "Día 75",
-      "Día 90",
-    ];
-    const historical = [
-      selectedItem.currentStock,
-      selectedItem.currentStock + 5,
-      selectedItem.currentStock + 3,
-      selectedItem.currentStock - 2,
-      selectedItem.currentStock - 5,
-      selectedItem.currentStock - 8,
-      selectedItem.currentStock - 10,
-      selectedItem.currentStock - 12,
-      selectedItem.currentStock - 15,
-    ];
+    const daysForecast = detailedMetrics?.forecast?.daysForecast;
+    if (!daysForecast || daysForecast.length === 0) return;
 
-    const forecast = [
-      selectedItem.currentStock,
-      selectedItem.estimatedDemand.demand30Days * 0.1,
-      selectedItem.estimatedDemand.demand30Days * 0.25,
-      selectedItem.estimatedDemand.demand30Days * 0.35,
-      selectedItem.estimatedDemand.demand30Days * 0.4,
-      selectedItem.estimatedDemand.demand60Days * 0.5,
-      selectedItem.estimatedDemand.demand60Days * 0.65,
-      selectedItem.estimatedDemand.demand90Days * 0.75,
-      selectedItem.estimatedDemand.demand90Days * 0.9,
-    ];
+    // Sample up to 10 evenly-spaced points
+    const step = Math.max(1, Math.floor(daysForecast.length / 10));
+    const sampled = daysForecast.filter((_: any, i: number) => i % step === 0).slice(0, 10);
 
-    const upperBound = forecast.map((v) => v * 1.2);
-    const lowerBound = forecast.map((v) => Math.max(0, v * 0.8));
+    const labels = sampled.map((d: any) =>
+      new Date(d.date).toLocaleDateString("es-MX", { month: "short", day: "numeric" })
+    );
+    const forecastValues = sampled.map((d: any) => d.forecastedDemand);
+    const upperBound = sampled.map((d: any) =>
+      Math.round(d.forecastedDemand * (1 + (1 - (d.confidence ?? 0.8))))
+    );
+    const lowerBound = sampled.map((d: any) =>
+      Math.max(0, Math.round(d.forecastedDemand * (d.confidence ?? 0.8)))
+    );
+
+    const textColor = isDark ? "#cbd5e1" : "#475569";
+    const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
 
     setChartData({
-      labels: days,
+      labels,
       datasets: [
         {
-          label: "Datos Históricos",
-          data: historical,
-          borderColor: "#3B82F6",
-          backgroundColor: "rgba(59, 130, 246, 0.1)",
-          tension: 0.4,
-          fill: false,
-          pointRadius: 4,
-          pointBackgroundColor: "#3B82F6",
-        },
-        {
           label: "Pronóstico",
-          data: forecast,
+          data: forecastValues,
           borderColor: "#10B981",
           borderDash: [5, 5],
-          backgroundColor: "rgba(16, 185, 129, 0.1)",
+          backgroundColor: "rgba(16, 185, 129, 0.08)",
           tension: 0.4,
           fill: false,
           pointRadius: 4,
           pointBackgroundColor: "#10B981",
         },
         {
-          label: "Banda de Confianza Superior",
+          label: "Límite superior",
           data: upperBound,
-          borderColor: "transparent",
-          backgroundColor: "rgba(16, 185, 129, 0.15)",
-          fill: "-1",
+          borderColor: "rgba(16,185,129,0.3)",
+          backgroundColor: "rgba(16, 185, 129, 0.12)",
+          fill: "+1",
           tension: 0.4,
           pointRadius: 0,
+          borderWidth: 1,
         },
         {
-          label: "Banda de Confianza Inferior",
+          label: "Límite inferior",
           data: lowerBound,
-          borderColor: "transparent",
+          borderColor: "rgba(16,185,129,0.3)",
           backgroundColor: "transparent",
           fill: false,
           tension: 0.4,
           pointRadius: 0,
+          borderWidth: 1,
         },
       ],
+      _opts: {
+        maintainAspectRatio: false,
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "bottom" as const,
+            labels: { color: textColor, padding: 14 },
+          },
+          tooltip: {
+            callbacks: {
+              label: (ctx: any) => ` ${ctx.dataset.label}: ${ctx.raw} unid.`,
+            },
+          },
+          filler: { propagate: true },
+        },
+        scales: {
+          y: {
+            beginAtZero: true,
+            ticks: { color: textColor },
+            grid: { color: gridColor },
+            title: { display: true, text: "Unidades", color: textColor },
+          },
+          x: {
+            ticks: { color: textColor },
+            grid: { color: gridColor },
+          },
+        },
+      },
     });
   };
 
@@ -198,52 +215,22 @@ const ForecastingView = () => {
     }
   };
 
-  const chartOptions = {
-    maintainAspectRatio: false,
-    responsive: true,
-    plugins: {
-      legend: {
-        position: "bottom" as const,
-        labels: {
-          color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333",
-          padding: 15,
-        },
-      },
-      filler: { propagate: true },
-    },
-    scales: {
-      y: {
-        beginAtZero: true,
-        ticks: { color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333" },
-        grid: {
-          color: layoutConfig.colorScheme === "dark" ? "#374151" : "#e5e7eb",
-        },
-      },
-      x: {
-        ticks: { color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333" },
-        grid: {
-          color: layoutConfig.colorScheme === "dark" ? "#374151" : "#e5e7eb",
-        },
-      },
-    },
-  };
 
-  const itemTemplate = (option: ForecastData) => (
-    <div className="flex align-items-center justify-content-between p-2">
+  const itemTemplate = (option: Item) => (
+    <div className="flex align-items-center p-2 gap-3">
       <div>
-        <p className="font-medium m-0">{option.itemName}</p>
-        <p className="text-sm text-500 m-0">{option.sku}</p>
+        <p className="font-medium m-0">{option.name}</p>
+        <p className="text-sm text-500 m-0">
+          {option.sku || "-"} {option.code ? ` / ${option.code}` : ""}
+        </p>
       </div>
-      <Tag
-        value={getRiskLabel(option.stockoutRisk)}
-        severity={getRiskBadgeSeverity(option.stockoutRisk) as any}
-      />
     </div>
   );
 
   const columns = [
     { field: "itemName", header: "Artículo", width: "18%" },
     { field: "sku", header: "SKU", width: "12%" },
+    { field: "code", header: "Código", width: "12%" },
     {
       field: "currentStock",
       header: "Stock Actual",
@@ -306,12 +293,18 @@ const ForecastingView = () => {
       {/* Item Selector */}
       <Card title="Seleccionar Artículo para Pronóstico Detallado">
         <AutoComplete
-          value={selectedItem}
+          value={searchQuery}
           suggestions={itemSuggestions}
           completeMethod={searchItems}
-          placeholder="Buscar artículo por nombre o SKU..."
-          onSelect={(e: any) => setSelectedItem(e.value)}
+          field="name"
+          placeholder="Buscar artículo por nombre, SKU o código..."
           itemTemplate={itemTemplate}
+          onSelect={(e: any) => {
+            setSelectedItem(e.value as Item);
+            setSearchQuery(e.value.name);
+          }}
+          onChange={(e) => setSearchQuery(e.value)}
+          delay={300}
           className="w-full"
         />
       </Card>
@@ -324,19 +317,19 @@ const ForecastingView = () => {
             {[
               {
                 label: "Stock Actual",
-                value: selectedItem.currentStock.toFixed(0),
+                value: (detailedMetrics?.currentStock ?? 0).toFixed(0),
                 sub: "unidades",
                 color: "var(--blue-500)",
               },
               {
                 label: "Demanda Estimada 30d",
-                value: selectedItem.estimatedDemand.demand30Days.toFixed(0),
+                value: (detailedMetrics?.estimatedDemand?.demand30Days ?? 0).toFixed(0),
                 sub: "unidades",
                 color: "var(--purple-500)",
               },
               {
                 label: "Demanda Estimada 60d",
-                value: selectedItem.estimatedDemand.demand60Days.toFixed(0),
+                value: (detailedMetrics?.estimatedDemand?.demand60Days ?? 0).toFixed(0),
                 sub: "unidades",
                 color: "var(--orange-500)",
               },
@@ -375,9 +368,9 @@ const ForecastingView = () => {
                     </p>
                     <div className="flex justify-content-center mt-2">
                       <Tag
-                        value={getRiskLabel(selectedItem.stockoutRisk)}
+                        value={getRiskLabel(detailedMetrics?.stockoutRisk ?? "low")}
                         severity={
-                          getRiskBadgeSeverity(selectedItem.stockoutRisk) as any
+                          getRiskBadgeSeverity(detailedMetrics?.stockoutRisk ?? "low") as any
                         }
                       />
                     </div>
@@ -389,50 +382,30 @@ const ForecastingView = () => {
 
           {/* Forecast Chart */}
           {chartData && (
-            <Card title={`Pronóstico de Demanda - ${selectedItem.itemName}`}>
+            <Card title={`Pronóstico de Demanda — ${selectedItem.name}`}>
               <div style={{ height: "400px" }}>
-                <Chart type="line" data={chartData} options={chartOptions} />
+                <Chart type="line" data={chartData} options={chartData._opts ?? {}} />
               </div>
               <Divider />
-              <div className="grid mt-2">
-                <div className="col-12 md:col-4">
-                  <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-primary m-0 mb-1">
-                      Línea Azul
-                    </p>
-                    <p className="text-500 text-sm m-0">
-                      Datos históricos del período actual
-                    </p>
-                  </div>
+              <div className="flex gap-4 flex-wrap">
+                <div className="flex align-items-center gap-2">
+                  <div style={{ width: 16, height: 3, background: "#10B981", borderTop: "2px dashed #10B981" }} />
+                  <span className="text-xs text-500">Pronóstico (suavizado exponencial)</span>
                 </div>
-                <div className="col-12 md:col-4">
-                  <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-green-500 m-0 mb-1">
-                      Línea Verde (Punteada)
-                    </p>
-                    <p className="text-500 text-sm m-0">Pronóstico calculado</p>
-                  </div>
-                </div>
-                <div className="col-12 md:col-4">
-                  <div className="surface-100 border-round p-3">
-                    <p className="font-medium text-green-400 m-0 mb-1">
-                      Área Verde
-                    </p>
-                    <p className="text-500 text-sm m-0">
-                      Banda de confianza (80-120%)
-                    </p>
-                  </div>
+                <div className="flex align-items-center gap-2">
+                  <div style={{ width: 16, height: 12, background: "rgba(16,185,129,0.15)", border: "1px solid rgba(16,185,129,0.4)" }} />
+                  <span className="text-xs text-500">Banda de confianza</span>
                 </div>
               </div>
             </Card>
           )}
 
           {/* Recommendations */}
-          {selectedItem.recommendations &&
-            selectedItem.recommendations.length > 0 && (
+          {detailedMetrics?.recommendations &&
+            detailedMetrics.recommendations.length > 0 && (
               <Card title="Recomendaciones del Sistema">
                 <ul className="list-none p-0 m-0 flex flex-column gap-2">
-                  {selectedItem.recommendations.map((rec, idx) => (
+                  {detailedMetrics.recommendations.map((rec, idx) => (
                     <li key={idx} className="flex align-items-start gap-3">
                       <i className="pi pi-check-circle text-green-500 mt-1"></i>
                       <span className="text-700">{rec}</span>
@@ -462,7 +435,12 @@ const ForecastingView = () => {
           stripedRows
           scrollable
           size="small"
-          emptyMessage="No hay pronósticos disponibles"
+          emptyMessage={
+            <div className="flex flex-column align-items-center py-5 text-500 gap-2">
+              <i className="pi pi-chart-line text-4xl text-300" />
+              <span>No hay pronósticos disponibles</span>
+            </div>
+          }
           className="w-full"
         >
           {columns.map((col) => (

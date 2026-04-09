@@ -1,0 +1,152 @@
+// backend/prisma/models/workshop/workshopQuotation.prisma
+// Cotizaciones / Presupuestos propios del taller.
+// Independiente de las cotizaciones CRM.
+// Soporta presupuestos suplementarios (hallazgos ocultos) y versionamiento.
+
+enum QuotationStatus {
+  DRAFT             // Borrador
+  ISSUED            // Emitida
+  SENT              // Enviada al cliente
+  PENDING_APPROVAL  // Pendiente de aprobación
+  APPROVED_TOTAL    // Aprobada total
+  APPROVED_PARTIAL  // Aprobada parcial
+  REJECTED          // Rechazada
+  EXPIRED           // Vencida
+  CONVERTED         // Convertida en OS
+}
+
+enum QuotationItemType {
+  LABOR             // Mano de obra / operación
+  PART              // Repuesto
+  CONSUMABLE        // Insumo / lubricante
+  EXTERNAL_SERVICE  // Servicio externo T.O.T.
+  COURTESY          // Cortesía (sin cargo)
+}
+
+enum ApprovalChannel {
+  PRESENTIAL        // Firma presencial
+  WHATSAPP          // WhatsApp verificable
+  EMAIL             // Correo electrónico
+  CALL              // Llamada registrada
+  DIGITAL_SIGNATURE // Firma digital en sistema
+}
+
+enum ApprovalType {
+  TOTAL      // Aprobación total
+  PARTIAL    // Aprobación parcial (solo algunos ítems)
+  REJECTION  // Rechazo
+}
+
+model WorkshopQuotation {
+  id               String          @id @default(cuid())
+  quotationNumber  String          // COT-0001 auto-generado por empresa
+
+  status  QuotationStatus @default(DRAFT)
+  version Int             @default(1) // Se incrementa en cada re-emisión
+
+  // Presupuesto suplementario (hallazgo oculto)
+  isSupplementary   Boolean              @default(false)
+  parentQuotationId String?
+  parentQuotation   WorkshopQuotation?  @relation("SupplementaryQuotations", fields: [parentQuotationId], references: [id], onDelete: SetNull)
+  supplementaries   WorkshopQuotation[] @relation("SupplementaryQuotations")
+
+  // Origen del presupuesto
+  receptionId   String?
+  reception     VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  diagnosisId   String?
+  diagnosis     ServiceDiagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+
+  // Destino: OS generada al convertir
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Vigencia
+  validUntil DateTime?
+  expiredAt  DateTime?
+  convertedAt DateTime?
+
+  // Totales (calculados a partir de los ítems)
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
+
+  // Observaciones
+  notes         String? @db.Text // Visibles al cliente
+  internalNotes String? @db.Text // Solo internas
+
+  // Ítems y aprobaciones
+  items     WorkshopQuotationItem[]
+  approvals WorkshopQuotationApproval[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, quotationNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([receptionId])
+  @@index([status])
+  @@index([empresaId, createdAt])
+  @@map("workshop_quotations")
+}
+
+model WorkshopQuotationItem {
+  id           String  @id @default(cuid())
+  quotationId  String
+  quotation    WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type        QuotationItemType
+  referenceId String?  // ID de operación o ítem de inventario (opcional)
+  description String
+  quantity    Decimal  @default(1)   @db.Decimal(10, 2)
+  unitPrice   Decimal  @default(0)   @db.Decimal(12, 2)
+  unitCost    Decimal  @default(0)   @db.Decimal(12, 2)
+  discountPct Decimal  @default(0)   @db.Decimal(5, 2) // Porcentaje de descuento
+  
+  // Tax fields standardized
+  taxType     TaxType  @default(IVA)
+  taxRate     Decimal  @default(0.16) @db.Decimal(5, 2)
+  taxAmount   Decimal  @default(0)    @db.Decimal(12, 2)
+  
+  subtotal    Decimal  @default(0)   @db.Decimal(12, 2) // quantity * unitPrice
+  total       Decimal  @default(0)   @db.Decimal(12, 2) // subtotal - (subtotal * discountPct/100) + taxAmount
+  approved    Boolean  @default(true) // Se pone en false en aprobación parcial
+
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quotationId])
+  @@map("workshop_quotation_items")
+}
+
+model WorkshopQuotationApproval {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type            ApprovalType
+  channel         ApprovalChannel
+  approvedByName  String           // Nombre del aprobador (puede ser el cliente)
+  notes           String?  @db.Text
+  rejectionReason String?  @db.Text
+
+  approvedAt DateTime @default(now())
+
+  @@index([quotationId])
+  @@map("workshop_quotation_approvals")
+}

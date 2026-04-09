@@ -1,6 +1,6 @@
 "use client";
 import Head from "next/head";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type {
   ChildContainerProps,
   LayoutContextProps,
@@ -40,25 +40,50 @@ export const LayoutProvider = (props: ChildContainerProps) => {
   //     topBarTheme: "primaryColor",
   //   });
 
-  // SSR safe: inicia siempre con defaultConfig, sincroniza en cliente
+  // SSR safe: inicia con defaults, se sincroniza en cliente
   const [layoutConfig, setLayoutConfig] = useState<LayoutConfig>(defaultConfig);
 
-  // Al montar en cliente, sincroniza con localStorage si existe
+  // Contador de renders para saber cuándo es seguro guardar
+  const renderCount = useRef(0);
+
+  // Guardar config en cookie (max-age 1 año) + localStorage
+  const persistConfig = (config: LayoutConfig) => {
+    const json = JSON.stringify(config);
+    localStorage.setItem("layoutConfig", json);
+    document.cookie = `layoutConfig=${encodeURIComponent(json)};path=/;max-age=31536000;SameSite=Lax`;
+  };
+
+  // Cargar desde localStorage al montar + sincronizar CSS del tema
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const savedConfig = localStorage.getItem("layoutConfig");
-      if (savedConfig) {
-        setLayoutConfig(JSON.parse(savedConfig));
+    const saved = localStorage.getItem("layoutConfig");
+    if (saved) {
+      try {
+        const parsed = { ...defaultConfig, ...JSON.parse(saved) };
+        setLayoutConfig(parsed);
+
+        // Sincronizar CSS si el servidor no tenía cookie (primera vez)
+        const link = document.getElementById("theme-link") as HTMLLinkElement | null;
+        if (link) {
+          const expectedHref = `/theme/theme-${parsed.colorScheme}/${parsed.componentTheme}/theme.css`;
+          if (!link.href.endsWith(expectedHref)) {
+            link.href = expectedHref;
+          }
+        }
+        document.documentElement.style.fontSize = parsed.scale + "px";
+
+        // Asegurar que la cookie existe (migración de localStorage → cookie)
+        persistConfig(parsed);
+      } catch (e) {
+        // ignore
       }
     }
-    // eslint-disable-next-line
   }, []);
 
-  // Guarda cambios en localStorage solo en cliente
+  // Guardar cambios del usuario: skip primeros 2 renders (mount + restauración)
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("layoutConfig", JSON.stringify(layoutConfig));
-    }
+    renderCount.current += 1;
+    if (renderCount.current <= 2) return;
+    persistConfig(layoutConfig);
   }, [layoutConfig]);
 
   const [layoutState, setLayoutState] = useState<LayoutState>({

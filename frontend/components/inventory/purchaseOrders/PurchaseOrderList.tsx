@@ -1,9 +1,8 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
@@ -21,9 +20,17 @@ import warehouseService, {
 } from "@/app/api/inventory/warehouseService";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { Tag } from "primereact/tag";
+import {
+  confirmAction,
+  ConfirmActionPopup,
+} from "@/components/common/ConfirmAction";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 const PurchaseOrderList = () => {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -33,34 +40,50 @@ const PurchaseOrderList = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [page, setPage] = useState<number>(0);
+  const [rows, setRows] = useState<number>(10);
+  const [totalRecords, setTotalRecords] = useState<number>(0);
+  const [sortField, setSortField] = useState<string>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [receiveDialog, setReceiveDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedOrderToReceive, setSelectedOrderToReceive] =
     useState<PurchaseOrder | null>(null);
   const [expandedRows, setExpandedRows] = useState<any>(null);
+  const [actionPurchaseOrder, setActionPurchaseOrder] =
+    useState<PurchaseOrder | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
+  const menuRef = useRef<Menu>(null);
 
   useEffect(() => {
-    fetchData();
+    const handler = setTimeout(() => {
+      setDebouncedSearch(globalFilterValue);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [globalFilterValue]);
+
+  useEffect(() => {
+    loadPurchaseOrders();
+  }, [page, rows, sortField, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
+    loadFormData();
   }, []);
 
-  const fetchData = async () => {
+  const loadFormData = async () => {
     try {
-      const [poRes, itemsRes, suppliersRes, warehousesRes] = await Promise.all([
-        purchaseOrderService.getAll(),
+      const [itemsRes, suppliersRes, warehousesRes] = await Promise.all([
         itemService.getActive(),
         supplierService.getActive(),
         warehouseService.getActive(),
       ]);
-
-      // getPurchaseOrders → { data: PurchaseOrder[], meta: {...} }
-      const poList = poRes?.data ?? [];
-      setPurchaseOrders(Array.isArray(poList) ? poList : []);
 
       // itemService.getActive → { data: Item[] }
       const itemList = itemsRes?.data ?? [];
@@ -74,10 +97,66 @@ const PurchaseOrderList = () => {
       const warehouseList = warehousesRes?.data ?? [];
       setWarehouses(Array.isArray(warehouseList) ? warehouseList : []);
     } catch (error) {
-      console.error("Error al obtener los datos:", error);
+      console.error("Error loading form data:", error);
+    }
+  };
+
+  const loadPurchaseOrders = async () => {
+    try {
+      setLoading(true);
+      const res = await purchaseOrderService.getAll({
+        page: page + 1,
+        limit: rows,
+        sortBy: sortField,
+        sortOrder: sortOrder,
+        search: debouncedSearch || undefined,
+      });
+
+      setPurchaseOrders(Array.isArray(res.data) ? res.data : []);
+      setTotalRecords(res.meta?.total || 0);
+    } catch (error) {
+      console.error("Error al obtener órdenes de compra:", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar las órdenes de compra",
+        life: 3000,
+      });
     } finally {
       setLoading(false);
     }
+  };
+
+  const onPageChange = (event: any) => {
+    const newPage =
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows);
+    setPage(newPage);
+    setRows(event.rows);
+  };
+
+  const onSort = (event: any) => {
+    setSortField(event.sortField);
+    setSortOrder(event.sortOrder === 1 ? "asc" : "desc");
+  };
+
+  /* ── Helpers ── */
+  const formatCurrency = (value: number | string) =>
+    `$${Number(value || 0).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
+
+  const formatDate = (dateStr?: string | null) => {
+    if (!dateStr) return "—";
+    return new Date(dateStr).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
   };
 
   const openFormDialog = () => {
@@ -102,29 +181,39 @@ const PurchaseOrderList = () => {
   };
 
   const handleReceiveSuccess = (updatedOrder: any) => {
-    setPurchaseOrders((prev) =>
-      prev.map((po) => (po.id === updatedOrder.id ? updatedOrder : po)),
-    );
+    loadPurchaseOrders();
     hideReceiveDialog();
   };
 
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: purchaseOrder?.id
+        ? "Orden de compra actualizada correctamente"
+        : "Orden de compra creada correctamente",
+      life: 3000,
+    });
+    await loadPurchaseOrders();
+    hideFormDialog();
+  };
+
   const handleDelete = async () => {
+    if (!purchaseOrder?.id) return;
+    setIsDeleting(true);
     try {
-      if (purchaseOrder?.id) {
-        await purchaseOrderService.delete(purchaseOrder.id);
-        setPurchaseOrders(
-          purchaseOrders.filter((val) => val.id !== purchaseOrder.id),
-        );
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Orden de Compra Eliminada",
-          life: 3000,
-        });
-      }
+      await purchaseOrderService.delete(purchaseOrder.id);
+      await loadPurchaseOrders();
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Orden de Compra Eliminada",
+        life: 3000,
+      });
     } catch (error) {
       handleFormError(error, toast);
     } finally {
+      setIsDeleting(false);
       setPurchaseOrder(null);
       setDeleteDialog(false);
     }
@@ -132,11 +221,8 @@ const PurchaseOrderList = () => {
 
   const handleApprove = async (po: PurchaseOrder) => {
     try {
-      const result = await purchaseOrderService.approve(po.id);
-      const updated = result.data || result;
-      setPurchaseOrders((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p)),
-      );
+      await purchaseOrderService.approve(po.id);
+      await loadPurchaseOrders();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -150,11 +236,8 @@ const PurchaseOrderList = () => {
 
   const handleCancel = async (po: PurchaseOrder) => {
     try {
-      const result = await purchaseOrderService.cancel(po.id);
-      const updated = result.data || result;
-      setPurchaseOrders((prev) =>
-        prev.map((p) => (p.id === updated.id ? updated : p)),
-      );
+      await purchaseOrderService.cancel(po.id);
+      await loadPurchaseOrders();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -168,22 +251,33 @@ const PurchaseOrderList = () => {
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { value } = e.target;
-    setFilters({ global: { value, matchMode: FilterMatchMode.CONTAINS } });
     setGlobalFilterValue(value);
+    setPage(0); // Reset page on search
   };
 
   const renderHeader = () => (
-    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
-      <span className="p-input-icon-left w-full sm:w-20rem flex-order-1 sm:flex-order-0">
-        <i className="pi pi-search"></i>
-        <InputText
-          value={globalFilterValue}
-          onChange={onGlobalFilterChange}
-          placeholder="Búsqueda Global"
-          className="w-full"
+    <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0 font-bold text-900">Órdenes de Compra</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2 align-items-center w-full sm:w-auto">
+        <span className="p-input-icon-left w-full sm:w-20rem">
+          <i className="pi pi-search" />
+          <InputText
+            value={globalFilterValue}
+            onChange={onGlobalFilterChange}
+            placeholder="Buscar orden (nro, proveedor, almacén...)"
+            className="w-full"
+          />
+        </span>
+        <CreateButton
+          label="Nueva Orden"
+          onClick={openFormDialog}
+          tooltip="Crear nueva orden de compra"
+          className="w-full sm:w-auto"
         />
-      </span>
-      <CreateButton onClick={openFormDialog} />
+      </div>
     </div>
   );
 
@@ -193,37 +287,25 @@ const PurchaseOrderList = () => {
 
     return (
       <div className="flex gap-1 flex-nowrap">
-        {/* DRAFT → Enviar / Editar / Eliminar */}
+        {/* DRAFT → Enviar */}
         {status === "DRAFT" && (
-          <>
-            <Button
-              icon="pi pi-send"
-              className="p-button-rounded p-button-info p-button-sm"
-              tooltip="Enviar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => handleApprove(rowData)}
-            />
-            <Button
-              icon="pi pi-pencil"
-              className="p-button-rounded p-button-warning p-button-sm"
-              tooltip="Editar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setPurchaseOrder(rowData);
-                setFormDialog(true);
-              }}
-            />
-            <Button
-              icon="pi pi-trash"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Eliminar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setPurchaseOrder(rowData);
-                setDeleteDialog(true);
-              }}
-            />
-          </>
+          <Button
+            icon="pi pi-send"
+            className="p-button-rounded p-button-info p-button-sm"
+            tooltip="Enviar para Aprobación"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Enviar la orden ${rowData.orderNumber} para aprobación?`,
+                icon: "pi pi-send",
+                iconClass: "text-blue-500",
+                acceptLabel: "Enviar",
+                acceptSeverity: "info",
+                onAccept: () => handleApprove(rowData),
+              })
+            }
+          />
         )}
 
         {/* SENT / PARTIAL → Recepcionar / Cancelar */}
@@ -232,16 +314,26 @@ const PurchaseOrderList = () => {
             <Button
               icon="pi pi-inbox"
               className="p-button-rounded p-button-success p-button-sm"
-              tooltip="Recepcionar"
+              tooltip="Recepcionar Artículos"
               tooltipOptions={{ position: "top" }}
               onClick={() => openReceiveDialog(rowData)}
             />
             <Button
               icon="pi pi-times"
               className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Cancelar"
+              tooltip="Cancelar Orden"
               tooltipOptions={{ position: "top" }}
-              onClick={() => handleCancel(rowData)}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
             />
           </>
         )}
@@ -263,102 +355,341 @@ const PurchaseOrderList = () => {
     );
   };
 
+  /* CRUD actions (Edit / Delete) — cog menu, solo disponible cuando DRAFT */
+  const getMenuItems = (po: PurchaseOrder | null): MenuItem[] => {
+    if (!po || po.status !== "DRAFT") return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => {
+          setPurchaseOrder(po);
+          setFormDialog(true);
+        },
+      },
+      { separator: true },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => {
+          setPurchaseOrder(po);
+          setDeleteDialog(true);
+        },
+      },
+    ];
+  };
+
+  const crudBodyTemplate = (rowData: PurchaseOrder) => {
+    if (rowData.status !== "DRAFT") return null;
+    return (
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        onClick={(e) => {
+          setActionPurchaseOrder(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        aria-controls="purchase-order-menu"
+        aria-haspopup
+        tooltip="Opciones"
+        tooltipOptions={{ position: "left" }}
+      />
+    );
+  };
+
   /* ── Status tag ── */
   const statusBodyTemplate = (rowData: PurchaseOrder) => {
     const config = PO_STATUS_CONFIG[rowData.status] || {
       label: rowData.status,
       severity: "secondary" as const,
     };
-    return <Tag value={config.label} severity={config.severity} />;
+    return (
+      <Tag
+        value={config.label}
+        severity={config.severity}
+        className="text-xs"
+      />
+    );
   };
 
   /* ── Total formatted ── */
   const totalBodyTemplate = (rowData: PurchaseOrder) => {
-    return `$${Number(rowData.total || 0).toFixed(2)}`;
+    return (
+      <span className="font-semibold text-primary">
+        {formatCurrency(rowData.total)}
+      </span>
+    );
   };
 
   /* ── Items count ── */
   const itemsCountBodyTemplate = (rowData: PurchaseOrder) => {
-    return rowData.items?.length || 0;
+    const count = rowData.items?.length || 0;
+    return (
+      <Tag
+        value={`${count} ${count === 1 ? "artículo" : "artículos"}`}
+        severity={count > 0 ? "info" : "warning"}
+        className="text-xs"
+      />
+    );
   };
 
   /* ── Date format ── */
-  const dateBodyTemplate = (rowData: PurchaseOrder) => {
-    if (!rowData.expectedDate) return "—";
-    return new Date(rowData.expectedDate).toLocaleDateString("es-VE");
-  };
+  const dateBodyTemplate = (rowData: PurchaseOrder) =>
+    formatDate(rowData.expectedDate);
 
   /* ── Row expansion with stepper ── */
   const rowExpansionTemplate = (data: PurchaseOrder) => {
+    const orderTotal =
+      data.items?.reduce(
+        (sum, l) => sum + Number(l.totalLine || l.subtotal || 0),
+        0,
+      ) ?? 0;
+
     return (
       <div className="p-3">
         <PurchaseOrderStepper currentStatus={data.status} />
         {data.items && data.items.length > 0 && (
           <div className="mt-3">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-bottom-1 surface-border">
-                  <th className="text-left py-2">Artículo</th>
-                  <th className="text-center py-2">Ordenado</th>
-                  <th className="text-center py-2">Recibido</th>
-                  <th className="text-center py-2">Pendiente</th>
-                  <th className="text-right py-2">Costo Unit.</th>
-                  <th className="text-right py-2">Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.items.map((line) => (
-                  <tr key={line.id} className="border-bottom-1 surface-border">
-                    <td className="py-2">
-                      {line.item
-                        ? `${line.item.sku} — ${line.item.name}`
-                        : line.itemId}
-                    </td>
-                    <td className="text-center py-2">{line.quantityOrdered}</td>
-                    <td className="text-center py-2">
-                      {line.quantityReceived}
-                    </td>
-                    <td className="text-center py-2">
-                      <span
-                        className={
-                          line.quantityPending > 0
-                            ? "text-orange-500 font-bold"
-                            : "text-green-600"
-                        }
-                      >
-                        {line.quantityPending}
-                      </span>
-                    </td>
-                    <td className="text-right py-2">
-                      ${Number(line.unitCost || 0).toFixed(2)}
-                    </td>
-                    <td className="text-right py-2">
-                      ${Number(line.subtotal || 0).toFixed(2)}
-                    </td>
-                  </tr>
+            <div
+              style={{
+                border: "1px solid var(--surface-300)",
+                borderRadius: "6px",
+                overflow: "hidden",
+              }}
+            >
+              {/* Header */}
+              <div
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 8px",
+                  backgroundColor: "var(--surface-100)",
+                  borderBottom: "2px solid var(--surface-300)",
+                }}
+              >
+                {[
+                  { label: "Artículo", style: { flex: "1 1 0", minWidth: 0 } },
+                  {
+                    label: "Ord.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Rec.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Pend.",
+                    style: { width: "4.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Costo Unit.",
+                    style: { width: "6rem", textAlign: "right" as const },
+                  },
+                  {
+                    label: "Desc. %",
+                    style: { width: "5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Impuesto",
+                    style: { width: "5.5rem", textAlign: "center" as const },
+                  },
+                  {
+                    label: "Total Línea",
+                    style: { width: "6.5rem", textAlign: "right" as const },
+                  },
+                ].map((col, i) => (
+                  <div
+                    key={i}
+                    style={{
+                      ...col.style,
+                      fontSize: "0.7rem",
+                      fontWeight: 700,
+                      letterSpacing: "0.05em",
+                      textTransform: "uppercase",
+                      color: "var(--text-color-secondary)",
+                      userSelect: "none",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {col.label}
+                  </div>
                 ))}
-              </tbody>
-            </table>
+              </div>
+
+              {/* Rows */}
+              {data.items.map((line) => (
+                <div
+                  key={line.id}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "4px 8px",
+                    borderBottom: "1px solid var(--surface-200)",
+                  }}
+                >
+                  {/* Artículo */}
+                  <div style={{ flex: "1 1 0", minWidth: 0 }}>
+                    <div
+                      className="font-medium text-900"
+                      style={{ fontSize: "0.8rem" }}
+                    >
+                      {line.item?.sku || "—"}
+                    </div>
+                    <div
+                      className="text-500"
+                      style={{
+                        fontSize: "0.7rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
+                      title={line.itemName || line.item?.name || ""}
+                    >
+                      {line.itemName || line.item?.name || "Sin nombre"}
+                    </div>
+                  </div>
+
+                  {/* Ordenado */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.quantityOrdered}
+                  </div>
+
+                  {/* Recibido */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {line.quantityReceived}
+                  </div>
+
+                  {/* Pendiente */}
+                  <div
+                    style={{
+                      width: "4.5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <span
+                      className={
+                        line.quantityPending > 0
+                          ? "text-orange-500 font-bold"
+                          : "text-green-600"
+                      }
+                    >
+                      {line.quantityPending}
+                    </span>
+                  </div>
+
+                  {/* Costo Unit. */}
+                  <div
+                    style={{
+                      width: "6rem",
+                      textAlign: "right",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {formatCurrency(Number(line.unitCost || 0))}
+                  </div>
+
+                  {/* Desc % */}
+                  <div
+                    style={{
+                      width: "5rem",
+                      textAlign: "center",
+                      fontSize: "0.8rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    {Number(line.discountPercent || 0) > 0 ? (
+                      <span className="text-green-600 font-medium">
+                        {Number(line.discountPercent)}%
+                      </span>
+                    ) : (
+                      <span className="text-400">—</span>
+                    )}
+                  </div>
+
+                  {/* Impuesto */}
+                  <div
+                    style={{
+                      width: "5.5rem",
+                      textAlign: "center",
+                      fontSize: "0.75rem",
+                      flexShrink: 0,
+                    }}
+                  >
+                    <Tag
+                      value={
+                        line.taxType === "EXEMPT"
+                          ? "Exento"
+                          : line.taxType === "REDUCED"
+                          ? "Red. 8%"
+                          : "IVA 16%"
+                      }
+                      severity={
+                        line.taxType === "EXEMPT"
+                          ? "secondary"
+                          : line.taxType === "REDUCED"
+                          ? "warning"
+                          : "info"
+                      }
+                      className="text-xs"
+                      style={{ fontSize: "0.65rem" }}
+                    />
+                  </div>
+
+                  {/* Total Línea */}
+                  <div
+                    style={{
+                      width: "6.5rem",
+                      textAlign: "right",
+                      fontSize: "0.8rem",
+                      fontWeight: 600,
+                      flexShrink: 0,
+                    }}
+                  >
+                    {formatCurrency(
+                      Number(line.totalLine || line.subtotal || 0),
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            {orderTotal > 0 && (
+              <div className="flex justify-content-end mt-2">
+                <div className="surface-100 border-round px-4 py-2">
+                  <span className="text-500 mr-3">Total:</span>
+                  <span className="font-bold text-primary text-lg">
+                    {formatCurrency(orderTotal)}
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
     );
   };
-
-  const showToast = (
-    severity: "success" | "error",
-    summary: string,
-    detail: string,
-  ) => {
-    toast.current?.show({ severity, summary, detail, life: 3000 });
-  };
-
-  const deleteDialogFooter = (
-    <>
-      <Button label="No" icon="pi pi-times" text onClick={hideDeleteDialog} />
-      <Button label="Sí" icon="pi pi-check" text onClick={handleDelete} />
-    </>
-  );
 
   if (loading) {
     return (
@@ -371,6 +702,7 @@ const PurchaseOrderList = () => {
   return (
     <>
       <Toast ref={toast} />
+      <ConfirmActionPopup />
       <motion.div
         initial={{
           opacity: 0,
@@ -387,11 +719,18 @@ const PurchaseOrderList = () => {
           value={purchaseOrders}
           header={renderHeader()}
           paginator
-          rows={10}
+          lazy
+          first={page * rows}
+          rows={rows}
+          totalRecords={totalRecords}
+          onPage={onPageChange}
+          onSort={onSort}
+          sortField={sortField}
+          sortOrder={sortOrder === "asc" ? 1 : -1}
+          sortMode="multiple"
           responsiveLayout="scroll"
-          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} entradas"
-          rowsPerPageOptions={[10, 25, 50]}
-          filters={filters}
+          currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} órdenes de compra"
+          rowsPerPageOptions={[5, 10, 25, 50]}
           loading={loading}
           emptyMessage="No hay órdenes de compra disponibles"
           rowClassName={() => "animated-row"}
@@ -400,20 +739,27 @@ const PurchaseOrderList = () => {
           onRowToggle={(e) => setExpandedRows(e.data)}
           rowExpansionTemplate={rowExpansionTemplate}
           dataKey="id"
+          scrollable
+          tableStyle={{ minWidth: "75rem" }}
         >
           <Column expander style={{ width: "3rem" }} />
-          <Column body={actionBodyTemplate} style={{ width: "10rem" }} />
+          <Column
+            header="Proceso"
+            body={actionBodyTemplate}
+            style={{ width: "7rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
           <Column field="orderNumber" header="Número" sortable />
           <Column
-            field="supplier.name"
             header="Proveedor"
             sortable
+            sortField="supplier.name"
             body={(rowData: PurchaseOrder) => rowData.supplier?.name || "—"}
           />
           <Column
-            field="warehouse.name"
             header="Almacén"
             sortable
+            sortField="warehouse.name"
             body={(rowData: PurchaseOrder) => rowData.warehouse?.name || "—"}
           />
           <Column
@@ -425,14 +771,16 @@ const PurchaseOrderList = () => {
           <Column
             header="Artículos"
             body={itemsCountBodyTemplate}
-            style={{ width: "6rem" }}
+            style={{ width: "8rem" }}
+            className="text-center"
           />
           <Column
             header="Total"
             body={totalBodyTemplate}
             sortable
             sortField="total"
-            style={{ width: "8rem" }}
+            style={{ width: "9rem" }}
+            className="text-right"
           />
           <Column
             field="status"
@@ -440,55 +788,69 @@ const PurchaseOrderList = () => {
             body={statusBodyTemplate}
             sortable
             style={{ width: "8rem" }}
+            className="text-center"
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column
+            header="Acciones"
+            body={crudBodyTemplate}
+            exportable={false}
+            frozen
+            alignFrozen="right"
+            style={{ width: "5rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
 
         {/* Delete confirmation */}
-        <Dialog
+        <DeleteConfirmDialog
           visible={deleteDialog}
-          style={{ width: "450px" }}
-          header="Confirmar"
-          modal
-          footer={deleteDialogFooter}
           onHide={hideDeleteDialog}
-        >
-          <div className="flex align-items-center justify-content-center">
-            <i
-              className="pi pi-exclamation-triangle mr-3"
-              style={{ fontSize: "2rem" }}
-            />
-            {purchaseOrder && (
-              <span>
-                ¿Estás seguro de que deseas eliminar la orden{" "}
-                <b>{purchaseOrder.orderNumber}</b>?
-              </span>
-            )}
-          </div>
-        </Dialog>
+          onConfirm={handleDelete}
+          itemName={purchaseOrder?.orderNumber}
+          isDeleting={isDeleting}
+        />
 
         {/* Form dialog */}
         <Dialog
           visible={formDialog}
-          style={{ width: "950px" }}
+          style={{ width: "75vw" }}
+          breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+          maximizable
           header={
-            purchaseOrder ? "Editar Orden de Compra" : "Crear Orden de Compra"
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-shopping-cart mr-3 text-primary text-3xl"></i>
+                  {purchaseOrder
+                    ? "Editar Orden de Compra"
+                    : "Nueva Orden de Compra"}
+                </h2>
+              </div>
+            </div>
           }
           modal
           onHide={hideFormDialog}
-          content={
-            <PurchaseOrderForm
-              purchaseOrder={purchaseOrder}
-              hideFormDialog={hideFormDialog}
-              purchaseOrders={purchaseOrders}
-              setPurchaseOrders={setPurchaseOrders}
-              showToast={showToast}
-              toast={toast}
-              items={items}
-              suppliers={suppliers}
-              warehouses={warehouses}
+          footer={
+            <FormActionButtons
+              formId="purchase-order-form"
+              isUpdate={!!purchaseOrder?.id}
+              onCancel={hideFormDialog}
+              isSubmitting={isSubmitting}
             />
           }
-        ></Dialog>
+        >
+          <PurchaseOrderForm
+            purchaseOrder={purchaseOrder}
+            formId="purchase-order-form"
+            onSave={handleSave}
+            onSubmittingChange={setIsSubmitting}
+            toast={toast}
+            items={items}
+            suppliers={suppliers}
+            warehouses={warehouses}
+          />
+        </Dialog>
 
         {/* Receive dialog */}
         <ReceiveOrderDialog
@@ -497,6 +859,13 @@ const PurchaseOrderList = () => {
           onHide={hideReceiveDialog}
           onSuccess={handleReceiveSuccess}
           toast={toast}
+        />
+
+        <Menu
+          model={getMenuItems(actionPurchaseOrder)}
+          popup
+          ref={menuRef}
+          id="purchase-order-menu"
         />
       </motion.div>
     </>

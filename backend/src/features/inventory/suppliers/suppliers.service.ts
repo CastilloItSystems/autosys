@@ -34,6 +34,13 @@ class SupplierService {
     })
     if (existing) throw new ConflictError(MSG.codeExists)
 
+    if (data.taxId) {
+      const existingTax = await (db as PrismaClient).supplier.findFirst({
+        where: { taxId: data.taxId, empresaId },
+      })
+      if (existingTax) throw new ConflictError(`Ya existe un proveedor con RIF/NIT ${data.taxId}`)
+    }
+
     const supplier = await (db as PrismaClient).supplier.create({
       data: {
         code,
@@ -42,8 +49,18 @@ class SupplierService {
         ...(data.contactName != null ? { contactName: data.contactName } : {}),
         ...(data.email != null ? { email: data.email } : {}),
         ...(data.phone != null ? { phone: data.phone } : {}),
+        ...(data.mobile != null ? { mobile: data.mobile } : {}),
+        ...(data.website != null ? { website: data.website } : {}),
         ...(data.address != null ? { address: data.address } : {}),
         ...(data.taxId != null ? { taxId: data.taxId } : {}),
+        ...(data.type != null ? { type: data.type } : {}),
+        ...(data.isSpecialTaxpayer != null
+          ? { isSpecialTaxpayer: data.isSpecialTaxpayer }
+          : {}),
+        ...(data.creditDays != null ? { creditDays: data.creditDays } : {}),
+        ...(data.currency != null ? { currency: data.currency } : {}),
+        ...(data.notes != null ? { notes: data.notes } : {}),
+        ...(data.metadata != null ? { metadata: data.metadata } : {}),
       },
     })
 
@@ -152,6 +169,13 @@ class SupplierService {
       if (duplicate) throw new ConflictError(MSG.codeExists)
     }
 
+    if (data.taxId && data.taxId !== existing.taxId) {
+      const duplicateTax = await (db as PrismaClient).supplier.findFirst({
+        where: { taxId: data.taxId, empresaId, id: { not: id } },
+      })
+      if (duplicateTax) throw new ConflictError(`Ya existe un proveedor con RIF/NIT ${data.taxId}`)
+    }
+
     const updateData: Record<string, unknown> = {}
     if (data.code !== undefined) updateData.code = data.code.toUpperCase()
     if (data.name !== undefined) updateData.name = data.name
@@ -159,8 +183,17 @@ class SupplierService {
       updateData.contactName = data.contactName ?? null
     if (data.email !== undefined) updateData.email = data.email ?? null
     if (data.phone !== undefined) updateData.phone = data.phone ?? null
+    if (data.mobile !== undefined) updateData.mobile = data.mobile ?? null
+    if (data.website !== undefined) updateData.website = data.website ?? null
     if (data.address !== undefined) updateData.address = data.address ?? null
     if (data.taxId !== undefined) updateData.taxId = data.taxId ?? null
+    if (data.type !== undefined) updateData.type = data.type
+    if (data.isSpecialTaxpayer !== undefined)
+      updateData.isSpecialTaxpayer = data.isSpecialTaxpayer
+    if (data.creditDays !== undefined) updateData.creditDays = data.creditDays
+    if (data.currency !== undefined) updateData.currency = data.currency ?? null
+    if (data.notes !== undefined) updateData.notes = data.notes ?? null
+    if (data.metadata !== undefined) updateData.metadata = data.metadata ?? null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
 
     const updated = await (db as PrismaClient).supplier.update({

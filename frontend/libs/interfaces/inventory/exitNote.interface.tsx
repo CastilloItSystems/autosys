@@ -24,6 +24,7 @@ export interface ExitNoteItem {
   id: string;
   exitNoteId: string;
   itemId: string;
+  itemName?: string | null;
   quantity: number;
   pickedFromLocation?: string;
   batchId?: string;
@@ -64,6 +65,7 @@ export interface ExitNote {
 
 export interface CreateExitNoteItem {
   itemId: string;
+  itemName?: string | null;
   quantity: number;
   pickedFromLocation?: string;
   batchId?: string;

@@ -67,6 +67,7 @@ export async function getTestEmpresaId(): Promise<string> {
 /**
  * Obtiene token + empresaId en una sola llamada.
  * Conveniente para beforeAll cuando el test necesita ambos.
+ * También crea la Membership necesaria para el middleware de empresa.
  */
 export async function getTestCredentials(): Promise<{
   authToken: string
@@ -76,6 +77,27 @@ export async function getTestCredentials(): Promise<{
     getTestAuthToken(),
     getTestEmpresaId(),
   ])
+
+  // Ensure the test user has a Membership for this empresa so the
+  // empresa middleware (which validates membership) doesn't return 403.
+  const user = await prisma.user.findUnique({ where: { correo: 'admin@test.com' } })
+  if (user) {
+    const existing = await prisma.membership.findUnique({
+      where: { userId_empresaId: { userId: user.id, empresaId } },
+    })
+    if (!existing) {
+      let role = await prisma.companyRole.findFirst({ where: { empresaId } })
+      if (!role) {
+        role = await prisma.companyRole.create({
+          data: { name: 'Admin', empresaId, isSystem: true },
+        })
+      }
+      await prisma.membership.create({
+        data: { userId: user.id, empresaId, roleId: role.id, status: 'active' },
+      })
+    }
+  }
+
   return { authToken, empresaId }
 }
 

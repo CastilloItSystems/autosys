@@ -25,6 +25,7 @@ export const getMovementsReportHandler = async (
     const filters: any = {
       page,
       limit,
+      empresaId: (req as any).empresaId as string | undefined,
     }
 
     if (dateFrom) {
@@ -75,9 +76,11 @@ export const getMovementsSummaryHandler = async (
     const dateFromObj = dateFrom ? new Date(dateFrom) : undefined
     const dateToObj = dateTo ? new Date(dateTo) : undefined
 
+    const empresaId = (req as any).empresaId as string | undefined
     const summary = await getMovementsSummary(
       dateFromObj,
       dateToObj,
+      empresaId,
       (req as any).prisma || undefined
     )
 

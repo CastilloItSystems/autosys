@@ -1,27 +1,14 @@
 "use client";
 import React, { useEffect, useState } from "react";
 
-// Form libraries
-import { useForm, Controller } from "react-hook-form";
+import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
-// PrimeReact components
-import { InputText } from "primereact/inputtext";
-import { InputTextarea } from "primereact/inputtextarea";
-import { InputNumber } from "primereact/inputnumber";
-import { Dropdown } from "primereact/dropdown";
-import { Button } from "primereact/button";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { TabView, TabPanel } from "primereact/tabview";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { InputSwitch } from "primereact/inputswitch";
-import { Image } from "primereact/image";
 import { Dialog } from "primereact/dialog";
-import { Tag } from "primereact/tag";
 
-// API functions
 import itemService, {
   Item,
   IPricing,
@@ -30,9 +17,20 @@ import itemService, {
 } from "@/app/api/inventory/itemService";
 import brandsService from "@/app/api/inventory/brandService";
 import categoriesService from "@/app/api/inventory/categoryService";
-import itemModelService from "@/app/api/inventory/itemModelService";
 import unitsService from "@/app/api/inventory/unitService";
+import modelsService from "@/app/api/inventory/modelService";
 import { handleFormError } from "@/utils/errorHandlers";
+
+import BasicDataTab from "./tabs/BasicDataTab";
+import PricingTab from "./tabs/PricingTab";
+import PricingTiersTab from "./tabs/PricingTiersTab";
+import ImagesTab from "./tabs/ImagesTab";
+import SpecificationsTab from "./tabs/SpecificationsTab";
+import BrandForm from "../brands/BrandForm";
+import CategoryForm from "../categories/CategoryForm";
+import UnitForm from "../units/UnitForm";
+import ItemModelForm from "../itemModels/ItemModelForm";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 // ============================================
 // SCHEMA VALIDATION
@@ -49,9 +47,16 @@ const pricingSchema = z.object({
   costPrice: z.number().min(0, "Costo debe ser >= 0"),
   salePrice: z.number().min(0, "Precio descuento debe ser >= 0"),
   wholesalePrice: z.number().min(0).nullable(),
-  minMargin: z.number().min(0).max(100, "Margen 0-100%"),
-  maxMargin: z.number().min(0).max(100, "Margen 0-100%"),
+  minMargin: z.number().min(0).max(100).optional().default(0),
+  maxMargin: z.number().min(0).max(100).optional().default(0),
   discountPercentage: z.number().min(0).max(100).nullable(),
+  costForeign: z.number().min(0).optional(),
+  exchangeRate: z.number().min(0).optional(),
+  taxRateSale: z.number().min(0).max(100).optional(),
+  taxRatePurchase: z.number().min(0).max(100).optional(),
+  priceLevels: z
+    .array(z.object({ level: z.number(), priceForeign: z.number().min(0) }))
+    .optional(),
   tiers: z.array(pricingTierSchema).optional(),
 });
 
@@ -78,6 +83,7 @@ const itemSchema = z.object({
   unitId: z.string().min(1, "Unidad requerida"),
   sku: z.string().min(3, "SKU min 3").max(50, "SKU max 50").toUpperCase(),
   barcode: z.string().max(50).optional(),
+  identity: z.string().max(100).optional(),
   minStock: z.number().min(0).default(5),
   maxStock: z.number().min(0).nullable(),
   reorderPoint: z.number().min(0).default(10),
@@ -90,6 +96,17 @@ const itemSchema = z.object({
   hasBatch: z.boolean().default(false),
   hasExpiry: z.boolean().default(false),
   allowNegativeStock: z.boolean().default(false),
+  useStock: z.boolean().default(true),
+  isFractionable: z.boolean().default(false),
+  isComposite: z.boolean().default(false),
+  isInternalUse: z.boolean().default(false),
+  useServer: z.boolean().default(false),
+  suspendedForPurchase: z.boolean().default(false),
+  shortName: z.string().max(20).optional(),
+  reference: z.string().max(20).optional(),
+  contraindications: z.string().optional(),
+  warrantyDays: z.number().min(0).default(0),
+  packagingQty: z.number().min(1).default(1),
   tags: z.array(z.string()).optional(),
   technicalSpecs: z.record(z.any()).optional(),
   pricing: pricingSchema.optional(),
@@ -106,6 +123,49 @@ interface ItemFormProps {
   toast: React.RefObject<any>;
 }
 
+const EMPTY_PRICE_LEVELS = Array.from({ length: 8 }, (_, i) => ({
+  level: i + 1,
+  priceForeign: 0,
+}));
+
+const EMPTY_DEFAULTS = {
+  code: "",
+  name: "",
+  description: "",
+  brandId: "",
+  categoryId: "",
+  modelId: "",
+  unitId: "",
+  sku: "",
+  barcode: "",
+  identity: "",
+  minStock: 5,
+  maxStock: 100,
+  reorderPoint: 10,
+  location: "",
+  costPrice: 0,
+  salePrice: 0,
+  wholesalePrice: null,
+  isActive: true,
+  isSerialized: false,
+  hasBatch: false,
+  hasExpiry: false,
+  allowNegativeStock: false,
+  useStock: true,
+  isFractionable: false,
+  isComposite: false,
+  isInternalUse: false,
+  useServer: false,
+  suspendedForPurchase: false,
+  shortName: "",
+  reference: "",
+  contraindications: "",
+  warrantyDays: 0,
+  packagingQty: 1,
+  tags: [],
+  images: [],
+};
+
 export default function ItemForm({
   model: item,
   formId,
@@ -120,100 +180,66 @@ export default function ItemForm({
   const [units, setUnits] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState(0);
 
-  // Pricing state
+  const [specs, setSpecs] = useState<{ label: string; value: string }[]>([]);
   const [pricing, setPricing] = useState<IPricing | null>(null);
   const [tiers, setTiers] = useState<IPricingTier[]>([]);
-
-  // Images state
+  const [priceLevels, setPriceLevels] =
+    useState<{ level: number; priceForeign: number }[]>(EMPTY_PRICE_LEVELS);
   const [images, setImages] = useState<IItemImage[]>([]);
-  const [imageDialog, setImageDialog] = useState(false);
-  const [newImageUrl, setNewImageUrl] = useState("");
+
+  const [brandDialog, setBrandDialog] = useState(false);
+  const [categoryDialog, setCategoryDialog] = useState(false);
+  const [unitDialog, setUnitDialog] = useState(false);
+  const [modelDialog, setModelDialog] = useState(false);
+  const [isQuickCreateSubmitting, setIsQuickCreateSubmitting] = useState(false);
+  const [loadingBrands, setLoadingBrands] = useState(false);
+  const [loadingCategories, setLoadingCategories] = useState(false);
+  const [loadingUnits, setLoadingUnits] = useState(false);
+  const [loadingModels, setLoadingModels] = useState(false);
 
   const {
     control,
     handleSubmit,
     reset,
     watch,
-    formState: { errors, isSubmitting },
+    setValue,
+    formState: { errors },
   } = useForm<FormData>({
     resolver: zodResolver(itemSchema),
     mode: "onBlur",
-    defaultValues: {
-      code: "",
-      name: "",
-      description: "",
-      brandId: "",
-      categoryId: "",
-      modelId: "",
-      unitId: "",
-      sku: "",
-      barcode: "",
-      minStock: 5,
-      maxStock: 100,
-      reorderPoint: 10,
-      location: "",
-      costPrice: 0,
-      salePrice: 0,
-      wholesalePrice: null,
-      isActive: true,
-      isSerialized: false,
-      hasBatch: false,
-      hasExpiry: false,
-      allowNegativeStock: false,
-      tags: [],
-      images: [],
-    },
+    defaultValues: EMPTY_DEFAULTS,
   });
 
   const costPrice = watch("costPrice");
   const salePrice = watch("salePrice");
-
-  // Watch for margin changes
   const calculatedMargin =
     costPrice > 0 ? ((salePrice - costPrice) / costPrice) * 100 : 0;
 
   // Load dropdown data
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [brandsRes, categoriesRes, modelsRes, unitsRes] =
-          await Promise.all([
-            brandsService.getAll({ page: 1, limit: 100 }),
-            categoriesService.getAll({ page: 1, limit: 100 }),
-            itemModelService.getAll(),
-            unitsService.getAll({ page: 1, limit: 100 }),
-          ]);
-
-        // Estructura consistente en todos los endpoints
-        const brandsData = brandsRes?.data || [];
-        const categoriesData = categoriesRes?.data || [];
-        const modelsData = modelsRes?.data || [];
-        const unitsData = unitsRes?.data || [];
-
-        setBrands(Array.isArray(brandsData) ? brandsData : []);
-        setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-        setModels(Array.isArray(modelsData) ? modelsData : []);
-        setUnits(Array.isArray(unitsData) ? unitsData : []);
-
-        console.log("Datos cargados:", {
-          brands: brandsData?.length || 0,
-          categories: categoriesData?.length || 0,
-          models: modelsData?.length || 0,
-          units: unitsData?.length || 0,
-        });
-      } catch (error) {
-        console.error("Error loading dropdown data:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
+    Promise.all([
+      brandsService.getActive(),
+      categoriesService.getActive(),
+      modelsService.getActive(),
+      unitsService.getActive(),
+    ])
+      .then(([brandsRes, categoriesRes, modelsRes, unitsRes]) => {
+        setBrands(Array.isArray(brandsRes?.data) ? brandsRes.data : []);
+        setCategories(
+          Array.isArray(categoriesRes?.data) ? categoriesRes.data : [],
+        );
+        setModels(Array.isArray(modelsRes?.data) ? modelsRes.data : []);
+        setUnits(Array.isArray(unitsRes?.data) ? unitsRes.data : []);
+      })
+      .catch((err) => console.error("Error loading dropdown data:", err))
+      .finally(() => setIsLoading(false));
   }, []);
 
-  // Load item data if editing
+  // Populate form when editing
   useEffect(() => {
-    if (item && !isLoading) {
+    if (isLoading) return;
+
+    if (item) {
       reset({
         code: item.code || "",
         name: item.name || "",
@@ -224,6 +250,7 @@ export default function ItemForm({
         unitId: item.unitId || "",
         sku: item.sku || "",
         barcode: item.barcode || "",
+        identity: item.identity || "",
         minStock: item.minStock || 5,
         maxStock: item.maxStock || 100,
         reorderPoint: item.reorderPoint || 10,
@@ -236,870 +263,164 @@ export default function ItemForm({
         hasBatch: item.hasBatch ?? false,
         hasExpiry: item.hasExpiry ?? false,
         allowNegativeStock: item.allowNegativeStock ?? false,
-        tags: item.tags || [],
+        useStock: item.useStock ?? true,
+        isFractionable: item.isFractionable ?? false,
+        isComposite: item.isComposite ?? false,
+        isInternalUse: item.isInternalUse ?? false,
+        useServer: item.useServer ?? false,
+        suspendedForPurchase: item.suspendedForPurchase ?? false,
+        shortName: item.shortName || "",
+        reference: item.reference || "",
+        contraindications: item.contraindications || "",
+        warrantyDays: item.warrantyDays ?? 0,
+        packagingQty: item.packagingQty ?? 1,
+        tags: Array.isArray(item.tags) ? item.tags : [],
       });
 
-      // Load pricing if exists
+      if (item.technicalSpecs && typeof item.technicalSpecs === "object") {
+        setSpecs(
+          Object.entries(item.technicalSpecs).map(([label, value]) => ({
+            label,
+            value: String(value),
+          })),
+        );
+      } else {
+        setSpecs([]);
+      }
+
       if (item.pricing) {
         setPricing(item.pricing);
         setTiers(item.pricing.tiers || []);
+        if (item.pricing.priceLevels?.length) {
+          const existing = item.pricing.priceLevels;
+          setPriceLevels(
+            Array.from({ length: 8 }, (_, i) => {
+              const found = existing.find((pl) => pl.level === i + 1);
+              return {
+                level: i + 1,
+                priceForeign: found ? Number(found.priceForeign) : 0,
+              };
+            }),
+          );
+        }
       }
 
-      // Load images
-      if (item.images) {
-        setImages(item.images);
-      }
-    } else if (!item && !isLoading) {
-      reset({
-        code: "",
-        name: "",
-        description: "",
-        brandId: "",
-        categoryId: "",
-        modelId: "",
-        unitId: "",
-        sku: "",
-        barcode: "",
-        minStock: 5,
-        maxStock: 100,
-        reorderPoint: 10,
-        location: "",
-        costPrice: 0,
-        salePrice: 0,
-        wholesalePrice: null,
-        isActive: true,
-        isSerialized: false,
-        hasBatch: false,
-        hasExpiry: false,
-        allowNegativeStock: false,
-        tags: [],
-        images: [],
-      });
+      setImages(item.images || []);
+    } else {
+      reset(EMPTY_DEFAULTS);
+      setSpecs([]);
       setPricing(null);
       setTiers([]);
+      setPriceLevels(EMPTY_PRICE_LEVELS);
       setImages([]);
     }
   }, [item, reset, isLoading]);
+
+  const handleBrandSave = async (created?: any) => {
+    setBrandDialog(false);
+    setLoadingBrands(true);
+    try {
+      const res = await brandsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setBrands(updated);
+      if (created?.id) setValue("brandId", created.id);
+    } finally {
+      setLoadingBrands(false);
+    }
+  };
+
+  const handleCategorySuccess = async (created?: any) => {
+    setLoadingCategories(true);
+    try {
+      const res = await categoriesService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setCategories(updated);
+      if (created?.id) setValue("categoryId", created.id);
+    } finally {
+      setLoadingCategories(false);
+    }
+  };
+
+  const handleUnitSave = async (created?: any) => {
+    setUnitDialog(false);
+    setLoadingUnits(true);
+    try {
+      const res = await unitsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setUnits(updated);
+      if (created?.id) setValue("unitId", created.id);
+    } finally {
+      setLoadingUnits(false);
+    }
+  };
+
+  const handleModelSave = async (created?: any) => {
+    setModelDialog(false);
+    setLoadingModels(true);
+    try {
+      const res = await modelsService.getActive();
+      const updated = Array.isArray(res?.data) ? res.data : [];
+      setModels(updated);
+      if (created?.id) setValue("modelId", created.id);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
 
   const onSubmit = async (data: FormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload: any = { ...data };
 
-      // Add pricing if exists or has values
-      if (
-        data.costPrice ||
-        data.salePrice ||
-        pricing?.minMargin !== undefined
-      ) {
+      if (!payload.modelId) payload.modelId = null;
+      if (!payload.barcode) payload.barcode = null;
+      if (!payload.identity) payload.identity = null;
+      if (!payload.location) payload.location = null;
+      if (!payload.description) payload.description = null;
+      if (!payload.shortName) payload.shortName = null;
+      if (!payload.reference) payload.reference = null;
+      if (!payload.contraindications) payload.contraindications = null;
+
+      payload.technicalSpecs =
+        specs.length > 0
+          ? specs.reduce((acc: any, spec) => {
+              if (spec.label.trim()) acc[spec.label.trim()] = spec.value;
+              return acc;
+            }, {})
+          : null;
+
+      if (data.costPrice || data.salePrice || pricing?.costForeign) {
+        const activeLevels = priceLevels.filter((pl) => pl.priceForeign > 0);
         payload.pricing = {
           costPrice: data.costPrice,
           salePrice: data.salePrice,
           wholesalePrice: data.wholesalePrice,
-          minMargin: pricing?.minMargin || 0,
-          maxMargin: pricing?.maxMargin || 100,
+          minMargin: pricing?.minMargin ?? 0,
+          maxMargin: pricing?.maxMargin ?? 0,
           discountPercentage: pricing?.discountPercentage,
-          tiers: tiers,
+          costForeign: pricing?.costForeign,
+          exchangeRate: pricing?.exchangeRate,
+          taxRateSale: pricing?.taxRateSale,
+          taxRatePurchase: pricing?.taxRatePurchase,
+          priceLevels: activeLevels.length > 0 ? activeLevels : undefined,
+          tiers,
         };
       }
 
-      // Add images
       payload.images = images;
 
       if (item?.id) {
         await itemService.update(item.id, payload);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Artículo actualizado correctamente",
-          life: 3000,
-        });
       } else {
         await itemService.create(payload);
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Artículo creado correctamente",
-          life: 3000,
-        });
       }
       onSave();
     } catch (error: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: error.response?.data?.message || "Error al guardar",
-        life: 3000,
-      });
+      handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
-
-  // ============================================
-  // TAB 1: DATOS BÁSICOS
-  // ============================================
-  const DatosBasicosTab = () => (
-    <div className="grid">
-      {/* Row 1: SKU, Código, Barcode */}
-      <div className="col-12 md:col-4">
-        <label htmlFor="sku" className="block text-900 font-medium mb-2">
-          SKU <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="sku"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="sku"
-              {...field}
-              placeholder="ART-001"
-              className={errors.sku ? "p-invalid" : ""}
-              disabled={!!item?.id}
-              autoFocus
-              value={field.value?.toUpperCase() || ""}
-              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-            />
-          )}
-        />
-        {errors.sku && (
-          <small className="p-error block">{errors.sku.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-4">
-        <label htmlFor="code" className="block text-900 font-medium mb-2">
-          Código <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="code"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="code"
-              {...field}
-              placeholder="Código único"
-              className={errors.code ? "p-invalid" : ""}
-              disabled={!!item?.id}
-            />
-          )}
-        />
-        {errors.code && (
-          <small className="p-error block">{errors.code.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-4">
-        <label htmlFor="barcode" className="block text-900 font-medium mb-2">
-          Barcode
-        </label>
-        <Controller
-          name="barcode"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="barcode"
-              {...field}
-              placeholder="Código barras"
-              className=""
-            />
-          )}
-        />
-      </div>
-
-      {/* Row 2: Nombre completo */}
-      <div className="col-12">
-        <label htmlFor="name" className="block text-900 font-medium mb-2">
-          Nombre <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="name"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="name"
-              {...field}
-              placeholder="Nombre del artículo"
-              className={errors.name ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.name && (
-          <small className="p-error block">{errors.name.message}</small>
-        )}
-      </div>
-
-      {/* Row 3: Descripción */}
-      <div className="col-12">
-        <label
-          htmlFor="description"
-          className="block text-900 font-medium mb-2"
-        >
-          Descripción
-        </label>
-        <Controller
-          name="description"
-          control={control}
-          render={({ field }) => (
-            <InputTextarea
-              id="description"
-              {...field}
-              placeholder="Descripción"
-              rows={2}
-              className={errors.description ? "p-invalid" : ""}
-            />
-          )}
-        />
-      </div>
-
-      {/* Row 4: Marca, Categoría, Modelo, Unidad (4 columnas) */}
-      <div className="col-12 md:col-3">
-        <label htmlFor="brandId" className="block text-900 font-medium mb-2">
-          Marca <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="brandId"
-          control={control}
-          render={({ field }) => (
-            <Dropdown
-              id="brandId"
-              {...field}
-              options={brands}
-              optionLabel="name"
-              optionValue="id"
-              placeholder="Marca"
-              filter
-              showClear
-              className={errors.brandId ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.brandId && (
-          <small className="p-error block">{errors.brandId.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="categoryId" className="block text-900 font-medium mb-2">
-          Categoría <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="categoryId"
-          control={control}
-          render={({ field }) => (
-            <Dropdown
-              id="categoryId"
-              {...field}
-              options={categories}
-              optionLabel="name"
-              optionValue="id"
-              placeholder="Categoría"
-              filter
-              showClear
-              className={errors.categoryId ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.categoryId && (
-          <small className="p-error block">{errors.categoryId.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="modelId" className="block text-900 font-medium mb-2">
-          Modelo
-        </label>
-        <Controller
-          name="modelId"
-          control={control}
-          render={({ field }) => (
-            <Dropdown
-              id="modelId"
-              {...field}
-              options={models}
-              optionLabel="name"
-              optionValue="id"
-              placeholder="Modelo"
-              filter
-              showClear
-              className=""
-            />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="unitId" className="block text-900 font-medium mb-2">
-          Unidad <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="unitId"
-          control={control}
-          render={({ field }) => (
-            <Dropdown
-              id="unitId"
-              {...field}
-              options={units}
-              optionLabel="name"
-              optionValue="id"
-              placeholder="Unidad"
-              filter
-              showClear
-              className={errors.unitId ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.unitId && (
-          <small className="p-error block">{errors.unitId.message}</small>
-        )}
-      </div>
-
-      {/* Row 5: Stock Min, Max, Reorden, Ubicación (4 columnas) */}
-      <div className="col-12 md:col-3">
-        <label htmlFor="minStock" className="block text-900 font-medium mb-2">
-          Stock Mínimo
-        </label>
-        <Controller
-          name="minStock"
-          control={control}
-          render={({ field }) => (
-            <InputNumber id="minStock" {...field} min={0} className="" />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="maxStock" className="block text-900 font-medium mb-2">
-          Stock Máximo
-        </label>
-        <Controller
-          name="maxStock"
-          control={control}
-          render={({ field }) => (
-            <InputNumber id="maxStock" {...field} min={0} className="" />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label
-          htmlFor="reorderPoint"
-          className="block text-900 font-medium mb-2"
-        >
-          Punto Reorden
-        </label>
-        <Controller
-          name="reorderPoint"
-          control={control}
-          render={({ field }) => (
-            <InputNumber id="reorderPoint" {...field} min={0} className="" />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="location" className="block text-900 font-medium mb-2">
-          Ubicación
-        </label>
-        <Controller
-          name="location"
-          control={control}
-          render={({ field }) => (
-            <InputText
-              id="location"
-              {...field}
-              placeholder="M1-R01"
-              className=""
-            />
-          )}
-        />
-      </div>
-
-      {/* Row 6: Configuración */}
-      <div className="col-12">
-        <label className="block text-900 font-medium mb-2">Configuración</label>
-        <div className="flex align-items-center gap-3 flex-wrap">
-          <div className="flex align-items-center gap-2">
-            <label className="text-sm text-900">Activo</label>
-            <Controller
-              name="isActive"
-              control={control}
-              render={({ field }) => (
-                <InputSwitch
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex align-items-center gap-2">
-            <label className="text-sm text-900">Serializado</label>
-            <Controller
-              name="isSerialized"
-              control={control}
-              render={({ field }) => (
-                <InputSwitch
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex align-items-center gap-2">
-            <label className="text-sm text-900">Lotes</label>
-            <Controller
-              name="hasBatch"
-              control={control}
-              render={({ field }) => (
-                <InputSwitch
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex align-items-center gap-2">
-            <label className="text-sm text-900">Vencimiento</label>
-            <Controller
-              name="hasExpiry"
-              control={control}
-              render={({ field }) => (
-                <InputSwitch
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                />
-              )}
-            />
-          </div>
-
-          <div className="flex align-items-center gap-2">
-            <label className="text-sm text-900">Stock Neg.</label>
-            <Controller
-              name="allowNegativeStock"
-              control={control}
-              render={({ field }) => (
-                <InputSwitch
-                  checked={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                />
-              )}
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-
-  // ============================================
-  // TAB 2: PRECIOS
-  // ============================================
-  const PreciosTab = () => (
-    <div className="grid">
-      <div className="col-12">
-        <h3 className="text-base font-bold text-900 mb-2">Precios Base</h3>
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="costPrice" className="block text-900 font-medium mb-2">
-          Precio Costo <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="costPrice"
-          control={control}
-          render={({ field }) => (
-            <InputNumber
-              id="costPrice"
-              tabIndex={0}
-              value={field.value}
-              onValueChange={(e) => field.onChange(e.value)}
-              mode="currency"
-              currency="USD"
-              locale="en-US"
-              className={errors.costPrice ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.costPrice && (
-          <small className="p-error block">{errors.costPrice.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label htmlFor="salePrice" className="block text-900 font-medium mb-2">
-          Precio Venta <span className="text-red-500">*</span>
-        </label>
-        <Controller
-          name="salePrice"
-          control={control}
-          render={({ field }) => (
-            <InputNumber
-              id="salePrice"
-              tabIndex={1}
-              value={field.value}
-              onValueChange={(e) => field.onChange(e.value)}
-              mode="currency"
-              currency="USD"
-              locale="en-US"
-              className={errors.salePrice ? "p-invalid" : ""}
-            />
-          )}
-        />
-        {errors.salePrice && (
-          <small className="p-error block">{errors.salePrice.message}</small>
-        )}
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label
-          htmlFor="wholesalePrice"
-          className="block text-900 font-medium mb-2"
-        >
-          Precio Mayoreo
-        </label>
-        <Controller
-          name="wholesalePrice"
-          control={control}
-          render={({ field }) => (
-            <InputNumber
-              id="wholesalePrice"
-              tabIndex={2}
-              value={field.value}
-              onValueChange={(e) => field.onChange(e.value)}
-              mode="currency"
-              currency="USD"
-              locale="en-US"
-              className=""
-            />
-          )}
-        />
-      </div>
-
-      <div className="col-12 md:col-3">
-        <label className="block text-900 font-medium mb-2">Margen %</label>
-        <div className="p-2 bg-blue-50 border-l-4 border-blue-500 rounded flex align-items-center justify-content-center h-full">
-          <span className="text-lg font-bold text-blue-600">
-            {calculatedMargin.toFixed(2)}%
-          </span>
-        </div>
-      </div>
-
-      <div className="col-12">
-        <h3 className="text-base font-bold text-900 mb-2">
-          Márgenes Permitidos
-        </h3>
-      </div>
-
-      <div className="col-12 md:col-4">
-        <label htmlFor="minMargin" className="block text-900 font-medium mb-2">
-          Margen Mín. (%)
-        </label>
-        <InputNumber
-          id="minMargin"
-          tabIndex={3}
-          value={pricing?.minMargin || 0}
-          onValueChange={(e) =>
-            setPricing({
-              ...pricing,
-              minMargin: e.value || 0,
-            } as IPricing)
-          }
-          min={0}
-          max={100}
-          className=""
-        />
-      </div>
-
-      <div className="col-12 md:col-4">
-        <label htmlFor="maxMargin" className="block text-900 font-medium mb-2">
-          Margen Máx. (%)
-        </label>
-        <InputNumber
-          id="maxMargin"
-          tabIndex={4}
-          value={pricing?.maxMargin || 100}
-          onValueChange={(e) =>
-            setPricing({
-              ...pricing,
-              maxMargin: e.value || 100,
-            } as IPricing)
-          }
-          min={0}
-          max={100}
-          className=""
-        />
-      </div>
-
-      <div className="col-12 md:col-4">
-        <label
-          htmlFor="discountPercentage"
-          className="block text-900 font-medium mb-2"
-        >
-          Descuento (%)
-        </label>
-        <InputNumber
-          id="discountPercentage"
-          tabIndex={5}
-          value={pricing?.discountPercentage || 0}
-          onValueChange={(e) =>
-            setPricing({
-              ...pricing,
-              discountPercentage: e.value,
-            } as IPricing)
-          }
-          min={0}
-          max={100}
-          className=""
-        />
-      </div>
-    </div>
-  );
-
-  // ============================================
-  // TAB 3: PRECIOS ESCALONADOS (TIERS)
-  // ============================================
-  const TiersTab = () => (
-    <div className="p-4">
-      <div className="mb-3 flex justify-content-between align-items-center">
-        <h3 className="text-xl font-bold text-900">Precios por Cantidad</h3>
-        <Button
-          label="+ Agregar Tier"
-          icon="pi pi-plus"
-          onClick={() => {
-            setTiers([
-              ...tiers,
-              {
-                minQuantity:
-                  tiers.length > 0
-                    ? (tiers[tiers.length - 1].maxQuantity || 0) + 1
-                    : 1,
-                maxQuantity: null,
-                tierPrice: salePrice,
-                discountPercentage: null,
-              },
-            ]);
-          }}
-          size="small"
-        />
-      </div>
-
-      {tiers.length === 0 ? (
-        <div className="text-center p-4 bg-surface-50 rounded border-1 border-surface-200">
-          <p className="text-surface-500">
-            Sin precios escalonados configurados
-          </p>
-        </div>
-      ) : (
-        <DataTable value={tiers} responsiveLayout="scroll">
-          <Column
-            field="minQuantity"
-            header="Cantidad Mínima"
-            body={(row, { rowIndex }) => (
-              <InputNumber
-                value={row.minQuantity}
-                onValueChange={(e) => {
-                  const newTiers = [...tiers];
-                  newTiers[rowIndex].minQuantity = e.value || 1;
-                  setTiers(newTiers);
-                }}
-                min={1}
-              />
-            )}
-          />
-          <Column
-            field="maxQuantity"
-            header="Cantidad Máxima"
-            body={(row, { rowIndex }) => (
-              <InputNumber
-                value={row.maxQuantity}
-                onValueChange={(e) => {
-                  const newTiers = [...tiers];
-                  newTiers[rowIndex].maxQuantity = e.value;
-                  setTiers(newTiers);
-                }}
-                min={0}
-                placeholder="Sin límite"
-              />
-            )}
-          />
-          <Column
-            field="tierPrice"
-            header="Precio"
-            body={(row, { rowIndex }) => (
-              <InputNumber
-                value={row.tierPrice}
-                onValueChange={(e) => {
-                  const newTiers = [...tiers];
-                  newTiers[rowIndex].tierPrice = e.value || 0;
-                  setTiers(newTiers);
-                }}
-                mode="currency"
-                currency="USD"
-                locale="en-US"
-              />
-            )}
-          />
-          <Column
-            field="discountPercentage"
-            header="Descuento %"
-            body={(row, { rowIndex }) => (
-              <InputNumber
-                value={row.discountPercentage}
-                onValueChange={(e) => {
-                  const newTiers = [...tiers];
-                  newTiers[rowIndex].discountPercentage = e.value;
-                  setTiers(newTiers);
-                }}
-                min={0}
-                max={100}
-              />
-            )}
-          />
-          <Column
-            header="Acciones"
-            body={(row, { rowIndex }) => (
-              <Button
-                icon="pi pi-trash"
-                severity="danger"
-                rounded
-                text
-                onClick={() => {
-                  setTiers(tiers.filter((_, i) => i !== rowIndex));
-                }}
-              />
-            )}
-            style={{ width: "4rem" }}
-          />
-        </DataTable>
-      )}
-    </div>
-  );
-
-  // ============================================
-  // TAB 4: IMÁGENES
-  // ============================================
-  const ImagenesTab = () => (
-    <div className="p-4">
-      <div className="mb-4 flex justify-content-between align-items-center">
-        <h3 className="text-xl font-bold text-900">Galería de Imágenes</h3>
-        <Button
-          label="+ Agregar Imagen"
-          icon="pi pi-plus"
-          onClick={() => setImageDialog(true)}
-          size="small"
-        />
-      </div>
-
-      {images.length === 0 ? (
-        <div className="text-center p-4 bg-surface-50 rounded border-1 border-surface-200">
-          <p className="text-surface-500">Sin imágenes cargadas</p>
-        </div>
-      ) : (
-        <div className="grid">
-          {images.map((img, idx) => (
-            <div key={idx} className="col-12 md:col-6 lg:col-4 p-2">
-              <div className="border-1 border-surface-200 rounded p-3">
-                <div className="mb-2 flex justify-content-between align-items-start">
-                  <div className="flex gap-2">
-                    {img.isPrimary && (
-                      <Tag
-                        value="Primaria"
-                        severity="success"
-                        icon="pi pi-star"
-                      />
-                    )}
-                  </div>
-                  <Button
-                    icon="pi pi-trash"
-                    severity="danger"
-                    text
-                    rounded
-                    onClick={() =>
-                      setImages(images.filter((_, i) => i !== idx))
-                    }
-                  />
-                </div>
-
-                <Image
-                  src={img.url}
-                  alt={`imagen-${idx}`}
-                  width="100%"
-                  preview
-                  imageStyle={{ height: "200px", objectFit: "cover" }}
-                />
-
-                <div className="mt-3 text-sm">
-                  <div className="mb-2 flex justify-content-between">
-                    <span>Primaria:</span>
-                    <InputSwitch
-                      checked={img.isPrimary}
-                      onChange={(e) => {
-                        const newImages = images.map((im, i) => ({
-                          ...im,
-                          isPrimary: i === idx ? e.value : false,
-                        }));
-                        setImages(newImages);
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <span>Orden: {img.order}</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {/* Add Image Dialog */}
-      <Dialog
-        visible={imageDialog}
-        onHide={() => setImageDialog(false)}
-        header="Agregar Imagen"
-        modal
-        style={{ width: "90vw", maxWidth: "500px" }}
-      >
-        <div className="grid gap-3">
-          <div className="col-12">
-            <label className="block text-900 font-medium mb-2">
-              URL de Imagen
-            </label>
-            <InputText
-              value={newImageUrl}
-              onChange={(e) => setNewImageUrl(e.target.value)}
-              placeholder="https://ejemplo.com/imagen.jpg"
-              className="w-full"
-            />
-          </div>
-          <div className="col-12 flex gap-2 justify-content-end">
-            <Button
-              label="Cancelar"
-              severity="secondary"
-              onClick={() => setImageDialog(false)}
-            />
-            <Button
-              label="Agregar"
-              onClick={() => {
-                if (newImageUrl.trim()) {
-                  setImages([
-                    ...images,
-                    {
-                      url: newImageUrl,
-                      isPrimary: images.length === 0,
-                      order: images.length,
-                    },
-                  ]);
-                  setNewImageUrl("");
-                  setImageDialog(false);
-                }
-              }}
-            />
-          </div>
-        </div>
-      </Dialog>
-    </div>
-  );
 
   if (isLoading) {
     return (
@@ -1116,27 +437,210 @@ export default function ItemForm({
   }
 
   return (
-    <form id={formId || "item-form"} onSubmit={handleSubmit(onSubmit)}>
-      <TabView
-        activeIndex={activeTab}
-        onTabChange={(e) => setActiveTab(e.index)}
+    <>
+      <form id={formId || "item-form"} onSubmit={handleSubmit(onSubmit)}>
+        <TabView
+          activeIndex={activeTab}
+          onTabChange={(e) => setActiveTab(e.index)}
+        >
+          <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
+            <BasicDataTab
+              control={control}
+              errors={errors}
+              brands={brands}
+              categories={categories}
+              models={models}
+              units={units}
+              isEditMode={!!item?.id}
+              loadingBrands={loadingBrands}
+              loadingCategories={loadingCategories}
+              loadingModels={loadingModels}
+              loadingUnits={loadingUnits}
+              onAddBrand={() => setBrandDialog(true)}
+              onAddCategory={() => setCategoryDialog(true)}
+              onAddUnit={() => setUnitDialog(true)}
+              onAddModel={() => setModelDialog(true)}
+            />
+          </TabPanel>
+
+          <TabPanel header="Precios" leftIcon="pi pi-dollar">
+            <PricingTab
+              control={control}
+              errors={errors}
+              calculatedMargin={calculatedMargin}
+              pricing={pricing}
+              onPricingChange={setPricing}
+              priceLevels={priceLevels}
+              onPriceLevelsChange={setPriceLevels}
+            />
+          </TabPanel>
+
+          <TabPanel header="Precios Escalonados" leftIcon="pi pi-chart-bar">
+            <PricingTiersTab
+              tiers={tiers}
+              onTiersChange={setTiers}
+              salePrice={salePrice}
+            />
+          </TabPanel>
+
+          <TabPanel header="Imágenes" leftIcon="pi pi-images">
+            <ImagesTab
+              itemId={item?.id}
+              images={images}
+              onImagesChange={setImages}
+              toast={toast}
+            />
+          </TabPanel>
+
+          <TabPanel header="Especificaciones" leftIcon="pi pi-list">
+            <SpecificationsTab specs={specs} onSpecsChange={setSpecs} />
+          </TabPanel>
+        </TabView>
+      </form>
+
+      {/* Brand quick-create */}
+      <Dialog
+        visible={brandDialog}
+        onHide={() => setBrandDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-tag mr-3 text-primary text-3xl"></i>
+                Nueva Marca
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="brand-form-inline"
+            isUpdate={false}
+            onCancel={() => setBrandDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
+          />
+        }
       >
-        <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
-          <DatosBasicosTab />
-        </TabPanel>
+        <BrandForm
+          brand={null}
+          formId="brand-form-inline"
+          onSave={() => {}}
+          onCreated={handleBrandSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Precios" leftIcon="pi pi-dollar">
-          <PreciosTab />
-        </TabPanel>
+      {/* Category quick-create */}
+      <Dialog
+        visible={categoryDialog}
+        onHide={() => setCategoryDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-list mr-3 text-primary text-3xl"></i>
+                Nueva Categoría
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="category-form-inline"
+            isUpdate={false}
+            onCancel={() => setCategoryDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
+          />
+        }
+      >
+        <CategoryForm
+          category={null}
+          formId="category-form-inline"
+          hideFormDialog={() => setCategoryDialog(false)}
+          onCreated={handleCategorySuccess}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Precios Escalonados" leftIcon="pi pi-chart-bar">
-          <TiersTab />
-        </TabPanel>
+      {/* Unit quick-create */}
+      <Dialog
+        visible={unitDialog}
+        onHide={() => setUnitDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-box mr-3 text-primary text-3xl"></i>
+                Nueva Unidad
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="unit-form-inline"
+            isUpdate={false}
+            onCancel={() => setUnitDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
+          />
+        }
+      >
+        <UnitForm
+          model={null}
+          formId="unit-form-inline"
+          onSave={() => {}}
+          onCreated={handleUnitSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
-        <TabPanel header="Imágenes" leftIcon="pi pi-images">
-          <ImagenesTab />
-        </TabPanel>
-      </TabView>
-    </form>
+      {/* Model quick-create */}
+      <Dialog
+        visible={modelDialog}
+        onHide={() => setModelDialog(false)}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-objects-column mr-3 text-primary text-3xl"></i>
+                Nuevo Modelo
+              </h2>
+            </div>
+          </div>
+        }
+        style={{ width: "450px" }}
+        modal
+        className="p-fluid"
+        footer={
+          <FormActionButtons
+            formId="model-form-inline"
+            isUpdate={false}
+            onCancel={() => setModelDialog(false)}
+            isSubmitting={isQuickCreateSubmitting}
+          />
+        }
+      >
+        <ItemModelForm
+          model={null}
+          formId="model-form-inline"
+          onSave={() => {}}
+          onCreated={handleModelSave}
+          onSubmittingChange={setIsQuickCreateSubmitting}
+          toast={toast}
+        />
+      </Dialog>
+    </>
   );
 }

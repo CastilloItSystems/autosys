@@ -38,72 +38,100 @@ const DeadStockPage = () => {
     }
   };
 
+  const inactiveSeverity = (days: number) => {
+    if (days > 365) return "danger";
+    if (days > 180) return "warning";
+    return "info";
+  };
+
+  const inactiveColor = (days: number) => {
+    if (days > 365) return "#EF4444";
+    if (days > 180) return "#F97316";
+    return "#3B82F6";
+  };
+
   const columns = [
-    { field: "itemName", header: "Artículo", sortable: true, width: "25%" },
-    { field: "sku", header: "SKU", sortable: true, width: "15%" },
+    { field: "itemName", header: "Artículo", sortable: true, width: "22%" },
+    { field: "itemSKU", header: "SKU", sortable: true, width: "12%" },
+    { field: "warehouseName", header: "Almacén", sortable: true, width: "14%" },
     {
-      field: "currentStock",
-      header: "Stock Actual",
+      field: "quantity",
+      header: "Stock",
       sortable: true,
-      width: "12%",
+      width: "10%",
       body: (row: any) => (
-        <span className="font-semibold">{row.currentStock?.toFixed(0)}</span>
+        <span className="font-semibold">{row.quantity?.toFixed(0)}</span>
       ),
     },
     {
-      field: "lastMovementAt",
+      field: "value",
+      header: "Valor",
+      sortable: true,
+      width: "12%",
+      body: (row: any) => (
+        <span className="font-semibold">
+          {row.value != null
+            ? `$${Number(row.value).toLocaleString("es-VE", {
+                minimumFractionDigits: 2,
+              })}`
+            : "—"}
+        </span>
+      ),
+    },
+    {
+      field: "lastMovement",
       header: "Último Movimiento",
       sortable: true,
-      width: "18%",
+      width: "16%",
       body: (row: any) => (
         <span className="text-500 text-sm">
-          {row.lastMovementAt
-            ? new Date(row.lastMovementAt).toLocaleDateString("es-VE")
+          {row.lastMovement
+            ? new Date(row.lastMovement).toLocaleDateString("es-VE")
             : "Nunca"}
         </span>
       ),
     },
     {
-      field: "daysWithoutMovement",
-      header: "Días Sin Movimiento",
+      field: "daysInactive",
+      header: "Días Inactivo",
       sortable: true,
-      width: "15%",
+      width: "14%",
       body: (row: any) => (
         <Tag
-          value={`${row.daysWithoutMovement}d`}
-          severity={row.daysWithoutMovement > 90 ? "danger" : "warning"}
+          value={`${row.daysInactive}d`}
+          severity={inactiveSeverity(row.daysInactive)}
+          style={{ color: inactiveColor(row.daysInactive) }}
         />
       ),
     },
-    { field: "warehouse", header: "Almacén", sortable: true, width: "15%" },
   ];
 
   return (
     <>
       <Toast ref={toast} />
-      <Card title="Artículos Sin Movimiento (Stock Muerto)">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Artículos Sin Movimiento (Stock Muerto)">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Stock Muerto"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="dead-stock"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={false}
-            showWarehouseFilter={true}
-            showSearchFilter={true}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Artículos Sin Movimiento (Stock Muerto)"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="dead-stock"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={true}
+          showSearchFilter={true}
+        />
+      )}
     </>
   );
 };

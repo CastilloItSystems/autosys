@@ -11,9 +11,19 @@ export interface Supplier {
   contactName?: string | null;
   email?: string | null;
   phone?: string | null;
+  mobile?: string | null;
+  website?: string | null;
   address?: string | null;
   taxId?: string | null;
+  type: "INDIVIDUAL" | "COMPANY";
+  isSpecialTaxpayer: boolean;
+  creditDays: number;
+  currency?: string | null;
+  specialty?: string | null;
+  notes?: string | null;
+  metadata?: any | null;
   isActive: boolean;
+  empresaId: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -34,8 +44,16 @@ export interface CreateSupplierRequest {
   contactName?: string;
   email?: string;
   phone?: string;
+  mobile?: string;
+  website?: string;
   address?: string;
   taxId?: string;
+  type?: "INDIVIDUAL" | "COMPANY";
+  isSpecialTaxpayer?: boolean;
+  creditDays?: number;
+  currency?: string;
+  notes?: string;
+  metadata?: any;
 }
 
 export interface UpdateSupplierRequest {
@@ -44,8 +62,16 @@ export interface UpdateSupplierRequest {
   contactName?: string | null;
   email?: string | null;
   phone?: string | null;
+  mobile?: string | null;
+  website?: string | null;
   address?: string | null;
   taxId?: string | null;
+  type?: "INDIVIDUAL" | "COMPANY";
+  isSpecialTaxpayer?: boolean;
+  creditDays?: number;
+  currency?: string | null;
+  notes?: string | null;
+  metadata?: any | null;
   isActive?: boolean;
 }
 

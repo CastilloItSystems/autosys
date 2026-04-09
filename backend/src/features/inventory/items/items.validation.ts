@@ -18,9 +18,19 @@ export const createItemSchema = Joi.object({
         'El SKU solo puede contener letras mayúsculas, números y guiones',
       'any.required': 'El SKU es obligatorio',
     }),
+  code: Joi.string().min(3).max(50).required().messages({
+    'string.empty': 'El código de producto es requerido',
+    'string.min': 'El código de producto debe tener al menos 3 caracteres',
+    'string.max': 'El código de producto no puede exceder 50 caracteres',
+    'any.required': 'El código de producto es obligatorio',
+  }),
 
   barcode: Joi.string().max(50).allow('', null).optional().messages({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
+  }),
+
+  identity: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'La identidad no puede exceder 100 caracteres',
   }),
 
   name: Joi.string().min(3).max(200).required().messages({
@@ -125,6 +135,18 @@ export const createItemSchema = Joi.object({
     'boolean.base': 'allowNegativeStock debe ser verdadero o falso',
   }),
 
+  shortName: Joi.string().max(20).allow('', null).optional(),
+  reference: Joi.string().max(20).allow('', null).optional(),
+  contraindications: Joi.string().allow('', null).optional(),
+  useStock: Joi.boolean().optional().default(true),
+  isFractionable: Joi.boolean().optional().default(false),
+  isComposite: Joi.boolean().optional().default(false),
+  isInternalUse: Joi.boolean().optional().default(false),
+  useServer: Joi.boolean().optional().default(false),
+  suspendedForPurchase: Joi.boolean().optional().default(false),
+  warrantyDays: Joi.number().integer().min(0).optional().default(0),
+  packagingQty: Joi.number().integer().min(1).optional().default(1),
+
   technicalSpecs: Joi.object().allow(null).optional().messages({
     'object.base': 'Las especificaciones técnicas deben ser un objeto válido',
   }),
@@ -172,9 +194,17 @@ export const updateItemSchema = Joi.object({
       'string.pattern.base':
         'El SKU solo puede contener letras mayúsculas, números y guiones',
     }),
+  code: Joi.string().min(3).max(50).optional().messages({
+    'string.min': 'El código de producto debe tener al menos 3 caracteres',
+    'string.max': 'El código de producto no puede exceder 50 caracteres',
+  }),
 
   barcode: Joi.string().max(50).allow('', null).optional().messages({
     'string.max': 'El código de barras no puede exceder 50 caracteres',
+  }),
+
+  identity: Joi.string().max(100).allow('', null).optional().messages({
+    'string.max': 'La identidad no puede exceder 100 caracteres',
   }),
 
   name: Joi.string().min(3).max(200).optional().messages({
@@ -265,6 +295,18 @@ export const updateItemSchema = Joi.object({
   allowNegativeStock: Joi.boolean().optional().messages({
     'boolean.base': 'allowNegativeStock debe ser verdadero o falso',
   }),
+
+  shortName: Joi.string().max(20).allow('', null).optional(),
+  reference: Joi.string().max(20).allow('', null).optional(),
+  contraindications: Joi.string().allow('', null).optional(),
+  useStock: Joi.boolean().optional(),
+  isFractionable: Joi.boolean().optional(),
+  isComposite: Joi.boolean().optional(),
+  isInternalUse: Joi.boolean().optional(),
+  useServer: Joi.boolean().optional(),
+  suspendedForPurchase: Joi.boolean().optional(),
+  warrantyDays: Joi.number().integer().min(0).optional(),
+  packagingQty: Joi.number().integer().min(1).optional(),
 
   technicalSpecs: Joi.object().allow(null).optional().messages({
     'object.base': 'Las especificaciones técnicas deben ser un objeto válido',
@@ -372,12 +414,22 @@ export const getItemsQuerySchema = Joi.object({
   }),
 
   sortBy: Joi.string()
-    .valid('name', 'sku', 'salePrice', 'costPrice', 'createdAt', 'updatedAt')
+    .valid(
+      'name',
+      'sku',
+      'code',
+      'identity',
+      'location',
+      'salePrice',
+      'costPrice',
+      'createdAt',
+      'updatedAt'
+    )
     .optional()
     .default('name')
     .messages({
       'any.only':
-        'sortBy debe ser uno de: name, sku, salePrice, costPrice, createdAt, updatedAt',
+        'sortBy debe ser uno de: name, sku, code, identity, location, salePrice, costPrice, createdAt, updatedAt',
     }),
 
   sortOrder: Joi.string()

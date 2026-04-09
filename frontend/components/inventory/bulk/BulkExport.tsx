@@ -22,17 +22,21 @@ const EXPORT_FORMATS = [
 
 const ALL_COLUMNS = [
   "sku",
+  "code",
   "name",
   "description",
   "category",
+  "brand",
+  "model",
   "costPrice",
   "salePrice",
   "wholesalePrice",
   "minStock",
   "maxStock",
   "barcode",
+  "identity",
+  "location",
   "unit",
-  "brand",
   "status",
   "createdAt",
   "updatedAt",
@@ -45,21 +49,27 @@ interface ExportStats {
   dateRange: string;
 }
 
-export const BulkExport = () => {
+interface BulkExportProps {
+  onComplete?: () => void;
+}
+
+export const BulkExport = ({ onComplete }: BulkExportProps) => {
   const toast = useRef<Toast>(null);
 
   // State
-  const [format, setFormat] = useState<string>("csv");
+  const [format, setFormat] = useState<"csv" | "json" | "xlsx">("csv");
   const [selectedColumns, setSelectedColumns] = useState<string[]>([
     "sku",
+    "code",
     "name",
     "category",
+    "brand",
+    "model",
     "costPrice",
     "salePrice",
     "minStock",
     "barcode",
     "unit",
-    "brand",
     "status",
   ]);
 
@@ -97,8 +107,8 @@ export const BulkExport = () => {
         filters: {
           isActive: isActive ? true : undefined,
           inStock: inStock ? true : undefined,
-          minPrice: minPrice || undefined,
-          maxPrice: maxPrice || undefined,
+          minPrice: minPrice !== null ? minPrice : undefined,
+          maxPrice: maxPrice !== null ? maxPrice : undefined,
           categoryId: selectedCategory || undefined,
           brandId: selectedBrand || undefined,
         },
@@ -106,7 +116,12 @@ export const BulkExport = () => {
 
       const blob = await bulkService.exportItems(exportRequest);
       const text = await blob.text();
-      const data = JSON.parse(text);
+      let data: any[];
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error("Respuesta inválida del servidor");
+      }
 
       setPreviewData(data.slice(0, 20));
       setShowPreview(true);
@@ -136,13 +151,13 @@ export const BulkExport = () => {
       setExporting(true);
 
       const exportRequest: IBulkExportRequest = {
-        format: format as "csv" | "json" | "xlsx",
+        format: format,
         columns: selectedColumns,
         filters: {
           isActive: isActive ? true : undefined,
           inStock: inStock ? true : undefined,
-          minPrice: minPrice || undefined,
-          maxPrice: maxPrice || undefined,
+          minPrice: minPrice !== null ? minPrice : undefined,
+          maxPrice: maxPrice !== null ? maxPrice : undefined,
           categoryId: selectedCategory || undefined,
           brandId: selectedBrand || undefined,
         },
@@ -163,6 +178,7 @@ export const BulkExport = () => {
         summary: "Exportado",
         detail: `Archivo ${filename} descargado`,
       });
+      if (onComplete) setTimeout(onComplete, 1500);
     } catch (error: any) {
       toast.current?.show({
         severity: "error",
@@ -193,11 +209,7 @@ export const BulkExport = () => {
       <Toast ref={toast} />
 
       {/* Export Options */}
-      <Card>
-        <template slot="header">
-          <h3 className="m-0">Exportar artículos</h3>
-        </template>
-
+      <Card title="Exportar artículos">
         <div className="grid gap-4">
           {/* Format Selection */}
           <div className="col-12 md:col-6 lg:col-3">

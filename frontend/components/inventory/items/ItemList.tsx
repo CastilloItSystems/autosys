@@ -13,17 +13,15 @@ import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
-import { TabView, TabPanel } from "primereact/tabview";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
-import { Divider } from "primereact/divider";
-import { Image } from "primereact/image";
 import { Sidebar } from "primereact/sidebar";
 import { motion } from "framer-motion";
 import itemService, { Item } from "@/app/api/inventory/itemService";
 import searchService from "@/app/api/inventory/searchService";
 import type { ISearchFilters } from "@/app/api/inventory/searchService";
 import ItemForm from "./ItemForm";
+import ItemDetailDialog from "./ItemDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
@@ -40,6 +38,8 @@ const ItemList = () => {
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(12);
   const [showActive, setShowActive] = useState<boolean>(true);
+  const [sortField, setSortField] = useState<string>("name");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
 
   // UI
   const [loading, setLoading] = useState<boolean>(true);
@@ -68,7 +68,15 @@ const ItemList = () => {
       // Si no hay búsqueda ni filtros, cargar todo normal
       loadItems();
     }
-  }, [page, rows, searchQuery, showActive, advancedFilters]);
+  }, [
+    page,
+    rows,
+    searchQuery,
+    showActive,
+    advancedFilters,
+    sortField,
+    sortOrder,
+  ]);
 
   const loadItems = async () => {
     try {
@@ -77,11 +85,13 @@ const ItemList = () => {
         page: page + 1,
         limit: rows,
         isActive: showActive,
+        sortBy: sortField,
+        sortOrder: sortOrder,
       });
 
       const itemsData = response.data || [];
       const total = response.meta?.total || 0;
-
+      console.log("items", itemsData);
       setItems(Array.isArray(itemsData) ? itemsData : []);
       setTotalRecords(total);
     } catch (error) {
@@ -109,11 +119,14 @@ const ItemList = () => {
         },
         page: page + 1,
         limit: rows,
+        sortBy: sortField,
+        sortOrder: sortOrder,
       });
 
       // Mapear resultados de búsqueda a Item
       const searchItems = response.data.map((res: any) => ({
         ...res,
+        model: { name: res.modelName },
         category: { name: res.categoryName },
         brand: { name: res.brandName },
         // Images are already in correct structure from backend update
@@ -142,6 +155,11 @@ const ItemList = () => {
         : Math.floor(event.first / event.rows);
     setPage(newPage);
     setRows(event.rows);
+  };
+
+  const onSort = (event: any) => {
+    setSortField(event.sortField);
+    setSortOrder(event.sortOrder === 1 ? "asc" : "desc");
   };
 
   const handleSearch = (value: string) => {
@@ -182,7 +200,7 @@ const ItemList = () => {
     // showDetails(fullItem as unknown as Item);
 
     // Opción 2: Filtrar la tabla (elegida por consistencia)
-    setSearchQuery(selected.name);
+    setSearchQuery(selected.identity || selected.sku || selected.name);
     setPage(0);
   };
 
@@ -199,7 +217,9 @@ const ItemList = () => {
         <div className="flex flex-column">
           <span className="font-bold text-sm">{item.name}</span>
           <span className="text-xs text-600">
-            {item.sku} - {item.categoryName}
+            {item.sku || item.code ? `${item.sku || item.code} - ` : ""}
+            {item.identity ? `${item.identity} - ` : ""}
+            {item.categoryName}
           </span>
         </div>
         <span className="font-semibold text-primary text-sm">
@@ -347,11 +367,29 @@ const ItemList = () => {
     );
   };
 
+  const skuBodyTemplate = (rowData: Item) => {
+    return <span className="font-bold">{rowData.sku || "-"}</span>;
+  };
+
   const codeBodyTemplate = (rowData: Item) => {
     return (
-      <span className="font-bold text-primary">
-        {rowData.sku || rowData.code}
-      </span>
+      <span className="font-bold text-primary">{rowData.code || "-"}</span>
+    );
+  };
+
+  const identityBodyTemplate = (rowData: Item) => {
+    return <span>{rowData.identity || "-"}</span>;
+  };
+
+  const locationBodyTemplate = (rowData: Item) => {
+    return (
+      <div className="flex align-items-center gap-2">
+        <i
+          className="pi pi-map-marker text-500"
+          style={{ fontSize: "0.8rem" }}
+        ></i>
+        <span className="text-sm font-medium">{rowData.location || "-"}</span>
+      </div>
     );
   };
 
@@ -502,6 +540,11 @@ const ItemList = () => {
                 >
                   {item.name}
                 </div>
+                {item.identity && (
+                  <div className="text-600" style={{ fontSize: "0.72rem" }}>
+                    Identidad: {item.identity}
+                  </div>
+                )}
                 {item.brand?.name && (
                   <div
                     className="flex align-items-center justify-content-center gap-1 mt-1 text-600"
@@ -549,6 +592,15 @@ const ItemList = () => {
               className="flex align-items-center justify-content-center gap-2 px-3 pb-1 text-500"
               style={{ fontSize: "0.65rem" }}
             >
+              {item.location && (
+                <span title="Ubicación">
+                  <i
+                    className="pi pi-map-marker mr-1"
+                    style={{ fontSize: "0.6rem" }}
+                  />
+                  {item.location}
+                </span>
+              )}
               {item.images && item.images.length > 0 && (
                 <span>
                   <i
@@ -639,8 +691,12 @@ const ItemList = () => {
               </div>
               <div className="flex align-items-center gap-3 text-sm text-600 flex-wrap">
                 <span className="font-bold text-primary">
-                  {item.sku || item.code}
+                  {item.sku ? `SKU: ${item.sku}` : ""}
+                  {item.code
+                    ? ` ${item.sku ? "|" : ""} Código: ${item.code}`
+                    : ""}
                 </span>
+                {item.identity && <span>Identidad: {item.identity}</span>}
                 <span>
                   <i className="pi pi-tag text-xs mr-1" />
                   {item.category?.name || "-"}
@@ -649,6 +705,12 @@ const ItemList = () => {
                   <span>
                     <i className="pi pi-box text-xs mr-1" />
                     {item.brand.name}
+                  </span>
+                )}
+                {item.location && (
+                  <span>
+                    <i className="pi pi-map-marker text-xs mr-1" />
+                    {item.location}
                   </span>
                 )}
                 {item.tags && item.tags.length > 0 && (
@@ -782,7 +844,7 @@ const ItemList = () => {
               suggestions={suggestions}
               completeMethod={searchSuggestions}
               field="name"
-              placeholder="Buscar (SKU, Nombre, Desc...)"
+              placeholder="Buscar (SKU, Código, Identidad, Nombre...)"
               itemTemplate={itemSuggestionTemplate}
               onSelect={onSuggestionSelect}
               onChange={(e) => handleSearch(e.value)}
@@ -843,21 +905,30 @@ const ItemList = () => {
             totalRecords={totalRecords}
             rowsPerPageOptions={[6, 12, 24, 50]}
             onPage={onPageChange}
+            onSort={onSort}
+            sortField={sortField}
+            sortOrder={sortOrder === "asc" ? 1 : -1}
             dataKey="id"
             loading={loading}
             emptyMessage="No se encontraron artículos"
-            sortMode="multiple"
             lazy
             scrollable
             tableStyle={{ minWidth: "50rem" }}
             size="small"
           >
             <Column
+              field="sku"
+              header="SKU"
+              sortable
+              body={skuBodyTemplate}
+              style={{ minWidth: "110px" }}
+            />
+            <Column
               field="code"
               header="Código"
               sortable
               body={codeBodyTemplate}
-              style={{ minWidth: "80px" }}
+              style={{ minWidth: "110px" }}
             />
             <Column
               field="name"
@@ -866,8 +937,27 @@ const ItemList = () => {
               style={{ minWidth: "250px" }}
             />
             <Column
+              field="identity"
+              header="Identidad"
+              sortable
+              body={identityBodyTemplate}
+              style={{ minWidth: "160px" }}
+            />
+            <Column
+              field="location"
+              header="Ubicación"
+              body={locationBodyTemplate}
+              sortable
+              style={{ minWidth: "140px" }}
+            />
+            <Column
               field="brand.name"
               header="Marca"
+              style={{ minWidth: "120px" }}
+            />
+            <Column
+              field="model.name"
+              header="Modelo"
               style={{ minWidth: "120px" }}
             />
             <Column
@@ -939,7 +1029,9 @@ const ItemList = () => {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "80vw" }}
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
@@ -989,219 +1081,11 @@ const ItemList = () => {
         id="popup_menu"
       />
 
-      {/* Detalles Dialog */}
-      <Dialog
+      <ItemDetailDialog
         visible={detailsDialog}
-        style={{ width: "60vw" }}
-        header="Detalles del Artículo"
-        modal
+        item={selectedItem}
         onHide={() => setDetailsDialog(false)}
-        className="p-fluid"
-      >
-        {selectedItem && (
-          <div className="grid">
-            <div className="col-12 md:col-4">
-              <div className="flex flex-column align-items-center justify-content-center p-3 surface-card border-round h-full">
-                <img
-                  src={getPrimaryImage(selectedItem)}
-                  alt={selectedItem.name}
-                  className="w-full border-round shadow-2"
-                  style={{ maxHeight: "250px", objectFit: "contain" }}
-                />
-                <div className="mt-3 text-center">
-                  <Tag
-                    value={selectedItem.isActive ? "Activo" : "Inactivo"}
-                    severity={selectedItem.isActive ? "success" : "secondary"}
-                    rounded
-                    className="mb-2"
-                  />
-                  <div className="text-xl font-bold">
-                    {selectedItem.sku || selectedItem.code}
-                  </div>
-                  <span className="text-sm text-600">SKU / Código</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="col-12 md:col-8">
-              <TabView>
-                <TabPanel header="General">
-                  <div className="grid">
-                    <div className="col-12 mb-3">
-                      <span className="text-sm text-500 block">
-                        Nombre del Producto
-                      </span>
-                      <span className="text-xl font-bold text-900">
-                        {selectedItem.name}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Marca</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.brand?.name || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">Categoría</span>
-                      <span className="text-lg font-semibold">
-                        {selectedItem.category?.name || "-"}
-                      </span>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <span className="text-sm text-500 block">
-                        Descripción
-                      </span>
-                      <p className="m-0 text-700">
-                        {selectedItem.description ||
-                          "Sin descripción disponible."}
-                      </p>
-                    </div>
-
-                    <div className="col-12">
-                      <span className="text-sm text-500 block mb-2">
-                        Etiquetas
-                      </span>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedItem.tags && selectedItem.tags.length > 0 ? (
-                          selectedItem.tags.map((tag, i) => (
-                            <Tag key={i} value={tag} severity="info" rounded />
-                          ))
-                        ) : (
-                          <span className="text-sm text-600">-</span>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-
-                <TabPanel header="Inventario">
-                  <div className="grid">
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Stock Actual
-                        </span>
-                        <div className="text-2xl font-bold text-primary">
-                          {selectedItem.quantity || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Stock Mínimo
-                        </span>
-                        <div className="text-2xl font-bold text-orange-500">
-                          {selectedItem.minStock || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-4 mb-3">
-                      <div className="surface-card p-3 border-round border-1 border-surface-border text-center">
-                        <span className="block text-500 font-medium mb-2">
-                          Punto Reorden
-                        </span>
-                        <div className="text-2xl font-bold text-blue-500">
-                          {selectedItem.reorderPoint || 0}
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="col-12">
-                      <div className="flex align-items-center gap-2 mt-2">
-                        <span className="font-semibold">
-                          Estado de Inventario:
-                        </span>
-                        <Tag
-                          value={
-                            selectedItem.quantity === 0
-                              ? "Sin Stock"
-                              : selectedItem.quantity! <=
-                                (selectedItem.minStock || 0)
-                              ? "Bajo Stock"
-                              : "En Stock"
-                          }
-                          severity={getSeverity(selectedItem)}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-
-                <TabPanel header="Precios">
-                  <div className="grid">
-                    <div className="col-12 md:col-6 mb-3">
-                      <div className="surface-50 p-3 border-round">
-                        <span className="text-sm text-500 block">
-                          Precio de Venta
-                        </span>
-                        <span className="text-2xl font-bold text-green-600">
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                          }).format(selectedItem.salePrice || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="col-12 md:col-6 mb-3">
-                      <div className="surface-50 p-3 border-round">
-                        <span className="text-sm text-500 block">
-                          Precio de Costo
-                        </span>
-                        <span className="text-xl font-semibold text-600">
-                          {new Intl.NumberFormat("en-US", {
-                            style: "currency",
-                            currency: "USD",
-                          }).format(selectedItem.costPrice || 0)}
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="col-12">
-                      <Divider />
-                      <div className="flex justify-content-between align-items-center">
-                        <span className="text-900 font-medium">
-                          Margen de Ganancia
-                        </span>
-                        <span className="text-lg font-bold">
-                          {selectedItem.salePrice && selectedItem.costPrice ? (
-                            <Tag
-                              value={`${(
-                                ((selectedItem.salePrice -
-                                  selectedItem.costPrice) /
-                                  selectedItem.costPrice) *
-                                100
-                              ).toFixed(2)}%`}
-                              severity={
-                                ((selectedItem.salePrice -
-                                  selectedItem.costPrice) /
-                                  selectedItem.costPrice) *
-                                  100 <
-                                20
-                                  ? "warning"
-                                  : "success"
-                              }
-                              className="text-base px-3"
-                            />
-                          ) : (
-                            "-"
-                          )}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                </TabPanel>
-              </TabView>
-            </div>
-          </div>
-        )}
-      </Dialog>
+      />
 
       <Sidebar
         visible={filterSidebar}

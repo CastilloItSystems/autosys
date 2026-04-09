@@ -76,7 +76,17 @@ const exitNoteService = {
 
   async update(
     id: string,
-    data: Partial<CreateExitNote>,
+    data: Partial<CreateExitNote> & {
+      items?: {
+        itemId: string;
+        itemName?: string | null;
+        quantity: number;
+        pickedFromLocation?: string;
+        batchId?: string;
+        serialNumberId?: string;
+        notes?: string;
+      }[];
+    },
   ): Promise<ApiResponse<ExitNote>> {
     const res = await apiClient.put(`/inventory/exit-notes/${id}`, data);
     return res.data;

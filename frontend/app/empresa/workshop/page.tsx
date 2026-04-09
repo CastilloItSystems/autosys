@@ -1,9 +1,9 @@
 "use client";
 import React from "react";
-import WorkOrderList from "@/components/workshop/work-orders/WorkOrderList";
+import WorkshopDashboard from "@/components/workshop/dashboard/WorkshopDashboard";
 
-const WorkOrdersPage = () => {
-  return <WorkOrderList />;
+const WorkshopPage = () => {
+  return <WorkshopDashboard />;
 };
 
-export default WorkOrdersPage;
+export default WorkshopPage;

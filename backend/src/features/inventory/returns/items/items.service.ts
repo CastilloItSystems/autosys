@@ -101,7 +101,8 @@ class ReturnItemsService {
     })
 
     // Calculate refund amount (should be based on original invoice)
-    const refundAmount = quantity * Number(item.salePrice || item.costPrice || 0)
+    const refundAmount =
+      quantity * Number(item.salePrice || item.costPrice || 0)
 
     // Emit item added event
     EventService.getInstance().emit({

@@ -1,0 +1,125 @@
+// backend/prisma/models/workshop/serviceDiagnosis.prisma
+
+enum DiagnosisStatus {
+  DRAFT
+  COMPLETED
+  APPROVED_INTERNAL
+}
+
+enum DiagnosisFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ServiceDiagnosis {
+  id            String             @id @default(cuid())
+  receptionId   String?            @unique
+  reception     VehicleReception?  @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  serviceOrderId String?           @unique
+  serviceOrder   ServiceOrder?     @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  technicianId  String?            // userId del técnico
+
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  generalNotes  String?            @db.Text
+  severity      DiagnosisFindingSeverity @default(LOW)
+  status        DiagnosisStatus    @default(DRAFT)
+
+  findings      DiagnosisFinding[]
+  evidences     DiagnosisEvidence[]
+  suggestedOperations DiagnosisSuggestedOperation[]
+  suggestedParts      DiagnosisSuggestedPart[]
+  quotations    WorkshopQuotation[]
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnoses")
+}
+
+model DiagnosisFinding {
+  id                  String             @id @default(cuid())
+  diagnosisId         String
+  diagnosis           ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  category            String?            // Motor, Suspensión, etc.
+  description         String             @db.Text
+  severity            DiagnosisFindingSeverity @default(MEDIUM)
+  requiresClientAuth  Boolean            @default(true)
+  isHiddenFinding     Boolean            @default(false) // Hallazgo oculto detectado durante el desarme
+  clientApproved      Boolean?           // Para cuando el cliente acepta o rechaza
+  observation         String?            @db.Text
+
+  empresaId           String
+  empresa             Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  serviceOrderAdditionals ServiceOrderAdditional[]
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_findings")
+}
+
+model DiagnosisSuggestedOperation {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  operationId   String?
+  operation     WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+  description   String             @db.Text
+  estimatedMins Int                @default(0)
+  estimatedPrice Decimal           @default(0) @db.Decimal(12, 2)
+  approved      Boolean            @default(false)
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_suggested_operations")
+}
+
+model DiagnosisSuggestedPart {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  itemId        String?            
+  item          Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description   String             @db.Text
+  quantity      Decimal            @default(1) @db.Decimal(12, 2)
+  estimatedCost Decimal            @default(0) @db.Decimal(12, 2)
+  estimatedPrice Decimal           @default(0) @db.Decimal(12, 2)
+  approved      Boolean            @default(false)
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_suggested_parts")
+}
+
+model DiagnosisEvidence {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  type          String             // photo, video, document
+  url           String
+  description   String?            @db.Text
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_evidences")
+}

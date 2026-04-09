@@ -5,11 +5,13 @@ import {
   getUserById,
   updateUser,
   deleteUser,
+  uploadProfilePicture,
 } from '../controllers/users.controller.js'
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 import { authorize } from '../shared/middleware/authorize.middleware.js'
 import { PERMISSIONS } from '../shared/constants/permissions.js'
 import { extractEmpresa } from '../shared/middleware/empresa.middleware.js'
+import { FileUploadHelper } from '../shared/utils/fileUpload.js'
 
 const router = Router()
 
@@ -46,6 +48,12 @@ router.post(
 
 router.get('/:id', checkSelfOrAuthorize(PERMISSIONS.USERS_VIEW), getUserById)
 router.put('/:id', checkSelfOrAuthorize(PERMISSIONS.USERS_UPDATE), updateUser)
+router.post(
+  '/:id/profile-picture',
+  checkSelfOrAuthorize(PERMISSIONS.USERS_UPDATE),
+  FileUploadHelper.createMemoryUploader('image'),
+  uploadProfilePicture
+)
 router.delete(
   '/:id',
   extractEmpresa,

@@ -1,6 +1,7 @@
 services:
   api-backend:
-    build: ./backend
+    # build: ./backend
+    image: ghcr.io/castilloitsystems/autosys-backend:latest
     container_name: mi_backend_autosys
     restart: always
     ports:
@@ -15,13 +16,20 @@ services:
       - JWT_EXPIRES_IN=${JWT_EXPIRES_IN}
       - FRONTEND_URL=${FRONTEND_URL}
       - ADDITIONAL_CORS_ORIGINS=${ADDITIONAL_CORS_ORIGINS}
+      # Cloudflare R2 Configuration
+      - R2_ACCOUNT_ID=${R2_ACCOUNT_ID}
+      - R2_ACCESS_KEY_ID=${R2_ACCESS_KEY_ID}
+      - R2_SECRET_ACCESS_KEY=${R2_SECRET_ACCESS_KEY}
+      - R2_BUCKET_NAME=${R2_BUCKET_NAME}
+      - R2_PUBLIC_URL=${R2_PUBLIC_URL}
 
   web-frontend:
-    build:
-      context: ./frontend
-      args:
-        # Pasamos la variable pública para la compilación de Next.js
-        - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+    #  build:
+    #   context: ./frontend
+    #  args:
+    # Pasamos la variable pública para la compilación de Next.js
+    #   - NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL}
+    image: ghcr.io/castilloitsystems/autosys-frontend:latest
     container_name: mi_frontend_autosys
     restart: always
     ports:

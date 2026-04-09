@@ -108,9 +108,117 @@ export const PERMISSION_CATALOG = [
   { code: 'reports.view', description: 'Ver reportes' },
   { code: 'reports.export', description: 'Exportar reportes' },
   { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
+
+  // CRM: Clientes
+  { code: 'crm.customers.view', description: 'Ver clientes CRM' },
+  { code: 'crm.customers.create', description: 'Crear clientes CRM' },
+  { code: 'crm.customers.update', description: 'Actualizar clientes CRM' },
+  { code: 'crm.customers.delete', description: 'Eliminar clientes CRM' },
+
+  // CRM: Vehículos del cliente
+  { code: 'crm.vehicles.view', description: 'Ver vehículos de clientes' },
+  { code: 'crm.vehicles.create', description: 'Registrar vehículos de clientes' },
+  { code: 'crm.vehicles.update', description: 'Actualizar vehículos de clientes' },
+  { code: 'crm.vehicles.delete', description: 'Eliminar vehículos de clientes' },
+
+  // CRM: Leads / Oportunidades
+  { code: 'crm.leads.view', description: 'Ver leads y oportunidades' },
+  { code: 'crm.leads.create', description: 'Crear leads y oportunidades' },
+  { code: 'crm.leads.update', description: 'Actualizar leads y oportunidades' },
+  { code: 'crm.leads.delete', description: 'Eliminar leads y oportunidades' },
+
+  // CRM: Interacciones
+  { code: 'crm.interactions.view', description: 'Ver interacciones con clientes' },
+  { code: 'crm.interactions.create', description: 'Registrar interacciones con clientes' },
+  { code: 'crm.interactions.update', description: 'Actualizar interacciones con clientes' },
+  { code: 'crm.interactions.delete', description: 'Eliminar interacciones con clientes' },
+
+  // CRM: Actividades / Seguimientos
+  { code: 'crm.activities.view', description: 'Ver actividades CRM' },
+  { code: 'crm.activities.create', description: 'Crear actividades CRM' },
+  { code: 'crm.activities.update', description: 'Actualizar actividades CRM' },
+  { code: 'crm.activities.delete', description: 'Eliminar actividades CRM' },
+
+  // CRM: Cotizaciones
+  { code: 'crm.quotes.view', description: 'Ver cotizaciones CRM' },
+  { code: 'crm.quotes.create', description: 'Crear cotizaciones CRM' },
+  { code: 'crm.quotes.update', description: 'Actualizar cotizaciones CRM' },
+  { code: 'crm.quotes.delete', description: 'Eliminar cotizaciones CRM' },
+
+  // CRM: Casos / Reclamos
+  { code: 'crm.cases.view', description: 'Ver casos y reclamos CRM' },
+  { code: 'crm.cases.create', description: 'Crear casos y reclamos CRM' },
+  { code: 'crm.cases.update', description: 'Actualizar casos y reclamos CRM' },
+  { code: 'crm.cases.delete', description: 'Eliminar casos y reclamos CRM' },
+
+  // Taller
+  { code: 'workshop.view', description: 'Ver órdenes de taller' },
+  { code: 'workshop.create', description: 'Crear órdenes de taller' },
+  { code: 'workshop.update', description: 'Actualizar órdenes de taller' },
+  { code: 'workshop.delete', description: 'Eliminar órdenes de taller' },
 ]
 
 // ── Default system roles per empresa ──────────────────────────────────────
+
+const ALL_CRM = [
+  'crm.customers.view',
+  'crm.customers.create',
+  'crm.customers.update',
+  'crm.customers.delete',
+  'crm.vehicles.view',
+  'crm.vehicles.create',
+  'crm.vehicles.update',
+  'crm.vehicles.delete',
+  'crm.leads.view',
+  'crm.leads.create',
+  'crm.leads.update',
+  'crm.leads.delete',
+  'crm.interactions.view',
+  'crm.interactions.create',
+  'crm.interactions.update',
+  'crm.interactions.delete',
+  'crm.activities.view',
+  'crm.activities.create',
+  'crm.activities.update',
+  'crm.activities.delete',
+  'crm.quotes.view',
+  'crm.quotes.create',
+  'crm.quotes.update',
+  'crm.quotes.delete',
+  'crm.cases.view',
+  'crm.cases.create',
+  'crm.cases.update',
+  'crm.cases.delete',
+]
+
+const VIEW_CRM = [
+  'crm.customers.view',
+  'crm.vehicles.view',
+  'crm.leads.view',
+  'crm.interactions.view',
+  'crm.activities.view',
+  'crm.quotes.view',
+  'crm.cases.view',
+]
+
+const CRM_QUOTES_VENDEDOR = [
+  'crm.quotes.view',
+  'crm.quotes.create',
+  'crm.quotes.update',
+]
+
+const CRM_CASES_VENDEDOR = [
+  'crm.cases.view',
+  'crm.cases.create',
+  'crm.cases.update',
+]
+
+const ALL_WORKSHOP = [
+  'workshop.view',
+  'workshop.create',
+  'workshop.update',
+  'workshop.delete',
+]
 
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   OWNER: [
@@ -181,6 +289,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   ADMIN: [
     'users.view',
@@ -249,6 +359,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   GERENTE: [
     'users.view',
@@ -313,6 +425,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
   ALMACENISTA: [
     'inventory.view',
@@ -335,6 +449,14 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'transfers.view',
     'transfers.create',
     'transfers.update',
+    // Taller: técnicos operan órdenes
+    'workshop.view',
+    'workshop.create',
+    'workshop.update',
+    // CRM Cotizaciones
+    ...CRM_QUOTES_VENDEDOR,
+    // CRM Casos
+    ...CRM_CASES_VENDEDOR,
   ],
   VENDEDOR: [
     'inventory.view',
@@ -367,6 +489,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'payments.delete',
     'payments.approve',
     'reports.view',
+    ...ALL_CRM,
+    'workshop.view',
   ],
   VIEWER: [
     'users.view',
@@ -383,6 +507,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'quotes.view',
     'payments.view',
     'reports.view',
+    ...VIEW_CRM,
+    'workshop.view',
   ],
 }
 

@@ -133,7 +133,8 @@ export class CycleCountItemResponseDTO {
   expectedQuantity: number
   countedQuantity: number | null | undefined
   variance: number | null | undefined
-  location: string | null
+  location: string | null        // Snapshot original del stock
+  locationFound: string | null   // Ubicación encontrada por el contador
   notes?: string | null
   item?: any
   createdAt: Date
@@ -147,6 +148,7 @@ export class CycleCountItemResponseDTO {
     this.countedQuantity = data.countedQuantity ?? undefined
     this.variance = data.variance ?? undefined
     this.location = data.location ?? null
+    this.locationFound = data.locationFound ?? null
     this.notes = data.notes ?? null
     this.item = data.item
     this.createdAt = data.createdAt

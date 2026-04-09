@@ -1,0 +1,37 @@
+// backend/prisma/models/workshop/serviceOrderHistory.prisma
+
+model ServiceOrderStatusHistory {
+  id             String             @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  previousStatus ServiceOrderStatus?
+  newStatus      ServiceOrderStatus
+  comment        String?            @db.Text
+  userId         String             // Usuario que hizo el cambio
+
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("workshop_so_status_history")
+}
+
+model AppointmentStatusHistory {
+  id             String             @id @default(cuid())
+  appointmentId  String
+  appointment    ServiceAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  previousStatus AppointmentStatus?
+  newStatus      AppointmentStatus
+  comment        String?            @db.Text
+  userId         String             // Usuario que hizo el cambio
+
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+
+  @@index([appointmentId])
+  @@index([empresaId])
+  @@map("workshop_appointment_status_history")
+}

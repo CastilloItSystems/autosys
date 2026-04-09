@@ -46,21 +46,6 @@
  *     responses:
  *       200: { description: OK }
  *
- * /inventory/items/search:
- *   get:
- *     summary: Buscar artículos
- *     tags: [Inventory - Items]
- *     parameters:
- *       - in: query
- *         name: term
- *         required: true
- *         schema: { type: string }
- *       - in: query
- *         name: limit
- *         schema: { type: integer, default: 20 }
- *     responses:
- *       200: { description: OK }
- *
  * /inventory/items/{id}:
  *   get:
  *     summary: Obtener artículo por ID
@@ -152,20 +137,27 @@ import {
   itemIdSchema,
   getItemsQuerySchema,
   updatePricingSchema,
-  bulkCreateSchema,
-  bulkUpdateSchema,
   generateSkuSchema,
   checkAvailabilitySchema,
 } from './items.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import bulkRouter from './bulk/bulk.routes.js'
+import searchRouter from './search/search.routes.js'
+import imagesRouter from './images/images.routes.js'
 
 const router = Router()
+
+// ---------------------------------------------------------------------------
+// Bulk operations sub-router (/bulk/import, /bulk/export, etc.)
+// ---------------------------------------------------------------------------
+router.use('/bulk', bulkRouter)
+router.use('/search', searchRouter) // Sub-router for /search endpoints
+router.use('/images', imagesRouter) // Sub-router for /images endpoints
 
 // ---------------------------------------------------------------------------
 // Rutas específicas ANTES de /:id
 // ---------------------------------------------------------------------------
 router.get('/active', authorize(PERMISSIONS.ITEMS_VIEW), controller.getActive)
-router.get('/search', authorize(PERMISSIONS.ITEMS_VIEW), controller.search)
 router.get(
   '/low-stock',
   authorize(PERMISSIONS.ITEMS_VIEW),
@@ -206,13 +198,6 @@ router.post(
 )
 
 router.post(
-  '/bulk',
-  authorize(PERMISSIONS.ITEMS_CREATE),
-  validateRequest(bulkCreateSchema, 'body'),
-  controller.bulkCreate
-)
-
-router.post(
   '/generate-sku',
   authorize(PERMISSIONS.ITEMS_CREATE),
   validateRequest(generateSkuSchema, 'body'),
@@ -224,13 +209,6 @@ router.post(
   authorize(PERMISSIONS.ITEMS_VIEW),
   validateRequest(checkAvailabilitySchema, 'body'),
   controller.checkAvailability
-)
-
-router.put(
-  '/bulk-update',
-  authorize(PERMISSIONS.ITEMS_UPDATE),
-  validateRequest(bulkUpdateSchema, 'body'),
-  controller.bulkUpdate
 )
 
 // ---------------------------------------------------------------------------

@@ -27,7 +27,11 @@ type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const MSG = INVENTORY_MESSAGES.stock
 
-const STOCK_INCLUDE = { item: true, warehouse: true } as const
+// Include apenas relaciones; los campos escalares (incluyendo location) se incluyen automáticamente
+const STOCK_INCLUDE = {
+  item: { include: { category: { select: { id: true, name: true } } } },
+  warehouse: true,
+} as const
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -89,6 +93,16 @@ export class StockService {
     const quantityReal = data.quantityReal ?? 0
     const quantityReserved = data.quantityReserved ?? 0
 
+    // Si no se proporcionó una ubicación, usar la ubicación del item por defecto
+    let stockLocation = data.location ?? null
+    if (stockLocation === null) {
+      const item = await (db as PrismaClient).item.findUnique({
+        where: { id: data.itemId },
+        select: { location: true },
+      })
+      stockLocation = item?.location ?? null
+    }
+
     const stock = await (db as PrismaClient).stock.create({
       data: {
         itemId: data.itemId,
@@ -96,6 +110,7 @@ export class StockService {
         quantityReal,
         quantityReserved,
         quantityAvailable: quantityReal - quantityReserved,
+        location: stockLocation,
         averageCost: data.averageCost
           ? parseFloat(String(data.averageCost))
           : 0,
@@ -481,6 +496,9 @@ export class StockService {
     if (data.quantityReserved !== undefined) {
       newQuantityReserved = data.quantityReserved
       updateData.quantityReserved = data.quantityReserved
+    }
+    if (data.location !== undefined) {
+      updateData.location = data.location
     }
     if (data.averageCost !== undefined) {
       updateData.averageCost = parseFloat(String(data.averageCost))

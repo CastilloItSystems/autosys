@@ -11,43 +11,67 @@ model Invoice {
   invoiceNumber      String        @unique
   fiscalNumber       String?       @unique // Número de control fiscal
   status             InvoiceStatus @default(ACTIVE)
-  
+
   empresaId          String
   empresa            Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Pre-factura
+
+  // Relación con PreInvoice
   preInvoiceId       String        @unique
   preInvoice         PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Pago
+
+  // Relación con Payment (el pago que generó esta factura)
   paymentId          String        @unique
   payment            Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  
+
   customerId         String
   customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
+
   // Relaciones
   items              InvoiceItem[]
-  
-  // Totales
+
+  // Workshop: OT facturada con esta invoice
+  serviceOrder       ServiceOrder?
+
+  // ── Moneda ──
+  currency           OrderCurrency @default(USD)
+  exchangeRate       Decimal?      @db.Decimal(14, 4)
+
+  // ── Descuento general ──
+  discountAmount     Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto      Decimal       @default(0) @db.Decimal(12, 2)
+  baseImponible      Decimal       @default(0) @db.Decimal(12, 2)
+  baseExenta         Decimal       @default(0) @db.Decimal(12, 2)
+  taxAmount          Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate            Decimal       @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies        Boolean       @default(false)
+  igtfRate           Decimal       @default(3) @db.Decimal(5, 2)
+  igtfAmount         Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Total ──
+  total              Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Legacy ──
   subtotal           Decimal       @default(0) @db.Decimal(12, 2)
   discount           Decimal       @default(0) @db.Decimal(12, 2)
   tax                Decimal       @default(0) @db.Decimal(12, 2)
-  total              Decimal       @default(0) @db.Decimal(12, 2)
-  
+
   notes              String?       @db.Text
-  
+
   // Fiscal
   invoiceDate        DateTime      @default(now())
-  
+
   // Auditoría
   issuedBy           String?
-  
+
   // Anulación
   cancelledAt        DateTime?
   cancelledBy        String?
   cancellationReason String?       @db.Text
-  
+
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -55,6 +79,7 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([fiscalNumber])
   @@index([customerId])
+  @@index([preInvoiceId])
   @@index([status])
   @@index([invoiceDate])
   @@index([empresaId])

@@ -92,6 +92,44 @@ const ALL_PAYMENTS = [
 ]
 const ALL_REPORTS = ['reports.view', 'reports.export', 'reports.approve']
 
+const ALL_CRM = [
+  'crm.customers.view',
+  'crm.customers.create',
+  'crm.customers.update',
+  'crm.customers.delete',
+  'crm.vehicles.view',
+  'crm.vehicles.create',
+  'crm.vehicles.update',
+  'crm.vehicles.delete',
+  'crm.leads.view',
+  'crm.leads.create',
+  'crm.leads.update',
+  'crm.leads.delete',
+  'crm.interactions.view',
+  'crm.interactions.create',
+  'crm.interactions.update',
+  'crm.interactions.delete',
+  'crm.activities.view',
+  'crm.activities.create',
+  'crm.activities.update',
+  'crm.activities.delete',
+]
+
+const VIEW_CRM = [
+  'crm.customers.view',
+  'crm.vehicles.view',
+  'crm.leads.view',
+  'crm.interactions.view',
+  'crm.activities.view',
+]
+
+const ALL_WORKSHOP = [
+  'workshop.view',
+  'workshop.create',
+  'workshop.update',
+  'workshop.delete',
+]
+
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   // Acceso total
   OWNER: [
@@ -109,6 +147,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
 
   // Como OWNER pero sin eliminar usuarios
@@ -130,6 +170,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
 
   // Gerencia operativa: inventario completo + ventas completo
@@ -151,6 +193,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_CRM,
+    ...ALL_WORKSHOP,
   ],
 
   // Almacenista: operaciones de inventario y stock, sin ventas
@@ -175,6 +219,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'transfers.view',
     'transfers.create',
     'transfers.update',
+    'workshop.view',
+    'workshop.create',
+    'workshop.update',
   ],
 
   // Vendedor: módulos de ventas + inventario en modo lectura
@@ -189,6 +236,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     'reports.view',
+    ...ALL_CRM,
+    'workshop.view',
   ],
 
   // Solo lectura en todo
@@ -207,6 +256,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'quotes.view',
     'payments.view',
     'reports.view',
+    ...VIEW_CRM,
+    'workshop.view',
   ],
 }
 

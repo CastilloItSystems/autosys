@@ -35,6 +35,8 @@ export class SearchService {
     const where: any = {
       OR: [
         { sku: { contains: searchQuery.query, mode: 'insensitive' } },
+        { code: { contains: searchQuery.query, mode: 'insensitive' } },
+        { identity: { contains: searchQuery.query, mode: 'insensitive' } },
         { name: { contains: searchQuery.query, mode: 'insensitive' } },
         { description: { contains: searchQuery.query, mode: 'insensitive' } },
       ],
@@ -59,13 +61,41 @@ export class SearchService {
 
     const total = await prisma.item.count({ where })
 
+    // Whitelist for sorting to prevent injection and handle mapping
+    const SORT_MAPPING: Record<string, any> = {
+      name: { name: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      sku: { sku: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      code: { code: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      identity: { identity: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      location: { location: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' },
+      salePrice: {
+        salePrice: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc',
+      },
+      createdAt: {
+        createdAt: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc',
+      },
+    }
+
+    const orderBy =
+      searchQuery.sortBy && SORT_MAPPING[searchQuery.sortBy]
+        ? SORT_MAPPING[searchQuery.sortBy]
+        : { name: searchQuery.sortOrder === 'desc' ? 'desc' : 'asc' }
+
     const items = await prisma.item.findMany({
       where,
       select: {
         id: true,
         sku: true,
+        code: true,
+        identity: true,
+        location: true,
         name: true,
         description: true,
+        model: {
+          select: {
+            name: true,
+          },
+        },
         salePrice: true,
         costPrice: true,
         minStock: true,
@@ -92,14 +122,10 @@ export class SearchService {
           },
           take: 1,
         },
-        // Asumiendo que hay un campo quantity o calculo de stock, si no está directo en item,
-        // habría que ver cómo lo obtiene el getAll. Por ahora agrego lo que es seguro del modelo.
       },
       skip,
       take,
-      orderBy: {
-        name: searchQuery.sortOrder === 'asc' ? 'asc' : 'desc',
-      },
+      orderBy: orderBy,
     })
 
     // Calcular score de relevancia
@@ -110,6 +136,14 @@ export class SearchService {
       // SKU match exacto tiene mayor score
       if (item.sku.toLowerCase() === queryLower) score += 100
       else if (item.sku.toLowerCase().includes(queryLower)) score += 50
+
+      // Code match
+      if (item.code?.toLowerCase() === queryLower) score += 90
+      else if (item.code?.toLowerCase().includes(queryLower)) score += 45
+
+      // Identity match
+      if (item.identity?.toLowerCase() === queryLower) score += 85
+      else if (item.identity?.toLowerCase().includes(queryLower)) score += 42
 
       // Nombre match
       if (item.name.toLowerCase() === queryLower) score += 80
@@ -124,10 +158,14 @@ export class SearchService {
       return {
         id: item.id,
         sku: item.sku,
+        code: item.code,
+        identity: item.identity,
+        location: item.location,
         name: item.name,
         description: item.description,
         categoryName: item.category?.name,
         brandName: item.brand?.name,
+        modelName: item.model?.name,
         salePrice: Number(item.salePrice),
         costPrice: Number(item.costPrice),
         minStock: item.minStock,
@@ -140,8 +178,8 @@ export class SearchService {
       }
     })
 
-    // Ordenar por score si es búsqueda libre
-    if (searchQuery.sortBy === 'relevance') {
+    // Ordenar por score si es búsqueda libre y NO se especificó un ordenamiento de columna
+    if (searchQuery.sortBy === 'relevance' || !searchQuery.sortBy) {
       results.sort((a, b) => b.score - a.score)
     }
 
@@ -165,6 +203,8 @@ export class SearchService {
     if (query && query.trim().length > 0) {
       where.OR = [
         { sku: { contains: query, mode: 'insensitive' } },
+        { code: { contains: query, mode: 'insensitive' } },
+        { identity: { contains: query, mode: 'insensitive' } },
         { name: { contains: query, mode: 'insensitive' } },
         { description: { contains: query, mode: 'insensitive' } },
       ]
@@ -293,6 +333,7 @@ export class SearchService {
       where: {
         OR: [
           { sku: { contains: query, mode: 'insensitive' } },
+          { identity: { contains: query, mode: 'insensitive' } },
           { name: { contains: query, mode: 'insensitive' } },
         ],
         isActive: true,

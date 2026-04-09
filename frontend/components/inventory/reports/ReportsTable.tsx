@@ -38,7 +38,11 @@ interface ReportsTableProps {
     | "abc"
     | "turnover"
     | "low-stock"
-    | "dead-stock";
+    | "dead-stock"
+    | "sales-by-period"
+    | "sales-by-customer"
+    | "sales-by-product"
+    | "sales-pending-invoices";
   onPageChange: (e: DataTablePageEvent) => void;
   filters?: {
     search?: string;
@@ -54,6 +58,8 @@ interface ReportsTableProps {
   showSearchFilter?: boolean;
   customFilters?: ReactNode;
   footer?: ReactNode;
+  /** Override the default export handler (e.g. for sales reports that use a different endpoint) */
+  onExport?: (format: ReportFormat, filters: Record<string, any>) => Promise<void>;
 }
 
 // ============================================================================
@@ -78,6 +84,7 @@ const ReportsTable = ({
   showSearchFilter = false,
   customFilters,
   footer,
+  onExport,
 }: ReportsTableProps) => {
   const toast = useRef<Toast>(null);
   const [exporting, setExporting] = useState<ReportFormat | null>(null);
@@ -106,7 +113,11 @@ const ReportsTable = ({
         exportFilters.classification = filters.classification;
       }
 
-      await reportService.download(reportType, format, exportFilters);
+      if (onExport) {
+        await onExport(format, exportFilters);
+      } else {
+        await reportService.download(reportType as any, format, exportFilters);
+      }
 
       toast.current?.show({
         severity: "success",
@@ -198,36 +209,45 @@ const ReportsTable = ({
         </div>
       }
       right={
-        <div className="flex gap-2">
+        <div className="flex gap-2 align-items-center">
+          {exporting && (
+            <span className="text-500 text-sm">
+              <i className="pi pi-spin pi-spinner mr-1" />
+              Generando {exporting.toUpperCase()}...
+            </span>
+          )}
           <Button
-            icon="pi pi-download"
+            icon={exporting === ReportFormat.CSV ? "pi pi-spin pi-spinner" : "pi pi-file"}
             label="CSV"
             severity="secondary"
             size="small"
+            outlined
             onClick={() => handleExport(ReportFormat.CSV)}
-            loading={exporting === ReportFormat.CSV}
             disabled={exporting !== null || data.length === 0}
-            title="Descargar en formato CSV"
+            tooltip="Descargar en formato CSV"
+            tooltipOptions={{ position: "top" }}
           />
           <Button
-            icon="pi pi-download"
+            icon={exporting === ReportFormat.EXCEL ? "pi pi-spin pi-spinner" : "pi pi-file-excel"}
             label="Excel"
-            severity="secondary"
+            severity="success"
             size="small"
+            outlined
             onClick={() => handleExport(ReportFormat.EXCEL)}
-            loading={exporting === ReportFormat.EXCEL}
             disabled={exporting !== null || data.length === 0}
-            title="Descargar en formato Excel"
+            tooltip="Descargar en formato Excel"
+            tooltipOptions={{ position: "top" }}
           />
           <Button
-            icon="pi pi-download"
+            icon={exporting === ReportFormat.PDF ? "pi pi-spin pi-spinner" : "pi pi-file-pdf"}
             label="PDF"
-            severity="secondary"
+            severity="danger"
             size="small"
+            outlined
             onClick={() => handleExport(ReportFormat.PDF)}
-            loading={exporting === ReportFormat.PDF}
             disabled={exporting !== null || data.length === 0}
-            title="Descargar en formato PDF"
+            tooltip="Descargar en formato PDF"
+            tooltipOptions={{ position: "top" }}
           />
         </div>
       }
@@ -253,7 +273,13 @@ const ReportsTable = ({
           stripedRows
           scrollable
           size="small"
-          emptyMessage="No hay datos disponibles"
+          emptyMessage={
+            <div className="flex flex-column align-items-center py-5 text-500 gap-2">
+              <i className="pi pi-inbox text-4xl" />
+              <span className="text-lg">No hay datos disponibles</span>
+              <span className="text-sm">Ajusta los filtros o verifica los datos de inventario</span>
+            </div>
+          }
           className="w-full"
         >
           {columns.map((col) => (

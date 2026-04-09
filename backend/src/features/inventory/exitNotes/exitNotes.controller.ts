@@ -43,8 +43,11 @@ class ExitNotesController {
       recipientId,
       startDate,
       endDate,
+      search,
       page,
       limit,
+      sortBy,
+      sortOrder,
     } = req.query
 
     const filters: {
@@ -54,6 +57,7 @@ class ExitNotesController {
       recipientId?: string
       startDate?: Date
       endDate?: Date
+      search?: string
     } = {}
 
     if (type && Object.values(ExitNoteType).includes(type as ExitNoteType))
@@ -67,16 +71,21 @@ class ExitNotesController {
     if (recipientId) filters.recipientId = String(recipientId)
     if (startDate) filters.startDate = new Date(String(startDate))
     if (endDate) filters.endDate = new Date(String(endDate))
+    if (search) filters.search = String(search)
 
     const pageNum = Number(page) || 1
     const limitNum = parseLimit(limit, 20)
+    const sortByField = typeof sortBy === 'string' ? sortBy : 'createdAt'
+    const sortOrderDir = sortOrder === 'asc' ? 'asc' : 'desc'
 
     const result = await exitNotesService.findAll(
       filters,
       pageNum,
       limitNum,
       empresaId,
-      req.prisma
+      req.prisma,
+      sortByField,
+      sortOrderDir
     )
     const items = result.data.map((note) => new ExitNoteResponseDTO(note))
 

@@ -49,11 +49,13 @@ export class EntryNoteController {
       status,
       purchaseOrderId,
       warehouseId,
+      catalogSupplierId,
       receivedBy,
       receivedFrom,
       receivedTo,
       sortBy,
       sortOrder,
+      search,
     } = req.query
 
     const filters: IEntryNoteFilters = {}
@@ -62,9 +64,11 @@ export class EntryNoteController {
       filters.status = status as any
     if (purchaseOrderId) filters.purchaseOrderId = String(purchaseOrderId)
     if (warehouseId) filters.warehouseId = String(warehouseId)
+    if (catalogSupplierId) filters.catalogSupplierId = String(catalogSupplierId)
     if (receivedBy) filters.receivedBy = String(receivedBy)
     if (receivedFrom) filters.receivedFrom = new Date(String(receivedFrom))
     if (receivedTo) filters.receivedTo = new Date(String(receivedTo))
+    if (search) filters.search = String(search)
     filters.page = Number(page) || 1
     filters.limit = parseLimit(limit, 20)
     if (sortBy) filters.sortBy = String(sortBy)

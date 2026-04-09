@@ -23,9 +23,11 @@ import { handleFormError } from "@/utils/errorHandlers";
 
 interface StockFormProps {
   stock: Stock | null;
-  onSave: () => void;
-  onCancel: () => void;
+  onSave: () => void | Promise<void>;
+  onCancel?: () => void;
   toast: React.RefObject<any>;
+  onSubmittingChange?: (submitting: boolean) => void;
+  formId?: string;
 }
 
 export default function StockForm({
@@ -33,6 +35,8 @@ export default function StockForm({
   onSave,
   onCancel,
   toast,
+  onSubmittingChange,
+  formId = "stock-form",
 }: StockFormProps) {
   const [isLoading, setIsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -53,11 +57,13 @@ export default function StockForm({
     reset,
   } = useForm<CreateStock | UpdateStock>({
     resolver: zodResolver(schema),
+    mode: "onBlur",
     defaultValues: {
       ...(isEditing
         ? {
             quantityReal: stock.quantityReal ?? 0,
             quantityReserved: stock.quantityReserved ?? 0,
+            location: stock.location ?? "",
             averageCost: stock.averageCost ?? 0,
           }
         : {
@@ -65,6 +71,7 @@ export default function StockForm({
             warehouseId: "",
             quantityReal: 0,
             quantityReserved: 0,
+            location: "",
             averageCost: 0,
           }),
     },
@@ -106,17 +113,19 @@ export default function StockForm({
 
   const onSubmit = async (data: CreateStock | UpdateStock) => {
     setSubmitting(true);
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (isEditing) {
         await stockService.update(stock.id, data as UpdateStock);
       } else {
         await stockService.create(data as CreateStock);
       }
-      onSave();
+      await onSave();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
       setSubmitting(false);
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
@@ -129,7 +138,7 @@ export default function StockForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)}>
+    <form id={formId} onSubmit={handleSubmit(onSubmit)}>
       <div className="grid formgrid row-gap-2 p-3">
         {/* Artículo — solo para crear */}
         {!isEditing && (
@@ -216,7 +225,7 @@ export default function StockForm({
         )}
 
         {/* Cantidad Real */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="quantityReal" className="font-medium text-900">
             Cantidad Real
           </label>
@@ -241,7 +250,7 @@ export default function StockForm({
         </div>
 
         {/* Cantidad Reservada */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="quantityReserved" className="font-medium text-900">
             Reservado
           </label>
@@ -265,8 +274,34 @@ export default function StockForm({
           )}
         </div>
 
+        {/* Ubicación Física */}
+        <div className="field col-12 md:col-3">
+          <label htmlFor="location" className="font-medium text-900">
+            Ubicación Física
+          </label>
+          <Controller
+            name="location"
+            control={control}
+            render={({ field }) => (
+              <input
+                id="location"
+                type="text"
+                className={classNames("p-inputtext p-component w-full", {
+                  "p-invalid": errors.location,
+                })}
+                value={(field.value as string) || ""}
+                onChange={(e) => field.onChange(e.target.value)}
+                placeholder="Ej. Pasillo A"
+              />
+            )}
+          />
+          {errors.location && (
+            <small className="p-error">{errors.location.message}</small>
+          )}
+        </div>
+
         {/* Costo Promedio */}
-        <div className="field col-12 md:col-4">
+        <div className="field col-12 md:col-3">
           <label htmlFor="averageCost" className="font-medium text-900">
             Costo Promedio
           </label>
@@ -290,25 +325,6 @@ export default function StockForm({
           {errors.averageCost && (
             <small className="p-error">{errors.averageCost.message}</small>
           )}
-        </div>
-
-        {/* Botones */}
-        <div className="field col-12 flex justify-content-end gap-2 mt-2">
-          <Button
-            type="button"
-            label="Cancelar"
-            icon="pi pi-times"
-            outlined
-            onClick={onCancel}
-            disabled={submitting}
-          />
-          <Button
-            type="submit"
-            label={isEditing ? "Actualizar" : "Crear"}
-            icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
-            severity="success"
-            disabled={submitting}
-          />
         </div>
       </div>
     </form>

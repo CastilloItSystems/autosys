@@ -1,0 +1,74 @@
+// backend/prisma/models/crm/customerVehicle.prisma
+// Vehículos registrados a nombre de un cliente.
+// Compartido entre módulos: taller (service orders) y vehiculos (trade-in, historial).
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  ELECTRIC
+  HYBRID
+  GAS
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  CVT
+}
+
+model CustomerVehicle {
+  id            String            @id @default(uuid())
+
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  empresaId     String
+  empresa       Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Identificación
+  plate         String            // Placa
+  vin           String?           // Número de chasis / VIN
+
+  // Marca y modelo centralizados desde inventario
+  brandId       String?
+  brand         Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  modelId       String?
+  vehicleModel  Model?            @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  // El año se toma de Model.year; este campo es override cuando difiere
+  year          Int?
+
+  color         String?
+  fuelType      FuelType?
+  transmission  TransmissionType?
+
+  // Kilometraje al momento del registro
+  mileage       Int?
+
+  // Fue adquirido en el concesionario?
+  purchasedHere Boolean           @default(false)
+
+  notes         String?           @db.Text
+  isActive      Boolean           @default(true)
+
+  // Taller
+  serviceOrders    ServiceOrder[]
+  appointments     ServiceAppointment[]
+  receptions       VehicleReception[]
+  warranties       WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
+
+  // CRM: Casos / Reclamos
+  cases            Case[]
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([empresaId, plate])
+  @@map("customer_vehicles")
+  @@index([customerId])
+  @@index([brandId])
+  @@index([modelId])
+  @@index([vin])
+  @@index([empresaId])
+}

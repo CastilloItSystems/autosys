@@ -1,23 +1,46 @@
 // backend/prisma/models/inventory/purchaseOrderItem.prisma
 
+enum TaxType {
+  IVA       // Gravado — actualmente 16%
+  EXEMPT    // Exento (0%)
+  REDUCED   // Reducido (8%) — por si aplica en futuro
+}
+
 model PurchaseOrderItem {
-  id                String        @id @default(uuid())
-  
+  id                String          @id @default(uuid())
+
   purchaseOrderId   String
-  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  
+  purchaseOrder     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
   itemId            String
-  item              Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  item              Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
+  itemName         String?          @db.VarChar(255)
+  // ── Cantidades ──
   quantityOrdered   Int
-  quantityReceived  Int           @default(0)
-  quantityPending   Int           // Calculado: ordered - received
-  
-  unitCost          Decimal       @db.Decimal(12, 2)
-  subtotal          Decimal       @db.Decimal(12, 2)
-  
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  quantityReceived  Int             @default(0)
+  quantityPending   Int             // Calculado: ordered - received
+
+  // ── Precio ──
+  unitCost          Decimal         @db.Decimal(12, 2)
+
+  // ── Descuento por línea ──
+  discountPercent   Decimal         @default(0) @db.Decimal(5, 2)   // % descuento
+  discountAmount    Decimal         @default(0) @db.Decimal(12, 2)  // Monto desc. calculado
+
+  // ── Impuesto por línea ──
+  taxType           TaxType         @default(IVA)                   // IVA, Exento, Reducido
+  taxRate           Decimal         @default(16) @db.Decimal(5, 2)  // % según taxType
+  taxAmount         Decimal         @default(0) @db.Decimal(12, 2)  // IVA calculado para esta línea
+
+  // ── Subtotal línea (qty × unitCost - descuento) ──
+  subtotal          Decimal         @db.Decimal(12, 2)
+
+  // ── Total línea (subtotal + taxAmount) ──
+  totalLine         Decimal         @default(0) @db.Decimal(12, 2)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@map("purchase_order_items")
   @@index([purchaseOrderId])

@@ -1,0 +1,47 @@
+// backend/prisma/models/workshop/workshopRework.prisma
+// Retrabajo: intervención realizada para corregir un trabajo defectuoso previo.
+// Separado de WorkshopWarranty para permitir trazabilidad y costo propio.
+
+enum ReworkStatus {
+  OPEN        // Detectado / registrado
+  IN_PROGRESS // Se abrió OT de retrabajo
+  RESOLVED    // Trabajo corregido
+  CLOSED      // Cerrado con análisis completo
+}
+
+model WorkshopRework {
+  id          String @id @default(cuid())
+
+  // OT original con el defecto
+  originalOrderId String
+  originalOrder   ServiceOrder @relation("ReworkOriginalOrder", fields: [originalOrderId], references: [id], onDelete: Restrict)
+
+  // OT de corrección generada (puede generarse después)
+  reworkOrderId String?
+  reworkOrder   ServiceOrder? @relation("ReworkCorrectionOrder", fields: [reworkOrderId], references: [id], onDelete: SetNull)
+
+  // Análisis
+  motive      String          @db.Text // Motivo del retrabajo
+  rootCause   String?         @db.Text // Causa raíz identificada
+  technicianId String?                 // userId del técnico responsable del defecto
+
+  // Costos
+  estimatedCost Decimal @default(0) @db.Decimal(12, 2)
+  realCost      Decimal @default(0) @db.Decimal(12, 2)
+
+  status      ReworkStatus @default(OPEN)
+  resolvedAt  DateTime?
+  notes       String?      @db.Text
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([originalOrderId])
+  @@index([technicianId])
+  @@index([status])
+  @@map("workshop_reworks")
+}

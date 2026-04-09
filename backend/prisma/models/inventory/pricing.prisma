@@ -10,15 +10,26 @@ model Pricing {
   salePrice         Decimal  @db.Decimal(12, 2)
   wholesalePrice    Decimal? @db.Decimal(12, 2)
   
-  minMargin         Int      // Porcentaje de margen mínimo
-  maxMargin         Int      // Porcentaje de margen máximo
-  discountPercentage Int?    // Descuento aplicable en porcentaje
+  minMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen mínimo (0.00–999.99)
+  maxMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen máximo
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento aplicable en porcentaje
   
+  // Precios en moneda extranjera (USD) — input del usuario
+  costForeign     Decimal  @default(0) @db.Decimal(20,7)  // costoex
+  exchangeRate    Decimal  @default(1) @db.Decimal(20,7)  // factor (tasacambio del día)
+  costRef         Decimal  @default(0) @db.Decimal(20,7)  // costoref = costForeign × exchangeRate
+  costPrevious    Decimal  @default(0) @db.Decimal(20,7)  // costo_ant
+
+  // Impuestos
+  taxRateSale     Decimal  @default(0) @db.Decimal(20,7)  // impuesto1 (IVA venta)
+  taxRatePurchase Decimal  @default(0) @db.Decimal(20,7)  // cimpuesto1 (IVA compra)
+
   notes             String?  @db.Text
   isActive          Boolean  @default(true)
-  
+
   // Relaciones
   tiers             PricingTier[]
+  priceLevels       PriceLevel[]
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -27,6 +38,23 @@ model Pricing {
   @@map("pricings")
   @@index([itemId])
   @@index([isActive])
+}
+
+model PriceLevel {
+  id           String  @id @default(uuid())
+  pricingId    String
+  pricing      Pricing @relation(fields: [pricingId], references: [id], onDelete: Cascade)
+
+  level        Int                                        // 1-8 (precio1ex…precio8ex)
+  priceForeign Decimal @default(0) @db.Decimal(20,7)    // precioNex — input del usuario (USD)
+  price        Decimal @default(0) @db.Decimal(20,7)    // precioN = priceForeign × exchangeRate
+  finalPrice   Decimal @default(0) @db.Decimal(20,7)    // preciofin N = price × (1 + taxRateSale/100)
+  utility      Decimal @default(0) @db.Decimal(20,7)    // utilN = ((priceForeign − costForeign) / priceForeign) × 100
+  commission   Decimal @default(0) @db.Decimal(20,7)    // comisionN (default 0)
+
+  @@unique([pricingId, level])
+  @@map("price_levels")
+  @@index([pricingId])
 }
 
 model PricingTier {
@@ -38,7 +66,7 @@ model PricingTier {
   minQuantity       Int
   maxQuantity       Int?     // null si es sin límite
   tierPrice         Decimal  @db.Decimal(12, 2)
-  discountPercentage Int?    // Descuento en este tier
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento en este tier
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt

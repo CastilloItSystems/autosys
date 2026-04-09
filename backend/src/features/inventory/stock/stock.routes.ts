@@ -834,8 +834,12 @@ import {
   createStockAlertSchema,
 } from './stock.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import stockBulkRouter from './bulk/bulk.routes.js'
 
 const router = Router()
+
+// Mount bulk operations sub-router
+router.use('/bulk', stockBulkRouter)
 
 /**
  * ============================================

@@ -1,10 +1,10 @@
 "use client";
-import SalesOrderList from "@/components/inventory/salesOrders/SalesOrderList";
+import OrderList from "@/components/sales/order/OrderList";
 
 export default function SalesOrdersPage() {
   return (
     <div>
-      <SalesOrderList />
+      <OrderList />
     </div>
   );
 }

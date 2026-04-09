@@ -46,6 +46,14 @@ export const createSupplierSchema = Joi.object({
     'string.max': 'phone no puede exceder 20 caracteres',
   }),
 
+  mobile: Joi.string().max(20).optional().allow(null, '').messages({
+    'string.max': 'mobile no puede exceder 20 caracteres',
+  }),
+
+  website: Joi.string().max(150).optional().allow(null, '').messages({
+    'string.max': 'website no puede exceder 150 caracteres',
+  }),
+
   address: Joi.string().max(300).optional().allow(null, '').messages({
     'string.max': 'address no puede exceder 300 caracteres',
   }),
@@ -53,6 +61,13 @@ export const createSupplierSchema = Joi.object({
   taxId: Joi.string().max(50).optional().allow(null, '').messages({
     'string.max': 'taxId no puede exceder 50 caracteres',
   }),
+
+  type: Joi.string().valid('INDIVIDUAL', 'COMPANY').optional(),
+  isSpecialTaxpayer: Joi.boolean().optional(),
+  creditDays: Joi.number().integer().min(0).optional(),
+  currency: Joi.string().max(3).optional().allow(null, ''),
+  notes: Joi.string().optional().allow(null, ''),
+  metadata: Joi.object().optional().allow(null),
 })
 
 export const updateSupplierSchema = Joi.object({
@@ -74,8 +89,16 @@ export const updateSupplierSchema = Joi.object({
   contactName: Joi.string().max(100).optional().allow(null, ''),
   email: Joi.string().email().max(100).optional().allow(null, ''),
   phone: Joi.string().max(20).optional().allow(null, ''),
+  mobile: Joi.string().max(20).optional().allow(null, ''),
+  website: Joi.string().max(150).optional().allow(null, ''),
   address: Joi.string().max(300).optional().allow(null, ''),
   taxId: Joi.string().max(50).optional().allow(null, ''),
+  type: Joi.string().valid('INDIVIDUAL', 'COMPANY').optional(),
+  isSpecialTaxpayer: Joi.boolean().optional(),
+  creditDays: Joi.number().integer().min(0).optional(),
+  currency: Joi.string().max(3).optional().allow(null, ''),
+  notes: Joi.string().optional().allow(null, ''),
+  metadata: Joi.object().optional().allow(null),
   isActive: Joi.boolean().optional(),
 })
   .min(1)

@@ -8,6 +8,9 @@ import stockValueRoutes from './stockValue/stockValue.routes.js'
 import movementsRoutes from './movements/movements.routes.js'
 import exitsWithoutInvoiceRoutes from './exitsWithoutInvoice/exitsWithoutInvoice.routes.js'
 import exportRoutes from './exports/export.routes.js'
+import agingRoutes from './aging/aging.routes.js'
+import batchExpiryRoutes from './batchExpiry/batchExpiry.routes.js'
+import supplierPerformanceRoutes from './supplierPerformance/supplierPerformance.routes.js'
 import kardexRoutes from '../movements/reports/kardex.routes.js'
 import rotationRoutes from '../movements/reports/rotation.routes.js'
 import valuationRoutes from '../movements/reports/valuation.routes.js'
@@ -46,6 +49,18 @@ router.use('/movements', movementsRoutes)
 // Salidas sin Factura
 // /api/inventory/reports/exits-without-invoice
 router.use('/exits-without-invoice', exitsWithoutInvoiceRoutes)
+
+// Envejecimiento de Inventario
+// /api/inventory/reports/aging
+router.use('/aging', agingRoutes)
+
+// Vencimiento de Lotes
+// /api/inventory/reports/batch-expiry
+router.use('/batch-expiry', batchExpiryRoutes)
+
+// Rendimiento de Proveedores
+// /api/inventory/reports/supplier-performance
+router.use('/supplier-performance', supplierPerformanceRoutes)
 
 // Kardex
 // /api/inventory/reports/kardex

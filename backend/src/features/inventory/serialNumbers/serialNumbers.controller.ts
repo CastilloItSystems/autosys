@@ -128,7 +128,7 @@ export class SerialNumbersController {
    */
   create = asyncHandler(async (req: Request, res: Response) => {
     const createDTO = new CreateSerialNumberDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const serial = await SerialNumbersService.create(createDTO, userId)
     const dto = new SerialNumberResponseDTO(serial)
     return ApiResponse.created(res, dto, 'Serial number created successfully')
@@ -141,7 +141,7 @@ export class SerialNumbersController {
   update = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string
     const updateDTO = new UpdateSerialNumberDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const serial = await SerialNumbersService.update(id, updateDTO, userId)
     const dto = new SerialNumberResponseDTO(serial)
     return ApiResponse.success(res, dto, 'Serial number updated successfully')
@@ -154,7 +154,7 @@ export class SerialNumbersController {
   assignToWarehouse = asyncHandler(async (req: Request, res: Response) => {
     const id = req.params.id as string
     const assignDTO = new AssignSerialDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const serial = await SerialNumbersService.assignToWarehouse(
       id,
       assignDTO.warehouseId,

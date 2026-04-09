@@ -19,7 +19,8 @@ import { LayoutContext } from "@/layout/context/layoutcontext";
 
 const TurnoverAnalysis = () => {
   const toast = useRef<Toast>(null);
-  const { layoutState, layoutConfig } = useContext(LayoutContext);
+  const { layoutConfig } = useContext(LayoutContext);
+  const isDark = layoutConfig.colorScheme === "dark";
   const [items, setItems] = useState<TurnoverMetrics[]>([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -38,7 +39,8 @@ const TurnoverAnalysis = () => {
     if (summary) {
       initializeChart();
     }
-  }, [summary, layoutConfig]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, isDark]);
 
   const loadTurnoverMetrics = async () => {
     setLoading(true);
@@ -79,10 +81,7 @@ const TurnoverAnalysis = () => {
       summary.fastMovingCount || 0,
       summary.moderateCount || 0,
       summary.slowMovingCount || 0,
-      (summary.totalItems || 0) -
-        (summary.fastMovingCount || 0) -
-        (summary.moderateCount || 0) -
-        (summary.slowMovingCount || 0),
+      summary.staticCount || 0,
     ];
     const colors = ["#10B981", "#3B82F6", "#F59E0B", "#EF4444"];
 
@@ -92,7 +91,7 @@ const TurnoverAnalysis = () => {
         {
           data: counts,
           backgroundColor: colors,
-          borderColor: layoutConfig.colorScheme === "dark" ? "#1f2937" : "#fff",
+          borderColor: isDark ? "#1f2937" : "#fff",
           borderWidth: 2,
         },
       ],
@@ -129,7 +128,7 @@ const TurnoverAnalysis = () => {
       legend: {
         position: "bottom" as const,
         labels: {
-          color: layoutConfig.colorScheme === "dark" ? "#fff" : "#333",
+          color: isDark ? "#cbd5e1" : "#475569",
           padding: 15,
         },
       },
@@ -158,6 +157,7 @@ const TurnoverAnalysis = () => {
   const columns = [
     { field: "itemName", header: "Artículo", width: "18%", sortable: true },
     { field: "sku", header: "SKU", width: "12%", sortable: true },
+    { field: "code", header: "Código", width: "12%", sortable: true },
     {
       field: "turnoverRatio",
       header: "Ratio de Rotación",
@@ -323,7 +323,12 @@ const TurnoverAnalysis = () => {
           stripedRows
           scrollable
           size="small"
-          emptyMessage="No hay datos disponibles"
+          emptyMessage={
+            <div className="flex flex-column align-items-center py-5 text-500 gap-2">
+              <i className="pi pi-sync text-4xl text-300" />
+              <span>Sin artículos en esta clasificación</span>
+            </div>
+          }
           className="w-full"
         >
           {columns.map((col) => (

@@ -16,6 +16,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 import SupplierForm from "./SupplierForm";
+import SupplierDetailDialog from "./SupplierDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 
 export default function SupplierList() {
@@ -36,6 +37,7 @@ export default function SupplierList() {
   const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
+  const [detailsDialog, setDetailsDialog] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
@@ -161,39 +163,93 @@ export default function SupplierList() {
   };
 
   // Templates
-  const actionBodyTemplate = (rowData: Supplier) => {
-    return (
-      <div>
-        <Button
-          icon="pi pi-cog"
-          rounded
-          text
-          aria-controls="popup_menu"
-          aria-haspopup
-          onClick={(e) => {
-            setActionSupplier(rowData);
-            menuRef.current?.toggle(e);
-          }}
-          tooltip="Opciones"
-          tooltipOptions={{ position: "left" }}
-        />
-      </div>
-    );
-  };
+  const actionBodyTemplate = (rowData: Supplier) => (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      aria-controls="popup_menu"
+      aria-haspopup
+      onClick={(e) => {
+        setActionSupplier(rowData);
+        menuRef.current?.toggle(e);
+      }}
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
+  );
 
-  const statusBodyTemplate = (rowData: Supplier) => {
-    return (
-      <Tag
-        value={rowData.isActive ? "Activo" : "Inactivo"}
-        severity={rowData.isActive ? "success" : "secondary"}
-        rounded
-      />
-    );
-  };
+  const statusBodyTemplate = (rowData: Supplier) => (
+    <Tag
+      value={rowData.isActive ? "Activo" : "Inactivo"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
+  );
 
-  const codeBodyTemplate = (rowData: Supplier) => {
-    return <span className="font-bold text-primary">{rowData.code}</span>;
-  };
+  const typeBodyTemplate = (rowData: Supplier) => (
+    <Tag
+      value={rowData.type === "COMPANY" ? "Empresa" : "Individual"}
+      severity={rowData.type === "COMPANY" ? "success" : "info"}
+      icon={rowData.type === "COMPANY" ? "pi pi-building" : "pi pi-user"}
+      className="text-xs"
+    />
+  );
+
+  const nameBodyTemplate = (rowData: Supplier) => (
+    <div className="flex flex-column">
+      <span className="font-semibold text-900">{rowData.name}</span>
+      {rowData.taxId && (
+        <span className="text-xs text-500">{rowData.taxId}</span>
+      )}
+    </div>
+  );
+
+  const contactBodyTemplate = (rowData: Supplier) => (
+    <div className="flex flex-column gap-1">
+      {rowData.contactName && (
+        <span className="text-xs font-medium text-800">
+          <i className="pi pi-user text-500 mr-1" />
+          {rowData.contactName}
+        </span>
+      )}
+      {rowData.email && (
+        <span className="text-xs">
+          <i className="pi pi-envelope text-500 mr-1" />
+          {rowData.email}
+        </span>
+      )}
+      {rowData.phone && (
+        <span className="text-xs">
+          <i className="pi pi-phone text-500 mr-1" />
+          {rowData.phone}
+        </span>
+      )}
+      {!rowData.contactName && !rowData.email && !rowData.phone && (
+        <span className="text-400 text-xs">Sin contacto</span>
+      )}
+    </div>
+  );
+
+  const commercialBodyTemplate = (rowData: Supplier) => (
+    <div className="flex flex-column gap-1">
+      {rowData.currency && (
+        <span className="text-xs">
+          <i className="pi pi-dollar text-500 mr-1" />
+          {rowData.currency}
+        </span>
+      )}
+      {rowData.creditDays > 0 && (
+        <span className="text-xs">
+          <i className="pi pi-calendar text-500 mr-1" />
+          {rowData.creditDays} días
+        </span>
+      )}
+      {rowData.isSpecialTaxpayer && (
+        <Tag value="C. Especial" severity="warning" className="text-xs w-fit" />
+      )}
+    </div>
+  );
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -254,48 +310,37 @@ export default function SupplierList() {
             field="code"
             header="Código"
             sortable
-            body={codeBodyTemplate}
+            body={(r: Supplier) => <span className="font-bold text-primary">{r.code}</span>}
             style={{ minWidth: "100px" }}
           />
           <Column
-            field="name"
-            header="Nombre"
+            header="Proveedor"
+            body={nameBodyTemplate}
             sortable
-            style={{ minWidth: "200px" }}
-          />
-          <Column
-            field="contactName"
-            header="Contacto"
-            sortable
-            style={{ minWidth: "150px" }}
-          />
-          <Column
-            field="email"
-            header="Correo"
-            sortable
+            sortField="name"
             style={{ minWidth: "180px" }}
           />
           <Column
-            field="phone"
-            header="Teléfono"
-            style={{ minWidth: "120px" }}
+            header="Tipo"
+            body={typeBodyTemplate}
+            style={{ minWidth: "110px" }}
           />
           <Column
-            field="address"
-            header="Dirección"
-            style={{ minWidth: "200px" }}
+            header="Contacto"
+            body={contactBodyTemplate}
+            style={{ minWidth: "180px" }}
           />
           <Column
-            field="taxId"
-            header="RIF/NIT"
-            style={{ minWidth: "120px" }}
+            header="Comercial"
+            body={commercialBodyTemplate}
+            style={{ minWidth: "130px" }}
           />
           <Column
             field="isActive"
             header="Estado"
             body={statusBodyTemplate}
             sortable
-            style={{ minWidth: "100px" }}
+            style={{ minWidth: "90px" }}
           />
           <Column
             header="Acciones"
@@ -311,7 +356,9 @@ export default function SupplierList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "550px" }}
+        style={{ width: "800px" }}
+        breakpoints={{ "960px": "80vw", "640px": "95vw" }}
+        maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
@@ -345,6 +392,12 @@ export default function SupplierList() {
         />
       </Dialog>
 
+      <SupplierDetailDialog
+        visible={detailsDialog}
+        supplier={selectedSupplier}
+        onHide={() => setDetailsDialog(false)}
+      />
+
       <DeleteConfirmDialog
         visible={deleteDialog}
         onHide={() => {
@@ -360,6 +413,14 @@ export default function SupplierList() {
         model={
           actionSupplier
             ? [
+                {
+                  label: "Ver Detalles",
+                  icon: "pi pi-info-circle",
+                  command: () => {
+                    setSelectedSupplier(actionSupplier);
+                    setDetailsDialog(true);
+                  },
+                },
                 {
                   label: "Editar",
                   icon: "pi pi-pencil",

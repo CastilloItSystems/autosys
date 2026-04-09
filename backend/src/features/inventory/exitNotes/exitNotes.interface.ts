@@ -56,6 +56,7 @@ export interface IExitNoteItem {
   id: string
   exitNoteId: string
   itemId: string
+  itemName?: string | null
   quantity: number
   pickedFromLocation?: string
   batchId?: string
@@ -181,4 +182,31 @@ export interface IExitNoteTypeValidation {
   isValid: boolean
   missingFields: string[]
   validationErrors: string[]
+}
+
+/**
+ * Input for creating an exit note item
+ */
+export interface ICreateExitNoteItemInput {
+  itemId: string
+  itemName?: string | null
+  quantity: number
+  pickedFromLocation?: string
+  batchId?: string
+  serialNumberId?: string
+  notes?: string
+}
+
+/**
+ * Input for updating an exit note (header + optional items replacement)
+ */
+export interface IUpdateExitNoteInput {
+  recipientName?: string
+  recipientId?: string
+  recipientPhone?: string
+  reason?: string
+  reference?: string
+  notes?: string
+  expectedReturnDate?: Date
+  items?: ICreateExitNoteItemInput[]
 }

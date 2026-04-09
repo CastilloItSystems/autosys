@@ -525,7 +525,7 @@ export class CycleCountService {
             )
           }
 
-          // Actualizar stock
+          // Actualizar stock (cantidad + ubicación si cambió)
           await tx.stock.update({
             where: {
               itemId_warehouseId: {
@@ -536,6 +536,10 @@ export class CycleCountService {
             data: {
               quantityReal: newQuantity,
               lastMovementAt: new Date(),
+              // Actualizar ubicación solo si el contador encontró una diferente
+              ...((item as any).locationFound != null
+                ? { location: (item as any).locationFound }
+                : {}),
             },
           })
 
@@ -795,12 +799,13 @@ export class CycleCountService {
   }
 
   /**
-   * Actualizar cantidad contada de un item
+   * Actualizar cantidad contada (y opcionalmente ubicación) de un item
    */
   async updateItemCountedQuantity(
     cycleCountId: string,
     itemId: string,
-    countedQuantity: number
+    countedQuantity?: number | null,
+    newLocation?: string | null
   ): Promise<ICycleCountItem> {
     try {
       const cycleCount = await prisma.cycleCount.findUnique({
@@ -811,34 +816,283 @@ export class CycleCountService {
         throw new NotFoundError('Ciclo de conteo no encontrado')
       }
 
+      if (cycleCount.status !== CycleCountStatus.IN_PROGRESS) {
+        throw new BadRequestError(
+          'Solo se puede actualizar la cantidad en ciclos en estado IN_PROGRESS'
+        )
+      }
+
       const item = await prisma.cycleCountItem.findFirst({
-        where: {
-          cycleCountId,
-          itemId,
-        },
+        where: { cycleCountId, itemId },
       })
 
       if (!item) {
         throw new NotFoundError('Item no encontrado en este ciclo de conteo')
       }
 
+      const updateData: any = {}
+      if (countedQuantity !== undefined && countedQuantity !== null) {
+        updateData.countedQuantity = countedQuantity
+      }
+      if (newLocation !== undefined) {
+        // Guardar en locationFound — location sigue siendo el snapshot original
+        updateData.locationFound = newLocation || null
+      }
+
       const updated = await prisma.cycleCountItem.update({
         where: { id: item.id },
-        data: {
-          countedQuantity,
-        },
+        data: updateData,
       })
 
-      logger.info(`Cantidad contada actualizada: ${cycleCountId}/${itemId}`, {
+      logger.info(`Item actualizado: ${cycleCountId}/${itemId}`, {
         countedQuantity,
+        newLocation,
       })
 
       return updated as unknown as ICycleCountItem
     } catch (error) {
-      logger.error('Error al actualizar cantidad contada', {
+      logger.error('Error al actualizar item del ciclo de conteo', {
         error,
         cycleCountId,
         itemId,
+      })
+      throw error
+    }
+  }
+
+  /**
+   * Generar exportación de hoja de ruta (CSV o Excel)
+   */
+  async generateExport(
+    id: string,
+    format: 'csv' | 'excel'
+  ): Promise<{ buffer: Buffer; mimeType: string; filename: string }> {
+    try {
+      const cycleCount = await prisma.cycleCount.findUnique({
+        where: { id },
+        include: {
+          warehouse: true,
+          items: {
+            include: { item: true },
+          },
+        },
+      })
+
+      if (!cycleCount) {
+        throw new NotFoundError('Ciclo de conteo no encontrado')
+      }
+
+      // Ordenar ítems: primero por ubicación (nulls al final), luego por SKU
+      const sortedItems = [...cycleCount.items].sort((a, b) => {
+        const locA = (a.location ?? '').toLowerCase()
+        const locB = (b.location ?? '').toLowerCase()
+        if (!a.location && b.location) return 1
+        if (a.location && !b.location) return -1
+        if (locA !== locB) return locA.localeCompare(locB)
+        const skuA = (a.item as any)?.sku ?? ''
+        const skuB = (b.item as any)?.sku ?? ''
+        return skuA.localeCompare(skuB)
+      })
+
+      const warehouseName = (cycleCount.warehouse as any)?.name ?? ''
+      const dateStr = new Date(cycleCount.createdAt).toLocaleDateString('es-ES')
+
+      if (format === 'csv') {
+        const headers = [
+          '#',
+          'SKU',
+          'Descripción',
+          'Ubicación Sistema',
+          'Cant. Sistema',
+          'Cant. Contada',
+          'Nueva Ubicación',
+          'Varianza',
+          'Notas',
+        ]
+
+        const rows = sortedItems.map((item, index) => {
+          const itemData = item.item as any
+          return [
+            index + 1,
+            itemData?.sku ?? '',
+            itemData?.name ?? '',
+            item.location ?? '',
+            item.expectedQuantity,
+            item.countedQuantity ?? '',
+            '',
+            item.variance ?? '',
+            item.notes ?? '',
+          ]
+        })
+
+        const escapeCsv = (val: any) => {
+          const str = String(val ?? '')
+          if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+            return `"${str.replace(/"/g, '""')}"`
+          }
+          return str
+        }
+
+        const csvLines = [
+          `Hoja de Ruta - Conteo Cíclico`,
+          `Número: ${cycleCount.cycleCountNumber}`,
+          `Almacén: ${warehouseName}`,
+          `Fecha: ${dateStr}`,
+          `Estado: ${cycleCount.status}`,
+          '',
+          headers.map(escapeCsv).join(','),
+          ...rows.map((row) => row.map(escapeCsv).join(',')),
+          '',
+          `Total ítems: ${sortedItems.length}`,
+          `Ítems contados: ${sortedItems.filter((i) => i.countedQuantity !== null).length}`,
+        ]
+
+        const csvContent = csvLines.join('\n')
+        return {
+          buffer: Buffer.from('\uFEFF' + csvContent, 'utf8'),
+          mimeType: 'text/csv; charset=utf-8',
+          filename: `hoja-ruta-${cycleCount.cycleCountNumber}.csv`,
+        }
+      }
+
+      // Excel via exceljs
+      const ExcelJS = (await import('exceljs')).default
+      const workbook = new ExcelJS.Workbook()
+      workbook.creator = 'AutoSys'
+      workbook.created = new Date()
+
+      const sheet = workbook.addWorksheet('Hoja de Ruta', {
+        pageSetup: { paperSize: 9, orientation: 'landscape' },
+      })
+
+      // Header info rows
+      sheet.mergeCells('A1:I1')
+      const titleCell = sheet.getCell('A1')
+      titleCell.value = `HOJA DE RUTA - CONTEO CÍCLICO`
+      titleCell.font = { bold: true, size: 14 }
+      titleCell.alignment = { horizontal: 'center' }
+
+      sheet.mergeCells('A2:I2')
+      sheet.getCell('A2').value = `${cycleCount.cycleCountNumber} | Almacén: ${warehouseName} | Fecha: ${dateStr} | Estado: ${cycleCount.status}`
+      sheet.getCell('A2').alignment = { horizontal: 'center' }
+      sheet.getCell('A2').font = { size: 11 }
+
+      sheet.addRow([])
+
+      // Column headers
+      const headerRow = sheet.addRow([
+        '#',
+        'SKU',
+        'Descripción',
+        'Ubicación Sistema',
+        'Cant. Sistema',
+        'Cant. Contada',
+        'Nueva Ubicación',
+        'Varianza',
+        'Notas',
+      ])
+
+      headerRow.eachCell((cell) => {
+        cell.font = { bold: true, color: { argb: 'FFFFFFFF' } }
+        cell.fill = {
+          type: 'pattern',
+          pattern: 'solid',
+          fgColor: { argb: 'FF2563EB' },
+        }
+        cell.alignment = { horizontal: 'center', vertical: 'middle' }
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' },
+        }
+      })
+
+      // Data rows
+      sortedItems.forEach((item, index) => {
+        const itemData = item.item as any
+        const isEven = index % 2 === 0
+        const row = sheet.addRow([
+          index + 1,
+          itemData?.sku ?? '',
+          itemData?.name ?? '',
+          item.location ?? '',
+          item.expectedQuantity,
+          item.countedQuantity ?? null,
+          '',
+          item.variance ?? null,
+          item.notes ?? '',
+        ])
+
+        row.eachCell({ includeEmpty: true }, (cell) => {
+          cell.fill = {
+            type: 'pattern',
+            pattern: 'solid',
+            fgColor: { argb: isEven ? 'FFF8FAFC' : 'FFFFFFFF' },
+          }
+          cell.border = {
+            top: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            left: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            bottom: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+            right: { style: 'thin', color: { argb: 'FFE2E8F0' } },
+          }
+        })
+
+        // Color variance
+        const varianceCell = row.getCell(8)
+        if (item.variance !== null && item.variance !== undefined) {
+          if (Math.abs(item.variance) > 5) {
+            varianceCell.font = { color: { argb: 'FFDC2626' }, bold: true }
+          } else if (item.variance !== 0) {
+            varianceCell.font = { color: { argb: 'FFD97706' } }
+          } else {
+            varianceCell.font = { color: { argb: 'FF16A34A' } }
+          }
+        }
+      })
+
+      // Column widths
+      sheet.columns = [
+        { key: 'num', width: 5 },
+        { key: 'sku', width: 15 },
+        { key: 'name', width: 35 },
+        { key: 'location', width: 18 },
+        { key: 'expected', width: 14 },
+        { key: 'counted', width: 14 },
+        { key: 'newLocation', width: 18 },
+        { key: 'variance', width: 10 },
+        { key: 'notes', width: 25 },
+      ]
+
+      // Footer
+      sheet.addRow([])
+      const totalContados = sortedItems.filter(
+        (i) => i.countedQuantity !== null
+      ).length
+      sheet.addRow([
+        `Total ítems: ${sortedItems.length}`,
+        '',
+        '',
+        '',
+        `Contados: ${totalContados}`,
+        '',
+        `Pendientes: ${sortedItems.length - totalContados}`,
+      ])
+
+      sheet.addRow([])
+      sheet.addRow(['Responsable: _______________________', '', '', '', '', '', '', '', 'Firma: _______________________'])
+
+      const buffer = await workbook.xlsx.writeBuffer()
+      return {
+        buffer: Buffer.from(buffer),
+        mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        filename: `hoja-ruta-${cycleCount.cycleCountNumber}.xlsx`,
+      }
+    } catch (error) {
+      logger.error('Error al generar exportación de ciclo de conteo', {
+        error,
+        id,
+        format,
       })
       throw error
     }

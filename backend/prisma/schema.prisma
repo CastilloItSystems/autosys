@@ -50,6 +50,679 @@ model CompanyRole {
   @@map("company_roles")
 }
 
+// backend/prisma/models/crm/activity.prisma
+// Tareas de seguimiento pendientes para el equipo de ventas/asesores.
+// Permite que cada asesor tenga su agenda de acciones a tomar.
+
+enum ActivityType {
+  CALL      // Llamar al cliente
+  EMAIL     // Enviar correo
+  WHATSAPP  // Enviar WhatsApp
+  MEETING   // Agendar reunión / visita
+  QUOTE     // Preparar cotización
+  TASK      // Tarea general
+}
+
+enum ActivityStatus {
+  PENDING     // Pendiente
+  IN_PROGRESS // En proceso
+  DONE        // Completada
+  CANCELLED   // Cancelada
+}
+
+model Activity {
+  id          String         @id @default(uuid())
+
+  empresaId   String
+  empresa     Empresa        @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId  String
+  customer    Customer       @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Contexto opcional (puede estar ligada a un lead)
+  leadId      String?
+  lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  type        ActivityType
+  status      ActivityStatus @default(PENDING)
+
+  // Contenido
+  title       String
+  description String?        @db.Text
+
+  // Asignación y tiempos
+  assignedTo  String         // userId del responsable
+  dueAt       DateTime       // Fecha límite
+  completedAt DateTime?      // Cuándo se completó
+  completedBy String?        // userId de quien completó
+
+  // Resultado al completar
+  outcome     String?        @db.Text
+
+  createdBy   String         // userId
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+
+  @@map("crm_activities")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueAt])
+}
+
+
+// backend/prisma/models/crm/case.prisma
+// Módulo de Casos / Reclamos / PQRS del CRM.
+
+enum CaseType {
+  SALE_COMPLAINT       // Reclamo de venta
+  WORKSHOP_COMPLAINT   // Reclamo de taller
+  PARTS_COMPLAINT      // Reclamo de repuesto
+  WARRANTY             // Solicitud de garantía
+  GENERAL_INQUIRY      // Consulta general
+  SUGGESTION           // Sugerencia
+  INCIDENT             // Incidente
+  SERVICE_COMPLAINT    // Queja por atención
+}
+
+enum CasePriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CaseStatus {
+  OPEN            // Abierto
+  IN_ANALYSIS     // En análisis
+  IN_PROGRESS     // En proceso
+  WAITING_CLIENT  // Esperando respuesta del cliente
+  ESCALATED       // Escalado
+  RESOLVED        // Resuelto
+  CLOSED          // Cerrado
+  REJECTED        // Rechazado
+}
+
+model Case {
+  id            String        @id @default(cuid())
+  caseNumber    String        // CASE-0001 auto-generated per empresa
+
+  type          CaseType
+  priority      CasePriority  @default(MEDIUM)
+  status        CaseStatus    @default(OPEN)
+
+  customerId    String
+  customer      Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Optional links to related documents
+  customerVehicleId  String?
+  customerVehicle    CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  leadId        String?
+  lead          Lead?         @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Optional reference to external document (invoice number, SO folio, order number, etc.)
+  refDocType    String?       // 'invoice' | 'service_order' | 'order' | 'other'
+  refDocId      String?
+  refDocNumber  String?
+
+  title         String
+  description   String        @db.Text
+
+  // Resolution
+  resolution    String?       @db.Text
+  rootCause     String?
+
+  // SLA
+  slaDeadline   DateTime?     // Calculated from priority on creation
+  resolvedAt    DateTime?
+  closedAt      DateTime?
+
+  assignedTo    String?       // userId
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  comments      CaseComment[]
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([empresaId, caseNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([priority])
+  @@map("crm_cases")
+}
+
+model CaseComment {
+  id        String   @id @default(cuid())
+  caseId    String
+  case      Case     @relation(fields: [caseId], references: [id], onDelete: Cascade)
+
+  comment   String   @db.Text
+  isInternal Boolean @default(false)  // true = internal note, not visible to customer
+  createdBy String
+  createdAt DateTime @default(now())
+
+  @@index([caseId])
+  @@map("crm_case_comments")
+}
+
+
+// backend/prisma/models/crm/customer.prisma
+// El Customer es una entidad CORE del CRM.
+// Todos los módulos (sales, taller, vehiculos) referencian este modelo.
+
+enum CustomerType {
+  INDIVIDUAL  // Persona natural
+  COMPANY     // Empresa
+}
+
+enum CustomerSegment {
+  PROSPECT    // Prospecto (aún no ha comprado)
+  REGULAR     // Cliente regular
+  VIP         // Cliente VIP / alto valor
+  WHOLESALE   // Mayorista
+  INACTIVE    // Inactivo
+}
+
+enum CustomerChannel {
+  REPUESTOS
+  TALLER
+  VEHICULOS
+  ALL         // Usa todos los canales
+}
+
+model Customer {
+  id                String          @id @default(uuid())
+  code              String
+  taxId             String?         // RIF/Cédula
+  name              String
+  email             String?
+  phone             String?
+  mobile            String?
+  website           String?
+  contactPerson     String?
+
+  // Direcciones
+  address           String?         @db.Text
+  shippingAddress   String?         @db.Text
+  billingAddress    String?         @db.Text
+
+  // Fiscal / Configuración
+  type              CustomerType    @default(INDIVIDUAL)
+  isSpecialTaxpayer Boolean         @default(false)
+  priceList         Int             @default(1)
+
+  // Condiciones de crédito
+  creditLimit       Float           @default(0)
+  creditDays        Int             @default(0)
+  defaultDiscount   Float           @default(0)
+
+  // CRM
+  segment           CustomerSegment @default(PROSPECT)
+  preferredChannel  CustomerChannel @default(ALL)
+  assignedSellerId  String?         // userId del vendedor/asesor asignado
+  customerSince     DateTime?       // Fecha en que se convirtió en cliente
+  referredById      String?         // FK a otro Customer que lo refirió
+  referredBy        Customer?       @relation("CustomerReferrals", fields: [referredById], references: [id])
+  referrals         Customer[]      @relation("CustomerReferrals")
+
+  notes             String?         @db.Text
+  metadata          Json?
+
+  isActive          Boolean         @default(true)
+
+  // Multi-tenancy
+  empresaId         String
+  empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones sales (existentes)
+  orders            Order[]
+  preInvoices       PreInvoice[]
+  payments          Payment[]
+  invoices          Invoice[]
+
+  // Relaciones CRM (nuevas)
+  contacts          CustomerContact[]
+  vehicles          CustomerVehicle[]
+  leads             Lead[]
+  interactions      Interaction[]
+  activities        Activity[]
+
+  // Relaciones Taller
+  serviceOrders     ServiceOrder[]
+  appointments      ServiceAppointment[]
+  receptions        VehicleReception[]
+  warranties        WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
+
+  // Relaciones CRM: Cotizaciones
+  quotes            Quote[]
+
+  // Relaciones CRM: Casos / Reclamos
+  cases             Case[]
+
+  // Auditoría
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
+  @@map("customers")
+  @@index([code])
+  @@index([taxId])
+  @@index([isActive])
+  @@index([segment])
+  @@index([assignedSellerId])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/customerContact.prisma
+// Contactos adicionales de un cliente empresa.
+// Útil cuando el cliente es una compañía con múltiples personas de contacto
+// (contador, gerente de flota, encargado de compras, etc.)
+
+model CustomerContact {
+  id            String    @id @default(uuid())
+
+  customerId    String
+  customer      Customer  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  empresaId     String
+  empresa       Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  name          String
+  role          String?   // Cargo: "Gerente de Flota", "Contador", "Compras"
+  phone         String?
+  mobile        String?
+  email         String?
+  isPrimary     Boolean   @default(false)
+  notes         String?   @db.Text
+
+  isActive      Boolean   @default(true)
+
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@unique([customerId, email])
+  @@map("customer_contacts")
+  @@index([customerId])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/customerVehicle.prisma
+// Vehículos registrados a nombre de un cliente.
+// Compartido entre módulos: taller (service orders) y vehiculos (trade-in, historial).
+
+enum FuelType {
+  GASOLINE
+  DIESEL
+  ELECTRIC
+  HYBRID
+  GAS
+}
+
+enum TransmissionType {
+  MANUAL
+  AUTOMATIC
+  CVT
+}
+
+model CustomerVehicle {
+  id            String            @id @default(uuid())
+
+  customerId    String
+  customer      Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  empresaId     String
+  empresa       Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Identificación
+  plate         String            // Placa
+  vin           String?           // Número de chasis / VIN
+
+  // Marca y modelo centralizados desde inventario
+  brandId       String?
+  brand         Brand?            @relation(fields: [brandId], references: [id], onDelete: SetNull)
+
+  modelId       String?
+  vehicleModel  Model?            @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  // El año se toma de Model.year; este campo es override cuando difiere
+  year          Int?
+
+  color         String?
+  fuelType      FuelType?
+  transmission  TransmissionType?
+
+  // Kilometraje al momento del registro
+  mileage       Int?
+
+  // Fue adquirido en el concesionario?
+  purchasedHere Boolean           @default(false)
+
+  notes         String?           @db.Text
+  isActive      Boolean           @default(true)
+
+  // Taller
+  serviceOrders    ServiceOrder[]
+  appointments     ServiceAppointment[]
+  receptions       VehicleReception[]
+  warranties       WorkshopWarranty[]
+  workshopQuotations WorkshopQuotation[]
+
+  // CRM: Casos / Reclamos
+  cases            Case[]
+
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@unique([empresaId, plate])
+  @@map("customer_vehicles")
+  @@index([customerId])
+  @@index([brandId])
+  @@index([modelId])
+  @@index([vin])
+  @@index([empresaId])
+}
+
+
+// backend/prisma/models/crm/interaction.prisma
+// Historial de cada comunicación / punto de contacto con el cliente.
+// Se registra manualmente por el asesor o automáticamente por el sistema.
+
+enum InteractionType {
+  CALL          // Llamada telefónica
+  WHATSAPP      // Mensaje WhatsApp
+  EMAIL         // Correo electrónico
+  VISIT         // Visita presencial
+  NOTE          // Nota interna
+  QUOTE         // Cotización enviada
+  FOLLOW_UP     // Seguimiento
+  MEETING       // Reunión
+}
+
+enum InteractionChannel {
+  REPUESTOS
+  TALLER
+  VEHICULOS
+  GENERAL
+}
+
+enum InteractionDirection {
+  INBOUND   // El cliente contactó a la empresa
+  OUTBOUND  // La empresa contactó al cliente
+}
+
+model Interaction {
+  id            String               @id @default(uuid())
+
+  empresaId     String
+  empresa       Empresa              @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId    String
+  customer      Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  // Contexto opcional
+  leadId        String?
+  lead          Lead?                @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  type          InteractionType
+  channel       InteractionChannel   @default(GENERAL)
+  direction     InteractionDirection @default(OUTBOUND)
+
+  // Contenido
+  subject       String?
+  notes         String               @db.Text
+
+  // Resultado y próximo paso
+  outcome       String?              // Ej: "Cliente interesado", "Solicitó cotización", "No contesta"
+  nextAction    String?              // Ej: "Llamar en 3 días", "Enviar proforma"
+  nextActionAt  DateTime?            // Fecha del próximo seguimiento
+
+  // Quién la registró
+  createdBy     String               // userId
+
+  createdAt     DateTime             @default(now())
+  updatedAt     DateTime             @updatedAt
+
+  @@map("crm_interactions")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([type])
+  @@index([channel])
+  @@index([createdAt])
+  @@index([nextActionAt])
+}
+
+
+// backend/prisma/models/crm/lead.prisma
+// Pipeline de oportunidades unificado para los 3 canales del negocio.
+// Cuando el lead se convierte, se llena la FK del módulo correspondiente.
+
+enum LeadSource {
+  WALK_IN       // Visita espontánea
+  REFERRAL      // Referido por otro cliente
+  PHONE         // Llamada entrante
+  WHATSAPP      // WhatsApp
+  SOCIAL_MEDIA  // Redes sociales
+  WEBSITE       // Página web
+  EMAIL         // Correo
+  OTHER
+}
+
+enum LeadStatus {
+  NEW           // Nuevo / Sin contactar
+  CONTACTED     // Contactado
+  QUALIFIED     // Calificado (tiene intención real de compra)
+  PROPOSAL      // Propuesta / Cotización enviada
+  NEGOTIATION   // En negociación
+  WON           // Ganado / Convertido
+  LOST          // Perdido
+}
+
+enum LeadChannel {
+  REPUESTOS   // Venta de repuestos y accesorios
+  TALLER      // Servicio de taller / reparación
+  VEHICULOS   // Venta de vehículos
+}
+
+model Lead {
+  id              String      @id @default(uuid())
+
+  empresaId       String
+  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // El cliente puede no existir aún (prospecto sin ficha)
+  customerId      String?
+  customer        Customer?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Clasificación
+  channel         LeadChannel
+  source          LeadSource  @default(WALK_IN)
+  status          LeadStatus  @default(NEW)
+
+  // Descripción de la oportunidad
+  title           String      // Ej: "Compra Hilux 2024", "Reparación caja de cambios", "Repuestos Ford F150"
+  description     String?     @db.Text
+
+  // Valor estimado
+  estimatedValue  Decimal?    @db.Decimal(12, 2)
+  currency        String      @default("USD")
+
+  // Asignación
+  assignedTo      String?     // userId del vendedor/asesor responsable
+
+  // Fechas
+  expectedCloseAt DateTime?   // Fecha estimada de cierre
+  closedAt        DateTime?   // Fecha real de cierre (WON o LOST)
+  lostReason      String?     @db.Text
+
+  // FK al documento generado cuando se convierte el lead
+  // Solo uno de estos se llenará según el canal
+  orderId        String?  @unique // → sales.Order        (REPUESTOS)
+  serviceOrderId String?  @unique // → workshop.ServiceOrder (TALLER)
+  // vehicleSaleId se agregará cuando exista el módulo vehiculos
+
+  // Relaciones CRM
+  interactions    Interaction[]
+  activities      Activity[]
+  quotes          Quote[]
+  cases           Case[]
+
+  // Relaciones Workshop
+  serviceOrder    ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@map("crm_leads")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([channel])
+  @@index([status])
+  @@index([assignedTo])
+  @@index([expectedCloseAt])
+}
+
+
+// backend/prisma/models/crm/quote.prisma
+
+enum QuoteStatus {
+  DRAFT        // Borrador
+  ISSUED       // Emitida
+  SENT         // Enviada al cliente
+  NEGOTIATING  // En negociación
+  APPROVED     // Aprobada
+  REJECTED     // Rechazada
+  EXPIRED      // Vencida
+  CONVERTED    // Convertida a venta/OT
+}
+
+enum QuoteApprovalChannel {
+  IN_PERSON        // Presencial
+  WHATSAPP         // WhatsApp
+  EMAIL            // Correo electrónico
+  PHONE            // Llamada telefónica
+  DIGITAL_SIGNATURE // Firma digital
+}
+
+enum QuoteType {
+  VEHICLE    // Cotización de vehículo
+  PARTS      // Cotización de repuestos
+  SERVICE    // Cotización de servicio/taller
+  CORPORATE  // Convenio/paquete corporativo
+}
+
+model Quote {
+  id            String      @id @default(cuid())
+  quoteNumber   String      // Q-0001 auto-generated per empresa
+  version       Int         @default(1)
+  parentId      String?     // For versioned re-quotes
+
+  type          QuoteType
+  status        QuoteStatus @default(DRAFT)
+
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  leadId        String?
+  lead          Lead?       @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  title         String
+  description   String?     @db.Text
+
+  subtotal      Decimal     @default(0) @db.Decimal(12,2)
+  discountPct   Decimal     @default(0) @db.Decimal(5,2)
+  discountAmt   Decimal     @default(0) @db.Decimal(12,2)
+  taxPct        Decimal     @default(0) @db.Decimal(5,2)
+  taxAmt        Decimal     @default(0) @db.Decimal(12,2)
+  total         Decimal     @default(0) @db.Decimal(12,2)
+  currency      String      @default("USD")
+
+  issuedAt      DateTime?
+  validUntil    DateTime?
+  paymentTerms  String?
+  deliveryTerms String?
+  notes         String?     @db.Text
+
+  // Aprobación formal del cliente
+  approvalChannel  QuoteApprovalChannel? // Canal por el que aprobó el cliente
+  approvedByName   String?               // Nombre de quien aprobó (puede diferir del cliente registrado)
+  approvedAt       DateTime?             // Momento exacto de la aprobación
+  rejectedReason   String?  @db.Text     // Motivo del rechazo si aplica
+
+  convertedAt      DateTime?
+  convertedTo      String?   // 'order' | 'service_order'
+  convertedRefId   String?
+  
+  // Workshop-specific conversion tracking
+  convertedToSOId  String?   // Direct FK to ServiceOrder when converted to SO
+
+  assignedTo    String?
+  createdBy     String
+
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  items         QuoteItem[]
+  parent        Quote?      @relation("QuoteVersions", fields: [parentId], references: [id])
+  versions      Quote[]     @relation("QuoteVersions")
+
+  // Relación Workshop: OT generada cuando se convierte una cotización de taller
+  serviceOrders ServiceOrder[]
+
+  // Workshop-specific fields (optional, for taller operations)
+  isWorkshopQuote         Boolean   @default(false)  // Flag para identificar cotizaciones de taller
+  vehicleReceptionNotes   String?   @db.Text        // Notas pre-llenadas para recepción del vehículo
+  estimatedLaborHours     Decimal?  @db.Decimal(10,2)  // Horas de mano de obra estimadas
+  diagnosisRecommendation String?   @db.Text        // Sistema de diagnóstico recomendado
+  workshopApprovalFlow    String?   // 'CLIENT_APPROVAL_REQUIRED' | 'INTERNAL_ONLY' | 'AUTO'
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@unique([empresaId, quoteNumber, version])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([leadId])
+  @@index([status])
+  @@index([assignedTo])
+  @@map("crm_quotes")
+}
+
+model QuoteItem {
+  id           String   @id @default(cuid())
+  quoteId      String
+  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  description    String
+  quantity       Decimal  @db.Decimal(10,3)
+  unitPrice      Decimal  @db.Decimal(12,2)
+  discountPct    Decimal  @default(0) @db.Decimal(5,2)
+  taxPct         Decimal  @default(0) @db.Decimal(5,2)
+  total          Decimal  @db.Decimal(12,2)
+  itemId         String?
+  notes          String?
+
+  // Aprobación parcial: null = pendiente, true = aprobado, false = rechazado
+  clientApproved Boolean?
+
+  @@map("crm_quote_items")
+}
+
+
 model Empresa {
   id_empresa      String       @id @default(cuid())
   nombre          String
@@ -71,6 +744,7 @@ model Empresa {
   data_password   String?
   data_port       String?
   licencia        String?
+  logo_url        String?
   historizada     Boolean      @default(false)
   masinfo         String?
   usa_prefijo     Boolean      @default(false)
@@ -85,19 +759,77 @@ model Empresa {
 
   warehouses      Warehouse[]
   items           Item[]
-  customers       Customer[]
   suppliers       Supplier[]
-  orders          Order[]
-  preInvoices     PreInvoice[]
-  invoices        Invoice[]
   brands          Brand[]
   categories      Category[]
   units           Unit[]
   models          Model[]
 
+  // Sales
+  customers       Customer[]
+  orders          Order[]
+  preInvoices     PreInvoice[]
+  invoices        Invoice[]
+  payments        Payment[]
+
+  // CRM
+  customerContacts CustomerContact[]
+  customerVehicles CustomerVehicle[]
+  leads            Lead[]
+  interactions     Interaction[]
+  activities       Activity[]
+  quotes           Quote[]
+  cases            Case[]
+
+  // Workshop (Taller)
+  serviceOrders       ServiceOrder[]
+  serviceAppointments ServiceAppointment[]
+  vehicleReceptions   VehicleReception[]
+  serviceTypes        ServiceType[]
+  workshopBays        WorkshopBay[]
+  workshopOperations  WorkshopOperation[]
+  workshopWarranties  WorkshopWarranty[]
+  
+  // Nuevas entidades Workshop ERP Opción 3
+  checklistTemplates          ChecklistTemplate[]
+  checklistItems              ChecklistItem[]
+  checklistResponses          ChecklistResponse[]
+  serviceDiagnoses            ServiceDiagnosis[]
+  diagnosisFindings           DiagnosisFinding[]
+  diagnosisSuggestedOps       DiagnosisSuggestedOperation[]
+  diagnosisSuggestedParts     DiagnosisSuggestedPart[]
+  diagnosisEvidences          DiagnosisEvidence[]
+  serviceOrderStatusHistories ServiceOrderStatusHistory[]
+  appointmentStatusHistories  AppointmentStatusHistory[]
+  vehicleDeliveries           VehicleDelivery[]
+
+  // Nuevas entidades Workshop Adicionales
+  ingressMotives              IngressMotive[]
+  technicianSpecialties       TechnicianSpecialty[]
+  laborTimePauses             LaborTimePause[]
+  serviceOrderMaterials       ServiceOrderMaterial[]
+  serviceOrderAdditionals     ServiceOrderAdditional[]
+  serviceOrderObservations    ServiceOrderObservation[]
+
+  // Workshop Prioridad 2
+  receptionDamages            ReceptionDamage[]
+  receptionPhotos             ReceptionPhoto[]
+  workshopAttachments         WorkshopAttachment[]
+  materialMovements           ServiceOrderMaterialMovement[]
+
+  // Workshop Prioridad 3
+  workshopReworks             WorkshopRework[]
+  workshopAuditLogs           WorkshopAuditLog[]
+  workshopBranches            WorkshopBranch[]
+  workshopShifts              WorkshopShift[]
+  workshopQuotations          WorkshopQuotation[]
+  workshopTOTs                WorkshopTOT[]
+  workshopGarita              WorkshopGarita[]
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }
+
 
 // backend/prisma/models/inventory/adjustment.prisma
 
@@ -203,6 +935,7 @@ model Batch {
   @@index([batchNumber])
   @@index([itemId])
   @@index([expiryDate])
+  @@index([itemId, expiryDate])
   @@index([isActive])
 }
 
@@ -227,8 +960,9 @@ model Brand {
   empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  items       Item[]
-  models      Model[]
+  items            Item[]
+  models           Model[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -250,12 +984,17 @@ enum BulkOperationType {
   EXPORT
   UPDATE
   DELETE
+  STOCK_IMPORT      // Carga inicial / entrada masiva de stock
+  STOCK_ADJUSTMENT  // Ajustes masivos de stock (entradas/salidas)
+  STOCK_TRANSFER    // Transferencias masivas entre almacenes
+  STOCK_EXPORT      // Exportar niveles de stock
 }
 
 enum BulkOperationStatus {
   PENDING
   PROCESSING
   COMPLETED
+  COMPLETED_WITH_ERRORS
   FAILED
   CANCELLED
 }
@@ -339,8 +1078,6 @@ enum CycleCountStatus {
   APPLIED
   REJECTED
   CANCELLED
-
-  @@map("cycle_count_status")
 }
 
 model CycleCount {
@@ -383,7 +1120,8 @@ model CycleCountItem {
   expectedQuantity  Int
   countedQuantity   Int?
   variance          Int?
-  location          String?     @db.VarChar(255)
+  location          String?     @db.VarChar(255)   // Ubicación original (snapshot del stock al crear)
+  locationFound     String?     @db.VarChar(255)   // Ubicación encontrada por el contador (editable en IN_PROGRESS)
   notes             String?     @db.Text
   createdAt         DateTime    @default(now())
   updatedAt         DateTime    @updatedAt
@@ -429,7 +1167,11 @@ model EntryNote {
   warehouseId      String
   warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
-  // Para entradas sin orden de compra
+  // Relación formal con Catálogo de Proveedores
+  catalogSupplierId String?
+  catalogSupplier   Supplier?      @relation(fields: [catalogSupplierId], references: [id], onDelete: SetNull)
+
+  // Snapshots históricos para entradas sin orden de compra o auditoría
   supplierName     String?
   supplierId       String?         // Cédula/RIF del proveedor o texto libre
   supplierPhone    String?
@@ -477,6 +1219,9 @@ model EntryNoteItem {
   itemId           String
   item             Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
+  // Snapshot histórico del nombre del artículo (editable)
+  itemName         String?
+
   quantityReceived Int
   
   unitCost         Decimal       @db.Decimal(12, 2)
@@ -703,7 +1448,8 @@ model ExitNoteItem {
   item            Item       @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
   quantity        Int
-  
+  itemName         String?          @db.VarChar(255)  // ← NUEVO: snapshot del nombre
+  // ... resto ...
   // Ubicación física de donde se tomó
   pickedFromLocation String?
   
@@ -728,7 +1474,9 @@ model ExitNoteItem {
 model Item {
   id          String   @id @default(uuid())
   sku         String
+  code        String
   barcode     String?
+  identity    String?
   name        String
   description String?  @db.Text
 
@@ -769,6 +1517,23 @@ model Item {
   hasExpiry          Boolean  @default(false)  // Tiene fecha de vencimiento
   allowNegativeStock Boolean  @default(false)
 
+  // Información básica extendida
+  shortName             String?  @db.VarChar(20)  // nombrecorto
+  reference             String?  @db.VarChar(20)  // referencia (texto libre, ≠ barcode)
+  contraindications     String?  @db.Text         // contraindi
+
+  // Flags del formulario de creación
+  useStock              Boolean  @default(true)   // usaexist
+  isFractionable        Boolean  @default(false)  // decimales ("fraccionable")
+  isComposite           Boolean  @default(false)  // compuesto ("integrado")
+  isInternalUse         Boolean  @default(false)  // usointerno
+  useServer             Boolean  @default(false)  // usa_servidor
+  suspendedForPurchase  Boolean  @default(false)  // discontc ("suspendido para la compra")
+
+  // Configuración física/comercial
+  warrantyDays          Int      @default(0)      // garantia
+  packagingQty          Int      @default(1)      // empaque
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
@@ -793,7 +1558,13 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
-  stockAlerts         StockAlert[]       
+  stockAlerts         StockAlert[]
+  // Workshop: repuestos consumidos en OT
+  serviceOrderItems   ServiceOrderItem[]
+  // Workshop: materiales solicitados/despachados en OT
+  serviceOrderMaterials ServiceOrderMaterial[]
+  // Workshop: repuestos sugeridos en diagnósticos
+  diagnosisSuggestedParts DiagnosisSuggestedPart[]
   // Auditoría con historial de cambios
   historial      Json?
 
@@ -804,10 +1575,13 @@ model Item {
 
   // Únicos por empresa
   @@unique([empresaId, sku], map: "items_empresa_sku_unique")
+  @@unique([empresaId, code], map: "items_empresa_code_unique")
   @@unique([empresaId, barcode], map: "items_empresa_barcode_unique")
 
   @@index([sku])
+  @@index([code])
   @@index([barcode])
+  @@index([identity])
   @@index([brandId])
   @@index([categoryId])
   @@index([modelId])
@@ -941,7 +1715,8 @@ model Model {
   compatibleParts    ModelCompatibility[] @relation("VehicleModel")
   
   // Relaciones
-  items       Item[]
+  items            Item[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -1052,6 +1827,7 @@ model Movement {
   @@index([itemId])
   @@index([type])
   @@index([movementDate])
+  @@index([itemId, movementDate])
   @@index([reference])
   @@index([warehouseFromId])
   @@index([warehouseToId])
@@ -1069,15 +1845,26 @@ model Pricing {
   salePrice         Decimal  @db.Decimal(12, 2)
   wholesalePrice    Decimal? @db.Decimal(12, 2)
   
-  minMargin         Int      // Porcentaje de margen mínimo
-  maxMargin         Int      // Porcentaje de margen máximo
-  discountPercentage Int?    // Descuento aplicable en porcentaje
+  minMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen mínimo (0.00–999.99)
+  maxMargin         Decimal  @db.Decimal(5, 2) // Porcentaje de margen máximo
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento aplicable en porcentaje
   
+  // Precios en moneda extranjera (USD) — input del usuario
+  costForeign     Decimal  @default(0) @db.Decimal(20,7)  // costoex
+  exchangeRate    Decimal  @default(1) @db.Decimal(20,7)  // factor (tasacambio del día)
+  costRef         Decimal  @default(0) @db.Decimal(20,7)  // costoref = costForeign × exchangeRate
+  costPrevious    Decimal  @default(0) @db.Decimal(20,7)  // costo_ant
+
+  // Impuestos
+  taxRateSale     Decimal  @default(0) @db.Decimal(20,7)  // impuesto1 (IVA venta)
+  taxRatePurchase Decimal  @default(0) @db.Decimal(20,7)  // cimpuesto1 (IVA compra)
+
   notes             String?  @db.Text
   isActive          Boolean  @default(true)
-  
+
   // Relaciones
   tiers             PricingTier[]
+  priceLevels       PriceLevel[]
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1086,6 +1873,23 @@ model Pricing {
   @@map("pricings")
   @@index([itemId])
   @@index([isActive])
+}
+
+model PriceLevel {
+  id           String  @id @default(uuid())
+  pricingId    String
+  pricing      Pricing @relation(fields: [pricingId], references: [id], onDelete: Cascade)
+
+  level        Int                                        // 1-8 (precio1ex…precio8ex)
+  priceForeign Decimal @default(0) @db.Decimal(20,7)    // precioNex — input del usuario (USD)
+  price        Decimal @default(0) @db.Decimal(20,7)    // precioN = priceForeign × exchangeRate
+  finalPrice   Decimal @default(0) @db.Decimal(20,7)    // preciofin N = price × (1 + taxRateSale/100)
+  utility      Decimal @default(0) @db.Decimal(20,7)    // utilN = ((priceForeign − costForeign) / priceForeign) × 100
+  commission   Decimal @default(0) @db.Decimal(20,7)    // comisionN (default 0)
+
+  @@unique([pricingId, level])
+  @@map("price_levels")
+  @@index([pricingId])
 }
 
 model PricingTier {
@@ -1097,7 +1901,7 @@ model PricingTier {
   minQuantity       Int
   maxQuantity       Int?     // null si es sin límite
   tierPrice         Decimal  @db.Decimal(12, 2)
-  discountPercentage Int?    // Descuento en este tier
+  discountPercentage Decimal? @db.Decimal(5, 2) // Descuento en este tier
   
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
@@ -1118,40 +1922,70 @@ enum PurchaseOrderStatus {
   CANCELLED   // Cancelada
 }
 
+enum PurchaseOrderCurrency {
+  USD
+  VES
+  EUR
+}
+
 model PurchaseOrder {
-  id            String              @id @default(uuid())
-  orderNumber   String              @unique
-  
-  supplierId    String
-  supplier      Supplier            @relation(fields: [supplierId], references: [id], onDelete: Restrict)
-  
-  warehouseId   String
-  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
-  status        PurchaseOrderStatus @default(DRAFT)
-  
-  // Totales
-  subtotal      Decimal             @default(0) @db.Decimal(12, 2)
-  tax           Decimal             @default(0) @db.Decimal(12, 2)
-  total         Decimal             @default(0) @db.Decimal(12, 2)
-  
-  notes         String?             @db.Text
-  
-  // Relaciones
-  items         PurchaseOrderItem[]
-  entryNotes    EntryNote[]
-  
-  // Fechas
-  orderDate     DateTime            @default(now())
-  expectedDate  DateTime?
-  
-  // Auditoría
-  createdBy     String?
-  approvedBy    String?
-  approvedAt    DateTime?
-  
-  createdAt     DateTime            @default(now())
-  updatedAt     DateTime            @updatedAt
+  id              String                @id @default(uuid())
+  orderNumber     String                @unique
+
+  // ── Proveedor ──
+  supplierId      String
+  supplier        Supplier              @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  // ── Almacén destino ──
+  warehouseId     String
+  warehouse       Warehouse             @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
+  status          PurchaseOrderStatus   @default(DRAFT)
+
+  // ── Moneda y tasa ──
+  currency        PurchaseOrderCurrency @default(USD)
+  exchangeRate    Decimal?              @db.Decimal(14, 4)   // Tasa BCV del día (VES/USD)
+
+  // ── Condiciones comerciales ──
+  paymentTerms    String?               // Ej: "Contado", "Crédito 30 días", "50/50"
+  creditDays      Int?                  // Días de crédito (si aplica)
+  deliveryTerms   String?               // Ej: "Puesto en almacén", "FOB", "CIF"
+
+  // ── Descuento general (aplicado al subtotal bruto) ──
+  discountAmount  Decimal               @default(0) @db.Decimal(12, 2)
+
+  // ── Totales calculados ──
+  subtotalBruto   Decimal               @default(0) @db.Decimal(12, 2)  // Suma líneas antes de descuento general
+  baseImponible   Decimal               @default(0) @db.Decimal(12, 2)  // Subtotal gravado (IVA 16%)
+  baseExenta      Decimal               @default(0) @db.Decimal(12, 2)  // Subtotal exento (IVA 0%)
+  taxAmount       Decimal               @default(0) @db.Decimal(12, 2)  // IVA total
+  taxRate         Decimal               @default(16) @db.Decimal(5, 2)  // % IVA vigente
+
+  // ── IGTF (Impuesto a Grandes Transacciones Financieras) ──
+  igtfApplies     Boolean               @default(false)                 // Toggle: pago en divisas
+  igtfRate        Decimal               @default(3) @db.Decimal(5, 2)   // % IGTF vigente
+  igtfAmount      Decimal               @default(0) @db.Decimal(12, 2)  // Monto IGTF calculado
+
+  // ── Total final ──
+  total           Decimal               @default(0) @db.Decimal(12, 2)  // subtotal - descuento + IVA + IGTF
+
+  notes           String?               @db.Text
+
+  // ── Relaciones ──
+  items           PurchaseOrderItem[]
+  entryNotes      EntryNote[]
+
+  // ── Fechas ──
+  orderDate       DateTime              @default(now())
+  expectedDate    DateTime?
+
+  // ── Auditoría ──
+  createdBy       String?
+  approvedBy      String?
+  approvedAt      DateTime?
+
+  createdAt       DateTime              @default(now())
+  updatedAt       DateTime              @updatedAt
 
   @@map("purchase_orders")
   @@index([orderNumber])
@@ -1160,31 +1994,56 @@ model PurchaseOrder {
   @@index([orderDate])
 }
 
+
 // backend/prisma/models/inventory/purchaseOrderItem.prisma
 
+enum TaxType {
+  IVA       // Gravado — actualmente 16%
+  EXEMPT    // Exento (0%)
+  REDUCED   // Reducido (8%) — por si aplica en futuro
+}
+
 model PurchaseOrderItem {
-  id                String        @id @default(uuid())
-  
+  id                String          @id @default(uuid())
+
   purchaseOrderId   String
-  purchaseOrder     PurchaseOrder @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
-  
+  purchaseOrder     PurchaseOrder   @relation(fields: [purchaseOrderId], references: [id], onDelete: Cascade)
+
   itemId            String
-  item              Item          @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  item              Item            @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
+  itemName         String?          @db.VarChar(255)
+  // ── Cantidades ──
   quantityOrdered   Int
-  quantityReceived  Int           @default(0)
-  quantityPending   Int           // Calculado: ordered - received
-  
-  unitCost          Decimal       @db.Decimal(12, 2)
-  subtotal          Decimal       @db.Decimal(12, 2)
-  
-  createdAt         DateTime      @default(now())
-  updatedAt         DateTime      @updatedAt
+  quantityReceived  Int             @default(0)
+  quantityPending   Int             // Calculado: ordered - received
+
+  // ── Precio ──
+  unitCost          Decimal         @db.Decimal(12, 2)
+
+  // ── Descuento por línea ──
+  discountPercent   Decimal         @default(0) @db.Decimal(5, 2)   // % descuento
+  discountAmount    Decimal         @default(0) @db.Decimal(12, 2)  // Monto desc. calculado
+
+  // ── Impuesto por línea ──
+  taxType           TaxType         @default(IVA)                   // IVA, Exento, Reducido
+  taxRate           Decimal         @default(16) @db.Decimal(5, 2)  // % según taxType
+  taxAmount         Decimal         @default(0) @db.Decimal(12, 2)  // IVA calculado para esta línea
+
+  // ── Subtotal línea (qty × unitCost - descuento) ──
+  subtotal          Decimal         @db.Decimal(12, 2)
+
+  // ── Total línea (subtotal + taxAmount) ──
+  totalLine         Decimal         @default(0) @db.Decimal(12, 2)
+
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
   @@map("purchase_order_items")
   @@index([purchaseOrderId])
   @@index([itemId])
 }
+
 
 // backend/prisma/models/inventory/reconciliation.prisma
 
@@ -1195,8 +2054,6 @@ enum ReconciliationStatus {
   APPLIED
   REJECTED
   CANCELLED
-
-  @@map("reconciliation_status")
 }
 
 enum ReconciliationSource {
@@ -1205,8 +2062,6 @@ enum ReconciliationSource {
   SYSTEM_ERROR
   ADJUSTMENT
   OTHER
-
-  @@map("reconciliation_source")
 }
 
 model Reconciliation {
@@ -1280,6 +2135,7 @@ model Reservation {
   item              Item              @relation(fields: [itemId], references: [id], onDelete: Restrict)
   
   warehouseId       String
+  warehouse         Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
   
   quantity          Int
   status            ReservationStatus @default(ACTIVE)
@@ -1308,6 +2164,7 @@ model Reservation {
 
   @@map("reservations")
   @@index([itemId])
+  @@index([warehouseId])
   @@index([workOrderId])
   @@index([exitNoteId])
   @@index([status])
@@ -1441,6 +2298,9 @@ model Stock {
   quantityConsumed  Int       @default(0)      // Stock consumido/entregado
   quantityAvailable Int       @default(0)      // Real - Reservado
   
+  // Ubicación física específica en este almacén
+  location          String?
+  
   // Valorización
   averageCost       Decimal   @default(0) @db.Decimal(12, 2)
   
@@ -1455,6 +2315,7 @@ model Stock {
   @@index([itemId])
   @@index([warehouseId])
   @@index([quantityAvailable])
+  @@index([warehouseId, quantityAvailable])
 }
 
 // backend/prisma/models/inventory/stockAlert.prisma
@@ -1472,10 +2333,11 @@ model StockAlert {
 
   // itemId      String
   // item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
- itemId      String
+  itemId      String
   item        Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
-  
+
   warehouseId String
+  warehouse   Warehouse @relation(fields: [warehouseId], references: [id], onDelete: Cascade)
 
   type        AlertType
   message     String
@@ -1487,6 +2349,7 @@ model StockAlert {
 
   createdAt   DateTime  @default(now())
 
+  @@unique([itemId, warehouseId, type])
   @@map("stock_alerts")
   @@index([itemId])
   @@index([warehouseId])
@@ -1498,30 +2361,54 @@ model StockAlert {
 
 // backend/prisma/models/inventory/supplier.prisma
 
+enum SupplierType {
+  INDIVIDUAL
+  COMPANY
+}
+
 model Supplier {
-  id              String          @id @default(uuid())
-  code            String          @unique
-  name            String
-  contactName     String?
-  email           String?
-  phone           String?
-  address         String?
-  taxId           String?         // RIF en Venezuela
-  isActive        Boolean         @default(true)
+  id                String          @id @default(uuid())
+  code              String
+  taxId             String?         // RIF/Cédula unificado
+  name              String
+  contactName       String?
+  email             String?
+  phone             String?
+  mobile            String?         // celular
+  website           String?         // wwwsite
+  address           String?         @db.Text
   
+  // Fiscal / Comercial
+  type              SupplierType    @default(COMPANY)
+  isSpecialTaxpayer Boolean         @default(false) // esagretesp / agente de retención
+  creditDays        Int             @default(0)     // dias
+  currency          String?         // moneda
+  
+  // CRM / Extra
+  notes             String?         @db.Text        // notas / historia
+  metadata          Json?           // info bancaria, campos extra, etc.
+
+  specialty         String?                         // Para proveedores externos de taller (rectificadora, A/C, etc.)
+  isActive          Boolean         @default(true)
+
   // Multi-tenancy
-  empresaId       String
-  empresa         Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  empresaId         String
+  empresa           Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  purchaseOrders  PurchaseOrder[]
+  purchaseOrders    PurchaseOrder[]
+  entryNotes        EntryNote[]
+  workshopTOTs      WorkshopTOT[]
   
   // Auditoría
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
 
+  @@unique([empresaId, code])
+  @@unique([empresaId, taxId])
   @@map("suppliers")
   @@index([code])
+  @@index([taxId])
   @@index([isActive])
   @@index([empresaId])
 }
@@ -1584,6 +2471,8 @@ model Transfer {
   @@index([fromWarehouseId])
   @@index([toWarehouseId])
   @@index([status])
+  @@index([fromWarehouseId, status])
+  @@index([toWarehouseId, status])
 }
 
 model TransferItem {
@@ -1655,7 +2544,7 @@ enum WarehouseType {
 
 model Warehouse {
   id          String        @id @default(uuid())
-  code        String        @unique
+  code        String
   name        String
   type        WarehouseType @default(PRINCIPAL)
   address     String?
@@ -1678,6 +2567,8 @@ model Warehouse {
   cycleCounts     CycleCount[]
   reconciliations Reconciliation[]
   loans           Loan[]
+  reservations    Reservation[]
+  stockAlerts     StockAlert[]
   returnOrders    ReturnOrder[]
   serialNumbers   SerialNumber[]
   transfersFrom   Transfer[]     @relation("TransferFrom")
@@ -1687,8 +2578,8 @@ model Warehouse {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
+  @@unique([empresaId, code])
   @@map("warehouses")
-  @@index([code])
   @@index([type])
   @@index([isActive])
   @@index([empresaId])
@@ -1776,48 +2667,6 @@ model RolePermission {
   @@map("role_permissions")
 }
 
-// backend/prisma/models/sales/customer.prisma
-
-enum CustomerType {
-  INDIVIDUAL  // Persona natural
-  COMPANY     // Empresa
-}
-
-model Customer {
-  id          String       @id @default(uuid())
-  code        String
-  taxId       String?      // RIF/Cédula
-  name        String
-  email       String?
-  phone       String?
-  address     String?      @db.Text
-  type        CustomerType @default(INDIVIDUAL)
-  
-  isActive    Boolean      @default(true)
-  
-  // Multi-tenancy
-  empresaId   String
-  empresa     Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relaciones
-  orders      Order[]
-  preInvoices PreInvoice[]
-  payments    Payment[]
-  invoices    Invoice[]
-  
-  // Auditoría
-  createdAt   DateTime     @default(now())
-  updatedAt   DateTime     @updatedAt
-
-  @@unique([empresaId, code])
-  @@unique([empresaId, taxId])
-  @@map("customers")
-  @@index([code])
-  @@index([taxId])
-  @@index([isActive])
-  @@index([empresaId])
-}
-
 // backend/prisma/models/sales/invoice.prisma
 
 enum InvoiceStatus {
@@ -1831,43 +2680,67 @@ model Invoice {
   invoiceNumber      String        @unique
   fiscalNumber       String?       @unique // Número de control fiscal
   status             InvoiceStatus @default(ACTIVE)
-  
+
   empresaId          String
   empresa            Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Pre-factura
+
+  // Relación con PreInvoice
   preInvoiceId       String        @unique
   preInvoice         PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Pago
+
+  // Relación con Payment (el pago que generó esta factura)
   paymentId          String        @unique
   payment            Payment       @relation(fields: [paymentId], references: [id], onDelete: Restrict)
-  
+
   customerId         String
   customer           Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
+
   // Relaciones
   items              InvoiceItem[]
-  
-  // Totales
+
+  // Workshop: OT facturada con esta invoice
+  serviceOrder       ServiceOrder?
+
+  // ── Moneda ──
+  currency           OrderCurrency @default(USD)
+  exchangeRate       Decimal?      @db.Decimal(14, 4)
+
+  // ── Descuento general ──
+  discountAmount     Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto      Decimal       @default(0) @db.Decimal(12, 2)
+  baseImponible      Decimal       @default(0) @db.Decimal(12, 2)
+  baseExenta         Decimal       @default(0) @db.Decimal(12, 2)
+  taxAmount          Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate            Decimal       @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies        Boolean       @default(false)
+  igtfRate           Decimal       @default(3) @db.Decimal(5, 2)
+  igtfAmount         Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Total ──
+  total              Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Legacy ──
   subtotal           Decimal       @default(0) @db.Decimal(12, 2)
   discount           Decimal       @default(0) @db.Decimal(12, 2)
   tax                Decimal       @default(0) @db.Decimal(12, 2)
-  total              Decimal       @default(0) @db.Decimal(12, 2)
-  
+
   notes              String?       @db.Text
-  
+
   // Fiscal
   invoiceDate        DateTime      @default(now())
-  
+
   // Auditoría
   issuedBy           String?
-  
+
   // Anulación
   cancelledAt        DateTime?
   cancelledBy        String?
   cancellationReason String?       @db.Text
-  
+
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
@@ -1875,38 +2748,58 @@ model Invoice {
   @@index([invoiceNumber])
   @@index([fiscalNumber])
   @@index([customerId])
+  @@index([preInvoiceId])
   @@index([status])
   @@index([invoiceDate])
   @@index([empresaId])
 }
 
+
 // backend/prisma/models/sales/invoiceItem.prisma
 
 model InvoiceItem {
-  id        String   @id @default(uuid())
-  
-  invoiceId String
-  invoice   Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
-  
-  itemId    String
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(12, 2)
-  discount  Decimal  @default(0) @db.Decimal(12, 2)
-  tax       Decimal  @default(0) @db.Decimal(12, 2)
-  subtotal  Decimal  @db.Decimal(12, 2)
-  
+  id              String    @id @default(uuid())
+
+  invoiceId       String
+  invoice         Invoice   @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  itemId          String?
+  item            Item?     @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  // ── Snapshot ──
+  itemName        String?   @db.VarChar(255)
+
+  quantity        Int
+  unitPrice       Decimal   @db.Decimal(12, 2)
+
+  // ── Descuento por línea ──
+  discountPercent Decimal   @default(0) @db.Decimal(5, 2)
+  discountAmount  Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Impuesto por línea ──
+  taxType         TaxType   @default(IVA)
+  taxRate         Decimal   @default(16) @db.Decimal(5, 2)
+  taxAmount       Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Subtotal y total ──
+  subtotal        Decimal   @db.Decimal(12, 2)
+  totalLine       Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Legacy ──
+  discount        Decimal   @default(0) @db.Decimal(12, 2)
+  tax             Decimal   @default(0) @db.Decimal(12, 2)
+
   // Trazabilidad
-  batchId        String?
-  serialNumberId String?
-  
-  createdAt DateTime @default(now())
+  batchId         String?
+  serialNumberId  String?
+
+  createdAt       DateTime  @default(now())
 
   @@map("invoice_items")
   @@index([invoiceId])
   @@index([itemId])
 }
+
 
 // backend/prisma/models/sales/order.prisma
 
@@ -1917,44 +2810,77 @@ enum OrderStatus {
   CANCELLED          // Cancelado
 }
 
+enum OrderCurrency {
+  USD
+  VES
+  EUR
+}
+
 model Order {
-  id              String      @id @default(uuid())
-  orderNumber     String      @unique
-  status          OrderStatus @default(DRAFT)
-  
+  id              String        @id @default(uuid())
+  orderNumber     String        @unique
+  status          OrderStatus   @default(DRAFT)
+
   empresaId       String
-  empresa         Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
+  empresa         Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
   customerId      String
-  customer        Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   warehouseId     String
-  warehouse       Warehouse   @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
+  warehouse       Warehouse     @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
+
   // Relaciones
   items           OrderItem[]
-  
-  // Totales
-  subtotal        Decimal     @default(0) @db.Decimal(12, 2)
-  discount        Decimal     @default(0) @db.Decimal(12, 2)
-  tax             Decimal     @default(0) @db.Decimal(12, 2)
-  total           Decimal     @default(0) @db.Decimal(12, 2)
-  
-  notes           String?     @db.Text
-  
+
+  // ── Moneda y tasa ──
+  currency          OrderCurrency @default(USD)
+  exchangeRate      Decimal?      @db.Decimal(14, 4)
+  exchangeRateSource String?      // 'BCV_AUTO' | 'MANUAL'
+
+  // ── Condiciones comerciales ──
+  paymentTerms      String?
+  creditDays        Int?
+  deliveryTerms     String?
+
+  // ── Descuento general ──
+  discountAmount    Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto     Decimal       @default(0) @db.Decimal(12, 2)
+  baseImponible     Decimal       @default(0) @db.Decimal(12, 2)
+  baseExenta        Decimal       @default(0) @db.Decimal(12, 2)
+  taxAmount         Decimal       @default(0) @db.Decimal(12, 2)
+  taxRate           Decimal       @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies       Boolean       @default(false)
+  igtfRate          Decimal       @default(3) @db.Decimal(5, 2)
+  igtfAmount        Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Total final ──
+  total             Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Campos legacy (mantener por compatibilidad) ──
+  subtotal          Decimal       @default(0) @db.Decimal(12, 2)
+  discount          Decimal       @default(0) @db.Decimal(12, 2)
+  tax               Decimal       @default(0) @db.Decimal(12, 2)
+
+  notes             String?       @db.Text
+
   // Fechas
-  orderDate       DateTime    @default(now())
-  approvedAt      DateTime?
-  
+  orderDate         DateTime      @default(now())
+  approvedAt        DateTime?
+
   // Auditoría
-  createdBy       String?
-  approvedBy      String?
-  
+  createdBy         String?
+  approvedBy        String?
+
   // Relación 1 a 1 con Pre-factura
-  preInvoice      PreInvoice?
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+  preInvoice        PreInvoice?
+
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
 
   @@map("orders")
   @@index([orderNumber])
@@ -1964,31 +2890,50 @@ model Order {
   @@index([empresaId])
 }
 
+
 // backend/prisma/models/sales/orderItem.prisma
 
 model OrderItem {
-  id        String   @id @default(uuid())
-  
-  orderId   String
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  
-  itemId    String
-  item      Item     @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  
-  quantity  Int
-  unitPrice Decimal  @db.Decimal(12, 2)
-  discount  Decimal  @default(0) @db.Decimal(12, 2)
-  subtotal  Decimal  @db.Decimal(12, 2)
-  
-  notes     String?  @db.Text
-  
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id              String    @id @default(uuid())
+
+  orderId         String
+  order           Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  itemId          String
+  item            Item      @relation(fields: [itemId], references: [id], onDelete: Restrict)
+
+  // ── Snapshot del nombre ──
+  itemName        String?   @db.VarChar(255)
+
+  quantity        Int
+  unitPrice       Decimal   @db.Decimal(12, 2)
+
+  // ── Descuento por línea ──
+  discountPercent Decimal   @default(0) @db.Decimal(5, 2)
+  discountAmount  Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Impuesto por línea ──
+  taxType         TaxType   @default(IVA)
+  taxRate         Decimal   @default(16) @db.Decimal(5, 2)
+  taxAmount       Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Subtotal y total línea ──
+  subtotal        Decimal   @db.Decimal(12, 2)
+  totalLine       Decimal   @default(0) @db.Decimal(12, 2)
+
+  // ── Legacy ──
+  discount        Decimal   @default(0) @db.Decimal(12, 2)
+
+  notes           String?   @db.Text
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
 
   @@map("order_items")
   @@index([orderId])
   @@index([itemId])
 }
+
 
 // backend/prisma/models/sales/payment.prisma
 
@@ -2013,38 +2958,56 @@ model Payment {
   id                String        @id @default(uuid())
   paymentNumber     String        @unique
   status            PaymentStatus @default(PENDING)
-  
+
+  // ── Multi-tenancy ──
+  empresaId         String
+  empresa           Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // ── Relación con PreInvoice ──
   preInvoiceId      String
-  
+  preInvoice        PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Restrict)
+
   customerId        String
   customer          Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
-  // Detalles del pago
+
+  // ── Detalles del pago ──
   method            PaymentMethod
   amount            Decimal       @db.Decimal(12, 2)
-  
-  // Para pagos mixtos
-  details           Json?         // [{ method: "CASH", amount: 100 }, ...]
-  
+
+  // ── Moneda ──
+  currency          OrderCurrency @default(USD)
+  exchangeRate      Decimal?      @db.Decimal(14, 4)
+
+  // ── IGTF (si paga en divisas) ──
+  igtfApplies       Boolean       @default(false)
+  igtfAmount        Decimal       @default(0) @db.Decimal(12, 2)
+  totalWithIgtf     Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Para pagos mixtos ──
+  details           Json?         // [{ method: "CASH", amount: 100, reference: "..." }, ...]
+
   reference         String?       // Número de referencia
   notes             String?       @db.Text
-  
-  // Auditoría
+
+  // ── Auditoría ──
   processedBy       String?
   processedAt       DateTime      @default(now())
-  
-  // Relación 1 a 1 con Factura
+
+  // ── Relación 1 a 1 con Factura ──
   invoice           Invoice?
-  
+
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
 
   @@map("payments")
   @@index([paymentNumber])
   @@index([customerId])
+  @@index([preInvoiceId])
   @@index([status])
   @@index([processedAt])
+  @@index([empresaId])
 }
+
 
 // backend/prisma/models/sales/preInvoice.prisma
 
@@ -2060,41 +3023,71 @@ model PreInvoice {
   id                  String            @id @default(uuid())
   preInvoiceNumber    String            @unique
   status              PreInvoiceStatus  @default(PENDING_PREPARATION)
-  
+
   empresaId           String
   empresa             Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
-  
-  // Relación 1 a 1 con Order
-  orderId             String            @unique
-  order               Order             @relation(fields: [orderId], references: [id], onDelete: Restrict)
-  
+
+  // Relación 1 a 1 con Order (nullable para permitir SO también)
+  orderId             String?           @unique
+  order               Order?            @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  // FASE 2: Relación 1 a 1 con ServiceOrder (para workshop invoicing)
+  serviceOrderId      String?           @unique
+  serviceOrder        ServiceOrder?     @relation("PreInvoiceServiceOrder", fields: [serviceOrderId], references: [id], onDelete: Restrict)
+
   customerId          String
   customer            Customer          @relation(fields: [customerId], references: [id], onDelete: Restrict)
-  
-  warehouseId         String
-  warehouse           Warehouse         @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
-  
+
+  // Warehouse nullable para path de ServiceOrder (workshop tiene su propia ubicación)
+  warehouseId         String?
+  warehouse           Warehouse?        @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
   // Relaciones
   items               PreInvoiceItem[]
-  
-  // Totales
+
+  // ── Moneda y tasa ──
+  currency            OrderCurrency     @default(USD)
+  exchangeRate        Decimal?          @db.Decimal(14, 4)
+
+  // ── Descuento general ──
+  discountAmount      Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Totales fiscales ──
+  subtotalBruto       Decimal           @default(0) @db.Decimal(12, 2)
+  baseImponible       Decimal           @default(0) @db.Decimal(12, 2)
+  baseExenta          Decimal           @default(0) @db.Decimal(12, 2)
+  taxAmount           Decimal           @default(0) @db.Decimal(12, 2)
+  taxRate             Decimal           @default(16) @db.Decimal(5, 2)
+
+  // ── IGTF ──
+  igtfApplies         Boolean           @default(false)
+  igtfRate            Decimal           @default(3) @db.Decimal(5, 2)
+  igtfAmount          Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Total final ──
+  total               Decimal           @default(0) @db.Decimal(12, 2)
+
+  // ── Campos legacy ──
   subtotal            Decimal           @default(0) @db.Decimal(12, 2)
   discount            Decimal           @default(0) @db.Decimal(12, 2)
   tax                 Decimal           @default(0) @db.Decimal(12, 2)
-  total               Decimal           @default(0) @db.Decimal(12, 2)
-  
+
   notes               String?           @db.Text
-  
+
   // Control de flujo
   preparedAt          DateTime?
   paidAt              DateTime?
-  
   preparedBy          String?
-  
+
   // Relaciones 1 a 1
   exitNote            ExitNote?
   invoice             Invoice?
-  
+
+  // Facturación consolidada: OTs agrupadas en esta prefactura
+  consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
+
+  payments            Payment[]
+
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
 
@@ -2105,38 +3098,57 @@ model PreInvoice {
   @@index([empresaId])
 }
 
+
 // backend/prisma/models/sales/preInvoiceItem.prisma
 
 model PreInvoiceItem {
-  id              String      @id @default(uuid())
-  
+  id              String        @id @default(uuid())
+
   preInvoiceId    String
-  preInvoice      PreInvoice  @relation(fields: [preInvoiceId], references: [id], onDelete: Cascade)
-  
-  itemId          String
-  item            Item        @relation(fields: [itemId], references: [id], onDelete: Restrict)
-  
+  preInvoice      PreInvoice    @relation(fields: [preInvoiceId], references: [id], onDelete: Cascade)
+
+  itemId          String?
+  item            Item?         @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  // ── Snapshot ──
+  itemName        String?       @db.VarChar(255)
+
   quantity        Int
-  unitPrice       Decimal     @db.Decimal(12, 2)
-  discount        Decimal     @default(0) @db.Decimal(12, 2)
-  subtotal        Decimal     @db.Decimal(12, 2)
-  
+  unitPrice       Decimal       @db.Decimal(12, 2)
+
+  // ── Descuento por línea ──
+  discountPercent Decimal       @default(0) @db.Decimal(5, 2)
+  discountAmount  Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Impuesto por línea ──
+  taxType         TaxType       @default(IVA)
+  taxRate         Decimal       @default(16) @db.Decimal(5, 2)
+  taxAmount       Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Subtotal y total línea ──
+  subtotal        Decimal       @db.Decimal(12, 2)
+  totalLine       Decimal       @default(0) @db.Decimal(12, 2)
+
+  // ── Legacy ──
+  discount        Decimal       @default(0) @db.Decimal(12, 2)
+
   // Trazabilidad
   batchId         String?
-  batch           Batch?      @relation(fields: [batchId], references: [id], onDelete: SetNull)
-  
+  batch           Batch?        @relation(fields: [batchId], references: [id], onDelete: SetNull)
+
   serialNumberId  String?
   serialNumber    SerialNumber? @relation(fields: [serialNumberId], references: [id], onDelete: SetNull)
-  
-  notes           String?     @db.Text
-  
-  createdAt       DateTime    @default(now())
-  updatedAt       DateTime    @updatedAt
+
+  notes           String?       @db.Text
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
 
   @@map("pre_invoice_items")
   @@index([preInvoiceId])
   @@index([itemId])
 }
+
 
 model User {
   id            String       @id @default(cuid())
@@ -2152,11 +3164,13 @@ model User {
   online        Boolean      @default(false)
   fcmTokens     String[]
   google        Boolean      @default(false)
+  isTechnician  Boolean      @default(false)
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @updatedAt
 
   auditLogs     AuditLog[]
   memberships   Membership[]
+  qualityCheckInspections QualityCheck[]
 
   @@index([eliminado])
   @@index([estado])
@@ -2173,4 +3187,1871 @@ enum Access {
   limitado
   completo
   ninguno
+}
+
+// backend/prisma/models/workshop/checklist.prisma
+
+enum ChecklistCategory {
+  RECEPTION
+  DIAGNOSIS
+  QUALITY_CONTROL
+}
+
+enum ChecklistItemType {
+  BOOLEAN
+  TEXT
+  NUMBER
+  SELECTION
+}
+
+model ChecklistTemplate {
+  id          String            @id @default(cuid())
+  code        String
+  name        String
+  description String?           @db.Text
+  category    ChecklistCategory
+  isActive    Boolean           @default(true)
+
+  items       ChecklistItem[]
+  receptions  VehicleReception[] 
+  qualityChecks QualityCheck[]   
+
+  // FASE 3.3: Conditional rules for dynamic field requirements
+  // Structure: { "rules": [{ "id": "rule1", "condition": {...}, "action": {...} }] }
+  conditionalRules Json?
+
+  empresaId   String
+  empresa     Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy   String
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@map("workshop_checklist_templates")
+}
+
+model ChecklistItem {
+  id                 String            @id @default(cuid())
+  checklistTemplateId String
+  template           ChecklistTemplate @relation(fields: [checklistTemplateId], references: [id], onDelete: Cascade)
+  code               String
+  name               String
+  description        String?           @db.Text
+  responseType       ChecklistItemType @default(BOOLEAN)
+  isRequired         Boolean           @default(false)
+  order              Int               @default(0)
+  options            Json?             // Array of strings if SELECTION
+
+  isActive           Boolean           @default(true)
+
+  responses          ChecklistResponse[]
+
+  empresaId          String
+  empresa            Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@unique([checklistTemplateId, code])
+  @@index([empresaId])
+  @@map("workshop_checklist_items")
+}
+
+model ChecklistResponse {
+  id                 String            @id @default(cuid())
+  checklistItemId    String
+  item               ChecklistItem     @relation(fields: [checklistItemId], references: [id], onDelete: Cascade)
+
+  receptionId        String?
+  reception          VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  qualityCheckId     String?
+  qualityCheck       QualityCheck?     @relation(fields: [qualityCheckId], references: [id], onDelete: Cascade)
+
+  boolValue          Boolean?
+  textValue          String?           @db.Text
+  numValue           Decimal?          @db.Decimal(12, 2)
+  selectionValue     String?
+  observation        String?           @db.Text
+
+  empresaId          String
+  empresa            Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  @@index([empresaId])
+  @@index([receptionId])
+  @@index([qualityCheckId])
+  @@map("workshop_checklist_responses")
+}
+
+
+// backend/prisma/models/workshop/ingressMotive.prisma
+// Motivos de ingreso al taller.
+
+model IngressMotive {
+  id          String   @id @default(cuid())
+  code        String
+  name        String
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones
+  receptions VehicleReception[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_ingress_motives")
+}
+
+
+// backend/prisma/models/workshop/laborTime.prisma
+// Control de tiempos técnicos por operación y técnico.
+// Permite medir productividad, eficiencia y horas facturables.
+// Regla: un técnico no puede tener dos registros ACTIVE simultáneamente.
+
+enum LaborTimeStatus {
+  ACTIVE     // Reloj corriendo
+  PAUSED     // Pausado (espera de repuesto, autorización, etc.)
+  COMPLETED  // Terminado
+  CANCELLED  // Anulado (error de registro)
+}
+
+model LaborTime {
+  id             String @id @default(cuid())
+
+  // OT e ítem de operación
+  serviceOrderId String
+  serviceOrder   ServiceOrder      @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  serviceOrderItemId String?
+  serviceOrderItem   ServiceOrderItem? @relation(fields: [serviceOrderItemId], references: [id], onDelete: SetNull)
+
+  // Operación estándar de referencia (para comparar vs tiempo estándar)
+  operationId String?
+  operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // Técnico
+  technicianId String // userId del técnico
+
+  // Tiempos
+  startedAt   DateTime  // Cuando inició
+  pausedAt    DateTime? // Última pausa (null si activo)
+  finishedAt  DateTime? // Cuando terminó
+
+  // Acumulados calculados (en minutos)
+  pausedMinutes   Int @default(0) // Total de minutos pausado
+  realMinutes     Int? // Minutos reales (finishedAt - startedAt - pausedMinutes)
+  standardMinutes Int? // Tiempo estándar de la operación al momento de registrar
+
+  status LaborTimeStatus @default(ACTIVE)
+
+  notes    String? @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pauses LaborTimePause[]
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderItemId])
+  @@index([technicianId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([technicianId, status]) // Buscar timer activo de un técnico
+  @@map("workshop_labor_times")
+}
+
+model LaborTimePause {
+  id             String    @id @default(cuid())
+  laborTimeId    String
+  laborTime      LaborTime @relation(fields: [laborTimeId], references: [id], onDelete: Cascade)
+
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationMinutes Int?     // Calculado al finalizar la pausa
+  reason         String?   @db.Text
+
+  empresaId      String
+  empresa        Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+
+  @@index([laborTimeId])
+  @@index([empresaId])
+  @@map("workshop_labor_time_pauses")
+}
+
+
+
+// backend/prisma/models/workshop/materialMovement.prisma
+// Historial de movimientos de cada material en una OT.
+// Registra quién hizo qué, cuándo y desde qué almacén.
+// Cada cambio de estado en ServiceOrderMaterial debe generar un registro aquí.
+
+enum MaterialMovementType {
+  RESERVATION   // Cantidad reservada en inventario
+  DISPATCH      // Despacho físico desde almacén a la OT
+  CONSUMPTION   // Consumo registrado por el técnico
+  RETURN        // Devolución al almacén
+  ADJUSTMENT    // Ajuste de cantidad por error u otro motivo
+  CANCELLATION  // Cancelación del material
+}
+
+model ServiceOrderMaterialMovement {
+  id               String @id @default(cuid())
+  materialId       String
+  material         ServiceOrderMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  type             MaterialMovementType
+  quantity         Decimal  @db.Decimal(12, 2)
+  previousQuantity Decimal? @db.Decimal(12, 2) // Snapshot de la cantidad antes del movimiento
+
+  // Trazabilidad de inventario
+  warehouseId      String?  // Almacén origen/destino (referencia soft, no FK)
+  warehouseName    String?  // Snapshot del nombre del almacén
+
+  // Auditoría
+  userId           String   // Quien ejecutó el movimiento
+  notes            String?  @db.Text
+  referenceId      String?  // ID de referencia externa (ej: movimiento de inventario)
+
+  empresaId        String
+  empresa          Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt        DateTime @default(now())
+
+  @@index([materialId])
+  @@index([empresaId])
+  @@index([materialId, type]) // Movimientos de un tipo específico para un material
+  @@map("workshop_material_movements")
+}
+
+
+// backend/prisma/models/workshop/qualityCheck.prisma
+// Control de calidad pre-entrega del vehículo.
+// Se ejecuta antes de mover la OT a READY.
+// Si falla → se registra motivo y se regresa a IN_PROGRESS.
+
+enum QualityCheckStatus {
+  PENDING     // Por realizar
+  IN_PROGRESS // En proceso de revisión
+  PASSED      // Aprobado - vehículo listo para entregar
+  FAILED      // Reprobado - requiere retrabajo
+}
+
+model QualityCheck {
+  id             String       @id @default(cuid())
+
+  serviceOrderId String       @unique // 1:1 con ServiceOrder
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  inspectorId String // userId del inspector (técnico jefe, asesor QC, etc.)
+  inspector   User    @relation(fields: [inspectorId], references: [id], onDelete: Restrict)
+
+  status QualityCheckStatus @default(PENDING)
+
+  // Checklist flexible (antiguo/hardcoded)
+  checklistItems Json?
+
+  // Checklist dinámico
+  checklistTemplateId String?
+  checklistTemplate   ChecklistTemplate?  @relation(fields: [checklistTemplateId], references: [id], onDelete: SetNull)
+  checklistResponses  ChecklistResponse[]
+
+  // Si falla
+  failureNotes String? @db.Text
+  retryCount   Int     @default(0) // Cuántas veces reprobó
+
+  // Fechas
+  startedAt  DateTime?
+  completedAt DateTime?
+
+  notes     String? @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([inspectorId])
+  @@index([status])
+  @@map("workshop_quality_checks")
+}
+
+
+// backend/prisma/models/workshop/receptionMedia.prisma
+// Registro detallado de daños visibles y fotos del vehículo al ingresar.
+// Reemplaza los campos planos hasPreExistingDamage/damageNotes con tablas estructuradas.
+
+enum DamageSeverity {
+  MINOR    // Rayón, golpe leve
+  MODERATE // Abollo, daño visible
+  SEVERE   // Daño estructural
+}
+
+enum ReceptionPhotoType {
+  FRONTAL   // Foto frontal del vehículo
+  REAR      // Foto trasera
+  LEFT      // Lateral izquierdo
+  RIGHT     // Lateral derecho
+  INTERIOR  // Interior / tablero
+  DAMAGE    // Foto específica de un daño
+  DOCUMENT  // Documento (tarjeta, licencia, etc.)
+  OTHER     // Otro
+}
+
+model ReceptionDamage {
+  id          String @id @default(cuid())
+  receptionId String
+  reception   VehicleReception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  zone        String          // Ej: "Parachoques delantero", "Puerta trasera izquierda"
+  description String          @db.Text
+  severity    DamageSeverity  @default(MINOR)
+  photoUrl    String?         // Foto directa de este daño específico
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([receptionId])
+  @@index([empresaId])
+  @@map("workshop_reception_damages")
+}
+
+model ReceptionPhoto {
+  id          String @id @default(cuid())
+  receptionId String
+  reception   VehicleReception @relation(fields: [receptionId], references: [id], onDelete: Cascade)
+
+  type        ReceptionPhotoType @default(OTHER)
+  url         String
+  description String?            @db.Text
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([receptionId])
+  @@index([empresaId])
+  @@map("workshop_reception_photos")
+}
+
+
+// backend/prisma/models/workshop/serviceAppointment.prisma
+// Citas / agenda del taller.
+// Flujo: SCHEDULED → CONFIRMED → ARRIVED → COMPLETED | NO_SHOW | CANCELLED | RESCHEDULED
+
+enum AppointmentStatus {
+  SCHEDULED   // Agendada
+  CONFIRMED   // Confirmada por el cliente
+  ARRIVED     // Cliente llegó al taller
+  COMPLETED   // Se generó OT / se concretó la atención
+  NO_SHOW     // No se presentó
+  CANCELLED   // Cancelada
+  RESCHEDULED // Reagendada
+  WAITING     // En espera (lista de espera)
+}
+
+enum AppointmentOrigin {
+  PHONE        // Teléfono
+  SOCIAL_MEDIA // Redes sociales
+  PRESENTIAL   // Presencial / walk-in
+  WEB          // Sitio web / portal
+  CRM          // Generada desde CRM
+}
+
+model ServiceAppointment {
+  id    String @id @default(cuid())
+  folio String // APT-0001 auto-generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot al agendar
+  vehiclePlate String?
+  vehicleDesc  String? // "Toyota Hilux 2021 Gris"
+
+  // Tipo de servicio solicitado
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Programación
+  scheduledDate      DateTime // Fecha de la cita
+  estimatedMinutes   Int?     // Duración estimada
+
+  // Asignación
+  assignedAdvisorId String? // userId del asesor de servicio
+
+  // Origen de la cita
+  origin AppointmentOrigin @default(PRESENTIAL)
+
+  // Pre-diagnóstico (entrevista breve para estimar tipo y repuestos)
+  preDiagnosis        String?  @db.Text  // Síntomas / pre-diagnóstico telefónico
+  preIdentifiedParts  Json?              // Repuestos pre-identificados [{ description, qty }]
+  estimatedCost       Decimal? @db.Decimal(12, 2) // Costo estimado comunicado al cliente
+
+  // Estado y detalles
+  status      AppointmentStatus @default(SCHEDULED)
+  clientNotes String?           @db.Text // Lo que el cliente describió al agendar
+  internalNotes String?         @db.Text
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación inversa: recepciones generadas desde esta cita
+  receptions VehicleReception[]
+
+  // Relación inversa: la OT creada desde esta cita
+  serviceOrder ServiceOrder?
+
+  // Historial de cambios de estado
+  statusHistory AppointmentStatusHistory[]
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([scheduledDate])
+  @@index([status])
+  @@index([assignedAdvisorId])
+  @@index([empresaId, scheduledDate, status]) // Citas del día por estado
+  @@map("workshop_appointments")
+}
+
+
+// backend/prisma/models/workshop/serviceDiagnosis.prisma
+
+enum DiagnosisStatus {
+  DRAFT
+  COMPLETED
+  APPROVED_INTERNAL
+}
+
+enum DiagnosisFindingSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model ServiceDiagnosis {
+  id            String             @id @default(cuid())
+  receptionId   String?            @unique
+  reception     VehicleReception?  @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  serviceOrderId String?           @unique
+  serviceOrder   ServiceOrder?     @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+  technicianId  String?            // userId del técnico
+
+  startedAt     DateTime?
+  finishedAt    DateTime?
+  generalNotes  String?            @db.Text
+  severity      DiagnosisFindingSeverity @default(LOW)
+  status        DiagnosisStatus    @default(DRAFT)
+
+  findings      DiagnosisFinding[]
+  evidences     DiagnosisEvidence[]
+  suggestedOperations DiagnosisSuggestedOperation[]
+  suggestedParts      DiagnosisSuggestedPart[]
+  quotations    WorkshopQuotation[]
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy     String
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnoses")
+}
+
+model DiagnosisFinding {
+  id                  String             @id @default(cuid())
+  diagnosisId         String
+  diagnosis           ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  category            String?            // Motor, Suspensión, etc.
+  description         String             @db.Text
+  severity            DiagnosisFindingSeverity @default(MEDIUM)
+  requiresClientAuth  Boolean            @default(true)
+  isHiddenFinding     Boolean            @default(false) // Hallazgo oculto detectado durante el desarme
+  clientApproved      Boolean?           // Para cuando el cliente acepta o rechaza
+  observation         String?            @db.Text
+
+  empresaId           String
+  empresa             Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  serviceOrderAdditionals ServiceOrderAdditional[]
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_findings")
+}
+
+model DiagnosisSuggestedOperation {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  operationId   String?
+  operation     WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+  description   String             @db.Text
+  estimatedMins Int                @default(0)
+  estimatedPrice Decimal           @default(0) @db.Decimal(12, 2)
+  approved      Boolean            @default(false)
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_suggested_operations")
+}
+
+model DiagnosisSuggestedPart {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  itemId        String?            
+  item          Item?              @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description   String             @db.Text
+  quantity      Decimal            @default(1) @db.Decimal(12, 2)
+  estimatedCost Decimal            @default(0) @db.Decimal(12, 2)
+  estimatedPrice Decimal           @default(0) @db.Decimal(12, 2)
+  approved      Boolean            @default(false)
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_suggested_parts")
+}
+
+model DiagnosisEvidence {
+  id            String             @id @default(cuid())
+  diagnosisId   String
+  diagnosis     ServiceDiagnosis   @relation(fields: [diagnosisId], references: [id], onDelete: Cascade)
+  type          String             // photo, video, document
+  url           String
+  description   String?            @db.Text
+
+  empresaId     String
+  empresa       Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_diagnosis_evidences")
+}
+
+
+// backend/prisma/models/workshop/serviceOrder.prisma
+// Orden de Trabajo (OT) del taller mecánico.
+// Flujo completo: DRAFT → OPEN → DIAGNOSING → PENDING_APPROVAL → APPROVED
+//                 → IN_PROGRESS → PAUSED | WAITING_PARTS | WAITING_AUTH
+//                 → QUALITY_CHECK → READY → DELIVERED → INVOICED → CLOSED
+//                 | CANCELLED
+
+enum ServiceOrderStatus {
+  DRAFT            // Borrador (en creación)
+  OPEN             // Abierta / Vehículo recibido
+  DIAGNOSING       // En diagnóstico
+  PENDING_APPROVAL // Cotización enviada, esperando aprobación del cliente
+  APPROVED         // Cliente aprobó los trabajos
+  IN_PROGRESS      // Trabajos en ejecución
+  PAUSED           // Pausada (falta técnico, recurso, etc.)
+  WAITING_PARTS    // Esperando repuesto
+  WAITING_AUTH     // Esperando autorización para trabajo adicional
+  QUALITY_CHECK    // En control de calidad pre-entrega
+  READY            // Lista para entregar
+  DELIVERED        // Vehículo entregado al cliente
+  INVOICED         // Facturada
+  CLOSED           // Cerrada y liquidada
+  CANCELLED        // Cancelada / Anulada
+}
+
+enum ServiceOrderPriority {
+  LOW    // Normal / sin urgencia
+  NORMAL // Prioridad estándar
+  HIGH   // Urgente
+  ASAP   // Inmediata (cliente esperando en taller)
+}
+
+enum ServiceOrderItemType {
+  LABOR   // Mano de obra / operación técnica
+  PART    // Repuesto o material
+  OTHER   // Otro cargo (subcontrato, servicio externo, etc.)
+}
+
+enum ServiceOrderItemStatus {
+  PENDING     // Pendiente de asignación
+  ASSIGNED    // Técnico asignado
+  IN_PROGRESS // En ejecución
+  PAUSED      // Pausada temporalmente
+  COMPLETED   // Finalizada
+  CANCELLED   // Anulada
+}
+
+model ServiceOrder {
+  id    String @id @default(cuid())
+  folio String // SO-0001, SO-0002 ... generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot del vehículo al momento de recibir
+  vehiclePlate String?
+  vehicleDesc  String? // "Honda Civic 2019 Blanco"
+  mileageIn    Int?
+  mileageOut   Int?
+
+  // Origen: cita y/o recepción formal
+  appointmentId String?             @unique
+  appointment   ServiceAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  receptionId String?          @unique
+  reception   VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+
+  // Tipo de servicio principal
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Bahía / estación de trabajo asignada
+  bayId String?
+  bay   WorkshopBay? @relation(fields: [bayId], references: [id], onDelete: SetNull)
+
+  // Cotización CRM de origen (si aplica)
+  workshopQuoteId String?
+  workshopQuote   Quote? @relation(fields: [workshopQuoteId], references: [id], onDelete: SetNull)
+
+  // FASE 2: PreInvoice (preparación de factura) - back-reference only (FK is in PreInvoice)
+  preInvoice    PreInvoice?   @relation("PreInvoiceServiceOrder")
+
+  // Facturación consolidada: cuando varias OTs se facturan juntas en una sola PreInvoice
+  consolidatedPreInvoiceId String?
+  consolidatedPreInvoice   PreInvoice? @relation("ConsolidatedSOPreInvoice", fields: [consolidatedPreInvoiceId], references: [id], onDelete: SetNull)
+
+  // Factura generada al cerrar
+  invoiceId String? @unique
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
+
+  // Trabajo
+  diagnosisNotes String? @db.Text
+  internalNotes  String? @db.Text // Renamed from observations to resolve conflict with relation
+
+  // Estado, prioridad y asignación
+  status                ServiceOrderStatus   @default(DRAFT)
+  priority              ServiceOrderPriority @default(NORMAL)
+  assignedAdvisorId     String?              // userId del asesor de servicio
+  assignedTechnicianId  String?              // userId del técnico principal
+
+  // Fechas clave
+  receivedAt        DateTime  @default(now())
+  estimatedDelivery DateTime?
+  deliveredAt       DateTime?
+  closedAt          DateTime?
+
+  // Totales calculados
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones hijas
+  items          ServiceOrderItem[]
+  materials      ServiceOrderMaterial[]
+  additionals    ServiceOrderAdditional[]
+  observations   ServiceOrderObservation[]
+  laborTimes     LaborTime[]
+  qualityCheck   QualityCheck?
+  warranties     WorkshopWarranty[] @relation("OriginalOrder")
+  reworkOrders   WorkshopWarranty[] @relation("ReworkOrder")
+  quotations     WorkshopQuotation[]
+  tots           WorkshopTOT[]
+  garitaEvents   WorkshopGarita[]
+
+  // Historial y Entrega
+  statusHistory  ServiceOrderStatusHistory[]
+  delivery       VehicleDelivery?
+
+  // Diagnóstico desacoplado
+  serviceDiagnosis ServiceDiagnosis?
+
+  // Lead generado o asociado
+  lead Lead?
+
+  // Retrabajos
+  reworksAsOriginal   WorkshopRework[] @relation("ReworkOriginalOrder")
+  reworksAsCorrection WorkshopRework[] @relation("ReworkCorrectionOrder")
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([status])
+  @@index([priority])
+  @@index([assignedAdvisorId])
+  @@index([assignedTechnicianId])
+  @@index([receivedAt])
+  @@index([estimatedDelivery])
+  @@index([empresaId, status, receivedAt]) // Búsqueda de OTs activas por fecha
+  @@map("service_orders")
+}
+
+model ServiceOrderItem {
+  id             String               @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder         @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  type        ServiceOrderItemType   @default(LABOR)
+  status      ServiceOrderItemStatus @default(PENDING)
+  description String
+
+  // Snapshots para preservar historial (el nombre puede cambiar en el catálogo)
+  operationName String? // Snapshot del nombre de la operación al momento de agregar
+  itemName      String? // Snapshot del nombre del ítem/repuesto al momento de agregar
+
+  quantity    Decimal              @default(1) @db.Decimal(10, 2)
+  unitPrice   Decimal             @default(0) @db.Decimal(12, 2)
+  discountPct Decimal             @default(0) @db.Decimal(5, 2)
+  
+  // Tax fields (now standardized across SO and CRM Quote)
+  taxType     TaxType             @default(IVA)  // Import from inventory.purchaseOrderItem
+  taxRate     Decimal             @default(0.16) @db.Decimal(5, 2)  // 16% by default for IVA
+  taxAmount   Decimal             @default(0) @db.Decimal(12, 2)   // Calculated: (unitPrice * quantity - discountPct) * taxRate
+  
+  total       Decimal             @default(0) @db.Decimal(12, 2)
+
+  // Item-level notes (align with Quote)
+  notes       String?             @db.Text
+
+  // LABOR: operación estándar de referencia (opcional)
+  operationId String?
+  operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // PART: ítem de inventario vinculado (opcional)
+  itemId        String?
+  item          Item?    @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  stockDeducted Boolean  @default(false) // true cuando ya se descontó del inventario
+
+  // Costo unitario para calcular margen (precio - costo = ganancia por línea)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Técnico asignado a este ítem específico (para tablero de carga)
+  technicianId  String?
+
+  // Registro de tiempo real si aplica (inversas de LaborTime)
+  laborTimes LaborTime[]
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Operaciones pendientes/activas por OT
+  @@index([operationId])
+  @@index([itemId])
+  @@map("service_order_items")
+}
+
+enum MaterialStatus {
+  REQUESTED
+  RESERVED
+  DISPATCHED
+  CONSUMED
+  RETURNED
+  CANCELLED
+}
+
+model ServiceOrderMaterial {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  itemId         String?
+  item           Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
+  description    String         @db.Text
+
+  quantityRequested  Decimal @default(0) @db.Decimal(12, 2)
+  quantityReserved   Decimal @default(0) @db.Decimal(12, 2)
+  quantityDispatched Decimal @default(0) @db.Decimal(12, 2)
+  quantityConsumed   Decimal @default(0) @db.Decimal(12, 2)
+  quantityReturned   Decimal @default(0) @db.Decimal(12, 2)
+
+  unitCost  Decimal @default(0) @db.Decimal(12, 2)
+  unitPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  status    MaterialStatus @default(REQUESTED)
+
+  // Historial de movimientos
+  movements ServiceOrderMaterialMovement[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderId, status]) // Materiales por estado en una OT
+  @@index([itemId])
+  @@index([empresaId])
+  @@map("service_order_materials")
+}
+
+enum AdditionalStatus {
+  PROPOSED
+  QUOTED
+  APPROVED
+  REJECTED
+  EXECUTED
+}
+
+model ServiceOrderAdditional {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  // Puede venir de un hallazgo diagnóstico previo no aprobado, o ser un hallazgo nuevo
+  diagnosisFindingId String?
+  diagnosisFinding   DiagnosisFinding? @relation(fields: [diagnosisFindingId], references: [id], onDelete: SetNull)
+
+  description    String @db.Text
+  technicianId   String? // userId del técnico que lo propuso/ejecutó
+  status         AdditionalStatus @default(PROPOSED)
+
+  estimatedPrice Decimal @default(0) @db.Decimal(12, 2)
+  estimatedTimeMins Int @default(0)
+
+  // Detalle de ítems aprobados/rechazados por el cliente
+  additionalItems ServiceOrderAdditionalItem[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_additionals")
+}
+
+enum AdditionalItemType {
+  LABOR    // Mano de obra / operación
+  PART     // Repuesto
+  OTHER    // Servicio externo u otro
+}
+
+model ServiceOrderAdditionalItem {
+  id           String                  @id @default(cuid())
+  additionalId String
+  additional   ServiceOrderAdditional  @relation(fields: [additionalId], references: [id], onDelete: Cascade)
+
+  type          AdditionalItemType @default(LABOR)
+  description   String
+  referenceId   String?  // ID de operación o ítem de inventario (soft reference)
+  quantity      Decimal  @default(1) @db.Decimal(10, 2)
+  unitPrice     Decimal  @default(0) @db.Decimal(12, 2)
+  unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+  total         Decimal  @default(0) @db.Decimal(12, 2)
+
+  // Aprobación individual del cliente
+  clientApproved Boolean? // null=pendiente, true=aprobado, false=rechazado
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([additionalId])
+  @@map("service_order_additional_items")
+}
+
+enum ObservationType {
+  INTERNAL
+  CLIENT
+  TECHNICAL
+  QUALITY
+}
+
+model ServiceOrderObservation {
+  id             String         @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  type        ObservationType @default(INTERNAL)
+  observation String          @db.Text
+  userId      String
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("service_order_observations")
+}
+
+
+
+// backend/prisma/models/workshop/serviceOrderHistory.prisma
+
+model ServiceOrderStatusHistory {
+  id             String             @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder       @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  previousStatus ServiceOrderStatus?
+  newStatus      ServiceOrderStatus
+  comment        String?            @db.Text
+  userId         String             // Usuario que hizo el cambio
+
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@map("workshop_so_status_history")
+}
+
+model AppointmentStatusHistory {
+  id             String             @id @default(cuid())
+  appointmentId  String
+  appointment    ServiceAppointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  previousStatus AppointmentStatus?
+  newStatus      AppointmentStatus
+  comment        String?            @db.Text
+  userId         String             // Usuario que hizo el cambio
+
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime           @default(now())
+
+  @@index([appointmentId])
+  @@index([empresaId])
+  @@map("workshop_appointment_status_history")
+}
+
+
+// backend/prisma/models/workshop/serviceType.prisma
+// Catálogo de tipos de servicio del taller.
+// Ej: Mantenimiento preventivo, correctivo, diagnóstico, cambio de aceite, etc.
+
+model ServiceType {
+  id          String  @id @default(cuid())
+  code        String
+  name        String
+  description String? @db.Text
+
+  // Tiempo y precio estándar de referencia
+  standardMinutes   Int?     // Duración estimada en minutos
+  standardLaborPrice Decimal? @db.Decimal(12, 2)
+
+  isActive  Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones
+  appointments  ServiceAppointment[]
+  serviceOrders ServiceOrder[]
+  operations    WorkshopOperation[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_service_types")
+}
+
+
+// backend/prisma/models/workshop/technicianSpecialty.prisma
+// Especialidades técnicas (ej. Electricista, Mecánico General, Pintor)
+
+model TechnicianSpecialty {
+  id          String   @id @default(cuid())
+  code        String
+  name        String
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relaciones intermedias con técnicos (usuarios) si es necesario, 
+  // o se puede relacionar directamente en un nuevo modelo TechnicianProfile.
+  // Por simplicidad, agregaremos el ID al modelo si se necesita.
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_technician_specialties")
+}
+
+
+// backend/prisma/models/workshop/vehicleDelivery.prisma
+
+model VehicleDelivery {
+  id             String       @id @default(cuid())
+  serviceOrderId String       @unique
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+  
+  deliveredAt    DateTime     @default(now())
+  deliveredBy    String       // userId
+  receivedByName String?
+  clientConformity Boolean    @default(true)
+  clientSignature String?     // URL de la firma si aplica
+  observations   String?      @db.Text
+  nextVisitDate  DateTime?
+
+  empresaId      String
+  empresa        Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@index([empresaId])
+  @@map("workshop_vehicle_deliveries")
+}
+
+
+// backend/prisma/models/workshop/vehicleReception.prisma
+// Recepción formal del vehículo en el taller.
+// Registra el estado físico del vehículo al ingresar.
+// Puede generarse desde una cita o directamente (walk-in).
+
+enum FuelLevel {
+  EMPTY          // Vacío
+  QUARTER        // 1/4
+  HALF           // 1/2
+  THREE_QUARTERS // 3/4
+  FULL           // Lleno
+}
+
+enum ReceptionStatus {
+  OPEN             // Abierta / vehículo recibido
+  DIAGNOSING       // Técnico realizando diagnóstico
+  QUOTED           // Diagnóstico listo, cotización generada
+  CONVERTED_TO_SO  // Convertida en Orden de Trabajo
+  CANCELLED        // Cancelada
+}
+
+model VehicleReception {
+  id    String @id @default(cuid())
+  folio String // REC-0001 auto-generado por empresa
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Snapshot del vehículo al ingresar
+  vehiclePlate String?
+  vehicleDesc  String? // "Toyota Hilux 2021 Gris"
+
+  // Datos de ingreso
+  mileageIn  Int?
+  fuelLevel  FuelLevel?
+
+  // Motivo de Ingreso
+  ingressMotiveId String?
+  ingressMotive   IngressMotive? @relation(fields: [ingressMotiveId], references: [id], onDelete: SetNull)
+
+  // Inventario de accesorios y condición
+  accessories      Json?    // Ej: ["gata", "llanta de repuesto", "radio", "manual"]
+  hasPreExistingDamage Boolean @default(false)
+  damageNotes      String? @db.Text // Descripción de daños pre-existentes
+
+  // Descripción del cliente de lo que necesita
+  clientDescription String? @db.Text
+
+  // Autorización de ingreso
+  authorizationName  String? // Nombre de quien autoriza (puede ser el mismo cliente)
+  authorizationPhone String?
+
+  // Entrega estimada al recibir
+  estimatedDelivery DateTime?
+
+  // Estado del ciclo de vida de la recepción
+  status    ReceptionStatus @default(OPEN)
+
+  // Autorización digital
+  clientSignature      String?  // URL de firma digital del cliente
+  diagnosticAuthorized Boolean  @default(false) // Cliente autorizó diagnóstico
+
+  // Asesor que recibe
+  advisorId String? // userId
+
+  // Cita de origen (opcional - puede ser walk-in)
+  appointmentId String?
+  appointment   ServiceAppointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relación inversa: la OT generada desde esta recepción
+  serviceOrder ServiceOrder?
+
+  // Checklist dinámico
+  checklistTemplateId String?
+  checklistTemplate   ChecklistTemplate?  @relation(fields: [checklistTemplateId], references: [id], onDelete: SetNull)
+  checklistResponses  ChecklistResponse[]
+
+  // Diagnóstico desacoplado
+  serviceDiagnosis ServiceDiagnosis?
+
+  // Cotizaciones generadas desde esta recepción
+  quotations WorkshopQuotation[]
+
+  // Daños y fotos detalladas
+  damages ReceptionDamage[]
+  photos  ReceptionPhoto[]
+
+  // Sucursal
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  @@unique([empresaId, folio])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([customerVehicleId])
+  @@index([appointmentId])
+  @@index([createdAt])
+  @@map("workshop_receptions")
+}
+
+
+// backend/prisma/models/workshop/workshopAttachment.prisma
+// Documento adjunto polimórfico para cualquier entidad del módulo de taller.
+// Permite adjuntar archivos a OTs, recepciones, garantías, diagnósticos, etc.
+
+enum AttachmentEntityType {
+  SERVICE_ORDER         // Orden de trabajo
+  VEHICLE_RECEPTION     // Recepción de vehículo
+  SERVICE_DIAGNOSIS     // Diagnóstico técnico
+  WORKSHOP_WARRANTY     // Garantía
+  SERVICE_APPOINTMENT   // Cita
+  QUALITY_CHECK         // Control de calidad
+}
+
+enum AttachmentFileType {
+  IMAGE    // jpg, png, webp
+  VIDEO    // mp4, mov
+  PDF      // Documentos PDF
+  DOCUMENT // doc, xls, etc.
+  OTHER
+}
+
+model WorkshopAttachment {
+  id         String @id @default(cuid())
+
+  entityType AttachmentEntityType
+  entityId   String               // ID de la entidad relacionada (no FK - relación polimórfica)
+
+  fileType    AttachmentFileType @default(OTHER)
+  url         String
+  name        String             // Nombre descriptivo del archivo
+  description String?            @db.Text
+  mimeType    String?            // Ej: "image/jpeg", "application/pdf"
+  sizeBytes   Int?               // Tamaño en bytes
+
+  uploadedBy  String             // userId
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId]) // Principal: buscar adjuntos de una entidad
+  @@index([empresaId])
+  @@map("workshop_attachments")
+}
+
+
+// backend/prisma/models/workshop/workshopAuditLog.prisma
+// Auditoría general polimórfica del módulo de taller.
+// Registra cualquier acción crítica: cambios de estado, descuentos, reaperturas, etc.
+
+enum AuditEntityType {
+  SERVICE_ORDER
+  VEHICLE_RECEPTION
+  SERVICE_APPOINTMENT
+  WORKSHOP_WARRANTY
+  WORKSHOP_REWORK
+  QUALITY_CHECK
+  LABOR_TIME
+  SERVICE_ORDER_MATERIAL
+  VEHICLE_DELIVERY
+}
+
+enum AuditAction {
+  CREATE
+  UPDATE
+  DELETE
+  STATUS_CHANGE
+  REOPEN
+  APPROVE
+  REJECT
+  CANCEL
+  ASSIGN
+  DELIVER
+}
+
+model WorkshopAuditLog {
+  id         String @id @default(cuid())
+
+  entityType AuditEntityType
+  entityId   String
+
+  action     AuditAction
+  previousValue Json?   // Estado anterior (snapshot)
+  newValue      Json?   // Estado nuevo (snapshot)
+
+  description String? @db.Text  // Descripción legible del cambio
+  userId      String             // Quien ejecutó la acción
+  userIp      String?            // IP del usuario
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt   DateTime @default(now())
+
+  @@index([entityType, entityId]) // Principal: historial de una entidad
+  @@index([empresaId, createdAt]) // Auditoría por empresa en el tiempo
+  @@index([userId])
+  @@map("workshop_audit_logs")
+}
+
+
+// backend/prisma/models/workshop/workshopBay.prisma
+// Bahías / estaciones de trabajo del taller.
+// Cada OT puede asignarse a una bahía específica.
+
+model WorkshopBay {
+  id          String  @id @default(cuid())
+  code        String
+  name        String
+  description String?
+
+  isActive  Boolean @default(true)
+
+  // Sucursal a la que pertenece esta bahía
+  branchId String?
+  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones
+  serviceOrders ServiceOrder[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_bays")
+}
+
+
+// backend/prisma/models/workshop/workshopBranch.prisma
+// Sucursal del taller. Permite multi-sucursal dentro de una empresa.
+// Las entidades operativas (OT, recepción, cita) pueden vincularse a una sucursal.
+
+model WorkshopBranch {
+  id          String @id @default(cuid())
+  code        String
+  name        String
+  address     String?
+  phone       String?
+  managerUserId String?  // userId del jefe de taller / encargado
+  isActive    Boolean @default(true)
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Entidades asociadas
+  bays              WorkshopBay[]
+  serviceOrders     ServiceOrder[]
+  appointments      ServiceAppointment[]
+  receptions        VehicleReception[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_branches")
+}
+
+
+// backend/prisma/models/workshop/workshopGarita.prisma
+// Control de Garita / Vigilancia
+// Registra todo movimiento de vehículos y piezas que entran o salen del taller.
+
+enum GaritaEventType {
+  VEHICLE_IN     // Ingreso de vehículo de cliente
+  VEHICLE_OUT    // Egreso de vehículo de cliente (entrega)
+  PART_OUT       // Salida de pieza a proveedor externo (T.O.T.)
+  PART_IN        // Reingreso de pieza desde proveedor externo (T.O.T.)
+  ROAD_TEST_OUT  // Salida del vehículo para prueba de carretera
+  ROAD_TEST_IN   // Reingreso del vehículo después de prueba de carretera
+  OTHER          // Otro movimiento
+}
+
+enum GaritaEventStatus {
+  PENDING    // Registrado, pendiente de autorización
+  AUTHORIZED // Pase de salida validado por vigilancia
+  COMPLETED  // Ciclo cerrado (regresó el vehículo o pieza)
+  FLAGGED    // Irregularidad detectada
+  CANCELLED  // Cancelado
+}
+
+model WorkshopGarita {
+  id String @id @default(cuid())
+
+  type   GaritaEventType
+  status GaritaEventStatus @default(PENDING)
+
+  // OS vinculada (requerida para VEHICLE_IN/OUT, ROAD_TEST_*)
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // T.O.T. vinculado (requerido para PART_OUT/PART_IN)
+  totId String?
+  tot   WorkshopTOT? @relation(fields: [totId], references: [id], onDelete: SetNull)
+
+  // Datos del vehículo
+  plateNumber   String?
+  vehicleDesc   String?  // Marca, modelo, color
+  serialMotor   String?  // Serial de motor
+  serialBody    String?  // Serial de carrocería
+  kmIn          Int?     // Kilometraje de entrada
+  kmOut         Int?     // Kilometraje de salida
+
+  // Datos del conductor / responsable
+  driverName    String?
+  driverId      String?  // Cédula del conductor
+
+  // Pase / orden de salida
+  exitPassRef    String?   // Referencia del pase de salida firmado
+  authorizedById String?   // userId que autorizó la salida
+  authorizedAt   DateTime?
+
+  // Registro fotográfico
+  photoUrls Json?
+
+  // Irregularidades
+  hasIrregularity   Boolean @default(false)
+  irregularityNotes String? @db.Text
+
+  // Tiempos del evento
+  eventAt     DateTime  @default(now()) // Momento del registro
+  completedAt DateTime?                 // Cierre del ciclo (reingreso)
+
+  notes String? @db.Text
+
+  // Multi-tenancy y auditoría
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String  // userId del vigilante que registró
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([totId])
+  @@index([type])
+  @@index([status])
+  @@index([plateNumber])
+  @@index([empresaId, eventAt])
+  @@map("workshop_garita")
+}
+
+
+// backend/prisma/models/workshop/workshopOperation.prisma
+// Operaciones estándar del taller con tiempos y precios de referencia.
+// Se usan para cotizar y controlar tiempos técnicos por operación.
+// Ej: "Cambio de aceite y filtro", "Alineación y balanceo", "Diagnóstico eléctrico"
+
+model WorkshopOperation {
+  id          String  @id @default(cuid())
+  code        String
+  name        String
+  description String? @db.Text
+
+  // Tipo de servicio al que pertenece (opcional, para agrupar)
+  serviceTypeId String?
+  serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
+
+  // Tiempo estándar en minutos (para control de eficiencia)
+  standardMinutes Int?
+
+  // Precio lista de la operación (mano de obra)
+  listPrice Decimal @default(0) @db.Decimal(12, 2)
+
+  isActive Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  // Relaciones
+  serviceOrderItems ServiceOrderItem[]
+  laborTimes        LaborTime[]
+  diagnosisSuggestions DiagnosisSuggestedOperation[]
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([serviceTypeId])
+  @@index([isActive])
+  @@map("workshop_operations")
+}
+
+
+// backend/prisma/models/workshop/workshopQuotation.prisma
+// Cotizaciones / Presupuestos propios del taller.
+// Independiente de las cotizaciones CRM.
+// Soporta presupuestos suplementarios (hallazgos ocultos) y versionamiento.
+
+enum QuotationStatus {
+  DRAFT             // Borrador
+  ISSUED            // Emitida
+  SENT              // Enviada al cliente
+  PENDING_APPROVAL  // Pendiente de aprobación
+  APPROVED_TOTAL    // Aprobada total
+  APPROVED_PARTIAL  // Aprobada parcial
+  REJECTED          // Rechazada
+  EXPIRED           // Vencida
+  CONVERTED         // Convertida en OS
+}
+
+enum QuotationItemType {
+  LABOR             // Mano de obra / operación
+  PART              // Repuesto
+  CONSUMABLE        // Insumo / lubricante
+  EXTERNAL_SERVICE  // Servicio externo T.O.T.
+  COURTESY          // Cortesía (sin cargo)
+}
+
+enum ApprovalChannel {
+  PRESENTIAL        // Firma presencial
+  WHATSAPP          // WhatsApp verificable
+  EMAIL             // Correo electrónico
+  CALL              // Llamada registrada
+  DIGITAL_SIGNATURE // Firma digital en sistema
+}
+
+enum ApprovalType {
+  TOTAL      // Aprobación total
+  PARTIAL    // Aprobación parcial (solo algunos ítems)
+  REJECTION  // Rechazo
+}
+
+model WorkshopQuotation {
+  id               String          @id @default(cuid())
+  quotationNumber  String          // COT-0001 auto-generado por empresa
+
+  status  QuotationStatus @default(DRAFT)
+  version Int             @default(1) // Se incrementa en cada re-emisión
+
+  // Presupuesto suplementario (hallazgo oculto)
+  isSupplementary   Boolean              @default(false)
+  parentQuotationId String?
+  parentQuotation   WorkshopQuotation?  @relation("SupplementaryQuotations", fields: [parentQuotationId], references: [id], onDelete: SetNull)
+  supplementaries   WorkshopQuotation[] @relation("SupplementaryQuotations")
+
+  // Origen del presupuesto
+  receptionId   String?
+  reception     VehicleReception? @relation(fields: [receptionId], references: [id], onDelete: SetNull)
+  diagnosisId   String?
+  diagnosis     ServiceDiagnosis? @relation(fields: [diagnosisId], references: [id], onDelete: SetNull)
+
+  // Destino: OS generada al convertir
+  serviceOrderId String?
+  serviceOrder   ServiceOrder? @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer        @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Vigencia
+  validUntil DateTime?
+  expiredAt  DateTime?
+  convertedAt DateTime?
+
+  // Totales (calculados a partir de los ítems)
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
+
+  // Observaciones
+  notes         String? @db.Text // Visibles al cliente
+  internalNotes String? @db.Text // Solo internas
+
+  // Ítems y aprobaciones
+  items     WorkshopQuotationItem[]
+  approvals WorkshopQuotationApproval[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, quotationNumber])
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([receptionId])
+  @@index([status])
+  @@index([empresaId, createdAt])
+  @@map("workshop_quotations")
+}
+
+model WorkshopQuotationItem {
+  id           String  @id @default(cuid())
+  quotationId  String
+  quotation    WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type        QuotationItemType
+  referenceId String?  // ID de operación o ítem de inventario (opcional)
+  description String
+  quantity    Decimal  @default(1)   @db.Decimal(10, 2)
+  unitPrice   Decimal  @default(0)   @db.Decimal(12, 2)
+  unitCost    Decimal  @default(0)   @db.Decimal(12, 2)
+  discountPct Decimal  @default(0)   @db.Decimal(5, 2) // Porcentaje de descuento
+  
+  // Tax fields standardized
+  taxType     TaxType  @default(IVA)
+  taxRate     Decimal  @default(0.16) @db.Decimal(5, 2)
+  taxAmount   Decimal  @default(0)    @db.Decimal(12, 2)
+  
+  subtotal    Decimal  @default(0)   @db.Decimal(12, 2) // quantity * unitPrice
+  total       Decimal  @default(0)   @db.Decimal(12, 2) // subtotal - (subtotal * discountPct/100) + taxAmount
+  approved    Boolean  @default(true) // Se pone en false en aprobación parcial
+
+  order Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([quotationId])
+  @@map("workshop_quotation_items")
+}
+
+model WorkshopQuotationApproval {
+  id          String @id @default(cuid())
+  quotationId String
+  quotation   WorkshopQuotation @relation(fields: [quotationId], references: [id], onDelete: Cascade)
+
+  type            ApprovalType
+  channel         ApprovalChannel
+  approvedByName  String           // Nombre del aprobador (puede ser el cliente)
+  notes           String?  @db.Text
+  rejectionReason String?  @db.Text
+
+  approvedAt DateTime @default(now())
+
+  @@index([quotationId])
+  @@map("workshop_quotation_approvals")
+}
+
+
+// backend/prisma/models/workshop/workshopRework.prisma
+// Retrabajo: intervención realizada para corregir un trabajo defectuoso previo.
+// Separado de WorkshopWarranty para permitir trazabilidad y costo propio.
+
+enum ReworkStatus {
+  OPEN        // Detectado / registrado
+  IN_PROGRESS // Se abrió OT de retrabajo
+  RESOLVED    // Trabajo corregido
+  CLOSED      // Cerrado con análisis completo
+}
+
+model WorkshopRework {
+  id          String @id @default(cuid())
+
+  // OT original con el defecto
+  originalOrderId String
+  originalOrder   ServiceOrder @relation("ReworkOriginalOrder", fields: [originalOrderId], references: [id], onDelete: Restrict)
+
+  // OT de corrección generada (puede generarse después)
+  reworkOrderId String?
+  reworkOrder   ServiceOrder? @relation("ReworkCorrectionOrder", fields: [reworkOrderId], references: [id], onDelete: SetNull)
+
+  // Análisis
+  motive      String          @db.Text // Motivo del retrabajo
+  rootCause   String?         @db.Text // Causa raíz identificada
+  technicianId String?                 // userId del técnico responsable del defecto
+
+  // Costos
+  estimatedCost Decimal @default(0) @db.Decimal(12, 2)
+  realCost      Decimal @default(0) @db.Decimal(12, 2)
+
+  status      ReworkStatus @default(OPEN)
+  resolvedAt  DateTime?
+  notes       String?      @db.Text
+
+  empresaId   String
+  empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([empresaId])
+  @@index([originalOrderId])
+  @@index([technicianId])
+  @@index([status])
+  @@map("workshop_reworks")
+}
+
+
+// backend/prisma/models/workshop/workshopShift.prisma
+// Turnos de trabajo configurables del taller.
+// Define las jornadas laborales para validación de asignaciones y disponibilidad.
+
+model WorkshopShift {
+  id        String @id @default(cuid())
+  code      String
+  name      String  // Ej: "Turno Mañana", "Turno Tarde"
+  startTime String  // HH:MM en formato 24h, ej: "08:00"
+  endTime   String  // HH:MM en formato 24h, ej: "17:00"
+
+  // Días activos: array JSON de números 0=Dom, 1=Lun ... 6=Sáb
+  // Ej: [1,2,3,4,5] = Lunes a Viernes
+  workDays  Json    @default("[1,2,3,4,5]")
+
+  isActive  Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_shifts")
+}
+
+
+// backend/prisma/models/workshop/workshopTOT.prisma
+// Servicios Externos / T.O.T. (Trabajo en Otros Talleres)
+// Gestiona piezas que salen del taller a ser reparadas por proveedores especializados externos.
+// El catálogo de proveedores reutiliza el modelo Supplier (inventory) con el campo specialty.
+
+enum TOTStatus {
+  REQUESTED   // Solicitado por el asesor
+  APPROVED    // Aprobado por Gerente de Servicio, listo para salir
+  DEPARTED    // Pieza salió del taller (garita verificó)
+  IN_PROGRESS // En proceso con el proveedor externo
+  RETURNED    // Pieza reingresó al taller
+  INVOICED    // Factura del proveedor recibida y enviada a administración
+  CANCELLED   // Cancelado
+}
+
+enum TOTDocumentType {
+  PROVIDER_QUOTE   // Presupuesto del proveedor
+  DELIVERY_ACT     // Acta de entrega de pieza al proveedor
+  RETURN_ACT       // Acta de reingreso de pieza
+  PROVIDER_INVOICE // Factura del proveedor (para pago y costos)
+  OTHER            // Otro documento
+}
+
+// Registro de T.O.T. vinculado a una Orden de Servicio
+model WorkshopTOT {
+  id        String @id @default(cuid())
+  totNumber String // TOT-0001 auto-generado por empresa
+
+  status TOTStatus @default(REQUESTED)
+
+  // Orden de Servicio origen
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+
+  // Proveedor externo (reutiliza Supplier de inventario)
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  providerName String?   // Nombre libre si no está en catálogo
+
+  // Detalle de la pieza a enviar
+  partDescription      String  @db.Text  // Descripción de la pieza
+  partSerial           String?            // Serial / número de identificación
+  photoUrls            Json?              // URLs de fotos antes de la salida
+
+  // Trabajo solicitado
+  requestedWork        String  @db.Text  // Descripción del trabajo a realizar
+  technicalInstruction String? @db.Text  // Instrucción técnica específica al proveedor
+
+  // Autorización de salida
+  approvedById  String? // userId del Gerente de Servicio que aprobó
+  departureRef  String? // Referencia de la orden de salida firmada
+
+  // Control de tiempos
+  departedAt         DateTime? // Fecha/hora de salida del taller
+  estimatedReturnAt  DateTime? // Fecha estimada de reingreso
+  returnedAt         DateTime? // Fecha/hora real de reingreso
+
+  // Costos
+  providerQuote      Decimal? @db.Decimal(12, 2) // Presupuesto del proveedor
+  finalCost          Decimal? @db.Decimal(12, 2) // Costo final (se suma a la OS para facturar)
+  providerInvoiceRef String?                     // Referencia/número de factura del proveedor
+
+  notes String? @db.Text
+
+  documents    WorkshopTOTDocument[]
+  garitaEvents WorkshopGarita[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, totNumber])
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([status])
+  @@index([supplierId])
+  @@index([empresaId, createdAt])
+  @@map("workshop_tot")
+}
+
+// Documentos adjuntos a un T.O.T. (presupuesto, actas, factura)
+model WorkshopTOTDocument {
+  id          String @id @default(cuid())
+  totId       String
+  tot         WorkshopTOT     @relation(fields: [totId], references: [id], onDelete: Cascade)
+  type        TOTDocumentType
+  url         String
+  description String? @db.Text
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  @@index([totId])
+  @@map("workshop_tot_documents")
+}
+
+
+// backend/prisma/models/workshop/workshopWarranty.prisma
+// Gestión de garantías y retrabajos del taller.
+// Una garantía siempre referencia la OT original.
+// Cuando se aprueba, genera una nueva OT de retrabajo (a costo interno).
+
+enum WarrantyType {
+  LABOR       // Garantía de mano de obra
+  PARTS       // Garantía de repuesto
+  MIXED       // Ambas (mano de obra + repuesto)
+  COMMERCIAL  // Garantía comercial (decisión gerencial)
+  FACTORY     // Garantía de fábrica / fabricante
+  SUPPLIER    // Garantía de proveedor
+  CAMPAIGN    // Garantía de campaña / recall
+}
+
+enum WarrantyResponsibleCost {
+  COMPANY     // La empresa absorbe el costo
+  SUPPLIER    // El proveedor cubre el costo
+  MANUFACTURER // El fabricante cubre el costo
+  INSURER     // Aseguradora
+  CLIENT      // El cliente paga (no aplica garantía)
+}
+
+enum WarrantyStatus {
+  OPEN        // Abierta / en evaluación
+  IN_PROGRESS // Se abrió OT de retrabajo
+  RESOLVED    // Resuelto
+  REJECTED    // Rechazada (no aplica garantía)
+  CLOSED      // Cerrada
+}
+
+model WorkshopWarranty {
+  id              String @id @default(cuid())
+  warrantyNumber  String // WRN-0001 auto-generado por empresa
+
+  type   WarrantyType
+  status WarrantyStatus @default(OPEN)
+
+  // OT de origen (trabajo que se está reclamando)
+  originalOrderId String
+  originalOrder   ServiceOrder @relation("OriginalOrder", fields: [originalOrderId], references: [id], onDelete: Restrict)
+
+  // OT de retrabajo generada (cuando se aprueba la garantía)
+  reworkOrderId String?
+  reworkOrder   ServiceOrder? @relation("ReworkOrder", fields: [reworkOrderId], references: [id], onDelete: SetNull)
+
+  // Cliente y vehículo
+  customerId        String
+  customer          Customer         @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  customerVehicleId String?
+  customerVehicle   CustomerVehicle? @relation(fields: [customerVehicleId], references: [id], onDelete: SetNull)
+
+  // Descripción del reclamo
+  description String @db.Text
+
+  // Análisis y resolución
+  rootCause   String? @db.Text
+  resolution  String? @db.Text
+
+  // Responsable del costo
+  responsibleForCost WarrantyResponsibleCost @default(COMPANY)
+
+  // Responsable técnico
+  technicianId String? // userId del técnico responsable
+
+  // Vigencia
+  expiresAt  DateTime?
+  resolvedAt DateTime?
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, warrantyNumber])
+  @@index([empresaId])
+  @@index([originalOrderId])
+  @@index([customerId])
+  @@index([status])
+  @@index([technicianId])
+  @@map("workshop_warranties")
 }

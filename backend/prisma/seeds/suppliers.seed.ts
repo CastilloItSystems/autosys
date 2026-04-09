@@ -6,7 +6,12 @@ async function seedSuppliers(prisma: PrismaClient, empresaId: string) {
 
     // Proveedor 1: Autautopartes
     await prisma.supplier.upsert({
-      where: { code: 'AUT001' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'AUT001',
+        },
+      },
       update: {
         name: 'Autautopartes',
         contactName: 'Carlos López',
@@ -33,7 +38,12 @@ async function seedSuppliers(prisma: PrismaClient, empresaId: string) {
 
     // Proveedor 2: Repuestos Premium
     await prisma.supplier.upsert({
-      where: { code: 'REP002' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'REP002',
+        },
+      },
       update: {
         name: 'Repuestos Premium',
         contactName: 'María Rodríguez',
@@ -60,7 +70,12 @@ async function seedSuppliers(prisma: PrismaClient, empresaId: string) {
 
     // Proveedor 3: Mercado Automotriz
     await prisma.supplier.upsert({
-      where: { code: 'MER003' },
+      where: {
+        empresaId_code: {
+          empresaId,
+          code: 'MER003',
+        },
+      },
       update: {
         name: 'Mercado Automotriz',
         contactName: 'Juan García',
@@ -84,60 +99,6 @@ async function seedSuppliers(prisma: PrismaClient, empresaId: string) {
       },
     })
     console.log('✅ Supplier upserted: Mercado Automotriz')
-
-    // Proveedor 4: Bosch Venezuela
-    await prisma.supplier.upsert({
-      where: { code: 'BSH004' },
-      update: {
-        name: 'Bosch Venezuela',
-        contactName: 'Pedro Hernández',
-        email: 'pedroherrera@bosch.com.ve',
-        phone: '+58 212 789-0123',
-        address: 'Torre Bosch, Los Palos Grandes, Caracas, Venezuela',
-        taxId: 'J-55667788-9',
-        isActive: true,
-        empresaId,
-      },
-      create: {
-        code: 'BSH004',
-        name: 'Bosch Venezuela',
-        contactName: 'Pedro Hernández',
-        email: 'pedroherrera@bosch.com.ve',
-        phone: '+58 212 789-0123',
-        address: 'Torre Bosch, Los Palos Grandes, Caracas, Venezuela',
-        taxId: 'J-55667788-9',
-        isActive: true,
-        empresaId,
-      },
-    })
-    console.log('✅ Supplier upserted: Bosch Venezuela')
-
-    // Proveedor 5: Lubricantes Castrol
-    await prisma.supplier.upsert({
-      where: { code: 'CAS005' },
-      update: {
-        name: 'Lubricantes Castrol',
-        contactName: 'Ana Martínez',
-        email: 'ana@castrol.com.ve',
-        phone: '+58 261 234-5678',
-        address: 'Parque Industrial, Maracaibo, Venezuela',
-        taxId: 'J-99887766-5',
-        isActive: true,
-        empresaId,
-      },
-      create: {
-        code: 'CAS005',
-        name: 'Lubricantes Castrol',
-        contactName: 'Ana Martínez',
-        email: 'ana@castrol.com.ve',
-        phone: '+58 261 234-5678',
-        address: 'Parque Industrial, Maracaibo, Venezuela',
-        taxId: 'J-99887766-5',
-        isActive: true,
-        empresaId,
-      },
-    })
-    console.log('✅ Supplier upserted: Lubricantes Castrol')
 
     console.log('\n✅ Suppliers seed completed!\n')
   } catch (error) {

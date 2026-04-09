@@ -31,6 +31,7 @@ type PrismaClientType = PrismaClient | Prisma.TransactionClient
 const ENTRY_NOTE_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
   warehouse: true,
+  catalogSupplier: true,
   items: {
     include: {
       item: { select: { id: true, sku: true, name: true } },
@@ -43,6 +44,7 @@ const ENTRY_NOTE_INCLUDE = {
 const ENTRY_NOTE_LIST_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
   warehouse: true,
+  catalogSupplier: true,
   items: {
     include: {
       item: { select: { id: true, sku: true, name: true } },
@@ -109,6 +111,7 @@ function mapEntryNoteItem(item: Record<string, unknown>): IEntryNoteItem {
       typeof item.unitCost === 'number'
         ? item.unitCost
         : parseFloat(String(item.unitCost)),
+    itemName: (item.itemName as string | null) ?? null,
     storedToLocation: (item.storedToLocation as string | null) ?? null,
     batchId: (item.batchId as string | null) ?? null,
     serialNumberId: (item.serialNumberId as string | null) ?? null,
@@ -180,6 +183,7 @@ export class EntryNoteService {
         status: 'PENDING',
         purchaseOrderId: data.purchaseOrderId ?? null,
         warehouseId: data.warehouseId,
+        catalogSupplierId: data.catalogSupplierId ?? null,
         supplierName: data.supplierName ?? null,
         supplierId: data.supplierId ?? null,
         supplierPhone: data.supplierPhone ?? null,
@@ -256,7 +260,23 @@ export class EntryNoteService {
     if (filters.status) where.status = filters.status
     if (filters.purchaseOrderId) where.purchaseOrderId = filters.purchaseOrderId
     if (filters.warehouseId) where.warehouseId = filters.warehouseId
+    if (filters.catalogSupplierId)
+      where.catalogSupplierId = filters.catalogSupplierId
     if (filters.receivedBy) where.receivedBy = filters.receivedBy
+
+    if (filters.search) {
+      const search = filters.search.trim()
+      where.OR = [
+        { entryNoteNumber: { contains: search, mode: 'insensitive' } },
+        { supplierName: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+        {
+          purchaseOrder: {
+            orderNumber: { contains: search, mode: 'insensitive' },
+          },
+        },
+      ]
+    }
 
     if (filters.receivedFrom || filters.receivedTo) {
       const createdAt: Record<string, Date> = {}
@@ -304,6 +324,7 @@ export class EntryNoteService {
     // TENANT-SAFE: verify via warehouse
     const entryNote = await db.entryNote.findFirst({
       where: { id, warehouse: { empresaId } },
+      include: { items: true },
     })
 
     if (!entryNote) {
@@ -327,6 +348,8 @@ export class EntryNoteService {
       updateData.verifiedBy = data.verifiedBy ?? null
     if (data.authorizedBy !== undefined)
       updateData.authorizedBy = data.authorizedBy ?? null
+    if (data.catalogSupplierId !== undefined)
+      updateData.catalogSupplierId = data.catalogSupplierId ?? null
     if (data.supplierName !== undefined)
       updateData.supplierName = data.supplierName ?? null
     if (data.supplierId !== undefined)
@@ -337,6 +360,67 @@ export class EntryNoteService {
     if (data.reference !== undefined)
       updateData.reference = data.reference ?? null
 
+    // If items are provided and note is editable, replace all items
+    const canEditItems =
+      entryNote.status === 'PENDING' || entryNote.status === 'IN_PROGRESS'
+    const itemsProvided = Array.isArray(data.items) && data.items.length > 0
+
+    if (canEditItems && itemsProvided) {
+      // Validate all items belong to this company
+      const itemIds = data.items!.map((i) => i.itemId)
+      const existingItems = await db.item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== itemIds.length) {
+        throw new BadRequestError(
+          'Uno o más artículos no existen o no pertenecen a esta empresa'
+        )
+      }
+      const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
+
+      // Transaction: delete old items, create new ones, update header
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // Delete all existing items
+        await tx.entryNoteItem.deleteMany({
+          where: { entryNoteId: id },
+        })
+
+        // Create new items
+        for (const item of data.items!) {
+          await tx.entryNoteItem.create({
+            data: {
+              entryNoteId: id,
+              itemId: item.itemId,
+              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
+              quantityReceived: item.quantityReceived,
+              unitCost: item.unitCost,
+              storedToLocation: item.storedToLocation ?? null,
+              batchNumber: item.batchNumber ?? null,
+              expiryDate: item.expiryDate ?? null,
+              notes: item.notes ?? null,
+            },
+          })
+        }
+
+        // Update header
+        return tx.entryNote.update({
+          where: { id },
+          data: updateData,
+          include: ENTRY_NOTE_INCLUDE,
+        })
+      })
+
+      logger.info('Nota de entrada actualizada con items', {
+        entryNoteId: id,
+        itemCount: data.items!.length,
+        empresaId,
+      })
+
+      return updated as unknown as IEntryNoteWithRelations
+    }
+
+    // No items — just update header
     const updated = await db.entryNote.update({
       where: { id },
       data: updateData,
@@ -414,6 +498,7 @@ export class EntryNoteService {
       data: {
         entryNoteId,
         itemId: data.itemId,
+        itemName: data.itemName ?? item.name,
         quantityReceived: data.quantityReceived,
         unitCost: data.unitCost,
         storedToLocation: data.storedToLocation ?? null,
@@ -574,7 +659,9 @@ export class EntryNoteService {
         ...ENTRY_NOTE_INCLUDE,
         items: {
           include: {
-            item: { select: { id: true, sku: true, name: true } },
+            item: {
+              select: { id: true, sku: true, name: true, location: true },
+            },
           },
         },
       },
@@ -652,16 +739,24 @@ export class EntryNoteService {
               ? (existingTotal + noteItem.quantityReceived * unitCost) / newReal
               : unitCost
 
+          const updateData: any = {
+            quantityReal: newReal,
+            quantityAvailable: newAvailable,
+            averageCost: newAverageCost,
+            lastMovementAt: new Date(),
+          }
+          if (noteItem.storedToLocation) {
+            updateData.location = noteItem.storedToLocation
+          }
+
           await tx.stock.update({
             where: { id: existingStock.id },
-            data: {
-              quantityReal: newReal,
-              quantityAvailable: newAvailable,
-              averageCost: newAverageCost,
-              lastMovementAt: new Date(),
-            },
+            data: updateData,
           })
         } else {
+          const itemLocation =
+            noteItem.storedToLocation || noteItem.item?.location || null
+
           await tx.stock.create({
             data: {
               itemId: noteItem.itemId,
@@ -670,6 +765,7 @@ export class EntryNoteService {
               quantityReserved: 0,
               quantityAvailable: noteItem.quantityReceived,
               averageCost: unitCost,
+              location: itemLocation,
               lastMovementAt: new Date(),
             },
           })

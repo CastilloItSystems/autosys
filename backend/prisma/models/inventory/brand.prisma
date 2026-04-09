@@ -19,8 +19,9 @@ model Brand {
   empresa     Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   
   // Relaciones
-  items       Item[]
-  models      Model[]
+  items            Item[]
+  models           Model[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())

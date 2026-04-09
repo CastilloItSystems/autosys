@@ -30,7 +30,7 @@ export const REGEX_PATTERNS = {
   RIF: /^[VEJPG]-\d{8}-\d$/,
   CEDULA: /^[VE]-\d{7,8}$/,
   SKU: /^[A-Z0-9-]+$/,
-  LOCATION: /^[A-Z]\d+-[A-Z]\d+-[A-Z]\d+$/, // M1-R01-D03
+  LOCATION: /^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i, // Acepta B02-06-J05, M1-R01-D03, etc.
 }
 
 export const FILE_UPLOAD = {
@@ -42,6 +42,15 @@ export const FILE_UPLOAD = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   ],
   UPLOAD_PATH: './public/uploads',
+}
+
+export const CLOUDFLARE_R2 = {
+  ACCOUNT_ID: process.env.R2_ACCOUNT_ID || '',
+  ACCESS_KEY_ID: process.env.R2_ACCESS_KEY_ID || '',
+  SECRET_ACCESS_KEY: process.env.R2_SECRET_ACCESS_KEY || '',
+  BUCKET_NAME: process.env.R2_BUCKET_NAME || '',
+  PUBLIC_URL: process.env.R2_PUBLIC_URL || '',
+  ENDPOINT: `https://${process.env.R2_ACCOUNT_ID}.r2.cloudflarestorage.com`,
 }
 
 export const JWT_CONFIG = {

@@ -13,6 +13,7 @@ export interface CreateEntryNotePayload {
   type?: EntryType;
   purchaseOrderId?: string | null;
   warehouseId: string;
+  catalogSupplierId?: string | null;
   supplierName?: string | null;
   supplierId?: string | null;
   supplierPhone?: string | null;
@@ -29,15 +30,27 @@ export interface UpdateEntryNotePayload {
   receivedBy?: string | null;
   verifiedBy?: string | null;
   authorizedBy?: string | null;
+  catalogSupplierId?: string | null;
   supplierName?: string | null;
   supplierId?: string | null;
   supplierPhone?: string | null;
   reason?: string | null;
   reference?: string | null;
+  items?: {
+    itemId: string;
+    itemName?: string | null;
+    quantityReceived: number;
+    unitCost: number;
+    storedToLocation?: string | null;
+    batchNumber?: string | null;
+    expiryDate?: string | null;
+    notes?: string | null;
+  }[];
 }
 
 export interface AddEntryNoteItemPayload {
   itemId: string;
+  itemName?: string | null;
   quantityReceived: number;
   unitCost: number;
   storedToLocation?: string | null;
@@ -55,11 +68,13 @@ interface EntryNoteParams {
   status?: EntryNoteStatus;
   purchaseOrderId?: string;
   warehouseId?: string;
+  catalogSupplierId?: string;
   receivedBy?: string;
   receivedFrom?: string;
   receivedTo?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";
+  search?: string;
 }
 
 // ===== Service =====

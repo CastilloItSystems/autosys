@@ -38,16 +38,36 @@ const LowStockPage = () => {
     }
   };
 
+  /** Returns row-level CSS class for severity highlighting */
+  const rowClass = (row: any) => {
+    if (row.currentStock === 0) return "surface-50"; // out of stock
+    const pct = row.currentStock / (row.minimumStock || 1);
+    if (pct <= 0.5) return ""; // critical — handled by tag color
+    return "";
+  };
+
+  const stockSeverity = (row: any) => {
+    if (row.currentStock === 0) return "danger";
+    const pct = row.currentStock / (row.minimumStock || 1);
+    if (pct <= 0.5) return "danger";
+    if (pct <= 0.75) return "warning";
+    return "info";
+  };
+
   const columns = [
-    { field: "itemName", header: "Artículo", sortable: true, width: "25%" },
-    { field: "sku", header: "SKU", sortable: true, width: "15%" },
+    { field: "itemName", header: "Artículo", sortable: true, width: "22%" },
+    { field: "itemSKU", header: "SKU", sortable: true, width: "12%" },
+    { field: "warehouseName", header: "Almacén", sortable: true, width: "15%" },
     {
       field: "currentStock",
       header: "Stock Actual",
       sortable: true,
       width: "12%",
       body: (row: any) => (
-        <span className="font-semibold">{row.currentStock?.toFixed(0)}</span>
+        <Tag
+          value={row.currentStock?.toFixed(0)}
+          severity={stockSeverity(row)}
+        />
       ),
     },
     {
@@ -55,58 +75,62 @@ const LowStockPage = () => {
       header: "Stock Mínimo",
       sortable: true,
       width: "12%",
-      body: (row: any) => <span>{row.minimumStock?.toFixed(0)}</span>,
+      body: (row: any) => (
+        <span className="text-500">{row.minimumStock?.toFixed(0)}</span>
+      ),
     },
     {
-      field: "difference",
-      header: "Diferencia",
+      field: "shortage",
+      header: "Faltante",
       sortable: true,
       width: "12%",
       body: (row: any) => (
-        <Tag value={row.difference?.toFixed(0)} severity="danger" />
+        <span
+          className="font-semibold"
+          style={{ color: row.shortage > 0 ? "#EF4444" : "#22C55E" }}
+        >
+          {row.shortage > 0 ? `-${row.shortage?.toFixed(0)}` : "OK"}
+        </span>
       ),
     },
-    { field: "warehouse", header: "Almacén", sortable: true, width: "15%" },
     {
-      field: "daysUntilStockout",
-      header: "Días hasta Agotamiento",
+      field: "lastMovement",
+      header: "Último Movimiento",
       sortable: true,
       width: "15%",
-      body: (row: any) => (
-        <Tag
-          value={`${row.daysUntilStockout}d`}
-          severity={row.daysUntilStockout <= 7 ? "danger" : "warning"}
-        />
-      ),
+      body: (row: any) =>
+        row.lastMovement
+          ? new Date(row.lastMovement).toLocaleDateString("es-VE")
+          : "—",
     },
   ];
 
   return (
     <>
       <Toast ref={toast} />
-      <Card title="Artículos con Stock Bajo">
-        {loading && items.length === 0 ? (
+      {loading && items.length === 0 ? (
+        <Card title="Artículos con Stock Bajo">
           <Skeleton height="300px" />
-        ) : (
-          <ReportsTable
-            title="Stock Bajo"
-            data={items}
-            columns={columns}
-            loading={loading}
-            totalRecords={totalRecords}
-            page={page}
-            rows={rows}
-            reportType="low-stock"
-            onPageChange={(e) => {
-              setPage((e.page ?? 0) + 1);
-              setRows(e.rows ?? 20);
-            }}
-            showDateFilter={false}
-            showWarehouseFilter={true}
-            showSearchFilter={true}
-          />
-        )}
-      </Card>
+        </Card>
+      ) : (
+        <ReportsTable
+          title="Artículos con Stock Bajo"
+          data={items}
+          columns={columns}
+          loading={loading}
+          totalRecords={totalRecords}
+          page={page}
+          rows={rows}
+          reportType="low-stock"
+          onPageChange={(e) => {
+            setPage((e.page ?? 0) + 1);
+            setRows(e.rows ?? 20);
+          }}
+          showDateFilter={false}
+          showWarehouseFilter={true}
+          showSearchFilter={true}
+        />
+      )}
     </>
   );
 };

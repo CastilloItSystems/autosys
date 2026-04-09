@@ -1,0 +1,28 @@
+// backend/prisma/models/workshop/workshopShift.prisma
+// Turnos de trabajo configurables del taller.
+// Define las jornadas laborales para validación de asignaciones y disponibilidad.
+
+model WorkshopShift {
+  id        String @id @default(cuid())
+  code      String
+  name      String  // Ej: "Turno Mañana", "Turno Tarde"
+  startTime String  // HH:MM en formato 24h, ej: "08:00"
+  endTime   String  // HH:MM en formato 24h, ej: "17:00"
+
+  // Días activos: array JSON de números 0=Dom, 1=Lun ... 6=Sáb
+  // Ej: [1,2,3,4,5] = Lunes a Viernes
+  workDays  Json    @default("[1,2,3,4,5]")
+
+  isActive  Boolean @default(true)
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+  @@map("workshop_shifts")
+}

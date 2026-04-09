@@ -15,7 +15,12 @@ export const getDashboard = async (
   res: Response
 ): Promise<void> => {
   try {
-    const metrics = await getDashboardMetrics((req as any).prisma || undefined)
+    const empresaId = (req as any).empresaId
+    if (!empresaId) {
+      ApiResponse.error(res, 'empresaId not set by middleware', 401)
+      return
+    }
+    const metrics = await getDashboardMetrics(empresaId, (req as any).prisma || undefined)
     ApiResponse.success(res, metrics, 'Dashboard metrics retrieved')
   } catch (error: any) {
     ApiResponse.error(
@@ -34,7 +39,12 @@ export const getDashboardSummary = async (
   res: Response
 ): Promise<void> => {
   try {
-    const metrics = await getDashboardMetrics((req as any).prisma || undefined)
+    const empresaId = (req as any).empresaId
+    if (!empresaId) {
+      ApiResponse.error(res, 'empresaId not set by middleware', 401)
+      return
+    }
+    const metrics = await getDashboardMetrics(empresaId, (req as any).prisma || undefined)
 
     const summary = {
       stockHealth: metrics.stockHealth,

@@ -35,6 +35,7 @@ export const empresaSchema = z.object({
   dprefijobd: z.string().optional(),
   dprefijosrv: z.string().optional(),
   dprefijousr: z.string().optional(),
+  logo_url: z.string().optional(),
 });
 
 export type EmpresaFormData = z.infer<typeof empresaSchema>;

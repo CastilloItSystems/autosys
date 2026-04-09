@@ -15,6 +15,7 @@ import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
 import { logger } from '../../../../shared/utils/logger.js'
 import { FileUploadHelper } from '../../../../shared/utils/fileUpload.js'
 import prisma from '../../../../services/prisma.service.js'
+import r2StorageService from '../../../../services/r2-storage.service.js'
 
 export class ImageService {
   async create(data: ICreateImageInput): Promise<IItemImageWithItem> {
@@ -203,11 +204,17 @@ export class ImageService {
       throw new NotFoundError(INVENTORY_MESSAGES.image.notFound)
     }
 
+    // Eliminar de Cloudflare R2
+    await r2StorageService.deleteFile(image.url)
+
     await prisma.itemImage.delete({
       where: { id },
     })
 
-    logger.info('Image deleted', { imageId: id, itemId: image.itemId })
+    logger.info('Image deleted from R2 and database', {
+      imageId: id,
+      itemId: image.itemId,
+    })
   }
 
   async setPrimary(id: string): Promise<IItemImageWithItem> {
@@ -265,8 +272,13 @@ export class ImageService {
     const createdImages: IItemImageWithItem[] = []
 
     for (const file of files) {
-      // Generar URL del archivo
-      const fileUrl = FileUploadHelper.getFileUrl(file.filename, 'images')
+      // Subir a Cloudflare R2
+      const fileUrl = await r2StorageService.uploadFile(
+        file.buffer,
+        file.originalname,
+        file.mimetype,
+        'inventory/items'
+      )
 
       const image = await prisma.itemImage.create({
         data: {
@@ -287,11 +299,11 @@ export class ImageService {
 
       createdImages.push(image as IItemImageWithItem)
 
-      logger.info('Image uploaded', {
+      logger.info('Image uploaded to R2', {
         imageId: image.id,
         itemId,
-        filename: file.filename,
         originalname: file.originalname,
+        url: fileUrl,
       })
     }
 

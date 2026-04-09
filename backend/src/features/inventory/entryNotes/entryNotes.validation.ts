@@ -24,6 +24,13 @@ export const createEntryNoteSchema = Joi.object({
       'string.guid': 'warehouseId debe ser un UUID válido',
       'any.required': 'warehouseId es requerido',
     }),
+  catalogSupplierId: Joi.string()
+    .uuid({ version: 'uuidv4', separator: '-' })
+    .optional()
+    .allow(null)
+    .messages({
+      'string.guid': 'catalogSupplierId debe ser un UUID válido',
+    }),
   supplierName: Joi.string().max(200).optional().allow(null),
   supplierId: Joi.string().max(100).optional().allow(null),
   supplierPhone: Joi.string().max(50).optional().allow(null),
@@ -45,11 +52,35 @@ export const updateEntryNoteSchema = Joi.object({
   receivedBy: Joi.string().allow(null).optional(),
   verifiedBy: Joi.string().allow(null).optional(),
   authorizedBy: Joi.string().allow(null).optional(),
+  catalogSupplierId: Joi.string()
+    .uuid({ version: 'uuidv4', separator: '-' })
+    .optional()
+    .allow(null)
+    .messages({
+      'string.guid': 'catalogSupplierId debe ser un UUID válido',
+    }),
   supplierName: Joi.string().max(200).allow(null).optional(),
   supplierId: Joi.string().max(100).allow(null).optional(),
   supplierPhone: Joi.string().max(50).allow(null).optional(),
   reason: Joi.string().max(2000).allow(null).optional(),
   reference: Joi.string().max(200).allow(null).optional(),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string()
+          .uuid({ version: 'uuidv4', separator: '-' })
+          .required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityReceived: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().positive().required(),
+        storedToLocation: Joi.string().max(100).optional().allow(null),
+        batchNumber: Joi.string().optional().allow(null),
+        expiryDate: Joi.date().iso().optional().allow(null),
+        notes: Joi.string().max(2000).optional().allow(null),
+      })
+    )
+    .min(1)
+    .optional(),
 }).min(1)
 
 export const addEntryNoteItemSchema = Joi.object({
@@ -106,6 +137,9 @@ export const getEntryNotesQuerySchema = Joi.object({
     .uuid({ version: 'uuidv4', separator: '-' })
     .optional(),
   warehouseId: Joi.string()
+    .uuid({ version: 'uuidv4', separator: '-' })
+    .optional(),
+  catalogSupplierId: Joi.string()
     .uuid({ version: 'uuidv4', separator: '-' })
     .optional(),
   receivedBy: Joi.string().optional(),

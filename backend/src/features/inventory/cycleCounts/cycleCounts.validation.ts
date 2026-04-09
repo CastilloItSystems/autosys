@@ -55,3 +55,12 @@ export const addCycleCountItemSchema = Joi.object({
   location: Joi.string().max(255).optional(),
   notes: Joi.string().max(255).optional(),
 })
+
+export const updateItemCountedQuantitySchema = Joi.object({
+  countedQuantity: Joi.number().integer().min(0).optional(),
+  newLocation: Joi.string().max(255).optional().allow(null, ''),
+}).or('countedQuantity', 'newLocation')
+
+export const exportCycleCountSchema = Joi.object({
+  format: Joi.string().valid('csv', 'excel').required(),
+})

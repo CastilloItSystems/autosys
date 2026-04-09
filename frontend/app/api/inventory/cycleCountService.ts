@@ -19,7 +19,8 @@ export interface CycleCountItem {
   expectedQuantity: number;
   countedQuantity?: number;
   variance?: number;
-  location?: string;
+  location?: string;       // Snapshot original del stock al crear el conteo
+  locationFound?: string;  // Ubicación encontrada por el contador
   notes?: string;
 }
 
@@ -192,17 +193,33 @@ const cycleCountService = {
   async updateItemQuantity(
     id: string,
     itemId: string,
-    countedQuantity: number,
+    countedQuantity?: number | null,
+    newLocation?: string | null,
   ): Promise<ApiResponse<CycleCountItem>> {
+    const body: any = {};
+    if (countedQuantity !== undefined && countedQuantity !== null)
+      body.countedQuantity = countedQuantity;
+    if (newLocation !== undefined) body.newLocation = newLocation;
     const res = await apiClient.patch(
       `/inventory/cycle-counts/${id}/items/${itemId}`,
-      { countedQuantity },
+      body,
     );
     return res.data;
   },
 
   async delete(id: string): Promise<void> {
     await apiClient.delete(`/inventory/cycle-counts/${id}`);
+  },
+
+  async exportRouteSheet(
+    id: string,
+    format: "csv" | "excel",
+  ): Promise<Blob> {
+    const res = await apiClient.get(
+      `/inventory/cycle-counts/${id}/export`,
+      { params: { format }, responseType: "blob" },
+    );
+    return res.data;
   },
 };
 

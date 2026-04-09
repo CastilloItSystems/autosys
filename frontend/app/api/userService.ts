@@ -43,6 +43,7 @@ export interface User {
   online: boolean;
   fcmTokens: string[];
   google: boolean;
+  isTechnician: boolean;
   createdAt: string;
   updatedAt: string;
   memberships?: Membership[];
@@ -116,6 +117,7 @@ export interface UpdateUserRequest {
   estado?: UserStatus;
   img?: string | null;
   online?: boolean;
+  isTechnician?: boolean;
 }
 
 // ── DTOs Memberships ────────────────────────────────────────────────────────
@@ -154,6 +156,24 @@ export const updateUser = async (
   data: UpdateUserRequest,
 ): Promise<User> => {
   const response = await apiClient.put(`/users/${id}`, data);
+  return response.data;
+};
+
+export const uploadUserProfilePicture = async (
+  id: string,
+  file: File,
+): Promise<User> => {
+  const formData = new FormData();
+  formData.append("image", file);
+  const response = await apiClient.post<User>(
+    `/users/${id}/profile-picture`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    },
+  );
   return response.data;
 };
 

@@ -15,6 +15,9 @@ model Stock {
   quantityConsumed  Int       @default(0)      // Stock consumido/entregado
   quantityAvailable Int       @default(0)      // Real - Reservado
   
+  // Ubicación física específica en este almacén
+  location          String?
+  
   // Valorización
   averageCost       Decimal   @default(0) @db.Decimal(12, 2)
   
@@ -29,4 +32,5 @@ model Stock {
   @@index([itemId])
   @@index([warehouseId])
   @@index([quantityAvailable])
+  @@index([warehouseId, quantityAvailable])
 }

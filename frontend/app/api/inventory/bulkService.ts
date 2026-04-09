@@ -15,6 +15,7 @@ export type BulkOperationStatus =
   | "PENDING"
   | "PROCESSING"
   | "COMPLETED"
+  | "COMPLETED_WITH_ERRORS"
   | "FAILED"
   | "CANCELLED";
 
@@ -120,27 +121,64 @@ interface BulkOperationsResponse extends PaginatedResponse<IBulkOperation> {
 // ============================================================================
 
 const bulkService = {
-  // Import items from CSV
+  // Import items — sends as multipart/form-data to avoid JSON string-length limits
   async importItems(
     request: IBulkImportRequest,
   ): Promise<IBulkOperationResult> {
+    const form = new FormData();
+    // CSV content as a Blob (binary transport, no JSON overhead)
+    const blob = new Blob([request.fileContent], { type: "text/csv" });
+    form.append("file", blob, request.fileName || "import.csv");
+    form.append("options", JSON.stringify(request.options ?? {}));
+
+    // apiClient defaults Content-Type to application/json which breaks FormData.
+    // transformRequest deletes that header so the browser sets the correct
+    // "multipart/form-data; boundary=…" value automatically.
     const res = await apiClient.post<{ data: IBulkOperationResult }>(
       `/inventory/items/bulk/import`,
-      request,
+      form,
+      {
+        transformRequest: [(data: any, headers: any) => {
+          if (data instanceof FormData) {
+            if (headers) {
+              delete headers["Content-Type"];
+              if (headers.common) delete headers.common["Content-Type"];
+              if (headers.post)   delete headers.post["Content-Type"];
+            }
+            return data;
+          }
+          return JSON.stringify(data);
+        }],
+      },
     );
     return res.data.data;
   },
 
   // Export items to CSV/JSON/Excel
   async exportItems(request: IBulkExportRequest): Promise<Blob> {
-    const res = await apiClient.post<Blob>(
-      `/inventory/items/bulk/export`,
-      request,
-      {
-        responseType: "blob",
-      },
-    );
-    return res.data;
+    try {
+      const res = await apiClient.post<Blob>(
+        `/inventory/items/bulk/export`,
+        request,
+        {
+          responseType: "blob",
+        },
+      );
+      return res.data;
+    } catch (error: any) {
+      // If backend returns 404 (e.g., no items match export filters), return an empty file
+      // so the UI can still download a valid (but empty) export.
+      if (error?.response?.status === 404) {
+        const mimeTypeMap: Record<string, string> = {
+          json: "application/json",
+          xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          csv: "text/csv",
+        };
+        const mimeType = mimeTypeMap[request.format ?? "csv"] ?? "text/csv";
+        return new Blob([""], { type: mimeType });
+      }
+      throw error;
+    }
   },
 
   // Bulk update items
@@ -167,11 +205,11 @@ const bulkService = {
   async getOperations(
     params?: GetOperationsParams,
   ): Promise<BulkOperationsResponse> {
-    const res = await apiClient.get<{ data: BulkOperationsResponse }>(
+    const res = await apiClient.get<BulkOperationsResponse>(
       `/inventory/items/bulk/operations`,
       { params },
     );
-    return res.data.data;
+    return res.data;
   },
 
   // Get single operation details

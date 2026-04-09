@@ -59,6 +59,7 @@ interface ItemModelFormProps {
   model: Model | null;
   formId?: string;
   onSave: () => void | Promise<void>;
+  onCreated?: (item: any) => void;
   onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<any>;
 }
@@ -73,6 +74,7 @@ export default function ItemModelForm({
   model,
   formId,
   onSave,
+  onCreated,
   onSubmittingChange,
   toast,
 }: ItemModelFormProps) {
@@ -157,10 +159,12 @@ export default function ItemModelForm({
 
       if (model?.id) {
         await modelsService.update(model.id, submitData);
+        await onSave();
       } else {
-        await modelsService.create(submitData);
+        const res = await modelsService.create(submitData);
+        await onSave();
+        if (onCreated) onCreated(res?.data ?? res);
       }
-      await onSave();
     } catch (error: any) {
       handleFormError(error, toast);
     } finally {

@@ -7,6 +7,7 @@ import { Button } from "primereact/button";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { classNames } from "primereact/utils";
+import FormActionButtons from "@/components/common/FormActionButtons";
 import stockService, { Stock } from "@/app/api/inventory/stockService";
 import { adjustStockSchema, AdjustStock } from "@/libs/zods/inventory/stockZod";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -17,6 +18,8 @@ interface StockAdjustDialogProps {
   onSave: () => void;
   onCancel: () => void;
   toast: React.RefObject<any>;
+  onSubmittingChange?: (submitting: boolean) => void;
+  formId?: string;
 }
 
 export default function StockAdjustDialog({
@@ -25,6 +28,8 @@ export default function StockAdjustDialog({
   onSave,
   onCancel,
   toast,
+  onSubmittingChange,
+  formId = "adjust-stock-form",
 }: StockAdjustDialogProps) {
   const [submitting, setSubmitting] = useState(false);
 
@@ -35,6 +40,7 @@ export default function StockAdjustDialog({
     reset,
   } = useForm<AdjustStock>({
     resolver: zodResolver(adjustStockSchema),
+    mode: "onBlur",
     defaultValues: {
       itemId: stock?.itemId || "",
       warehouseId: stock?.warehouseId || "",
@@ -57,10 +63,9 @@ export default function StockAdjustDialog({
 
   const onSubmit = async (data: AdjustStock) => {
     setSubmitting(true);
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
-      await adjustStock({
-        itemId: data.itemId,
-        warehouseId: data.warehouseId,
+      await stockService.adjust(stock?.id || "", {
         quantityChange: data.quantityChange,
         reason: data.reason,
       });
@@ -70,12 +75,8 @@ export default function StockAdjustDialog({
       handleFormError(error, toast);
     } finally {
       setSubmitting(false);
+      if (onSubmittingChange) onSubmittingChange(false);
     }
-  };
-
-  const handleCancel = () => {
-    reset();
-    onCancel();
   };
 
   return (
@@ -94,10 +95,23 @@ export default function StockAdjustDialog({
       }
       modal
       className="p-fluid"
-      onHide={handleCancel}
+      footer={
+        <FormActionButtons
+          formId={formId}
+          isSubmitting={submitting}
+          onCancel={() => {
+            reset();
+            onCancel();
+          }}
+        />
+      }
+      onHide={() => {
+        reset();
+        onCancel();
+      }}
     >
       {stock && (
-        <form onSubmit={handleSubmit(onSubmit)}>
+        <form id={formId} onSubmit={handleSubmit(onSubmit)}>
           <div className="p-3">
             {/* Info del stock actual */}
             <div className="surface-100 border-round p-3 mb-3">
@@ -215,25 +229,6 @@ export default function StockAdjustDialog({
                 </span>
               </div>
             )}
-
-            {/* Botones */}
-            <div className="flex justify-content-end gap-2">
-              <Button
-                type="button"
-                label="Cancelar"
-                icon="pi pi-times"
-                outlined
-                onClick={handleCancel}
-                disabled={submitting}
-              />
-              <Button
-                type="submit"
-                label="Aplicar Ajuste"
-                icon={submitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
-                severity="warning"
-                disabled={submitting}
-              />
-            </div>
           </div>
         </form>
       )}

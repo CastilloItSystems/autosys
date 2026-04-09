@@ -98,6 +98,54 @@ export const PERMISSIONS = {
   REPORTS_VIEW: 'reports.view',
   REPORTS_EXPORT: 'reports.export',
   REPORTS_APPROVE: 'reports.approve',
+
+  // ── CRM: Clientes ─────────────────────────────────────────────────────────
+  CRM_CUSTOMERS_VIEW: 'crm.customers.view',
+  CRM_CUSTOMERS_CREATE: 'crm.customers.create',
+  CRM_CUSTOMERS_UPDATE: 'crm.customers.update',
+  CRM_CUSTOMERS_DELETE: 'crm.customers.delete',
+
+  // ── CRM: Vehículos del cliente ────────────────────────────────────────────
+  CRM_VEHICLES_VIEW: 'crm.vehicles.view',
+  CRM_VEHICLES_CREATE: 'crm.vehicles.create',
+  CRM_VEHICLES_UPDATE: 'crm.vehicles.update',
+  CRM_VEHICLES_DELETE: 'crm.vehicles.delete',
+
+  // ── CRM: Leads / Oportunidades ────────────────────────────────────────────
+  CRM_LEADS_VIEW: 'crm.leads.view',
+  CRM_LEADS_CREATE: 'crm.leads.create',
+  CRM_LEADS_UPDATE: 'crm.leads.update',
+  CRM_LEADS_DELETE: 'crm.leads.delete',
+
+  // ── CRM: Interacciones ────────────────────────────────────────────────────
+  CRM_INTERACTIONS_VIEW: 'crm.interactions.view',
+  CRM_INTERACTIONS_CREATE: 'crm.interactions.create',
+  CRM_INTERACTIONS_UPDATE: 'crm.interactions.update',
+  CRM_INTERACTIONS_DELETE: 'crm.interactions.delete',
+
+  // ── CRM: Actividades / Seguimientos ──────────────────────────────────────
+  CRM_ACTIVITIES_VIEW: 'crm.activities.view',
+  CRM_ACTIVITIES_CREATE: 'crm.activities.create',
+  CRM_ACTIVITIES_UPDATE: 'crm.activities.update',
+  CRM_ACTIVITIES_DELETE: 'crm.activities.delete',
+
+  // ── CRM: Cotizaciones ─────────────────────────────────────────────────────
+  CRM_QUOTES_VIEW: 'crm.quotes.view',
+  CRM_QUOTES_CREATE: 'crm.quotes.create',
+  CRM_QUOTES_UPDATE: 'crm.quotes.update',
+  CRM_QUOTES_DELETE: 'crm.quotes.delete',
+
+  // ── CRM: Casos / Reclamos ────────────────────────────────────────────────
+  CRM_CASES_VIEW: 'crm.cases.view',
+  CRM_CASES_CREATE: 'crm.cases.create',
+  CRM_CASES_UPDATE: 'crm.cases.update',
+  CRM_CASES_DELETE: 'crm.cases.delete',
+
+  // ── Taller ────────────────────────────────────────────────────────────────
+  WORKSHOP_VIEW: 'workshop.view',
+  WORKSHOP_CREATE: 'workshop.create',
+  WORKSHOP_UPDATE: 'workshop.update',
+  WORKSHOP_DELETE: 'workshop.delete',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

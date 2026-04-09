@@ -5,7 +5,11 @@ import prisma from './services/prisma.service.js'
 import { logger } from './shared/utils/logger.js'
 import { setupGracefulShutdown } from './shared/utils/shutdown.js'
 import { initSocket } from './socket/index.js'
-import { ensurePermissionCatalog } from './services/empresa-setup.service.js'
+import {
+  ensurePermissionCatalog,
+  seedDefaultRolesForEmpresa,
+} from './services/empresa-setup.service.js'
+import SocketService from './features/inventory/shared/events/socket.service.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -14,6 +18,9 @@ const server = createServer(app)
 
 // Initialize Socket.IO
 const io = initSocket(server)
+
+// Initialize Inventory SocketService
+SocketService.getInstance().initialize(io)
 
 /**
  * Inicia el servidor HTTP y espera hasta que esté escuchando.
@@ -40,9 +47,19 @@ export const startServer = async (): Promise<void> => {
     await prisma.$queryRaw`SELECT 1`
     logger.info('✅ Base de datos respondiendo correctamente')
 
-    // Asegurar catálogo de permisos globales
+    // Sincronizar catálogo global de permisos
     await ensurePermissionCatalog()
     logger.info('✅ Catálogo de permisos sincronizado')
+
+    // Sincronizar roles de todas las empresas activas
+    const empresas = await prisma.empresa.findMany({
+      where: { eliminado: false },
+      select: { id_empresa: true },
+    })
+    for (const empresa of empresas) {
+      await seedDefaultRolesForEmpresa(empresa.id_empresa)
+    }
+    logger.info(`✅ Roles sincronizados para ${empresas.length} empresa(s)`)
 
     // Iniciar servidor HTTP
     await listenServer(port)

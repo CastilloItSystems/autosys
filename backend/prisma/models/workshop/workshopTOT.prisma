@@ -1,0 +1,96 @@
+// backend/prisma/models/workshop/workshopTOT.prisma
+// Servicios Externos / T.O.T. (Trabajo en Otros Talleres)
+// Gestiona piezas que salen del taller a ser reparadas por proveedores especializados externos.
+// El catálogo de proveedores reutiliza el modelo Supplier (inventory) con el campo specialty.
+
+enum TOTStatus {
+  REQUESTED   // Solicitado por el asesor
+  APPROVED    // Aprobado por Gerente de Servicio, listo para salir
+  DEPARTED    // Pieza salió del taller (garita verificó)
+  IN_PROGRESS // En proceso con el proveedor externo
+  RETURNED    // Pieza reingresó al taller
+  INVOICED    // Factura del proveedor recibida y enviada a administración
+  CANCELLED   // Cancelado
+}
+
+enum TOTDocumentType {
+  PROVIDER_QUOTE   // Presupuesto del proveedor
+  DELIVERY_ACT     // Acta de entrega de pieza al proveedor
+  RETURN_ACT       // Acta de reingreso de pieza
+  PROVIDER_INVOICE // Factura del proveedor (para pago y costos)
+  OTHER            // Otro documento
+}
+
+// Registro de T.O.T. vinculado a una Orden de Servicio
+model WorkshopTOT {
+  id        String @id @default(cuid())
+  totNumber String // TOT-0001 auto-generado por empresa
+
+  status TOTStatus @default(REQUESTED)
+
+  // Orden de Servicio origen
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Restrict)
+
+  // Proveedor externo (reutiliza Supplier de inventario)
+  supplierId   String?
+  supplier     Supplier? @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  providerName String?   // Nombre libre si no está en catálogo
+
+  // Detalle de la pieza a enviar
+  partDescription      String  @db.Text  // Descripción de la pieza
+  partSerial           String?            // Serial / número de identificación
+  photoUrls            Json?              // URLs de fotos antes de la salida
+
+  // Trabajo solicitado
+  requestedWork        String  @db.Text  // Descripción del trabajo a realizar
+  technicalInstruction String? @db.Text  // Instrucción técnica específica al proveedor
+
+  // Autorización de salida
+  approvedById  String? // userId del Gerente de Servicio que aprobó
+  departureRef  String? // Referencia de la orden de salida firmada
+
+  // Control de tiempos
+  departedAt         DateTime? // Fecha/hora de salida del taller
+  estimatedReturnAt  DateTime? // Fecha estimada de reingreso
+  returnedAt         DateTime? // Fecha/hora real de reingreso
+
+  // Costos
+  providerQuote      Decimal? @db.Decimal(12, 2) // Presupuesto del proveedor
+  finalCost          Decimal? @db.Decimal(12, 2) // Costo final (se suma a la OS para facturar)
+  providerInvoiceRef String?                     // Referencia/número de factura del proveedor
+
+  notes String? @db.Text
+
+  documents    WorkshopTOTDocument[]
+  garitaEvents WorkshopGarita[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, totNumber])
+  @@index([empresaId])
+  @@index([serviceOrderId])
+  @@index([status])
+  @@index([supplierId])
+  @@index([empresaId, createdAt])
+  @@map("workshop_tot")
+}
+
+// Documentos adjuntos a un T.O.T. (presupuesto, actas, factura)
+model WorkshopTOTDocument {
+  id          String @id @default(cuid())
+  totId       String
+  tot         WorkshopTOT     @relation(fields: [totId], references: [id], onDelete: Cascade)
+  type        TOTDocumentType
+  url         String
+  description String? @db.Text
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  @@index([totId])
+  @@map("workshop_tot_documents")
+}

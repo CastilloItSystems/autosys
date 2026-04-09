@@ -11,7 +11,8 @@ import { getDeadStockReport } from '../deadStock/deadStock.service.js'
 import { getStockValueReport } from '../stockValue/stockValue.service.js'
 import { getMovementsReport } from '../movements/movements.service.js'
 import { exportDataToExcel } from './excel.service.js'
-import { generatePDFReport } from './pdf.service.js'
+import { generatePDFReport, EmpresaInfo } from './pdf.service.js'
+import prisma from '../../../../services/prisma.service.js'
 
 type ReportType = 'low-stock' | 'dead-stock' | 'stock-value' | 'movements'
 
@@ -26,6 +27,17 @@ export const exportReportHandler = async (
 ): Promise<void> => {
   try {
     const { reportType } = req.params
+    const empresaId = (req as any).empresaId as string | undefined
+
+    // Fetch empresa info for PDF header
+    let empresa: EmpresaInfo | undefined
+    if (empresaId) {
+      const raw = await prisma.empresa.findUnique({
+        where: { id_empresa: empresaId },
+        select: { nombre: true, numerorif: true, direccion: true, telefonos: true, email: true },
+      })
+      if (raw) empresa = raw
+    }
 
     // Ensure format is a valid string, defaulting to 'csv'
     let format: ExportFormat = 'csv'
@@ -60,14 +72,14 @@ export const exportReportHandler = async (
         const result = await getLowStockReport(page, limit)
         data = result.data
         columns = [
-          { header: 'Item Name', key: 'itemName' },
-          { header: 'SKU', key: 'itemSKU' },
-          { header: 'Current Stock', key: 'currentStock' },
-          { header: 'Minimum Stock', key: 'minimumStock' },
-          { header: 'Shortage', key: 'shortage' },
-          { header: 'Warehouse', key: 'warehouseName' },
+          { header: 'Artículo', key: 'itemName' },
+          { header: 'SKU', key: 'itemSKU', width: 80 },
+          { header: 'Stock Actual', key: 'currentStock', width: 80, align: 'right', format: 'number' },
+          { header: 'Stock Mínimo', key: 'minimumStock', width: 80, align: 'right', format: 'number' },
+          { header: 'Déficit', key: 'shortage', width: 65, align: 'right', format: 'number' },
+          { header: 'Almacén', key: 'warehouseName', width: 100 },
         ]
-        fileName += '_low-stock'
+        fileName += '_stock-bajo'
         break
       }
 
@@ -75,14 +87,14 @@ export const exportReportHandler = async (
         const result = await getDeadStockReport(page, limit)
         data = result.data
         columns = [
-          { header: 'Item Name', key: 'itemName' },
-          { header: 'SKU', key: 'itemSKU' },
-          { header: 'Current Stock', key: 'currentStock' },
-          { header: 'Last Movement', key: 'lastMovement' },
-          { header: 'Days Inactive', key: 'daysInactive' },
-          { header: 'Warehouse', key: 'warehouseName' },
+          { header: 'Artículo', key: 'itemName' },
+          { header: 'SKU', key: 'itemSKU', width: 80 },
+          { header: 'Stock', key: 'currentStock', width: 65, align: 'right', format: 'number' },
+          { header: 'Última Movimiento', key: 'lastMovement', width: 100, format: 'date' },
+          { header: 'Días Inactivo', key: 'daysInactive', width: 80, align: 'right', format: 'number' },
+          { header: 'Almacén', key: 'warehouseName', width: 90 },
         ]
-        fileName += '_dead-stock'
+        fileName += '_stock-muerto'
         break
       }
 
@@ -90,35 +102,30 @@ export const exportReportHandler = async (
         const result = await getStockValueReport(page, limit)
         data = result.data
         columns = [
-          { header: 'Item Name', key: 'itemName' },
-          { header: 'SKU', key: 'itemSKU' },
-          { header: 'Quantity', key: 'quantity' },
-          { header: 'Unit Price', key: 'unitPrice' },
-          { header: 'Total Value', key: 'totalValue' },
-          { header: 'Warehouse', key: 'warehouseName' },
+          { header: 'Artículo', key: 'itemName' },
+          { header: 'SKU', key: 'itemSKU', width: 75 },
+          { header: 'Cantidad', key: 'quantity', width: 65, align: 'right', format: 'number' },
+          { header: 'Precio Unit.', key: 'unitPrice', width: 80, align: 'right', format: 'currency' },
+          { header: 'Valor Total', key: 'totalValue', width: 85, align: 'right', format: 'currency' },
+          { header: 'Almacén', key: 'warehouseName', width: 90 },
         ]
-        fileName += '_stock-value'
+        fileName += '_valoracion-stock'
         break
       }
 
       case 'movements': {
-        const result = await getMovementsReport({
-          page,
-          limit,
-          ...filters,
-        })
+        const result = await getMovementsReport({ page, limit, ...filters })
         data = result.data
         columns = [
-          { header: 'Movement Date', key: 'movementDate' },
-          { header: 'Item Name', key: 'itemName' },
-          { header: 'SKU', key: 'itemSKU' },
-          { header: 'Type', key: 'type' },
-          { header: 'Quantity', key: 'quantity' },
-          { header: 'Warehouse From', key: 'warehouseFromName' },
-          { header: 'Warehouse To', key: 'warehouseToName' },
-          { header: 'Reference', key: 'reference' },
+          { header: 'Fecha', key: 'movementDate', width: 80, format: 'date' },
+          { header: 'Artículo', key: 'itemName' },
+          { header: 'SKU', key: 'itemSKU', width: 70 },
+          { header: 'Tipo', key: 'type', width: 65, align: 'center' },
+          { header: 'Cantidad', key: 'quantity', width: 60, align: 'right', format: 'number' },
+          { header: 'Almacén Origen', key: 'warehouseFromName', width: 85 },
+          { header: 'Almacén Destino', key: 'warehouseToName', width: 85 },
         ]
-        fileName += '_movements'
+        fileName += '_movimientos'
         break
       }
 
@@ -139,7 +146,7 @@ export const exportReportHandler = async (
         `attachment; filename="${fileName}.xlsx"`
       )
     } else if (format === 'pdf') {
-      buffer = await generatePDFReport(data, `${reportType} Report`, columns)
+      buffer = await generatePDFReport(data, `${reportType} Report`, columns, empresa)
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader(
         'Content-Disposition',

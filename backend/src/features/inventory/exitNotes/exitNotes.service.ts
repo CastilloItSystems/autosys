@@ -30,7 +30,11 @@ const MSG = INVENTORY_MESSAGES.exitNote
 // ---------------------------------------------------------------------------
 
 const EXIT_NOTE_INCLUDE = {
-  items: true,
+  items: {
+    include: {
+      item: { select: { id: true, sku: true, name: true } },
+    },
+  },
   warehouse: { select: { id: true, name: true, empresaId: true } },
 } as const
 
@@ -95,12 +99,15 @@ class ExitNotesService {
     this.validateTypeRequirements(data)
 
     // Validate items + stock
+    const itemNameMap = new Map<string, string>()
     for (const item of data.items) {
       const dbItem = await (db as PrismaClient).item.findFirst({
         where: { id: item.itemId, empresaId },
+        select: { id: true, name: true },
       })
       if (!dbItem)
         throw new NotFoundError(`Artículo ${item.itemId} no encontrado`)
+      itemNameMap.set(item.itemId, dbItem.name)
 
       if (STOCK_DEDUCTING_TYPES.has(data.type)) {
         const stock = await (db as PrismaClient).stock.findUnique({
@@ -165,6 +172,7 @@ class ExitNotesService {
           items: {
             create: data.items.map((item) => ({
               itemId: item.itemId,
+              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
               quantity: item.quantity,
               pickedFromLocation: item.pickedFromLocation ?? null,
               batchId: item.batchId ?? null,
@@ -244,11 +252,14 @@ class ExitNotesService {
       recipientId?: string
       startDate?: Date
       endDate?: Date
+      search?: string
     },
     page: number,
     limit: number,
     empresaId: string,
-    db: PrismaClientType
+    db: PrismaClientType,
+    sortBy: string = 'createdAt',
+    sortOrder: 'asc' | 'desc' = 'desc'
   ): Promise<{ data: IExitNote[]; total: number }> {
     const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
@@ -259,15 +270,33 @@ class ExitNotesService {
     if (filters.recipientId) where.recipientId = filters.recipientId
     if (filters.startDate || filters.endDate) {
       where.createdAt = {}
-      if (filters.startDate) where.createdAt.gte = filters.startDate
-      if (filters.endDate) where.createdAt.lte = filters.endDate
+      if (filters.startDate) (where.createdAt as any).gte = filters.startDate
+      if (filters.endDate) (where.createdAt as any).lte = filters.endDate
     }
+
+    if (filters.search) {
+      const search = filters.search.trim()
+      where.OR = [
+        { exitNoteNumber: { contains: search, mode: 'insensitive' } },
+        { recipientName: { contains: search, mode: 'insensitive' } },
+        { reference: { contains: search, mode: 'insensitive' } },
+        { reason: { contains: search, mode: 'insensitive' } },
+      ]
+    }
+
+    const validSortFields = new Set([
+      'createdAt',
+      'exitNoteNumber',
+      'type',
+      'status',
+    ])
+    const safeSortBy = validSortFields.has(sortBy) ? sortBy : 'createdAt'
 
     const [data, total] = await Promise.all([
       (db as PrismaClient).exitNote.findMany({
         where,
         include: EXIT_NOTE_INCLUDE,
-        orderBy: { createdAt: 'desc' },
+        orderBy: { [safeSortBy]: sortOrder },
         skip,
         take,
       }),
@@ -287,7 +316,11 @@ class ExitNotesService {
     empresaId: string,
     db: PrismaClientType
   ): Promise<IExitNote> {
-    const exitNote = await this.findById(id, empresaId, db)
+    const exitNote = await (db as PrismaClient).exitNote.findFirst({
+      where: { id, warehouse: { empresaId } },
+      include: { ...EXIT_NOTE_INCLUDE },
+    })
+    if (!exitNote) throw new NotFoundError(MSG.notFound)
 
     if (exitNote.status !== ExitNoteStatus.PENDING) {
       throw new BadRequestError(MSG.cannotEdit)
@@ -306,6 +339,118 @@ class ExitNotesService {
     if (data.expectedReturnDate !== undefined)
       updateData.expectedReturnDate = data.expectedReturnDate
 
+    // If items provided, replace all items in a transaction
+    const itemsProvided = Array.isArray(data.items) && data.items.length > 0
+
+    if (itemsProvided) {
+      // Validate all items belong to this company
+      const itemIds = data.items!.map((i) => i.itemId)
+      const existingItems = await (db as PrismaClient).item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== itemIds.length) {
+        throw new BadRequestError(
+          'Uno o más artículos no existen o no pertenecen a esta empresa'
+        )
+      }
+      const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
+
+      // Validate stock for new items
+      if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
+        for (const item of data.items!) {
+          const stock = await (db as PrismaClient).stock.findUnique({
+            where: {
+              itemId_warehouseId: {
+                itemId: item.itemId,
+                warehouseId: exitNote.warehouseId,
+              },
+            },
+          })
+          // Add back the old reserved qty for this item if it existed before
+          const oldItem = (exitNote.items as any[]).find(
+            (i: any) => i.itemId === item.itemId
+          )
+          const oldReserved = oldItem?.quantity ?? 0
+          const available = (stock?.quantityAvailable ?? 0) + oldReserved
+          if (available < item.quantity) {
+            throw new BadRequestError(
+              `Stock insuficiente para artículo ${item.itemId}. ` +
+                `Disponible: ${available}, Requerido: ${item.quantity}`
+            )
+          }
+        }
+      }
+
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // Release old stock reservations
+        if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
+          for (const oldItem of exitNote.items as any[]) {
+            await tx.stock.update({
+              where: {
+                itemId_warehouseId: {
+                  itemId: oldItem.itemId,
+                  warehouseId: exitNote.warehouseId,
+                },
+              },
+              data: {
+                quantityReserved: { decrement: oldItem.quantity },
+                quantityAvailable: { increment: oldItem.quantity },
+              },
+            })
+          }
+        }
+
+        // Delete old items
+        await tx.exitNoteItem.deleteMany({ where: { exitNoteId: id } })
+
+        // Create new items
+        for (const item of data.items!) {
+          await tx.exitNoteItem.create({
+            data: {
+              exitNoteId: id,
+              itemId: item.itemId,
+              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
+              quantity: item.quantity,
+              pickedFromLocation: item.pickedFromLocation ?? null,
+              batchId: item.batchId ?? null,
+              serialNumberId: item.serialNumberId ?? null,
+              notes: item.notes ?? null,
+            },
+          })
+        }
+
+        // Reserve new stock
+        if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
+          for (const item of data.items!) {
+            await tx.stock.update({
+              where: {
+                itemId_warehouseId: {
+                  itemId: item.itemId,
+                  warehouseId: exitNote.warehouseId,
+                },
+              },
+              data: {
+                quantityReserved: { increment: item.quantity },
+                quantityAvailable: { decrement: item.quantity },
+              },
+            })
+          }
+        }
+
+        // Update header
+        return tx.exitNote.update({
+          where: { id },
+          data: updateData,
+          include: EXIT_NOTE_INCLUDE,
+        })
+      })
+
+      logger.info(`Nota de salida actualizada con items: ${id}`, { empresaId })
+      return updated as unknown as IExitNote
+    }
+
+    // No items — just update header
     const updated = await (db as PrismaClient).exitNote.update({
       where: { id },
       data: updateData,
@@ -313,7 +458,6 @@ class ExitNotesService {
     })
 
     logger.info(`Nota de salida actualizada: ${id}`, { empresaId })
-
     return updated as unknown as IExitNote
   }
 
@@ -333,6 +477,108 @@ class ExitNotesService {
       throw new BadRequestError(MSG.cannotEdit)
     }
 
+    const shouldReserve = STOCK_DEDUCTING_TYPES.has(
+      exitNote.type as ExitNoteType
+    )
+
+    if (shouldReserve && exitNote.items.length > 0) {
+      // ── Phase 1: Validate ALL items BEFORE reserving anything ──
+      const insufficientItems: string[] = []
+
+      for (const item of exitNote.items as Array<{
+        itemId: string
+        quantity: number
+        itemName?: string
+        item?: { sku?: string; name?: string }
+      }>) {
+        const stock = await (db as PrismaClient).stock.findUnique({
+          where: {
+            itemId_warehouseId: {
+              itemId: item.itemId,
+              warehouseId: exitNote.warehouseId,
+            },
+          },
+        })
+
+        const available = stock?.quantityAvailable ?? 0
+        if (available < item.quantity) {
+          const label =
+            item.item?.sku || item.itemName || item.item?.name || item.itemId
+          insufficientItems.push(
+            `${label}: disponible ${available}, requerido ${item.quantity}`
+          )
+        }
+      }
+
+      if (insufficientItems.length > 0) {
+        throw new BadRequestError(
+          `Stock insuficiente para los siguientes artículos:\n${insufficientItems.join('\n')}`
+        )
+      }
+
+      // ── Phase 2: All validated — reserve in a single transaction ──
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        for (const item of exitNote.items as Array<{
+          itemId: string
+          quantity: number
+        }>) {
+          // Reserve stock
+          await tx.stock.update({
+            where: {
+              itemId_warehouseId: {
+                itemId: item.itemId,
+                warehouseId: exitNote.warehouseId,
+              },
+            },
+            data: {
+              quantityReserved: { increment: item.quantity },
+              quantityAvailable: { decrement: item.quantity },
+              lastMovementAt: new Date(),
+            },
+          })
+
+          // Create Reservation record for traceability
+          const year = new Date().getFullYear()
+          const ts = Date.now().toString(36).toUpperCase()
+          const rnd = Math.random().toString(36).substring(2, 6).toUpperCase()
+
+          await tx.reservation.create({
+            data: {
+              reservationNumber: `RES-${year}-${ts}${rnd}`,
+              itemId: item.itemId,
+              warehouseId: exitNote.warehouseId,
+              quantity: item.quantity,
+              status: 'ACTIVE',
+              exitNoteId: id,
+              reference: exitNote.exitNoteNumber,
+              notes: `Reserva automática — Nota de salida ${exitNote.exitNoteNumber}`,
+              createdBy: userId,
+            },
+          })
+        }
+
+        return tx.exitNote.update({
+          where: { id },
+          data: {
+            status: ExitNoteStatus.IN_PROGRESS,
+            reservedAt: new Date(),
+          },
+          include: EXIT_NOTE_INCLUDE,
+        })
+      })
+
+      logger.info(
+        `Nota de salida iniciada con ${exitNote.items.length} reservas: ${id}`,
+        {
+          empresaId,
+          userId,
+        }
+      )
+
+      return updated as unknown as IExitNote
+    }
+
+    // No stock reservation needed (non-deducting type or no items)
     const updated = await (db as PrismaClient).exitNote.update({
       where: { id },
       data: { status: ExitNoteStatus.IN_PROGRESS, reservedAt: new Date() },
@@ -398,6 +644,7 @@ class ExitNotesService {
         itemId: string
         quantity: number
       }>) {
+        // Create movement record
         await tx.movement.create({
           data: {
             movementNumber: MovementNumberGenerator.generate('MOV'),
@@ -412,6 +659,7 @@ class ExitNotesService {
           },
         })
 
+        // Deduct real stock (reserved goes down too since it was reserved on start)
         await tx.stock.update({
           where: {
             itemId_warehouseId: {
@@ -422,10 +670,24 @@ class ExitNotesService {
           data: {
             quantityReal: { decrement: item.quantity },
             quantityReserved: { decrement: item.quantity },
+            quantityConsumed: { increment: item.quantity },
             lastMovementAt: new Date(),
           },
         })
       }
+
+      // Mark all linked reservations as CONSUMED
+      await tx.reservation.updateMany({
+        where: {
+          exitNoteId: id,
+          status: { in: ['ACTIVE', 'PENDING_PICKUP'] },
+        },
+        data: {
+          status: 'CONSUMED',
+          deliveredAt: new Date(),
+          deliveredBy: userId,
+        },
+      })
 
       await this.handleTypeSpecificDelivery(tx, note, userId)
 
@@ -454,7 +716,15 @@ class ExitNotesService {
     }
 
     const updated = await (db as PrismaClient).$transaction(async (tx) => {
-      if (STOCK_DEDUCTING_TYPES.has(exitNote.type)) {
+      // Only release stock if it was actually reserved (IN_PROGRESS or READY)
+      const wasReserved =
+        exitNote.status === ExitNoteStatus.IN_PROGRESS ||
+        exitNote.status === ExitNoteStatus.READY
+
+      if (
+        wasReserved &&
+        STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)
+      ) {
         for (const item of exitNote.items) {
           await tx.stock.update({
             where: {
@@ -466,9 +736,23 @@ class ExitNotesService {
             data: {
               quantityReserved: { decrement: item.quantity },
               quantityAvailable: { increment: item.quantity },
+              lastMovementAt: new Date(),
             },
           })
         }
+
+        // Release all linked reservations
+        await tx.reservation.updateMany({
+          where: {
+            exitNoteId: id,
+            status: { in: ['ACTIVE', 'PENDING_PICKUP'] },
+          },
+          data: {
+            status: 'RELEASED',
+            releasedAt: new Date(),
+            notes: `[LIBERADO: Nota de salida cancelada — ${reason}]`,
+          },
+        })
       }
 
       return tx.exitNote.update({

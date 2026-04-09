@@ -32,7 +32,8 @@ model Model {
   compatibleParts    ModelCompatibility[] @relation("VehicleModel")
   
   // Relaciones
-  items       Item[]
+  items            Item[]
+  customerVehicles CustomerVehicle[]
   
   // Auditoría
   createdAt   DateTime  @default(now())

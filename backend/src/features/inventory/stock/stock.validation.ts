@@ -30,6 +30,10 @@ export const createStockSchema = Joi.object({
       'number.min': 'La cantidad reservada no puede ser negativa',
     }),
 
+  location: Joi.string().allow(null, '').optional().messages({
+    'string.base': 'La ubicación debe ser texto',
+  }),
+
   averageCost: Joi.number().optional().messages({
     'number.base': 'El costo promedio debe ser un número',
   }),
@@ -44,6 +48,10 @@ export const updateStockSchema = Joi.object({
   quantityReserved: Joi.number().integer().min(0).optional().messages({
     'number.base': 'La cantidad reservada debe ser un número',
     'number.min': 'La cantidad reservada no puede ser negativa',
+  }),
+
+  location: Joi.string().allow(null, '').optional().messages({
+    'string.base': 'La ubicación debe ser texto',
   }),
 
   averageCost: Joi.number().optional().messages({

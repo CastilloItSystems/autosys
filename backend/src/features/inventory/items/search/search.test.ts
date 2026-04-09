@@ -11,6 +11,7 @@ describe('Search Routes', () => {
   let brandId: string
   let categoryId: string
   let unitId: string
+  let modelId: string
 
   beforeAll(async () => {
     // Clean up previous test data
@@ -32,6 +33,11 @@ describe('Search Routes', () => {
     await prisma.unit
       .deleteMany({
         where: { code: 'TEST-UNIT-SEARCH' },
+      })
+      .catch(() => {})
+    await prisma.model
+      .deleteMany({
+        where: { name: { contains: 'TEST-SEARCH', mode: 'insensitive' } },
       })
       .catch(() => {})
 
@@ -71,6 +77,18 @@ describe('Search Routes', () => {
     })
     unitId = unit.id
 
+    // Create test model
+    const model = await prisma.model.create({
+      data: {
+        name: 'TEST-SEARCH-MODEL',
+        brandId,
+        empresaId: brand.empresaId, // assuming same empresa as brand
+        type: 'PART',
+        isActive: true,
+      },
+    })
+    modelId = model.id
+
     // Create test item
     const item = await prisma.item.create({
       data: {
@@ -80,6 +98,7 @@ describe('Search Routes', () => {
         categoryId,
         unitId,
         brandId,
+        modelId,
         costPrice: 10,
         salePrice: 20,
         isActive: true,
@@ -131,6 +150,9 @@ describe('Search Routes', () => {
       expect(response.body).toHaveProperty('meta')
       expect(response.body.meta).toHaveProperty('page')
       expect(response.body.meta).toHaveProperty('total')
+      if (response.body.data.length > 0) {
+        expect(response.body.data[0]).toHaveProperty('modelName')
+      }
     })
 
     test('should search by SKU', async () => {

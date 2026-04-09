@@ -290,7 +290,7 @@ router.post(
   '/upload',
   authenticate,
   authorize(PERMISSIONS.ITEMS_CREATE),
-  FileUploadHelper.createImageUploader('images', 10),
+  FileUploadHelper.createMemoryArrayUploader('images', 10),
   controller.upload
 )
 

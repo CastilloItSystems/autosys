@@ -1,0 +1,76 @@
+// backend/prisma/models/workshop/laborTime.prisma
+// Control de tiempos técnicos por operación y técnico.
+// Permite medir productividad, eficiencia y horas facturables.
+// Regla: un técnico no puede tener dos registros ACTIVE simultáneamente.
+
+enum LaborTimeStatus {
+  ACTIVE     // Reloj corriendo
+  PAUSED     // Pausado (espera de repuesto, autorización, etc.)
+  COMPLETED  // Terminado
+  CANCELLED  // Anulado (error de registro)
+}
+
+model LaborTime {
+  id             String @id @default(cuid())
+
+  // OT e ítem de operación
+  serviceOrderId String
+  serviceOrder   ServiceOrder      @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  serviceOrderItemId String?
+  serviceOrderItem   ServiceOrderItem? @relation(fields: [serviceOrderItemId], references: [id], onDelete: SetNull)
+
+  // Operación estándar de referencia (para comparar vs tiempo estándar)
+  operationId String?
+  operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
+
+  // Técnico
+  technicianId String // userId del técnico
+
+  // Tiempos
+  startedAt   DateTime  // Cuando inició
+  pausedAt    DateTime? // Última pausa (null si activo)
+  finishedAt  DateTime? // Cuando terminó
+
+  // Acumulados calculados (en minutos)
+  pausedMinutes   Int @default(0) // Total de minutos pausado
+  realMinutes     Int? // Minutos reales (finishedAt - startedAt - pausedMinutes)
+  standardMinutes Int? // Tiempo estándar de la operación al momento de registrar
+
+  status LaborTimeStatus @default(ACTIVE)
+
+  notes    String? @db.Text
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  pauses LaborTimePause[]
+
+  @@index([serviceOrderId])
+  @@index([serviceOrderItemId])
+  @@index([technicianId])
+  @@index([status])
+  @@index([startedAt])
+  @@index([technicianId, status]) // Buscar timer activo de un técnico
+  @@map("workshop_labor_times")
+}
+
+model LaborTimePause {
+  id             String    @id @default(cuid())
+  laborTimeId    String
+  laborTime      LaborTime @relation(fields: [laborTimeId], references: [id], onDelete: Cascade)
+
+  startedAt      DateTime
+  endedAt        DateTime?
+  durationMinutes Int?     // Calculado al finalizar la pausa
+  reason         String?   @db.Text
+
+  empresaId      String
+  empresa        Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt      DateTime  @default(now())
+
+  @@index([laborTimeId])
+  @@index([empresaId])
+  @@map("workshop_labor_time_pauses")
+}
+
