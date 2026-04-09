@@ -8,6 +8,7 @@ import type {
   DiagnosisFinding,
   DiagnosisSuggestedOp,
   DiagnosisSuggestedPart,
+  DiagnosisEvidence,
   CreateFindingInput,
   CreateSuggestedOpInput,
   CreateSuggestedPartInput,
@@ -76,6 +77,17 @@ const diagnosisService = {
 
   async addEvidence(id: string, data: { type: string; url: string; description?: string }): Promise<WorkshopResponse<DiagnosisEvidence>> {
     const res = await apiClient.post(`${BASE}/${id}/evidences`, data)
+    return res.data
+  },
+
+  async uploadEvidenceFile(id: string, file: File, type: string, description?: string): Promise<WorkshopResponse<DiagnosisEvidence>> {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('type', type)
+    if (description) form.append('description', description)
+    const res = await apiClient.post(`${BASE}/${id}/evidences/upload`, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    })
     return res.data
   },
 

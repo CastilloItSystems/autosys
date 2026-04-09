@@ -9,7 +9,7 @@ const bulkService = new BulkService()
 
 export class BulkController {
   import = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId   = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const empresaId = (req.headers['x-empresa-id'] as string) || undefined
 
     // Support both multipart/form-data (req.file) and legacy JSON (req.body.fileContent)
@@ -21,39 +21,42 @@ export class BulkController {
       // Multipart upload — decode buffer to UTF-8 string
       const file = (req as any).file as Express.Multer.File
       fileContent = file.buffer.toString('utf-8')
-      fileName    = file.originalname
+      fileName = file.originalname
       // Options come as form fields (JSON-stringified or individual fields)
       try {
         options = req.body.options ? JSON.parse(req.body.options) : {}
       } catch {
         options = {
-          skipHeaderRow:  req.body.skipHeaderRow === 'true',
+          skipHeaderRow: req.body.skipHeaderRow === 'true',
           updateExisting: req.body.updateExisting === 'true',
-          validateOnly:   req.body.validateOnly   === 'true',
+          validateOnly: req.body.validateOnly === 'true',
         }
       }
     } else {
       // Legacy JSON body
       fileContent = req.body.fileContent
-      fileName    = req.body.fileName   || 'import.csv'
-      options     = req.body.options    || {}
+      fileName = req.body.fileName || 'import.csv'
+      options = req.body.options || {}
     }
 
     if (!fileContent) {
-      ApiResponse.badRequest(res, 'No se recibió contenido de archivo. Envía el archivo como multipart/form-data (campo "file") o JSON con el campo "fileContent".')
+      ApiResponse.badRequest(
+        res,
+        'No se recibió contenido de archivo. Envía el archivo como multipart/form-data (campo "file") o JSON con el campo "fileContent".'
+      )
       return
     }
 
     const result = await bulkService.importItems(
       { fileContent, fileName, options },
       userId,
-      empresaId,
+      empresaId
     )
     ApiResponse.success(res, result, 'Importación completada', 201)
   })
 
   export = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const empresaId = (req.headers['x-empresa-id'] as string) || undefined
     const result = await bulkService.exportItems(req.body, userId, empresaId)
 
@@ -82,14 +85,14 @@ export class BulkController {
   })
 
   update = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const empresaId = (req.headers['x-empresa-id'] as string) || undefined
     const result = await bulkService.bulkUpdate(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Actualización en lote completada')
   })
 
   delete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const empresaId = (req.headers['x-empresa-id'] as string) || undefined
     const result = await bulkService.bulkDelete(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Eliminación en lote completada')

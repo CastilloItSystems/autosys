@@ -1,5 +1,8 @@
 // backend/src/features/workshop/qualityChecks/qualityChecks.dto.ts
-import type { QualityCheckStatus, IChecklistItem } from './qualityChecks.interface.js'
+import type {
+  QualityCheckStatus,
+  IChecklistItem,
+} from './qualityChecks.interface.js'
 
 export class CreateQualityCheckDTO {
   serviceOrderId: string
@@ -10,7 +13,9 @@ export class CreateQualityCheckDTO {
   constructor(data: any) {
     this.serviceOrderId = data.serviceOrderId
     this.inspectorId = data.inspectorId
-    this.checklistItems = Array.isArray(data.checklistItems) ? data.checklistItems : undefined
+    this.checklistItems = Array.isArray(data.checklistItems)
+      ? data.checklistItems
+      : undefined
     this.notes = data.notes?.trim() ?? undefined
   }
 }
@@ -21,7 +26,9 @@ export class SubmitQualityCheckDTO {
   notes?: string
 
   constructor(data: any) {
-    this.checklistItems = Array.isArray(data.checklistItems) ? data.checklistItems : []
+    this.checklistItems = Array.isArray(data.checklistItems)
+      ? data.checklistItems
+      : []
     this.failureNotes = data.failureNotes?.trim() ?? undefined
     this.notes = data.notes?.trim() ?? undefined
   }
@@ -65,7 +72,7 @@ export class QualityCheckResponseDTO {
     // Calcular resumen del checklist
     const items: IChecklistItem[] = data.checklistItems ?? []
     this.totalItems = items.length
-    this.passedItems = items.filter(i => i.passed).length
-    this.failedItems = items.filter(i => !i.passed).length
+    this.passedItems = items.filter((i) => i.passed).length
+    this.failedItems = items.filter((i) => !i.passed).length
   }
 }

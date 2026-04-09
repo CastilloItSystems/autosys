@@ -16,7 +16,7 @@ import {
 
 export const getAll = asyncHandler(async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
-  const userId = ((req as any).user?.id ?? 'system') as string
+  const userId = ((req as any).user?.userId ?? 'system') as string
   const { page, limit, search, category, isActive } = req.query
 
   const filters: any = {
@@ -60,7 +60,7 @@ export const getOne = asyncHandler(async (req: Request, res: Response) => {
 
 export const create = asyncHandler(async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
-  const userId = ((req as any).user?.id ?? 'system') as string
+  const userId = ((req as any).user?.userId ?? 'system') as string
 
   const dto = new CreateChecklistTemplateDTO(req.body)
   const item = await checklistService.createChecklistTemplate(
@@ -79,7 +79,7 @@ export const create = asyncHandler(async (req: Request, res: Response) => {
 
 export const update = asyncHandler(async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
-  const userId = ((req as any).user?.id ?? 'system') as string
+  const userId = ((req as any).user?.userId ?? 'system') as string
 
   const dto = new UpdateChecklistTemplateDTO(req.body)
   const item = await checklistService.updateChecklistTemplate(
@@ -99,7 +99,7 @@ export const update = asyncHandler(async (req: Request, res: Response) => {
 
 export const remove = asyncHandler(async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
-  const userId = ((req as any).user?.id ?? 'system') as string
+  const userId = ((req as any).user?.userId ?? 'system') as string
 
   await checklistService.deleteChecklistTemplate(
     empresaId,
@@ -111,27 +111,29 @@ export const remove = asyncHandler(async (req: Request, res: Response) => {
   return ApiResponse.success(res, null, 'Plantilla eliminada')
 })
 
-export const toggleActive = asyncHandler(async (req: Request, res: Response) => {
-  const empresaId = req.empresaId!
+export const toggleActive = asyncHandler(
+  async (req: Request, res: Response) => {
+    const empresaId = req.empresaId!
 
-  const item = await checklistService.findChecklistTemplateById(
-    empresaId,
-    req.params.id as string,
-    (req as any).prisma ||
-      require('../../../../services/prisma.service.js').default
-  )
+    const item = await checklistService.findChecklistTemplateById(
+      empresaId,
+      req.params.id as string,
+      (req as any).prisma ||
+        require('../../../../services/prisma.service.js').default
+    )
 
-  const updated = await checklistService.updateChecklistTemplate(
-    empresaId,
-    req.params.id as string,
-    { isActive: !item.isActive },
-    ((req as any).user?.id ?? 'system') as string,
-    (req as any).prisma ||
-      require('../../../../services/prisma.service.js').default
-  )
+    const updated = await checklistService.updateChecklistTemplate(
+      empresaId,
+      req.params.id as string,
+      { isActive: !item.isActive },
+      ((req as any).user?.userId ?? 'system') as string,
+      (req as any).prisma ||
+        require('../../../../services/prisma.service.js').default
+    )
 
-  return ApiResponse.success(res, new ChecklistTemplateResponseDTO(updated))
-})
+    return ApiResponse.success(res, new ChecklistTemplateResponseDTO(updated))
+  }
+)
 
 /**
  * FASE 3.3: Evaluate conditional rules based on checklist responses

@@ -14,14 +14,16 @@ import { qualityCheckService } from "@/app/api/workshop";
 import type { QualityCheck } from "@/libs/interfaces/workshop";
 
 const checklistItemSchema = z.object({
-  key: z.string(),
+  key: z.string().optional(),
   label: z.string().min(1, "La etiqueta es requerida"),
   passed: z.boolean().default(false),
   notes: z.string().nullable().optional(),
 });
 
 const schema = z.object({
-  checklistItems: z.array(checklistItemSchema).min(1, "Agrega al menos un ítem"),
+  checklistItems: z
+    .array(checklistItemSchema)
+    .min(1, "Agrega al menos un ítem"),
   failureNotes: z.string().max(1000).nullable().optional(),
   notes: z.string().max(500).nullable().optional(),
 });
@@ -37,25 +39,64 @@ interface Props {
 }
 
 const DEFAULT_CHECKLIST = [
-  { key: "visual", label: "Inspección visual exterior", passed: false, notes: "" },
-  { key: "fluids", label: "Niveles de fluidos correctos", passed: false, notes: "" },
+  {
+    key: "visual",
+    label: "Inspección visual exterior",
+    passed: false,
+    notes: "",
+  },
+  {
+    key: "fluids",
+    label: "Niveles de fluidos correctos",
+    passed: false,
+    notes: "",
+  },
   { key: "lights", label: "Luces funcionando", passed: false, notes: "" },
   { key: "tires", label: "Presión de neumáticos", passed: false, notes: "" },
   { key: "brakes", label: "Frenos operativos", passed: false, notes: "" },
-  { key: "work_done", label: "Trabajo solicitado completado", passed: false, notes: "" },
-  { key: "clean", label: "Vehículo limpio al entregar", passed: false, notes: "" },
+  {
+    key: "work_done",
+    label: "Trabajo solicitado completado",
+    passed: false,
+    notes: "",
+  },
+  {
+    key: "clean",
+    label: "Vehículo limpio al entregar",
+    passed: false,
+    notes: "",
+  },
 ];
 
-export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, onSubmittingChange, toast }: Props) {
+export default function QualityCheckSubmitForm({
+  qualityCheck,
+  onSave,
+  formId,
+  onSubmittingChange,
+  toast,
+}: Props) {
   const [isLoading, setIsLoading] = useState(true);
 
-  const { control, handleSubmit, watch, reset, formState: { errors } } = useForm<FormData>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    reset,
+    formState: { errors },
+  } = useForm<FormData>({
     resolver: zodResolver(schema),
     mode: "onBlur",
-    defaultValues: { checklistItems: DEFAULT_CHECKLIST, failureNotes: "", notes: "" },
+    defaultValues: {
+      checklistItems: DEFAULT_CHECKLIST,
+      failureNotes: "",
+      notes: "",
+    },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "checklistItems" });
+  const { fields, append, remove } = useFieldArray({
+    control,
+    name: "checklistItems",
+  });
   const checklistItems = watch("checklistItems");
   const allPassed = checklistItems?.every((i) => i.passed);
   const anyFailed = checklistItems?.some((i) => !i.passed);
@@ -75,23 +116,38 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
           notes: i.notes ?? "",
         }))
       : DEFAULT_CHECKLIST;
-    reset({ checklistItems: items, failureNotes: qualityCheck.failureNotes ?? "", notes: qualityCheck.notes ?? "" });
+    reset({
+      checklistItems: items,
+      failureNotes: qualityCheck.failureNotes ?? "",
+      notes: qualityCheck.notes ?? "",
+    });
   }, [qualityCheck, reset, isLoading]);
 
   const onSubmit = async (data: FormData) => {
     if (!qualityCheck?.id) return;
     onSubmittingChange?.(true);
     try {
-      await qualityCheckService.submit(qualityCheck.id, {
+      // Construir payload sin campos undefined
+      const payload: any = {
         checklistItems: data.checklistItems.map((i) => ({
           key: i.key,
           label: i.label,
           passed: i.passed,
           notes: i.notes ?? undefined,
         })),
-        failureNotes: data.failureNotes ?? undefined,
-        notes: data.notes ?? undefined,
-      });
+      };
+
+      // Solo agregar failureNotes si tiene contenido
+      if (data.failureNotes?.trim()) {
+        payload.failureNotes = data.failureNotes.trim();
+      }
+
+      // Solo agregar notes si tiene contenido
+      if (data.notes?.trim()) {
+        payload.notes = data.notes.trim();
+      }
+
+      await qualityCheckService.submit(qualityCheck.id, payload);
       await onSave();
     } catch (error) {
       handleFormError(error, toast);
@@ -103,24 +159,40 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
   if (isLoading) {
     return (
       <div className="flex flex-column align-items-center justify-content-center p-4">
-        <ProgressSpinner style={{ width: "40px", height: "40px" }} strokeWidth="4" fill="var(--surface-ground)" animationDuration=".5s" />
+        <ProgressSpinner
+          style={{ width: "40px", height: "40px" }}
+          strokeWidth="4"
+          fill="var(--surface-ground)"
+          animationDuration=".5s"
+        />
         <p className="mt-3 text-600 font-medium">Cargando checklist...</p>
       </div>
     );
   }
 
   return (
-    <form id={formId ?? "quality-check-submit-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "quality-check-submit-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
-
         {/* Resumen */}
         {qualityCheck && (
           <div className="col-12">
             <div className="p-3 surface-100 border-round flex gap-4 text-sm">
-              <span><b>OT:</b> {qualityCheck.serviceOrder?.folio ?? qualityCheck.serviceOrderId.slice(0, 8)}</span>
-              <span><b>Inspector:</b> {qualityCheck.inspectorId.slice(0, 8)}</span>
+              <span>
+                <b>OT:</b>{" "}
+                {qualityCheck.serviceOrder?.folio ??
+                  qualityCheck.serviceOrderId.slice(0, 8)}
+              </span>
+              <span>
+                <b>Inspector:</b> {qualityCheck.inspectorId.slice(0, 8)}
+              </span>
               {qualityCheck.retryCount > 0 && (
-                <span className="text-orange-600"><b>Reintento #{qualityCheck.retryCount}</b></span>
+                <span className="text-orange-600">
+                  <b>Reintento #{qualityCheck.retryCount}</b>
+                </span>
               )}
             </div>
           </div>
@@ -129,14 +201,19 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
         {/* Checklist */}
         <div className="col-12">
           <Divider align="left" className="mt-0">
-            <span className="text-700 font-semibold text-sm">Checklist de inspección</span>
+            <span className="text-700 font-semibold text-sm">
+              Checklist de inspección
+            </span>
           </Divider>
         </div>
 
         <div className="col-12">
           <div className="flex flex-column gap-2">
             {fields.map((field, index) => (
-              <div key={field.id} className="p-3 surface-50 border-1 border-round border-200 grid m-0 gap-2 align-items-center">
+              <div
+                key={field.id}
+                className="p-3 surface-50 border-1 border-round border-200 grid m-0 gap-2 align-items-center"
+              >
                 <div className="col-fixed p-0" style={{ width: "2rem" }}>
                   <Controller
                     name={`checklistItems.${index}.passed`}
@@ -197,12 +274,21 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
               outlined
               size="small"
               className="w-auto align-self-start mt-1"
-              onClick={() => append({ key: `item_${Date.now()}`, label: "", passed: false, notes: "" })}
+              onClick={() =>
+                append({
+                  key: `item_${Date.now()}`,
+                  label: "",
+                  passed: false,
+                  notes: "",
+                })
+              }
             />
           </div>
           {errors.checklistItems && (
             <small className="p-error block mt-1">
-              {typeof errors.checklistItems.message === "string" ? errors.checklistItems.message : "Error en checklist"}
+              {typeof errors.checklistItems.message === "string"
+                ? errors.checklistItems.message
+                : "Error en checklist"}
             </small>
           )}
         </div>
@@ -210,12 +296,30 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
         {/* Estado resultante */}
         {checklistItems?.length > 0 && (
           <div className="col-12">
-            <div className={`p-3 border-round flex align-items-center gap-2 ${allPassed ? "bg-green-50 border-1 border-green-300" : "bg-orange-50 border-1 border-orange-300"}`}>
-              <i className={`pi ${allPassed ? "pi-check-circle text-green-600" : "pi-times-circle text-orange-600"} text-xl`} />
-              <span className={`font-semibold ${allPassed ? "text-green-700" : "text-orange-700"}`}>
+            <div
+              className={`p-3 border-round flex align-items-center gap-2 ${
+                allPassed
+                  ? "bg-green-50 border-1 border-green-300"
+                  : "bg-orange-50 border-1 border-orange-300"
+              }`}
+            >
+              <i
+                className={`pi ${
+                  allPassed
+                    ? "pi-check-circle text-green-600"
+                    : "pi-times-circle text-orange-600"
+                } text-xl`}
+              />
+              <span
+                className={`font-semibold ${
+                  allPassed ? "text-green-700" : "text-orange-700"
+                }`}
+              >
                 {allPassed
                   ? "Todos los ítems aprobados — la OT pasará a LISTA"
-                  : `${checklistItems.filter((i) => !i.passed).length} ítem(s) fallido(s) — la OT volverá a EN PROCESO`}
+                  : `${
+                      checklistItems.filter((i) => !i.passed).length
+                    } ítem(s) fallido(s) — la OT volverá a EN PROCESO`}
               </span>
             </div>
           </div>
@@ -223,7 +327,10 @@ export default function QualityCheckSubmitForm({ qualityCheck, onSave, formId, o
 
         {anyFailed && (
           <div className="col-12">
-            <label htmlFor="failureNotes" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="failureNotes"
+              className="block text-900 font-medium mb-2"
+            >
               Notas de falla
             </label>
             <Controller

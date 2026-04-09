@@ -14,8 +14,21 @@ import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
 import { quotationService } from "@/app/api/workshop";
 import type { WorkshopQuotation } from "@/libs/interfaces/workshop";
-import { createQuotationSchema, updateQuotationSchema, type CreateQuotationFormValues } from "@/libs/zods/workshop";
-import { QUOTATION_ITEM_TYPE_OPTIONS, QUOTATION_ITEM_TYPE_LABELS } from "./QuotationStatusBadge";
+import {
+  createQuotationSchema,
+  updateQuotationSchema,
+  type CreateQuotationFormValues,
+} from "@/libs/zods/workshop";
+import {
+  QUOTATION_ITEM_TYPE_OPTIONS,
+  QUOTATION_ITEM_TYPE_LABELS,
+} from "./QuotationStatusBadge";
+import ItemsTable from "@/components/inventory/common/ItemsTable";
+import QuotationItemRow, {
+  QuotationItemRowColWidths,
+} from "./QuotationItemRow";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import VehicleSelector from "@/components/common/VehicleSelector";
 
 interface Props {
   quotation?: WorkshopQuotation | null;
@@ -35,27 +48,51 @@ const EMPTY_ITEM = {
   quantity: 1,
   unitPrice: 0,
   unitCost: 0,
-  discount: 0,
-  tax: 0,
+  discountPct: 0,
+  taxType: "IVA",
+  taxRate: 0.16,
+  taxAmount: 0,
   approved: true,
   order: 0,
 };
 
-const fmt = (v: number) => v.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+const fmt = (v: number) =>
+  v.toLocaleString("es-MX", { minimumFractionDigits: 2 });
+
+const COLS: QuotationItemRowColWidths = {
+  handle: { width: "2rem", flexShrink: 0 },
+  type: { width: "12rem", flexShrink: 0 },
+  description: { flex: "1 1 0", minWidth: "15rem" },
+  quantity: { width: "6rem", flexShrink: 0 },
+  unitPrice: { width: "8rem", flexShrink: 0 },
+  discount: { width: "7rem", flexShrink: 0 },
+  tax: { width: "7rem", flexShrink: 0 },
+  totalLine: { width: "8rem", flexShrink: 0 },
+  remove: { width: "3rem", flexShrink: 0 },
+};
 
 export default function QuotationForm({
-  quotation, receptionId, diagnosisId, customerId, customerVehicleId,
-  formId, onSave, onSubmittingChange, toast,
+  quotation,
+  receptionId,
+  diagnosisId,
+  customerId,
+  customerVehicleId,
+  formId,
+  onSave,
+  onSubmittingChange,
+  toast,
 }: Props) {
   const isUpdate = !!quotation?.id;
   const schema = isUpdate ? updateQuotationSchema : createQuotationSchema;
 
   const defaultValues: any = isUpdate
     ? {
-        validUntil: quotation.validUntil ? new Date(quotation.validUntil) : null,
+        validUntil: quotation.validUntil
+          ? new Date(quotation.validUntil)
+          : null,
         notes: quotation.notes ?? "",
         internalNotes: quotation.internalNotes ?? "",
-        items: quotation.items.map(it => ({
+        items: quotation.items.map((it) => ({
           id: it.id,
           type: it.type,
           referenceId: it.referenceId ?? undefined,
@@ -63,8 +100,10 @@ export default function QuotationForm({
           quantity: it.quantity,
           unitPrice: it.unitPrice,
           unitCost: it.unitCost,
-          discount: it.discount,
-          tax: it.tax,
+          discountPct: (it as any).discountPct ?? 0,
+          taxType: (it as any).taxType ?? "IVA",
+          taxRate: (it as any).taxRate ?? 0.16,
+          taxAmount: (it as any).taxAmount ?? 0,
           approved: it.approved,
           order: it.order,
         })),
@@ -81,27 +120,36 @@ export default function QuotationForm({
         items: [EMPTY_ITEM],
       };
 
-  const { control, handleSubmit, watch, setValue, formState: { errors } } = useForm<CreateQuotationFormValues>({
+  const {
+    control,
+    handleSubmit,
+    watch,
+    setValue,
+    formState: { errors },
+  } = useForm<CreateQuotationFormValues>({
     resolver: zodResolver(schema as any),
     defaultValues,
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, move } = useFieldArray({
+    control,
+    name: "items",
+  });
   const items = watch("items");
 
   // Calcular totales reactivos
   const totals = (items ?? []).reduce(
     (acc, it) => {
       const sub = (it.quantity ?? 0) * (it.unitPrice ?? 0);
-      const disc = it.discount ?? 0;
-      const tax = it.tax ?? 0;
+      const disc = (sub * ((it as any).discountPct ?? 0)) / 100;
+      const tax = (sub - disc) * ((it as any).taxRate ?? 0.16);
       acc.subtotal += sub;
       acc.discount += disc;
       acc.tax += tax;
       acc.total += sub - disc + tax;
       return acc;
     },
-    { subtotal: 0, discount: 0, tax: 0, total: 0 }
+    { subtotal: 0, discount: 0, tax: 0, total: 0 },
   );
 
   const onSubmit = async (data: any) => {
@@ -109,7 +157,9 @@ export default function QuotationForm({
     try {
       const payload: any = {
         ...data,
-        validUntil: data.validUntil ? new Date(data.validUntil).toISOString() : null,
+        validUntil: data.validUntil
+          ? new Date(data.validUntil).toISOString()
+          : null,
       };
       if (isUpdate) {
         await quotationService.update(quotation!.id, payload);
@@ -118,7 +168,7 @@ export default function QuotationForm({
       }
       onSave();
     } catch (err) {
-      handleFormError(err, toast.current!);
+      handleFormError(err, toast);
     } finally {
       onSubmittingChange(false);
     }
@@ -128,8 +178,47 @@ export default function QuotationForm({
     <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {/* Encabezado */}
       <div className="grid">
-        <div className="col-12 md:col-6">
-          <label className="block mb-1 font-semibold text-sm">Válida hasta</label>
+        <div className="col-12 md:col-6 lg:col-4">
+          <label className="block mb-1 font-semibold text-sm">Cliente *</label>
+          <Controller
+            name="customerId"
+            control={control}
+            render={({ field, fieldState }) => (
+              <CustomerSelector
+                value={field.value}
+                onChange={(id) => {
+                  field.onChange(id);
+                  setValue("customerVehicleId", ""); // Reset vehicle when customer changes
+                }}
+                invalid={!!fieldState.error}
+              />
+            )}
+          />
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-6 lg:col-4">
+          <label className="block mb-1 font-semibold text-sm">Vehículo</label>
+          <Controller
+            name="customerVehicleId"
+            control={control}
+            render={({ field, fieldState }) => (
+              <VehicleSelector
+                customerId={watch("customerId")}
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!fieldState.error}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-6 lg:col-4">
+          <label className="block mb-1 font-semibold text-sm">
+            Válida hasta
+          </label>
           <Controller
             name="validUntil"
             control={control}
@@ -148,142 +237,41 @@ export default function QuotationForm({
       </div>
 
       {/* Ítems */}
-      <Divider align="left">
-        <span className="font-bold text-sm">Ítems de la cotización</span>
-      </Divider>
-
-      {fields.map((field, idx) => (
-        <div key={field.id} className="border-1 border-round border-300 p-3 mb-2 surface-50">
-          <div className="flex justify-content-between align-items-center mb-2">
-            <Tag value={`Ítem ${idx + 1}`} severity="info" rounded />
-            {fields.length > 1 && (
-              <Button
-                icon="pi pi-trash"
-                text
-                rounded
-                severity="danger"
-                type="button"
-                size="small"
-                onClick={() => remove(idx)}
-                tooltip="Eliminar ítem"
-              />
-            )}
-          </div>
-          <div className="grid">
-            <div className="col-12 md:col-4">
-              <label className="block mb-1 text-sm font-semibold">Tipo *</label>
-              <Controller
-                name={`items.${idx}.type`}
-                control={control}
-                render={({ field: f }) => (
-                  <Dropdown
-                    {...f}
-                    options={QUOTATION_ITEM_TYPE_OPTIONS}
-                    placeholder="Tipo de ítem"
-                    className={errors.items?.[idx]?.type ? "p-invalid" : ""}
-                  />
-                )}
-              />
-            </div>
-            <div className="col-12 md:col-8">
-              <label className="block mb-1 text-sm font-semibold">Descripción *</label>
-              <Controller
-                name={`items.${idx}.description`}
-                control={control}
-                render={({ field: f }) => (
-                  <InputText
-                    {...f}
-                    placeholder="Descripción del servicio o repuesto"
-                    className={errors.items?.[idx]?.description ? "p-invalid" : ""}
-                  />
-                )}
-              />
-              {errors.items?.[idx]?.description && (
-                <small className="p-error">{errors.items[idx]?.description?.message}</small>
-              )}
-            </div>
-            <div className="col-6 md:col-3">
-              <label className="block mb-1 text-sm font-semibold">Cantidad *</label>
-              <Controller
-                name={`items.${idx}.quantity`}
-                control={control}
-                render={({ field: f }) => (
-                  <InputNumber
-                    value={f.value}
-                    onValueChange={(e) => f.onChange(e.value)}
-                    minFractionDigits={0}
-                    maxFractionDigits={2}
-                    min={0.01}
-                    className={errors.items?.[idx]?.quantity ? "p-invalid" : ""}
-                  />
-                )}
-              />
-            </div>
-            <div className="col-6 md:col-3">
-              <label className="block mb-1 text-sm font-semibold">Precio unitario *</label>
-              <Controller
-                name={`items.${idx}.unitPrice`}
-                control={control}
-                render={({ field: f }) => (
-                  <InputNumber
-                    value={f.value}
-                    onValueChange={(e) => f.onChange(e.value ?? 0)}
-                    minFractionDigits={2}
-                    maxFractionDigits={2}
-                    min={0}
-                    prefix="$ "
-                    className={errors.items?.[idx]?.unitPrice ? "p-invalid" : ""}
-                  />
-                )}
-              />
-            </div>
-            <div className="col-6 md:col-3">
-              <label className="block mb-1 text-sm font-semibold">Descuento</label>
-              <Controller
-                name={`items.${idx}.discount`}
-                control={control}
-                render={({ field: f }) => (
-                  <InputNumber
-                    value={f.value}
-                    onValueChange={(e) => f.onChange(e.value ?? 0)}
-                    minFractionDigits={2}
-                    maxFractionDigits={2}
-                    min={0}
-                    prefix="$ "
-                  />
-                )}
-              />
-            </div>
-            <div className="col-6 md:col-3">
-              <label className="block mb-1 text-sm font-semibold">Impuesto</label>
-              <Controller
-                name={`items.${idx}.tax`}
-                control={control}
-                render={({ field: f }) => (
-                  <InputNumber
-                    value={f.value}
-                    onValueChange={(e) => f.onChange(e.value ?? 0)}
-                    minFractionDigits={2}
-                    maxFractionDigits={2}
-                    min={0}
-                    prefix="$ "
-                  />
-                )}
-              />
-            </div>
-          </div>
-        </div>
-      ))}
-
-      <Button
-        type="button"
-        label="Agregar ítem"
-        icon="pi pi-plus"
-        outlined
-        size="small"
-        className="mb-3"
-        onClick={() => append({ ...EMPTY_ITEM, order: fields.length })}
-      />
+      <div className="mb-4">
+        <ItemsTable
+          fields={fields}
+          append={append}
+          remove={remove}
+          move={move}
+          defaultItem={{ ...EMPTY_ITEM, order: fields.length }}
+          title="Ítems de la cotización"
+          columns={[
+            { label: "", style: COLS.handle },
+            { label: "Tipo", style: COLS.type },
+            { label: "Descripción", style: COLS.description },
+            { label: "Cant.", style: COLS.quantity },
+            { label: "Precio Unit.", style: COLS.unitPrice },
+            { label: "% Desc.", style: COLS.discount },
+            { label: "I.V.A.", style: COLS.tax },
+            { label: "Total Línea", style: COLS.totalLine },
+            { label: "", style: COLS.remove },
+          ]}
+          renderRow={({ index, dragHandleProps, isDragging }) => (
+            <QuotationItemRow
+              key={fields[index].id}
+              control={control}
+              index={index}
+              rowErrors={errors.items?.[index] as any}
+              colWidths={COLS}
+              onRemove={() => remove(index)}
+              canRemove={fields.length > 1}
+              dragHandleProps={dragHandleProps}
+              isDragging={isDragging}
+              itemValues={items?.[index]}
+            />
+          )}
+        />
+      </div>
 
       {/* Totales */}
       <div className="border-1 border-round border-primary-200 p-3 surface-ground mb-3">
@@ -309,26 +297,48 @@ export default function QuotationForm({
       {/* Notas */}
       <div className="grid">
         <div className="col-12 md:col-6">
-          <label className="block mb-1 font-semibold text-sm">Notas para el cliente</label>
+          <label className="block mb-1 font-semibold text-sm">
+            Notas para el cliente
+          </label>
           <Controller
             name="notes"
             control={control}
             render={({ field }) => (
-              <InputTextarea {...field} value={field.value ?? ""} rows={3} placeholder="Condiciones, observaciones para el cliente..." />
+              <InputTextarea
+                {...field}
+                value={field.value ?? ""}
+                rows={3}
+                placeholder="Condiciones, observaciones para el cliente..."
+              />
             )}
           />
         </div>
         <div className="col-12 md:col-6">
-          <label className="block mb-1 font-semibold text-sm">Notas internas</label>
+          <label className="block mb-1 font-semibold text-sm">
+            Notas internas
+          </label>
           <Controller
             name="internalNotes"
             control={control}
             render={({ field }) => (
-              <InputTextarea {...field} value={field.value ?? ""} rows={3} placeholder="Observaciones internas del equipo..." />
+              <InputTextarea
+                {...field}
+                value={field.value ?? ""}
+                rows={3}
+                placeholder="Observaciones internas del equipo..."
+              />
             )}
           />
         </div>
       </div>
+
+      {/* Botón oculto para permitir el envío con la tecla Enter */}
+      <button
+        type="submit"
+        className="hidden"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
     </form>
   );
 }

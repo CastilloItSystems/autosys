@@ -112,6 +112,7 @@ model ServiceOrder {
   partsTotal Decimal @default(0) @db.Decimal(12, 2)
   otherTotal Decimal @default(0) @db.Decimal(12, 2)
   subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
   taxAmt     Decimal @default(0) @db.Decimal(12, 2)
   total      Decimal @default(0) @db.Decimal(12, 2)
 

@@ -166,12 +166,14 @@ export const update = async (req: Request, res: Response) => {
 
 export const updateStatus = async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
+  const userId = req.user?.userId as string
   const dto = new UpdateStatusDTO(req.body)
   const order = await updateServiceOrderStatus(
     prisma,
     req.params.id as string,
     empresaId,
-    dto
+    dto,
+    userId
   )
   return ApiResponse.success(res, new ServiceOrderResponseDTO(order))
 }

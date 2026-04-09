@@ -18,7 +18,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import { diagnosisService } from "@/app/api/workshop";
 import type { Diagnosis, DiagnosisStatus } from "@/libs/interfaces/workshop";
 import DiagnosisForm from "./DiagnosisForm";
-import DiagnosisDetailPanel from "./DiagnosisDetailPanel";
+import DiagnosisProcessDialog from "./DiagnosisProcessDialog";
 
 type TagSeverity =
   | "info"
@@ -48,6 +48,12 @@ const STATUS_OPTIONS = [
   { label: "Aprobado", value: "APPROVED_INTERNAL" },
 ];
 
+const STATUS_TRANSITIONS: Record<DiagnosisStatus, DiagnosisStatus | null> = {
+  DRAFT: "COMPLETED",
+  COMPLETED: "APPROVED_INTERNAL",
+  APPROVED_INTERNAL: null,
+};
+
 interface DiagnosisListProps {
   serviceOrderId?: string;
   embedded?: boolean;
@@ -69,10 +75,11 @@ export default function DiagnosisList({
 
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
+  const [processDialog, setProcessDialog] = useState(false);
+  const [processItem, setProcessItem] = useState<Diagnosis | null>(null);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<any>(null);
   const [statusDialog, setStatusDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<DiagnosisStatus | undefined>();
   const [isChangingStatus, setIsChangingStatus] = useState(false);
@@ -81,7 +88,7 @@ export default function DiagnosisList({
   const menuRef = useRef<Menu | null>(null);
 
   useEffect(() => {
-    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
+    if (embedded && !serviceOrderId) return;
     loadItems();
   }, [page, rows, searchQuery, statusFilter, serviceOrderId, embedded]);
 
@@ -96,7 +103,7 @@ export default function DiagnosisList({
           statusFilter !== "ALL"
             ? (statusFilter as DiagnosisStatus)
             : undefined,
-        serviceOrderId: serviceOrderId,
+        serviceOrderId,
       });
       setItems(res.data ?? []);
       setTotalRecords(res.meta?.total ?? 0);
@@ -108,40 +115,53 @@ export default function DiagnosisList({
     }
   };
 
-  const STATUS_TRANSITIONS: Record<DiagnosisStatus, DiagnosisStatus | null> = {
-    DRAFT: "COMPLETED",
-    COMPLETED: "APPROVED_INTERNAL",
-    APPROVED_INTERNAL: null,
-  };
+  // ── Form dialog ──────────────────────────────────────────────────────────
 
   const openNew = () => {
     setSelected(null);
     setFormDialog(true);
   };
+
   const editItem = (item: Diagnosis) => {
     setSelected({ ...item });
     setFormDialog(true);
   };
+
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Diagnóstico actualizado" : "Diagnóstico creado",
+      life: 3000,
+    });
+    setFormDialog(false);
+    setSelected(null);
+    await loadItems();
+  };
+
+  // ── Process dialog ───────────────────────────────────────────────────────
+
+  const openProcess = async (item: Diagnosis) => {
+    try {
+      const res = await diagnosisService.getById(item.id);
+      setProcessItem(res.data);
+    } catch {
+      setProcessItem({ ...item });
+    }
+    setProcessDialog(true);
+  };
+
+  const handleProcessClose = () => {
+    setProcessDialog(false);
+    setProcessItem(null);
+    loadItems();
+  };
+
+  // ── Delete ───────────────────────────────────────────────────────────────
+
   const confirmDelete = (item: Diagnosis) => {
     setSelected(item);
     setDeleteDialog(true);
-  };
-  const openStatusChange = (item: Diagnosis) => {
-    setSelected(item);
-    setNewStatus(STATUS_TRANSITIONS[item.status] ?? undefined);
-    setStatusDialog(true);
-  };
-  const handleStatusChange = async () => {
-    if (!selected?.id || !newStatus) return;
-    setIsChangingStatus(true);
-    try {
-      await diagnosisService.updateStatus(selected.id, newStatus);
-      toast.current?.show({ severity: "success", summary: "Estado actualizado", life: 3000 });
-      await loadItems();
-      setStatusDialog(false);
-      setSelected(null);
-    } catch (e) { handleFormError(e, toast); }
-    finally { setIsChangingStatus(false); }
   };
 
   const handleDelete = async () => {
@@ -165,25 +185,35 @@ export default function DiagnosisList({
     }
   };
 
-  const handleSave = () => {
-    (async () => {
+  // ── Status change ────────────────────────────────────────────────────────
+
+  const openStatusChange = (item: Diagnosis) => {
+    setSelected(item);
+    setNewStatus(STATUS_TRANSITIONS[item.status] ?? undefined);
+    setStatusDialog(true);
+  };
+
+  const handleStatusChange = async () => {
+    if (!selected?.id || !newStatus) return;
+    setIsChangingStatus(true);
+    try {
+      await diagnosisService.updateStatus(selected.id, newStatus);
       toast.current?.show({
         severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Diagnóstico actualizado" : "Diagnóstico creado",
+        summary: "Estado actualizado",
         life: 3000,
       });
       await loadItems();
-      setFormDialog(false);
+      setStatusDialog(false);
       setSelected(null);
-    })();
+    } catch (e) {
+      handleFormError(e, toast);
+    } finally {
+      setIsChangingStatus(false);
+    }
   };
 
-  const rowExpansionTemplate = (data: Diagnosis) => (
-    <DiagnosisDetailPanel diagnosis={data} onRefresh={loadItems} toast={toast} />
-  );
-
-  // ── Body templates ──────────────────────────────────────────────────────
+  // ── Body templates ───────────────────────────────────────────────────────
 
   const referenceBodyTemplate = (rowData: Diagnosis) => (
     <span className="font-bold text-primary">
@@ -215,6 +245,39 @@ export default function DiagnosisList({
   const dateBodyTemplate = (rowData: Diagnosis) =>
     new Date(rowData.createdAt).toLocaleDateString("es-MX");
 
+  const processBodyTemplate = (rowData: Diagnosis) => {
+    const cfg: Record<
+      DiagnosisStatus,
+      { icon: string; className: string; tooltip: string }
+    > = {
+      DRAFT: {
+        icon: "pi pi-file-edit",
+        className: "p-button-rounded p-button-info p-button-sm",
+        tooltip: "Documentar diagnóstico",
+      },
+      COMPLETED: {
+        icon: "pi pi-clipboard",
+        className: "p-button-rounded p-button-warning p-button-sm",
+        tooltip: "Revisar diagnóstico",
+      },
+      APPROVED_INTERNAL: {
+        icon: "pi pi-eye",
+        className: "p-button-rounded p-button-secondary p-button-sm",
+        tooltip: "Ver detalle",
+      },
+    };
+    const { icon, className, tooltip } = cfg[rowData.status];
+    return (
+      <Button
+        icon={icon}
+        className={className}
+        tooltip={tooltip}
+        tooltipOptions={{ position: "top" }}
+        onClick={() => openProcess(rowData)}
+      />
+    );
+  };
+
   const actionBodyTemplate = (rowData: Diagnosis) => (
     <Button
       icon="pi pi-cog"
@@ -230,7 +293,7 @@ export default function DiagnosisList({
     />
   );
 
-  // ── Header ──────────────────────────────────────────────────────────────
+  // ── Header ───────────────────────────────────────────────────────────────
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -296,11 +359,13 @@ export default function DiagnosisList({
           emptyMessage="No se encontraron diagnósticos"
           sortMode="multiple"
           scrollable
-          expandedRows={expandedRows}
-          onRowToggle={(e) => setExpandedRows(e.data)}
-          rowExpansionTemplate={rowExpansionTemplate}
         >
-          <Column expander style={{ width: "3rem" }} />
+          <Column
+            header="Proceso"
+            body={processBodyTemplate}
+            style={{ minWidth: "100px", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
           <Column
             header="Referencia"
             body={referenceBodyTemplate}
@@ -317,7 +382,6 @@ export default function DiagnosisList({
             style={{ minWidth: "120px" }}
           />
           <Column
-            field="status"
             header="Estado"
             body={statusBodyTemplate}
             sortable
@@ -340,30 +404,35 @@ export default function DiagnosisList({
         </DataTable>
       </div>
 
-      {/* Form Dialog */}
+      {/* Form Dialog — create / edit basic fields */}
       <Dialog
         visible={formDialog}
-        style={{ width: "700px" }}
-        breakpoints={{ "900px": "75vw", "600px": "95vw" }}
+        style={{ width: "55vw" }}
+        breakpoints={{ "960px": "75vw", "600px": "95vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-search-plus mr-3 text-primary text-3xl" />
-                {selected?.id ? "Modificar Diagnóstico" : "Crear Diagnóstico"}
+                {selected?.id ? "Editar Diagnóstico" : "Nuevo Diagnóstico"}
               </h2>
             </div>
           </div>
         }
         modal
-        className="p-fluid"
-        onHide={() => setFormDialog(false)}
+        onHide={() => {
+          setFormDialog(false);
+          setSelected(null);
+        }}
         footer={
           <FormActionButtons
             formId="diagnosis-form"
             isUpdate={!!selected?.id}
-            onCancel={() => setFormDialog(false)}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelected(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -377,6 +446,16 @@ export default function DiagnosisList({
         />
       </Dialog>
 
+      {/* Process Dialog — tabs for findings, operations, parts, evidences */}
+      {processItem && (
+        <DiagnosisProcessDialog
+          diagnosis={processItem}
+          visible={processDialog}
+          onHide={handleProcessClose}
+          toast={toast}
+        />
+      )}
+
       {/* Delete Confirm */}
       <DeleteConfirmDialog
         visible={deleteDialog}
@@ -389,10 +468,16 @@ export default function DiagnosisList({
         isDeleting={isDeleting}
       />
 
-      {/* Context Menu */}
       {/* Status Change Dialog */}
       <Dialog
-        header={`Cambiar estado: ${STATUS_LABELS[selected?.status ?? "DRAFT"]}`}
+        header={
+          <div className="mb-1">
+            <div className="border-bottom-2 border-primary pb-2 flex align-items-center gap-2">
+              <i className="pi pi-arrow-right-arrow-left text-primary text-xl" />
+              <span className="text-xl font-bold text-900">Cambiar Estado</span>
+            </div>
+          </div>
+        }
         visible={statusDialog}
         onHide={() => setStatusDialog(false)}
         style={{ width: "26rem" }}
@@ -402,19 +487,42 @@ export default function DiagnosisList({
         {selected && newStatus && (
           <div className="flex flex-column gap-4 p-2">
             <p className="text-600 m-0">
-              Estado actual: <Tag value={STATUS_LABELS[selected.status]} severity={STATUS_SEVERITY[selected.status]} rounded />
+              Estado actual:{" "}
+              <Tag
+                value={STATUS_LABELS[selected.status]}
+                severity={STATUS_SEVERITY[selected.status]}
+                rounded
+              />
             </p>
             <p className="text-700 m-0">
-              Nuevo estado: <Tag value={STATUS_LABELS[newStatus]} severity={STATUS_SEVERITY[newStatus]} rounded />
+              Nuevo estado:{" "}
+              <Tag
+                value={STATUS_LABELS[newStatus]}
+                severity={STATUS_SEVERITY[newStatus]}
+                rounded
+              />
             </p>
-            <div className="flex gap-2 justify-content-end">
-              <Button label="Cancelar" severity="secondary" outlined onClick={() => setStatusDialog(false)} />
-              <Button label="Confirmar" loading={isChangingStatus} onClick={handleStatusChange} />
+            <div className="flex w-full gap-2">
+              <Button
+                label="Cancelar"
+                icon="pi pi-times"
+                severity="secondary"
+                className="flex-1"
+                onClick={() => setStatusDialog(false)}
+              />
+              <Button
+                label="Confirmar"
+                icon="pi pi-check"
+                loading={isChangingStatus}
+                className="flex-1"
+                onClick={handleStatusChange}
+              />
             </div>
           </div>
         )}
       </Dialog>
 
+      {/* Context Menu */}
       <Menu
         model={
           actionItem
@@ -425,20 +533,26 @@ export default function DiagnosisList({
                   command: () => editItem(actionItem),
                 },
                 ...(STATUS_TRANSITIONS[actionItem.status]
-                  ? [{
-                      label: `Pasar a ${STATUS_LABELS[STATUS_TRANSITIONS[actionItem.status]!]}`,
-                      icon: "pi pi-arrow-right",
-                      command: () => openStatusChange(actionItem),
-                    }]
+                  ? [
+                      {
+                        label: `Pasar a ${
+                          STATUS_LABELS[STATUS_TRANSITIONS[actionItem.status]!]
+                        }`,
+                        icon: "pi pi-arrow-right",
+                        command: () => openStatusChange(actionItem),
+                      },
+                    ]
                   : []),
                 { separator: true },
                 ...(actionItem.status === "DRAFT"
-                  ? [{
-                      label: "Eliminar",
-                      icon: "pi pi-trash",
-                      className: "p-menuitem-danger",
-                      command: () => confirmDelete(actionItem),
-                    }]
+                  ? [
+                      {
+                        label: "Eliminar",
+                        icon: "pi pi-trash",
+                        className: "p-menuitem-danger",
+                        command: () => confirmDelete(actionItem),
+                      },
+                    ]
                   : []),
               ]
             : []

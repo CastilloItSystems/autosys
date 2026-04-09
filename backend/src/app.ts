@@ -62,7 +62,9 @@ app.use(generalLimiter)
 // ============================================
 // SWAGGER DOCUMENTATION
 // ============================================
+console.log('📋 Iniciando setupSwagger...')
 setupSwagger(app)
+console.log('✅ setupSwagger completado!')
 // ============================================
 // HEALTH CHECK ENDPOINTS
 // ============================================

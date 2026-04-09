@@ -19,7 +19,11 @@ import {
 } from "@/components/common/ConfirmAction";
 import { handleFormError } from "@/utils/errorHandlers";
 import { totService } from "@/app/api/workshop";
-import type { WorkshopTOT, TOTStatus, TOTDocumentType } from "@/libs/interfaces/workshop";
+import type {
+  WorkshopTOT,
+  TOTStatus,
+  TOTDocumentType,
+} from "@/libs/interfaces/workshop";
 import TOTStatusBadge, { TOT_STATUS_LABELS } from "./TOTStatusBadge";
 import TOTForm from "./TOTForm";
 import TOTStepper from "./TOTStepper";
@@ -64,7 +68,9 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [documentDialog, setDocumentDialog] = useState(false);
   const [documentItem, setDocumentItem] = useState<WorkshopTOT | null>(null);
-  const [documentType, setDocumentType] = useState<TOTDocumentType | null>(null);
+  const [documentType, setDocumentType] = useState<TOTDocumentType | null>(
+    null,
+  );
   const [documentUrl, setDocumentUrl] = useState("");
   const [documentDescription, setDocumentDescription] = useState("");
   const [isAddingDocument, setIsAddingDocument] = useState(false);
@@ -566,12 +572,16 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
           {data.partSerial && (
             <div className="p-2 border-round bg-surface-50 border-1 border-surface-200">
               <span className="text-xs font-bold text-500 block">Serial</span>
-              <span className="text-sm font-semibold text-900 block truncate">{data.partSerial}</span>
+              <span className="text-sm font-semibold text-900 block truncate">
+                {data.partSerial}
+              </span>
             </div>
           )}
           {data.providerQuote && (
             <div className="p-2 border-round bg-surface-50 border-1 border-surface-200">
-              <span className="text-xs font-bold text-500 block">Presupuesto</span>
+              <span className="text-xs font-bold text-500 block">
+                Presupuesto
+              </span>
               <span className="text-sm font-semibold text-900 block">
                 ${Number(data.providerQuote).toLocaleString("es-VE")}
               </span>
@@ -579,7 +589,9 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
           )}
           {data.finalCost && (
             <div className="p-2 border-round bg-green-50 border-1 border-green-200">
-              <span className="text-xs font-bold text-500 block">Costo Final</span>
+              <span className="text-xs font-bold text-500 block">
+                Costo Final
+              </span>
               <span className="text-sm font-semibold text-green-700 block">
                 ${Number(data.finalCost).toLocaleString("es-VE")}
               </span>
@@ -587,14 +599,22 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
           )}
           {data.departureRef && (
             <div className="p-2 border-round bg-surface-50 border-1 border-surface-200">
-              <span className="text-xs font-bold text-500 block">Ref. Envío</span>
-              <span className="text-sm font-semibold text-900 block truncate">{data.departureRef}</span>
+              <span className="text-xs font-bold text-500 block">
+                Ref. Envío
+              </span>
+              <span className="text-sm font-semibold text-900 block truncate">
+                {data.departureRef}
+              </span>
             </div>
           )}
           {data.providerInvoiceRef && (
             <div className="p-2 border-round bg-surface-50 border-1 border-surface-200">
-              <span className="text-xs font-bold text-500 block">Factura Prov.</span>
-              <span className="text-sm font-semibold text-900 block truncate">{data.providerInvoiceRef}</span>
+              <span className="text-xs font-bold text-500 block">
+                Factura Prov.
+              </span>
+              <span className="text-sm font-semibold text-900 block truncate">
+                {data.providerInvoiceRef}
+              </span>
             </div>
           )}
         </div>
@@ -602,28 +622,39 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
         {/* Detalles del Proveedor */}
         {(data.supplier || data.providerName) && (
           <div className="p-3 border-round bg-blue-50 border-1 border-blue-200">
-            <div className="text-xs font-bold text-500 uppercase mb-2">Proveedor</div>
+            <div className="text-xs font-bold text-500 uppercase mb-2">
+              Proveedor
+            </div>
             <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
               <div>
                 <div className="text-xs text-500">Nombre</div>
-                <div className="font-semibold text-900">{data.supplier?.name || data.providerName}</div>
+                <div className="font-semibold text-900">
+                  {data.supplier?.name || data.providerName}
+                </div>
               </div>
               {data.supplier?.code && (
                 <div>
                   <div className="text-xs text-500">Código</div>
-                  <div className="font-semibold text-900">{data.supplier.code}</div>
+                  <div className="font-semibold text-900">
+                    {data.supplier.code}
+                  </div>
                 </div>
               )}
               {data.supplier?.specialty && (
                 <div>
                   <div className="text-xs text-500">Especialidad</div>
-                  <div className="font-semibold text-900">{data.supplier.specialty}</div>
+                  <div className="font-semibold text-900">
+                    {data.supplier.specialty}
+                  </div>
                 </div>
               )}
               {data.supplier?.phone && (
                 <div>
                   <div className="text-xs text-500">Teléfono</div>
-                  <a href={`tel:${data.supplier.phone}`} className="font-semibold text-primary hover:text-primary-600">
+                  <a
+                    href={`tel:${data.supplier.phone}`}
+                    className="font-semibold text-primary hover:text-primary-600"
+                  >
                     {data.supplier.phone}
                   </a>
                 </div>
@@ -631,7 +662,10 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
               {data.supplier?.email && (
                 <div>
                   <div className="text-xs text-500">Email</div>
-                  <a href={`mailto:${data.supplier.email}`} className="font-semibold text-primary hover:text-primary-600 block truncate">
+                  <a
+                    href={`mailto:${data.supplier.email}`}
+                    className="font-semibold text-primary hover:text-primary-600 block truncate"
+                  >
                     {data.supplier.email}
                   </a>
                 </div>
@@ -679,7 +713,10 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
           <div className="flex justify-between align-items-center mb-3">
             <div className="text-xs font-bold text-500 uppercase flex align-items-center gap-2">
               <i className="pi pi-paperclip" />
-              Documentos {data.documents && data.documents.length > 0 && `(${data.documents.length})`}
+              Documentos{" "}
+              {data.documents &&
+                data.documents.length > 0 &&
+                `(${data.documents.length})`}
             </div>
             <Button
               icon="pi pi-plus"
@@ -700,12 +737,16 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
                   className="px-3 py-2 border-round bg-white border-1 border-surface-300 text-primary hover:bg-primary-50 font-semibold text-sm flex align-items-center gap-2 transition-colors"
                 >
                   <i className="pi pi-file" />
-                  <span className="uppercase text-xs">{doc.type.replace(/_/g, " ")}</span>
+                  <span className="uppercase text-xs">
+                    {doc.type.replace(/_/g, " ")}
+                  </span>
                 </a>
               ))}
             </div>
           ) : (
-            <p className="text-500 text-sm m-0">No hay documentos registrados</p>
+            <p className="text-500 text-sm m-0">
+              No hay documentos registrados
+            </p>
           )}
         </div>
 

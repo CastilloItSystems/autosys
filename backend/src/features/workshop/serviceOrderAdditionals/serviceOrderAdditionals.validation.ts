@@ -52,3 +52,10 @@ export const updateAdditionalItemSchema = Joi.object({
   unitCost: Joi.number().min(0).precision(2).optional(),
   clientApproved: Joi.boolean().optional().allow(null),
 }).min(1)
+
+export const updateStatusSchema = Joi.object({
+  status: Joi.string().valid('PROPOSED', 'QUOTED', 'APPROVED', 'EXECUTED', 'REJECTED').required().messages({
+    'any.required': 'El estado es requerido',
+    'any.only': 'Estado inválido',
+  }),
+})

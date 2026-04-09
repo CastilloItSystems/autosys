@@ -39,45 +39,49 @@ export class ReturnsController {
 
   create = asyncHandler(async (req: Request, res: Response) => {
     const dto = new CreateReturnDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
+    const userId = (req as any).user?.userId || 'system'
     const ret = await ReturnsService.create(dto as any, userId)
     return ApiResponse.created(res, new ReturnResponseDTO(ret))
   })
 
   update = asyncHandler(async (req: Request, res: Response) => {
     const dto = new UpdateReturnDTO(req.body)
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.update((req.params.id as string), dto, userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.update(
+      req.params.id as string,
+      dto,
+      userId
+    )
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 
   approve = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.approve((req.params.id as string), userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.approve(req.params.id as string, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 
   process = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.process((req.params.id as string), userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.process(req.params.id as string, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 
   reject = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.reject((req.params.id as string), userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.reject(req.params.id as string, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 
   cancel = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.cancel((req.params.id as string), userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.cancel(req.params.id as string, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 
   submit = asyncHandler(async (req: Request, res: Response) => {
-    const userId = (req as any).user?.id || 'system'
-    const ret = await ReturnsService.submit((req.params.id as string), userId)
+    const userId = (req as any).user?.userId || 'system'
+    const ret = await ReturnsService.submit(req.params.id as string, userId)
     return ApiResponse.success(res, new ReturnResponseDTO(ret))
   })
 }

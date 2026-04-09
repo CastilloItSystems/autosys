@@ -45,7 +45,9 @@ export default function TOTForm({
 }: Props) {
   const isEdit = !!item;
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [savedPhotoUrls, setSavedPhotoUrls] = useState<string[]>(item?.photoUrls ?? []);
+  const [savedPhotoUrls, setSavedPhotoUrls] = useState<string[]>(
+    item?.photoUrls ?? [],
+  );
   const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [pendingPreviews, setPendingPreviews] = useState<string[]>([]);
   const [isUploadingPhotos, setIsUploadingPhotos] = useState(false);
@@ -104,8 +106,10 @@ export default function TOTForm({
     try {
       const urls = await Promise.all(
         pendingFiles.map((file) =>
-          totService.uploadPhoto(totId, file).then((r: any) => r.data.url as string)
-        )
+          totService
+            .uploadPhoto(totId, file)
+            .then((r: any) => r.data.url as string),
+        ),
       );
       setPendingFiles([]);
       setPendingPreviews([]);
@@ -413,7 +417,8 @@ export default function TOTForm({
           {pendingPreviews.length > 0 && (
             <div className="mb-4 p-3 border-round bg-blue-50 border-1 border-blue-200">
               <div className="text-sm font-semibold text-900 mb-2">
-                Fotos por subir ({pendingPreviews.length}) — se subirán al guardar
+                Fotos por subir ({pendingPreviews.length}) — se subirán al
+                guardar
               </div>
               <div className="flex gap-2 flex-wrap">
                 {pendingPreviews.map((url, idx) => (
@@ -466,7 +471,9 @@ export default function TOTForm({
                       className="p-button-rounded p-button-danger p-button-sm absolute"
                       style={{ top: "-8px", right: "-8px" }}
                       onClick={() =>
-                        setSavedPhotoUrls((prev) => prev.filter((_, i) => i !== idx))
+                        setSavedPhotoUrls((prev) =>
+                          prev.filter((_, i) => i !== idx),
+                        )
                       }
                     />
                   </div>

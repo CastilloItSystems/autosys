@@ -85,6 +85,7 @@ export interface Diagnosis {
 export interface DiagnosisFilters {
   search?: string
   status?: DiagnosisStatus | 'ALL'
+  serviceOrderId?: string
   page?: number
   limit?: number
   sortBy?: string

@@ -45,7 +45,7 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
 
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
-    const userId = (req as any).user?.id as string | undefined
+    const userId = (req as any).user?.userId as string | undefined
     const result = await service.create(prisma, req.body, userId)
     res.status(201).json(result)
   } catch (error) {
@@ -83,7 +83,7 @@ export async function updateStatus(
   try {
     const { status, warehouseId, quantityReturned } = req.body
     const empresaId = (req as any).empresaId as string | undefined
-    const userId = (req as any).user?.id as string | undefined
+    const userId = (req as any).user?.userId as string | undefined
     const result = await service.changeStatus(
       prisma,
       req.params.id as string,

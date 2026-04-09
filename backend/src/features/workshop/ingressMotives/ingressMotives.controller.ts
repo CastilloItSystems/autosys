@@ -25,7 +25,11 @@ export async function getAll(req: Request, res: Response) {
 }
 
 export async function getById(req: Request, res: Response) {
-  const item = await service.findById(prisma, req.params.id as string, req.empresaId!)
+  const item = await service.findById(
+    prisma,
+    req.params.id as string,
+    req.empresaId!
+  )
   return ApiResponse.success(res, item)
 }
 
@@ -33,10 +37,14 @@ export async function create(req: Request, res: Response) {
   const result = await service.create(
     prisma,
     req.empresaId!,
-    ((req as any).user?.id ?? 'system') as string,
+    ((req as any).user?.userId ?? 'system') as string,
     req.body
   )
-  return ApiResponse.created(res, result, WORKSHOP_MESSAGES.ingressMotive.created)
+  return ApiResponse.created(
+    res,
+    result,
+    WORKSHOP_MESSAGES.ingressMotive.created
+  )
 }
 
 export async function update(req: Request, res: Response) {
@@ -46,7 +54,11 @@ export async function update(req: Request, res: Response) {
     req.empresaId!,
     req.body
   )
-  return ApiResponse.success(res, result, WORKSHOP_MESSAGES.ingressMotive.updated)
+  return ApiResponse.success(
+    res,
+    result,
+    WORKSHOP_MESSAGES.ingressMotive.updated
+  )
 }
 
 export async function remove(req: Request, res: Response) {

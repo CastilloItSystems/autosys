@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -8,16 +8,14 @@ import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
+import type { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { additionalService } from "@/app/api/workshop";
-import type {
-  ServiceOrderAdditional,
-  AdditionalStatus,
-} from "@/libs/interfaces/workshop";
+import type { ServiceOrderAdditional, AdditionalStatus } from "@/libs/interfaces/workshop";
 import AdditionalStatusBadge from "@/components/workshop/shared/AdditionalStatusBadge";
 import AdditionalForm from "./AdditionalForm";
 
@@ -39,16 +37,11 @@ interface AdditionalListProps {
   embedded?: boolean;
 }
 
-export default function AdditionalList({
-  serviceOrderId,
-  embedded,
-}: AdditionalListProps) {
+export default function AdditionalList({ serviceOrderId, embedded }: AdditionalListProps) {
   const [items, setItems] = useState<ServiceOrderAdditional[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderAdditional | null>(null);
-  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(
-    null,
-  );
+  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdditionalStatus | "">("");
@@ -65,16 +58,9 @@ export default function AdditionalList({
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  // Use prop serviceOrderId when embedded, otherwise use state filter
   const finalServiceOrderId = embedded ? serviceOrderId : soIdFilter;
 
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
-    setPage(0); // Reset to page 1 when filter changes
-    loadItems();
-  }, [searchQuery, statusFilter, finalServiceOrderId, embedded]);
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       const res = await additionalService.getAll({
@@ -92,16 +78,30 @@ export default function AdditionalList({
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, searchQuery, statusFilter, finalServiceOrderId]);
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return;
+    setPage(0);
+    loadItems();
+  }, [searchQuery, statusFilter, finalServiceOrderId, embedded, loadItems]);
+
+  useEffect(() => {
+    if (embedded && !serviceOrderId) return;
+    loadItems();
+  }, [page, rows, loadItems, embedded, serviceOrderId]);
 
   const openNew = () => {
-    setSelected(null);
+    const newSelected = embedded && serviceOrderId ? ({ serviceOrderId } as any) : null;
+    setSelected(newSelected);
     setFormDialog(true);
   };
+
   const editItem = (item: ServiceOrderAdditional) => {
     setSelected({ ...item });
     setFormDialog(true);
   };
+
   const confirmDelete = (item: ServiceOrderAdditional) => {
     setSelected(item);
     setDeleteDialog(true);
@@ -144,10 +144,7 @@ export default function AdditionalList({
     })();
   };
 
-  const handleStatusChange = async (
-    item: ServiceOrderAdditional,
-    newStatus: string,
-  ) => {
+  const handleStatusChange = async (item: ServiceOrderAdditional, newStatus: string) => {
     try {
       await additionalService.updateStatus(item.id, newStatus);
       toast.current?.show({
@@ -162,7 +159,52 @@ export default function AdditionalList({
     }
   };
 
-  // ── Templates ────────────────────────────────────────────────────────────────
+  const buildMenuItems = (item: ServiceOrderAdditional): MenuItem[] => {
+    const menuItems: MenuItem[] = [
+      { label: "Editar", icon: "pi pi-pencil", command: () => editItem(item) },
+      { separator: true },
+    ];
+
+    if (item.status === "PROPOSED") {
+      menuItems.push({
+        label: "Cotizar",
+        icon: "pi pi-file-o",
+        command: () => handleStatusChange(item, "QUOTED"),
+      });
+    }
+    if (item.status === "QUOTED") {
+      menuItems.push({
+        label: "Aprobar",
+        icon: "pi pi-check",
+        command: () => handleStatusChange(item, "APPROVED"),
+      });
+      menuItems.push({
+        label: "Rechazar",
+        icon: "pi pi-times",
+        className: "p-menuitem-danger",
+        command: () => handleStatusChange(item, "REJECTED"),
+      });
+    }
+    if (item.status === "APPROVED") {
+      menuItems.push({
+        label: "Marcar Ejecutado",
+        icon: "pi pi-check-circle",
+        command: () => handleStatusChange(item, "EXECUTED"),
+      });
+    }
+
+    menuItems.push({ separator: true });
+    if (item.status === "PROPOSED") {
+      menuItems.push({
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => confirmDelete(item),
+      });
+    }
+
+    return menuItems;
+  };
 
   const descriptionTemplate = (row: ServiceOrderAdditional) => (
     <span className="font-semibold">{row.description}</span>
@@ -197,53 +239,6 @@ export default function AdditionalList({
     />
   );
 
-  const buildMenuItems = (item: ServiceOrderAdditional) => {
-    const menuItems: any[] = [
-      { label: "Editar", icon: "pi pi-pencil", command: () => editItem(item) },
-      { separator: true },
-    ];
-
-    if (item.status === "PROPOSED") {
-      menuItems.push({
-        label: "Cotizar",
-        icon: "pi pi-file-o",
-        command: () => handleStatusChange(item, "QUOTED"),
-      });
-    }
-    if (item.status === "QUOTED") {
-      menuItems.push({
-        label: "Aprobar",
-        icon: "pi pi-check",
-        command: () => handleStatusChange(item, "APPROVED"),
-      });
-      menuItems.push({
-        label: "Rechazar",
-        icon: "pi pi-times",
-        className: "p-menuitem-danger",
-        command: () => handleStatusChange(item, "REJECTED"),
-      });
-    }
-    if (item.status === "APPROVED") {
-      menuItems.push({
-        label: "Marcar Ejecutado",
-        icon: "pi pi-check-circle",
-        command: () => handleStatusChange(item, "EXECUTED"),
-      });
-    }
-
-    menuItems.push({ separator: true });
-    menuItems.push({
-      label: "Eliminar",
-      icon: "pi pi-trash",
-      className: "p-menuitem-danger",
-      command: () => confirmDelete(item),
-    });
-
-    return menuItems;
-  };
-
-  // ── Header ───────────────────────────────────────────────────────────────────
-
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
@@ -251,45 +246,49 @@ export default function AdditionalList({
         <span className="text-600 text-sm">({totalRecords} total)</span>
       </div>
       <div className="flex flex-wrap gap-2">
-        <span className="p-input-icon-left">
-          <i className="pi pi-search" />
-          <InputText
-            type="search"
-            placeholder="Buscar descripción..."
-            value={searchQuery}
-            onChange={(e) => {
-              setSearchQuery(e.target.value);
-              setPage(0);
-            }}
-            style={{ width: "14rem" }}
-          />
-        </span>
-        <InputText
-          placeholder="Filtrar por ID de OT"
-          value={soIdFilter}
-          onChange={(e) => {
-            setSoIdFilter(e.target.value);
-            setPage(0);
-          }}
-          style={{ width: "14rem" }}
-        />
         <Dropdown
           value={statusFilter}
-          options={[
-            { label: "Todos los estados", value: "" },
-            ...ADDITIONAL_STATUS_OPTIONS,
-          ]}
+          options={ADDITIONAL_STATUS_OPTIONS}
           onChange={(e) => {
             setStatusFilter(e.value);
             setPage(0);
           }}
           placeholder="Estado"
-          style={{ width: "12rem" }}
+          style={{ minWidth: "160px" }}
+          showClear
         />
+        {!embedded && (
+          <span className="p-input-icon-left">
+            <i className="pi pi-search" />
+            <InputText
+              type="search"
+              placeholder="Buscar..."
+              value={searchQuery}
+              onChange={(e) => {
+                setSearchQuery(e.target.value);
+                setPage(0);
+              }}
+            />
+          </span>
+        )}
+        {!embedded && (
+          <span className="p-input-icon-left">
+            <i className="pi pi-id-card" />
+            <InputText
+              type="search"
+              placeholder="Filtrar por ID de OT"
+              value={soIdFilter}
+              onChange={(e) => {
+                setSoIdFilter(e.target.value);
+                setPage(0);
+              }}
+            />
+          </span>
+        )}
         <CreateButton
-          label="Nuevo adicional"
+          label="Nuevo trabajo"
           onClick={openNew}
-          tooltip="Agregar trabajo adicional"
+          tooltip="Crear trabajo adicional"
         />
       </div>
     </div>
@@ -310,7 +309,7 @@ export default function AdditionalList({
           first={page * rows}
           rows={rows}
           totalRecords={totalRecords}
-          rowsPerPageOptions={[10, 20, 50]}
+          rowsPerPageOptions={[5, 10, 20, 50]}
           onPage={(e) => {
             setPage(e.page ?? Math.floor(e.first / e.rows));
             setRows(e.rows);
@@ -321,31 +320,11 @@ export default function AdditionalList({
           emptyMessage="No se encontraron trabajos adicionales"
           sortMode="multiple"
           scrollable
-          size="small"
         >
-          <Column
-            field="description"
-            header="Descripción"
-            body={descriptionTemplate}
-            style={{ minWidth: "200px" }}
-          />
-          <Column
-            header="Folio OT"
-            body={folioTemplate}
-            style={{ minWidth: "120px" }}
-          />
-          <Column
-            field="estimatedPrice"
-            header="Precio estimado"
-            body={priceTemplate}
-            style={{ minWidth: "140px" }}
-          />
-          <Column
-            field="status"
-            header="Estado"
-            body={statusTemplate}
-            style={{ minWidth: "130px" }}
-          />
+          <Column header="Descripción" body={descriptionTemplate} style={{ minWidth: "200px" }} />
+          {!embedded && <Column header="OT" body={folioTemplate} style={{ minWidth: "120px" }} />}
+          <Column header="Precio" body={priceTemplate} style={{ minWidth: "120px", textAlign: "right" }} headerStyle={{ textAlign: "right" }} />
+          <Column header="Estado" body={statusTemplate} style={{ minWidth: "130px" }} />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -361,23 +340,20 @@ export default function AdditionalList({
       {/* Form Dialog */}
       <Dialog
         visible={formDialog}
-        style={{ width: "550px" }}
-        breakpoints={{ "900px": "70vw", "600px": "100vw" }}
+        style={{ width: "55vw" }}
+        breakpoints={{ "960px": "75vw", "600px": "95vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className="pi pi-plus-circle mr-3 text-primary text-3xl" />
-                {selected?.id
-                  ? "Editar Trabajo Adicional"
-                  : "Nuevo Trabajo Adicional"}
+                <i className={`pi mr-3 text-primary text-3xl ${selected?.id ? "pi-pencil" : "pi-plus-circle"}`} />
+                {selected?.id ? "Editar Trabajo Adicional" : "Nuevo Trabajo Adicional"}
               </h2>
             </div>
           </div>
         }
         modal
-        className="p-fluid"
         onHide={() => {
           setFormDialog(false);
           setSelected(null);
@@ -400,10 +376,11 @@ export default function AdditionalList({
           formId="additional-form"
           onSubmittingChange={setIsSubmitting}
           toast={toast}
+          embedded={embedded}
         />
       </Dialog>
 
-      {/* Delete Dialog */}
+      {/* Delete Confirm */}
       <DeleteConfirmDialog
         visible={deleteDialog}
         onHide={() => {
@@ -411,17 +388,12 @@ export default function AdditionalList({
           setSelected(null);
         }}
         onConfirm={handleDelete}
-        itemName={selected?.description}
+        itemName={selected?.id?.slice(0, 8)}
         isDeleting={isDeleting}
       />
 
-      {/* Actions Menu */}
-      <Menu
-        model={actionItem ? buildMenuItems(actionItem) : []}
-        popup
-        ref={menuRef}
-        id="additional-menu"
-      />
+      {/* Context Menu */}
+      <Menu model={actionItem ? buildMenuItems(actionItem) : []} popup ref={menuRef} id="additional-menu" />
     </motion.div>
   );
 }

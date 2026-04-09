@@ -1,6 +1,10 @@
 // backend/src/features/workshop/workshopQuotations/workshopQuotations.dto.ts
 import type {
-  QuotationItemType, QuotationStatus, ApprovalChannel, ApprovalType, IQuotationItem,
+  QuotationItemType,
+  QuotationStatus,
+  ApprovalChannel,
+  ApprovalType,
+  IQuotationItem,
 } from './workshopQuotations.interface.js'
 
 export class CreateQuotationDTO {
@@ -24,7 +28,9 @@ export class CreateQuotationDTO {
     this.parentQuotationId = data.parentQuotationId || undefined
     this.validUntil = data.validUntil ? new Date(data.validUntil) : undefined
     this.notes = data.notes ? String(data.notes).trim() : undefined
-    this.internalNotes = data.internalNotes ? String(data.internalNotes).trim() : undefined
+    this.internalNotes = data.internalNotes
+      ? String(data.internalNotes).trim()
+      : undefined
     this.items = (data.items ?? []).map((it: any) => ({
       id: it.id || undefined,
       type: it.type as QuotationItemType,
@@ -33,8 +39,10 @@ export class CreateQuotationDTO {
       quantity: Number(it.quantity),
       unitPrice: Number(it.unitPrice),
       unitCost: Number(it.unitCost ?? 0),
-      discount: Number(it.discount ?? 0),
-      tax: Number(it.tax ?? 0),
+      discountPct: Number(it.discountPct ?? 0),
+      taxType: it.taxType || 'IVA',
+      taxRate: Number(it.taxRate ?? 0.16),
+      taxAmount: Number(it.taxAmount ?? 0),
       approved: it.approved !== false,
       order: Number(it.order ?? 0),
     }))
@@ -48,9 +56,14 @@ export class UpdateQuotationDTO {
   items?: IQuotationItem[]
 
   constructor(data: any) {
-    if ('validUntil' in data) this.validUntil = data.validUntil ? new Date(data.validUntil) : null
-    if ('notes' in data) this.notes = data.notes ? String(data.notes).trim() : null
-    if ('internalNotes' in data) this.internalNotes = data.internalNotes ? String(data.internalNotes).trim() : null
+    if ('validUntil' in data)
+      this.validUntil = data.validUntil ? new Date(data.validUntil) : null
+    if ('notes' in data)
+      this.notes = data.notes ? String(data.notes).trim() : null
+    if ('internalNotes' in data)
+      this.internalNotes = data.internalNotes
+        ? String(data.internalNotes).trim()
+        : null
     if (data.items) {
       this.items = data.items.map((it: any) => ({
         id: it.id || undefined,
@@ -60,8 +73,10 @@ export class UpdateQuotationDTO {
         quantity: Number(it.quantity),
         unitPrice: Number(it.unitPrice),
         unitCost: Number(it.unitCost ?? 0),
-        discount: Number(it.discount ?? 0),
-        tax: Number(it.tax ?? 0),
+        discountPct: Number(it.discountPct ?? 0),
+        taxType: it.taxType || 'IVA',
+        taxRate: Number(it.taxRate ?? 0.16),
+        taxAmount: Number(it.taxAmount ?? 0),
         approved: it.approved !== false,
         order: Number(it.order ?? 0),
       }))
@@ -88,9 +103,12 @@ export class QuotationResponseDTO {
   validUntil: Date | null
   expiredAt: Date | null
   convertedAt: Date | null
+  laborTotal: number
+  partsTotal: number
+  otherTotal: number
   subtotal: number
   discount: number
-  tax: number
+  taxAmt: number
   total: number
   notes: string | null
   internalNotes: string | null
@@ -120,15 +138,30 @@ export class QuotationResponseDTO {
     this.validUntil = data.validUntil ?? null
     this.expiredAt = data.expiredAt ?? null
     this.convertedAt = data.convertedAt ?? null
+    this.laborTotal = Number(data.laborTotal ?? 0)
+    this.partsTotal = Number(data.partsTotal ?? 0)
+    this.otherTotal = Number(data.otherTotal ?? 0)
     this.subtotal = Number(data.subtotal ?? 0)
     this.discount = Number(data.discount ?? 0)
-    this.tax = Number(data.tax ?? 0)
+    this.taxAmt = Number(data.taxAmt ?? 0)
     this.total = Number(data.total ?? 0)
     this.notes = data.notes ?? null
     this.internalNotes = data.internalNotes ?? null
-    this.items = data.items ?? []
+    this.items = (data.items ?? []).map((it: any) => ({
+      ...it,
+      quantity: Number(it.quantity),
+      unitPrice: Number(it.unitPrice),
+      unitCost: Number(it.unitCost),
+      discountPct: Number(it.discountPct),
+      taxRate: Number(it.taxRate),
+      taxAmount: Number(it.taxAmount),
+      subtotal: Number(it.subtotal),
+      total: Number(it.total),
+    }))
     this.approvals = data.approvals ?? []
-    this.supplementaries = (data.supplementaries ?? []).map((s: any) => new QuotationResponseDTO(s))
+    this.supplementaries = (data.supplementaries ?? []).map(
+      (s: any) => new QuotationResponseDTO(s)
+    )
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt

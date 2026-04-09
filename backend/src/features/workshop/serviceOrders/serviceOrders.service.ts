@@ -15,6 +15,7 @@ import type {
 } from './serviceOrders.interface.js'
 // FASE 1.5: Import quote validation
 import { validateSOQuoteApproval } from '../integrations/quote-so-converter.service.js'
+import { handleSOQualityCheckTransition } from '../integrations/quality-check-integrator.service.js'
 
 type PrismaClientType =
   | PrismaClient
@@ -306,6 +307,7 @@ export async function findAllServiceOrders(
         customer: { select: { id: true, name: true, code: true } },
         customerVehicle: { select: { id: true, plate: true } },
         items: true,
+        qualityCheck: { select: { id: true, status: true } },
       },
     }),
     (prisma as PrismaClient).serviceOrder.count({ where }),
@@ -407,7 +409,8 @@ export async function updateServiceOrderStatus(
   prisma: PrismaClientType,
   id: string,
   empresaId: string,
-  dto: UpdateStatusDTO
+  dto: UpdateStatusDTO,
+  userId: string
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
   const allowed = VALID_TRANSITIONS[existing.status as ServiceOrderStatus]
@@ -419,6 +422,9 @@ export async function updateServiceOrderStatus(
 
   // FASE 1.5: Validate that SO cannot advance past certain states without quote approval
   await validateSOQuoteApproval(prisma, id, dto.status)
+
+  // FASE 1.6: Security check for Quality Control
+  await handleSOQualityCheckTransition(prisma, id, dto.status, userId)
 
   // FASE 2.8: Validate PreInvoice status before marking SO as INVOICED
   // Acepta tanto prefactura individual como consolidada

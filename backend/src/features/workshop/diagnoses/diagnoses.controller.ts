@@ -2,6 +2,8 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import r2StorageService from '../../../services/r2-storage.service.js'
+import { BadRequestError } from '../../../shared/utils/apiError.js'
 import * as diagnosesService from './diagnoses.service.js'
 import {
   getRecommendedDiagnosticTemplate,
@@ -20,10 +22,28 @@ import {
 import { WORKSHOP_MESSAGES } from '../shared/constants/messages.js'
 
 export const getAll = async (req: Request, res: Response) => {
-  const { page = 1, limit = 10, serviceOrderId, status } = req.validatedQuery as any
-  const result = await diagnosesService.findAllDiagnoses(prisma, req.empresaId!, page, limit, serviceOrderId, status)
+  const {
+    page = 1,
+    limit = 10,
+    serviceOrderId,
+    status,
+  } = req.validatedQuery as any
+  const result = await diagnosesService.findAllDiagnoses(
+    prisma,
+    req.empresaId!,
+    page,
+    limit,
+    serviceOrderId,
+    status
+  )
   const items = result.data.map((i) => new DiagnosisResponseDTO(i))
-  return ApiResponse.paginated(res, items, result.page, result.limit, result.total)
+  return ApiResponse.paginated(
+    res,
+    items,
+    result.page,
+    result.limit,
+    result.total
+  )
 }
 
 export const getOne = async (req: Request, res: Response) => {
@@ -45,7 +65,7 @@ export const getByOrder = async (req: Request, res: Response) => {
 }
 
 export const create = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id as string
+  const userId = (req as any).user?.userId as string
   const dto = new CreateDiagnosisDTO(req.body)
   const item = await diagnosesService.createDiagnosis(
     prisma,
@@ -119,27 +139,72 @@ export const removeFinding = async (req: Request, res: Response) => {
 }
 
 export const removeSuggestedOp = async (req: Request, res: Response) => {
-  await diagnosesService.removeDiagnosisSuggestedOp(prisma, req.params.id, req.params.opId, req.empresaId!)
+  await diagnosesService.removeDiagnosisSuggestedOp(
+    prisma,
+    req.params.id as string,
+    req.params.opId as string,
+    req.empresaId!
+  )
   return ApiResponse.success(res, null, 'Operación sugerida eliminada')
 }
 
 export const removeSuggestedPart = async (req: Request, res: Response) => {
-  await diagnosesService.removeDiagnosisSuggestedPart(prisma, req.params.id, req.params.partId, req.empresaId!)
+  await diagnosesService.removeDiagnosisSuggestedPart(
+    prisma,
+    req.params.id as string,
+    req.params.partId as string,
+    req.empresaId!
+  )
   return ApiResponse.success(res, null, 'Repuesto sugerido eliminado')
 }
 
 export const addEvidence = async (req: Request, res: Response) => {
-  const item = await diagnosesService.addDiagnosisEvidence(prisma, req.params.id, req.empresaId!, req.body)
+  const item = await diagnosesService.addDiagnosisEvidence(
+    prisma,
+    req.params.id as string,
+    req.empresaId!,
+    req.body
+  )
   return ApiResponse.created(res, item, 'Evidencia agregada')
 }
 
+export const uploadEvidenceFile = async (req: Request, res: Response) => {
+  if (!req.file) throw new BadRequestError('No se recibió ningún archivo')
+  const key = `workshop/diagnoses/${req.params.id as string}/${Date.now()}-${req.file.originalname}`
+  const url = await r2StorageService.uploadFile(
+    req.file.buffer,
+    key,
+    req.file.mimetype
+  )
+  const item = await diagnosesService.addDiagnosisEvidence(
+    prisma,
+    req.params.id as string,
+    req.empresaId!,
+    {
+      type: req.body.type || 'photo',
+      url,
+      description: req.body.description || undefined,
+    }
+  )
+  return ApiResponse.created(res, item, 'Evidencia subida')
+}
+
 export const removeEvidence = async (req: Request, res: Response) => {
-  await diagnosesService.removeDiagnosisEvidence(prisma, req.params.id, req.params.evidenceId, req.empresaId!)
+  await diagnosesService.removeDiagnosisEvidence(
+    prisma,
+    req.params.id as string,
+    req.params.evidenceId as string,
+    req.empresaId!
+  )
   return ApiResponse.success(res, null, 'Evidencia eliminada')
 }
 
 export const remove = async (req: Request, res: Response) => {
-  await diagnosesService.removeDiagnosis(prisma, req.params.id as string, req.empresaId!)
+  await diagnosesService.removeDiagnosis(
+    prisma,
+    req.params.id as string,
+    req.empresaId!
+  )
   return ApiResponse.success(res, null, 'Diagnóstico eliminado')
 }
 

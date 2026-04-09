@@ -94,14 +94,28 @@ export default function QualityCheckForm({
   const onSubmit = async (data: FormData) => {
     onSubmittingChange?.(true);
     try {
-      await qualityCheckService.create({
+      // Construir payload sin campos undefined
+      const payload: any = {
         serviceOrderId: data.serviceOrderId,
         inspectorId: data.inspectorId,
-        notes: data.notes ?? undefined,
-        checklistTemplateId: selectedTemplateId || undefined,
-        responses:
-          checklistResponses.length > 0 ? checklistResponses : undefined,
-      } as any);
+      };
+
+      // Agregar checklist items solo si existen
+      if (checklistResponses.length > 0) {
+        payload.checklistItems = checklistResponses.map((r) => ({
+          key: r.key,
+          label: r.label,
+          passed: r.passed ?? false,
+          notes: r.notes?.trim() ? r.notes.trim() : undefined,
+        }));
+      }
+
+      // Agregar notes solo si tiene contenido
+      if (data.notes?.trim()) {
+        payload.notes = data.notes.trim();
+      }
+
+      await qualityCheckService.create(payload);
       await onSave();
     } catch (error) {
       handleFormError(error, toast);

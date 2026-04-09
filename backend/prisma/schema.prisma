@@ -3876,6 +3876,7 @@ model ServiceOrder {
   partsTotal Decimal @default(0) @db.Decimal(12, 2)
   otherTotal Decimal @default(0) @db.Decimal(12, 2)
   subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
   taxAmt     Decimal @default(0) @db.Decimal(12, 2)
   total      Decimal @default(0) @db.Decimal(12, 2)
 
@@ -4712,10 +4713,13 @@ model WorkshopQuotation {
   convertedAt DateTime?
 
   // Totales (calculados a partir de los ítems)
-  subtotal Decimal @default(0) @db.Decimal(12, 2)
-  discount Decimal @default(0) @db.Decimal(12, 2)
-  tax      Decimal @default(0) @db.Decimal(12, 2)
-  total    Decimal @default(0) @db.Decimal(12, 2)
+  laborTotal Decimal @default(0) @db.Decimal(12, 2)
+  partsTotal Decimal @default(0) @db.Decimal(12, 2)
+  otherTotal Decimal @default(0) @db.Decimal(12, 2)
+  subtotal   Decimal @default(0) @db.Decimal(12, 2)
+  discount   Decimal @default(0) @db.Decimal(12, 2)
+  taxAmt     Decimal @default(0) @db.Decimal(12, 2)
+  total      Decimal @default(0) @db.Decimal(12, 2)
 
   // Observaciones
   notes         String? @db.Text // Visibles al cliente
@@ -4751,10 +4755,15 @@ model WorkshopQuotationItem {
   quantity    Decimal  @default(1)   @db.Decimal(10, 2)
   unitPrice   Decimal  @default(0)   @db.Decimal(12, 2)
   unitCost    Decimal  @default(0)   @db.Decimal(12, 2)
-  discount    Decimal  @default(0)   @db.Decimal(12, 2) // Descuento sobre subtotal
-  tax         Decimal  @default(0)   @db.Decimal(12, 2)
+  discountPct Decimal  @default(0)   @db.Decimal(5, 2) // Porcentaje de descuento
+  
+  // Tax fields standardized
+  taxType     TaxType  @default(IVA)
+  taxRate     Decimal  @default(0.16) @db.Decimal(5, 2)
+  taxAmount   Decimal  @default(0)    @db.Decimal(12, 2)
+  
   subtotal    Decimal  @default(0)   @db.Decimal(12, 2) // quantity * unitPrice
-  total       Decimal  @default(0)   @db.Decimal(12, 2) // subtotal - discount + tax
+  total       Decimal  @default(0)   @db.Decimal(12, 2) // subtotal - (subtotal * discountPct/100) + taxAmount
   approved    Boolean  @default(true) // Se pone en false en aprobación parcial
 
   order Int @default(0)

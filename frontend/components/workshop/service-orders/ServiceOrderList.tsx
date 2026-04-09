@@ -198,8 +198,15 @@ export default function ServiceOrderList() {
 
   const transitionBodyTemplate = (rowData: ServiceOrder) => {
     const { status } = rowData;
-    const terminal = ["DELIVERED", "INVOICED", "CLOSED", "CANCELLED"].includes(status);
-    const canCancel = !["DELIVERED", "INVOICED", "CLOSED", "CANCELLED"].includes(status);
+    const terminal = ["DELIVERED", "INVOICED", "CLOSED", "CANCELLED"].includes(
+      status,
+    );
+    const canCancel = ![
+      "DELIVERED",
+      "INVOICED",
+      "CLOSED",
+      "CANCELLED",
+    ].includes(status);
 
     return (
       <div className="flex gap-1 flex-nowrap">
@@ -302,8 +309,13 @@ export default function ServiceOrderList() {
         {status === "QUALITY_CHECK" && (
           <Button
             icon="pi pi-check"
+            disabled={rowData.qualityCheck?.status !== "PASSED"}
             className="p-button-rounded p-button-success p-button-sm"
-            tooltip="Marcar lista"
+            tooltip={
+              rowData.qualityCheck?.status === "PASSED"
+                ? "Marcar lista"
+                : "Esperando aprobación de calidad"
+            }
             tooltipOptions={{ position: "top" }}
             onClick={(e) =>
               confirmAction({
@@ -375,7 +387,9 @@ export default function ServiceOrderList() {
         <ServiceOrderStepper currentStatus={data.status} />
         {data.diagnosisNotes && (
           <div className="mb-3 p-2 bg-blue-50 border-round border-1 border-blue-100">
-            <span className="text-xs font-bold text-500 uppercase">Diagnóstico: </span>
+            <span className="text-xs font-bold text-500 uppercase">
+              Diagnóstico:{" "}
+            </span>
             <span className="text-sm">{data.diagnosisNotes}</span>
           </div>
         )}
@@ -400,11 +414,26 @@ export default function ServiceOrderList() {
               {[
                 { label: "Tipo", style: { width: "5rem" } },
                 { label: "Descripción", style: { flex: "1 1 0", minWidth: 0 } },
-                { label: "Cant.", style: { width: "4rem", textAlign: "center" as const } },
-                { label: "Precio", style: { width: "5rem", textAlign: "right" as const } },
-                { label: "Desc.%", style: { width: "4rem", textAlign: "center" as const } },
-                { label: "Impuesto", style: { width: "5rem", textAlign: "center" as const } },
-                { label: "Total", style: { width: "6rem", textAlign: "right" as const } },
+                {
+                  label: "Cant.",
+                  style: { width: "4rem", textAlign: "center" as const },
+                },
+                {
+                  label: "Precio",
+                  style: { width: "5rem", textAlign: "right" as const },
+                },
+                {
+                  label: "Desc.%",
+                  style: { width: "4rem", textAlign: "center" as const },
+                },
+                {
+                  label: "Impuesto",
+                  style: { width: "5rem", textAlign: "center" as const },
+                },
+                {
+                  label: "Total",
+                  style: { width: "6rem", textAlign: "right" as const },
+                },
               ].map((col, i) => (
                 <div
                   key={i}
@@ -449,28 +478,60 @@ export default function ServiceOrderList() {
                   />
                 </div>
                 <div style={{ flex: "1 1 0", minWidth: 0 }}>
-                  <div className="font-medium text-900" style={{ fontSize: "0.8rem" }}>
+                  <div
+                    className="font-medium text-900"
+                    style={{ fontSize: "0.8rem" }}
+                  >
                     {line.description || "—"}
                   </div>
                   {line.notes && (
                     <div
                       className="text-500"
-                      style={{ fontSize: "0.7rem", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+                      style={{
+                        fontSize: "0.7rem",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                      }}
                     >
                       {line.notes}
                     </div>
                   )}
                 </div>
-                <div style={{ width: "4rem", textAlign: "center", fontSize: "0.8rem", fontWeight: 600, flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "4rem",
+                    textAlign: "center",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
                   {line.quantity}
                 </div>
-                <div style={{ width: "5rem", textAlign: "right", fontSize: "0.8rem", flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "5rem",
+                    textAlign: "right",
+                    fontSize: "0.8rem",
+                    flexShrink: 0,
+                  }}
+                >
                   {formatCurrency(line.unitPrice)}
                 </div>
-                <div style={{ width: "4rem", textAlign: "center", fontSize: "0.8rem", flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "4rem",
+                    textAlign: "center",
+                    fontSize: "0.8rem",
+                    flexShrink: 0,
+                  }}
+                >
                   {Number(line.discountPct) > 0 ? `${line.discountPct}%` : "—"}
                 </div>
-                <div style={{ width: "5rem", textAlign: "center", flexShrink: 0 }}>
+                <div
+                  style={{ width: "5rem", textAlign: "center", flexShrink: 0 }}
+                >
                   <Tag
                     value={
                       line.taxType === "EXEMPT"
@@ -483,7 +544,15 @@ export default function ServiceOrderList() {
                     className="text-xs"
                   />
                 </div>
-                <div style={{ width: "6rem", textAlign: "right", fontSize: "0.8rem", fontWeight: 600, flexShrink: 0 }}>
+                <div
+                  style={{
+                    width: "6rem",
+                    textAlign: "right",
+                    fontSize: "0.8rem",
+                    fontWeight: 600,
+                    flexShrink: 0,
+                  }}
+                >
                   {formatCurrency(line.total)}
                 </div>
               </div>
@@ -531,7 +600,11 @@ export default function ServiceOrderList() {
   const folioTemplate = (row: ServiceOrder) => (
     <span
       className="font-bold text-primary cursor-pointer hover:underline"
-      onClick={() => { setDetailId(row.id); setDetailItem(row); setDetailDialog(true); }}
+      onClick={() => {
+        setDetailId(row.id);
+        setDetailItem(row);
+        setDetailDialog(true);
+      }}
     >
       {row.folio}
     </span>
@@ -578,6 +651,40 @@ export default function ServiceOrderList() {
       month: "short",
       year: "numeric",
     });
+
+  const qcStatusTemplate = (row: ServiceOrder) => {
+    if (!row.qualityCheck) return null;
+    const { status } = row.qualityCheck;
+
+    let severity: "success" | "info" | "warning" | "danger" | "secondary" =
+      "info";
+    let icon = "pi pi-clock";
+    let label = "Pendiente";
+
+    if (status === "PASSED") {
+      severity = "success";
+      icon = "pi pi-check-circle";
+      label = "Aprobado";
+    } else if (status === "FAILED") {
+      severity = "danger";
+      icon = "pi pi-times-circle";
+      label = "Reprobado";
+    } else if (status === "IN_PROGRESS") {
+      severity = "warning";
+      icon = "pi pi-spin pi-spinner";
+      label = "Revisando";
+    }
+
+    return (
+      <Tag
+        severity={severity}
+        icon={icon}
+        value={label}
+        className="text-xs"
+        rounded
+      />
+    );
+  };
 
   const actionBodyTemplate = (rowData: ServiceOrder) => (
     <Button
@@ -695,6 +802,11 @@ export default function ServiceOrderList() {
             header="Estado"
             body={statusTemplate}
             style={{ minWidth: "150px" }}
+          />
+          <Column
+            header="Calidad"
+            body={qcStatusTemplate}
+            style={{ minWidth: "110px", textAlign: "center" }}
           />
           <Column
             field="priority"
@@ -815,7 +927,11 @@ export default function ServiceOrderList() {
       {/* Detail Dialog */}
       <Dialog
         visible={detailDialog}
-        onHide={() => { setDetailDialog(false); setDetailId(null); setDetailItem(null); }}
+        onHide={() => {
+          setDetailDialog(false);
+          setDetailId(null);
+          setDetailItem(null);
+        }}
         maximizable
         modal
         draggable={false}
@@ -845,7 +961,12 @@ export default function ServiceOrderList() {
           <ServiceOrderDetail
             serviceOrderId={detailId}
             embedded
-            onClose={() => { setDetailDialog(false); setDetailId(null); setDetailItem(null); loadItems(); }}
+            onClose={() => {
+              setDetailDialog(false);
+              setDetailId(null);
+              setDetailItem(null);
+              loadItems();
+            }}
           />
         )}
       </Dialog>
@@ -858,7 +979,11 @@ export default function ServiceOrderList() {
                 {
                   label: "Ver detalle",
                   icon: "pi pi-eye",
-                  command: () => { setDetailId(actionItem.id); setDetailItem(actionItem); setDetailDialog(true); },
+                  command: () => {
+                    setDetailId(actionItem.id);
+                    setDetailItem(actionItem);
+                    setDetailDialog(true);
+                  },
                 },
                 { separator: true },
                 {

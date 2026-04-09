@@ -1,9 +1,7 @@
 "use client";
 import React from "react";
 import type { ServiceOrderStatus } from "@/libs/interfaces/workshop";
-import {
-  SO_STATUS_LABELS,
-} from "@/components/workshop/shared/ServiceOrderStatusBadge";
+import { SO_STATUS_LABELS } from "@/components/workshop/shared/ServiceOrderStatusBadge";
 
 interface ServiceOrderStepperProps {
   currentStatus: ServiceOrderStatus;

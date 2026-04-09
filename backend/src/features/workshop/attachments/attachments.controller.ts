@@ -2,17 +2,26 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
-import { findAttachments, createAttachment, deleteAttachment } from './attachments.service.js'
+import {
+  findAttachments,
+  createAttachment,
+  deleteAttachment,
+} from './attachments.service.js'
 import type { AttachmentEntityType } from './attachments.service.js'
 
 export const getAll = async (req: Request, res: Response) => {
   const { entityType, entityId } = req.validatedQuery as any
-  const data = await findAttachments(prisma, entityType as AttachmentEntityType, entityId, req.empresaId!)
+  const data = await findAttachments(
+    prisma,
+    entityType as AttachmentEntityType,
+    entityId,
+    req.empresaId!
+  )
   return ApiResponse.success(res, data)
 }
 
 export const create = async (req: Request, res: Response) => {
-  const userId = (req as any).user?.id as string
+  const userId = (req as any).user?.userId as string
   const item = await createAttachment(prisma, req.empresaId!, userId, req.body)
   return ApiResponse.created(res, item, 'Adjunto registrado')
 }

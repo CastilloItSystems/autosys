@@ -56,7 +56,6 @@ router.use('/appointments', appointmentRoutes)
 router.use('/receptions', receptionRoutes)
 router.use('/service-orders', serviceOrderRoutes)
 
-
 // Control operativo
 router.use('/labor-times', laborTimeRoutes)
 router.use('/quality-checks', qualityCheckRoutes)

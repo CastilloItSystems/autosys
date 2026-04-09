@@ -4,6 +4,7 @@ import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware
 import { authorize } from '../../../shared/middleware/authorize.middleware.js'
 import { validateBody, validateQuery } from '../../../shared/middleware/validateRequest.middleware.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import { FileUploadHelper } from '../../../shared/utils/fileUpload.js'
 import * as ctrl from './diagnoses.controller.js'
 import {
   createDiagnosisSchema,
@@ -38,7 +39,8 @@ router.post('/:id/operations',                 authorize(PERMISSIONS.WORKSHOP_CR
 router.delete('/:id/operations/:opId',         authorize(PERMISSIONS.WORKSHOP_DELETE),                                          asyncHandler(ctrl.removeSuggestedOp))
 router.post('/:id/parts',                      authorize(PERMISSIONS.WORKSHOP_CREATE), validateBody(createSuggestedPartSchema),  asyncHandler(ctrl.addSuggestedPart))
 router.delete('/:id/parts/:partId',            authorize(PERMISSIONS.WORKSHOP_DELETE),                                          asyncHandler(ctrl.removeSuggestedPart))
-router.post('/:id/evidences',                  authorize(PERMISSIONS.WORKSHOP_CREATE), validateBody(createEvidenceSchema),      asyncHandler(ctrl.addEvidence))
-router.delete('/:id/evidences/:evidenceId',    authorize(PERMISSIONS.WORKSHOP_DELETE),                                          asyncHandler(ctrl.removeEvidence))
+router.post('/:id/evidences',                  authorize(PERMISSIONS.WORKSHOP_CREATE), validateBody(createEvidenceSchema),                                           asyncHandler(ctrl.addEvidence))
+router.post('/:id/evidences/upload',           authorize(PERMISSIONS.WORKSHOP_CREATE), FileUploadHelper.createMemoryUploader('file'),                              asyncHandler(ctrl.uploadEvidenceFile))
+router.delete('/:id/evidences/:evidenceId',    authorize(PERMISSIONS.WORKSHOP_DELETE),                                                                            asyncHandler(ctrl.removeEvidence))
 
 export default router

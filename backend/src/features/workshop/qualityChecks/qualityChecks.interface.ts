@@ -3,7 +3,8 @@
 export type QualityCheckStatus = 'PENDING' | 'IN_PROGRESS' | 'PASSED' | 'FAILED'
 
 export interface IChecklistItem {
-  item: string
+  key?: string
+  label: string
   passed: boolean
   notes?: string
 }

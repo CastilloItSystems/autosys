@@ -35,8 +35,10 @@ export interface IQuotationItem {
   quantity: number
   unitPrice: number
   unitCost?: number
-  discount?: number
-  tax?: number
+  discountPct?: number
+  taxType?: string
+  taxRate?: number
+  taxAmount?: number
   approved?: boolean
   order?: number
 }

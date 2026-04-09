@@ -24,7 +24,7 @@
  *                 format: binary
  *               options:
  *                 type: string
- *                 description: JSON con { updateExisting: boolean }
+ *                 description: Objeto JSON con opciones como updateExisting
  *     responses:
  *       201:
  *         description: Carga de stock completada

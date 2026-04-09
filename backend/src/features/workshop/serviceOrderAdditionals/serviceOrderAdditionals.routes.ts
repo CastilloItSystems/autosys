@@ -12,9 +12,11 @@ import {
   createServiceOrderAdditionalSchema,
   updateServiceOrderAdditionalSchema,
   additionalFiltersSchema,
+  updateStatusSchema,
+  createAdditionalItemSchema,
+  updateAdditionalItemSchema,
 } from './serviceOrderAdditionals.validation.js'
 import * as controller from './serviceOrderAdditionals.controller.js'
-import { createAdditionalItemSchema, updateAdditionalItemSchema } from './serviceOrderAdditionals.validation.js'
 
 const router = Router()
 
@@ -49,6 +51,7 @@ router.delete(
 router.patch(
   '/:id/status',
   authorize(PERMISSIONS.WORKSHOP_UPDATE),
+  validateBody(updateStatusSchema),
   asyncHandler(controller.updateStatus)
 )
 

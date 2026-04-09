@@ -10,9 +10,9 @@ const statusEnum = z.enum(['DRAFT', 'COMPLETED', 'APPROVED_INTERNAL'], {
 })
 
 export const createDiagnosisSchema = z.object({
-  receptionId: z.string().uuid('ID de recepción inválido').optional(),
-  serviceOrderId: z.string().uuid('ID de orden de servicio inválido').optional(),
-  technicianId: z.string().uuid('ID de técnico inválido').optional(),
+  receptionId: z.string().optional(),
+  serviceOrderId: z.string().optional(),
+  technicianId: z.string().optional(),
   generalNotes: z.string().max(2000, 'Máximo 2000 caracteres').optional(),
   severity: severityEnum.optional(),
 })
@@ -30,14 +30,14 @@ export const createFindingSchema = z.object({
 })
 
 export const createSuggestedOpSchema = z.object({
-  operationId: z.string().uuid('ID de operación inválido').optional(),
+  operationId: z.string().optional(),
   description: z.string().min(1, 'La descripción es requerida').max(500, 'Máximo 500 caracteres'),
   estimatedMins: z.number({ invalid_type_error: 'Debe ser un número' }).int().min(0).optional(),
   estimatedPrice: z.number({ invalid_type_error: 'Debe ser un número' }).min(0).optional(),
 })
 
 export const createSuggestedPartSchema = z.object({
-  itemId: z.string().uuid('ID de artículo inválido').optional(),
+  itemId: z.string().optional(),
   description: z.string().min(1, 'La descripción es requerida').max(500, 'Máximo 500 caracteres'),
   quantity: z.number({ invalid_type_error: 'Debe ser un número' }).min(0).optional(),
   estimatedCost: z.number({ invalid_type_error: 'Debe ser un número' }).min(0).optional(),

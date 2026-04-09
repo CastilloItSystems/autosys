@@ -98,7 +98,7 @@ export async function updateStatus(
 export async function getAdditionalItems(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await service.findAdditionalItems(prisma, req.params.id as string)
-    res.json(result)
+    return ApiResponse.success(res, result)
   } catch (error) {
     next(error)
   }
@@ -107,7 +107,7 @@ export async function getAdditionalItems(req: Request, res: Response, next: Next
 export async function createAdditionalItem(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await service.createAdditionalItem(prisma, req.params.id as string, req.body)
-    res.status(201).json(result)
+    return ApiResponse.created(res, result, 'Ítem adicional creado')
   } catch (error) {
     next(error)
   }
@@ -116,7 +116,7 @@ export async function createAdditionalItem(req: Request, res: Response, next: Ne
 export async function updateAdditionalItem(req: Request, res: Response, next: NextFunction) {
   try {
     const result = await service.updateAdditionalItem(prisma, req.params.itemId as string, req.body)
-    res.json(result)
+    return ApiResponse.success(res, result, 'Ítem actualizado')
   } catch (error) {
     next(error)
   }
@@ -125,7 +125,7 @@ export async function updateAdditionalItem(req: Request, res: Response, next: Ne
 export async function deleteAdditionalItem(req: Request, res: Response, next: NextFunction) {
   try {
     await service.deleteAdditionalItem(prisma, req.params.itemId as string)
-    res.status(204).send()
+    return ApiResponse.noContent(res)
   } catch (error) {
     next(error)
   }
