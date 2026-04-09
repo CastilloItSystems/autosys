@@ -108,14 +108,31 @@ export default function QualityCheckSubmitForm({
 
   useEffect(() => {
     if (isLoading || !qualityCheck) return;
-    const items = qualityCheck.checklistItems?.length
-      ? qualityCheck.checklistItems.map((i) => ({
-          key: i.key,
-          label: i.label,
-          passed: i.passed,
-          notes: i.notes ?? "",
-        }))
-      : DEFAULT_CHECKLIST;
+
+    // Prioridad: 1) Items guardados, 2) Template items, 3) Defaults
+    let items = DEFAULT_CHECKLIST;
+
+    // Si existen items guardados del QC anterior, usarlos
+    if (qualityCheck.checklistItems?.length) {
+      items = qualityCheck.checklistItems.map((i) => ({
+        key: i.key,
+        label: i.label,
+        passed: i.passed,
+        notes: i.notes ?? "",
+      }));
+    }
+    // Sino, si hay plantilla con items, convertir al formato esperado
+    else if ((qualityCheck as any).checklistTemplate?.items?.length) {
+      items = (qualityCheck as any).checklistTemplate.items.map(
+        (item: any) => ({
+          key: item.code,
+          label: item.name,
+          passed: false,
+          notes: "",
+        }),
+      );
+    }
+
     reset({
       checklistItems: items,
       failureNotes: qualityCheck.failureNotes ?? "",
@@ -135,6 +152,7 @@ export default function QualityCheckSubmitForm({
           passed: i.passed,
           notes: i.notes ?? undefined,
         })),
+        updatedAt: qualityCheck.updatedAt, // Optimistic locking
       };
 
       // Solo agregar failureNotes si tiene contenido
@@ -187,13 +205,33 @@ export default function QualityCheckSubmitForm({
                   qualityCheck.serviceOrderId.slice(0, 8)}
               </span>
               <span>
-                <b>Inspector:</b> {qualityCheck.inspectorId.slice(0, 8)}
+                <b>Inspector:</b>{" "}
+                {(qualityCheck as any).inspector?.nombre ??
+                  qualityCheck.inspectorId.slice(0, 8)}
               </span>
               {qualityCheck.retryCount > 0 && (
                 <span className="text-orange-600">
                   <b>Reintento #{qualityCheck.retryCount}</b>
                 </span>
               )}
+            </div>
+          </div>
+        )}
+
+        {/* Retry limit warning */}
+        {qualityCheck && qualityCheck.retryCount >= 2 && (
+          <div className="col-12">
+            <div className="p-3 surface-section border-1 border-round border-orange-300 bg-orange-50 flex gap-2 align-items-start">
+              <i className="pi pi-exclamation-circle text-orange-600 text-lg" />
+              <div className="flex-1">
+                <p className="m-0 text-sm font-semibold text-orange-600">
+                  ⚠️ Último intento disponible
+                </p>
+                <p className="m-0 text-xs text-orange-700 mt-1">
+                  Si falla esta revisión, deberá escalarse con el jefe de taller
+                  para análisis adicional.
+                </p>
+              </div>
             </div>
           </div>
         )}

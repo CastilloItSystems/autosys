@@ -24,6 +24,7 @@ export class SubmitQualityCheckDTO {
   checklistItems: IChecklistItem[]
   failureNotes?: string
   notes?: string
+  updatedAt?: string
 
   constructor(data: any) {
     this.checklistItems = Array.isArray(data.checklistItems)
@@ -31,6 +32,7 @@ export class SubmitQualityCheckDTO {
       : []
     this.failureNotes = data.failureNotes?.trim() ?? undefined
     this.notes = data.notes?.trim() ?? undefined
+    this.updatedAt = data.updatedAt ?? undefined
   }
 }
 
@@ -39,6 +41,7 @@ export class QualityCheckResponseDTO {
   serviceOrderId: string
   serviceOrder: any | null
   inspectorId: string
+  inspector: any | null
   status: QualityCheckStatus
   checklistItems: IChecklistItem[] | null
   failureNotes: string | null
@@ -58,6 +61,7 @@ export class QualityCheckResponseDTO {
     this.serviceOrderId = data.serviceOrderId
     this.serviceOrder = data.serviceOrder ?? null
     this.inspectorId = data.inspectorId
+    this.inspector = data.inspector ?? null
     this.status = data.status
     this.checklistItems = data.checklistItems ?? null
     this.failureNotes = data.failureNotes ?? null

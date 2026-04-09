@@ -12,8 +12,10 @@ import { handleFormError } from "@/utils/errorHandlers";
 import { deliveryService } from "@/app/api/workshop";
 import { createDeliverySchema } from "@/libs/zods/workshop/deliveryZod";
 import type { CreateDeliveryForm } from "@/libs/zods/workshop/deliveryZod";
-import type { VehicleDelivery } from "@/libs/interfaces/workshop";
 import SignaturePad from "@/components/workshop/shared/SignaturePad";
+import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
+import TechnicianSelector from "@/components/common/TechnicianSelector";
+import { VehicleDelivery } from "@/libs/interfaces/workshop/delivery.interface";
 
 interface Props {
   delivery?: VehicleDelivery | null;
@@ -39,6 +41,7 @@ export default function DeliveryForm({
     control,
     handleSubmit,
     reset,
+    setValue,
     formState: { errors },
   } = useForm<CreateDeliveryForm>({
     resolver: zodResolver(createDeliverySchema),
@@ -82,7 +85,12 @@ export default function DeliveryForm({
         ...data,
         clientSignature: clientSignature || undefined,
       };
-      await deliveryService.create(payload);
+      // FASE 1.2: Call update if in edit mode, create if new
+      if (delivery?.id) {
+        await deliveryService.update(delivery.id, payload);
+      } else {
+        await deliveryService.create(payload);
+      }
       await onSave();
     } catch (error) {
       handleFormError(error, toast);
@@ -112,53 +120,73 @@ export default function DeliveryForm({
       className="p-fluid"
     >
       <div className="grid">
-        {/* Orden de Servicio */}
+        {/* Orden de Servicio - FASE 2.1: Use ServiceOrderSelector with dynamic status filter */}
         <div className="col-12">
-          <label htmlFor="serviceOrderId" className="block text-900 font-medium mb-2">
-            ID Orden de Servicio <span className="text-red-500">*</span>
+          <label
+            htmlFor="serviceOrderId"
+            className="block text-900 font-medium mb-2"
+          >
+            Orden de Servicio <span className="text-red-500">*</span>
           </label>
           <Controller
             name="serviceOrderId"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="serviceOrderId"
-                {...field}
-                placeholder="ID de la orden de servicio"
-                className={errors.serviceOrderId ? "p-invalid" : ""}
+              <ServiceOrderSelector
+                value={field.value}
+                onChange={(id) => {
+                  field.onChange(id);
+                  // FASE 2.1: Use setValue to properly clear the field
+                  if (!delivery?.id) {
+                    setValue("deliveredBy", "");
+                  }
+                }}
+                statusFilter={["QUALITY_CHECK", "READY", "DELIVERED", "INVOICED"]}
+                invalid={!!errors.serviceOrderId}
+                placeholder="Buscar orden de trabajo..."
               />
             )}
           />
           {errors.serviceOrderId && (
-            <small className="p-error block mt-1">{errors.serviceOrderId.message}</small>
+            <small className="p-error block mt-1">
+              {errors.serviceOrderId.message}
+            </small>
           )}
         </div>
 
-        {/* Entregado por */}
+        {/* Entregado por - FASE 2.1: Use TechnicianSelector */}
         <div className="col-12 md:col-6">
-          <label htmlFor="deliveredBy" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="deliveredBy"
+            className="block text-900 font-medium mb-2"
+          >
             Entregado por <span className="text-red-500">*</span>
           </label>
           <Controller
             name="deliveredBy"
             control={control}
             render={({ field }) => (
-              <InputText
-                id="deliveredBy"
-                {...field}
-                placeholder="Nombre del asesor/técnico que entrega"
-                className={errors.deliveredBy ? "p-invalid" : ""}
+              <TechnicianSelector
+                value={field.value}
+                onChange={field.onChange}
+                invalid={!!errors.deliveredBy}
+                placeholder="Seleccionar técnico..."
               />
             )}
           />
           {errors.deliveredBy && (
-            <small className="p-error block mt-1">{errors.deliveredBy.message}</small>
+            <small className="p-error block mt-1">
+              {errors.deliveredBy.message}
+            </small>
           )}
         </div>
 
         {/* Recibido por */}
         <div className="col-12 md:col-6">
-          <label htmlFor="receivedByName" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="receivedByName"
+            className="block text-900 font-medium mb-2"
+          >
             Recibido por <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -174,13 +202,18 @@ export default function DeliveryForm({
             )}
           />
           {errors.receivedByName && (
-            <small className="p-error block mt-1">{errors.receivedByName.message}</small>
+            <small className="p-error block mt-1">
+              {errors.receivedByName.message}
+            </small>
           )}
         </div>
 
         {/* Próxima visita */}
         <div className="col-12 md:col-6">
-          <label htmlFor="nextVisitDate" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="nextVisitDate"
+            className="block text-900 font-medium mb-2"
+          >
             Próxima visita sugerida
           </label>
           <Controller
@@ -192,7 +225,7 @@ export default function DeliveryForm({
                 value={field.value ? new Date(field.value) : null}
                 onChange={(e) =>
                   field.onChange(
-                    e.value ? (e.value as Date).toISOString() : undefined
+                    e.value ? (e.value as Date).toISOString() : undefined,
                   )
                 }
                 dateFormat="dd/mm/yy"
@@ -216,7 +249,10 @@ export default function DeliveryForm({
                   checked={field.value ?? true}
                   onChange={(e) => field.onChange(e.checked)}
                 />
-                <label htmlFor="clientConformity" className="text-900 font-medium cursor-pointer">
+                <label
+                  htmlFor="clientConformity"
+                  className="text-900 font-medium cursor-pointer"
+                >
                   Conforme — El cliente acepta la entrega del vehículo
                 </label>
               </div>
@@ -226,7 +262,10 @@ export default function DeliveryForm({
 
         {/* Observaciones */}
         <div className="col-12">
-          <label htmlFor="observations" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="observations"
+            className="block text-900 font-medium mb-2"
+          >
             Observaciones
           </label>
           <Controller
@@ -243,7 +282,9 @@ export default function DeliveryForm({
             )}
           />
           {errors.observations && (
-            <small className="p-error block mt-1">{errors.observations.message}</small>
+            <small className="p-error block mt-1">
+              {errors.observations.message}
+            </small>
           )}
         </div>
 
@@ -252,12 +293,11 @@ export default function DeliveryForm({
           <Divider />
           <div className="flex align-items-center gap-2 mb-3">
             <i className="pi pi-pen-to-square text-primary text-xl" />
-            <h5 className="m-0 text-900 font-semibold">Firma Digital del Cliente</h5>
+            <h5 className="m-0 text-900 font-semibold">
+              Firma Digital del Cliente
+            </h5>
           </div>
-          <SignaturePad
-            value={clientSignature}
-            onChange={setClientSignature}
-          />
+          <SignaturePad value={clientSignature} onChange={setClientSignature} />
         </div>
       </div>
     </form>

@@ -5,6 +5,7 @@ import { ApiResponse } from '../../../shared/utils/apiResponse.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import * as deliveriesService from './deliveries.service.js'
 import { CreateDeliveryDTO, DeliveryResponseDTO } from './deliveries.dto.js'
+import type { IUpdateDeliveryInput } from './deliveries.interface.js'
 import { WORKSHOP_MESSAGES } from '../shared/constants/messages.js'
 
 export const getAll = async (req: Request, res: Response) => {
@@ -47,4 +48,30 @@ export const getByOrder = async (req: Request, res: Response) => {
     req.empresaId!
   )
   return ApiResponse.success(res, item ? new DeliveryResponseDTO(item) : {})
+}
+
+// FASE 1.2: Update delivery
+export const update = async (req: Request, res: Response) => {
+  const dto: IUpdateDeliveryInput = req.body
+  const item = await deliveriesService.updateDelivery(
+    prisma,
+    req.params.id as string,
+    req.empresaId!,
+    dto
+  )
+  return ApiResponse.success(
+    res,
+    new DeliveryResponseDTO(item),
+    WORKSHOP_MESSAGES.delivery.updated
+  )
+}
+
+// FASE 1.3: Delete delivery
+export const remove = async (req: Request, res: Response) => {
+  await deliveriesService.deleteDelivery(
+    prisma,
+    req.params.id as string,
+    req.empresaId!
+  )
+  return ApiResponse.success(res, {}, WORKSHOP_MESSAGES.delivery.deleted)
 }

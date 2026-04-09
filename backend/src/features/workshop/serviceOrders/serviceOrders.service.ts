@@ -16,6 +16,7 @@ import type {
 // FASE 1.5: Import quote validation
 import { validateSOQuoteApproval } from '../integrations/quote-so-converter.service.js'
 import { handleSOQualityCheckTransition } from '../integrations/quality-check-integrator.service.js'
+import { handleSODeliveryTransition } from '../integrations/delivery-integrator.service.js'
 
 type PrismaClientType =
   | PrismaClient
@@ -425,6 +426,9 @@ export async function updateServiceOrderStatus(
 
   // FASE 1.6: Security check for Quality Control
   await handleSOQualityCheckTransition(prisma, id, dto.status, userId)
+
+  // FASE 2.9: Auto-create VehicleDelivery when SO → DELIVERED
+  await handleSODeliveryTransition(prisma, id, dto.status, userId, empresaId)
 
   // FASE 2.8: Validate PreInvoice status before marking SO as INVOICED
   // Acepta tanto prefactura individual como consolidada

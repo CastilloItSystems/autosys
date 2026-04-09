@@ -11,10 +11,12 @@ import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import { handleFormError } from "@/utils/errorHandlers";
 import { deliveryService } from "@/app/api/workshop";
-import type { VehicleDelivery } from "@/libs/interfaces/workshop";
+import { ServiceOrderStatusBadge } from "@/components/workshop/shared/ServiceOrderStatusBadge";
 import DeliveryForm from "./DeliveryForm";
+import { VehicleDelivery } from "@/libs/interfaces/workshop/delivery.interface";
 
 export default function DeliveryList() {
   const [items, setItems] = useState<VehicleDelivery[]>([]);
@@ -29,6 +31,11 @@ export default function DeliveryList() {
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // FASE 1.3: Add delete confirmation dialog state
+  const [deleteConfirmDialog, setDeleteConfirmDialog] = useState(false);
+  const [itemToDelete, setItemToDelete] = useState<VehicleDelivery | null>(
+    null,
+  );
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -90,12 +97,40 @@ export default function DeliveryList() {
     })();
   };
 
+  // FASE 1.3: Delete delivery with confirmation
+  const deleteItem = (item: VehicleDelivery) => {
+    setItemToDelete(item);
+    setDeleteConfirmDialog(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete) return;
+    try {
+      await deliveryService.delete(itemToDelete.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Entrega eliminada correctamente",
+        life: 3000,
+      });
+      await loadItems();
+      setDeleteConfirmDialog(false);
+      setItemToDelete(null);
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
   // ── Column templates ────────────────────────────────────────────────────
 
   const folioTemplate = (row: VehicleDelivery) => (
     <span className="font-bold text-primary">
       {row.serviceOrder?.folio ?? row.serviceOrderId.slice(0, 8) + "..."}
     </span>
+  );
+
+  const statusTemplate = (row: VehicleDelivery) => (
+    <ServiceOrderStatusBadge status={row.serviceOrder?.status ?? "DELIVERED"} />
   );
 
   const receivedByTemplate = (row: VehicleDelivery) => (
@@ -206,6 +241,11 @@ export default function DeliveryList() {
             style={{ minWidth: "140px" }}
           />
           <Column
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
             header="Recibido por"
             body={receivedByTemplate}
             style={{ minWidth: "160px" }}
@@ -289,12 +329,35 @@ export default function DeliveryList() {
                   icon: "pi pi-eye",
                   command: () => editItem(actionItem),
                 },
+                // FASE 1.3: Add delete menu item
+                {
+                  label: "Eliminar",
+                  icon: "pi pi-trash",
+                  command: () => deleteItem(actionItem),
+                  className: "p-menuitem-danger",
+                },
               ]
             : []
         }
         popup
         ref={menuRef}
         id="delivery-menu"
+      />
+
+      {/* FASE 1.3: Delete confirmation dialog */}
+      <DeleteConfirmDialog
+        visible={deleteConfirmDialog}
+        onHide={() => {
+          setDeleteConfirmDialog(false);
+          setItemToDelete(null);
+        }}
+        onConfirm={handleConfirmDelete}
+        message={`¿Está seguro de que desea eliminar la entrega registrada el ${
+          itemToDelete?.createdAt
+            ? new Date(itemToDelete.createdAt).toLocaleDateString("es-MX")
+            : ""
+        }?`}
+        header="Eliminar Entrega"
       />
     </motion.div>
   );

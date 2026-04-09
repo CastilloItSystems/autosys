@@ -174,6 +174,13 @@ export default function QualityCheckList({
       year: "numeric",
     });
 
+  const inspectorTemplate = (row: QualityCheck) =>
+    row.inspector ? (
+      <span className="font-medium">{row.inspector.nombre}</span>
+    ) : (
+      <span className="text-500 text-sm">{row.inspectorId.slice(0, 8)}…</span>
+    );
+
   const actionsTemplate = (row: QualityCheck) => (
     <Button
       icon="pi pi-clipboard"
@@ -267,8 +274,8 @@ export default function QualityCheckList({
             style={{ minWidth: "120px" }}
           />
           <Column
-            field="inspectorId"
             header="Inspector"
+            body={inspectorTemplate}
             style={{ minWidth: "160px" }}
           />
           <Column

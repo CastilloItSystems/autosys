@@ -36,4 +36,5 @@ export interface ISubmitQualityCheckInput {
   checklistItems: IChecklistItem[]
   failureNotes?: string
   notes?: string
+  updatedAt?: string // For optimistic locking
 }

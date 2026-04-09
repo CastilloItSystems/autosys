@@ -3170,6 +3170,7 @@ model User {
 
   auditLogs     AuditLog[]
   memberships   Membership[]
+  qualityCheckInspections QualityCheck[]
 
   @@index([eliminado])
   @@index([estado])
@@ -3451,6 +3452,7 @@ model QualityCheck {
   serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
   inspectorId String // userId del inspector (técnico jefe, asesor QC, etc.)
+  inspector   User    @relation(fields: [inspectorId], references: [id], onDelete: Restrict)
 
   status QualityCheckStatus @default(PENDING)
 
