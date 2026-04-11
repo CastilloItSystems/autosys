@@ -4,6 +4,7 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
@@ -14,8 +15,29 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { workshopOperationService } from "@/app/api/workshop";
-import type { WorkshopOperation } from "@/libs/interfaces/workshop";
+import type {
+  WorkshopOperation,
+  OperationDifficulty,
+} from "@/libs/interfaces/workshop";
+import { DIFFICULTY_OPTIONS } from "@/libs/zods/workshop/workshopOperationZod";
 import WorkshopOperationForm from "./WorkshopOperationForm";
+
+const DIFFICULTY_SEVERITY: Record<
+  OperationDifficulty,
+  "success" | "info" | "warning" | "danger"
+> = {
+  BASIC: "success",
+  STANDARD: "info",
+  ADVANCED: "warning",
+  SPECIALIST: "danger",
+};
+
+const DIFFICULTY_LABEL: Record<OperationDifficulty, string> = {
+  BASIC: "Básica",
+  STANDARD: "Estándar",
+  ADVANCED: "Avanzada",
+  SPECIALIST: "Especialista",
+};
 
 export default function WorkshopOperationList() {
   const [items, setItems] = useState<WorkshopOperation[]>([]);
@@ -24,6 +46,7 @@ export default function WorkshopOperationList() {
   const [actionItem, setActionItem] = useState<WorkshopOperation | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
+  const [filterDifficulty, setFilterDifficulty] = useState<string | null>(null);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
@@ -39,7 +62,7 @@ export default function WorkshopOperationList() {
 
   useEffect(() => {
     loadItems();
-  }, [page, rows, searchQuery, showActive]);
+  }, [page, rows, searchQuery, showActive, filterDifficulty]);
 
   const loadItems = async () => {
     try {
@@ -49,6 +72,7 @@ export default function WorkshopOperationList() {
         limit: rows,
         search: searchQuery || undefined,
         isActive: showActive ? "true" : undefined,
+        difficulty: (filterDifficulty as any) || undefined,
       });
       setItems(res.data ?? []);
       setTotalRecords(res.meta?.total ?? 0);
@@ -64,12 +88,10 @@ export default function WorkshopOperationList() {
     setSelected(null);
     setFormDialog(true);
   };
-
   const editItem = (item: WorkshopOperation) => {
     setSelected({ ...item });
     setFormDialog(true);
   };
-
   const confirmDelete = (item: WorkshopOperation) => {
     setSelected(item);
     setDeleteDialog(true);
@@ -116,9 +138,7 @@ export default function WorkshopOperationList() {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: selected?.id
-          ? "Operación actualizada"
-          : "Operación creada",
+        detail: selected?.id ? "Operación actualizada" : "Operación creada",
         life: 3000,
       });
       await loadItems();
@@ -127,14 +147,91 @@ export default function WorkshopOperationList() {
     })();
   };
 
-  const actionBodyTemplate = (rowData: WorkshopOperation) => (
+  // ── Body templates ──
+  const codeBodyTemplate = (row: WorkshopOperation) => (
+    <span className="font-bold text-primary">{row.code}</span>
+  );
+
+  const difficultyBodyTemplate = (row: WorkshopOperation) => (
+    <Tag
+      value={
+        DIFFICULTY_LABEL[row.difficulty as OperationDifficulty] ??
+        row.difficulty
+      }
+      severity={
+        DIFFICULTY_SEVERITY[row.difficulty as OperationDifficulty] ?? "info"
+      }
+      rounded
+    />
+  );
+
+  const specialtyBodyTemplate = (row: WorkshopOperation) =>
+    row.requiredSpecialty ? (
+      <span className="text-sm">{row.requiredSpecialty.name}</span>
+    ) : (
+      <span className="text-400">—</span>
+    );
+
+  const serviceTypeBodyTemplate = (row: WorkshopOperation) =>
+    row.serviceType ? (
+      <span
+        className="text-xs font-medium px-2 py-1 border-round"
+        style={{ background: "var(--blue-50)", color: "var(--blue-700)" }}
+      >
+        {row.serviceType.name}
+      </span>
+    ) : (
+      <span className="text-400">—</span>
+    );
+
+  const minutesBodyTemplate = (row: WorkshopOperation) => {
+    if (!row.standardMinutes) return <span className="text-400">—</span>;
+    const range =
+      row.minMinutes && row.maxMinutes
+        ? ` (${row.minMinutes}–${row.maxMinutes})`
+        : "";
+    return (
+      <span>
+        {row.standardMinutes} min{range}
+      </span>
+    );
+  };
+
+  const priceBodyTemplate = (row: WorkshopOperation) =>
+    new Intl.NumberFormat("es-VE", {
+      style: "currency",
+      currency: "USD",
+    }).format(row.listPrice);
+
+  const materialsBodyTemplate = (row: WorkshopOperation) => {
+    const count = row.suggestedMaterials?.length ?? 0;
+    return count > 0 ? (
+      <Tag
+        value={`${count} insumo${count > 1 ? "s" : ""}`}
+        severity="secondary"
+        rounded
+      />
+    ) : (
+      <span className="text-400">—</span>
+    );
+  };
+
+  const statusBodyTemplate = (row: WorkshopOperation) => (
+    <Tag
+      value={row.isActive ? "Activa" : "Inactiva"}
+      severity={row.isActive ? "success" : "secondary"}
+      rounded
+    />
+  );
+
+  const actionBodyTemplate = (row: WorkshopOperation) => (
     <Button
       icon="pi pi-cog"
       rounded
       text
       aria-haspopup
       onClick={(e) => {
-        setActionItem(rowData);
+        setActionItem(row);
         menuRef.current?.toggle(e);
       }}
       tooltip="Opciones"
@@ -142,41 +239,33 @@ export default function WorkshopOperationList() {
     />
   );
 
-  const statusBodyTemplate = (rowData: WorkshopOperation) => (
-    <Tag
-      value={rowData.isActive ? "Activo" : "Inactivo"}
-      severity={rowData.isActive ? "success" : "secondary"}
-      rounded
-    />
-  );
-
-  const codeBodyTemplate = (rowData: WorkshopOperation) => (
-    <span className="font-bold text-primary">{rowData.code}</span>
-  );
-
-  const serviceTypeBodyTemplate = (rowData: WorkshopOperation) =>
-    rowData.serviceType?.name ?? "—";
-
-  const minutesBodyTemplate = (rowData: WorkshopOperation) =>
-    rowData.standardMinutes != null ? `${rowData.standardMinutes} min` : "—";
-
-  const priceBodyTemplate = (rowData: WorkshopOperation) =>
-    rowData.listPrice != null
-      ? new Intl.NumberFormat("es-MX", {
-          style: "currency",
-          currency: "MXN",
-        }).format(rowData.listPrice)
-      : "—";
-
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
         <h4 className="m-0">Operaciones de Taller</h4>
         <span className="text-600 text-sm">({totalRecords} total)</span>
       </div>
-      <div className="flex gap-2">
+      <div className="flex gap-2 flex-wrap">
+        <Dropdown
+          value={filterDifficulty}
+          options={[
+            { value: null, label: "Todas las dificultades" },
+            ...DIFFICULTY_OPTIONS.map((o) => ({
+              value: o.value,
+              label: o.label,
+            })),
+          ]}
+          onChange={(e) => {
+            setFilterDifficulty(e.value);
+            setPage(0);
+          }}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Dificultad"
+          style={{ width: "180px" }}
+        />
         <Button
-          label={showActive ? "Todos" : "Solo activos"}
+          label={showActive ? "Todas" : "Solo activas"}
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
@@ -248,21 +337,38 @@ export default function WorkshopOperationList() {
           />
           <Column
             field="serviceType.name"
-            header="Tipo de Servicio"
+            header="Tipo"
             body={serviceTypeBodyTemplate}
-            style={{ minWidth: "150px" }}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            field="difficulty"
+            header="Dificultad"
+            body={difficultyBodyTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            field="requiredSpecialty.name"
+            header="Especialidad"
+            body={specialtyBodyTemplate}
+            style={{ minWidth: "130px" }}
           />
           <Column
             field="standardMinutes"
-            header="Min. estándar"
+            header="Tiempos"
             body={minutesBodyTemplate}
-            style={{ minWidth: "120px" }}
+            style={{ minWidth: "140px" }}
           />
           <Column
             field="listPrice"
             header="Precio lista"
             body={priceBodyTemplate}
-            style={{ minWidth: "150px" }}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Insumos"
+            body={materialsBodyTemplate}
+            style={{ minWidth: "100px" }}
           />
           <Column
             field="isActive"
@@ -285,17 +391,15 @@ export default function WorkshopOperationList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "550px" }}
-        breakpoints={{ "900px": "65vw", "600px": "90vw" }}
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-cog mr-3 text-primary text-3xl" />
-                {selected?.id
-                  ? "Modificar Operación"
-                  : "Crear Operación"}
+                {selected?.id ? "Modificar Operación" : "Crear Operación"}
               </h2>
             </div>
           </div>

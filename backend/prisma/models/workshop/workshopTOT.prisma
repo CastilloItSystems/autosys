@@ -55,10 +55,25 @@ model WorkshopTOT {
   estimatedReturnAt  DateTime? // Fecha estimada de reingreso
   returnedAt         DateTime? // Fecha/hora real de reingreso
 
-  // Costos
+  // Costos (perspectiva del costo del taller)
   providerQuote      Decimal? @db.Decimal(12, 2) // Presupuesto del proveedor
-  finalCost          Decimal? @db.Decimal(12, 2) // Costo final (se suma a la OS para facturar)
+  finalCost          Decimal? @db.Decimal(12, 2) // Costo final del taller (lo que paga al externo)
   providerInvoiceRef String?                     // Referencia/número de factura del proveedor
+
+  // Precio de venta al cliente (lo que cobra de la OT)
+  clientPrice Decimal? @db.Decimal(12, 2) // Precio de venta al cliente final
+  discountPct Decimal @default(0) @db.Decimal(5, 2)  // Porcentaje de descuento
+
+  // Impuesto por línea — heredado del catálogo o definido por el asesor
+  taxType     TaxType  @default(IVA)  // IVA, EXEMPT, REDUCED
+  taxRate     Decimal  @default(0.16) @db.Decimal(5, 2)  // Porcentaje (ej. 0.16 = 16%)
+  taxAmount   Decimal  @default(0) @db.Decimal(12, 2)   // Monto calculado
+
+  // Cantidad (siempre 1 porque es un servicio completo)
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+
+  // Total calculado para facturación: (clientPrice - discountPct) * (1 + taxRate)
+  total       Decimal @default(0) @db.Decimal(12, 2)
 
   notes String? @db.Text
 

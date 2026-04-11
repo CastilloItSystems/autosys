@@ -1,32 +1,26 @@
 "use client";
-import React, { useEffect, useRef } from "react";
+import React from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { InputText } from "primereact/inputtext";
-import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
-import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
-import { Button } from "primereact/button";
-import { Divider } from "primereact/divider";
-import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
-import { quotationService } from "@/app/api/workshop";
+import { quotationService, workshopOperationService } from "@/app/api/workshop";
+import itemService from "@/app/api/inventory/itemService";
 import type { WorkshopQuotation } from "@/libs/interfaces/workshop";
 import {
   createQuotationSchema,
   updateQuotationSchema,
   type CreateQuotationFormValues,
 } from "@/libs/zods/workshop";
+import { QUOTATION_ITEM_TYPE_OPTIONS } from "./QuotationStatusBadge";
 import {
-  QUOTATION_ITEM_TYPE_OPTIONS,
-  QUOTATION_ITEM_TYPE_LABELS,
-} from "./QuotationStatusBadge";
-import ItemsTable from "@/components/inventory/common/ItemsTable";
-import QuotationItemRow, {
-  QuotationItemRowColWidths,
-} from "./QuotationItemRow";
+  WorkshopItemsTable,
+  WorkshopFinancialSummary,
+} from "@/components/workshop/shared";
+import { useServiceOrderCalculation } from "@/hooks/useServiceOrderCalculation";
+import type { WorkshopItemType } from "@/components/workshop/shared";
 import CustomerSelector from "@/components/common/CustomerSelector";
 import VehicleSelector from "@/components/common/VehicleSelector";
 
@@ -56,21 +50,6 @@ const EMPTY_ITEM = {
   order: 0,
 };
 
-const fmt = (v: number) =>
-  v.toLocaleString("es-MX", { minimumFractionDigits: 2 });
-
-const COLS: QuotationItemRowColWidths = {
-  handle: { width: "2rem", flexShrink: 0 },
-  type: { width: "12rem", flexShrink: 0 },
-  description: { flex: "1 1 0", minWidth: "15rem" },
-  quantity: { width: "6rem", flexShrink: 0 },
-  unitPrice: { width: "8rem", flexShrink: 0 },
-  discount: { width: "7rem", flexShrink: 0 },
-  tax: { width: "7rem", flexShrink: 0 },
-  totalLine: { width: "8rem", flexShrink: 0 },
-  remove: { width: "3rem", flexShrink: 0 },
-};
-
 export default function QuotationForm({
   quotation,
   receptionId,
@@ -82,6 +61,35 @@ export default function QuotationForm({
   onSubmittingChange,
   toast,
 }: Props) {
+  const [itemSuggestions, setItemSuggestions] = React.useState<any[]>([]);
+  const [selectedItemsMap, setSelectedItemsMap] = React.useState<
+    Record<string, any>
+  >({});
+
+  const handleItemSearch = React.useCallback(
+    async (query: string, type: WorkshopItemType, index: number) => {
+      if (!query || query.length < 2) {
+        setItemSuggestions([]);
+        return;
+      }
+
+      try {
+        if (type === "LABOR") {
+          const res = await workshopOperationService.getAll({ search: query });
+          setItemSuggestions(res.data?.items ?? (res as any).data ?? []);
+        } else if (type === "PART" || type === ("CONSUMABLE" as any)) {
+          const res = await itemService.search(query);
+          setItemSuggestions(res.data ?? []);
+        } else {
+          setItemSuggestions([]);
+        }
+      } catch {
+        setItemSuggestions([]);
+      }
+    },
+    [],
+  );
+
   const isUpdate = !!quotation?.id;
   const schema = isUpdate ? updateQuotationSchema : createQuotationSchema;
 
@@ -122,6 +130,7 @@ export default function QuotationForm({
 
   const {
     control,
+    register,
     handleSubmit,
     watch,
     setValue,
@@ -135,21 +144,48 @@ export default function QuotationForm({
     control,
     name: "items",
   });
-  const items = watch("items");
+  const watchedItems = (watch("items") ?? []) as any[];
 
-  // Calcular totales reactivos
-  const totals = (items ?? []).reduce(
-    (acc, it) => {
-      const sub = (it.quantity ?? 0) * (it.unitPrice ?? 0);
-      const disc = (sub * ((it as any).discountPct ?? 0)) / 100;
-      const tax = (sub - disc) * ((it as any).taxRate ?? 0.16);
-      acc.subtotal += sub;
-      acc.discount += disc;
-      acc.tax += tax;
-      acc.total += sub - disc + tax;
-      return acc;
+  // Map quotation types to LABOR / PART / OTHER for the shared calculation hook
+  const watchedTypes = watchedItems.map((i) =>
+    (["LABOR", "PART"] as string[]).includes(i?.type)
+      ? (i.type as WorkshopItemType)
+      : ("OTHER" as WorkshopItemType),
+  );
+
+  const hasCatalog = watchedTypes.some((t) => t !== "OTHER");
+
+  const calcResult = useServiceOrderCalculation(
+    watchedItems.map((i, idx) => ({
+      type: watchedTypes[idx],
+      quantity: Number(i?.quantity ?? 1),
+      unitPrice: Number(i?.unitPrice ?? 0),
+      discountPct: Number(i?.discountPct ?? 0),
+      taxType: i?.taxType ?? "IVA",
+    })),
+  );
+
+  const handleItemSelect = React.useCallback(
+    (item: any, index: number) => {
+      if (!item) return;
+      setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
+      setValue(`items.${index}.description`, item.name || "");
+
+      if (item.standardMinutes !== undefined) {
+        setValue(`items.${index}.unitPrice`, item.listPrice ?? 0);
+        setValue(`items.${index}.unitCost`, 0);
+      } else {
+        setValue(
+          `items.${index}.unitPrice`,
+          item.pricing?.salePrice ?? item.pricing?.price ?? item.salePrice ?? 0,
+        );
+        setValue(
+          `items.${index}.unitCost`,
+          item.pricing?.costPrice ?? item.costPrice ?? 0,
+        );
+      }
     },
-    { subtotal: 0, discount: 0, tax: 0, total: 0 },
+    [setValue],
   );
 
   const onSubmit = async (data: any) => {
@@ -238,61 +274,32 @@ export default function QuotationForm({
 
       {/* Ítems */}
       <div className="mb-4">
-        <ItemsTable
+        <WorkshopItemsTable
+          control={control}
+          register={register}
           fields={fields}
           append={append}
           remove={remove}
           move={move}
+          errors={errors}
+          fieldArrayName="items"
           defaultItem={{ ...EMPTY_ITEM, order: fields.length }}
+          calcResult={calcResult}
+          watchedTypes={watchedTypes}
           title="Ítems de la cotización"
-          columns={[
-            { label: "", style: COLS.handle },
-            { label: "Tipo", style: COLS.type },
-            { label: "Descripción", style: COLS.description },
-            { label: "Cant.", style: COLS.quantity },
-            { label: "Precio Unit.", style: COLS.unitPrice },
-            { label: "% Desc.", style: COLS.discount },
-            { label: "I.V.A.", style: COLS.tax },
-            { label: "Total Línea", style: COLS.totalLine },
-            { label: "", style: COLS.remove },
-          ]}
-          renderRow={({ index, dragHandleProps, isDragging }) => (
-            <QuotationItemRow
-              key={fields[index].id}
-              control={control}
-              index={index}
-              rowErrors={errors.items?.[index] as any}
-              colWidths={COLS}
-              onRemove={() => remove(index)}
-              canRemove={fields.length > 1}
-              dragHandleProps={dragHandleProps}
-              isDragging={isDragging}
-              itemValues={items?.[index]}
-            />
-          )}
+          typeOptions={QUOTATION_ITEM_TYPE_OPTIONS}
+          itemSuggestions={itemSuggestions}
+          onItemSearch={(e, type, index) =>
+            handleItemSearch(e.query, type, index)
+          }
+          onItemSelect={handleItemSelect}
+          selectedItemsMap={selectedItemsMap}
+          hasCatalog={hasCatalog}
         />
       </div>
 
       {/* Totales */}
-      <div className="border-1 border-round border-primary-200 p-3 surface-ground mb-3">
-        <div className="flex justify-content-between mb-1 text-sm">
-          <span className="text-600">Subtotal</span>
-          <span className="font-semibold">$ {fmt(totals.subtotal)}</span>
-        </div>
-        <div className="flex justify-content-between mb-1 text-sm">
-          <span className="text-600">Descuento total</span>
-          <span className="text-red-500">- $ {fmt(totals.discount)}</span>
-        </div>
-        <div className="flex justify-content-between mb-1 text-sm">
-          <span className="text-600">Impuesto</span>
-          <span>+ $ {fmt(totals.tax)}</span>
-        </div>
-        <Divider className="my-2" />
-        <div className="flex justify-content-between text-lg font-bold">
-          <span>Total</span>
-          <span className="text-primary">$ {fmt(totals.total)}</span>
-        </div>
-      </div>
+      <WorkshopFinancialSummary totals={calcResult} />
 
       {/* Notas */}
       <div className="grid">

@@ -526,11 +526,6 @@ const AppMenuEmpresa = () => {
               to: "/empresa/workshop/technician-specialties",
             },
             {
-              label: "Sucursales",
-              icon: "pi pi-fw pi-building",
-              to: "/empresa/workshop/branches",
-            },
-            {
               label: "Turnos",
               icon: "pi pi-fw pi-clock",
               to: "/empresa/workshop/shifts",

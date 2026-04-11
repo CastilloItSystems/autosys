@@ -45,6 +45,13 @@ enum ServiceOrderItemStatus {
   CANCELLED   // Anulada
 }
 
+enum ServiceOrderItemSourceType {
+  MANUAL       // Digitado manualmente en la cotización
+  MATERIAL     // Generado automáticamente desde ServiceOrderMaterial
+  ADDITIONAL   // Generado automáticamente desde ServiceOrderAdditional
+  TOT          // Generado automáticamente desde WorkshopTOT (Trabajo en Otros Talleres)
+}
+
 model ServiceOrder {
   id    String @id @default(cuid())
   folio String // SO-0001, SO-0002 ... generado por empresa
@@ -150,10 +157,6 @@ model ServiceOrder {
   reworksAsOriginal   WorkshopRework[] @relation("ReworkOriginalOrder")
   reworksAsCorrection WorkshopRework[] @relation("ReworkCorrectionOrder")
 
-  // Sucursal
-  branchId String?
-  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
   @@unique([empresaId, folio])
   @@index([empresaId])
   @@index([customerId])
@@ -195,6 +198,10 @@ model ServiceOrderItem {
   // Item-level notes (align with Quote)
   notes       String?             @db.Text
 
+  // Traceabilidad de origen: permite saber si el ítem fue manual o auto-generado desde operativos
+  sourceType  ServiceOrderItemSourceType @default(MANUAL)
+  sourceRefId String?  // ID del registro que originó este ítem (materialId, additionalId, totId). Permite hacer upsert en sincronización.
+
   // LABOR: operación estándar de referencia (opcional)
   operationId String?
   operation   WorkshopOperation? @relation(fields: [operationId], references: [id], onDelete: SetNull)
@@ -215,8 +222,10 @@ model ServiceOrderItem {
 
   @@index([serviceOrderId])
   @@index([serviceOrderId, status]) // Operaciones pendientes/activas por OT
+  @@index([serviceOrderId, sourceType]) // Búsqueda de ítems por origen en una OT
   @@index([operationId])
   @@index([itemId])
+  @@index([sourceRefId]) // Búsqueda rápida en sincronización
   @@map("service_order_items")
 }
 
@@ -244,8 +253,20 @@ model ServiceOrderMaterial {
   quantityConsumed   Decimal @default(0) @db.Decimal(12, 2)
   quantityReturned   Decimal @default(0) @db.Decimal(12, 2)
 
+  // Cantidad consolidada para facturación (equal quantityDispatched)
+  quantity    Decimal @default(0) @db.Decimal(12, 2)
+
   unitCost  Decimal @default(0) @db.Decimal(12, 2)
   unitPrice Decimal @default(0) @db.Decimal(12, 2)
+  discountPct Decimal @default(0) @db.Decimal(5, 2)  // Porcentaje de descuento
+
+  // Impuesto por línea — heredado del catálogo de inventario
+  taxType   TaxType  @default(IVA)  // IVA, EXEMPT, REDUCED
+  taxRate   Decimal  @default(0.16) @db.Decimal(5, 2)  // Porcentaje (ej. 0.16 = 16%)
+  taxAmount Decimal  @default(0) @db.Decimal(12, 2)   // Monto calculado
+
+  // Total calculado para facturación: (quantity * unitPrice - discountPct) * (1 + taxRate)
+  total     Decimal @default(0) @db.Decimal(12, 2)
 
   status    MaterialStatus @default(REQUESTED)
 
@@ -320,6 +341,13 @@ model ServiceOrderAdditionalItem {
   quantity      Decimal  @default(1) @db.Decimal(10, 2)
   unitPrice     Decimal  @default(0) @db.Decimal(12, 2)
   unitCost      Decimal  @default(0) @db.Decimal(12, 2)
+  discountPct   Decimal  @default(0) @db.Decimal(5, 2)  // Porcentaje de descuento
+  
+  // Impuesto por línea
+  taxType       TaxType  @default(IVA)
+  taxRate       Decimal  @default(0.16) @db.Decimal(5, 2)
+  taxAmount     Decimal  @default(0) @db.Decimal(12, 2)
+  
   total         Decimal  @default(0) @db.Decimal(12, 2)
 
   // Aprobación individual del cliente

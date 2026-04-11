@@ -8,10 +8,6 @@ model ServiceType {
   name        String
   description String? @db.Text
 
-  // Tiempo y precio estándar de referencia
-  standardMinutes   Int?     // Duración estimada en minutos
-  standardLaborPrice Decimal? @db.Decimal(12, 2)
-
   isActive  Boolean @default(true)
 
   empresaId String

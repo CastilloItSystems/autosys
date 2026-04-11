@@ -8,15 +8,20 @@ import VehicleSelector from "@/components/common/VehicleSelector";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
-import { AutoComplete } from "primereact/autocomplete";
-import { Button } from "primereact/button";
 import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
+import {
+  WorkshopItemsTable,
+  WorkshopFinancialSummary,
+} from "@/components/workshop/shared";
+import { useServiceOrderCalculation } from "@/hooks/useServiceOrderCalculation";
+import type { WorkshopItemType } from "@/components/workshop/shared";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   serviceOrderService,
   serviceTypeService,
   workshopBayService,
+  workshopOperationService,
 } from "@/app/api/workshop";
 import itemService from "@/app/api/inventory/itemService";
 import {
@@ -30,12 +35,6 @@ import type {
   WorkshopBay,
 } from "@/libs/interfaces/workshop";
 import { SO_PRIORITY_OPTIONS } from "@/components/workshop/shared/ServiceOrderStatusBadge";
-
-const ITEM_TYPE_OPTIONS = [
-  { label: "Mano de obra", value: "LABOR" },
-  { label: "Refacción", value: "PART" },
-  { label: "Otro", value: "OTHER" },
-];
 
 interface ServiceOrderFormProps {
   order: ServiceOrder | null;
@@ -65,21 +64,32 @@ export default function ServiceOrderForm({
   const [bays, setBays] = useState<WorkshopBay[]>([]);
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
 
-  const searchItems = useCallback(async (query: string) => {
-    if (!query || query.length < 2) {
-      setItemSuggestions([]);
-      return;
-    }
-    try {
-      const res = await itemService.search(query);
-      setItemSuggestions(res.data ?? []);
-    } catch {
-      setItemSuggestions([]);
-    }
-  }, []);
+  const searchItems = useCallback(
+    async (query: string, type: WorkshopItemType, index: number) => {
+      if (!query || query.length < 2) {
+        setItemSuggestions([]);
+        return;
+      }
+      try {
+        if (type === "LABOR") {
+          const res = await workshopOperationService.getAll({ search: query });
+          setItemSuggestions(res.data?.items ?? (res as any).data ?? []);
+        } else if (type === "PART" || type === ("CONSUMABLE" as any)) {
+          const res = await itemService.search(query);
+          setItemSuggestions(res.data ?? []);
+        } else {
+          setItemSuggestions([]);
+        }
+      } catch {
+        setItemSuggestions([]);
+      }
+    },
+    [],
+  );
 
   const {
     control,
+    register,
     handleSubmit,
     reset,
     watch,
@@ -107,7 +117,52 @@ export default function ServiceOrderForm({
     },
   });
 
-  const { fields, append, remove } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, move } = useFieldArray({
+    control,
+    name: "items",
+  });
+
+  const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
+    {},
+  );
+
+  const watchedItems = (watch("items") ?? []) as any[];
+  const watchedTypes = watchedItems.map(
+    (i) => (i?.type ?? "LABOR") as WorkshopItemType,
+  );
+  const hasCatalog = watchedTypes.some((t) => t !== "OTHER");
+
+  const calcResult = useServiceOrderCalculation(
+    watchedItems.map((i) => ({
+      type: (i?.type ?? "LABOR") as WorkshopItemType,
+      quantity: Number(i?.quantity ?? 1),
+      unitPrice: Number(i?.unitPrice ?? 0),
+      discountPct: Number(i?.discountPct ?? 0),
+      taxType: i?.taxType ?? "IVA",
+    })),
+  );
+
+  const handleItemSelect = useCallback(
+    (item: any, index: number) => {
+      setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
+      setValue(`items.${index}.description`, item.name ?? "");
+
+      if (item.standardMinutes !== undefined) {
+        setValue(`items.${index}.unitPrice`, item.listPrice ?? 0);
+        setValue(`items.${index}.unitCost` as any, 0);
+      } else {
+        setValue(
+          `items.${index}.unitPrice`,
+          item.pricing?.salePrice ?? item.pricing?.price ?? item.salePrice ?? 0,
+        );
+        setValue(
+          `items.${index}.unitCost` as any,
+          item.pricing?.costPrice ?? item.costPrice ?? 0,
+        );
+      }
+    },
+    [setValue],
+  );
 
   useEffect(() => {
     const init = async () => {
@@ -151,7 +206,10 @@ export default function ServiceOrderForm({
           description: i.description,
           quantity: i.quantity,
           unitPrice: i.unitPrice,
+          unitCost: (i as any).unitCost ?? 0,
           discountPct: i.discountPct ?? 0,
+          taxType: i.taxType ?? "IVA",
+          taxRate: i.taxRate ?? 0.16,
           operationId: i.operationId ?? undefined,
           itemId: i.itemId ?? undefined,
         })),
@@ -203,7 +261,7 @@ export default function ServiceOrderForm({
         observations: data.observations || undefined,
       };
       if (order?.id) {
-        await serviceOrderService.update(order.id, payload);
+        await serviceOrderService.update(order.id, payload as any);
       } else {
         await serviceOrderService.create(payload as any);
       }
@@ -456,237 +514,28 @@ export default function ServiceOrderForm({
         </div>
 
         {/* ── Ítems ──────────────────────────────────────────────────────── */}
+        <WorkshopItemsTable
+          control={control}
+          register={register}
+          fields={fields}
+          append={append}
+          remove={remove}
+          move={move}
+          errors={errors}
+          fieldArrayName="items"
+          calcResult={calcResult}
+          watchedTypes={watchedTypes}
+          itemSuggestions={itemSuggestions}
+          onItemSearch={(e, type, index) => searchItems(e.query, type, index)}
+          onItemSelect={handleItemSelect}
+          selectedItemsMap={selectedItemsMap}
+          title="Ítems de la orden"
+          hasCatalog={hasCatalog}
+        />
+
+        {/* ── Resumen financiero ── */}
         <div className="col-12">
-          <Divider align="left">
-            <span className="text-700 font-semibold text-sm">
-              Ítems de la orden
-            </span>
-          </Divider>
-        </div>
-
-        <div className="col-12">
-          <div className="flex flex-column gap-2">
-            {fields.map((field, index) => {
-              const itemType = watch(`items.${index}.type`);
-              return (
-                <div
-                  key={field.id}
-                  className="p-3 surface-100 border-round grid m-0 gap-2 align-items-end"
-                >
-                  {/* Tipo */}
-                  <div className="col-12 md:col-2 p-0">
-                    <label className="block text-700 text-sm mb-1">Tipo</label>
-                    <Controller
-                      name={`items.${index}.type`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <Dropdown
-                          {...f}
-                          options={ITEM_TYPE_OPTIONS}
-                          placeholder="Tipo"
-                          className={
-                            errors.items?.[index]?.type ? "p-invalid" : ""
-                          }
-                          onChange={(e) => {
-                            f.onChange(e.value);
-                            // Al cambiar de tipo limpiar el itemId si ya no es PART
-                            if (e.value !== "PART") {
-                              setValue(
-                                `items.${index}.itemId` as any,
-                                undefined,
-                              );
-                            }
-                          }}
-                        />
-                      )}
-                    />
-                  </div>
-
-                  {/* Descripción / Selector de catálogo */}
-                  <div className="col-12 md:col-4 p-0">
-                    <label className="block text-700 text-sm mb-1">
-                      {itemType === "PART"
-                        ? "Refacción (catálogo)"
-                        : "Descripción"}
-                    </label>
-                    {itemType === "PART" ? (
-                      <Controller
-                        name={`items.${index}.description`}
-                        control={control}
-                        render={({ field: f }) => (
-                          <AutoComplete
-                            value={f.value}
-                            suggestions={itemSuggestions}
-                            field="name"
-                            completeMethod={(e) => {
-                              f.onChange(e.query);
-                              searchItems(e.query);
-                            }}
-                            onChange={(e) =>
-                              f.onChange(
-                                typeof e.value === "string"
-                                  ? e.value
-                                  : e.value?.name ?? "",
-                              )
-                            }
-                            onSelect={(e) => {
-                              const item = e.value;
-                              f.onChange(item.name ?? "");
-                              setValue(`items.${index}.itemId` as any, item.id);
-                              // Precio de venta del catálogo si existe
-                              const precio =
-                                item.pricing?.salePrice ??
-                                item.pricing?.price ??
-                                0;
-                              const costo = item.pricing?.costPrice ?? 0;
-                              setValue(`items.${index}.unitPrice`, precio);
-                              setValue(`items.${index}.unitCost` as any, costo);
-                            }}
-                            itemTemplate={(item) => (
-                              <div className="flex align-items-center gap-2">
-                                <span className="font-medium">{item.name}</span>
-                                <span className="text-500 text-sm">
-                                  ({item.sku})
-                                </span>
-                              </div>
-                            )}
-                            placeholder="Buscar refacción..."
-                            className={`w-full ${
-                              errors.items?.[index]?.description
-                                ? "p-invalid"
-                                : ""
-                            }`}
-                            forceSelection={false}
-                          />
-                        )}
-                      />
-                    ) : (
-                      <Controller
-                        name={`items.${index}.description`}
-                        control={control}
-                        render={({ field: f }) => (
-                          <InputText
-                            {...f}
-                            placeholder="Descripción del servicio"
-                            className={
-                              errors.items?.[index]?.description
-                                ? "p-invalid"
-                                : ""
-                            }
-                          />
-                        )}
-                      />
-                    )}
-                    {errors.items?.[index]?.description && (
-                      <small className="p-error">
-                        {errors.items[index]?.description?.message}
-                      </small>
-                    )}
-                  </div>
-
-                  {/* Cantidad */}
-                  <div className="col-6 md:col-1 p-0">
-                    <label className="block text-700 text-sm mb-1">Cant.</label>
-                    <Controller
-                      name={`items.${index}.quantity`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <InputNumber
-                          value={f.value}
-                          onValueChange={(e) => f.onChange(e.value ?? 1)}
-                          min={0.01}
-                          minFractionDigits={0}
-                          maxFractionDigits={2}
-                          className={
-                            errors.items?.[index]?.quantity ? "p-invalid" : ""
-                          }
-                        />
-                      )}
-                    />
-                  </div>
-
-                  {/* Precio unitario */}
-                  <div className="col-6 md:col-2 p-0">
-                    <label className="block text-700 text-sm mb-1">
-                      Precio unit.
-                    </label>
-                    <Controller
-                      name={`items.${index}.unitPrice`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <InputNumber
-                          value={f.value}
-                          onValueChange={(e) => f.onChange(e.value ?? 0)}
-                          mode="currency"
-                          currency="USD"
-                          locale="es-VE"
-                          minFractionDigits={2}
-                          min={0}
-                          className={
-                            errors.items?.[index]?.unitPrice ? "p-invalid" : ""
-                          }
-                        />
-                      )}
-                    />
-                  </div>
-
-                  {/* Descuento */}
-                  <div className="col-6 md:col-1 p-0">
-                    <label className="block text-700 text-sm mb-1">
-                      Dto. %
-                    </label>
-                    <Controller
-                      name={`items.${index}.discountPct`}
-                      control={control}
-                      render={({ field: f }) => (
-                        <InputNumber
-                          value={f.value}
-                          onValueChange={(e) => f.onChange(e.value ?? 0)}
-                          suffix="%"
-                          min={0}
-                          max={100}
-                        />
-                      )}
-                    />
-                  </div>
-
-                  {/* Eliminar */}
-                  <div className="col-6 md:col-1 p-0 flex align-items-end pb-1">
-                    <Button
-                      icon="pi pi-trash"
-                      rounded
-                      text
-                      severity="danger"
-                      type="button"
-                      onClick={() => remove(index)}
-                      tooltip="Quitar ítem"
-                    />
-                  </div>
-                </div>
-              );
-            })}
-
-            <Button
-              type="button"
-              label="Agregar ítem"
-              icon="pi pi-plus"
-              outlined
-              size="small"
-              className="w-auto align-self-start mt-1"
-              onClick={() =>
-                append({
-                  type: "LABOR",
-                  description: "",
-                  quantity: 1,
-                  unitPrice: 0,
-                  unitCost: 0,
-                  discountPct: 0,
-                  taxType: "IVA",
-                  taxRate: 0.16,
-                })
-              }
-            />
-          </div>
+          <WorkshopFinancialSummary totals={calcResult} />
         </div>
       </div>
     </form>

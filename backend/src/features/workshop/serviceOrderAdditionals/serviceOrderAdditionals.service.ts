@@ -1,10 +1,11 @@
 // backend/src/features/workshop/serviceOrderAdditionals/serviceOrderAdditionals.service.ts
 
-import type { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import { PrismaClient, type Prisma } from '../../../generated/prisma/client.js'
 import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { syncAfterAdditionalChange } from '../integrations/billing-sync.service.js'
 import type {
   ICreateServiceOrderAdditional,
   IUpdateServiceOrderAdditional,
@@ -22,7 +23,12 @@ export async function findAll(
   db: DbType,
   serviceOrderId: string | undefined,
   filters: IServiceOrderAdditionalFilters
-): Promise<{ data: IServiceOrderAdditionalWithRelations[]; page: number; limit: number; total: number }> {
+): Promise<{
+  data: IServiceOrderAdditionalWithRelations[]
+  page: number
+  limit: number
+  total: number
+}> {
   const { status, search, page = 1, limit = 50 } = filters
 
   const where: any = {}
@@ -137,12 +143,25 @@ export async function createAdditionalItem(
     quantity?: number
     unitPrice?: number
     unitCost?: number
+    discountPct?: number
+    taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+    taxRate?: number
   }
 ) {
   await findById(db, additionalId)
   const qty = data.quantity ?? 1
   const price = data.unitPrice ?? 0
-  const total = qty * price
+  const discountPct = data.discountPct ?? 0
+  const taxType = data.taxType ?? 'IVA'
+  const taxRate = data.taxRate ?? 0.16
+
+  // Calculate tax: (qty * price - discount) * taxRate
+  const subtotal = qty * price
+  const discountAmount = (discountPct / 100) * subtotal
+  const baseForTax = subtotal - discountAmount
+  const taxAmount = Math.round(baseForTax * taxRate * 100) / 100
+  const total = baseForTax + taxAmount
+
   return (db as PrismaClient).serviceOrderAdditionalItem.create({
     data: {
       additionalId,
@@ -152,6 +171,10 @@ export async function createAdditionalItem(
       quantity: qty,
       unitPrice: price,
       unitCost: data.unitCost ?? 0,
+      discountPct,
+      taxType,
+      taxRate,
+      taxAmount,
       total,
     },
   })
@@ -165,23 +188,53 @@ export async function updateAdditionalItem(
     quantity?: number
     unitPrice?: number
     unitCost?: number
+    discountPct?: number
+    taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+    taxRate?: number
     clientApproved?: boolean | null
   }
 ) {
-  const existing = await (db as PrismaClient).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
+  const existing = await (
+    db as PrismaClient
+  ).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
   if (!existing) throw new NotFoundError('Ítem adicional no encontrado')
+
   const qty = data.quantity ?? Number(existing.quantity)
   const price = data.unitPrice ?? Number(existing.unitPrice)
+  const discountPct = data.discountPct ?? Number(existing.discountPct)
+  const taxType = data.taxType ?? existing.taxType
+  const taxRate = data.taxRate ?? Number(existing.taxRate)
+
+  // Recalculate tax
+  const subtotal = qty * price
+  const discountAmount = (discountPct / 100) * subtotal
+  const baseForTax = subtotal - discountAmount
+  const taxAmount = Math.round(baseForTax * taxRate * 100) / 100
+  const total = baseForTax + taxAmount
+
   return (db as PrismaClient).serviceOrderAdditionalItem.update({
     where: { id: itemId },
-    data: { ...data, quantity: qty, unitPrice: price, total: qty * price },
+    data: {
+      ...data,
+      quantity: qty,
+      unitPrice: price,
+      discountPct,
+      taxType,
+      taxRate,
+      taxAmount,
+      total,
+    },
   })
 }
 
 export async function deleteAdditionalItem(db: DbType, itemId: string) {
-  const existing = await (db as PrismaClient).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
+  const existing = await (
+    db as PrismaClient
+  ).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
   if (!existing) throw new NotFoundError('Ítem adicional no encontrado')
-  await (db as PrismaClient).serviceOrderAdditionalItem.delete({ where: { id: itemId } })
+  await (db as PrismaClient).serviceOrderAdditionalItem.delete({
+    where: { id: itemId },
+  })
 }
 
 // ── Status machine ────────────────────────────────────────────────────────────
@@ -213,6 +266,19 @@ export async function changeStatus(
     data: { status },
     include: BASE_INCLUDE,
   })
+
+  // Trigger billing sync when additional is approved
+  if (status === 'APPROVED' && db instanceof PrismaClient) {
+    try {
+      await syncAfterAdditionalChange(db, id)
+    } catch (err: any) {
+      console.error(
+        `[workshop-additionals] Error syncing billing for additional ${id}:`,
+        err?.message
+      )
+      // Don't throw - sync error shouldn't block the status change
+    }
+  }
 
   return updated as unknown as IServiceOrderAdditionalWithRelations
 }

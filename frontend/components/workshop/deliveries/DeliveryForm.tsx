@@ -141,7 +141,12 @@ export default function DeliveryForm({
                     setValue("deliveredBy", "");
                   }
                 }}
-                statusFilter={["QUALITY_CHECK", "READY", "DELIVERED", "INVOICED"]}
+                statusFilter={[
+                  "QUALITY_CHECK",
+                  "READY",
+                  "DELIVERED",
+                  "INVOICED",
+                ]}
                 invalid={!!errors.serviceOrderId}
                 placeholder="Buscar orden de trabajo..."
               />

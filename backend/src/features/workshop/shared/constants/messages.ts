@@ -70,15 +70,6 @@ export const WORKSHOP_MESSAGES = {
     activated: 'Bahía activada exitosamente',
     deactivated: 'Bahía desactivada exitosamente',
   },
-  workshopBranch: {
-    created: 'Sucursal creada exitosamente',
-    updated: 'Sucursal actualizada exitosamente',
-    deleted: 'Sucursal eliminada exitosamente',
-    notFound: 'Sucursal no encontrada',
-    codeExists: 'El código de sucursal ya existe',
-    activated: 'Sucursal activada exitosamente',
-    deactivated: 'Sucursal desactivada exitosamente',
-  },
   workshopShift: {
     created: 'Turno creado exitosamente',
     updated: 'Turno actualizado exitosamente',

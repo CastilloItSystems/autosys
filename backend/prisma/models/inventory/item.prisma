@@ -94,6 +94,8 @@ model Item {
   serviceOrderMaterials ServiceOrderMaterial[]
   // Workshop: repuestos sugeridos en diagnósticos
   diagnosisSuggestedParts DiagnosisSuggestedPart[]
+  // Workshop: repuestos sugeridos por operación estándar
+  operationSuggestedMaterials OperationSuggestedMaterial[]
   // Auditoría con historial de cambios
   historial      Json?
 

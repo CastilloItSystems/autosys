@@ -158,7 +158,6 @@ export interface RegisterApprovalInput {
 
 export interface ConvertToSOInput {
   advisorId?: string;
-  branchId?: string;
   notes?: string;
 }
 

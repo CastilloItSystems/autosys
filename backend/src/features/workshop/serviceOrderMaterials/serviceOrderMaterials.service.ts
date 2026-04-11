@@ -1,12 +1,17 @@
 // backend/src/features/workshop/serviceOrderMaterials/serviceOrderMaterials.service.ts
 
-import type { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
+import {
+  PrismaClient,
+  type Prisma,
+  type TaxType,
+} from '../../../generated/prisma/client.js'
 import {
   NotFoundError,
   ConflictError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
 import stockService from '../../inventory/stock/stock.service.js'
+import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
 import type {
   ICreateServiceOrderMaterial,
   IUpdateServiceOrderMaterial,
@@ -25,7 +30,12 @@ export async function findAll(
   db: DbType,
   serviceOrderId: string,
   filters: IServiceOrderMaterialFilters
-): Promise<{ data: IServiceOrderMaterialWithRelations[]; page: number; limit: number; total: number }> {
+): Promise<{
+  data: IServiceOrderMaterialWithRelations[]
+  page: number
+  limit: number
+  total: number
+}> {
   const { status, search, page = 1, limit = 50 } = filters
 
   const where: any = { serviceOrderId }
@@ -91,12 +101,27 @@ export async function create(
 
   if (!serviceOrder) throw new NotFoundError('Orden de servicio no encontrada')
 
-  // Verify item exists if provided
+  // Verify item exists if provided and inherit tax fields
+  let taxType = 'IVA'
+  let taxRate = 0.16
   if (data.itemId) {
     const item = await (db as PrismaClient).item.findUnique({
       where: { id: data.itemId },
+      select: { id: true, name: true, pricing: true },
     })
     if (!item) throw new NotFoundError('Artículo no encontrado')
+
+    // Inherit tax settings from item catalog pricing
+    if ((item.pricing as any)?.taxType) taxType = (item.pricing as any).taxType
+    if (
+      (item.pricing as any)?.taxRate !== null &&
+      (item.pricing as any)?.taxRate !== undefined
+    ) {
+      taxRate =
+        typeof (item.pricing as any).taxRate === 'string'
+          ? parseFloat((item.pricing as any).taxRate)
+          : Number((item.pricing as any).taxRate)
+    }
   }
 
   const material = await (db as PrismaClient).serviceOrderMaterial.create({
@@ -107,8 +132,14 @@ export async function create(
       quantityDispatched: Number(data.quantityDispatched || 0),
       quantityConsumed: Number(data.quantityConsumed || 0),
       quantityReturned: Number(data.quantityReturned || 0),
+      quantity: 0, // Will be set to quantityDispatched when DISPATCHED
       unitPrice: Number(data.unitPrice),
       unitCost: Number(data.unitCost || 0),
+      discountPct: Number(data.discountPct || 0),
+      taxType: taxType as TaxType,
+      taxRate,
+      taxAmount: 0, // Will be calculated during sync
+      total: 0, // Will be calculated when quantity is set
       status: data.status || 'REQUESTED',
       serviceOrderId: data.serviceOrderId,
       itemId: data.itemId,
@@ -126,11 +157,12 @@ export async function update(
   id: string,
   data: IUpdateServiceOrderMaterial
 ): Promise<IServiceOrderMaterialWithRelations> {
-  await findById(db, id)
+  const existing = await findById(db, id)
 
   if (data.itemId) {
     const item = await (db as PrismaClient).item.findUnique({
       where: { id: data.itemId },
+      select: { id: true, name: true, pricing: true },
     })
     if (!item) throw new NotFoundError('Artículo no encontrado')
   }
@@ -151,10 +183,42 @@ export async function update(
   if (data.unitPrice !== undefined)
     updateData.unitPrice = Number(data.unitPrice)
   if (data.unitCost !== undefined) updateData.unitCost = Number(data.unitCost)
+  if (data.discountPct !== undefined)
+    updateData.discountPct = Number(data.discountPct)
   if (data.status !== undefined) updateData.status = data.status
   if (data.serviceOrderId !== undefined)
     updateData.serviceOrderId = data.serviceOrderId
   if (data.itemId !== undefined) updateData.itemId = data.itemId
+
+  // If itemId changed, re-inherit tax settings
+  if (data.itemId && data.itemId !== existing.itemId) {
+    const newItem = await (db as PrismaClient).item.findUnique({
+      where: { id: data.itemId },
+      select: { pricing: true },
+    })
+    if (newItem) {
+      updateData.taxType = (newItem.pricing as any)?.taxType as TaxType
+      updateData.taxRate = (newItem.pricing as any)?.taxRate || 0.16
+    }
+  }
+
+  // Recalculate quantity and total based on current dispatched quantity
+  const quantityDispatched =
+    updateData.quantityDispatched ?? Number(existing.quantityDispatched || 0)
+  const unitPrice = updateData.unitPrice ?? Number(existing.unitPrice || 0)
+  const discountPct =
+    updateData.discountPct ?? Number(existing.discountPct || 0)
+  const taxRate = updateData.taxRate ?? Number(existing.taxRate || 0.16)
+
+  if (quantityDispatched > 0) {
+    updateData.quantity = quantityDispatched
+    const subtotal = quantityDispatched * unitPrice
+    const discountAmount = (discountPct / 100) * subtotal
+    const baseForTax = subtotal - discountAmount
+    const taxAmount = Math.round(baseForTax * taxRate * 100) / 100
+    updateData.taxAmount = taxAmount
+    updateData.total = Math.round((baseForTax + taxAmount) * 100) / 100
+  }
 
   const material = await (db as PrismaClient).serviceOrderMaterial.update({
     where: { id },
@@ -184,7 +248,13 @@ export async function recordMovement(
   materialId: string,
   userId: string,
   data: {
-    type: 'RESERVATION' | 'DISPATCH' | 'CONSUMPTION' | 'RETURN' | 'ADJUSTMENT' | 'CANCELLATION'
+    type:
+      | 'RESERVATION'
+      | 'DISPATCH'
+      | 'CONSUMPTION'
+      | 'RETURN'
+      | 'ADJUSTMENT'
+      | 'CANCELLATION'
     quantity: number
     previousQuantity?: number
     warehouseId?: string
@@ -260,7 +330,9 @@ export async function changeStatus(
           db
         )
       } else if (status === 'DISPATCHED') {
-        const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
+        const qty =
+          Number(material.quantityReserved) ||
+          Number(material.quantityRequested)
         // 1. Liberar la reserva
         await stockService.releaseReservation(
           { itemId, warehouseId, quantity: qty },
@@ -270,16 +342,29 @@ export async function changeStatus(
         )
         // 2. Descontar del stock físico
         await stockService.adjust(
-          { itemId, warehouseId, quantityChange: -qty, reason: `Despacho OT material ${id}` },
+          {
+            itemId,
+            warehouseId,
+            quantityChange: -qty,
+            reason: `Despacho OT material ${id}`,
+          },
           empresaId,
           userId,
           db
         )
       } else if (status === 'RETURNED') {
-        const returnQty = context?.quantityReturned ?? Number(material.quantityDispatched) ?? Number(material.quantityRequested)
+        const returnQty =
+          context?.quantityReturned ??
+          Number(material.quantityDispatched) ??
+          Number(material.quantityRequested)
         // Reponer al stock físico
         await stockService.adjust(
-          { itemId, warehouseId, quantityChange: returnQty, reason: `Devolución OT material ${id}` },
+          {
+            itemId,
+            warehouseId,
+            quantityChange: returnQty,
+            reason: `Devolución OT material ${id}`,
+          },
           empresaId,
           userId,
           db
@@ -297,7 +382,10 @@ export async function changeStatus(
       // Si el error viene de insuficiencia de stock, lo propagamos al usuario
       if (err?.statusCode === 400 || err?.name === 'BadRequestError') throw err
       // Otros errores de inventario: logear pero no bloquear el cambio de estado
-      console.error(`[workshop-materials] Error ajustando stock para material ${id}:`, err?.message)
+      console.error(
+        `[workshop-materials] Error ajustando stock para material ${id}:`,
+        err?.message
+      )
     }
   }
 
@@ -310,7 +398,35 @@ export async function changeStatus(
     quantityUpdate.quantityConsumed = Number(material.quantityDispatched)
   } else if (status === 'RETURNED') {
     quantityUpdate.quantityReturned =
-      context?.quantityReturned ?? Number(material.quantityDispatched) ?? Number(material.quantityRequested)
+      context?.quantityReturned ??
+      Number(material.quantityDispatched) ??
+      Number(material.quantityRequested)
+  }
+
+  // Update quantity and total when dispatched
+  if (status === 'DISPATCHED') {
+    const qty =
+      Number(material.quantityReserved) || Number(material.quantityRequested)
+    const unitPrice = Number(material.unitPrice || 0)
+    const discountPct = Number(material.discountPct || 0)
+    const taxRate = Number(material.taxRate || 0.16)
+
+    const subtotal = qty * unitPrice
+    const discountAmount = (discountPct / 100) * subtotal
+    const baseForTax = subtotal - discountAmount
+    const taxAmount = Math.round(baseForTax * taxRate * 100) / 100
+    const total = Math.round((baseForTax + taxAmount) * 100) / 100
+
+    quantityUpdate.quantity = qty
+    quantityUpdate.taxAmount = taxAmount
+    quantityUpdate.total = total
+  } else if (status === 'RETURNED') {
+    const returnQty =
+      context?.quantityReturned ??
+      Number(material.quantityDispatched) ??
+      Number(material.quantityRequested)
+    // Keep quantity as is (it represents what was dispatched)
+    quantityUpdate.quantity = Number(material.quantityDispatched || 0)
   }
 
   const updated = await (db as PrismaClient).serviceOrderMaterial.update({
@@ -318,6 +434,22 @@ export async function changeStatus(
     data: { status, ...quantityUpdate },
     include: BASE_INCLUDE,
   })
+
+  // Trigger billing sync after critical status changes
+  if (
+    (status === 'DISPATCHED' || status === 'RETURNED') &&
+    db instanceof PrismaClient
+  ) {
+    try {
+      await syncAfterMaterialChange(db, id)
+    } catch (err: any) {
+      console.error(
+        `[workshop-materials] Error syncing billing for material ${id}:`,
+        err?.message
+      )
+      // Don't throw - sync error shouldn't block the material status change
+    }
+  }
 
   return updated as unknown as IServiceOrderMaterialWithRelations
 }

@@ -18,6 +18,7 @@ import { SelectButton } from "primereact/selectbutton";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { ProgressBar } from "primereact/progressbar";
+import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 import serviceOrderService from "@/app/api/workshop/serviceOrderService";
 import workshopBayService from "@/app/api/workshop/workshopBayService";
@@ -32,6 +33,8 @@ import PlanningKanbanCard from "./PlanningKanbanCard";
 import ServiceOrderForm from "@/components/workshop/service-orders/ServiceOrderForm";
 
 // ── Status config ─────────────────────────────────────────────────────────────
+// NOTE: Keep `NEXT_STATUSES` in sync with backend VALID_TRANSITIONS
+// backend source: backend/src/features/workshop/serviceOrders/serviceOrders.service.ts
 
 const BOARD_STATUSES: {
   id: ServiceOrderStatus;
@@ -68,6 +71,13 @@ const BOARD_STATUSES: {
     color: "#ef4444",
     icon: "pi pi-box",
   },
+  // Nueva columna: WAITING_AUTH (esperando autorización)
+  {
+    id: "WAITING_AUTH",
+    label: "Esperando autorización",
+    color: "#f97316",
+    icon: "pi pi-lock",
+  },
   {
     id: "QUALITY_CHECK",
     label: "Control calidad",
@@ -75,6 +85,13 @@ const BOARD_STATUSES: {
     icon: "pi pi-shield",
   },
   { id: "READY", label: "Lista", color: "#22c55e", icon: "pi pi-check-circle" },
+  // Nueva columna: DELIVERED (entregada)
+  {
+    id: "DELIVERED",
+    label: "Entregada",
+    color: "#16a34a",
+    icon: "pi pi-truck",
+  },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -87,18 +104,31 @@ const PRIORITY_OPTIONS = [
 
 // ── Status change dialog ──────────────────────────────────────────────────────
 
+// Partial map of allowed next statuses (frontend copy of backend VALID_TRANSITIONS)
+// Keep synchronized with: backend/src/features/workshop/serviceOrders/serviceOrders.service.ts
 const NEXT_STATUSES: Partial<Record<ServiceOrderStatus, ServiceOrderStatus[]>> =
   {
-    OPEN: ["DIAGNOSING", "APPROVED", "CANCELLED"],
-    DIAGNOSING: ["PENDING_APPROVAL", "OPEN", "CANCELLED"],
-    PENDING_APPROVAL: ["APPROVED", "DIAGNOSING", "CANCELLED"],
-    APPROVED: ["IN_PROGRESS", "PENDING_APPROVAL"],
-    IN_PROGRESS: ["PAUSED", "WAITING_PARTS", "QUALITY_CHECK"],
+    DRAFT: ["OPEN", "CANCELLED"],
+    OPEN: ["DIAGNOSING", "IN_PROGRESS", "CANCELLED"],
+    DIAGNOSING: ["PENDING_APPROVAL", "APPROVED", "CANCELLED"],
+    PENDING_APPROVAL: ["APPROVED", "CANCELLED"],
+    APPROVED: ["IN_PROGRESS", "CANCELLED"],
+    IN_PROGRESS: [
+      "PAUSED",
+      "WAITING_PARTS",
+      "WAITING_AUTH",
+      "QUALITY_CHECK",
+      "CANCELLED",
+    ],
     PAUSED: ["IN_PROGRESS", "CANCELLED"],
-    WAITING_PARTS: ["IN_PROGRESS", "PAUSED"],
-    WAITING_AUTH: ["APPROVED", "CANCELLED"],
+    WAITING_PARTS: ["IN_PROGRESS", "CANCELLED"],
+    WAITING_AUTH: ["IN_PROGRESS", "CANCELLED"],
     QUALITY_CHECK: ["READY", "IN_PROGRESS"],
-    READY: ["DELIVERED"],
+    READY: ["DELIVERED", "IN_PROGRESS"],
+    DELIVERED: ["INVOICED"],
+    INVOICED: ["CLOSED"],
+    CLOSED: [],
+    CANCELLED: [],
   };
 
 const STATUS_LABELS: Record<string, string> = {
@@ -470,17 +500,63 @@ export default function PlanningBoard() {
       const newStatus = over.id as ServiceOrderStatus;
       if (order.status === newStatus) return;
       const prev = [...orders];
-      setOrders((curr) =>
-        curr.map((o) => (o.id === order.id ? { ...o, status: newStatus } : o)),
-      );
-      try {
-        await serviceOrderService.updateStatus(order.id, {
-          status: newStatus,
-        } as UpdateServiceOrderStatusInput);
-      } catch (err) {
-        setOrders(prev);
-        handleFormError(err, toast);
+
+      const performUpdate = async () => {
+        setOrders((curr) =>
+          curr.map((o) =>
+            o.id === order.id ? { ...o, status: newStatus } : o,
+          ),
+        );
+        try {
+          await serviceOrderService.updateStatus(order.id, {
+            status: newStatus,
+          } as UpdateServiceOrderStatusInput);
+        } catch (err) {
+          setOrders(prev);
+          handleFormError(err, toast);
+        }
+      };
+
+      // Lightweight UX safeguards: confirm destructive or side-effecting transitions
+      if (newStatus === "CANCELLED") {
+        confirmDialog({
+          message: `¿Confirmar cancelar OT ${order.folio}? Esta acción marcará la OT como cancelada.`,
+          header: "Confirmar Cancelación",
+          icon: "pi pi-exclamation-triangle",
+          acceptClassName: "p-button-danger",
+          acceptLabel: "Sí, cancelar",
+          rejectLabel: "No",
+          accept: performUpdate,
+        });
+        return;
       }
+
+      if (newStatus === "QUALITY_CHECK") {
+        confirmDialog({
+          message: `Mover OT ${order.folio} a 'Control de calidad'. Esto iniciará el proceso de control de calidad. ¿Continuar?`,
+          header: "Confirmar Control de Calidad",
+          icon: "pi pi-shield",
+          acceptLabel: "Continuar",
+          rejectLabel: "No",
+          accept: performUpdate,
+        });
+        return;
+      }
+
+      if (newStatus === "DELIVERED") {
+        confirmDialog({
+          message: `Mover OT ${order.folio} a 'Entregada'. Esto puede generar una entrega automática. ¿Continuar?`,
+          header: "Confirmar Entrega",
+          icon: "pi pi-truck",
+          acceptLabel: "Continuar",
+          rejectLabel: "No",
+          accept: performUpdate,
+        });
+        return;
+      }
+
+      // No confirmation needed for other transitions
+      performUpdate();
     }
   };
 
@@ -661,6 +737,8 @@ export default function PlanningBoard() {
         onSaved={handleStatusSaved}
         toast={toast}
       />
+
+      <ConfirmDialog />
     </>
   );
 }

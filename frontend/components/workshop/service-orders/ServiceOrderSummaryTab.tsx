@@ -4,26 +4,17 @@ import { Card } from "primereact/card";
 import type { ServiceOrder } from "@/libs/interfaces/workshop";
 import WorkshopFormSection from "@/components/workshop/shared/WorkshopFormSection";
 import { ServiceOrderStatusBadge } from "@/components/workshop/shared/ServiceOrderStatusBadge";
+import { WorkshopFinancialSummary } from "@/components/workshop/shared";
+import type { WorkshopCalculationResult } from "@/hooks/useServiceOrderCalculation";
 
 interface ServiceOrderSummaryTabProps {
   serviceOrder: ServiceOrder;
 }
 
-const fmt = (val?: number | null) =>
-  val != null
-    ? val.toLocaleString("es-MX", { style: "currency", currency: "MXN" })
-    : "—";
-
 const fmtDate = (val?: string | null) =>
   val ? new Date(val).toLocaleDateString("es-MX") : "—";
 
-const Field = ({
-  label,
-  value,
-}: {
-  label: string;
-  value: React.ReactNode;
-}) => (
+const Field = ({ label, value }: { label: string; value: React.ReactNode }) => (
   <div className="mb-3">
     <div className="text-500 text-sm mb-1">{label}</div>
     <div className="text-900 font-medium">{value ?? "—"}</div>
@@ -55,10 +46,16 @@ export default function ServiceOrderSummaryTab({
               <Field label="Origen" value={serviceOrder.origin ?? "—"} />
             </div>
             <div className="col-12 md:col-6">
-              <Field label="Fecha recepción" value={fmtDate(serviceOrder.receivedAt)} />
+              <Field
+                label="Fecha recepción"
+                value={fmtDate(serviceOrder.receivedAt)}
+              />
             </div>
             <div className="col-12 md:col-6">
-              <Field label="Entrega prometida" value={fmtDate(serviceOrder.estimatedDelivery)} />
+              <Field
+                label="Entrega prometida"
+                value={fmtDate(serviceOrder.estimatedDelivery)}
+              />
             </div>
           </div>
         </WorkshopFormSection>
@@ -96,36 +93,28 @@ export default function ServiceOrderSummaryTab({
 
       {/* Right column */}
       <div className="col-12 lg:col-4">
-        <Card title="Resumen Financiero" className="mb-3">
-          <div className="flex flex-column gap-2">
-            <div className="flex justify-content-between">
-              <span className="text-600">Mano de obra</span>
-              <span className="font-medium">{fmt(serviceOrder.laborTotal)}</span>
+        {/* Financial summary */}
+        {(() => {
+          const totals: WorkshopCalculationResult = {
+            laborTotal: serviceOrder.laborTotal ?? 0,
+            partsTotal: serviceOrder.partsTotal ?? 0,
+            otherTotal: serviceOrder.otherTotal ?? 0,
+            subtotalBruto: serviceOrder.subtotal ?? 0,
+            baseImponible: serviceOrder.subtotal ?? 0,
+            baseExenta: 0,
+            taxAmount: serviceOrder.taxAmt ?? 0,
+            total: serviceOrder.total ?? 0,
+            items: [],
+          };
+          return (
+            <div className="mb-3">
+              <div className="text-xl font-bold text-900 mb-2">
+                Resumen Financiero
+              </div>
+              <WorkshopFinancialSummary totals={totals} />
             </div>
-            <div className="flex justify-content-between">
-              <span className="text-600">Repuestos</span>
-              <span className="font-medium">{fmt(serviceOrder.partsTotal)}</span>
-            </div>
-            <div className="flex justify-content-between">
-              <span className="text-600">Otros</span>
-              <span className="font-medium">{fmt(serviceOrder.otherTotal)}</span>
-            </div>
-            <div className="flex justify-content-between border-top-1 surface-border pt-2">
-              <span className="text-600">Subtotal</span>
-              <span className="font-medium">{fmt(serviceOrder.subtotal)}</span>
-            </div>
-            <div className="flex justify-content-between">
-              <span className="text-600">IVA</span>
-              <span className="font-medium">{fmt(serviceOrder.taxAmt)}</span>
-            </div>
-            <div className="flex justify-content-between border-top-1 surface-border pt-2">
-              <span className="text-900 font-bold">Total</span>
-              <span className="text-primary text-xl font-bold">
-                {fmt(serviceOrder.total)}
-              </span>
-            </div>
-          </div>
-        </Card>
+          );
+        })()}
 
         <Card title="Asignación">
           <div className="flex flex-column gap-3">

@@ -3,7 +3,6 @@ import React, { useEffect, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
-import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { serviceTypeService } from "@/app/api/workshop";
@@ -40,7 +39,7 @@ export default function ServiceTypeForm({
   } = useForm<CreateServiceTypeForm>({
     resolver: zodResolver(serviceType ? updateServiceTypeSchema : createServiceTypeSchema),
     mode: "onBlur",
-    defaultValues: { code: "", name: "", description: "", standardMinutes: undefined, standardLaborPrice: undefined },
+    defaultValues: { code: "", name: "", description: "" },
   });
 
   useEffect(() => {
@@ -55,11 +54,9 @@ export default function ServiceTypeForm({
         code: serviceType.code ?? "",
         name: serviceType.name ?? "",
         description: serviceType.description ?? "",
-        standardMinutes: serviceType.standardMinutes ?? undefined,
-        standardLaborPrice: serviceType.standardLaborPrice ?? undefined,
       });
     } else {
-      reset({ code: "", name: "", description: "", standardMinutes: undefined, standardLaborPrice: undefined });
+      reset({ code: "", name: "", description: "" });
     }
   }, [serviceType, reset, isLoading]);
 
@@ -136,54 +133,6 @@ export default function ServiceTypeForm({
             )}
           />
           {errors.name && <small className="p-error block mt-1">{errors.name.message}</small>}
-        </div>
-
-        {/* Minutos estándar */}
-        <div className="col-12 md:col-6">
-          <label htmlFor="standardMinutes" className="block text-900 font-medium mb-2">
-            Minutos estándar
-          </label>
-          <Controller
-            name="standardMinutes"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="standardMinutes"
-                value={field.value ?? null}
-                onValueChange={(e) => field.onChange(e.value ?? undefined)}
-                min={0}
-                placeholder="Ej: 60"
-                className={errors.standardMinutes ? "p-invalid" : ""}
-              />
-            )}
-          />
-          {errors.standardMinutes && <small className="p-error block mt-1">{errors.standardMinutes.message}</small>}
-        </div>
-
-        {/* Precio mano de obra */}
-        <div className="col-12 md:col-6">
-          <label htmlFor="standardLaborPrice" className="block text-900 font-medium mb-2">
-            Precio mano de obra
-          </label>
-          <Controller
-            name="standardLaborPrice"
-            control={control}
-            render={({ field }) => (
-              <InputNumber
-                id="standardLaborPrice"
-                value={field.value ?? null}
-                onValueChange={(e) => field.onChange(e.value ?? undefined)}
-                mode="currency"
-                currency="MXN"
-                locale="es-MX"
-                minFractionDigits={2}
-                min={0}
-                placeholder="0.00"
-                className={errors.standardLaborPrice ? "p-invalid" : ""}
-              />
-            )}
-          />
-          {errors.standardLaborPrice && <small className="p-error block mt-1">{errors.standardLaborPrice.message}</small>}
         </div>
 
         {/* Descripción */}

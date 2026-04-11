@@ -127,14 +127,6 @@ export default function ServiceTypeList() {
     <span className="font-bold text-primary">{rowData.code}</span>
   );
 
-  const minutesBodyTemplate = (rowData: ServiceType) =>
-    rowData.standardMinutes != null ? `${rowData.standardMinutes} min` : "—";
-
-  const priceBodyTemplate = (rowData: ServiceType) =>
-    rowData.standardLaborPrice != null
-      ? new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(rowData.standardLaborPrice)
-      : "—";
-
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
@@ -186,8 +178,6 @@ export default function ServiceTypeList() {
           <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
           <Column field="name" header="Nombre" sortable style={{ minWidth: "180px" }} />
           <Column field="description" header="Descripción" style={{ minWidth: "220px" }} />
-          <Column field="standardMinutes" header="Min. estándar" body={minutesBodyTemplate} style={{ minWidth: "120px" }} />
-          <Column field="standardLaborPrice" header="Precio mano de obra" body={priceBodyTemplate} style={{ minWidth: "150px" }} />
           <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
           <Column
             header="Acciones"

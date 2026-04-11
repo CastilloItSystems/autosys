@@ -454,7 +454,6 @@ export async function convertToServiceOrder(
         empresaId,
         createdBy: userId,
         advisorId: data.advisorId ?? undefined,
-        branchId: data.branchId ?? undefined,
         internalNotes: data.notes ?? null,
         laborTotal: quotation.laborTotal,
         partsTotal: quotation.partsTotal,

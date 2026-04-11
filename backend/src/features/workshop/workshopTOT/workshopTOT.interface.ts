@@ -65,6 +65,10 @@ export interface ICreateTOT {
   technicalInstruction?: string
   estimatedReturnAt?: Date
   providerQuote?: number
+  clientPrice?: number | null
+  discountPct?: number
+  taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+  taxRate?: number
   notes?: string
 }
 
@@ -84,6 +88,10 @@ export interface IUpdateTOT {
   providerQuote?: number | null
   finalCost?: number | null
   providerInvoiceRef?: string | null
+  clientPrice?: number | null
+  discountPct?: number
+  taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+  taxRate?: number
   notes?: string | null
 }
 

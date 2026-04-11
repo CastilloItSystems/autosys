@@ -84,7 +84,6 @@ export const registerApprovalSchema = Joi.object({
 
 export const convertToSOSchema = Joi.object({
   advisorId: Joi.string().optional().allow(null, ''),
-  branchId: Joi.string().optional().allow(null, ''),
   notes: Joi.string().trim().max(1000).optional().allow(''),
 })
 

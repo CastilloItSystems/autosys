@@ -4,8 +4,12 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputTextarea } from "primereact/inputtextarea";
 import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
-import ItemsTable, { ColumnDef } from "@/components/inventory/common/ItemsTable";
-import AdditionalItemRow, { AdditionalItemRowColWidths } from "./AdditionalItemRow";
+import {
+  WorkshopItemsTable,
+  WorkshopFinancialSummary,
+  DEFAULT_WORKSHOP_ITEM,
+} from "@/components/workshop/shared";
+import { useServiceOrderCalculation } from "@/hooks/useServiceOrderCalculation";
 import { additionalService } from "@/app/api/workshop";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
@@ -24,29 +28,6 @@ interface AdditionalFormProps {
   embedded?: boolean;
 }
 
-const EMPTY_ITEM = { type: "LABOR" as const, description: "", quantity: 1, unitPrice: 0, unitCost: 0 };
-
-// Column widths for AdditionalItemRow
-const itemColWidths: AdditionalItemRowColWidths = {
-  handle: { width: "2rem", minWidth: "2rem", flexShrink: 0 },
-  type: { width: "12rem", minWidth: "12rem", flexShrink: 0 },
-  description: { flex: "1 1 0", minWidth: "15rem" },
-  quantity: { width: "6rem", minWidth: "6rem", flexShrink: 0 },
-  unitPrice: { width: "9rem", minWidth: "9rem", flexShrink: 0 },
-  totalLine: { width: "9rem", minWidth: "9rem", flexShrink: 0 },
-  remove: { width: "3rem", minWidth: "3rem", flexShrink: 0 },
-};
-
-const itemsTableColumns: ColumnDef[] = [
-  { label: "", style: itemColWidths.handle },
-  { label: "Tipo", style: itemColWidths.type },
-  { label: "Descripción", style: itemColWidths.description },
-  { label: "Cant.", style: itemColWidths.quantity },
-  { label: "Precio Unit.", style: itemColWidths.unitPrice },
-  { label: "Total", style: itemColWidths.totalLine },
-  { label: "", style: itemColWidths.remove },
-];
-
 export default function AdditionalForm({
   additional,
   onSave,
@@ -60,9 +41,12 @@ export default function AdditionalForm({
     handleSubmit,
     reset,
     watch,
+    register,
     formState: { errors },
   } = useForm<CreateAdditionalForm>({
-    resolver: zodResolver(additional ? updateAdditionalSchema : createAdditionalSchema),
+    resolver: zodResolver(
+      additional ? updateAdditionalSchema : createAdditionalSchema,
+    ),
     mode: "onBlur",
     defaultValues: {
       description: "",
@@ -77,47 +61,54 @@ export default function AdditionalForm({
   });
 
   const items = watch("items");
+  const watchedTypes = (items ?? []).map((it) => it.type as any);
+
+  const calcResult = useServiceOrderCalculation(
+    (items ?? []).map((it) => ({
+      type: it.type as any,
+      quantity: it.quantity ?? 0,
+      unitPrice: it.unitPrice ?? 0,
+      discountPct: it.discountPct ?? 0,
+      taxType: it.taxType as any,
+    })),
+  );
 
   useEffect(() => {
     if (additional) {
       reset({
         description: additional.description ?? "",
         serviceOrderId: additional.serviceOrderId ?? "",
-        items: additional.items ?? [],
+        items: (additional.items ?? []).map((it: any) => ({
+          id: it.id,
+          type: it.type,
+          description: it.description,
+          quantity: Number(it.quantity),
+          unitPrice: Number(it.unitPrice),
+          unitCost: Number(it.unitCost ?? 0),
+          discountPct: Number(it.discountPct ?? 0),
+          taxType: it.taxType ?? "IVA",
+          taxRate: Number(it.taxRate ?? 0.16),
+        })),
       });
     } else {
-      reset({
-        description: "",
-        serviceOrderId: "",
-        items: [],
-      });
+      reset({ description: "", serviceOrderId: "", items: [] });
     }
   }, [additional, reset]);
-
-  const totalItems = (items ?? []).reduce((sum, item) => sum + (item.quantity ?? 0) * (item.unitPrice ?? 0), 0);
 
   const onSubmit = async (data: CreateAdditionalForm) => {
     onSubmittingChange?.(true);
     try {
-      const estimatedPrice = (data.items ?? []).reduce(
-        (sum, it) => sum + (it.quantity ?? 0) * (it.unitPrice ?? 0),
-        0
-      );
-
       if (additional?.id) {
-        // Update only the main fields
         await additionalService.update(additional.id, {
           description: data.description,
         });
       } else {
-        // Create the main work with computed estimatedPrice
         const res = await additionalService.create({
           description: data.description,
           serviceOrderId: data.serviceOrderId,
-          estimatedPrice,
+          estimatedPrice: calcResult.total,
         });
 
-        // Create all items
         for (const item of data.items ?? []) {
           await additionalService.createItem(res.data.id, {
             type: item.type,
@@ -125,6 +116,9 @@ export default function AdditionalForm({
             quantity: item.quantity,
             unitPrice: item.unitPrice,
             unitCost: item.unitCost ?? 0,
+            discountPct: item.discountPct ?? 0,
+            taxType: item.taxType ?? "IVA",
+            taxRate: item.taxRate ?? 0.16,
           });
         }
       }
@@ -137,11 +131,17 @@ export default function AdditionalForm({
   };
 
   return (
-    <form id={formId ?? "additional-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId ?? "additional-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="space-y-6">
         {/* SECCIÓN 1: Trabajo adicional */}
         <div>
-          <h3 className="text-base font-semibold text-900 mb-3">Trabajo Adicional</h3>
+          <h3 className="text-base font-semibold text-900 mb-3">
+            Trabajo Adicional
+          </h3>
           <div className="grid">
             <div className="col-12">
               <label className="block text-900 font-medium mb-2">
@@ -161,56 +161,42 @@ export default function AdditionalForm({
                   />
                 )}
               />
-              {errors.description && <small className="p-error block mt-1">{errors.description.message}</small>}
+              {errors.description && (
+                <small className="p-error block mt-1">
+                  {errors.description.message}
+                </small>
+              )}
             </div>
           </div>
         </div>
 
         {/* SECCIÓN 2: Ítems */}
-        <div className="grid">
-          <ItemsTable
-            fields={fields}
-            append={append}
-            remove={remove}
-            move={move}
-            defaultItem={EMPTY_ITEM}
-            columns={itemsTableColumns}
-            renderRow={({ field, index, dragHandleProps, isDragging }) => (
-              <AdditionalItemRow
-                control={control}
-                index={index}
-                rowErrors={errors.items?.[index]}
-                colWidths={itemColWidths}
-                onRemove={() => remove(index)}
-                canRemove={fields.length > 0}
-                dragHandleProps={dragHandleProps}
-                isDragging={isDragging}
-                itemValues={items?.[index]}
-              />
-            )}
-            title="Ítems"
-            minWidth={650}
-          />
-          {items && items.length > 0 && (
-            <div className="col-12 flex justify-content-end pt-2 border-top-1 border-200">
-              <div className="flex gap-3 align-items-center">
-                <span className="text-sm font-semibold text-600">Total:</span>
-                <span className="text-lg font-bold text-primary">
-                  {totalItems.toLocaleString("es-MX", { style: "currency", currency: "MXN" })}
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
+        <WorkshopItemsTable
+          control={control}
+          register={register}
+          fields={fields}
+          append={append}
+          remove={remove}
+          move={move}
+          errors={errors as any}
+          fieldArrayName="items"
+          calcResult={calcResult}
+          watchedTypes={watchedTypes}
+          defaultItem={DEFAULT_WORKSHOP_ITEM}
+          title="Ítems"
+        />
 
-        {/* SECCIÓN 3: Orden de Trabajo */}
-        <div>
-          <h3 className="text-base font-semibold text-900 mb-3">Orden de Trabajo</h3>
-          {embedded ? (
-            <div className="p-3 border-1 border-surface-200 border-round text-600 text-sm">
-              {additional?.serviceOrder?.folio ?? additional?.serviceOrderId?.slice(0, 8) ?? "—"}
-            </div>
-          ) : (
+        {/* SECCIÓN 3: Resumen financiero */}
+        {(items?.length ?? 0) > 0 && (
+          <WorkshopFinancialSummary totals={calcResult} />
+        )}
+
+        {/* SECCIÓN 4: Orden de Trabajo */}
+        {!embedded && (
+          <div>
+            <h3 className="text-base font-semibold text-900 mb-3">
+              Orden de Trabajo
+            </h3>
             <Controller
               name="serviceOrderId"
               control={control}
@@ -222,9 +208,20 @@ export default function AdditionalForm({
                 />
               )}
             />
-          )}
-          {!embedded && errors.serviceOrderId && <small className="p-error block mt-1">{errors.serviceOrderId.message}</small>}
-        </div>
+            {errors.serviceOrderId && (
+              <small className="p-error block mt-1">
+                {errors.serviceOrderId.message}
+              </small>
+            )}
+          </div>
+        )}
+        {embedded && (
+          <div className="p-3 border-1 border-surface-200 border-round text-600 text-sm">
+            {additional?.serviceOrder?.folio ??
+              additional?.serviceOrderId?.slice(0, 8) ??
+              "—"}
+          </div>
+        )}
       </div>
     </form>
   );

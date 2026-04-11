@@ -4,8 +4,6 @@ export interface ServiceType {
   code: string
   name: string
   description: string | null
-  standardMinutes: number | null
-  standardLaborPrice: number | null
   isActive: boolean
   createdAt: string
   updatedAt: string
@@ -24,14 +22,10 @@ export interface CreateServiceTypeInput {
   code: string
   name: string
   description?: string
-  standardMinutes?: number
-  standardLaborPrice?: number
 }
 
 export interface UpdateServiceTypeInput {
   code?: string
   name?: string
   description?: string | null
-  standardMinutes?: number | null
-  standardLaborPrice?: number | null
 }

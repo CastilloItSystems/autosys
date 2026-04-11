@@ -1,5 +1,14 @@
 // libs/interfaces/workshop/serviceOrder.interface.ts
 import type { CustomerRef, VehicleRef } from "./shared.interface";
+import type { TaxType } from "../inventory/purchaseOrder.interface";
+
+export type { TaxType };
+
+export type ServiceOrderItemSourceType =
+  | "MANUAL"
+  | "MATERIAL"
+  | "ADDITIONAL"
+  | "TOT";
 
 export type ServiceOrderStatus =
   | "DRAFT"
@@ -28,10 +37,16 @@ export interface ServiceOrderItem {
   quantity: number;
   unitPrice: number;
   discountPct: number;
+  taxType: TaxType;
+  taxRate: number;
+  taxAmount: number;
   total: number;
   operationId?: string | null;
   itemId?: string | null;
   stockDeducted: boolean;
+  sourceType?: ServiceOrderItemSourceType;
+  sourceRefId?: string | null;
+  notes?: string | null;
 }
 
 export interface ServiceOrder {
@@ -102,11 +117,15 @@ export interface CreateServiceOrderInput {
   receptionId?: string;
   estimatedDelivery?: string;
   items?: Array<{
+    id?: string;
     type: ServiceOrderItemType;
     description: string;
     quantity: number;
     unitPrice: number;
+    unitCost?: number;
     discountPct?: number;
+    taxType?: TaxType;
+    taxRate?: number;
     operationId?: string;
     itemId?: string;
   }>;

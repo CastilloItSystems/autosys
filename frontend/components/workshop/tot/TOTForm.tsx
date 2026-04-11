@@ -1,6 +1,12 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useForm, Controller } from "react-hook-form";
+
+const TAX_TYPE_OPTIONS = [
+  { label: "IVA (16%)", value: "IVA" },
+  { label: "Exento", value: "EXEMPT" },
+  { label: "Reducido", value: "REDUCED" },
+];
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
@@ -55,6 +61,7 @@ export default function TOTForm({
   const {
     control,
     handleSubmit,
+    watch,
     formState: { errors },
   } = useForm<CreateTOTFormValues>({
     resolver: zodResolver(createTOTSchema),
@@ -72,6 +79,10 @@ export default function TOTForm({
         ? item.estimatedReturnAt.split("T")[0]
         : null,
       providerQuote: item?.providerQuote ?? null,
+      clientPrice: item?.clientPrice ?? null,
+      discountPct: item?.discountPct ?? 0,
+      taxType: (item?.taxType as any) ?? "IVA",
+      taxRate: item?.taxRate ?? 0.16,
       notes: item?.notes ?? null,
     },
   });
@@ -82,6 +93,30 @@ export default function TOTForm({
       .then((res) => setSuppliers(res.data ?? []))
       .catch(() => {});
   }, []);
+
+  const watchedClientPrice = watch("clientPrice");
+  const watchedDiscountPct = watch("discountPct");
+  const watchedTaxType = watch("taxType");
+  const watchedTaxRate = watch("taxRate");
+
+  const pricingPreview = useMemo(() => {
+    const cp = watchedClientPrice ?? 0;
+    const disc = (watchedDiscountPct ?? 0) / 100;
+    const base = cp - cp * disc;
+    const taxAmt =
+      watchedTaxType === "EXEMPT"
+        ? 0
+        : Math.round(base * (watchedTaxRate ?? 0.16) * 100) / 100;
+    const total = Math.round((base + taxAmt) * 100) / 100;
+    return { base, taxAmt, total };
+  }, [watchedClientPrice, watchedDiscountPct, watchedTaxType, watchedTaxRate]);
+
+  const fmtCurrency = (val: number) =>
+    val.toLocaleString("es-VE", {
+      style: "currency",
+      currency: "USD",
+      minimumFractionDigits: 2,
+    });
 
   const onFileSelect = (e: FileUploadSelectEvent) => {
     e.files.forEach((file: File) => {
@@ -138,6 +173,10 @@ export default function TOTForm({
           technicalInstruction: values.technicalInstruction,
           estimatedReturnAt: values.estimatedReturnAt,
           providerQuote: values.providerQuote,
+          clientPrice: values.clientPrice,
+          discountPct: values.discountPct,
+          taxType: values.taxType,
+          taxRate: values.taxRate,
           notes: values.notes,
         };
         await totService.update(item.id, payload);
@@ -153,6 +192,10 @@ export default function TOTForm({
           technicalInstruction: values.technicalInstruction,
           estimatedReturnAt: values.estimatedReturnAt,
           providerQuote: values.providerQuote,
+          clientPrice: values.clientPrice,
+          discountPct: values.discountPct,
+          taxType: values.taxType,
+          taxRate: values.taxRate,
           notes: values.notes,
         };
         const created = await totService.create(payload);
@@ -369,6 +412,93 @@ export default function TOTForm({
             )}
           />
         </div>
+
+        {/* ─── Precio al cliente ─────────────────────────────── */}
+        <div className="col-12">
+          <div className="border-top-1 border-surface-300 pt-3 mt-1">
+            <span className="font-semibold text-900">Precio al cliente</span>
+          </div>
+        </div>
+
+        <div className="col-12 md:col-4">
+          <label className="font-semibold">Precio base (cliente)</label>
+          <Controller
+            name="clientPrice"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? null)}
+                mode="currency"
+                currency="USD"
+                locale="es-VE"
+                className="w-full"
+                placeholder="0.00"
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4">
+          <label className="font-semibold">Descuento (%)</label>
+          <Controller
+            name="discountPct"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? 0}
+                onValueChange={(e) => field.onChange(e.value ?? 0)}
+                suffix=" %"
+                min={0}
+                max={100}
+                minFractionDigits={0}
+                maxFractionDigits={2}
+                className="w-full"
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4">
+          <label className="font-semibold">Tipo de impuesto</label>
+          <Controller
+            name="taxType"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                {...field}
+                options={TAX_TYPE_OPTIONS}
+                className="w-full"
+              />
+            )}
+          />
+        </div>
+
+        {/* Preview calculado */}
+        {(watchedClientPrice ?? 0) > 0 && (
+          <div className="col-12">
+            <div className="flex gap-4 p-3 border-round bg-surface-50 border-1 border-surface-200 text-sm">
+              <span>
+                <span className="text-600">Base: </span>
+                <span className="font-semibold">
+                  {fmtCurrency(pricingPreview.base)}
+                </span>
+              </span>
+              <span>
+                <span className="text-600">Impuesto: </span>
+                <span className="font-semibold">
+                  {fmtCurrency(pricingPreview.taxAmt)}
+                </span>
+              </span>
+              <span>
+                <span className="text-600">Total: </span>
+                <span className="font-bold text-primary">
+                  {fmtCurrency(pricingPreview.total)}
+                </span>
+              </span>
+            </div>
+          </div>
+        )}
 
         {/* Notas */}
         <div className="col-12">

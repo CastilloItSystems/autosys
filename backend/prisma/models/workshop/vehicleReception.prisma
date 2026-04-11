@@ -95,10 +95,6 @@ model VehicleReception {
   damages ReceptionDamage[]
   photos  ReceptionPhoto[]
 
-  // Sucursal
-  branchId String?
-  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
   @@unique([empresaId, folio])
   @@index([empresaId])
   @@index([customerId])

@@ -80,7 +80,6 @@ export const registerApprovalSchema = z.object({
 
 export const convertToSOSchema = z.object({
   advisorId: z.string().optional().nullable(),
-  branchId: z.string().optional().nullable(),
   notes: z.string().max(1000).optional(),
 });
 

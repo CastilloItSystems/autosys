@@ -75,10 +75,6 @@ model ServiceAppointment {
   // Historial de cambios de estado
   statusHistory AppointmentStatusHistory[]
 
-  // Sucursal
-  branchId String?
-  branch   WorkshopBranch? @relation(fields: [branchId], references: [id], onDelete: SetNull)
-
   @@unique([empresaId, folio])
   @@index([empresaId])
   @@index([customerId])

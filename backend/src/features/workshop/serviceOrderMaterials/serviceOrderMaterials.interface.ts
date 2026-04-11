@@ -25,6 +25,9 @@ export interface ICreateServiceOrderMaterial {
   quantityReturned?: number
   unitPrice: number
   unitCost?: number
+  discountPct?: number
+  taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+  taxRate?: number
   status?: MaterialStatus
   serviceOrderId: string
   itemId?: string

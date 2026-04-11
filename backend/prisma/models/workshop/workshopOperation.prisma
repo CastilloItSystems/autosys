@@ -3,6 +3,13 @@
 // Se usan para cotizar y controlar tiempos técnicos por operación.
 // Ej: "Cambio de aceite y filtro", "Alineación y balanceo", "Diagnóstico eléctrico"
 
+enum OperationDifficulty {
+  BASIC      // Cualquier técnico puede ejecutarla
+  STANDARD   // Técnico con experiencia regular
+  ADVANCED   // Técnico experimentado
+  SPECIALIST // Requiere especialista o certificación especial
+}
+
 model WorkshopOperation {
   id          String  @id @default(cuid())
   code        String
@@ -13,25 +20,84 @@ model WorkshopOperation {
   serviceTypeId String?
   serviceType   ServiceType? @relation(fields: [serviceTypeId], references: [id], onDelete: SetNull)
 
-  // Tiempo estándar en minutos (para control de eficiencia)
-  standardMinutes Int?
+  // Dificultad y especialidad técnica requerida
+  difficulty          OperationDifficulty @default(STANDARD)
+  requiredSpecialtyId String?
+  requiredSpecialty   TechnicianSpecialty? @relation(fields: [requiredSpecialtyId], references: [id], onDelete: SetNull)
 
-  // Precio lista de la operación (mano de obra)
-  listPrice Decimal @default(0) @db.Decimal(12, 2)
+  // Tiempos (estándar = lo que se factura, min/max = rango real estimado)
+  standardMinutes Int?  // Tiempo facturado al cliente
+  minMinutes      Int?  // Tiempo mínimo esperado en ejecución real
+  maxMinutes      Int?  // Tiempo máximo esperado en ejecución real
+
+  // Precios y costos de mano de obra
+  listPrice  Decimal @default(0) @db.Decimal(12, 2) // Precio de lista al cliente
+  costPrice  Decimal @default(0) @db.Decimal(12, 2) // Costo interno (margen = listPrice - costPrice)
+
+  // Garantía que incluye esta operación (al agregarla a una OT se pre-llena automáticamente)
+  warrantyDays Int? // Días de garantía
+  warrantyKm   Int? // Kilómetros de garantía
+
+  // Equipamiento / bahía requerida (texto libre, ej: "Elevador hidráulico, Escáner OBD2")
+  // No es FK a una bahía específica porque las bahías son por sucursal
+  requiredEquipment String?
+
+  // Procedimiento técnico paso a paso (para estandarizar y capacitar)
+  procedure String? @db.Text
+
+  // Indica si la operación es subcontratada (taller externo, proveedor aliado, etc.)
+  isExternalService Boolean @default(false)
+
+  // Tags para búsqueda rápida (ej: ["frenos", "pastillas", "ABS"])
+  tags String[]
 
   isActive Boolean @default(true)
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // Relaciones
-  serviceOrderItems ServiceOrderItem[]
-  laborTimes        LaborTime[]
+  serviceOrderItems    ServiceOrderItem[]
+  laborTimes           LaborTime[]
   diagnosisSuggestions DiagnosisSuggestedOperation[]
+  suggestedMaterials   OperationSuggestedMaterial[]
 
   @@unique([empresaId, code])
   @@index([empresaId])
   @@index([serviceTypeId])
+  @@index([requiredSpecialtyId])
+  @@index([difficulty])
   @@index([isActive])
   @@map("workshop_operations")
+}
+
+// Materiales/repuestos sugeridos por operación, vinculados al catálogo de inventario.
+// Cuando se agrega una operación a una OT, se pueden auto-proponer estos materiales
+// en ServiceOrderMaterials para que el almacén los prepare o despache.
+model OperationSuggestedMaterial {
+  id          String            @id @default(cuid())
+  operationId String
+  operation   WorkshopOperation @relation(fields: [operationId], references: [id], onDelete: Cascade)
+
+  // Ítem del catálogo de inventario (puede ser null si el repuesto aún no está en catálogo)
+  itemId      String?
+  item        Item?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  // Descripción libre (útil cuando itemId es null o para aclaraciones adicionales)
+  description String
+
+  // Cantidad estándar sugerida para esta operación
+  quantity    Decimal @default(1) @db.Decimal(10, 2)
+
+  // true = indispensable para ejecutar la operación; false = recomendado pero opcional
+  isRequired  Boolean @default(false)
+
+  notes       String?
+
+  @@index([operationId])
+  @@index([itemId])
+  @@map("workshop_operation_suggested_materials")
 }

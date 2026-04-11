@@ -35,6 +35,10 @@ export const createTOTSchema = z.object({
   technicalInstruction: z.string().max(2000).nullable().optional(),
   estimatedReturnAt: z.string().nullable().optional(),
   providerQuote: z.number().min(0).nullable().optional(),
+  clientPrice: z.number().min(0).nullable().optional(),
+  discountPct: z.number().min(0).max(100).default(0),
+  taxType: z.enum(["IVA", "EXEMPT", "REDUCED"]).default("IVA"),
+  taxRate: z.number().min(0).max(1).default(0.16),
   notes: z.string().max(2000).nullable().optional(),
 });
 

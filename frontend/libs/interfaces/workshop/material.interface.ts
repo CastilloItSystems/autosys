@@ -1,6 +1,13 @@
 // libs/interfaces/workshop/material.interface.ts
+import type { TaxType } from "../inventory/purchaseOrder.interface";
 
-export type MaterialStatus = 'REQUESTED' | 'RESERVED' | 'DISPATCHED' | 'CONSUMED' | 'RETURNED' | 'CANCELLED';
+export type MaterialStatus =
+  | "REQUESTED"
+  | "RESERVED"
+  | "DISPATCHED"
+  | "CONSUMED"
+  | "RETURNED"
+  | "CANCELLED";
 
 export interface ServiceOrderMaterial {
   id: string;
@@ -10,8 +17,14 @@ export interface ServiceOrderMaterial {
   quantityDispatched: number;
   quantityConsumed: number;
   quantityReturned: number;
+  quantity: number;
   unitPrice: number;
   unitCost?: number | null;
+  discountPct: number;
+  taxType: TaxType;
+  taxRate: number;
+  taxAmount: number;
+  total: number;
   status: MaterialStatus;
   serviceOrderId: string;
   itemId?: string | null;
@@ -36,6 +49,9 @@ export interface CreateMaterialInput {
   quantityRequested: number;
   unitPrice: number;
   unitCost?: number;
+  discountPct?: number;
+  taxType?: "IVA" | "EXEMPT" | "REDUCED";
+  taxRate?: number;
   serviceOrderId: string;
   itemId?: string;
 }

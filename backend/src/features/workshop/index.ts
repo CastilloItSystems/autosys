@@ -22,7 +22,6 @@ import reportsRoutes from './reports/index.js'
 import vehicleHistoryRoutes from './vehicleHistory/vehicleHistory.routes.js'
 import receptionMediaRoutes from './receptionMedia/receptionMedia.routes.js'
 import attachmentRoutes from './attachments/attachments.routes.js'
-import branchRoutes from './workshopBranches/workshopBranches.routes.js'
 import shiftRoutes from './workshopShifts/workshopShifts.routes.js'
 import reworkRoutes from './workshopReworks/workshopReworks.routes.js'
 import auditLogRoutes from './auditLog/auditLog.routes.js'
@@ -71,7 +70,6 @@ router.use('/receptions/:receptionId', receptionMediaRoutes)
 router.use('/attachments', attachmentRoutes)
 
 // Workshop Prioridad 3
-router.use('/branches', branchRoutes)
 router.use('/shifts', shiftRoutes)
 router.use('/reworks', reworkRoutes)
 router.use('/audit-log', auditLogRoutes)

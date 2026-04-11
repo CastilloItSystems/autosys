@@ -74,7 +74,6 @@ export interface IRegisterApprovalInput {
 
 export interface IConvertToSOInput {
   advisorId?: string
-  branchId?: string
   notes?: string
 }
 

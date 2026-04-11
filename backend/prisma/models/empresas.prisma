@@ -95,7 +95,6 @@ model Empresa {
   // Workshop Prioridad 3
   workshopReworks             WorkshopRework[]
   workshopAuditLogs           WorkshopAuditLog[]
-  workshopBranches            WorkshopBranch[]
   workshopShifts              WorkshopShift[]
   workshopQuotations          WorkshopQuotation[]
   workshopTOTs                WorkshopTOT[]

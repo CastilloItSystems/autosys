@@ -14,9 +14,8 @@ model TechnicianSpecialty {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relaciones intermedias con técnicos (usuarios) si es necesario, 
-  // o se puede relacionar directamente en un nuevo modelo TechnicianProfile.
-  // Por simplicidad, agregaremos el ID al modelo si se necesita.
+  // Operaciones que requieren esta especialidad
+  requiredInOperations WorkshopOperation[]
 
   @@unique([empresaId, code])
   @@index([empresaId])
