@@ -63,6 +63,7 @@ function SortableRow({ id, renderContent }: SortableRowProps) {
 export interface ColumnDef {
   label: string;
   style: React.CSSProperties;
+  headerAlign?: "left" | "center" | "right";
 }
 
 export interface ItemsTableRenderRowProps {
@@ -180,7 +181,8 @@ export default function ItemsTable({
                   textTransform: "uppercase" as const,
                   color: "var(--text-color-secondary)",
                   userSelect: "none" as const,
-                  flexShrink: col.style.flexShrink ?? 0,
+                  flexShrink: col.style.flex ? undefined : (col.style.flexShrink ?? 0),
+                  textAlign: col.headerAlign ?? ("left" as const),
                 }}
               >
                 {col.label}

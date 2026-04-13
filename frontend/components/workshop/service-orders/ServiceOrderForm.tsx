@@ -22,6 +22,7 @@ import {
   serviceTypeService,
   workshopBayService,
   workshopOperationService,
+  catalogSearchService,
 } from "@/app/api/workshop";
 import itemService from "@/app/api/inventory/itemService";
 import {
@@ -62,30 +63,6 @@ export default function ServiceOrderForm({
   const [isLoading, setIsLoading] = useState(true);
   const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
   const [bays, setBays] = useState<WorkshopBay[]>([]);
-  const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
-
-  const searchItems = useCallback(
-    async (query: string, type: WorkshopItemType, index: number) => {
-      if (!query || query.length < 2) {
-        setItemSuggestions([]);
-        return;
-      }
-      try {
-        if (type === "LABOR") {
-          const res = await workshopOperationService.getAll({ search: query });
-          setItemSuggestions(res.data?.items ?? (res as any).data ?? []);
-        } else if (type === "PART" || type === ("CONSUMABLE" as any)) {
-          const res = await itemService.search(query);
-          setItemSuggestions(res.data ?? []);
-        } else {
-          setItemSuggestions([]);
-        }
-      } catch {
-        setItemSuggestions([]);
-      }
-    },
-    [],
-  );
 
   const {
     control,
@@ -130,7 +107,6 @@ export default function ServiceOrderForm({
   const watchedTypes = watchedItems.map(
     (i) => (i?.type ?? "LABOR") as WorkshopItemType,
   );
-  const hasCatalog = watchedTypes.some((t) => t !== "OTHER");
 
   const calcResult = useServiceOrderCalculation(
     watchedItems.map((i) => ({
@@ -144,24 +120,71 @@ export default function ServiceOrderForm({
 
   const handleItemSelect = useCallback(
     (item: any, index: number) => {
+      console.log("[ServiceOrderForm] handleItemSelect called:", {
+        item,
+        index,
+      });
       setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
-      setValue(`items.${index}.description`, item.name ?? "");
 
-      if (item.standardMinutes !== undefined) {
-        setValue(`items.${index}.unitPrice`, item.listPrice ?? 0);
-        setValue(`items.${index}.unitCost` as any, 0);
-      } else {
-        setValue(
-          `items.${index}.unitPrice`,
-          item.pricing?.salePrice ?? item.pricing?.price ?? item.salePrice ?? 0,
+      // Auto-detect type from catalog (LABOR → LABOR, PART → PART)
+      const autoType =
+        item.type === "LABOR"
+          ? "LABOR"
+          : item.type === "PART"
+          ? "PART"
+          : "OTHER";
+      console.log("[ServiceOrderForm] Setting type:", autoType);
+      setValue(`items.${index}.type`, autoType);
+
+      // Auto-fill fields from catalog item
+      console.log("[ServiceOrderForm] Setting itemId:", item.id);
+      setValue(`items.${index}.itemId`, item.id);
+
+      const descValue = item.name ?? "";
+      console.log(
+        "[ServiceOrderForm] Setting description - raw value:",
+        item.name,
+        "- final:",
+        descValue,
+        "- length:",
+        descValue.length,
+      );
+      setValue(`items.${index}.description`, descValue);
+
+      console.log("[ServiceOrderForm] Setting unitPrice:", item.price);
+      setValue(`items.${index}.unitPrice`, item.price ?? 0);
+
+      console.log("[ServiceOrderForm] Setting unitCost:", item.cost);
+      setValue(`items.${index}.unitCost` as any, item.cost ?? 0);
+
+      console.log("[ServiceOrderForm] Setting taxType:", item.taxType);
+      setValue(`items.${index}.taxType` as any, item.taxType ?? "IVA");
+
+      console.log("[ServiceOrderForm] Setting taxRate:", item.taxRate);
+      setValue(`items.${index}.taxRate` as any, item.taxRate ?? 0.16);
+
+      // Auto-append suggested items if LABOR with suggestedItems
+      if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
+        console.log(
+          "[ServiceOrderForm] Appending suggested items:",
+          item.suggestedItems,
         );
-        setValue(
-          `items.${index}.unitCost` as any,
-          item.pricing?.costPrice ?? item.costPrice ?? 0,
-        );
+        const itemsToAppend = item.suggestedItems.map((suggested: any) => ({
+          type: "PART",
+          itemId: suggested.itemId,
+          description: suggested.description || "",
+          quantity: suggested.quantity || 1,
+          unitPrice: suggested.unitPrice || 0,
+          unitCost: suggested.unitCost || 0,
+          discountPct: 0,
+          taxType: suggested.taxType || "IVA",
+          taxRate: suggested.taxRate || 0.16,
+          approved: true,
+        }));
+        append(itemsToAppend as any);
       }
     },
-    [setValue],
+    [setValue, append],
   );
 
   useEffect(() => {
@@ -525,12 +548,9 @@ export default function ServiceOrderForm({
           fieldArrayName="items"
           calcResult={calcResult}
           watchedTypes={watchedTypes}
-          itemSuggestions={itemSuggestions}
-          onItemSearch={(e, type, index) => searchItems(e.query, type, index)}
           onItemSelect={handleItemSelect}
           selectedItemsMap={selectedItemsMap}
           title="Ítems de la orden"
-          hasCatalog={hasCatalog}
         />
 
         {/* ── Resumen financiero ── */}

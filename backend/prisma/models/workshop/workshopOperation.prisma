@@ -34,6 +34,10 @@ model WorkshopOperation {
   listPrice  Decimal @default(0) @db.Decimal(12, 2) // Precio de lista al cliente
   costPrice  Decimal @default(0) @db.Decimal(12, 2) // Costo interno (margen = listPrice - costPrice)
 
+  // Impuestos
+  taxType    TaxType @default(IVA)
+  taxRate    Decimal @default(0.16) @db.Decimal(5, 2)
+
   // Garantía que incluye esta operación (al agregarla a una OT se pre-llena automáticamente)
   warrantyDays Int? // Días de garantía
   warrantyKm   Int? // Kilómetros de garantía

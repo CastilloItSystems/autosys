@@ -28,6 +28,7 @@ import auditLogRoutes from './auditLog/auditLog.routes.js'
 import quotationRoutes from './workshopQuotations/workshopQuotations.routes.js'
 import totRoutes from './workshopTOT/workshopTOT.routes.js'
 import garitaRoutes from './workshopGarita/workshopGarita.routes.js'
+import catalogsRoutes from './catalogs/catalogs.routes.js'
 
 const router = Router()
 
@@ -49,6 +50,7 @@ router.use('/technician-specialties', technicianSpecialtyRoutes)
 router.use('/service-types', serviceTypeRoutes)
 router.use('/bays', workshopBayRoutes)
 router.use('/operations', workshopOperationRoutes)
+router.use('/catalogs', catalogsRoutes)
 
 // Flujo operativo
 router.use('/appointments', appointmentRoutes)

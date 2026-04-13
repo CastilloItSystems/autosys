@@ -10,25 +10,17 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Checkbox } from "primereact/checkbox";
 import { Button } from "primereact/button";
+import { Toast } from "primereact/toast";
+import { catalogSearchService } from "@/app/api/workshop";
+import type { UnifiedCatalogItem } from "@/app/api/workshop/catalogSearchService";
+import { Dialog } from "primereact/dialog";
+import ItemForm from "@/components/inventory/items/ItemForm";
+import WorkshopOperationForm from "@/components/workshop/operations/WorkshopOperationForm";
+import { WORKSHOP_ITEM_COL_WIDTHS, WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS, type WorkshopItemRowColWidths } from "./WorkshopItemConstants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export type WorkshopItemType = "LABOR" | "PART" | "OTHER";
-
-export interface WorkshopItemRowColWidths {
-  handle: React.CSSProperties;
-  type?: React.CSSProperties;
-  description: React.CSSProperties;
-  itemId?: React.CSSProperties;
-  quantity: React.CSSProperties;
-  unitPrice?: React.CSSProperties;
-  discountPct?: React.CSSProperties;
-  taxType?: React.CSSProperties;
-  total?: React.CSSProperties;
-  notes?: React.CSSProperties;
-  isRequired?: React.CSSProperties;
-  remove: React.CSSProperties;
-}
 
 export interface WorkshopItemRowFieldPaths {
   type?: string;
@@ -42,6 +34,9 @@ export interface WorkshopItemRowFieldPaths {
   notes?: string;
   isRequired?: string;
 }
+
+// Exported from WorkshopItemConstants to avoid circular dependencies
+export { WORKSHOP_ITEM_COL_WIDTHS, WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS };
 
 export interface WorkshopItemRowProps {
   control: Control<any>;
@@ -68,14 +63,13 @@ export interface WorkshopItemRowProps {
 
   // Inventory item search (active when type is LABOR or PART)
   itemSuggestions?: any[];
-  onItemSearch?: (
-    event: AutoCompleteCompleteEvent,
-    type: WorkshopItemType,
-  ) => void;
+  onItemSearch?: (event: AutoCompleteCompleteEvent, index?: number) => void;
   onItemSelect?: (item: any, index?: number) => void;
   selectedItemsMap?: Record<string, any>;
 
   autoFocus?: boolean;
+  /** Whether table has catalog column (shows placeholder in OTHER rows) */
+  hasCatalog?: boolean;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -117,7 +111,7 @@ export default function WorkshopItemRow({
   onAddRow,
   dragHandleProps,
   isDragging = false,
-  itemSuggestions = [],
+  itemSuggestions: externalItemSuggestions = [],
   onItemSearch,
   onItemSelect,
   selectedItemsMap = {},
@@ -125,10 +119,39 @@ export default function WorkshopItemRow({
 }: WorkshopItemRowProps) {
   const [mounted, setMounted] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
+  const toastRef = useRef<any>(null);
+  const [internalSuggestions, setInternalSuggestions] = useState<any[]>([]);
+  const [showCreateItem, setShowCreateItem] = useState(false);
+  const [showCreateOperation, setShowCreateOperation] = useState(false);
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  const handleSearch = async (e: AutoCompleteCompleteEvent) => {
+    console.log("[WorkshopItemRow] handleSearch triggered:", e.query);
+
+    // Always use internal search (BFF endpoint) — unified catalog search, NO type filter
+    if (!e.query || e.query.length < 2) {
+      console.log("[WorkshopItemRow] Query too short, clearing suggestions");
+      setInternalSuggestions([]);
+      return;
+    }
+
+    try {
+      console.log("[WorkshopItemRow] Searching catalog for:", e.query);
+      const res = await catalogSearchService.search(e.query);
+      console.log("[WorkshopItemRow] Search response:", res);
+      // Show all results (LABOR + PART mixed) — type will be auto-detected on selection
+      setInternalSuggestions(res.data || []);
+      console.log("[WorkshopItemRow] Updated suggestions:", res.data);
+    } catch (err) {
+      console.error("[WorkshopItemRow] Search error:", err);
+      setInternalSuggestions([]);
+    }
+  };
+
+  const suggestionsToUse = internalSuggestions;
 
   useEffect(() => {
     if (autoFocus && descRef.current) {
@@ -141,7 +164,6 @@ export default function WorkshopItemRow({
   const descKey = leafKey(fieldPaths.description);
   const qtyKey = leafKey(fieldPaths.quantity);
   const priceKey = fieldPaths.unitPrice ? leafKey(fieldPaths.unitPrice) : "";
-  const discKey = fieldPaths.discountPct ? leafKey(fieldPaths.discountPct) : "";
 
   const typeError = typeKey ? rowErrors?.[typeKey]?.message : undefined;
   const descError = rowErrors?.[descKey]?.message;
@@ -153,7 +175,7 @@ export default function WorkshopItemRow({
     if (!val) return "";
     if (typeof val !== "string") return val;
     const found =
-      selectedItemsMap[val] ?? itemSuggestions.find((s) => s.id === val);
+      selectedItemsMap[val] ?? suggestionsToUse.find((s: any) => s.id === val);
     return found ?? val;
   };
 
@@ -193,84 +215,8 @@ export default function WorkshopItemRow({
         />
       </div>
 
-      {/* ── Tipo ── */}
-      {variant === "financial" && fieldPaths.type && colWidths.type && (
-        <div style={colWidths.type}>
-          <Controller
-            name={fieldPaths.type}
-            control={control}
-            render={({ field: f }) => (
-              <Dropdown
-                value={f.value}
-                onChange={(e) => f.onChange(e.value)}
-                options={typeOptions}
-                className={`w-full ${typeError ? "p-invalid" : ""}`}
-                style={{
-                  height: "30px",
-                  fontSize: "0.8rem",
-                  alignItems: "center",
-                }}
-                panelStyle={{ fontSize: "0.8rem" }}
-                itemTemplate={(opt) => (
-                  <span
-                    className={`px-2 py-1 border-round text-xs font-medium ${
-                      TYPE_TAG_CLASS[opt.value as WorkshopItemType] ?? ""
-                    }`}
-                  >
-                    {opt.label}
-                  </span>
-                )}
-                valueTemplate={(opt) =>
-                  opt ? (
-                    <span
-                      className={`px-2 border-round text-xs font-medium ${
-                        TYPE_TAG_CLASS[opt.value as WorkshopItemType] ?? ""
-                      }`}
-                    >
-                      {opt.label}
-                    </span>
-                  ) : null
-                }
-              />
-            )}
-          />
-        </div>
-      )}
-
-      {/* ── Descripción ── */}
-      <div style={colWidths.description}>
-        <InputText
-          {...register(fieldPaths.description)}
-          ref={descRef as any}
-          placeholder={
-            currentType === "PART"
-              ? "Nombre del repuesto..."
-              : "Descripción del servicio..."
-          }
-          className={`w-full ${descError ? "p-invalid" : ""}`}
-          style={{
-            fontSize: "0.8rem",
-            padding: "0.25rem 0.5rem",
-            height: "30px",
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Tab" && !e.shiftKey) {
-              // Allow natural tab flow
-            }
-          }}
-        />
-        {descError && (
-          <small
-            className="p-error"
-            style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
-          >
-            {descError}
-          </small>
-        )}
-      </div>
-
-      {/* ── Catálogo (LABOR o PART) ── */}
-      {(currentType !== "OTHER" || variant === "suggested") && fieldPaths.itemId && colWidths.itemId && (
+      {/* ── Catálogo (Código/SKU) — PRIMERA COLUMNA ── */}
+      {variant !== "suggested" && fieldPaths.itemId && colWidths.itemId && (
         <div style={colWidths.itemId}>
           <Controller
             name={fieldPaths.itemId}
@@ -278,10 +224,135 @@ export default function WorkshopItemRow({
             render={({ field: f }) => (
               <AutoComplete
                 value={resolveItem(f.value)}
-                suggestions={itemSuggestions}
-                completeMethod={(e: AutoCompleteCompleteEvent) =>
-                  onItemSearch?.(e, variant === "suggested" ? "PART" : (currentType as WorkshopItemType))
-                }
+                suggestions={suggestionsToUse}
+                completeMethod={handleSearch}
+                field="name"
+                selectedItemTemplate={(item: any) => {
+                  if (!item) return "";
+                  if (typeof item === "string") return item;
+                  return item.sku || item.code || item.name || "";
+                }}
+                placeholder="Buscar código o nombre..."
+                itemTemplate={(item: any) => {
+                  const isLabor = item.type === "LABOR";
+                  return (
+                    <div className="flex align-items-center justify-content-between gap-2 w-full">
+                      <div className="flex align-items-center gap-2">
+                        <i
+                          className={`pi ${isLabor ? "pi-wrench" : "pi-box"}`}
+                          style={{
+                            fontSize: "0.7rem",
+                            color: isLabor
+                              ? "var(--blue-500)"
+                              : "var(--green-500)",
+                          }}
+                        />
+                        <span
+                          className={`px-1 border-round text-xs font-medium ${
+                            isLabor
+                              ? "bg-blue-100 text-blue-800"
+                              : "bg-green-100 text-green-800"
+                          }`}
+                          style={{ fontSize: "0.65rem" }}
+                        >
+                          {isLabor ? "Servicio" : "Repuesto"}
+                        </span>
+                        <span className="font-medium text-xs">{item.name}</span>
+                        <span className="text-500 text-xs">
+                          {item.sku || item.code
+                            ? `(${item.sku ?? item.code})`
+                            : ""}
+                        </span>
+                      </div>
+                      <div className="flex align-items-center gap-1">
+                        {item.suggestedItems?.length > 0 && (
+                          <i
+                            className="pi pi-link"
+                            title={`Incluye ${item.suggestedItems.length} repuesto(s) sugerido(s)`}
+                            style={{
+                              fontSize: "0.65rem",
+                              color: "var(--orange-500)",
+                            }}
+                          />
+                        )}
+                        {item.price != null && (
+                          <span className="text-primary font-medium text-xs">
+                            {new Intl.NumberFormat("es-VE", {
+                              style: "currency",
+                              currency: "USD",
+                              minimumFractionDigits: 2,
+                            }).format(item.price)}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                }}
+                  emptyMessage={
+                    <div className="flex flex-column gap-2 p-3">
+                      <div className="text-600 text-sm text-center">
+                        No se encontraron resultados
+                      </div>
+                      <div className="flex gap-2">
+                        <Button
+                          label="Crear repuesto"
+                          icon="pi pi-plus"
+                          size="small"
+                          className="flex-1"
+                          onClick={() => setShowCreateItem(true)}
+                        />
+                        <Button
+                          label="Crear servicio"
+                          icon="pi pi-plus"
+                          size="small"
+                          className="flex-1"
+                          onClick={() => setShowCreateOperation(true)}
+                        />
+                      </div>
+                    </div>
+                  }
+                className="w-full"
+                inputClassName="w-full text-xs"
+                inputStyle={{
+                  padding: "0.2rem 0.5rem",
+                  height: "30px",
+                  fontSize: "0.8rem",
+                }}
+                style={{ height: "30px", width: "100%" }}
+                onSelect={(e) => {
+                  const item = e.value;
+                  console.log("[WorkshopItemRow] AutoComplete onSelect:", item);
+                  f.onChange(item.id);
+                  if (onItemSelect) {
+                    console.log(
+                      "[WorkshopItemRow] Calling onItemSelect with item:",
+                      item,
+                    );
+                    onItemSelect(item);
+                  }
+                }}
+                onChange={(e) => {
+                  if (typeof e.value === "string") f.onChange(e.value);
+                }}
+                appendTo={mounted ? document.body : "self"}
+                forceSelection={false}
+                showEmptyMessage
+              />
+            )}
+          />
+        </div>
+      )}
+      {/* ── Catálogo para variante suggested ── */}
+      {variant === "suggested" && fieldPaths.itemId && colWidths.itemId && (
+        <div style={colWidths.itemId}>
+          <Controller
+            name={fieldPaths.itemId}
+            control={control}
+            render={({ field: f }) => (
+              <AutoComplete
+                value={resolveItem(f.value)}
+                suggestions={suggestionsToUse}
+                completeMethod={handleSearch}
                 field="name"
                 selectedItemTemplate={(item: any) => {
                   if (!item) return "";
@@ -305,6 +376,7 @@ export default function WorkshopItemRow({
                   fontSize: "0.8rem",
                 }}
                 style={{ height: "30px", width: "100%" }}
+                emptyMessage="No se encontraron resultados"
                 onSelect={(e) => {
                   const item = e.value;
                   f.onChange(item.id);
@@ -321,6 +393,71 @@ export default function WorkshopItemRow({
           />
         </div>
       )}
+
+      {/* ── Tipo (read-only badge) ── */}
+      {variant === "financial" && fieldPaths.type && colWidths.type && (
+        <div
+          style={{
+            ...colWidths.type,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+          }}
+        >
+          <span
+            className={`px-2 py-1 border-round text-xs font-medium ${
+              TYPE_TAG_CLASS[currentType] ?? ""
+            }`}
+          >
+            {currentType === "LABOR"
+              ? "Servicio"
+              : currentType === "PART"
+              ? "Repuesto"
+              : "Otro"}
+          </span>
+        </div>
+      )}
+
+      {/* ── Descripción ── */}
+      <div style={colWidths.description}>
+        <Controller
+          name={fieldPaths.description}
+          control={control}
+          render={({ field: f }) => (
+            <InputText
+              value={f.value ?? ""}
+              onChange={(e) => f.onChange(e.target.value)}
+              ref={descRef}
+              placeholder={
+                currentType === "PART"
+                  ? "Nombre del repuesto..."
+                  : currentType === "LABOR"
+                  ? "Descripción del servicio..."
+                  : "Descripción..."
+              }
+              className={`w-full ${descError ? "p-invalid" : ""}`}
+              style={{
+                fontSize: "0.8rem",
+                padding: "0.25rem 0.5rem",
+                height: "30px",
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Tab" && !e.shiftKey) {
+                  // Allow natural tab flow
+                }
+              }}
+            />
+          )}
+        />
+        {descError && (
+          <small
+            className="p-error"
+            style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+          >
+            {descError}
+          </small>
+        )}
+      </div>
 
       {/* ── Cantidad ── */}
       <div style={colWidths.quantity}>
@@ -358,71 +495,75 @@ export default function WorkshopItemRow({
       </div>
 
       {/* ── Precio unitario ── */}
-      {variant === "financial" && fieldPaths.unitPrice && colWidths.unitPrice && (
-        <div style={colWidths.unitPrice}>
-          <Controller
-            name={fieldPaths.unitPrice}
-            control={control}
-            render={({ field: f }) => (
-              <InputNumber
-                value={f.value}
-                onValueChange={(e) => f.onChange(e.value ?? 0)}
-                min={0}
-                minFractionDigits={2}
-                maxFractionDigits={2}
-                mode="currency"
-                currency="USD"
-                locale="es-VE"
-                className="w-full"
-                inputClassName={`w-full text-right ${
-                  priceError ? "p-invalid" : ""
-                }`}
-                inputStyle={{
-                  padding: "0.25rem 0.4rem",
-                  height: "30px",
-                  fontSize: "0.8rem",
-                }}
-                style={{ height: "30px" }}
-              />
+      {variant === "financial" &&
+        fieldPaths.unitPrice &&
+        colWidths.unitPrice && (
+          <div style={colWidths.unitPrice}>
+            <Controller
+              name={fieldPaths.unitPrice}
+              control={control}
+              render={({ field: f }) => (
+                <InputNumber
+                  value={f.value}
+                  onValueChange={(e) => f.onChange(e.value ?? 0)}
+                  min={0}
+                  minFractionDigits={2}
+                  maxFractionDigits={2}
+                  mode="currency"
+                  currency="USD"
+                  locale="es-VE"
+                  className="w-full"
+                  inputClassName={`w-full text-right ${
+                    priceError ? "p-invalid" : ""
+                  }`}
+                  inputStyle={{
+                    padding: "0.25rem 0.4rem",
+                    height: "30px",
+                    fontSize: "0.8rem",
+                  }}
+                  style={{ height: "30px" }}
+                />
+              )}
+            />
+            {priceError && (
+              <small
+                className="p-error"
+                style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
+              >
+                {priceError}
+              </small>
             )}
-          />
-          {priceError && (
-            <small
-              className="p-error"
-              style={{ fontSize: "0.65rem", lineHeight: 1.2 }}
-            >
-              {priceError}
-            </small>
-          )}
-        </div>
-      )}
+          </div>
+        )}
 
       {/* ── Descuento % ── */}
-      {variant === "financial" && fieldPaths.discountPct && colWidths.discountPct && (
-        <div style={colWidths.discountPct}>
-          <Controller
-            name={fieldPaths.discountPct}
-            control={control}
-            render={({ field: f }) => (
-              <InputNumber
-                value={f.value}
-                onValueChange={(e) => f.onChange(e.value ?? 0)}
-                min={0}
-                max={100}
-                suffix="%"
-                className="w-full"
-                inputClassName="w-full text-center"
-                inputStyle={{
-                  padding: "0.25rem 0.4rem",
-                  height: "30px",
-                  fontSize: "0.8rem",
-                }}
-                style={{ height: "30px" }}
-              />
-            )}
-          />
-        </div>
-      )}
+      {variant === "financial" &&
+        fieldPaths.discountPct &&
+        colWidths.discountPct && (
+          <div style={colWidths.discountPct}>
+            <Controller
+              name={fieldPaths.discountPct}
+              control={control}
+              render={({ field: f }) => (
+                <InputNumber
+                  value={f.value}
+                  onValueChange={(e) => f.onChange(e.value ?? 0)}
+                  min={0}
+                  max={100}
+                  suffix="%"
+                  className="w-full"
+                  inputClassName="w-full text-center"
+                  inputStyle={{
+                    padding: "0.25rem 0.4rem",
+                    height: "30px",
+                    fontSize: "0.8rem",
+                  }}
+                  style={{ height: "30px" }}
+                />
+              )}
+            />
+          </div>
+        )}
 
       {/* ── Impuesto ── */}
       {variant === "financial" && fieldPaths.taxType && colWidths.taxType && (
@@ -492,28 +633,32 @@ export default function WorkshopItemRow({
       )}
 
       {/* ── Obligatorio ── */}
-      {variant === "suggested" && fieldPaths.isRequired && colWidths.isRequired && (
-        <div
-          style={{
-            ...colWidths.isRequired,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-          }}
-        >
-          <Controller
-            name={fieldPaths.isRequired}
-            control={control}
-            render={({ field: f }) => (
-              <Checkbox
-                inputId={`req-${fieldPaths.isRequired.replace(/\./g, "-")}`}
-                checked={f.value ?? false}
-                onChange={(e) => f.onChange(e.checked)}
-              />
-            )}
-          />
-        </div>
-      )}
+      {variant === "suggested" &&
+        fieldPaths.isRequired &&
+        colWidths.isRequired && (
+          <div
+            style={{
+              ...colWidths.isRequired,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Controller
+              name={fieldPaths.isRequired}
+              control={control}
+              render={({ field: f }) => (
+                <Checkbox
+                  inputId={`req-${
+                    fieldPaths.isRequired?.replace(/\./g, "-") ?? ""
+                  }`}
+                  checked={f.value ?? false}
+                  onChange={(e) => f.onChange(e.checked)}
+                />
+              )}
+            />
+          </div>
+        )}
 
       {/* ── Eliminar ── */}
       <div
@@ -535,31 +680,59 @@ export default function WorkshopItemRow({
           tooltipOptions={{ position: "top" }}
         />
       </div>
+
+      {/* ── Toast y Create Dialogs ── */}
+      <Toast ref={toastRef} />
+      
+      {/* Item Dialog */}
+      <Dialog
+        visible={showCreateItem}
+        onHide={() => setShowCreateItem(false)}
+        header="Crear Repuesto"
+        modal
+        style={{ width: "90vw", maxWidth: "1000px" }}
+        maximizable
+      >
+        <ItemForm
+          model={null}
+          formId="create-item-dialog"
+          onSave={() => {
+            setShowCreateItem(false);
+            toastRef.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Repuesto creado correctamente",
+              life: 3000,
+            });
+          }}
+          toast={toastRef}
+        />
+      </Dialog>
+
+      {/* Operation Dialog */}
+      <Dialog
+        visible={showCreateOperation}
+        onHide={() => setShowCreateOperation(false)}
+        header="Crear Servicio"
+        modal
+        style={{ width: "90vw", maxWidth: "1000px" }}
+        maximizable
+      >
+        <WorkshopOperationForm
+          operation={null}
+          formId="create-operation-dialog"
+          onSave={() => {
+            setShowCreateOperation(false);
+            toastRef.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Servicio creado correctamente",
+              life: 3000,
+            });
+          }}
+          toast={toastRef}
+        />
+      </Dialog>
     </div>
   );
 }
-
-// ── Default column widths ──────────────────────────────────────────────────────
-
-export const WORKSHOP_ITEM_COL_WIDTHS: WorkshopItemRowColWidths = {
-  handle: { width: "1.5rem", flexShrink: 0 },
-  type: { width: "8rem", flexShrink: 0 },
-  description: { flex: "1 1 0", minWidth: 0 },
-  itemId: { width: "9rem", flexShrink: 0 },
-  quantity: { width: "5rem", flexShrink: 0 },
-  unitPrice: { width: "8rem", flexShrink: 0 },
-  discountPct: { width: "5.5rem", flexShrink: 0 },
-  taxType: { width: "8rem", flexShrink: 0 },
-  total: { width: "8rem", flexShrink: 0 },
-  remove: { width: "2rem", flexShrink: 0 },
-};
-
-export const WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS: WorkshopItemRowColWidths = {
-  handle: { width: "1.5rem", flexShrink: 0 },
-  itemId: { width: "12rem", flexShrink: 0 },
-  description: { flex: "1 1 0", minWidth: 0 },
-  quantity: { width: "6rem", flexShrink: 0 },
-  notes: { width: "12rem", flexShrink: 0 },
-  isRequired: { width: "5rem", flexShrink: 0 },
-  remove: { width: "2rem", flexShrink: 0 },
-};

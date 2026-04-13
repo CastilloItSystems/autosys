@@ -19,7 +19,18 @@ const INCLUDE = {
   requiredSpecialty: { select: { id: true, code: true, name: true } },
   suggestedMaterials: {
     include: {
-      item: { select: { id: true, name: true, code: true, sku: true } },
+      item: {
+        select: {
+          id: true,
+          name: true,
+          code: true,
+          sku: true,
+          salePrice: true,
+          costPrice: true,
+          taxType: true,
+          taxRate: true,
+        },
+      },
     },
     orderBy: { isRequired: 'desc' as const },
   },
@@ -113,9 +124,9 @@ export async function createWorkshopOperation(
       ...rest,
       empresaId,
       ...(suggestedMaterials?.length
-        ? { suggestedMaterials: { create: suggestedMaterials } }
+        ? { suggestedMaterials: { create: suggestedMaterials as any } }
         : {}),
-    },
+    } as any,
     include: INCLUDE,
   })
 }
@@ -158,11 +169,11 @@ export async function updateWorkshopOperation(
         ? {
             suggestedMaterials: {
               deleteMany: {},
-              create: suggestedMaterials,
+              create: suggestedMaterials as any,
             },
           }
         : {}),
-    },
+    } as any,
     include: INCLUDE,
   })
 }

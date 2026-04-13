@@ -1533,6 +1533,10 @@ model Item {
   warrantyDays          Int      @default(0)      // garantia
   packagingQty          Int      @default(1)      // empaque
 
+  // Impuestos
+  taxType               TaxType  @default(IVA)
+  taxRate               Decimal  @default(0.16) @db.Decimal(5, 2)
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
@@ -4617,6 +4621,10 @@ model WorkshopOperation {
   // Precios y costos de mano de obra
   listPrice  Decimal @default(0) @db.Decimal(12, 2) // Precio de lista al cliente
   costPrice  Decimal @default(0) @db.Decimal(12, 2) // Costo interno (margen = listPrice - costPrice)
+
+  // Impuestos
+  taxType    TaxType @default(IVA)
+  taxRate    Decimal @default(0.16) @db.Decimal(5, 2)
 
   // Garantía que incluye esta operación (al agregarla a una OT se pre-llena automáticamente)
   warrantyDays Int? // Días de garantía

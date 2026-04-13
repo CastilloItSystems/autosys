@@ -696,15 +696,27 @@ export default function WorkshopOperationForm({
             itemSuggestions={itemSuggestions}
             onItemSearch={(e) => searchItems(e.query)}
             onItemSelect={(item, index) => {
+              console.log(
+                "[WorkshopOperationForm] handleItemSelect for suggestedMaterials:",
+                { item, index },
+              );
               setSelectedItemsMap((prev) => ({
                 ...prev,
                 [item.id]: item,
               }));
-              
-              const currentDesc = control._formValues.suggestedMaterials?.[index]?.description;
-              if (!currentDesc || currentDesc.trim() === "") {
-                setValue(`suggestedMaterials.${index}.description` as any, item.name);
-              }
+
+              console.log("[WorkshopOperationForm] Setting itemId:", item.id);
+              setValue(`suggestedMaterials.${index}.itemId` as any, item.id);
+
+              const descValue = item.name ?? "";
+              console.log(
+                "[WorkshopOperationForm] Setting description:",
+                descValue,
+              );
+              setValue(
+                `suggestedMaterials.${index}.description` as any,
+                descValue,
+              );
             }}
             selectedItemsMap={selectedItemsMap}
           />

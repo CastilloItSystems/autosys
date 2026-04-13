@@ -28,3 +28,4 @@ export { default as quotationService } from './quotationService'
 export { default as totService } from './totService'
 export { default as garitaService } from './garitaService'
 
+export * from './catalogSearchService';

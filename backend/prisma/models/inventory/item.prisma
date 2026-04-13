@@ -63,6 +63,10 @@ model Item {
   warrantyDays          Int      @default(0)      // garantia
   packagingQty          Int      @default(1)      // empaque
 
+  // Impuestos
+  taxType               TaxType  @default(IVA)
+  taxRate               Decimal  @default(0.16) @db.Decimal(5, 2)
+
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]

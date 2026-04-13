@@ -34,6 +34,7 @@ export default function WorkshopFinancialSummary({
     otherTotal,
     subtotalBruto,
     baseImponible,
+    baseReducida,
     taxAmount,
     total,
   } = totals;
@@ -86,7 +87,7 @@ export default function WorkshopFinancialSummary({
           <span className="text-700 text-sm">{fmt.format(subtotalBruto)}</span>
         </div>
 
-        {/* ── Tax ── */}
+        {/* ── Tax IVA 16% ── */}
         {baseImponible > 0 && (
           <div className="flex justify-content-between align-items-center mb-1">
             <span className="text-600 text-sm">
@@ -95,7 +96,24 @@ export default function WorkshopFinancialSummary({
                 (Base {fmt.format(baseImponible)})
               </span>
             </span>
-            <span className="text-700 text-sm">{fmt.format(taxAmount)}</span>
+            <span className="text-700 text-sm">
+              {fmt.format(baseImponible * 0.16)}
+            </span>
+          </div>
+        )}
+
+        {/* ── Tax REDUCED 8% ── */}
+        {(baseReducida ?? 0) > 0 && (
+          <div className="flex justify-content-between align-items-center mb-1">
+            <span className="text-600 text-sm">
+              IVA Reducido{" "}
+              <span className="text-500" style={{ fontSize: "0.7rem" }}>
+                (Base {fmt.format(baseReducida)})
+              </span>
+            </span>
+            <span className="text-700 text-sm">
+              {fmt.format((baseReducida ?? 0) * 0.08)}
+            </span>
           </div>
         )}
 
@@ -112,10 +130,10 @@ export default function WorkshopFinancialSummary({
         {/* ── Grand Total ── */}
         <div className="flex justify-content-between align-items-center">
           <span className="font-bold text-900">
-            {igtfAmount != null ? "Total + IGTF" : "Total"}
+            {igtfAmount != null && igtfAmount > 0 ? "Total + IGTF" : "Total"}
           </span>
           <span className="font-bold text-lg text-primary">
-            {fmt.format(igtfAmount != null ? totalWithIgtf : total)}
+            {fmt.format(igtfAmount != null && igtfAmount > 0 ? totalWithIgtf : total)}
           </span>
         </div>
       </div>

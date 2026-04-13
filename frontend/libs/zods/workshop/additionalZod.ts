@@ -8,6 +8,7 @@ export const additionalItemSchema = z.object({
   type: z.enum(ADDITIONAL_ITEM_TYPES, {
     errorMap: () => ({ message: "Tipo de ítem inválido" }),
   }),
+  referenceId: z.string().optional(),
   description: z
     .string()
     .min(2, "La descripción debe tener al menos 2 caracteres"),

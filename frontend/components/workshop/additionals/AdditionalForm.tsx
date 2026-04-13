@@ -10,7 +10,7 @@ import {
   DEFAULT_WORKSHOP_ITEM,
 } from "@/components/workshop/shared";
 import { useServiceOrderCalculation } from "@/hooks/useServiceOrderCalculation";
-import { additionalService } from "@/app/api/workshop";
+import { additionalService, catalogSearchService } from "@/app/api/workshop";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   createAdditionalSchema,
@@ -42,6 +42,7 @@ export default function AdditionalForm({
     reset,
     watch,
     register,
+    setValue,
     formState: { errors },
   } = useForm<CreateAdditionalForm>({
     resolver: zodResolver(
@@ -62,6 +63,70 @@ export default function AdditionalForm({
 
   const items = watch("items");
   const watchedTypes = (items ?? []).map((it) => it.type as any);
+
+  const [selectedItemsMap, setSelectedItemsMap] = React.useState<
+    Record<string, any>
+  >({});
+
+  const handleItemSelect = React.useCallback(
+    (item: any, index: number) => {
+      console.log("[AdditionalForm] handleItemSelect called:", { item, index });
+      if (!item) return;
+      setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
+
+      // Auto-detect type from catalog (LABOR → LABOR, PART → PART)
+      const autoType =
+        item.type === "LABOR"
+          ? "LABOR"
+          : item.type === "PART"
+          ? "PART"
+          : "OTHER";
+      console.log("[AdditionalForm] Setting type:", autoType);
+      setValue(`items.${index}.type`, autoType);
+
+      // Update form values
+      console.log("[AdditionalForm] Setting referenceId:", item.id);
+      setValue(`items.${index}.referenceId`, item.id);
+
+      const descValue = item.name ?? "";
+      console.log("[AdditionalForm] Setting description:", descValue);
+      setValue(`items.${index}.description`, descValue);
+
+      console.log("[AdditionalForm] Setting unitPrice:", item.price);
+      setValue(`items.${index}.unitPrice`, item.price ?? 0);
+
+      console.log("[AdditionalForm] Setting unitCost:", item.cost);
+      setValue(`items.${index}.unitCost`, item.cost ?? 0);
+
+      console.log("[AdditionalForm] Setting taxType:", item.taxType);
+      setValue(`items.${index}.taxType`, item.taxType ?? "IVA");
+
+      console.log("[AdditionalForm] Setting taxRate:", item.taxRate);
+      setValue(`items.${index}.taxRate`, item.taxRate ?? 0.16);
+
+      // Add suggested items if they exist and it's a LABOR item
+      if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
+        console.log(
+          "[AdditionalForm] Appending suggested items:",
+          item.suggestedItems,
+        );
+        const itemsToAppend = item.suggestedItems.map((suggested: any) => ({
+          type: "PART",
+          referenceId: suggested.itemId,
+          description: suggested.description || "",
+          quantity: suggested.quantity || 1,
+          unitPrice: suggested.unitPrice || 0,
+          unitCost: suggested.unitCost || 0,
+          discountPct: 0,
+          taxType: suggested.taxType || "IVA",
+          taxRate: suggested.taxRate || 0.16,
+          approved: true,
+        }));
+        append(itemsToAppend);
+      }
+    },
+    [setValue, append],
+  );
 
   const calcResult = useServiceOrderCalculation(
     (items ?? []).map((it) => ({
@@ -182,8 +247,12 @@ export default function AdditionalForm({
           fieldArrayName="items"
           calcResult={calcResult}
           watchedTypes={watchedTypes}
+          onItemSelect={handleItemSelect}
+          selectedItemsMap={selectedItemsMap}
+          hasCatalog={watchedTypes.some((t) => t !== "OTHER")}
           defaultItem={DEFAULT_WORKSHOP_ITEM}
           title="Ítems"
+          catalogRefField="referenceId"
         />
 
         {/* SECCIÓN 3: Resumen financiero */}

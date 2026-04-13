@@ -20,6 +20,7 @@ export interface WorkshopCalculationResult {
   /** Tax decomposition */
   subtotalBruto: number;
   baseImponible: number;
+  baseReducida: number;
   baseExenta: number;
   taxAmount: number;
   /** Final total */
@@ -40,7 +41,8 @@ export function useServiceOrderCalculation(
 ): WorkshopCalculationResult {
   return useMemo(() => {
     let subtotalBruto = new Decimal(0);
-    let sumGravadas = new Decimal(0);
+    let sumGravadasIVA = new Decimal(0);
+    let sumGravadasReduced = new Decimal(0);
     let sumExentas = new Decimal(0);
 
     let laborTotalRaw = new Decimal(0);
@@ -69,8 +71,11 @@ export function useServiceOrderCalculation(
       const lineTax = lineSubtotal.mul(itemTaxRate.div(100));
       const lineTotal = lineSubtotal.plus(lineTax);
 
-      if (itemTaxRate.greaterThan(0)) {
-        sumGravadas = sumGravadas.plus(lineSubtotal);
+      // Separate gravadas by tax type
+      if (taxType === "IVA") {
+        sumGravadasIVA = sumGravadasIVA.plus(lineSubtotal);
+      } else if (taxType === "REDUCED") {
+        sumGravadasReduced = sumGravadasReduced.plus(lineSubtotal);
       } else {
         sumExentas = sumExentas.plus(lineSubtotal);
       }
@@ -93,7 +98,10 @@ export function useServiceOrderCalculation(
       };
     });
 
-    const taxAmount = sumGravadas.mul(new Decimal(taxRatePercent).div(100));
+    const taxAmountIVA = sumGravadasIVA.mul(new Decimal(taxRatePercent).div(100));
+    const taxAmountReduced = sumGravadasReduced.mul(new Decimal(8).div(100));
+    const taxAmount = taxAmountIVA.plus(taxAmountReduced);
+    const sumGravadas = sumGravadasIVA.plus(sumGravadasReduced);
     const total = laborTotalRaw.plus(partsTotalRaw).plus(otherTotalRaw);
 
     const finalItems = processedItems.map((p) => ({
@@ -109,7 +117,8 @@ export function useServiceOrderCalculation(
       partsTotal: partsTotalRaw.toDecimalPlaces(2).toNumber(),
       otherTotal: otherTotalRaw.toDecimalPlaces(2).toNumber(),
       subtotalBruto: subtotalBruto.toDecimalPlaces(2).toNumber(),
-      baseImponible: sumGravadas.toDecimalPlaces(2).toNumber(),
+      baseImponible: sumGravadasIVA.toDecimalPlaces(2).toNumber(),
+      baseReducida: sumGravadasReduced.toDecimalPlaces(2).toNumber(),
       baseExenta: sumExentas.toDecimalPlaces(2).toNumber(),
       taxAmount: taxAmount.toDecimalPlaces(2).toNumber(),
       total: total.toDecimalPlaces(2).toNumber(),

@@ -6,7 +6,11 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Calendar } from "primereact/calendar";
 import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
-import { quotationService, workshopOperationService } from "@/app/api/workshop";
+import {
+  quotationService,
+  workshopOperationService,
+  catalogSearchService,
+} from "@/app/api/workshop";
 import itemService from "@/app/api/inventory/itemService";
 import type { WorkshopQuotation } from "@/libs/interfaces/workshop";
 import {
@@ -61,34 +65,9 @@ export default function QuotationForm({
   onSubmittingChange,
   toast,
 }: Props) {
-  const [itemSuggestions, setItemSuggestions] = React.useState<any[]>([]);
   const [selectedItemsMap, setSelectedItemsMap] = React.useState<
     Record<string, any>
   >({});
-
-  const handleItemSearch = React.useCallback(
-    async (query: string, type: WorkshopItemType, index: number) => {
-      if (!query || query.length < 2) {
-        setItemSuggestions([]);
-        return;
-      }
-
-      try {
-        if (type === "LABOR") {
-          const res = await workshopOperationService.getAll({ search: query });
-          setItemSuggestions(res.data?.items ?? (res as any).data ?? []);
-        } else if (type === "PART" || type === ("CONSUMABLE" as any)) {
-          const res = await itemService.search(query);
-          setItemSuggestions(res.data ?? []);
-        } else {
-          setItemSuggestions([]);
-        }
-      } catch {
-        setItemSuggestions([]);
-      }
-    },
-    [],
-  );
 
   const isUpdate = !!quotation?.id;
   const schema = isUpdate ? updateQuotationSchema : createQuotationSchema;
@@ -153,8 +132,6 @@ export default function QuotationForm({
       : ("OTHER" as WorkshopItemType),
   );
 
-  const hasCatalog = watchedTypes.some((t) => t !== "OTHER");
-
   const calcResult = useServiceOrderCalculation(
     watchedItems.map((i, idx) => ({
       type: watchedTypes[idx],
@@ -167,25 +144,68 @@ export default function QuotationForm({
 
   const handleItemSelect = React.useCallback(
     (item: any, index: number) => {
+      console.log("[QuotationForm] handleItemSelect called:", { item, index });
+
       if (!item) return;
       setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
-      setValue(`items.${index}.description`, item.name || "");
 
-      if (item.standardMinutes !== undefined) {
-        setValue(`items.${index}.unitPrice`, item.listPrice ?? 0);
-        setValue(`items.${index}.unitCost`, 0);
-      } else {
-        setValue(
-          `items.${index}.unitPrice`,
-          item.pricing?.salePrice ?? item.pricing?.price ?? item.salePrice ?? 0,
+      // Auto-detect type from catalog (LABOR → LABOR, PART → PART)
+      const autoType =
+        item.type === "LABOR"
+          ? "LABOR"
+          : item.type === "PART"
+          ? "PART"
+          : "OTHER";
+      console.log("[QuotationForm] Setting type:", autoType);
+      setValue(`items.${index}.type`, autoType);
+
+      console.log("[QuotationForm] Setting referenceId:", item.id);
+      setValue(`items.${index}.referenceId`, item.id);
+
+      const descValue = item.name ?? "";
+      console.log(
+        "[QuotationForm] Setting description - raw value:",
+        item.name,
+        "- final:",
+        descValue,
+        "- length:",
+        descValue.length,
+      );
+      setValue(`items.${index}.description`, descValue);
+
+      console.log("[QuotationForm] Setting unitPrice:", item.price);
+      setValue(`items.${index}.unitPrice`, item.price ?? 0);
+
+      console.log("[QuotationForm] Setting unitCost:", item.cost);
+      setValue(`items.${index}.unitCost`, item.cost ?? 0);
+
+      console.log("[QuotationForm] Setting taxType:", item.taxType);
+      setValue(`items.${index}.taxType`, item.taxType ?? "IVA");
+
+      console.log("[QuotationForm] Setting taxRate:", item.taxRate);
+      setValue(`items.${index}.taxRate`, item.taxRate ?? 0.16);
+
+      if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
+        console.log(
+          "[QuotationForm] Appending suggested items:",
+          item.suggestedItems,
         );
-        setValue(
-          `items.${index}.unitCost`,
-          item.pricing?.costPrice ?? item.costPrice ?? 0,
-        );
+        const itemsToAppend = item.suggestedItems.map((suggested: any) => ({
+          type: "PART",
+          referenceId: suggested.itemId,
+          description: suggested.description || "",
+          quantity: suggested.quantity || 1,
+          unitPrice: suggested.unitPrice || 0,
+          unitCost: suggested.unitCost || 0,
+          discountPct: 0,
+          taxType: suggested.taxType || "IVA",
+          taxRate: suggested.taxRate || 0.16,
+          approved: true,
+        }));
+        append(itemsToAppend);
       }
     },
-    [setValue],
+    [setValue, append],
   );
 
   const onSubmit = async (data: any) => {
@@ -288,13 +308,9 @@ export default function QuotationForm({
           watchedTypes={watchedTypes}
           title="Ítems de la cotización"
           typeOptions={QUOTATION_ITEM_TYPE_OPTIONS}
-          itemSuggestions={itemSuggestions}
-          onItemSearch={(e, type, index) =>
-            handleItemSearch(e.query, type, index)
-          }
           onItemSelect={handleItemSelect}
           selectedItemsMap={selectedItemsMap}
-          hasCatalog={hasCatalog}
+          catalogRefField="referenceId"
         />
       </div>
 

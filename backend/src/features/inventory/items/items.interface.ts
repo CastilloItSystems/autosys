@@ -40,6 +40,8 @@ export interface IItem {
 
   warrantyDays: number
   packagingQty: number
+  taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
+  taxRate?: number
 
   technicalSpecs?: unknown
   tags?: string[]
