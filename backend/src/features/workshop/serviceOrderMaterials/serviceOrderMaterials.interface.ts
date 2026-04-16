@@ -29,6 +29,11 @@ export interface ICreateServiceOrderMaterial {
   taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
   taxRate?: number
   status?: MaterialStatus
+  clientApproved?: boolean | null
+  clientApprovalAt?: Date | null
+  clientApprovedBy?: string | null
+  clientApprovalNotes?: string | null
+  warehouseId?: string | null
   serviceOrderId: string
   itemId?: string
 }
@@ -41,6 +46,12 @@ export interface IServiceOrderMaterialWithRelations extends ICreateServiceOrderM
   createdBy: string
   serviceOrder?: any
   item?: any
+  warehouse?: any
+  dispatchExitNote?: {
+    id: string
+    exitNoteNumber: string
+    status: string
+  } | null
   createdAt: Date
   updatedAt: Date
 }

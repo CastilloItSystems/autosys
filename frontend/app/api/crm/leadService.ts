@@ -24,6 +24,16 @@ interface UpdateLeadStatusPayload {
   closedAt?: string;
 }
 
+interface ConvertLeadPayload {
+  ownerId?: string;
+  nextActivityAt: string;
+  stageCode?: string;
+  expectedCloseAt?: string;
+  amount?: number;
+  campaignId?: string;
+  notes?: string;
+}
+
 const leadService = {
   async getAll(params?: LeadParams): Promise<PaginatedResponse<Lead>> {
     const res = await apiClient.get("/crm/leads", { params });
@@ -55,6 +65,14 @@ const leadService = {
 
   async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/leads/${id}`);
+    return res.data;
+  },
+
+  async convertToOpportunity(
+    id: string,
+    payload: ConvertLeadPayload
+  ): Promise<ApiResponse<{ leadId: string; opportunityId: string; status: string }>> {
+    const res = await apiClient.post(`/crm/leads/${id}/convert`, payload);
     return res.data;
   },
 };

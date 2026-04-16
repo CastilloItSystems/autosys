@@ -76,6 +76,7 @@ model Customer {
   contacts          CustomerContact[]
   vehicles          CustomerVehicle[]
   leads             Lead[]
+  opportunities     Opportunity[]
   interactions      Interaction[]
   activities        Activity[]
 
@@ -91,6 +92,8 @@ model Customer {
 
   // Relaciones CRM: Casos / Reclamos
   cases             Case[]
+  loyaltyEvents     LoyaltyEvent[]
+  surveys           CustomerSurvey[]
 
   // Auditoría
   createdAt         DateTime        @default(now())

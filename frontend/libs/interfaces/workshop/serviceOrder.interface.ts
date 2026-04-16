@@ -49,6 +49,79 @@ export interface ServiceOrderItem {
   notes?: string | null;
 }
 
+export interface ServiceOrderPreInvoiceSummary {
+  id: string;
+  preInvoiceNumber: string;
+  status:
+    | "PENDING_PREPARATION"
+    | "IN_PREPARATION"
+    | "READY_FOR_PAYMENT"
+    | "PAID"
+    | "CANCELLED";
+  baseImponible: number;
+  taxRate: number;
+  taxAmount: number;
+  igtfApplies: boolean;
+  igtfRate: number;
+  igtfAmount: number;
+  total: number;
+  createdAt: string;
+}
+
+export interface ServiceOrderInvoiceSummary {
+  id: string;
+  invoiceNumber: string;
+  fiscalNumber?: string | null;
+  status: string;
+  total: number;
+  createdAt: string;
+}
+
+export interface ServiceOrderQuotationItemSummary {
+  id: string;
+  type: "LABOR" | "PART" | "CONSUMABLE" | "EXTERNAL_SERVICE" | "COURTESY";
+  referenceId: string | null;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  unitCost: number;
+  discountPct: number;
+  taxType: "IVA" | "EXEMPT" | "REDUCED";
+  taxRate: number;
+  taxAmount: number;
+  subtotal: number;
+  total: number;
+  approved: boolean;
+  order: number;
+}
+
+export interface ServiceOrderQuotationApprovalSummary {
+  id: string;
+  type: "TOTAL" | "PARTIAL" | "REJECTION";
+  channel: "PRESENTIAL" | "WHATSAPP" | "EMAIL" | "CALL" | "DIGITAL_SIGNATURE";
+  approvedByName: string;
+  notes: string | null;
+  rejectionReason: string | null;
+  approvedAt: string;
+}
+
+export interface ServiceOrderQuotationSummary {
+  id: string;
+  quotationNumber: string;
+  status: string;
+  version: number;
+  validUntil: string | null;
+  subtotal: number;
+  discount: number;
+  taxAmt: number;
+  total: number;
+  notes: string | null;
+  internalNotes: string | null;
+  createdAt: string;
+  items: ServiceOrderQuotationItemSummary[];
+  approvals: ServiceOrderQuotationApprovalSummary[];
+}
+
 export interface ServiceOrder {
   id: string;
   folio: string;
@@ -81,6 +154,10 @@ export interface ServiceOrder {
   taxAmt: number;
   total: number;
   items: ServiceOrderItem[];
+  preInvoice?: ServiceOrderPreInvoiceSummary | null;
+  consolidatedPreInvoice?: ServiceOrderPreInvoiceSummary | null;
+  invoice?: ServiceOrderInvoiceSummary | null;
+  quotations?: ServiceOrderQuotationSummary[];
   qualityCheck?: { id: string; status: string } | null;
   createdBy: string;
   createdAt: string;
@@ -151,4 +228,15 @@ export interface UpdateServiceOrderInput {
 export interface UpdateServiceOrderStatusInput {
   status: ServiceOrderStatus;
   mileageOut?: number;
+  comment?: string;
+}
+
+export interface ServiceOrderStatusHistoryEntry {
+  id: string;
+  serviceOrderId: string;
+  previousStatus: ServiceOrderStatus | null;
+  newStatus: ServiceOrderStatus;
+  comment: string | null;
+  userId: string;
+  createdAt: string;
 }

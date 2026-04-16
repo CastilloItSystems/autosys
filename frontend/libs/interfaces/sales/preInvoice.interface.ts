@@ -11,7 +11,7 @@ export enum PreInvoiceStatus {
 export interface PreInvoiceItem {
   id: string;
   preInvoiceId: string;
-  itemId: string;
+  itemId?: string | null;
   itemName?: string | null;
   quantity: number;
   unitPrice: number;
@@ -39,9 +39,10 @@ export interface PreInvoice {
   preInvoiceNumber: string;
   status: PreInvoiceStatus;
   empresaId: string;
-  orderId: string;
+  orderId?: string | null;
+  serviceOrderId?: string | null;
   customerId: string;
-  warehouseId: string;
+  warehouseId?: string | null;
   currency: string;
   exchangeRate?: number | null;
   discountAmount: number;
@@ -64,6 +65,16 @@ export interface PreInvoice {
     orderNumber: string;
     status: string;
   };
+  serviceOrder?: {
+    id: string;
+    folio: string;
+    status: string;
+  };
+  consolidatedServiceOrders?: Array<{
+    id: string;
+    folio: string;
+    status: string;
+  }>;
   customer?: {
     id: string;
     code: string;

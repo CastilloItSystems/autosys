@@ -49,7 +49,6 @@ export interface ICreateReservationInput {
 
 export interface IUpdateReservationInput {
   quantity?: number | undefined
-  status?: ReservationStatus | undefined
   workOrderId?: string | null | undefined
   saleOrderId?: string | null | undefined
   reference?: string | null | undefined
@@ -68,22 +67,3 @@ export interface IReservationFilters {
   reservedTo?: Date
 }
 
-export interface IConsumReservation {
-  reservationId: string
-  quantity?: number
-  deliveredBy?: string
-}
-
-export interface IReleaseReservation {
-  reservationId: string
-  reason?: string
-}
-
-export interface IReservationAlert {
-  id: string
-  reservationId: string
-  type: 'EXPIRED' | 'EXPIRING_SOON' | 'PENDING_DELIVERY'
-  message: string
-  isRead: boolean
-  createdAt: Date
-}

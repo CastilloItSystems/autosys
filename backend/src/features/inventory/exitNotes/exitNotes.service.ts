@@ -20,6 +20,7 @@ import {
   IExitNoteStatusInfo,
   IExitNoteSummary,
 } from './exitNotes.interface.js'
+import { dispatchMaterialFromExitNote } from '../../workshop/serviceOrderMaterials/internal/dispatchMaterial.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -36,6 +37,13 @@ const EXIT_NOTE_INCLUDE = {
     },
   },
   warehouse: { select: { id: true, name: true, empresaId: true } },
+  serviceOrderMaterial: {
+    select: {
+      id: true,
+      serviceOrderId: true,
+      serviceOrder: { select: { id: true, folio: true } },
+    },
+  },
 } as const
 
 /** Exit types that DO deduct stock on create (reserve) and cancel (release) */
@@ -49,6 +57,7 @@ const STOCK_DEDUCTING_TYPES = new Set<ExitNoteType>([
   ExitNoteType.OWNER_PICKUP,
   ExitNoteType.DEMO,
   ExitNoteType.TRANSFER,
+  ExitNoteType.WORKSHOP_SUPPLY,
   ExitNoteType.OTHER,
 ])
 
@@ -62,6 +71,7 @@ const MOVEMENT_TYPE_MAP: Record<ExitNoteType, string> = {
   [ExitNoteType.OWNER_PICKUP]: 'ADJUSTMENT_OUT',
   [ExitNoteType.DEMO]: 'ADJUSTMENT_OUT',
   [ExitNoteType.TRANSFER]: 'TRANSFER',
+  [ExitNoteType.WORKSHOP_SUPPLY]: 'ADJUSTMENT_OUT',
   [ExitNoteType.LOAN_RETURN]: 'LOAN_RETURN',
   [ExitNoteType.OTHER]: 'ADJUSTMENT_OUT',
 }
@@ -184,7 +194,7 @@ class ExitNotesService {
         include: EXIT_NOTE_INCLUDE,
       })
 
-      if (STOCK_DEDUCTING_TYPES.has(data.type)) {
+      if (STOCK_DEDUCTING_TYPES.has(data.type) && data.type !== ExitNoteType.WORKSHOP_SUPPLY) {
         for (const item of data.items) {
           await tx.stock.update({
             where: {
@@ -477,67 +487,20 @@ class ExitNotesService {
       throw new BadRequestError(MSG.cannotEdit)
     }
 
-    const shouldReserve = STOCK_DEDUCTING_TYPES.has(
-      exitNote.type as ExitNoteType
-    )
+    // For WORKSHOP_SUPPLY: stock already reserved by the workshop materials service.
+    // Skip the stock reservation step here; only update status.
+    const shouldReserve =
+      STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType) &&
+      exitNote.type !== ExitNoteType.WORKSHOP_SUPPLY
 
     if (shouldReserve && exitNote.items.length > 0) {
-      // ── Phase 1: Validate ALL items BEFORE reserving anything ──
-      const insufficientItems: string[] = []
-
-      for (const item of exitNote.items as Array<{
-        itemId: string
-        quantity: number
-        itemName?: string
-        item?: { sku?: string; name?: string }
-      }>) {
-        const stock = await (db as PrismaClient).stock.findUnique({
-          where: {
-            itemId_warehouseId: {
-              itemId: item.itemId,
-              warehouseId: exitNote.warehouseId,
-            },
-          },
-        })
-
-        const available = stock?.quantityAvailable ?? 0
-        if (available < item.quantity) {
-          const label =
-            item.item?.sku || item.itemName || item.item?.name || item.itemId
-          insufficientItems.push(
-            `${label}: disponible ${available}, requerido ${item.quantity}`
-          )
-        }
-      }
-
-      if (insufficientItems.length > 0) {
-        throw new BadRequestError(
-          `Stock insuficiente para los siguientes artículos:\n${insufficientItems.join('\n')}`
-        )
-      }
-
-      // ── Phase 2: All validated — reserve in a single transaction ──
+      // Stock was already reserved at create(). Only create Reservation records for
+      // traceability and transition status to IN_PROGRESS.
       const updated = await (db as PrismaClient).$transaction(async (tx) => {
         for (const item of exitNote.items as Array<{
           itemId: string
           quantity: number
         }>) {
-          // Reserve stock
-          await tx.stock.update({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: exitNote.warehouseId,
-              },
-            },
-            data: {
-              quantityReserved: { increment: item.quantity },
-              quantityAvailable: { decrement: item.quantity },
-              lastMovementAt: new Date(),
-            },
-          })
-
-          // Create Reservation record for traceability
           const year = new Date().getFullYear()
           const ts = Date.now().toString(36).toUpperCase()
           const rnd = Math.random().toString(36).substring(2, 6).toUpperCase()
@@ -569,10 +532,7 @@ class ExitNotesService {
 
       logger.info(
         `Nota de salida iniciada con ${exitNote.items.length} reservas: ${id}`,
-        {
-          empresaId,
-          userId,
-        }
+        { empresaId, userId }
       )
 
       return updated as unknown as IExitNote
@@ -716,10 +676,15 @@ class ExitNotesService {
     }
 
     const updated = await (db as PrismaClient).$transaction(async (tx) => {
-      // Only release stock if it was actually reserved (IN_PROGRESS or READY)
+      // Release stock for any status where stock was reserved:
+      // PENDING (reserved at create), IN_PROGRESS, READY
+      // Exclude WORKSHOP_SUPPLY — its stock is managed by the workshop materials service
       const wasReserved =
-        exitNote.status === ExitNoteStatus.IN_PROGRESS ||
-        exitNote.status === ExitNoteStatus.READY
+        STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType) &&
+        exitNote.type !== ExitNoteType.WORKSHOP_SUPPLY &&
+        (exitNote.status === ExitNoteStatus.PENDING ||
+          exitNote.status === ExitNoteStatus.IN_PROGRESS ||
+          exitNote.status === ExitNoteStatus.READY)
 
       if (
         wasReserved &&
@@ -909,6 +874,16 @@ class ExitNotesService {
           }
         }
         break
+
+      case ExitNoteType.WORKSHOP_SUPPLY: {
+        // Auto-dispatch the material when the exit note is delivered
+        const materialId = (exitNote as Record<string, unknown>)
+          .serviceOrderMaterialId as string | undefined
+        if (materialId) {
+          await dispatchMaterialFromExitNote(tx, materialId, userId)
+        }
+        break
+      }
     }
   }
 }

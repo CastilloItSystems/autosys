@@ -1,0 +1,56 @@
+enum DealerAfterSaleType {
+  WARRANTY_CHECK
+  FIRST_SERVICE
+  SATISFACTION_CALL
+  CLAIM
+}
+
+enum DealerAfterSaleStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+model DealerAfterSale {
+  id                 String                 @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa                @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String?
+  dealerUnit          DealerUnit?            @relation("DealerUnitAfterSales", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType       String?
+  referenceId         String?
+
+  caseNumber          String
+  type                DealerAfterSaleType
+  status              DealerAfterSaleStatus  @default(OPEN)
+  customerName        String
+  customerPhone       String?
+  customerEmail       String?
+  title               String
+  description         String?
+  openedAt            DateTime               @default(now())
+  dueAt               DateTime?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  assignedTo          String?
+  resolutionNotes     String?
+  satisfactionScore   Int?
+  isActive            Boolean                @default(true)
+
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@map("dealer_after_sales")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
+  @@index([openedAt])
+  @@unique([empresaId, caseNumber])
+}

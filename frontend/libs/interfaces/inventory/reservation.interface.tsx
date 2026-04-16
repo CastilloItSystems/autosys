@@ -16,6 +16,12 @@ export interface ReservationExitNote {
   exitNoteNumber: string;
 }
 
+export interface ReservationWarehouse {
+  id: string;
+  name: string;
+  code: string;
+}
+
 export interface Reservation {
   id: string;
   reservationNumber: string;
@@ -28,6 +34,7 @@ export interface Reservation {
   exitNoteId?: string;
   reference?: string;
   notes?: string;
+  reservedAt: string;
   expiresAt?: string | null;
   deliveredAt?: string | null;
   releasedAt?: string | null;
@@ -38,6 +45,7 @@ export interface Reservation {
   // Optional nested data (populated in getOne, create, consume, release)
   item?: ReservationItem;
   exitNote?: ReservationExitNote;
+  warehouse?: ReservationWarehouse;
 }
 
 export interface ReservationsResponse {

@@ -57,6 +57,89 @@ const VALID_TRANSITIONS: Record<QuotationStatus, QuotationStatus[]> = {
 // Estados en que la cotización no puede editarse
 const LOCKED_STATUSES: QuotationStatus[] = ['CONVERTED', 'REJECTED', 'EXPIRED']
 
+async function enrichQuotationReferences(db: Db, quotations: any[]) {
+  if (!quotations.length) return quotations
+
+  const operationIds = new Set<string>()
+  const itemIds = new Set<string>()
+
+  const collectIds = (items: any[] = []) => {
+    for (const item of items) {
+      if (!item?.referenceId) continue
+      if (item.type === 'LABOR') {
+        operationIds.add(String(item.referenceId))
+      } else if (item.type === 'PART' || item.type === 'CONSUMABLE') {
+        itemIds.add(String(item.referenceId))
+      }
+    }
+  }
+
+  for (const quotation of quotations) {
+    collectIds(quotation.items)
+    for (const supplementary of quotation.supplementaries ?? []) {
+      collectIds(supplementary.items)
+    }
+  }
+
+  const [operations, items] = await Promise.all([
+    operationIds.size
+      ? (db as PrismaClient).workshopOperation.findMany({
+          where: { id: { in: Array.from(operationIds) } },
+          select: { id: true, code: true, name: true },
+        })
+      : Promise.resolve([]),
+    itemIds.size
+      ? (db as PrismaClient).item.findMany({
+          where: { id: { in: Array.from(itemIds) } },
+          select: { id: true, code: true, sku: true, name: true },
+        })
+      : Promise.resolve([]),
+  ])
+
+  const operationsById = new Map(operations.map((op) => [op.id, op]))
+  const itemsById = new Map(items.map((it) => [it.id, it]))
+
+  const enrichItems = (rows: any[] = []) =>
+    rows.map((item) => {
+      const referenceId = item.referenceId ? String(item.referenceId) : null
+      if (!referenceId) {
+        return {
+          ...item,
+          referenceCode: null,
+          referenceSku: null,
+          referenceName: null,
+        }
+      }
+
+      if (item.type === 'LABOR') {
+        const op = operationsById.get(referenceId)
+        return {
+          ...item,
+          referenceCode: op?.code ?? null,
+          referenceSku: null,
+          referenceName: op?.name ?? null,
+        }
+      }
+
+      const inv = itemsById.get(referenceId)
+      return {
+        ...item,
+        referenceCode: inv?.sku ?? inv?.code ?? null,
+        referenceSku: inv?.sku ?? null,
+        referenceName: inv?.name ?? null,
+      }
+    })
+
+  return quotations.map((quotation) => ({
+    ...quotation,
+    items: enrichItems(quotation.items),
+    supplementaries: (quotation.supplementaries ?? []).map((s: any) => ({
+      ...s,
+      items: enrichItems(s.items),
+    })),
+  }))
+}
+
 async function generateQuotationNumber(
   db: Db,
   empresaId: string
@@ -126,6 +209,7 @@ export async function findAllQuotations(
     status,
     customerId,
     receptionId,
+    serviceOrderId,
     isSupplementary,
     search,
     page = 1,
@@ -138,6 +222,7 @@ export async function findAllQuotations(
   if (status) where.status = status
   if (customerId) where.customerId = customerId
   if (receptionId) where.receptionId = receptionId
+  if (serviceOrderId) where.serviceOrderId = serviceOrderId
   if (isSupplementary !== undefined) where.isSupplementary = isSupplementary
   if (search) {
     where.OR = [
@@ -158,7 +243,8 @@ export async function findAllQuotations(
     }),
     (db as PrismaClient).workshopQuotation.count({ where }),
   ])
-  return { data, page, limit, total }
+  const enriched = await enrichQuotationReferences(db, data as any[])
+  return { data: enriched, page, limit, total }
 }
 
 export async function findQuotationById(db: Db, id: string, empresaId: string) {
@@ -167,7 +253,8 @@ export async function findQuotationById(db: Db, id: string, empresaId: string) {
     include: INCLUDE,
   })
   if (!item) throw new NotFoundError('Cotización no encontrada')
-  return item
+  const [enriched] = await enrichQuotationReferences(db, [item as any])
+  return enriched
 }
 
 export async function createQuotation(
@@ -198,6 +285,20 @@ export async function createQuotation(
     if (!diag) throw new NotFoundError('Diagnóstico no encontrado')
   }
 
+  // Verificar OT si aplica
+  if (data.serviceOrderId) {
+    const so = await (db as PrismaClient).serviceOrder.findFirst({
+      where: { id: data.serviceOrderId, empresaId },
+      select: { id: true, customerId: true },
+    })
+    if (!so) throw new NotFoundError('Orden de servicio no encontrada')
+    if (so.customerId !== data.customerId) {
+      throw new BadRequestError(
+        'La OT y la cotización deben pertenecer al mismo cliente'
+      )
+    }
+  }
+
   // Verificar cotización padre si es suplementaria
   if (data.isSupplementary && data.parentQuotationId) {
     const parent = await (db as PrismaClient).workshopQuotation.findFirst({
@@ -209,7 +310,7 @@ export async function createQuotation(
   const quotationNumber = await generateQuotationNumber(db, empresaId)
   const totals = calcQuotationTotals(data.items)
 
-  return (db as PrismaClient).workshopQuotation.create({
+  const created = await (db as PrismaClient).workshopQuotation.create({
     data: {
       quotationNumber,
       status: 'DRAFT',
@@ -218,6 +319,7 @@ export async function createQuotation(
       parentQuotationId: data.parentQuotationId ?? null,
       receptionId: data.receptionId ?? null,
       diagnosisId: data.diagnosisId ?? null,
+      serviceOrderId: data.serviceOrderId ?? null,
       customerId: data.customerId,
       customerVehicleId: data.customerVehicleId ?? null,
       validUntil: data.validUntil ?? null,
@@ -250,6 +352,8 @@ export async function createQuotation(
     },
     include: INCLUDE,
   })
+  const [enriched] = await enrichQuotationReferences(db, [created as any])
+  return enriched
 }
 
 export async function updateQuotation(
@@ -277,7 +381,7 @@ export async function updateQuotation(
     updateData.version = existing.version + 1
   }
 
-  return (db as PrismaClient).$transaction(async (tx) => {
+  const updated = await (db as PrismaClient).$transaction(async (tx) => {
     if (data.items && data.items.length > 0) {
       // Borrar ítems anteriores y recrear (upsert completo)
       await (tx as PrismaClient).workshopQuotationItem.deleteMany({
@@ -311,6 +415,8 @@ export async function updateQuotation(
       include: INCLUDE,
     })
   })
+  const [enriched] = await enrichQuotationReferences(db, [updated as any])
+  return enriched
 }
 
 export async function updateQuotationStatus(
@@ -328,11 +434,13 @@ export async function updateQuotationStatus(
   }
   const extra: any = {}
   if (newStatus === 'EXPIRED') extra.expiredAt = new Date()
-  return (db as PrismaClient).workshopQuotation.update({
+  const updated = await (db as PrismaClient).workshopQuotation.update({
     where: { id },
     data: { status: newStatus, ...extra },
     include: INCLUDE,
   })
+  const [enriched] = await enrichQuotationReferences(db, [updated as any])
+  return enriched
 }
 
 export async function registerApproval(
@@ -350,7 +458,7 @@ export async function registerApproval(
     )
   }
 
-  return (db as PrismaClient).$transaction(async (tx) => {
+  const updated = await (db as PrismaClient).$transaction(async (tx) => {
     // Si es aprobación parcial, marcar ítems no incluidos como no aprobados
     if (
       data.type === 'PARTIAL' &&
@@ -394,6 +502,8 @@ export async function registerApproval(
 
     return quotation
   })
+  const [enriched] = await enrichQuotationReferences(db, [updated as any])
+  return enriched
 }
 
 export async function convertToServiceOrder(
@@ -429,7 +539,7 @@ export async function convertToServiceOrder(
     }
   }
 
-  return (db as PrismaClient).$transaction(async (tx) => {
+  const updated = await (db as PrismaClient).$transaction(async (tx) => {
     // Generar folio para la OS (reutilizamos el patrón SO-XXXX)
     const lastSO = await (tx as PrismaClient).serviceOrder.findFirst({
       where: { empresaId },
@@ -441,6 +551,12 @@ export async function convertToServiceOrder(
 
     // Filtrar solo ítems aprobados para la OS
     const approvedItems = (quotation.items as any[]).filter((it) => it.approved)
+    const approvedMaterialItems = approvedItems.filter(
+      (it) => it.type === 'PART' || it.type === 'CONSUMABLE'
+    )
+    const approvedServiceItems = approvedItems.filter(
+      (it) => it.type !== 'PART' && it.type !== 'CONSUMABLE'
+    )
 
     // Crear la Orden de Servicio - Ahora los modelos están alineados
     const so = await (tx as PrismaClient).serviceOrder.create({
@@ -453,7 +569,7 @@ export async function convertToServiceOrder(
         vehiclePlate: (quotation as any).customerVehicle?.plate ?? undefined,
         empresaId,
         createdBy: userId,
-        advisorId: data.advisorId ?? undefined,
+        assignedAdvisorId: data.assignedAdvisorId ?? undefined,
         internalNotes: data.notes ?? null,
         laborTotal: quotation.laborTotal,
         partsTotal: quotation.partsTotal,
@@ -462,34 +578,67 @@ export async function convertToServiceOrder(
         discount: quotation.discount,
         taxAmt: quotation.taxAmt,
         total: quotation.total,
-        items: {
-          create: approvedItems.map((it) => ({
-            type:
-              it.type === 'PART' || it.type === 'CONSUMABLE'
-                ? 'PART'
-                : it.type === 'LABOR'
-                  ? 'LABOR'
-                  : 'OTHER',
-            description: it.description,
-            quantity: it.quantity,
-            unitPrice: it.unitPrice,
-            unitCost: it.unitCost,
-            discountPct: it.discountPct,
-            taxType: it.taxType,
-            taxRate: it.taxRate,
-            taxAmount: it.taxAmount,
-            total: it.total,
-            notes: null,
-            operationId: it.type === 'LABOR' ? it.referenceId : null,
-            itemId:
-              it.type === 'PART' || it.type === 'CONSUMABLE'
-                ? it.referenceId
-                : null,
-          })),
-        },
+        ...(approvedServiceItems.length > 0
+          ? {
+              items: {
+                create: approvedServiceItems.map((it) => ({
+                  type: it.type === 'LABOR' ? 'LABOR' : 'OTHER',
+                  status: 'ASSIGNED',
+                  sourceType: 'MANUAL',
+                  description: it.description,
+                  quantity: it.quantity,
+                  unitPrice: it.unitPrice,
+                  unitCost: it.unitCost,
+                  discountPct: it.discountPct,
+                  taxType: it.taxType,
+                  taxRate: it.taxRate,
+                  taxAmount: it.taxAmount,
+                  total: it.total,
+                  notes: null,
+                  operationId: it.type === 'LABOR' ? it.referenceId : null,
+                  itemId: null,
+                })),
+              },
+            }
+          : {}),
       } as any,
       select: { id: true, folio: true },
     })
+
+    // Convertir PART/CONSUMABLE aprobados en solicitudes de material automáticas
+    if (approvedMaterialItems.length > 0) {
+      await Promise.all(
+        approvedMaterialItems.map((it) =>
+          (tx as PrismaClient).serviceOrderMaterial.create({
+            data: {
+              serviceOrderId: so.id,
+              itemId: it.referenceId ?? null,
+              description: it.description,
+              quantityRequested: it.quantity,
+              quantityReserved: 0,
+              quantityDispatched: 0,
+              quantityConsumed: 0,
+              quantityReturned: 0,
+              quantity: 0,
+              unitCost: it.unitCost,
+              unitPrice: it.unitPrice,
+              discountPct: it.discountPct,
+              taxType: it.taxType,
+              taxRate: it.taxRate,
+              taxAmount: 0,
+              total: 0,
+              status: 'REQUESTED',
+              clientApproved: true,
+              clientApprovalAt: new Date(),
+              clientApprovedBy: userId,
+              clientApprovalNotes: `Auto-aprobado desde cotización ${quotation.quotationNumber}`,
+              empresaId,
+              createdBy: userId,
+            },
+          })
+        )
+      )
+    }
 
     // Actualizar cotización: vinculada a OS + estado CONVERTED
     const updated = await (tx as PrismaClient).workshopQuotation.update({
@@ -512,4 +661,6 @@ export async function convertToServiceOrder(
 
     return updated
   })
+  const [enriched] = await enrichQuotationReferences(db, [updated as any])
+  return enriched
 }

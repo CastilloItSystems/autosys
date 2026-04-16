@@ -15,7 +15,10 @@ const PRIORITY_CONFIG = {
 
 interface PlanningKanbanCardProps {
   order: ServiceOrder;
-  onAction: (action: "edit" | "status", order: ServiceOrder) => void;
+  onAction: (
+    action: "view" | "history" | "times" | "edit" | "status",
+    order: ServiceOrder,
+  ) => void;
   isOverlay?: boolean;
 }
 
@@ -38,7 +41,15 @@ export default function PlanningKanbanCard({
     order.status !== "DELIVERED" &&
     order.status !== "INVOICED" &&
     order.status !== "CLOSED" &&
-    order.status !== "CANCELLED";
+      order.status !== "CANCELLED";
+  const dueLabel = order.estimatedDelivery
+    ? new Date(order.estimatedDelivery).toLocaleDateString("es-MX")
+    : "Sin fecha";
+  const amountLabel = new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+  }).format(order.total ?? 0);
 
   return (
     <div
@@ -96,6 +107,42 @@ export default function PlanningKanbanCard({
         </div>
       )}
 
+      {/* Quick metrics */}
+      <div className="grid mt-1 mb-1" style={{ rowGap: "2px" }}>
+        <div className="col-6 p-0 pr-2">
+          <div className="text-500" style={{ fontSize: "10px" }}>
+            Compromiso
+          </div>
+          <div className="text-xs font-medium" title={dueLabel}>
+            {dueLabel}
+          </div>
+        </div>
+        <div className="col-6 p-0 pl-1">
+          <div className="text-500" style={{ fontSize: "10px" }}>
+            Monto
+          </div>
+          <div className="text-xs font-medium" title={amountLabel}>
+            {amountLabel}
+          </div>
+        </div>
+      </div>
+
+      {order.observations && (
+        <div
+          className="text-600"
+          style={{
+            fontSize: "10px",
+            display: "-webkit-box",
+            WebkitLineClamp: 2,
+            WebkitBoxOrient: "vertical",
+            overflow: "hidden",
+          }}
+          title={order.observations}
+        >
+          {order.observations}
+        </div>
+      )}
+
       {/* Footer */}
       <div
         className="flex align-items-center justify-content-between mt-1"
@@ -111,6 +158,37 @@ export default function PlanningKanbanCard({
           className="flex gap-1"
           onPointerDown={(e) => e.stopPropagation()}
         >
+          <Button
+            icon="pi pi-history"
+            text
+            rounded
+            size="small"
+            style={{ width: "22px", height: "22px" }}
+            tooltip="Historial"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => onAction("history", order)}
+          />
+          <Button
+            icon="pi pi-stopwatch"
+            text
+            rounded
+            severity="help"
+            size="small"
+            style={{ width: "22px", height: "22px" }}
+            tooltip="Tiempos"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => onAction("times", order)}
+          />
+          <Button
+            icon="pi pi-eye"
+            text
+            rounded
+            size="small"
+            style={{ width: "22px", height: "22px" }}
+            tooltip="Ver detalle"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => onAction("view", order)}
+          />
           <Button
             icon="pi pi-pencil"
             text

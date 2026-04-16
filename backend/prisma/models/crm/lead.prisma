@@ -43,6 +43,8 @@ model Lead {
   channel         LeadChannel
   source          LeadSource  @default(WALK_IN)
   status          LeadStatus  @default(NEW)
+  campaignId      String?
+  campaign        Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   // Descripción de la oportunidad
   title           String      // Ej: "Compra Hilux 2024", "Reparación caja de cambios", "Repuestos Ford F150"
@@ -71,6 +73,7 @@ model Lead {
   activities      Activity[]
   quotes          Quote[]
   cases           Case[]
+  opportunity     Opportunity?
 
   // Relaciones Workshop
   serviceOrder    ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
@@ -83,6 +86,7 @@ model Lead {
   @@index([customerId])
   @@index([channel])
   @@index([status])
+  @@index([campaignId])
   @@index([assignedTo])
   @@index([expectedCloseAt])
 }

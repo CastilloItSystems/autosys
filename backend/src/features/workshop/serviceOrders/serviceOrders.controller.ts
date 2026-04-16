@@ -6,9 +6,11 @@ import {
   createServiceOrder,
   findAllServiceOrders,
   findServiceOrderById,
+  findServiceOrderStatusHistory,
   updateServiceOrder,
   updateServiceOrderStatus,
   deleteServiceOrder,
+  createWorkshopQuotationFromServiceOrder,
   syncMaterialsToItems,
   generateConsolidatedPreInvoice,
   getPendingBillingByCustomer,
@@ -20,6 +22,7 @@ import {
   UpdateStatusDTO,
   ServiceOrderResponseDTO,
 } from './serviceOrders.dto.js'
+import { QuotationResponseDTO } from '../workshopQuotations/workshopQuotations.dto.js'
 // FASE 1.2: Import conversion service
 import {
   convertQuoteToServiceOrder,
@@ -178,6 +181,23 @@ export const updateStatus = async (req: Request, res: Response) => {
   return ApiResponse.success(res, new ServiceOrderResponseDTO(order))
 }
 
+export const getStatusHistory = async (req: Request, res: Response) => {
+  const empresaId = req.empresaId!
+  const result = await findServiceOrderStatusHistory(
+    prisma,
+    req.params.id as string,
+    empresaId,
+    req.validatedQuery as any
+  )
+  return ApiResponse.paginated(
+    res,
+    result.data,
+    result.page,
+    result.limit,
+    result.total
+  )
+}
+
 export const remove = async (req: Request, res: Response) => {
   const empresaId = req.empresaId!
   await deleteServiceOrder(prisma, req.params.id as string, empresaId)
@@ -252,6 +272,38 @@ export const generatePreInvoice = async (req: Request, res: Response) => {
   } catch (error) {
     const message =
       error instanceof Error ? error.message : 'Error generating PreInvoice'
+    return ApiResponse.error(res, message, 400)
+  }
+}
+
+// Crear cotización de taller desde OT (fuente única WorkshopQuotation)
+export const createWorkshopQuotation = async (req: Request, res: Response) => {
+  try {
+    const empresaId = req.empresaId!
+    const serviceOrderId = req.params.id as string
+    const userId = req.user?.userId as string
+
+    if (!userId) {
+      return ApiResponse.error(res, 'User not authenticated', 401)
+    }
+
+    const quotation = await createWorkshopQuotationFromServiceOrder(
+      prisma,
+      serviceOrderId,
+      empresaId,
+      userId
+    )
+
+    return ApiResponse.success(
+      res,
+      new QuotationResponseDTO(quotation),
+      'Cotización de taller creada desde la orden de servicio'
+    )
+  } catch (error) {
+    const message =
+      error instanceof Error
+        ? error.message
+        : 'Error creating workshop quotation from ServiceOrder'
     return ApiResponse.error(res, message, 400)
   }
 }

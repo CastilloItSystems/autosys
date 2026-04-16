@@ -15,6 +15,25 @@ Lo voy a estructurar como si fuera una base real para análisis funcional, dise�
 
 ---
 
+## Estado de implementación (AutoSys - abril 2026)
+
+Implementado en código:
+
+- Leads + conversión explícita a oportunidades (`POST /api/crm/leads/:id/convert`)
+- Oportunidades separadas con pipeline y cierre ganado/perdido
+- Actividades/interacciones/cotizaciones/casos
+- Campañas (base + métricas mínimas)
+- Fidelización (eventos + encuestas NPS)
+- Automatizaciones CRM v1 (oportunidades estancadas, actividades vencidas, SLA vencido, recordatorios de cierre)
+
+Pendiente para siguientes iteraciones:
+
+- Designer visual de reglas de automatización
+- Integraciones externas de captación multicanal (web/redes/WhatsApp)
+- Parametrización avanzada de catálogos CRM en UI administrativa
+
+---
+
 # 1. Información general
 
 ## 1.1. Nombre del módulo

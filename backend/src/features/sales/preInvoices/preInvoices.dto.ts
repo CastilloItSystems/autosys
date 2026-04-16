@@ -6,9 +6,10 @@ export class PreInvoiceResponseDTO {
   id: string
   preInvoiceNumber: string
   status: string
-  orderId: string
+  orderId: string | null
+  serviceOrderId: string | null
   customerId: string
-  warehouseId: string
+  warehouseId: string | null
   currency: string
   exchangeRate?: number
   discountAmount: number
@@ -27,6 +28,8 @@ export class PreInvoiceResponseDTO {
   preparedBy?: string | null
   items: any[]
   order?: any
+  serviceOrder?: any
+  consolidatedServiceOrders?: any[]
   customer?: any
   warehouse?: any
   createdAt: Date
@@ -36,9 +39,11 @@ export class PreInvoiceResponseDTO {
     this.id = String(data.id)
     this.preInvoiceNumber = String(data.preInvoiceNumber)
     this.status = String(data.status)
-    this.orderId = String(data.orderId)
+    this.orderId = data.orderId != null ? String(data.orderId) : null
+    this.serviceOrderId =
+      data.serviceOrderId != null ? String(data.serviceOrderId) : null
     this.customerId = String(data.customerId)
-    this.warehouseId = String(data.warehouseId)
+    this.warehouseId = data.warehouseId != null ? String(data.warehouseId) : null
     this.currency = String(data.currency ?? 'USD')
     this.discountAmount = Number(data.discountAmount ?? 0)
     this.subtotalBruto = Number(data.subtotalBruto ?? 0)
@@ -60,6 +65,9 @@ export class PreInvoiceResponseDTO {
     if (data.paidAt != null) this.paidAt = data.paidAt as Date
     if (data.preparedBy != null) this.preparedBy = String(data.preparedBy)
     if (data.order != null) this.order = data.order
+    if (data.serviceOrder != null) this.serviceOrder = data.serviceOrder
+    if (data.consolidatedServiceOrders != null)
+      this.consolidatedServiceOrders = data.consolidatedServiceOrders as any[]
     if (data.customer != null) this.customer = data.customer
     if (data.warehouse != null) this.warehouse = data.warehouse
   }

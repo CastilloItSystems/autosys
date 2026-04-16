@@ -3,6 +3,7 @@
 import { Request, Response } from 'express'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { BadRequestError } from '../../../shared/utils/apiError.js'
 import reservationService from './reservations.service.js'
 import {
   CreateReservationDTO,
@@ -23,7 +24,7 @@ import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 
 /** Extracts empresaId injected by extractEmpresa middleware. Throws if missing. */
 function getEmpresaId(req: Request): string {
-  if (!req.empresaId) throw new Error('empresaId not set by middleware')
+  if (!req.empresaId) throw new BadRequestError('empresaId not set by middleware')
   return req.empresaId
 }
 
@@ -71,6 +72,8 @@ export class ReservationController {
       createdBy,
       sortBy,
       sortOrder,
+      reservedFrom,
+      reservedTo,
     } = req.query
 
     const filters: IReservationFilters = {}
@@ -84,6 +87,8 @@ export class ReservationController {
     if (workOrderId) filters.workOrderId = String(workOrderId)
     if (saleOrderId) filters.saleOrderId = String(saleOrderId)
     if (createdBy) filters.createdBy = String(createdBy)
+    if (reservedFrom) filters.reservedFrom = new Date(String(reservedFrom))
+    if (reservedTo) filters.reservedTo = new Date(String(reservedTo))
 
     const result = await reservationService.findAll(
       filters,
@@ -96,7 +101,7 @@ export class ReservationController {
     )
 
     const items = result.items.map(
-      (r) => new ReservationResponseDTO(r, { includeRelations: false })
+      (r) => new ReservationResponseDTO(r, { includeRelations: true })
     )
 
     return ApiResponse.paginated(

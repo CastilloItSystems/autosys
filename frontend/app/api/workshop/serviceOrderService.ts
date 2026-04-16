@@ -2,6 +2,7 @@
 import apiClient from '../apiClient'
 import type {
   ServiceOrder,
+  ServiceOrderStatusHistoryEntry,
   ServiceOrderFilters,
   CreateServiceOrderInput,
   UpdateServiceOrderInput,
@@ -35,6 +36,16 @@ const serviceOrderService = {
 
   async updateStatus(id: string, payload: UpdateServiceOrderStatusInput): Promise<WorkshopResponse<ServiceOrder>> {
     const res = await apiClient.patch(`${BASE}/${id}/status`, payload)
+    return res.data
+  },
+
+  async getStatusHistory(
+    id: string,
+    filters?: { page?: number; limit?: number }
+  ): Promise<WorkshopPagedResponse<ServiceOrderStatusHistoryEntry>> {
+    const res = await apiClient.get(`${BASE}/${id}/status-history`, {
+      params: filters,
+    })
     return res.data
   },
 

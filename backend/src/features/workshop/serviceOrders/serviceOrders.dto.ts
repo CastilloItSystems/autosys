@@ -112,11 +112,13 @@ export class UpdateServiceOrderDTO {
 export class UpdateStatusDTO {
   status: ServiceOrderStatus
   mileageOut?: number
+  comment?: string
 
   constructor(data: any) {
     this.status = data.status
     this.mileageOut =
       data.mileageOut != null ? Number(data.mileageOut) : undefined
+    this.comment = data.comment?.trim() || undefined
   }
 }
 
@@ -138,6 +140,7 @@ export class ServiceOrderResponseDTO {
   diagnosisNotes: string | null
   observations: string | null
   assignedTechnicianId: string | null
+  assignedAdvisorId: string | null
   receivedAt: Date
   estimatedDelivery: Date | null
   deliveredAt: Date | null
@@ -148,6 +151,10 @@ export class ServiceOrderResponseDTO {
   taxAmt: number
   total: number
   items: any[]
+  preInvoice: any | null
+  consolidatedPreInvoice: any | null
+  invoice: any | null
+  quotations: any[]
   createdBy: string
   createdAt: Date
   updatedAt: Date
@@ -170,6 +177,7 @@ export class ServiceOrderResponseDTO {
     this.diagnosisNotes = data.diagnosisNotes ?? null
     this.observations = data.internalNotes ?? data.observations ?? null
     this.assignedTechnicianId = data.assignedTechnicianId ?? null
+    this.assignedAdvisorId = data.assignedAdvisorId ?? null
     this.receivedAt = data.receivedAt
     this.estimatedDelivery = data.estimatedDelivery ?? null
     this.deliveredAt = data.deliveredAt ?? null
@@ -193,12 +201,98 @@ export class ServiceOrderResponseDTO {
       taxAmount: Number(item.taxAmount ?? 0),
       total: Number(item.total),
       itemId: item.itemId ?? null,
-      itemName: item.itemName ?? null,
+      itemCode: item.item?.code ?? null,
+      itemSku: item.item?.sku ?? null,
+      itemName: item.itemName ?? item.item?.name ?? null,
       operationId: item.operationId ?? null,
-      operationName: item.operationName ?? null,
+      operationCode: item.operation?.code ?? null,
+      operationName: item.operationName ?? item.operation?.name ?? null,
       technicianId: item.technicianId ?? null,
       notes: item.notes ?? null,
       stockDeducted: item.stockDeducted ?? false,
+    }))
+    this.preInvoice = data.preInvoice
+      ? {
+          id: data.preInvoice.id,
+          preInvoiceNumber: data.preInvoice.preInvoiceNumber,
+          status: data.preInvoice.status,
+          baseImponible: Number(data.preInvoice.baseImponible ?? 0),
+          taxRate: Number(data.preInvoice.taxRate ?? 0),
+          taxAmount: Number(data.preInvoice.taxAmount ?? 0),
+          igtfApplies: Boolean(data.preInvoice.igtfApplies),
+          igtfRate: Number(data.preInvoice.igtfRate ?? 0),
+          igtfAmount: Number(data.preInvoice.igtfAmount ?? 0),
+          total: Number(data.preInvoice.total ?? 0),
+          createdAt: data.preInvoice.createdAt,
+        }
+      : null
+
+    this.consolidatedPreInvoice = data.consolidatedPreInvoice
+      ? {
+          id: data.consolidatedPreInvoice.id,
+          preInvoiceNumber: data.consolidatedPreInvoice.preInvoiceNumber,
+          status: data.consolidatedPreInvoice.status,
+          baseImponible: Number(data.consolidatedPreInvoice.baseImponible ?? 0),
+          taxRate: Number(data.consolidatedPreInvoice.taxRate ?? 0),
+          taxAmount: Number(data.consolidatedPreInvoice.taxAmount ?? 0),
+          igtfApplies: Boolean(data.consolidatedPreInvoice.igtfApplies),
+          igtfRate: Number(data.consolidatedPreInvoice.igtfRate ?? 0),
+          igtfAmount: Number(data.consolidatedPreInvoice.igtfAmount ?? 0),
+          total: Number(data.consolidatedPreInvoice.total ?? 0),
+          createdAt: data.consolidatedPreInvoice.createdAt,
+        }
+      : null
+
+    this.invoice = data.invoice
+      ? {
+          id: data.invoice.id,
+          invoiceNumber: data.invoice.invoiceNumber,
+          fiscalNumber: data.invoice.fiscalNumber ?? null,
+          status: data.invoice.status,
+          total: Number(data.invoice.total ?? 0),
+          createdAt: data.invoice.createdAt,
+        }
+      : null
+
+    this.quotations = (data.quotations ?? []).map((quotation: any) => ({
+      id: quotation.id,
+      quotationNumber: quotation.quotationNumber,
+      status: quotation.status,
+      version: Number(quotation.version ?? 1),
+      validUntil: quotation.validUntil ?? null,
+      subtotal: Number(quotation.subtotal ?? 0),
+      discount: Number(quotation.discount ?? 0),
+      taxAmt: Number(quotation.taxAmt ?? 0),
+      total: Number(quotation.total ?? 0),
+      notes: quotation.notes ?? null,
+      internalNotes: quotation.internalNotes ?? null,
+      createdAt: quotation.createdAt,
+      items: (quotation.items ?? []).map((it: any) => ({
+        id: it.id,
+        type: it.type,
+        referenceId: it.referenceId ?? null,
+        description: it.description,
+        quantity: Number(it.quantity ?? 0),
+        unitPrice: Number(it.unitPrice ?? 0),
+        unitCost: Number(it.unitCost ?? 0),
+        discountPct: Number(it.discountPct ?? 0),
+        taxType: it.taxType ?? 'IVA',
+        taxRate: Number(it.taxRate ?? 0.16),
+        taxAmount: Number(it.taxAmount ?? 0),
+        subtotal: Number(it.subtotal ?? 0),
+        total: Number(it.total ?? 0),
+        approved: it.approved !== false,
+        order: Number(it.order ?? 0),
+      })),
+      approvals: (quotation.approvals ?? []).map((ap: any) => ({
+        id: ap.id,
+        type: ap.type,
+        channel: ap.channel,
+        approvedByName: ap.approvedByName,
+        notes: ap.notes ?? null,
+        rejectionReason: ap.rejectionReason ?? null,
+        approvedAt: ap.approvedAt,
+      })),
     }))
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt

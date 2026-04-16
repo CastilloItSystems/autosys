@@ -169,6 +169,27 @@ export default function ServiceOrderForm({
           "[ServiceOrderForm] Appending suggested items:",
           item.suggestedItems,
         );
+        const suggestedCatalogMap = item.suggestedItems.reduce(
+          (acc: Record<string, any>, suggested: any) => {
+            const suggestedId = suggested.itemId ? String(suggested.itemId) : null;
+            if (!suggestedId) return acc;
+            acc[suggestedId] = {
+              id: suggestedId,
+              code: suggested.code ?? undefined,
+              sku: suggested.sku ?? undefined,
+              name: suggested.name ?? suggested.description ?? "",
+              type: "PART",
+              price: Number(suggested.unitPrice ?? 0),
+              cost: Number(suggested.unitCost ?? 0),
+              taxType: suggested.taxType ?? "IVA",
+              taxRate: Number(suggested.taxRate ?? 0.16),
+            };
+            return acc;
+          },
+          {},
+        );
+        setSelectedItemsMap((prev) => ({ ...prev, ...suggestedCatalogMap }));
+
         const itemsToAppend = item.suggestedItems.map((suggested: any) => ({
           type: "PART",
           itemId: suggested.itemId,
@@ -208,6 +229,25 @@ export default function ServiceOrderForm({
   useEffect(() => {
     if (isLoading) return;
     if (order) {
+      const hydratedCatalogMap = (order.items ?? []).reduce(
+        (acc, i: any) => {
+          const refIdRaw = i.itemId ?? i.operationId;
+          const refId = refIdRaw ? String(refIdRaw) : null;
+          if (!refId) return acc;
+          acc[refId] = {
+            id: refId,
+            name: i.itemName ?? i.description ?? "",
+            code: i.itemCode ?? i.operationCode ?? undefined,
+            sku: i.itemSku ?? undefined,
+            type: i.type === "LABOR" ? "LABOR" : "PART",
+            price: Number(i.unitPrice ?? 0),
+          };
+          return acc;
+        },
+        {} as Record<string, any>,
+      );
+      setSelectedItemsMap(hydratedCatalogMap);
+
       reset({
         customerId: order.customerId ?? "",
         priority: order.priority ?? "NORMAL",
@@ -238,6 +278,7 @@ export default function ServiceOrderForm({
         })),
       });
     } else if (preloadData) {
+      setSelectedItemsMap({});
       reset({
         customerId: preloadData.customerId ?? "",
         priority: "NORMAL",
@@ -256,6 +297,7 @@ export default function ServiceOrderForm({
         items: [],
       });
     } else {
+      setSelectedItemsMap({});
       reset({
         customerId: "",
         priority: "NORMAL",
@@ -270,7 +312,7 @@ export default function ServiceOrderForm({
         items: [],
       });
     }
-  }, [order, reset, isLoading]);
+  }, [order, reset, isLoading, preloadData]);
 
   const onSubmit = async (data: CreateServiceOrderForm) => {
     onSubmittingChange?.(true);

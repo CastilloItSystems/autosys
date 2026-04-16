@@ -32,6 +32,7 @@ export enum ExitNoteStatus {
  * DEMO: Demonstration unit (track demo duration)
  * TRANSFER: Transfer to another location/warehouse (validates destination warehouse)
  * LOAN_RETURN: Return of previously loaned items (validates against Loan record)
+ * WORKSHOP_SUPPLY: Supply parts to workshop from warehouse (links to ServiceOrderMaterial)
  * OTHER: Miscellaneous (free text reason required)
  */
 export enum ExitNoteType {
@@ -45,6 +46,7 @@ export enum ExitNoteType {
   DEMO = 'DEMO',
   TRANSFER = 'TRANSFER',
   LOAN_RETURN = 'LOAN_RETURN',
+  WORKSHOP_SUPPLY = 'WORKSHOP_SUPPLY',
   OTHER = 'OTHER',
 }
 
@@ -80,6 +82,9 @@ export interface IExitNote {
 
   // For SALE type: links to pre-invoice
   preInvoiceId?: string
+
+  // For WORKSHOP_SUPPLY type: links to service order material
+  serviceOrderMaterialId?: string | null
 
   // Recipient information
   recipientName?: string
@@ -121,6 +126,7 @@ export interface IExitNoteResponse {
   status: ExitNoteStatus
   warehouseId: string
   preInvoiceId?: string
+  serviceOrderMaterialId?: string | null
   recipientName?: string
   recipientId?: string
   recipientPhone?: string

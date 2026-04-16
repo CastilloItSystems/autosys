@@ -6,6 +6,7 @@ const QUOTATION_STATUSES = [
   'APPROVED_TOTAL', 'APPROVED_PARTIAL', 'REJECTED', 'EXPIRED', 'CONVERTED',
 ]
 const ITEM_TYPES = ['LABOR', 'PART', 'CONSUMABLE', 'EXTERNAL_SERVICE', 'COURTESY']
+const TAX_TYPES = ['IVA', 'EXEMPT', 'REDUCED']
 const APPROVAL_CHANNELS = ['PRESENTIAL', 'WHATSAPP', 'EMAIL', 'CALL', 'DIGITAL_SIGNATURE']
 const APPROVAL_TYPES = ['TOTAL', 'PARTIAL', 'REJECTION']
 
@@ -29,8 +30,12 @@ const itemSchema = Joi.object({
     'number.min': 'El precio unitario no puede ser negativo',
   }),
   unitCost: Joi.number().min(0).optional().default(0),
-  discount: Joi.number().min(0).optional().default(0),
-  tax: Joi.number().min(0).optional().default(0),
+  discountPct: Joi.number().min(0).max(100).optional().default(0),
+  taxType: Joi.string().valid(...TAX_TYPES).optional().default('IVA').messages({
+    'any.only': `El tipo de impuesto debe ser uno de: ${TAX_TYPES.join(', ')}`,
+  }),
+  taxRate: Joi.number().min(0).max(1).optional().default(0.16),
+  taxAmount: Joi.number().min(0).optional().default(0),
   approved: Joi.boolean().optional().default(true),
   order: Joi.number().integer().min(0).optional().default(0),
 })
@@ -38,13 +43,14 @@ const itemSchema = Joi.object({
 export const createQuotationSchema = Joi.object({
   receptionId: Joi.string().optional().allow(null, ''),
   diagnosisId: Joi.string().optional().allow(null, ''),
+  serviceOrderId: Joi.string().optional().allow(null, ''),
   customerId: Joi.string().required().messages({ 'any.required': 'El cliente es requerido' }),
   customerVehicleId: Joi.string().optional().allow(null, ''),
   isSupplementary: Joi.boolean().optional().default(false),
   parentQuotationId: Joi.string().optional().allow(null, ''),
-  validUntil: Joi.date().iso().optional(),
-  notes: Joi.string().trim().max(2000).optional().allow(''),
-  internalNotes: Joi.string().trim().max(2000).optional().allow(''),
+  validUntil: Joi.date().iso().optional().allow(null),
+  notes: Joi.string().trim().max(2000).optional().allow('', null),
+  internalNotes: Joi.string().trim().max(2000).optional().allow('', null),
   items: Joi.array().items(itemSchema).min(1).required().messages({
     'any.required': 'Debe incluir al menos un ítem en la cotización',
     'array.min': 'Debe incluir al menos un ítem en la cotización',
@@ -83,7 +89,7 @@ export const registerApprovalSchema = Joi.object({
 })
 
 export const convertToSOSchema = Joi.object({
-  advisorId: Joi.string().optional().allow(null, ''),
+  assignedAdvisorId: Joi.string().optional().allow(null, ''),
   notes: Joi.string().trim().max(1000).optional().allow(''),
 })
 
@@ -91,6 +97,7 @@ export const quotationFiltersSchema = Joi.object({
   status: Joi.string().valid(...QUOTATION_STATUSES).optional(),
   customerId: Joi.string().optional(),
   receptionId: Joi.string().optional(),
+  serviceOrderId: Joi.string().optional(),
   isSupplementary: Joi.boolean().optional(),
   search: Joi.string().trim().optional().allow(''),
   page: Joi.number().integer().min(1).default(1),

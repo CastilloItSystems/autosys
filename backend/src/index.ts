@@ -10,6 +10,7 @@ import {
   seedDefaultRolesForEmpresa,
 } from './services/empresa-setup.service.js'
 import SocketService from './features/inventory/shared/events/socket.service.js'
+import { startCrmAutomationScheduler } from './features/crm/automations/crm-automations.service.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -71,6 +72,9 @@ export const startServer = async (): Promise<void> => {
     logger.info(`🏥 Health check en: http://localhost:${port}/health`)
     logger.info(`🔌 WebSockets habilitados en puerto ${port}`)
     logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━')
+
+    // Automatizaciones CRM (reglas fijas v1)
+    startCrmAutomationScheduler(prisma)
     logger.info('📦 Módulos disponibles:')
     logger.info('   • Inventory: /api/inventory')
     logger.info('   • Sales: /api/sales')

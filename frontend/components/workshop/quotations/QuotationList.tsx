@@ -58,6 +58,7 @@ const CONVERTIBLE_STATUSES: QuotationStatus[] = [
 
 export default function QuotationList() {
   const [items, setItems] = useState<WorkshopQuotation[]>([]);
+  console.log(items);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopQuotation | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopQuotation | null>(null);

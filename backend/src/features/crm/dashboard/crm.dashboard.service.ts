@@ -1,5 +1,3 @@
-// backend/src/features/crm/dashboard/crm.dashboard.service.ts
-
 import { PrismaClient } from '../../../generated/prisma/client.js'
 
 const now = () => new Date()
@@ -13,11 +11,7 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
   const monthStart = startOfCurrentMonth()
   const currentNow = now()
 
-  // -----------------------------------------------------------------------
-  // Run ALL queries in parallel for performance
-  // -----------------------------------------------------------------------
   const [
-    // --- LEADS ---
     leadsTotal,
     leadsThisMonth,
     leadsByStatusNew,
@@ -34,7 +28,6 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     leadsLostThisMonth,
     recentLeads,
 
-    // --- QUOTES ---
     quotesTotal,
     quotesActive,
     quotesByStatusDraft,
@@ -49,7 +42,6 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     activeQuotesForPipeline,
     recentQuotes,
 
-    // --- CASES ---
     casesTotal,
     casesOpen,
     casesOverdue,
@@ -68,7 +60,6 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     casesResolvedThisMonth,
     recentCases,
 
-    // --- CUSTOMERS ---
     customersTotal,
     customersActive,
     customersNewThisMonth,
@@ -78,18 +69,30 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     customersBySegmentWholesale,
     customersBySegmentInactive,
 
-    // --- ACTIVITIES ---
     activitiesPending,
     activitiesOverdue,
     activitiesCompletedThisMonth,
     recentOverdueActivities,
 
-    // --- SERVICE ORDERS ---
     serviceOrdersActive,
     serviceOrdersDeliveredThisMonth,
     deliveredSOsThisMonth,
+
+    opportunitiesTotal,
+    opportunitiesOpen,
+    opportunitiesWonThisMonth,
+    opportunitiesLostThisMonth,
+    opportunitiesByChannelRepuestos,
+    opportunitiesByChannelTaller,
+    opportunitiesByChannelVehiculos,
+    opportunitiesOverdueActivities,
+    opportunitiesPipelineRows,
+    opportunitiesRecent,
+    opportunitiesStale,
+
+    alertsOpen,
+    recentAlerts,
   ] = await Promise.all([
-    // === LEADS ===
     prisma.lead.count({ where: { empresaId } }),
     prisma.lead.count({ where: { empresaId, createdAt: { gte: monthStart } } }),
     prisma.lead.count({ where: { empresaId, status: 'NEW' } }),
@@ -108,24 +111,11 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
       where: { empresaId },
       orderBy: { createdAt: 'desc' },
       take: 5,
-      select: {
-        id: true,
-        title: true,
-        channel: true,
-        status: true,
-        customer: { select: { name: true } },
-        createdAt: true,
-      },
+      select: { id: true, title: true, channel: true, status: true, customer: { select: { name: true } }, createdAt: true },
     }),
 
-    // === QUOTES ===
     prisma.quote.count({ where: { empresaId } }),
-    prisma.quote.count({
-      where: {
-        empresaId,
-        status: { notIn: ['REJECTED', 'EXPIRED', 'CONVERTED'] as any },
-      },
-    }),
+    prisma.quote.count({ where: { empresaId, status: { notIn: ['REJECTED', 'EXPIRED', 'CONVERTED'] as any } } }),
     prisma.quote.count({ where: { empresaId, status: 'DRAFT' } }),
     prisma.quote.count({ where: { empresaId, status: 'ISSUED' } }),
     prisma.quote.count({ where: { empresaId, status: 'SENT' } }),
@@ -134,46 +124,18 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     prisma.quote.count({ where: { empresaId, status: 'REJECTED' } }),
     prisma.quote.count({ where: { empresaId, status: 'EXPIRED' } }),
     prisma.quote.count({ where: { empresaId, status: 'CONVERTED' } }),
-    prisma.quote.count({
-      where: { empresaId, status: 'APPROVED', createdAt: { gte: monthStart } },
-    }),
-    prisma.quote.findMany({
-      where: {
-        empresaId,
-        status: { notIn: ['REJECTED', 'EXPIRED', 'CONVERTED'] as any },
-      },
-      select: { total: true },
-    }),
+    prisma.quote.count({ where: { empresaId, status: 'APPROVED', createdAt: { gte: monthStart } } }),
+    prisma.quote.findMany({ where: { empresaId, status: { notIn: ['REJECTED', 'EXPIRED', 'CONVERTED'] as any } }, select: { total: true } }),
     prisma.quote.findMany({
       where: { empresaId },
       orderBy: { createdAt: 'desc' },
       take: 5,
-      select: {
-        id: true,
-        quoteNumber: true,
-        title: true,
-        status: true,
-        total: true,
-        customer: { select: { name: true } },
-        createdAt: true,
-      },
+      select: { id: true, quoteNumber: true, title: true, status: true, total: true, customer: { select: { name: true } }, createdAt: true },
     }),
 
-    // === CASES ===
     prisma.case.count({ where: { empresaId } }),
-    prisma.case.count({
-      where: {
-        empresaId,
-        status: { notIn: ['CLOSED', 'REJECTED'] as any },
-      },
-    }),
-    prisma.case.count({
-      where: {
-        empresaId,
-        slaDeadline: { lt: currentNow },
-        status: { notIn: ['RESOLVED', 'CLOSED', 'REJECTED'] as any },
-      },
-    }),
+    prisma.case.count({ where: { empresaId, status: { notIn: ['CLOSED', 'REJECTED'] as any } } }),
+    prisma.case.count({ where: { empresaId, slaDeadline: { lt: currentNow }, status: { notIn: ['RESOLVED', 'CLOSED', 'REJECTED'] as any } } }),
     prisma.case.count({ where: { empresaId, priority: 'LOW' } }),
     prisma.case.count({ where: { empresaId, priority: 'MEDIUM' } }),
     prisma.case.count({ where: { empresaId, priority: 'HIGH' } }),
@@ -186,26 +148,14 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     prisma.case.count({ where: { empresaId, status: 'RESOLVED' } }),
     prisma.case.count({ where: { empresaId, status: 'CLOSED' } }),
     prisma.case.count({ where: { empresaId, status: 'REJECTED' } }),
-    prisma.case.count({
-      where: { empresaId, status: 'RESOLVED', resolvedAt: { gte: monthStart } },
-    }),
+    prisma.case.count({ where: { empresaId, status: 'RESOLVED', resolvedAt: { gte: monthStart } } }),
     prisma.case.findMany({
       where: { empresaId },
       orderBy: { createdAt: 'desc' },
       take: 5,
-      select: {
-        id: true,
-        caseNumber: true,
-        title: true,
-        priority: true,
-        status: true,
-        slaDeadline: true,
-        customer: { select: { name: true } },
-        createdAt: true,
-      },
+      select: { id: true, caseNumber: true, title: true, priority: true, status: true, slaDeadline: true, customer: { select: { name: true } }, createdAt: true },
     }),
 
-    // === CUSTOMERS ===
     prisma.customer.count({ where: { empresaId } }),
     prisma.customer.count({ where: { empresaId, isActive: true } }),
     prisma.customer.count({ where: { empresaId, createdAt: { gte: monthStart } } }),
@@ -215,71 +165,66 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
     prisma.customer.count({ where: { empresaId, segment: 'WHOLESALE' } }),
     prisma.customer.count({ where: { empresaId, segment: 'INACTIVE' } }),
 
-    // === ACTIVITIES ===
     prisma.activity.count({ where: { empresaId, status: 'PENDING' } }),
-    prisma.activity.count({
-      where: { empresaId, status: 'PENDING', dueAt: { lt: currentNow } },
-    }),
-    prisma.activity.count({
-      where: { empresaId, status: 'DONE', completedAt: { gte: monthStart } },
-    }),
+    prisma.activity.count({ where: { empresaId, status: 'PENDING', dueAt: { lt: currentNow } } }),
+    prisma.activity.count({ where: { empresaId, status: 'DONE', completedAt: { gte: monthStart } } }),
     prisma.activity.findMany({
       where: { empresaId, status: 'PENDING', dueAt: { lt: currentNow } },
       orderBy: { dueAt: 'asc' },
       take: 5,
+      select: { id: true, title: true, type: true, dueAt: true, assignedTo: true },
+    }),
+
+    prisma.serviceOrder.count({ where: { empresaId, status: { notIn: ['DELIVERED', 'CANCELLED'] as any } } }),
+    prisma.serviceOrder.count({ where: { empresaId, status: 'DELIVERED', deliveredAt: { gte: monthStart } } }),
+    prisma.serviceOrder.findMany({ where: { empresaId, status: 'DELIVERED', deliveredAt: { gte: monthStart } }, select: { total: true } }),
+
+    prisma.opportunity.count({ where: { empresaId } }),
+    prisma.opportunity.count({ where: { empresaId, status: 'OPEN' } }),
+    prisma.opportunity.count({ where: { empresaId, status: 'WON', wonAt: { gte: monthStart } } }),
+    prisma.opportunity.count({ where: { empresaId, status: 'LOST', lostAt: { gte: monthStart } } }),
+    prisma.opportunity.count({ where: { empresaId, channel: 'REPUESTOS' } }),
+    prisma.opportunity.count({ where: { empresaId, channel: 'TALLER' } }),
+    prisma.opportunity.count({ where: { empresaId, channel: 'VEHICULOS' } }),
+    prisma.opportunity.count({ where: { empresaId, status: 'OPEN', nextActivityAt: { lt: currentNow } } }),
+    prisma.opportunity.findMany({ where: { empresaId, status: 'OPEN' }, select: { amount: true } }),
+    prisma.opportunity.findMany({
+      where: { empresaId },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
       select: {
         id: true,
         title: true,
-        type: true,
-        dueAt: true,
-        assignedTo: true,
+        channel: true,
+        stageCode: true,
+        status: true,
+        amount: true,
+        ownerId: true,
+        nextActivityAt: true,
+        expectedCloseAt: true,
+        createdAt: true,
       },
     }),
+    prisma.opportunity.count({ where: { empresaId, status: 'OPEN', updatedAt: { lt: new Date(currentNow.getTime() - 7 * 24 * 60 * 60 * 1000) } } }),
 
-    // === SERVICE ORDERS ===
-    prisma.serviceOrder.count({
-      where: {
-        empresaId,
-        status: { notIn: ['DELIVERED', 'CANCELLED'] as any },
-      },
-    }),
-    prisma.serviceOrder.count({
-      where: {
-        empresaId,
-        status: 'DELIVERED',
-        deliveredAt: { gte: monthStart },
-      },
-    }),
-    prisma.serviceOrder.findMany({
-      where: {
-        empresaId,
-        status: 'DELIVERED',
-        deliveredAt: { gte: monthStart },
-      },
-      select: { total: true },
+    prisma.crmAutomationAlert.count({ where: { empresaId, status: 'OPEN' } }),
+    prisma.crmAutomationAlert.findMany({
+      where: { empresaId, status: 'OPEN' },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, type: true, severity: true, title: true, message: true, createdAt: true, entityType: true, entityId: true },
     }),
   ])
 
-  // -----------------------------------------------------------------------
-  // Aggregate computed values
-  // -----------------------------------------------------------------------
-
-  // Leads
   const wonPlusLost = leadsWonThisMonth + leadsLostThisMonth
-  const conversionRate =
-    wonPlusLost > 0 ? (leadsWonThisMonth / wonPlusLost) * 100 : 0
+  const conversionRate = wonPlusLost > 0 ? (leadsWonThisMonth / wonPlusLost) * 100 : 0
 
-  // Quotes pipeline value
-  const pipelineValue = activeQuotesForPipeline.reduce(
-    (acc, q) => acc + Number(q.total),
-    0
-  )
+  const pipelineValue = activeQuotesForPipeline.reduce((acc, q) => acc + Number(q.total), 0)
+  const totalRevenueThisMonth = deliveredSOsThisMonth.reduce((acc, so) => acc + Number(so.total), 0)
 
-  // Service orders revenue this month
-  const totalRevenueThisMonth = deliveredSOsThisMonth.reduce(
-    (acc, so) => acc + Number(so.total),
-    0
-  )
+  const oppWonPlusLost = opportunitiesWonThisMonth + opportunitiesLostThisMonth
+  const oppWinRate = oppWonPlusLost > 0 ? (opportunitiesWonThisMonth / oppWonPlusLost) * 100 : 0
+  const opportunitiesPipelineValue = opportunitiesPipelineRows.reduce((acc, row) => acc + Number(row.amount ?? 0), 0)
 
   return {
     leads: {
@@ -304,6 +249,22 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
       conversionRate: Math.round(conversionRate * 100) / 100,
       recentLeads,
     },
+    opportunities: {
+      total: opportunitiesTotal,
+      open: opportunitiesOpen,
+      wonThisMonth: opportunitiesWonThisMonth,
+      lostThisMonth: opportunitiesLostThisMonth,
+      winRate: Math.round(oppWinRate * 100) / 100,
+      pipelineValue: opportunitiesPipelineValue,
+      stale: opportunitiesStale,
+      overdueActivities: opportunitiesOverdueActivities,
+      byChannel: {
+        REPUESTOS: opportunitiesByChannelRepuestos,
+        TALLER: opportunitiesByChannelTaller,
+        VEHICULOS: opportunitiesByChannelVehiculos,
+      } as Record<string, number>,
+      recent: opportunitiesRecent.map((row) => ({ ...row, amount: Number(row.amount ?? 0) })),
+    },
     quotes: {
       total: quotesTotal,
       active: quotesActive,
@@ -319,10 +280,7 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
         CONVERTED: quotesByStatusConverted,
       } as Record<string, number>,
       approvedThisMonth: quotesApprovedThisMonth,
-      recentQuotes: recentQuotes.map((q) => ({
-        ...q,
-        total: Number(q.total),
-      })),
+      recentQuotes: recentQuotes.map((q) => ({ ...q, total: Number(q.total) })),
     },
     cases: {
       total: casesTotal,
@@ -364,6 +322,10 @@ export async function getCrmDashboard(db: unknown, empresaId: string) {
       overdue: activitiesOverdue,
       completedThisMonth: activitiesCompletedThisMonth,
       recentOverdue: recentOverdueActivities,
+    },
+    alerts: {
+      open: alertsOpen,
+      recent: recentAlerts,
     },
     serviceOrders: {
       active: serviceOrdersActive,

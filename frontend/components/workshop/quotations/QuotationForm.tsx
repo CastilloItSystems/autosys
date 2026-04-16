@@ -69,6 +69,29 @@ export default function QuotationForm({
     Record<string, any>
   >({});
 
+  React.useEffect(() => {
+    if (!quotation?.items?.length) {
+      setSelectedItemsMap({});
+      return;
+    }
+
+    const hydrated = quotation.items.reduce((acc, it: any) => {
+      const refId = it.referenceId ? String(it.referenceId) : null;
+      if (!refId) return acc;
+      acc[refId] = {
+        id: refId,
+        name: it.referenceName ?? it.description ?? "",
+        code: it.referenceCode ?? undefined,
+        sku: it.referenceSku ?? undefined,
+        type: it.type === "LABOR" ? "LABOR" : "PART",
+        price: Number(it.unitPrice ?? 0),
+      };
+      return acc;
+    }, {} as Record<string, any>);
+
+    setSelectedItemsMap(hydrated);
+  }, [quotation]);
+
   const isUpdate = !!quotation?.id;
   const schema = isUpdate ? updateQuotationSchema : createQuotationSchema;
 
@@ -155,7 +178,7 @@ export default function QuotationForm({
           ? "LABOR"
           : item.type === "PART"
           ? "PART"
-          : "OTHER";
+          : "EXTERNAL_SERVICE";
       console.log("[QuotationForm] Setting type:", autoType);
       setValue(`items.${index}.type`, autoType);
 
@@ -190,6 +213,27 @@ export default function QuotationForm({
           "[QuotationForm] Appending suggested items:",
           item.suggestedItems,
         );
+        const suggestedCatalogMap = item.suggestedItems.reduce(
+          (acc: Record<string, any>, suggested: any) => {
+            const suggestedId = suggested.itemId ? String(suggested.itemId) : null;
+            if (!suggestedId) return acc;
+            acc[suggestedId] = {
+              id: suggestedId,
+              code: suggested.code ?? undefined,
+              sku: suggested.sku ?? undefined,
+              name: suggested.name ?? suggested.description ?? "",
+              type: "PART",
+              price: Number(suggested.unitPrice ?? 0),
+              cost: Number(suggested.unitCost ?? 0),
+              taxType: suggested.taxType ?? "IVA",
+              taxRate: Number(suggested.taxRate ?? 0.16),
+            };
+            return acc;
+          },
+          {},
+        );
+        setSelectedItemsMap((prev) => ({ ...prev, ...suggestedCatalogMap }));
+
         const itemsToAppend = item.suggestedItems.map((suggested: any) => ({
           type: "PART",
           referenceId: suggested.itemId,

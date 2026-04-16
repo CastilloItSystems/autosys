@@ -10,7 +10,10 @@ import {
 } from "react-hook-form";
 import ItemsTable, { ColumnDef } from "../../inventory/common/ItemsTable";
 import WorkshopItemRow, { type WorkshopItemType } from "./WorkshopItemRow";
-import { WORKSHOP_ITEM_COL_WIDTHS, WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS } from "./WorkshopItemConstants";
+import {
+  WORKSHOP_ITEM_COL_WIDTHS,
+  WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS,
+} from "./WorkshopItemConstants";
 import type { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import type { WorkshopCalculationResult } from "../../../hooks/useServiceOrderCalculation";
 

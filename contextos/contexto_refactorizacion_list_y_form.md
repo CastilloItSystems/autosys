@@ -166,6 +166,71 @@ const actionBodyTemplate = (rowData: Item) => {
 
 - Reemplazar el botón primitivo `<Button label="Nuevo..." />` por el componente reutilizable `<CreateButton label="Nuevo..." onClick={openNew} />` importado de `@/components/common/CreateButton`.
 
+### Header estándar de `DataTable` (obligatorio para listas)
+
+- Todas las pantallas `*List` deben definir un `const header = (...)` y pasarlo en `DataTable` con `header={header}`.
+- El header debe incluir estos 3 bloques:
+  - Título + contador total de registros.
+  - Filtros/búsqueda (`Dropdown`, `InputText` con icono de búsqueda).
+  - Acción principal con `CreateButton`.
+- Al cambiar filtros/búsqueda se debe reiniciar página (`setPage(0)` o equivalente).
+
+**Implementación base recomendada**:
+
+```tsx
+const header = (
+  <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+    <div className="flex align-items-center gap-2">
+      <h4 className="m-0">Módulo</h4>
+      <span className="text-600 text-sm">({totalRecords} total)</span>
+    </div>
+    <div className="flex flex-wrap gap-2">
+      <Dropdown
+        value={statusFilter}
+        options={STATUS_OPTIONS}
+        onChange={(e) => {
+          setStatusFilter(e.value);
+          setPage(0);
+        }}
+        placeholder="Estado"
+        style={{ minWidth: "160px" }}
+      />
+      <span className="p-input-icon-left">
+        <i className="pi pi-search" />
+        <InputText
+          type="search"
+          placeholder="Buscar..."
+          value={searchQuery}
+          onChange={(e) => {
+            setSearchQuery(e.target.value);
+            setPage(0);
+          }}
+        />
+      </span>
+      <CreateButton
+        label="Nuevo registro"
+        onClick={openNew}
+        tooltip="Crear registro"
+      />
+    </div>
+  </div>
+);
+```
+
+**En DataTable**:
+
+```tsx
+<DataTable
+  value={items}
+  header={header}
+  paginator
+  lazy
+  scrollable
+  sortMode="multiple"
+  ...
+/>
+```
+
 ### Diálogo de Eliminación (`DeleteConfirmDialog`)
 
 - **Antes**: Diálogos de confirmación definidos inline con sus propios botones y lógica de loading dispersa.

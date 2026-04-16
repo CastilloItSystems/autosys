@@ -30,6 +30,7 @@ import {
 import CaseForm from "./CaseForm";
 import CaseStatusDialog from "./CaseStatusDialog";
 import CaseDetailDialog from "./CaseDetailDialog";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 // Active columns shown in the Kanban (CLOSED and REJECTED are terminal → list view)
 const KANBAN_STATUSES = [
@@ -286,6 +287,7 @@ export default function CaseKanban() {
 
   const [formVisible, setFormVisible] = useState(false);
   const [editCase, setEditCase] = useState<Case | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [statusDialogCase, setStatusDialogCase] = useState<Case | null>(null);
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
@@ -368,13 +370,6 @@ export default function CaseKanban() {
     else { setDetailCaseId(c.id); setDetailVisible(true); }
   };
 
-  const formFooter = (
-    <div className="flex justify-content-end gap-2">
-      <Button label="Cancelar" outlined severity="secondary" onClick={() => setFormVisible(false)} />
-      <Button label={editCase ? "Guardar" : "Crear Caso"} icon="pi pi-check" form="case-form" type="submit" />
-    </div>
-  );
-
   return (
     <>
       <Toast ref={toast} />
@@ -435,14 +430,56 @@ export default function CaseKanban() {
         </DndContext>
       </motion.div>
 
-      {/* Case Form */}
-      <CaseForm
-        case={editCase}
+      <Dialog
         visible={formVisible}
-        onHide={() => setFormVisible(false)}
-        onSaved={() => { setFormVisible(false); load(); }}
-        toast={toast}
-      />
+        onHide={() => {
+          setFormVisible(false);
+          setEditCase(null);
+        }}
+        modal
+        maximizable
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-inbox mr-3 text-primary text-3xl"></i>
+                {editCase ? `Editar Caso · ${editCase.caseNumber}` : "Nuevo Caso / PQRS"}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <FormActionButtons
+            formId="case-form"
+            isUpdate={!!editCase?.id}
+            onCancel={() => {
+              setFormVisible(false);
+              setEditCase(null);
+            }}
+            isSubmitting={isSubmitting}
+          />
+        }
+      >
+        <CaseForm
+          caseRecord={editCase}
+          formId="case-form"
+          onSave={async () => {
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: editCase ? "Caso actualizado correctamente" : "Caso creado correctamente",
+              life: 3000,
+            });
+            setFormVisible(false);
+            setEditCase(null);
+            await load();
+          }}
+          onSubmittingChange={setIsSubmitting}
+          toast={toast}
+        />
+      </Dialog>
 
       {/* Status Dialog */}
       <CaseStatusDialog

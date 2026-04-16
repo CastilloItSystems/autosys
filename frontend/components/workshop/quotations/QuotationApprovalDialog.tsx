@@ -5,6 +5,7 @@ import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
+import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
 import { quotationService } from "@/app/api/workshop";
@@ -38,12 +39,32 @@ export default function QuotationApprovalDialog({ visible, quotation, onHide, on
   const [approvedByName, setApprovedByName] = useState("");
   const [notes, setNotes] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [approvedItemIds, setApprovedItemIds] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
   const reset = () => {
     setType("TOTAL"); setChannel("PRESENTIAL");
     setApprovedByName(""); setNotes(""); setRejectionReason("");
+    setApprovedItemIds([]);
   };
+
+  React.useEffect(() => {
+    if (!visible || !quotation) return;
+    const defaults = (quotation.items ?? [])
+      .filter((it) => it.approved !== false)
+      .map((it) => it.id);
+    setApprovedItemIds(defaults);
+  }, [visible, quotation]);
+
+  const toggleApprovedItem = (itemId: string, checked: boolean) => {
+    setApprovedItemIds((prev) =>
+      checked ? Array.from(new Set([...prev, itemId])) : prev.filter((id) => id !== itemId),
+    );
+  };
+
+  const canSubmit =
+    !!approvedByName.trim() &&
+    (type !== "PARTIAL" || approvedItemIds.length > 0);
 
   const handleSave = async () => {
     if (!quotation || !approvedByName.trim()) return;
@@ -53,6 +74,7 @@ export default function QuotationApprovalDialog({ visible, quotation, onHide, on
         type, channel, approvedByName,
         notes: notes || undefined,
         rejectionReason: rejectionReason || undefined,
+        approvedItemIds: type === "PARTIAL" ? approvedItemIds : undefined,
       });
       reset();
       onSaved();
@@ -72,7 +94,7 @@ export default function QuotationApprovalDialog({ visible, quotation, onHide, on
         severity={type === "REJECTION" ? "danger" : "success"}
         onClick={handleSave}
         loading={submitting}
-        disabled={!approvedByName.trim()}
+        disabled={!canSubmit}
       />
     </div>
   );
@@ -113,6 +135,50 @@ export default function QuotationApprovalDialog({ visible, quotation, onHide, on
               rows={3}
               placeholder="¿Por qué rechazó el cliente?"
             />
+          </div>
+        )}
+        {type === "PARTIAL" && quotation?.items?.length > 0 && (
+          <div>
+            <div className="flex align-items-center justify-content-between mb-2">
+              <label className="block font-semibold text-sm m-0">Ítems aprobados por el cliente *</label>
+              <div className="flex gap-2">
+                <Button
+                  type="button"
+                  label="Todos"
+                  text
+                  size="small"
+                  onClick={() => setApprovedItemIds(quotation.items.map((it) => it.id))}
+                />
+                <Button
+                  type="button"
+                  label="Ninguno"
+                  text
+                  size="small"
+                  onClick={() => setApprovedItemIds([])}
+                />
+              </div>
+            </div>
+            <div className="border-1 border-200 border-round p-2" style={{ maxHeight: "220px", overflowY: "auto" }}>
+              {quotation.items.map((item) => {
+                const checked = approvedItemIds.includes(item.id);
+                return (
+                  <div key={item.id} className="flex align-items-start gap-2 py-2 border-bottom-1 border-100">
+                    <Checkbox
+                      inputId={`approved-item-${item.id}`}
+                      checked={checked}
+                      onChange={(e) => toggleApprovedItem(item.id, !!e.checked)}
+                    />
+                    <label htmlFor={`approved-item-${item.id}`} className="text-sm cursor-pointer" style={{ lineHeight: 1.35 }}>
+                      <span className="font-medium">{item.description}</span>
+                      <span className="text-600"> — Cant: {item.quantity} · Total: {item.total.toFixed(2)}</span>
+                    </label>
+                  </div>
+                );
+              })}
+            </div>
+            {approvedItemIds.length === 0 && (
+              <small className="p-error block mt-2">Selecciona al menos un ítem para aprobación parcial.</small>
+            )}
           </div>
         )}
         <div>

@@ -29,7 +29,9 @@ const PAYMENT_INCLUDE = {
       status: true,
       total: true,
       orderId: true,
+      serviceOrderId: true,
       order: { select: { id: true, orderNumber: true } },
+      serviceOrder: { select: { id: true, folio: true } },
     },
   },
   customer: {
@@ -253,44 +255,86 @@ class PaymentsService {
           })
         }
 
-        // 4. Generate ExitNote tipo SALE (despacho — PENDING, no descuenta stock)
-        const exitNoteNumber = generateExitNoteNumber()
+        const isWorkshopPreInvoice =
+          Boolean((preInvoice as any).serviceOrderId) ||
+          !(preInvoice as any).warehouseId
 
-        const exitNote = await tx.exitNote.create({
-          data: {
-            exitNoteNumber,
-            type: 'SALE',
-            status: 'PENDING',
-            warehouseId: preInvoice.warehouseId,
-            preInvoiceId: data.preInvoiceId,
-            recipientName: (preInvoice as any).customer?.name ?? null,
-            reference: invoiceNumber,
-            notes: `Despacho automático — Factura ${invoiceNumber}`,
-            authorizedBy: userId ?? null,
-          },
-        })
+        if (!isWorkshopPreInvoice) {
+          // 4. Generate ExitNote tipo SALE (despacho — PENDING, no descuenta stock)
+          const exitNoteNumber = generateExitNoteNumber()
 
-        // Copy items to ExitNote items
-        for (const item of piItems) {
-          await tx.exitNoteItem.create({
+          const exitNote = await tx.exitNote.create({
             data: {
-              exitNoteId: exitNote.id,
-              itemId: item.itemId,
-              itemName: item.itemName ?? null,
-              quantity: item.quantity,
+              exitNoteNumber,
+              type: 'SALE',
+              status: 'PENDING',
+              warehouseId: (preInvoice as any).warehouseId,
+              preInvoiceId: data.preInvoiceId,
+              recipientName: (preInvoice as any).customer?.name ?? null,
+              reference: invoiceNumber,
+              notes: `Despacho automático — Factura ${invoiceNumber}`,
+              authorizedBy: userId ?? null,
             },
           })
-        }
 
-        logger.info(
-          `Factura y despacho generados para PreInvoice ${data.preInvoiceId}`,
-          {
-            invoiceNumber,
-            fiscalNumber,
-            exitNoteNumber,
-            empresaId,
+          // Copy items to ExitNote items and reserve stock
+          for (const item of piItems) {
+            await tx.exitNoteItem.create({
+              data: {
+                exitNoteId: exitNote.id,
+                itemId: item.itemId,
+                itemName: item.itemName ?? null,
+                quantity: item.quantity,
+              },
+            })
+
+            // Reserve stock: product already sold, lock immediately
+            const stock = await tx.stock.findUnique({
+              where: {
+                itemId_warehouseId: {
+                  itemId: item.itemId,
+                  warehouseId: (preInvoice as any).warehouseId,
+                },
+              },
+            })
+
+            if (!stock) {
+              logger.warn(
+                `Sin registro de stock para item ${item.itemId} en almacén ${(preInvoice as any).warehouseId}. No se reservó stock.`,
+                { preInvoiceId: data.preInvoiceId }
+              )
+              continue
+            }
+
+            await tx.stock.update({
+              where: { id: stock.id },
+              data: {
+                quantityReserved: { increment: item.quantity },
+                quantityAvailable: { decrement: item.quantity },
+                lastMovementAt: new Date(),
+              },
+            })
           }
-        )
+
+          logger.info(
+            `Factura y despacho generados para PreInvoice ${data.preInvoiceId}`,
+            {
+              invoiceNumber,
+              fiscalNumber,
+              exitNoteNumber,
+              empresaId,
+            }
+          )
+        } else {
+          logger.info(
+            `Factura generada sin despacho de inventario para PreInvoice de taller ${data.preInvoiceId}`,
+            {
+              invoiceNumber,
+              fiscalNumber,
+              empresaId,
+            }
+          )
+        }
 
       }
 

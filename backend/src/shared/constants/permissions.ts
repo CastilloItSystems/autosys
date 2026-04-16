@@ -141,11 +141,40 @@ export const PERMISSIONS = {
   CRM_CASES_UPDATE: 'crm.cases.update',
   CRM_CASES_DELETE: 'crm.cases.delete',
 
+  // ── CRM: Oportunidades ────────────────────────────────────────────────────
+  CRM_OPPORTUNITIES_VIEW: 'crm.opportunities.view',
+  CRM_OPPORTUNITIES_CREATE: 'crm.opportunities.create',
+  CRM_OPPORTUNITIES_UPDATE: 'crm.opportunities.update',
+  CRM_OPPORTUNITIES_DELETE: 'crm.opportunities.delete',
+
+  // ── CRM: Campañas ─────────────────────────────────────────────────────────
+  CRM_CAMPAIGNS_VIEW: 'crm.campaigns.view',
+  CRM_CAMPAIGNS_CREATE: 'crm.campaigns.create',
+  CRM_CAMPAIGNS_UPDATE: 'crm.campaigns.update',
+  CRM_CAMPAIGNS_DELETE: 'crm.campaigns.delete',
+
+  // ── CRM: Loyalty / Fidelización ───────────────────────────────────────────
+  CRM_LOYALTY_VIEW: 'crm.loyalty.view',
+  CRM_LOYALTY_CREATE: 'crm.loyalty.create',
+  CRM_LOYALTY_UPDATE: 'crm.loyalty.update',
+  CRM_LOYALTY_DELETE: 'crm.loyalty.delete',
+
+  // ── CRM: Automatizaciones ─────────────────────────────────────────────────
+  CRM_AUTOMATIONS_VIEW: 'crm.automations.view',
+  CRM_AUTOMATIONS_RUN: 'crm.automations.run',
+
   // ── Taller ────────────────────────────────────────────────────────────────
   WORKSHOP_VIEW: 'workshop.view',
   WORKSHOP_CREATE: 'workshop.create',
   WORKSHOP_UPDATE: 'workshop.update',
   WORKSHOP_DELETE: 'workshop.delete',
+
+  // ── Concesionario ─────────────────────────────────────────────────────────
+  DEALER_VIEW: 'dealer.view',
+  DEALER_CREATE: 'dealer.create',
+  DEALER_UPDATE: 'dealer.update',
+  DEALER_DELETE: 'dealer.delete',
+  DEALER_APPROVE: 'dealer.approve',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

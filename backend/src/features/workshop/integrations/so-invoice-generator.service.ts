@@ -18,6 +18,8 @@ import {
   NotFoundError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
+import { getBillableServiceOrderItems } from './billing-eligibility.service.js'
 
 type PrismaClientType =
   | PrismaClient
@@ -58,22 +60,11 @@ export async function generatePreInvoiceFromServiceOrder(
   serviceOrderId: string,
   userId: string
 ): Promise<PreInvoice> {
-  // 1. Fetch the ServiceOrder with items
-  const so = await prisma.serviceOrder.findUnique({
-    where: { id: serviceOrderId },
-    include: {
-      items: true,
-      customer: true,
-      materials: true,
-      additionals: true,
-      qualityCheck: true,
-      preInvoice: true,
-    },
-  })
-
-  if (!so) {
-    throw new NotFoundError(`ServiceOrder ${serviceOrderId} not found`)
-  }
+  // 1. Sync and fetch SO + billable items using mixed authorization rules
+  const { serviceOrder: so, billableItems } = await getBillableServiceOrderItems(
+    prisma,
+    serviceOrderId
+  )
 
   // 2. Validate SO is ready
   validateSOReadyForInvoicing(so)
@@ -85,31 +76,34 @@ export async function generatePreInvoiceFromServiceOrder(
     )
   }
 
-  // 4. Validate customer exists and belongs to empresa
-  if (!so.customer) {
-    throw new BadRequestError(`ServiceOrder customer not found`)
-  }
-
-  if (!so.items || so.items.length === 0) {
-    throw new BadRequestError(
-      `ServiceOrder ${so.folio} has no items to invoice`
+  if ((so as any).consolidatedPreInvoiceId) {
+    throw new ConflictError(
+      `ServiceOrder ${so.folio} already belongs to a consolidated PreInvoice. Cannot create duplicate.`
     )
   }
 
-  // 5. Calculate totals from SO items
+  if (!billableItems || billableItems.length === 0) {
+    throw new BadRequestError(
+      `ServiceOrder ${so.folio} has no billable items under mixed authorization rules`
+    )
+  }
+
+  // 5. Calculate totals from billable SO items
   let subtotalBruto = 0
   let taxAmount = 0
   let baseImponible = 0
   let baseExenta = 0
 
-  const preInvoiceItems = so.items.map((item) => {
+  const preInvoiceItems = billableItems.map((item) => {
     const lineSubtotal = Number(item.quantity) * Number(item.unitPrice)
     const lineDiscount = (Number(item.discountPct || 0) * lineSubtotal) / 100
     const lineBase = lineSubtotal - lineDiscount
+    const normalizedTaxRate = Number(item.taxRate || 0.16)
+    const taxRatePct = normalizedTaxRate <= 1 ? normalizedTaxRate * 100 : normalizedTaxRate
 
     // taxRate ya está almacenado como decimal (0.16 = 16%), no dividir entre 100
     const lineTax =
-      item.taxType === 'EXEMPT' ? 0 : lineBase * Number(item.taxRate || 0.16)
+      item.taxType === 'EXEMPT' ? 0 : lineBase * normalizedTaxRate
 
     if (item.taxType === 'EXEMPT') {
       baseExenta += lineBase
@@ -121,16 +115,18 @@ export async function generatePreInvoiceFromServiceOrder(
     taxAmount += lineTax
 
     return {
+      itemId: item.itemId ?? null,
       itemName: item.description,
       quantity: Number(item.quantity),
       unitPrice: Number(item.unitPrice),
       discountPercent: Number(item.discountPct || 0),
       discountAmount: lineDiscount,
       taxType: item.taxType,
-      taxRate: Number(item.taxRate || 0.16),
+      taxRate: taxRatePct,
       taxAmount: lineTax,
       subtotal: lineBase,
       totalLine: lineBase + lineTax,
+      discount: lineDiscount,
     }
   })
 
@@ -181,11 +177,27 @@ export async function generatePreInvoiceFromServiceOrder(
       preparedBy: userId,
       preparedAt: new Date(),
       items: {
-        create: preInvoiceItems.map((item) => ({
-          ...item,
-          discount: item.discountAmount,
-          tax: item.taxAmount,
-        })),
+        create: preInvoiceItems.map((item) => {
+          const lineData: any = {
+            itemName: item.itemName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercent: item.discountPercent,
+            discountAmount: item.discountAmount,
+            taxType: item.taxType,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
+            subtotal: item.subtotal,
+            totalLine: item.totalLine,
+            discount: item.discount,
+          }
+
+          if (item.itemId) {
+            lineData.item = { connect: { id: item.itemId } }
+          }
+
+          return lineData
+        }),
       },
     },
     include: {
@@ -332,9 +344,13 @@ export async function generateInvoiceFromPreInvoice(
   })
 
   // 6. Update ServiceOrder status to INVOICED
-  await prisma.serviceOrder.update({
-    where: { id: preInvoice.serviceOrderId! },
-    data: { status: 'INVOICED', invoiceId: invoice.id },
+  await changeServiceOrderStatusWithHistory(prisma, {
+    serviceOrderId: preInvoice.serviceOrderId!,
+    empresaId: preInvoice.empresaId,
+    newStatus: 'INVOICED',
+    userId,
+    comment: `Factura ${invoice.invoiceNumber} generada`,
+    extraData: { invoiceId: invoice.id },
   })
 
   return invoice

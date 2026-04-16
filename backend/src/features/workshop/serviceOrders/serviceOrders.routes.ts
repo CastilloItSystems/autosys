@@ -14,6 +14,7 @@ import {
   serviceOrderFiltersSchema,
   consolidatedPreInvoiceSchema,
   stalledFiltersSchema,
+  serviceOrderStatusHistoryFiltersSchema,
 } from './serviceOrders.validation.js'
 import * as ctrl from './serviceOrders.controller.js'
 
@@ -74,6 +75,13 @@ router.patch(
   asyncHandler(ctrl.updateStatus)
 )
 
+router.get(
+  '/:id/status-history',
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
+  validateQuery(serviceOrderStatusHistoryFiltersSchema),
+  asyncHandler(ctrl.getStatusHistory)
+)
+
 router.delete(
   '/:id',
   authorize(PERMISSIONS.WORKSHOP_DELETE),
@@ -94,6 +102,12 @@ router.get(
 )
 
 // FASE 2.7: Invoice generation routes
+router.post(
+  '/:id/create-quotation',
+  authorize(PERMISSIONS.WORKSHOP_CREATE),
+  asyncHandler(ctrl.createWorkshopQuotation)
+)
+
 router.post(
   '/:id/generate-invoice',
   authorize(PERMISSIONS.WORKSHOP_CREATE),

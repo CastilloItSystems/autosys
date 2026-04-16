@@ -35,9 +35,14 @@ function generateReservationNumber(): string {
 }
 
 const RESERVATION_INCLUDE = {
-  item: true,
+  item: {
+    select: { id: true, sku: true, code: true, name: true },
+  },
   exitNote: true,
-} as const
+  warehouse: {
+    select: { id: true, name: true, code: true },
+  },
+}
 
 // ---------------------------------------------------------------------------
 // Service
@@ -324,7 +329,7 @@ class ReservationService {
     try {
       const reservations = await db.reservation.findMany({
         where: {
-          status: ReservationStatus.ACTIVE,
+          status: { in: [ReservationStatus.ACTIVE, ReservationStatus.PENDING_PICKUP] },
           expiresAt: { lt: new Date() },
           item: { empresaId },
         },
@@ -356,6 +361,10 @@ class ReservationService {
     db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
+      if (data.status !== undefined) {
+        throw new BadRequestError('Use los endpoints dedicados para cambiar estado')
+      }
+
       const updated = await (db as PrismaClient).$transaction(async (tx) => {
         // TENANT-SAFE: verify reservation belongs to this company via item
         const reservation = await tx.reservation.findFirst({
@@ -661,25 +670,27 @@ class ReservationService {
     db: PrismaClientType = prisma
   ): Promise<IReservationWithRelations> {
     try {
-      // TENANT-SAFE: verify reservation belongs to this company via item
-      const reservation = await db.reservation.findFirst({
-        where: { id: reservationId, item: { empresaId } },
-      })
+      const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        // TENANT-SAFE: verify reservation belongs to this company via item
+        const reservation = await tx.reservation.findFirst({
+          where: { id: reservationId, item: { empresaId } },
+        })
 
-      if (!reservation) {
-        throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
-      }
+        if (!reservation) {
+          throw new NotFoundError(INVENTORY_MESSAGES.reservation.notFound)
+        }
 
-      if (reservation.status !== ReservationStatus.ACTIVE) {
-        throw new BadRequestError(
-          `Solo se pueden marcar como pendientes reservas ACTIVE. Estado actual: ${reservation.status}`
-        )
-      }
+        if (reservation.status !== ReservationStatus.ACTIVE) {
+          throw new BadRequestError(
+            `Solo se pueden marcar como pendientes reservas ACTIVE. Estado actual: ${reservation.status}`
+          )
+        }
 
-      const updated = await db.reservation.update({
-        where: { id: reservationId },
-        data: { status: ReservationStatus.PENDING_PICKUP },
-        include: RESERVATION_INCLUDE,
+        return tx.reservation.update({
+          where: { id: reservationId },
+          data: { status: ReservationStatus.PENDING_PICKUP },
+          include: RESERVATION_INCLUDE,
+        })
       })
 
       logger.info(`Reserva marcada como pendiente: ${reservationId}`, {
@@ -742,16 +753,18 @@ class ReservationService {
           },
         })
 
-        if (stock) {
-          await tx.stock.update({
-            where: { id: stock.id },
-            data: {
-              quantityReserved: stock.quantityReserved - reservation.quantity,
-              quantityAvailable: stock.quantityAvailable + reservation.quantity,
-              lastMovementAt: new Date(),
-            },
-          })
+        if (!stock) {
+          throw new NotFoundError(INVENTORY_MESSAGES.stock.notFound)
         }
+
+        await tx.stock.update({
+          where: { id: stock.id },
+          data: {
+            quantityReserved: stock.quantityReserved - reservation.quantity,
+            quantityAvailable: stock.quantityAvailable + reservation.quantity,
+            lastMovementAt: new Date(),
+          },
+        })
 
         await tx.reservation.delete({ where: { id } })
       })

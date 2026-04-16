@@ -37,9 +37,9 @@ export default function WorkshopBillingPage() {
       const res = await apiClient.get("/sales/pre-invoices", {
         params: { hasServiceOrder: true, limit: 100 },
       });
-      setPreInvoices(res.data?.data?.data ?? res.data?.data ?? []);
+      setPreInvoices(Array.isArray(res.data?.data) ? res.data.data : []);
     } catch (err) {
-      handleFormError(err, toast.current!);
+      handleFormError(err, toast);
     } finally {
       setLoading(false);
     }
@@ -88,7 +88,7 @@ export default function WorkshopBillingPage() {
               icon="pi pi-external-link"
               outlined
               size="small"
-              onClick={() => router.push("/empresa/ventas/pre-facturas")}
+              onClick={() => router.push("/empresa/inventario/pre-invoice")}
             />
             <Button icon="pi pi-refresh" text rounded onClick={load} loading={loading} />
           </div>
@@ -108,21 +108,23 @@ export default function WorkshopBillingPage() {
         >
           <Column expander style={{ width: "3rem" }} />
           <Column field="preInvoiceNumber" header="N° Pre-Factura" sortable />
-          <Column
-            header="OT"
-            body={(row) =>
-              row.serviceOrder?.folio ? (
-                <Button
+            <Column
+              header="OT"
+              body={(row) =>
+                row.serviceOrder?.folio ? (
+                  <Button
                   label={row.serviceOrder.folio}
                   link
                   size="small"
                   onClick={() =>
                     router.push(`/empresa/workshop/service-orders/${row.serviceOrderId}`)
                   }
-                />
-              ) : "—"
-            }
-          />
+                    />
+                ) : (row.consolidatedServiceOrders?.length ?? 0) > 0 ? (
+                  <span>{`Consolidada (${row.consolidatedServiceOrders.length} OTs)`}</span>
+                ) : "—"
+              }
+            />
           <Column
             header="Cliente"
             body={(row) => row.customer?.name ?? "—"}

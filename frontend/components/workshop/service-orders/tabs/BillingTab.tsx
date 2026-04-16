@@ -37,8 +37,9 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
   const [loadingPending, setLoadingPending] = useState(false);
   const [consolidating, setConsolidating] = useState(false);
 
-  const preInvoice = (serviceOrder as any).preInvoice;
-  const invoice = (serviceOrder as any).invoice;
+  const preInvoice =
+    serviceOrder.preInvoice ?? serviceOrder.consolidatedPreInvoice ?? null;
+  const invoice = serviceOrder.invoice ?? null;
   const isBillable = BILLABLE_STATUSES.includes(serviceOrder.status);
   const canGenerateNew = isBillable && !preInvoice && !["INVOICED", "CLOSED"].includes(serviceOrder.status);
 
@@ -146,7 +147,7 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
             <Button label="Cancelar" outlined onClick={() => setShowConsolidated(false)} />
             <Button
               label={`Generar pre-factura consolidada (${selectedIds.length} OTs)`}
-              icon="pi pi-file-invoice"
+              icon="pi pi-receipt"
               loading={consolidating}
               disabled={selectedIds.length < 2}
               onClick={handleGenerateConsolidated}
@@ -204,7 +205,7 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
 
       {canGenerateNew && (
         <div className="flex flex-column align-items-center py-5 gap-3">
-          <i className="pi pi-file-invoice text-4xl text-400" />
+          <i className="pi pi-receipt text-4xl text-400" />
           <p className="text-500 m-0">Sin pre-factura generada</p>
           <div className="flex gap-2">
             <Button

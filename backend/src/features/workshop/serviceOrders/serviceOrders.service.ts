@@ -17,6 +17,11 @@ import type {
 import { validateSOQuoteApproval } from '../integrations/quote-so-converter.service.js'
 import { handleSOQualityCheckTransition } from '../integrations/quality-check-integrator.service.js'
 import { handleSODeliveryTransition } from '../integrations/delivery-integrator.service.js'
+import {
+  changeServiceOrderStatusWithHistory,
+  findServiceOrderStatusHistory as findServiceOrderStatusHistoryEntries,
+} from './serviceOrderStatusHistory.service.js'
+import { getBillableServiceOrderItems } from '../integrations/billing-eligibility.service.js'
 
 type PrismaClientType =
   | PrismaClient
@@ -49,6 +54,13 @@ const VALID_TRANSITIONS: Record<ServiceOrderStatus, ServiceOrderStatus[]> = {
   CANCELLED: [],
 }
 
+const SERVICE_ORDER_ITEM_INCLUDE = {
+  include: {
+    item: { select: { id: true, code: true, sku: true, name: true } },
+    operation: { select: { id: true, code: true, name: true } },
+  },
+} as const
+
 // Genera folio SO-XXXX por empresa usando SELECT FOR UPDATE para evitar duplicados
 export async function generateFolio(
   prisma: PrismaClientType,
@@ -66,6 +78,17 @@ export async function generateFolio(
   const lastNum = last ? parseInt(last.folio.replace('SO-', ''), 10) : 0
   const next = lastNum + 1
   return `SO-${String(next).padStart(4, '0')}`
+}
+
+async function generateWorkshopQuotationNumber(
+  prisma: PrismaClientType,
+  empresaId: string
+): Promise<string> {
+  const result = await (prisma as PrismaClient).$queryRaw<{ num: bigint }[]>`
+    SELECT COUNT(*) AS num FROM workshop_quotations WHERE "empresaId" = ${empresaId}
+  `
+  const next = Number(result[0]?.num ?? 0) + 1
+  return `COT-${String(next).padStart(4, '0')}`
 }
 
 function calcTotals(
@@ -233,7 +256,7 @@ export async function createServiceOrder(
   const includeConfig = {
     customer: { select: { id: true, name: true, code: true } },
     customerVehicle: { select: { id: true, plate: true } },
-    items: true,
+    items: SERVICE_ORDER_ITEM_INCLUDE,
   }
 
   if (client.$transaction && dto.receptionId) {
@@ -307,8 +330,48 @@ export async function findAllServiceOrders(
       include: {
         customer: { select: { id: true, name: true, code: true } },
         customerVehicle: { select: { id: true, plate: true } },
-        items: true,
+        items: SERVICE_ORDER_ITEM_INCLUDE,
         qualityCheck: { select: { id: true, status: true } },
+        preInvoice: {
+          select: {
+            id: true,
+            preInvoiceNumber: true,
+            status: true,
+            baseImponible: true,
+            taxRate: true,
+            taxAmount: true,
+            igtfApplies: true,
+            igtfRate: true,
+            igtfAmount: true,
+            total: true,
+            createdAt: true,
+          },
+        },
+        consolidatedPreInvoice: {
+          select: {
+            id: true,
+            preInvoiceNumber: true,
+            status: true,
+            baseImponible: true,
+            taxRate: true,
+            taxAmount: true,
+            igtfApplies: true,
+            igtfRate: true,
+            igtfAmount: true,
+            total: true,
+            createdAt: true,
+          },
+        },
+        invoice: {
+          select: {
+            id: true,
+            invoiceNumber: true,
+            fiscalNumber: true,
+            status: true,
+            total: true,
+            createdAt: true,
+          },
+        },
       },
     }),
     (prisma as PrismaClient).serviceOrder.count({ where }),
@@ -331,11 +394,223 @@ export async function findServiceOrderById(
       customerVehicle: {
         select: { id: true, plate: true, vin: true, year: true, color: true },
       },
-      items: true,
+      items: SERVICE_ORDER_ITEM_INCLUDE,
+      preInvoice: {
+        select: {
+          id: true,
+          preInvoiceNumber: true,
+          status: true,
+          baseImponible: true,
+          taxRate: true,
+          taxAmount: true,
+          igtfApplies: true,
+          igtfRate: true,
+          igtfAmount: true,
+          total: true,
+          createdAt: true,
+        },
+      },
+      consolidatedPreInvoice: {
+        select: {
+          id: true,
+          preInvoiceNumber: true,
+          status: true,
+          baseImponible: true,
+          taxRate: true,
+          taxAmount: true,
+          igtfApplies: true,
+          igtfRate: true,
+          igtfAmount: true,
+          total: true,
+          createdAt: true,
+        },
+      },
+      invoice: {
+        select: {
+          id: true,
+          invoiceNumber: true,
+          fiscalNumber: true,
+          status: true,
+          total: true,
+          createdAt: true,
+        },
+      },
+      quotations: {
+        orderBy: { createdAt: 'desc' },
+        include: {
+          items: { orderBy: { order: 'asc' } },
+          approvals: { orderBy: { approvedAt: 'desc' } },
+        },
+      },
     },
   })
   if (!order) throw new NotFoundError('Orden de taller no encontrada')
   return order
+}
+
+export async function createWorkshopQuotationFromServiceOrder(
+  prisma: PrismaClientType,
+  id: string,
+  empresaId: string,
+  userId: string
+) {
+  const serviceOrder = await (prisma as PrismaClient).serviceOrder.findFirst({
+    where: { id, empresaId },
+    include: {
+      items: true,
+      customer: { select: { id: true, name: true, code: true, phone: true } },
+      customerVehicle: { select: { id: true, plate: true } },
+    },
+  })
+
+  if (!serviceOrder) {
+    throw new NotFoundError('Orden de taller no encontrada')
+  }
+
+  const existingOpenQuotation = await (
+    prisma as PrismaClient
+  ).workshopQuotation.findFirst({
+    where: {
+      empresaId,
+      serviceOrderId: id,
+      status: {
+        in: [
+          'DRAFT',
+          'ISSUED',
+          'SENT',
+          'PENDING_APPROVAL',
+          'APPROVED_TOTAL',
+          'APPROVED_PARTIAL',
+        ],
+      },
+    },
+    include: {
+      customer: { select: { id: true, name: true, code: true, phone: true } },
+      customerVehicle: { select: { id: true, plate: true } },
+      serviceOrder: { select: { id: true, folio: true, status: true } },
+      items: { orderBy: { order: 'asc' } },
+      approvals: { orderBy: { approvedAt: 'desc' } },
+    },
+  })
+
+  if (existingOpenQuotation) {
+    return existingOpenQuotation
+  }
+
+  if (!serviceOrder.items.length) {
+    throw new BadRequestError(
+      'La OT no tiene ítems para crear una cotización de taller'
+    )
+  }
+
+  const quotationNumber = await generateWorkshopQuotationNumber(prisma, empresaId)
+
+  let laborTotal = 0
+  let partsTotal = 0
+  let otherTotal = 0
+  let subtotal = 0
+  let discount = 0
+  let taxAmt = 0
+  let total = 0
+
+  const quotationItems = serviceOrder.items.map((item, idx) => {
+    const quantity = Number(item.quantity)
+    const unitPrice = Number(item.unitPrice)
+    const discountPct = Number(item.discountPct ?? 0)
+    const taxType = (item.taxType as any) ?? 'IVA'
+    const taxRate = Number(item.taxRate ?? 0.16)
+
+    const lineSubtotal = quantity * unitPrice
+    const lineDiscount = (discountPct / 100) * lineSubtotal
+    const lineBase = lineSubtotal - lineDiscount
+    const lineTax =
+      taxType === 'EXEMPT' ? 0 : Number(item.taxAmount ?? lineBase * taxRate)
+    const lineTotal = Number(item.total ?? lineBase + lineTax)
+
+    const quotationType: 'LABOR' | 'PART' | 'EXTERNAL_SERVICE' =
+      item.type === 'LABOR'
+        ? 'LABOR'
+        : item.type === 'PART'
+          ? 'PART'
+          : 'EXTERNAL_SERVICE'
+
+    if (quotationType === 'LABOR') laborTotal += lineBase
+    else if (quotationType === 'PART') partsTotal += lineBase
+    else otherTotal += lineBase
+
+    subtotal += lineSubtotal
+    discount += lineDiscount
+    taxAmt += lineTax
+    total += lineTotal
+
+    return {
+      type: quotationType,
+      referenceId:
+        quotationType === 'LABOR'
+          ? item.operationId ?? null
+          : quotationType === 'PART'
+            ? item.itemId ?? null
+            : null,
+      description: item.description,
+      quantity,
+      unitPrice,
+      unitCost: Number(item.unitCost ?? 0),
+      discountPct,
+      taxType,
+      taxRate,
+      taxAmount: lineTax,
+      subtotal: lineSubtotal,
+      total: lineTotal,
+      approved: true,
+      order: idx,
+    }
+  })
+
+  const created = await (prisma as PrismaClient).workshopQuotation.create({
+    data: {
+      quotationNumber,
+      status: 'DRAFT',
+      version: 1,
+      receptionId: serviceOrder.receptionId ?? null,
+      serviceOrderId: serviceOrder.id,
+      customerId: serviceOrder.customerId,
+      customerVehicleId: serviceOrder.customerVehicleId ?? null,
+      validUntil: serviceOrder.estimatedDelivery ?? null,
+      notes: serviceOrder.diagnosisNotes ?? null,
+      internalNotes: serviceOrder.internalNotes ?? null,
+      laborTotal,
+      partsTotal,
+      otherTotal,
+      subtotal,
+      discount,
+      taxAmt,
+      total,
+      empresaId,
+      createdBy: userId,
+      items: {
+        create: quotationItems,
+      },
+    },
+    include: {
+      customer: { select: { id: true, name: true, code: true, phone: true } },
+      customerVehicle: { select: { id: true, plate: true } },
+      serviceOrder: { select: { id: true, folio: true, status: true } },
+      items: { orderBy: { order: 'asc' } },
+      approvals: { orderBy: { approvedAt: 'desc' } },
+      supplementaries: {
+        select: {
+          id: true,
+          quotationNumber: true,
+          status: true,
+          total: true,
+          createdAt: true,
+          items: { orderBy: { order: 'asc' } },
+        },
+      },
+    },
+  })
+
+  return created
 }
 
 export async function updateServiceOrder(
@@ -399,7 +674,7 @@ export async function updateServiceOrder(
     include: {
       customer: { select: { id: true, name: true, code: true } },
       customerVehicle: { select: { id: true, plate: true } },
-      items: true,
+      items: SERVICE_ORDER_ITEM_INCLUDE,
     },
   })
 
@@ -464,15 +739,16 @@ export async function updateServiceOrderStatus(
   if (dto.status === 'CLOSED') extra.closedAt = new Date()
   if (dto.mileageOut != null) extra.mileageOut = dto.mileageOut
 
-  const updated = await (prisma as PrismaClient).serviceOrder.update({
-    where: { id },
-    data: { status: dto.status, ...extra },
-    include: {
-      customer: { select: { id: true, name: true, code: true } },
-      customerVehicle: { select: { id: true, plate: true } },
-      items: true,
-    },
+  await changeServiceOrderStatusWithHistory(prisma, {
+    serviceOrderId: id,
+    empresaId,
+    newStatus: dto.status,
+    userId,
+    comment: dto.comment,
+    extraData: extra,
   })
+
+  const updated = await findServiceOrderById(prisma, id, empresaId)
 
   // Cross-sell: al entregar una orden de taller, crear lead de REPUESTOS si no existe uno abierto
   if (dto.status === 'DELIVERED' && existing.customerId) {
@@ -504,6 +780,15 @@ export async function updateServiceOrderStatus(
   }
 
   return updated
+}
+
+export async function findServiceOrderStatusHistory(
+  prisma: PrismaClientType,
+  id: string,
+  empresaId: string,
+  filters: { page?: number; limit?: number }
+) {
+  return findServiceOrderStatusHistoryEntries(prisma, id, empresaId, filters)
 }
 
 export async function deleteServiceOrder(
@@ -625,7 +910,12 @@ export async function generateConsolidatedPreInvoice(
 
   const orders = await (prisma as PrismaClient).serviceOrder.findMany({
     where: { id: { in: serviceOrderIds }, empresaId },
-    include: { items: true },
+    select: {
+      id: true,
+      folio: true,
+      status: true,
+      customerId: true,
+    },
   })
 
   if (orders.length !== serviceOrderIds.length) {
@@ -671,7 +961,43 @@ export async function generateConsolidatedPreInvoice(
 
   const customerId = orders[0].customerId
 
-  // Combinar todos los ítems
+  // Cargar ítems facturables (modo mixto) por cada OT
+  const ordersWithBillableItems: Array<{
+    id: string
+    folio: string
+    customerId: string
+    items: any[]
+  }> = []
+
+  const ordersWithoutBillable: string[] = []
+
+  for (const order of orders) {
+    const { billableItems } = await getBillableServiceOrderItems(
+      prisma,
+      order.id,
+      empresaId
+    )
+
+    if (!billableItems.length) {
+      ordersWithoutBillable.push(order.folio)
+      continue
+    }
+
+    ordersWithBillableItems.push({
+      id: order.id,
+      folio: order.folio,
+      customerId: order.customerId,
+      items: billableItems,
+    })
+  }
+
+  if (ordersWithoutBillable.length > 0) {
+    throw new BadRequestError(
+      `Sin ítems facturables (modo mixto) en: ${ordersWithoutBillable.join(', ')}`
+    )
+  }
+
+  // Combinar todos los ítems facturables
   let subtotalBruto = 0
   let baseImponible = 0
   let baseExenta = 0
@@ -679,13 +1005,16 @@ export async function generateConsolidatedPreInvoice(
 
   const allPreInvoiceItems: any[] = []
 
-  for (const order of orders) {
+  for (const order of ordersWithBillableItems) {
     for (const item of order.items as any[]) {
       const lineSubtotal = Number(item.quantity) * Number(item.unitPrice)
       const lineDiscount = (Number(item.discountPct || 0) * lineSubtotal) / 100
       const lineBase = lineSubtotal - lineDiscount
-      const taxRate = Number(item.taxRate || 0.16)
-      const lineTax = item.taxType === 'EXEMPT' ? 0 : lineBase * taxRate
+      const normalizedTaxRate = Number(item.taxRate || 0.16)
+      const taxRatePct =
+        normalizedTaxRate <= 1 ? normalizedTaxRate * 100 : normalizedTaxRate
+      const lineTax =
+        item.taxType === 'EXEMPT' ? 0 : lineBase * normalizedTaxRate
 
       if (item.taxType === 'EXEMPT') baseExenta += lineBase
       else baseImponible += lineBase
@@ -694,18 +1023,18 @@ export async function generateConsolidatedPreInvoice(
       taxAmount += lineTax
 
       allPreInvoiceItems.push({
+        itemId: item.itemId ?? null,
         itemName: `[${order.folio}] ${item.description}`,
         quantity: Number(item.quantity),
         unitPrice: Number(item.unitPrice),
         discountPercent: Number(item.discountPct || 0),
         discountAmount: lineDiscount,
         taxType: item.taxType ?? 'IVA',
-        taxRate,
+        taxRate: taxRatePct,
         taxAmount: lineTax,
         subtotal: lineBase,
         totalLine: lineBase + lineTax,
         discount: lineDiscount,
-        tax: lineTax,
       })
     }
   }
@@ -747,7 +1076,29 @@ export async function generateConsolidatedPreInvoice(
       consolidatedServiceOrders: {
         connect: serviceOrderIds.map((id) => ({ id })),
       },
-      items: { create: allPreInvoiceItems },
+      items: {
+        create: allPreInvoiceItems.map((item) => {
+          const lineData: any = {
+            itemName: item.itemName,
+            quantity: item.quantity,
+            unitPrice: item.unitPrice,
+            discountPercent: item.discountPercent,
+            discountAmount: item.discountAmount,
+            taxType: item.taxType,
+            taxRate: item.taxRate,
+            taxAmount: item.taxAmount,
+            subtotal: item.subtotal,
+            totalLine: item.totalLine,
+            discount: item.discount,
+          }
+
+          if (item.itemId) {
+            lineData.item = { connect: { id: item.itemId } }
+          }
+
+          return lineData
+        }),
+      },
     },
     include: {
       items: true,

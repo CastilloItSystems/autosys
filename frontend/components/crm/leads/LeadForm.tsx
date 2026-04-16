@@ -69,6 +69,7 @@ export default function LeadForm({
     formState: { errors },
   } = useForm<CreateLeadInput>({
     resolver: zodResolver(createLeadSchema),
+    mode: "onBlur",
     defaultValues: lead
       ? {
           title: lead.title,

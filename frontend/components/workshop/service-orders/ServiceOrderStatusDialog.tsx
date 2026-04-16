@@ -3,6 +3,7 @@ import React, { useState, useEffect } from "react";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
+import { InputTextarea } from "primereact/inputtextarea";
 import { Button } from "primereact/button";
 import { handleFormError } from "@/utils/errorHandlers";
 import { serviceOrderService } from "@/app/api/workshop";
@@ -24,12 +25,14 @@ interface Props {
 export default function ServiceOrderStatusDialog({ visible, order, onHide, onSaved, toast }: Props) {
   const [newStatus, setNewStatus] = useState<ServiceOrderStatus | null>(null);
   const [mileageOut, setMileageOut] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     if (visible && order) {
       setNewStatus(order.status);
       setMileageOut(order.mileageOut ?? null);
+      setComment("");
     }
   }, [visible, order]);
 
@@ -40,6 +43,7 @@ export default function ServiceOrderStatusDialog({ visible, order, onHide, onSav
       await serviceOrderService.updateStatus(order.id, {
         status: newStatus,
         ...(mileageOut != null ? { mileageOut } : {}),
+        ...(comment.trim() ? { comment: comment.trim() } : {}),
       });
       await onSaved();
     } catch (error) {
@@ -113,6 +117,17 @@ export default function ServiceOrderStatusDialog({ visible, order, onHide, onSav
               />
             </div>
           )}
+
+          <div className="flex flex-column gap-2">
+            <label className="text-900 font-medium">Comentario</label>
+            <InputTextarea
+              value={comment}
+              onChange={(e) => setComment(e.target.value)}
+              rows={3}
+              autoResize
+              placeholder="Motivo del cambio de estado (opcional)"
+            />
+          </div>
 
           {newStatus && newStatus !== order.status && (
             <div className="p-3 border-round surface-100 flex align-items-center gap-2 text-sm text-600">

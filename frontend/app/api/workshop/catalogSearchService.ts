@@ -12,6 +12,9 @@ export interface UnifiedCatalogItem {
   taxRate: number;
   suggestedItems?: Array<{
     itemId: string | null;
+    code?: string | null;
+    sku?: string | null;
+    name?: string | null;
     description: string;
     quantity: number;
     isRequired: boolean;

@@ -37,6 +37,7 @@ model Warehouse {
   serialNumbers   SerialNumber[]
   transfersFrom   Transfer[]     @relation("TransferFrom")
   transfersTo     Transfer[]     @relation("TransferTo")
+  serviceOrderMaterials ServiceOrderMaterial[]
   
   // Auditoría
   createdAt   DateTime      @default(now())

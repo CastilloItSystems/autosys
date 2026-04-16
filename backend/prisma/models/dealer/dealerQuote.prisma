@@ -1,0 +1,58 @@
+enum DealerQuoteStatus {
+  DRAFT
+  SENT
+  NEGOTIATING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model DealerQuote {
+  id                String             @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit         @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  quoteNumber        String
+  status             DealerQuoteStatus  @default(DRAFT)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+
+  listPrice          Decimal?           @db.Decimal(14, 2)
+  discountPct        Decimal?           @db.Decimal(6, 2)
+  discountAmount     Decimal?           @db.Decimal(14, 2)
+  offeredPrice       Decimal?           @db.Decimal(14, 2)
+  taxPct             Decimal?           @db.Decimal(6, 2)
+  taxAmount          Decimal?           @db.Decimal(14, 2)
+  totalAmount        Decimal?           @db.Decimal(14, 2)
+  currency           String?            @default("USD")
+
+  validUntil         DateTime?
+  paymentTerms       String?
+  financingRequired  Boolean            @default(false)
+  notes              String?
+  isActive           Boolean            @default(true)
+
+  sentAt             DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  convertedAt        DateTime?
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@map("dealer_quotes")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([createdAt])
+  @@unique([empresaId, quoteNumber])
+}

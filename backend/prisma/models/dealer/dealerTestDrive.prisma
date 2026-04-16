@@ -1,0 +1,48 @@
+enum DealerTestDriveStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+model DealerTestDrive {
+  id                String                @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa               @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit            @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  testDriveNumber    String
+  status             DealerTestDriveStatus @default(SCHEDULED)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+  driverLicense      String?
+
+  scheduledAt        DateTime
+  startedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+
+  advisorName        String?
+  routeDescription   String?
+  observations       String?
+  customerFeedback   String?
+  isActive           Boolean               @default(true)
+
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@map("dealer_test_drives")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([scheduledAt])
+  @@unique([empresaId, testDriveNumber])
+}

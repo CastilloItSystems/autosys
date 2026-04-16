@@ -46,6 +46,7 @@ export interface IQuotationItem {
 export interface ICreateQuotationInput {
   receptionId?: string
   diagnosisId?: string
+  serviceOrderId?: string
   customerId: string
   customerVehicleId?: string
   isSupplementary?: boolean
@@ -73,7 +74,7 @@ export interface IRegisterApprovalInput {
 }
 
 export interface IConvertToSOInput {
-  advisorId?: string
+  assignedAdvisorId?: string
   notes?: string
 }
 
@@ -81,6 +82,7 @@ export interface IQuotationFilters {
   status?: QuotationStatus
   customerId?: string
   receptionId?: string
+  serviceOrderId?: string
   isSupplementary?: boolean
   search?: string
   page?: number

@@ -26,6 +26,7 @@ import CustomerVehiclePanel from "./CustomerVehiclePanel";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import { ConfirmActionPopup } from "@/components/common/ConfirmAction";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const CustomerCrmList = () => {
   const router = useRouter();
@@ -46,6 +47,7 @@ const CustomerCrmList = () => {
   // Dialogs
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [timelineDialog, setTimelineDialog] = useState(false);
   const [vehiclesDialog, setVehiclesDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,22 +121,23 @@ const CustomerCrmList = () => {
   };
 
   const handleDelete = async () => {
+    if (!selectedCustomer?.id) return;
+    setIsDeleting(true);
     try {
-      if (selectedCustomer?.id) {
-        await customerCrmService.delete(selectedCustomer.id);
-        await loadCustomers();
-        toast.current?.show({
-          severity: "success",
-          summary: "Éxito",
-          detail: "Cliente eliminado",
-          life: 3000,
-        });
-      }
+      await customerCrmService.delete(selectedCustomer.id);
+      await loadCustomers();
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Cliente eliminado",
+        life: 3000,
+      });
     } catch (error) {
       handleFormError(error, toast);
     } finally {
       setSelectedCustomer(null);
       setDeleteDialog(false);
+      setIsDeleting(false);
     }
   };
 
@@ -449,27 +452,16 @@ const CustomerCrmList = () => {
         </DataTable>
       </motion.div>
 
-      {/* Delete dialog */}
-      <Dialog
+      <DeleteConfirmDialog
         visible={deleteDialog}
-        style={{ width: "450px" }}
-        header="Confirmar Eliminación"
-        modal
-        onHide={() => { setSelectedCustomer(null); setDeleteDialog(false); }}
-        footer={
-          <div className="flex w-full gap-2 mb-4">
-            <Button label="No" icon="pi pi-times" severity="secondary" onClick={() => { setSelectedCustomer(null); setDeleteDialog(false); }} className="flex-1" />
-            <Button label="Sí, Eliminar" icon="pi pi-trash" severity="danger" onClick={handleDelete} className="flex-1" />
-          </div>
-        }
-      >
-        <div className="flex align-items-center gap-3 p-2">
-          <i className="pi pi-exclamation-triangle text-orange-500" style={{ fontSize: "2rem" }} />
-          {selectedCustomer && (
-            <span>¿Eliminar el cliente <b>{selectedCustomer.name}</b> ({selectedCustomer.code})?</span>
-          )}
-        </div>
-      </Dialog>
+        onHide={() => {
+          setSelectedCustomer(null);
+          setDeleteDialog(false);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.code})` : "cliente"}
+        isDeleting={isDeleting}
+      />
 
       {/* Form dialog */}
       <Dialog

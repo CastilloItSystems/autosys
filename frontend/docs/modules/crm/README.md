@@ -8,6 +8,41 @@ El módulo CRM gestiona las relaciones con clientes y sus vehículos, incluyendo
 - Vehículos de clientes
 - Marcas de vehículos
 - Modelos de vehículos
+- Leads
+- Oportunidades
+- Cotizaciones
+- Casos
+- Interacciones y actividades
+- Campañas
+- Fidelización (eventos + encuestas)
+- Automatizaciones CRM (alertas)
+
+## Estado actual (AutoSys 2026-04)
+
+Submódulos disponibles en UI/API:
+
+- `/empresa/crm/leads`
+- `/empresa/crm/oportunidades`
+- `/empresa/crm/cotizaciones`
+- `/empresa/crm/casos`
+- `/empresa/crm/actividades`
+- `/empresa/crm/interacciones`
+- `/empresa/crm/campanas`
+- `/empresa/crm/fidelizacion`
+
+## Patrón Arquitectónico UI (estándar)
+
+Para mantener consistencia con módulos como `sales/order`, en CRM se adopta como convención:
+
+- `page.tsx`: wrapper mínimo, solo renderiza el componente `*List`.
+- `*List.tsx`: controla tabla/kanban, filtros, toasts de éxito, diálogos y acciones.
+- `*Form.tsx`: formulario puro, sin `Dialog` propio ni toasts de éxito internos.
+
+Reglas prácticas:
+
+- El `List` padre es responsable de abrir/cerrar dialog y mostrar éxito.
+- El `Form` solo valida/envía y reporta errores con `handleFormError`.
+- Naming obligatorio por módulo: `XxxList.tsx` + `XxxForm.tsx`.
 
 ## Entidades del Módulo
 

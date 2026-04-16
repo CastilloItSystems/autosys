@@ -82,6 +82,32 @@ export class UpdateLeadStatusDTO {
   }
 }
 
+export class ConvertLeadDTO {
+  ownerId?: string
+  nextActivityAt: string
+  stageCode?: string
+  expectedCloseAt?: string
+  amount?: number
+  campaignId?: string
+  notes?: string
+
+  constructor(data: Record<string, unknown>) {
+    if (data.ownerId != null && String(data.ownerId).trim() !== '')
+      this.ownerId = String(data.ownerId).trim()
+    this.nextActivityAt = String(data.nextActivityAt)
+    if (data.stageCode != null && String(data.stageCode).trim() !== '')
+      this.stageCode = String(data.stageCode).trim()
+    if (data.expectedCloseAt != null && String(data.expectedCloseAt).trim() !== '')
+      this.expectedCloseAt = String(data.expectedCloseAt).trim()
+    if (data.amount !== undefined && data.amount !== null)
+      this.amount = Number(data.amount)
+    if (data.campaignId != null && String(data.campaignId).trim() !== '')
+      this.campaignId = String(data.campaignId).trim()
+    if (data.notes != null && String(data.notes).trim() !== '')
+      this.notes = String(data.notes).trim()
+  }
+}
+
 export class LeadResponseDTO {
   id: string
   empresaId: string

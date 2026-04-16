@@ -21,8 +21,16 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "CRM: Leads", icon: "pi pi-chart-line", prefix: "crm.leads" },
   { label: "CRM: Interacciones", icon: "pi pi-comments", prefix: "crm.interactions" },
   { label: "CRM: Actividades", icon: "pi pi-check-square", prefix: "crm.activities" },
+  { label: "CRM: Cotizaciones", icon: "pi pi-file-edit", prefix: "crm.quotes" },
+  { label: "CRM: Casos", icon: "pi pi-briefcase", prefix: "crm.cases" },
+  { label: "CRM: Oportunidades", icon: "pi pi-sitemap", prefix: "crm.opportunities" },
+  { label: "CRM: Campañas", icon: "pi pi-megaphone", prefix: "crm.campaigns" },
+  { label: "CRM: Fidelización", icon: "pi pi-heart", prefix: "crm.loyalty" },
+  { label: "CRM: Automatizaciones", icon: "pi pi-bolt", prefix: "crm.automations" },
   // Workshop (Taller)
   { label: "Taller", icon: "pi pi-wrench", prefix: "workshop" },
+  // Concesionario
+  { label: "Concesionario", icon: "pi pi-car", prefix: "dealer" },
 ]
 
 export const PERMISSION_LABELS: Record<string, string> = {
@@ -132,11 +140,45 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "crm.activities.create": "Crear",
   "crm.activities.update": "Editar",
   "crm.activities.delete": "Eliminar",
+  // CRM: Cotizaciones
+  "crm.quotes.view": "Ver",
+  "crm.quotes.create": "Crear",
+  "crm.quotes.update": "Editar",
+  "crm.quotes.delete": "Eliminar",
+  // CRM: Casos
+  "crm.cases.view": "Ver",
+  "crm.cases.create": "Crear",
+  "crm.cases.update": "Editar",
+  "crm.cases.delete": "Eliminar",
+  // CRM: Oportunidades
+  "crm.opportunities.view": "Ver",
+  "crm.opportunities.create": "Crear",
+  "crm.opportunities.update": "Editar",
+  "crm.opportunities.delete": "Eliminar",
+  // CRM: Campañas
+  "crm.campaigns.view": "Ver",
+  "crm.campaigns.create": "Crear",
+  "crm.campaigns.update": "Editar",
+  "crm.campaigns.delete": "Eliminar",
+  // CRM: Fidelización
+  "crm.loyalty.view": "Ver",
+  "crm.loyalty.create": "Crear",
+  "crm.loyalty.update": "Editar",
+  "crm.loyalty.delete": "Eliminar",
+  // CRM: Automatizaciones
+  "crm.automations.view": "Ver",
+  "crm.automations.run": "Ejecutar",
   // Taller
   "workshop.view": "Ver",
   "workshop.create": "Crear",
   "workshop.update": "Editar",
   "workshop.delete": "Eliminar",
+  // Concesionario
+  "dealer.view": "Ver",
+  "dealer.create": "Crear",
+  "dealer.update": "Editar",
+  "dealer.delete": "Eliminar",
+  "dealer.approve": "Aprobar",
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)

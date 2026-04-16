@@ -201,6 +201,21 @@ export const updateStatusSchema = Joi.object({
     'number.min': 'El kilometraje de salida no puede ser negativo',
     'number.base': 'El kilometraje debe ser un número entero',
   }),
+  comment: Joi.string().trim().max(1000).optional().allow('').messages({
+    'string.max': 'El comentario no puede exceder 1000 caracteres',
+  }),
+})
+
+export const serviceOrderStatusHistoryFiltersSchema = Joi.object({
+  page: Joi.number().integer().min(1).default(1).messages({
+    'number.min': 'El número de página debe ser al menos 1',
+    'number.base': 'El número de página debe ser entero',
+  }),
+  limit: Joi.number().integer().min(1).max(100).default(20).messages({
+    'number.min': 'El límite debe ser al menos 1',
+    'number.max': 'El límite no puede exceder 100',
+    'number.base': 'El límite debe ser entero',
+  }),
 })
 
 export const consolidatedPreInvoiceSchema = Joi.object({

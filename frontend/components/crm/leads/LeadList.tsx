@@ -8,7 +8,7 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { ConfirmDialog } from "primereact/confirmdialog";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
@@ -23,6 +23,9 @@ import {
 } from "@/libs/interfaces/crm/lead.interface";
 import LeadForm from "./LeadForm";
 import LeadStatusDialog from "./LeadStatusDialog";
+import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const channelOptions = [
   { label: "Todos los canales", value: "" },
@@ -42,12 +45,17 @@ const statusOptions = [
 export default function LeadList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const selectedRef = useRef<Lead | null>(null);
+
+  const [actionLead, setActionLead] = useState<Lead | null>(null);
+  const [selectedLead, setSelectedLead] = useState<Lead | null>(null);
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [leads, setLeads] = useState<Lead[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(false);
-  const [page, setPage] = useState(1);
+  const [page, setPage] = useState(0);
+  const [rows, setRows] = useState(20);
   const [search, setSearch] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [filterChannel, setFilterChannel] = useState("");
@@ -60,21 +68,17 @@ export default function LeadList() {
   const [statusDialogLead, setStatusDialogLead] = useState<Lead | null>(null);
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
 
-  const limit = 20;
-
-  // ── Debounce search ──────────────────────────────────────────────────────
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // ── Load ─────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const res = await leadService.getAll({
-        page,
-        limit,
+        page: page + 1,
+        limit: rows,
         search: search || undefined,
         channel: filterChannel || undefined,
         status: filterStatus || undefined,
@@ -89,14 +93,16 @@ export default function LeadList() {
     } finally {
       setLoading(false);
     }
-  }, [page, search, filterChannel, filterStatus]);
+  }, [page, rows, search, filterChannel, filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  // Reset page when filters change
-  useEffect(() => { setPage(1); }, [search, filterChannel, filterStatus]);
+  useEffect(() => {
+    setPage(0);
+  }, [search, filterChannel, filterStatus]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   const openNew = () => {
     setEditLead(null);
     setFormVisible(true);
@@ -112,25 +118,46 @@ export default function LeadList() {
     setStatusDialogVisible(true);
   };
 
-  const handleDelete = (lead: Lead) => {
-    confirmDialog({
-      message: `¿Eliminar el lead "${lead.title}"? Solo se pueden eliminar leads en estado Nuevo o Perdido.`,
-      header: "Confirmar eliminación",
-      icon: "pi pi-exclamation-triangle",
-      acceptClassName: "p-button-danger",
-      accept: async () => {
-        try {
-          await leadService.delete(lead.id);
-          toast.current?.show({ severity: "success", summary: "Lead eliminado" });
-          load();
-        } catch (e: any) {
-          toast.current?.show({
-            severity: "error",
-            summary: e?.response?.data?.message ?? "Error al eliminar",
-          });
-        }
-      },
+  const confirmDeleteLead = (lead: Lead) => {
+    setSelectedLead(lead);
+    setDeleteDialog(true);
+  };
+
+  const handleDelete = async () => {
+    if (!selectedLead) return;
+
+    setIsDeleting(true);
+    try {
+      await leadService.delete(selectedLead.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Lead eliminado correctamente",
+        life: 3000,
+      });
+      setDeleteDialog(false);
+      setSelectedLead(null);
+      await load();
+    } catch (error: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: error?.response?.data?.message ?? "Error al eliminar",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: editLead ? "Lead actualizado correctamente" : "Lead creado correctamente",
+      life: 3000,
     });
+    setFormVisible(false);
+    setEditLead(null);
+    await load();
   };
 
   const menuItems = (lead: Lead): MenuItem[] => [
@@ -144,23 +171,48 @@ export default function LeadList() {
       icon: "pi pi-exchange",
       command: () => openStatusDialog(lead),
     },
+    {
+      label: "Convertir a Oportunidad",
+      icon: "pi pi-sitemap",
+      command: async () => {
+        try {
+          const next = new Date();
+          next.setDate(next.getDate() + 1);
+          await leadService.convertToOpportunity(lead.id, {
+            nextActivityAt: next.toISOString(),
+            stageCode: "DISCOVERY",
+            notes: "Conversión rápida desde listado de leads",
+          });
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Lead convertido a oportunidad",
+            life: 3000,
+          });
+          load();
+        } catch (e: any) {
+          toast.current?.show({
+            severity: "error",
+            summary: e?.response?.data?.message ?? "No se pudo convertir el lead",
+          });
+        }
+      },
+      disabled: !["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION"].includes(lead.status as string),
+    },
     { separator: true },
     {
       label: "Eliminar",
       icon: "pi pi-trash",
       className: "p-menuitem-danger",
-      command: () => handleDelete(lead),
+      command: () => confirmDeleteLead(lead),
       disabled: !["NEW", "LOST"].includes(lead.status as string),
     },
   ];
 
-  // ── Column templates ───────────────────────────────────────────────────────
   const titleBody = (lead: Lead) => (
     <div>
       <div className="font-semibold text-sm">{lead.title}</div>
-      {lead.customer && (
-        <div className="text-xs text-500">{lead.customer.name}</div>
-      )}
+      {lead.customer && <div className="text-xs text-500">{lead.customer.name}</div>}
     </div>
   );
 
@@ -189,68 +241,39 @@ export default function LeadList() {
       <span className="text-400">—</span>
     );
 
-  const dateBody = (lead: Lead) =>
-    new Date(lead.createdAt).toLocaleDateString("es-VE");
+  const dateBody = (lead: Lead) => new Date(lead.createdAt).toLocaleDateString("es-VE");
 
-  const actionsBody = (lead: Lead) => (
-    <div className="flex gap-1">
-      <Button
-        icon="pi pi-exchange"
-        rounded text severity="info" size="small"
-        tooltip="Cambiar Estado"
-        tooltipOptions={{ position: "top" }}
-        onClick={() => openStatusDialog(lead)}
-      />
-      <Button
-        icon="pi pi-ellipsis-v"
-        rounded text severity="secondary" size="small"
-        onClick={(e) => {
-          selectedRef.current = lead;
-          menuRef.current?.toggle(e);
-        }}
-      />
-    </div>
-  );
-
-  // ── Form dialog ───────────────────────────────────────────────────────────
-  const formFooter = (
-    <div className="flex justify-content-end gap-2">
-      <Button label="Cancelar" outlined severity="secondary" onClick={() => setFormVisible(false)} disabled={formSubmitting} />
-      <Button
-        label={editLead ? "Guardar" : "Crear Lead"}
-        icon="pi pi-check"
-        form="lead-form"
-        type="submit"
-        loading={formSubmitting}
-      />
-    </div>
+  const actionBodyTemplate = (rowData: Lead) => (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setActionLead(rowData);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="lead-menu"
+      aria-haspopup
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
   );
 
   return (
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Menu
-        ref={menuRef}
-        popup
-        model={selectedRef.current ? menuItems(selectedRef.current) : []}
-      />
+      <Menu model={menuItems(actionLead as Lead)} popup ref={menuRef} id="lead-menu" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        {/* Header */}
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <div className="flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
           <div>
             <h4 className="mb-1 text-900">Leads / Oportunidades</h4>
             <span className="text-500 text-sm">{total} registros</span>
           </div>
-          <Button label="Nuevo Lead" icon="pi pi-plus" onClick={openNew} />
+          <CreateButton label="Nuevo Lead" onClick={openNew} />
         </div>
 
-        {/* Filters */}
         <div className="flex flex-wrap gap-2 mb-3">
           <span className="p-input-icon-left">
             <i className="pi pi-search" />
@@ -279,19 +302,24 @@ export default function LeadList() {
           />
         </div>
 
-        {/* Table */}
         <DataTable
           value={leads}
           loading={loading}
           lazy
           paginator
-          rows={limit}
+          first={page * rows}
+          rows={rows}
           totalRecords={total}
-          first={(page - 1) * limit}
-          onPage={(e: DataTableStateEvent) => setPage((e.page ?? 0) + 1)}
-          emptyMessage="No hay leads registrados"
-          size="small"
-          stripedRows
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          onPage={(e: DataTableStateEvent) => {
+            setPage(e.page ?? 0);
+            setRows(e.rows ?? 20);
+          }}
+          dataKey="id"
+          emptyMessage="No se encontraron leads"
+          sortMode="multiple"
+          scrollable
+          tableStyle={{ minWidth: "70rem" }}
         >
           <Column header="Lead" body={titleBody} style={{ minWidth: "200px" }} />
           <Column header="Canal" body={channelBody} style={{ width: "120px" }} />
@@ -299,31 +327,71 @@ export default function LeadList() {
           <Column header="Estado" body={statusBody} style={{ width: "130px" }} />
           <Column header="Valor" body={valueBody} style={{ width: "130px" }} />
           <Column header="Fecha" body={dateBody} style={{ width: "110px" }} />
-          <Column header="" body={actionsBody} style={{ width: "90px" }} />
+          <Column
+            header="Acciones"
+            body={actionBodyTemplate}
+            exportable={false}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
         </DataTable>
       </motion.div>
 
-      {/* Lead Form Dialog */}
+      <DeleteConfirmDialog
+        visible={deleteDialog}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelectedLead(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={selectedLead?.title || "lead"}
+        isDeleting={isDeleting}
+      />
+
       <Dialog
         visible={formVisible}
-        onHide={() => setFormVisible(false)}
-        header={editLead ? "Editar Lead" : "Nuevo Lead"}
-        style={{ width: "640px" }}
-        footer={formFooter}
+        onHide={() => {
+          setFormVisible(false);
+          setEditLead(null);
+        }}
         modal
-        draggable={false}
+        maximizable
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-chart-line mr-3 text-primary text-3xl"></i>
+                {editLead ? "Editar Lead" : "Nuevo Lead"}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <FormActionButtons
+            formId="lead-form"
+            isUpdate={!!editLead?.id}
+            onCancel={() => {
+              setFormVisible(false);
+              setEditLead(null);
+            }}
+            isSubmitting={formSubmitting}
+          />
+        }
       >
         <LeadForm
           lead={editLead}
           formId="lead-form"
-          onSave={() => { setFormVisible(false); load(); }}
+          onSave={handleSave}
           onCreated={() => load()}
           onSubmittingChange={setFormSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      {/* Status Dialog */}
       <LeadStatusDialog
         lead={statusDialogLead}
         visible={statusDialogVisible}

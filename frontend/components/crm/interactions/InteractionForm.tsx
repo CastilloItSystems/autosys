@@ -63,6 +63,7 @@ export default function InteractionForm({
     formState: { errors },
   } = useForm<CreateInteractionInput>({
     resolver: zodResolver(createInteractionSchema),
+    mode: "onBlur",
     defaultValues: interaction
       ? {
           customerId: interaction.customerId,

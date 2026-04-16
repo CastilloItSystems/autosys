@@ -2,7 +2,7 @@
 
 import { Request, Response } from 'express'
 import leadsService from './leads.service.js'
-import { CreateLeadDTO, UpdateLeadDTO, UpdateLeadStatusDTO, LeadResponseDTO } from './leads.dto.js'
+import { CreateLeadDTO, UpdateLeadDTO, UpdateLeadStatusDTO, LeadResponseDTO, ConvertLeadDTO } from './leads.dto.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 
@@ -88,6 +88,17 @@ class LeadsController {
     const { id } = req.params as { id: string }
     const result = await leadsService.delete(id, empresaId, req.prisma)
     return ApiResponse.success(res, result, 'Lead eliminado exitosamente')
+  })
+
+  convertToOpportunity = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    if (!userId) throw new Error('user.id no disponible en request')
+
+    const { id } = req.params as { id: string }
+    const dto = new ConvertLeadDTO(req.body)
+    const result = await leadsService.convertToOpportunity(id, dto, empresaId, userId, req.prisma)
+    return ApiResponse.created(res, result, 'Lead convertido en oportunidad exitosamente')
   })
 }
 

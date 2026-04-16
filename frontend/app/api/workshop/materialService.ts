@@ -37,8 +37,30 @@ const materialService = {
     return res.data
   },
 
-  async updateStatus(id: string, status: string): Promise<WorkshopResponse<ServiceOrderMaterial>> {
-    const res = await apiClient.patch(`${BASE}/${id}/status`, { status })
+  async updateStatus(
+    id: string,
+    status: string,
+    payload?: { warehouseId?: string; quantityReturned?: number }
+  ): Promise<WorkshopResponse<ServiceOrderMaterial>> {
+    const res = await apiClient.patch(`${BASE}/${id}/status`, {
+      status,
+      ...(payload?.warehouseId ? { warehouseId: payload.warehouseId } : {}),
+      ...(payload?.quantityReturned !== undefined
+        ? { quantityReturned: payload.quantityReturned }
+        : {}),
+    })
+    return res.data
+  },
+
+  async updateApproval(
+    id: string,
+    clientApproved: boolean,
+    notes?: string
+  ): Promise<WorkshopResponse<ServiceOrderMaterial>> {
+    const res = await apiClient.patch(`${BASE}/${id}/approval`, {
+      clientApproved,
+      notes,
+    })
     return res.data
   },
 }

@@ -1,13 +1,15 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
+import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 
 import activityService from "@/app/api/crm/activityService";
@@ -19,6 +21,9 @@ import {
 } from "@/libs/interfaces/crm/activity.interface";
 import ActivityForm from "./ActivityForm";
 import ActivityCompleteDialog from "./ActivityCompleteDialog";
+import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const typeFilterOptions = [
   { label: "Todos los tipos", value: "" },
@@ -41,6 +46,8 @@ interface Props {
 
 export default function ActivityList({ customerId }: Props) {
   const toast = useRef<Toast>(null);
+  const menuRef = useRef<Menu>(null);
+  const [actionItem, setActionItem] = useState<Activity | null>(null);
 
   const [activities, setActivities] = useState<Activity[]>([]);
   const [total, setTotal] = useState(0);
@@ -48,10 +55,15 @@ export default function ActivityList({ customerId }: Props) {
   const [page, setPage] = useState(1);
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
 
   const [formVisible, setFormVisible] = useState(false);
   const [editItem, setEditItem] = useState<Activity | null>(null);
   const [formSubmitting, setFormSubmitting] = useState(false);
+
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteItem, setDeleteItem] = useState<Activity | null>(null);
 
   const [completeActivity, setCompleteActivity] = useState<Activity | null>(null);
   const [completeDialogVisible, setCompleteDialogVisible] = useState(false);
@@ -79,45 +91,107 @@ export default function ActivityList({ customerId }: Props) {
     }
   }, [page, customerId, filterType, filterStatus]);
 
-  useEffect(() => { load(); }, [load]);
-  useEffect(() => { setPage(1); }, [filterType, filterStatus]);
+  useEffect(() => {
+    load();
+  }, [load]);
 
-  const openNew = () => { setEditItem(null); setFormVisible(true); };
-  const openEdit = (item: Activity) => { setEditItem(item); setFormVisible(true); };
+  useEffect(() => {
+    setPage(1);
+  }, [filterType, filterStatus]);
+
+  const filteredActivities = useMemo(() => {
+    if (!searchQuery.trim()) return activities;
+    const q = searchQuery.toLowerCase();
+    return activities.filter((a) => {
+      return (
+        String(a.title || "").toLowerCase().includes(q) ||
+        String(a.customer?.name || "").toLowerCase().includes(q) ||
+        String(a.outcome || "").toLowerCase().includes(q)
+      );
+    });
+  }, [activities, searchQuery]);
+
+  const openNew = () => {
+    setEditItem(null);
+    setFormVisible(true);
+  };
+
+  const openEdit = (item: Activity) => {
+    setEditItem(item);
+    setFormVisible(true);
+  };
 
   const openComplete = (item: Activity) => {
     setCompleteActivity(item);
     setCompleteDialogVisible(true);
   };
 
-  const handleDelete = (item: Activity) => {
-    confirmDialog({
-      message: `¿Eliminar la actividad "${item.title}"? Solo se pueden eliminar actividades pendientes o canceladas.`,
-      header: "Confirmar eliminación",
-      icon: "pi pi-exclamation-triangle",
-      acceptClassName: "p-button-danger",
-      accept: async () => {
-        try {
-          await activityService.delete(item.id);
-          toast.current?.show({ severity: "success", summary: "Actividad eliminada" });
-          load();
-        } catch (e: any) {
-          toast.current?.show({
-            severity: "error",
-            summary: e?.response?.data?.message ?? "Error al eliminar",
-          });
-        }
-      },
-    });
+  const openDelete = (item: Activity) => {
+    setDeleteItem(item);
+    setDeleteDialog(true);
   };
 
-  // ── Columns ────────────────────────────────────────────────────────────────
+  const handleDelete = async () => {
+    if (!deleteItem) return;
+
+    setIsDeleting(true);
+    try {
+      await activityService.delete(deleteItem.id);
+      toast.current?.show({ severity: "success", summary: "Actividad eliminada" });
+      setDeleteDialog(false);
+      setDeleteItem(null);
+      await load();
+    } catch (e: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: e?.response?.data?.message ?? "Error al eliminar",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: editItem ? "Actividad actualizada" : "Actividad creada",
+      life: 3000,
+    });
+    setFormVisible(false);
+    setEditItem(null);
+    await load();
+  };
+
+  const actionItems = (item: Activity | null): MenuItem[] => {
+    if (!item) return [];
+    return [
+      {
+        label: "Editar",
+        icon: "pi pi-pencil",
+        command: () => openEdit(item),
+      },
+      {
+        label: "Completar",
+        icon: "pi pi-check-circle",
+        command: () => openComplete(item),
+        disabled: !["PENDING", "IN_PROGRESS"].includes(item.status as string),
+      },
+      { separator: true },
+      {
+        label: "Eliminar",
+        icon: "pi pi-trash",
+        className: "p-menuitem-danger",
+        command: () => openDelete(item),
+        disabled: !["PENDING", "CANCELLED"].includes(item.status as string),
+      },
+    ];
+  };
+
   const titleBody = (a: Activity) => (
     <div>
       <div className="font-semibold text-sm">{a.title}</div>
-      {!customerId && a.customer && (
-        <div className="text-xs text-500">{a.customer.name}</div>
-      )}
+      {!customerId && a.customer && <div className="text-xs text-500">{a.customer.name}</div>}
     </div>
   );
 
@@ -142,78 +216,78 @@ export default function ActivityList({ customerId }: Props) {
   };
 
   const actionsBody = (a: Activity) => (
-    <div className="flex gap-1">
-      {["PENDING", "IN_PROGRESS"].includes(a.status as string) && (
-        <Button
-          icon="pi pi-check-circle"
-          rounded text severity="success" size="small"
-          tooltip="Completar"
-          tooltipOptions={{ position: "top" }}
-          onClick={() => openComplete(a)}
-        />
-      )}
-      <Button icon="pi pi-pencil" rounded text severity="secondary" size="small" onClick={() => openEdit(a)} />
-      <Button
-        icon="pi pi-trash"
-        rounded text severity="danger" size="small"
-        onClick={() => handleDelete(a)}
-        disabled={!["PENDING", "CANCELLED"].includes(a.status as string)}
-      />
-    </div>
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setActionItem(a);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="crm-activity-menu"
+      aria-haspopup
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
   );
 
-  const formFooter = (
-    <div className="flex justify-content-end gap-2">
-      <Button label="Cancelar" outlined severity="secondary" onClick={() => setFormVisible(false)} disabled={formSubmitting} />
-      <Button
-        label={editItem ? "Guardar" : "Crear Actividad"}
-        icon="pi pi-check"
-        form="activity-form"
-        type="submit"
-        loading={formSubmitting}
-      />
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Actividades</h4>
+        <span className="text-600 text-sm">({total} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Dropdown
+          value={filterStatus}
+          onChange={(e) => {
+            setFilterStatus(e.value);
+            setPage(1);
+          }}
+          options={statusFilterOptions}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Estado"
+          style={{ minWidth: "160px" }}
+        />
+        <Dropdown
+          value={filterType}
+          onChange={(e) => {
+            setFilterType(e.value);
+            setPage(1);
+          }}
+          options={typeFilterOptions}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tipo"
+          style={{ minWidth: "160px" }}
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            placeholder="Buscar..."
+            value={searchQuery}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
+          />
+        </span>
+        <CreateButton label="Nueva actividad" onClick={openNew} tooltip="Crear actividad" />
+      </div>
     </div>
   );
 
   return (
     <>
       <Toast ref={toast} />
-      <ConfirmDialog />
+      <Menu ref={menuRef} popup model={actionItems(actionItem)} id="crm-activity-menu" />
 
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.3 }}
-      >
-        <div className="flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-          <div>
-            <h4 className="mb-1 text-900">Actividades</h4>
-            <span className="text-500 text-sm">{total} registros</span>
-          </div>
-          <Button label="Nueva Actividad" icon="pi pi-plus" onClick={openNew} />
-        </div>
-
-        <div className="flex flex-wrap gap-2 mb-3">
-          <Dropdown
-            value={filterType}
-            onChange={(e) => setFilterType(e.value)}
-            options={typeFilterOptions}
-            optionLabel="label"
-            optionValue="value"
-            style={{ minWidth: "180px" }}
-          />
-          <Dropdown
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.value)}
-            options={statusFilterOptions}
-            optionLabel="label"
-            optionValue="value"
-            style={{ minWidth: "180px" }}
-          />
-        </div>
-
+      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
         <DataTable
-          value={activities}
+          value={filteredActivities}
+          header={header}
           loading={loading}
           lazy
           paginator
@@ -221,40 +295,83 @@ export default function ActivityList({ customerId }: Props) {
           totalRecords={total}
           first={(page - 1) * limit}
           onPage={(e: DataTableStateEvent) => setPage((e.page ?? 0) + 1)}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           emptyMessage="No hay actividades registradas"
           size="small"
           stripedRows
+          scrollable
+          sortMode="multiple"
         >
           <Column header="Actividad" body={titleBody} style={{ minWidth: "180px" }} />
           <Column header="Tipo" body={typeBody} style={{ width: "120px" }} />
           <Column header="Estado" body={statusBody} style={{ width: "130px" }} />
           <Column header="Vence" body={dueBody} style={{ width: "130px" }} />
           <Column header="Resultado" body={(a) => a.outcome || "—"} style={{ width: "180px" }} />
-          <Column header="" body={actionsBody} style={{ width: "110px" }} />
+          <Column
+            header="Acciones"
+            body={actionsBody}
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+            frozen
+            alignFrozen="right"
+          />
         </DataTable>
       </motion.div>
 
-      {/* Form Dialog */}
+      <DeleteConfirmDialog
+        visible={deleteDialog}
+        onHide={() => {
+          setDeleteDialog(false);
+          setDeleteItem(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={deleteItem?.title || "actividad"}
+        isDeleting={isDeleting}
+      />
+
       <Dialog
         visible={formVisible}
-        onHide={() => setFormVisible(false)}
-        header={editItem ? "Editar Actividad" : "Nueva Actividad"}
-        style={{ width: "620px" }}
-        footer={formFooter}
+        onHide={() => {
+          setFormVisible(false);
+          setEditItem(null);
+        }}
         modal
-        draggable={false}
+        maximizable
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-calendar mr-3 text-primary text-3xl"></i>
+                {editItem ? "Editar Actividad" : "Nueva Actividad"}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <FormActionButtons
+            formId="activity-form"
+            onCancel={() => {
+              setFormVisible(false);
+              setEditItem(null);
+            }}
+            isSubmitting={formSubmitting}
+            isUpdate={!!editItem}
+            submitLabel={editItem ? "Guardar" : "Crear Actividad"}
+          />
+        }
       >
         <ActivityForm
           activity={editItem}
           formId="activity-form"
           defaultCustomerId={customerId}
-          onSave={() => { setFormVisible(false); load(); }}
+          onSave={handleSave}
           onSubmittingChange={setFormSubmitting}
           toast={toast}
         />
       </Dialog>
 
-      {/* Complete Dialog */}
       <ActivityCompleteDialog
         activity={completeActivity}
         visible={completeDialogVisible}

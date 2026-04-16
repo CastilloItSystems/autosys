@@ -1,0 +1,51 @@
+enum DealerApprovalType {
+  DISCOUNT_EXCEPTION
+  TRADE_IN_APPROVAL
+  FINANCING_OVERRIDE
+  DELIVERY_EXCEPTION
+  DOCUMENT_EXCEPTION
+}
+
+enum DealerApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model DealerApproval {
+  id                 String                @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa               @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String?
+  dealerUnit          DealerUnit?           @relation("DealerUnitApprovals", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType       String?
+  referenceId         String?
+
+  approvalNumber      String
+  type                DealerApprovalType
+  status              DealerApprovalStatus  @default(PENDING)
+  title               String
+  reason              String?
+  requestedBy         String?
+  requestedAmount     Decimal?              @db.Decimal(14, 2)
+  requestedPct        Decimal?              @db.Decimal(6, 2)
+  resolvedBy          String?
+  resolvedAt          DateTime?
+  resolutionNotes     String?
+  isActive            Boolean               @default(true)
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@map("dealer_approvals")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
+  @@unique([empresaId, approvalNumber])
+}

@@ -151,3 +151,36 @@ Los siguientes componentes ahora importan desde ese archivo (ya no tienen defini
 5. `frontend/lib/permissions.ts` → `PERMISSION_GROUPS` + `PERMISSION_LABELS`
 
 Los puntos 1-4 son idempotentes (upsert), por lo que un simple reinicio del servidor propagará los cambios a todas las empresas existentes.
+
+## Actualización — CRM Fase Oportunidades/Campañas/Fidelización (2026-04-15)
+
+### Nuevos permisos CRM agregados
+
+- `crm.quotes.*`
+- `crm.cases.*`
+- `crm.opportunities.*`
+- `crm.campaigns.*`
+- `crm.loyalty.*`
+- `crm.automations.view`
+- `crm.automations.run`
+
+### Archivos sincronizados
+
+- `backend/src/services/empresa-setup.service.ts`
+- `backend/prisma/seeds/permissions.seed.ts`
+- `backend/prisma/seeds/companyRoles.seed.ts`
+- `backend/prisma/seeds/roles.seed.ts`
+- `frontend/lib/permissions.ts`
+
+### Regla de asignación por rol
+
+- `OWNER`, `ADMIN`, `GERENTE`: todos los permisos CRM anteriores + nuevos, incluyendo `crm.automations.run`.
+- `VENDEDOR`: mantiene permisos operativos CRM sin `crm.automations.run`.
+- `VIEWER`: solo permisos `*.view`, incluyendo vistas nuevas de CRM y `crm.automations.view`.
+- `ALMACENISTA`: sin permisos CRM.
+
+### Para aplicar en ambiente local
+
+1. Reiniciar backend (en este repo el arranque ejecuta `ensurePermissionCatalog` y resincroniza roles por empresa).
+2. Si hace falta forzar: `cd backend && npx prisma db seed`.
+3. Cerrar sesión y volver a entrar en frontend para refrescar permisos de membresía en sesión/token.

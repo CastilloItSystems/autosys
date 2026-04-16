@@ -11,7 +11,7 @@ export enum PreInvoiceStatus {
 export interface IPreInvoiceItem {
   id: string
   preInvoiceId: string
-  itemId: string
+  itemId?: string | null
   itemName?: string | null
   quantity: number
   unitPrice: number
@@ -35,9 +35,10 @@ export interface IPreInvoice {
   preInvoiceNumber: string
   status: PreInvoiceStatus
   empresaId: string
-  orderId: string
+  orderId?: string | null
+  serviceOrderId?: string | null
   customerId: string
-  warehouseId: string
+  warehouseId?: string | null
   currency: string
   exchangeRate?: number | null
   discountAmount: number
@@ -56,6 +57,8 @@ export interface IPreInvoice {
   preparedBy?: string | null
   items: IPreInvoiceItem[]
   order?: any
+  serviceOrder?: any
+  consolidatedServiceOrders?: any[]
   customer?: any
   warehouse?: any
   exitNote?: any
@@ -68,5 +71,8 @@ export interface IPreInvoiceFilters {
   status?: PreInvoiceStatus
   customerId?: string
   orderId?: string
+  serviceOrderId?: string
+  hasServiceOrder?: boolean
+  origin?: 'ORDER' | 'WORKSHOP'
   search?: string
 }

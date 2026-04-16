@@ -82,6 +82,7 @@ model Activity {
   // Contexto opcional (puede estar ligada a un lead)
   leadId      String?
   lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  opportunityLinks OpportunityActivityLink[]
 
   // Clasificación
   type        ActivityType
@@ -111,6 +112,101 @@ model Activity {
   @@index([assignedTo])
   @@index([status])
   @@index([dueAt])
+}
+
+
+enum CampaignStatus {
+  DRAFT
+  ACTIVE
+  PAUSED
+  COMPLETED
+  CANCELLED
+}
+
+enum CampaignChannel {
+  EMAIL
+  WHATSAPP
+  PHONE
+  SOCIAL_MEDIA
+  WEB
+  OTHER
+}
+
+model Campaign {
+  id                   String          @id @default(cuid())
+  empresaId            String
+  empresa              Empresa         @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  name                 String
+  description          String?         @db.Text
+  status               CampaignStatus  @default(DRAFT)
+  channel              CampaignChannel @default(OTHER)
+
+  budget               Decimal?        @db.Decimal(12, 2)
+  startsAt             DateTime?
+  endsAt               DateTime?
+
+  sentCount            Int             @default(0)
+  responseCount        Int             @default(0)
+  leadsCreatedCount    Int             @default(0)
+  opportunitiesCount   Int             @default(0)
+  opportunitiesWonCount Int            @default(0)
+
+  leads                Lead[]
+  opportunities        Opportunity[]
+  audience             CampaignAudience[]
+  results              CampaignResult[]
+
+  createdBy            String
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+
+  @@map("crm_campaigns")
+  @@index([empresaId])
+  @@index([status])
+  @@index([channel])
+  @@index([startsAt])
+}
+
+model CampaignAudience {
+  id                   String      @id @default(cuid())
+  empresaId            String
+  empresa              Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  campaignId           String
+  campaign             Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  segment              String
+  filters              Json?
+  audienceSize         Int         @default(0)
+
+  createdAt            DateTime    @default(now())
+
+  @@map("crm_campaign_audiences")
+  @@index([empresaId])
+  @@index([campaignId])
+}
+
+model CampaignResult {
+  id                   String      @id @default(cuid())
+  empresaId            String
+  empresa              Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  campaignId           String
+  campaign             Campaign    @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  reportedAt           DateTime    @default(now())
+  sent                 Int         @default(0)
+  responses            Int         @default(0)
+  leadsCreated         Int         @default(0)
+  opportunitiesCreated Int         @default(0)
+  opportunitiesWon     Int         @default(0)
+  notes                String?     @db.Text
+
+  @@map("crm_campaign_results")
+  @@index([empresaId])
+  @@index([campaignId])
+  @@index([reportedAt])
 }
 
 
@@ -294,6 +390,7 @@ model Customer {
   contacts          CustomerContact[]
   vehicles          CustomerVehicle[]
   leads             Lead[]
+  opportunities     Opportunity[]
   interactions      Interaction[]
   activities        Activity[]
 
@@ -309,6 +406,8 @@ model Customer {
 
   // Relaciones CRM: Casos / Reclamos
   cases             Case[]
+  loyaltyEvents     LoyaltyEvent[]
+  surveys           CustomerSurvey[]
 
   // Auditoría
   createdAt         DateTime        @default(now())
@@ -552,6 +651,8 @@ model Lead {
   channel         LeadChannel
   source          LeadSource  @default(WALK_IN)
   status          LeadStatus  @default(NEW)
+  campaignId      String?
+  campaign        Campaign?   @relation(fields: [campaignId], references: [id], onDelete: SetNull)
 
   // Descripción de la oportunidad
   title           String      // Ej: "Compra Hilux 2024", "Reparación caja de cambios", "Repuestos Ford F150"
@@ -580,6 +681,7 @@ model Lead {
   activities      Activity[]
   quotes          Quote[]
   cases           Case[]
+  opportunity     Opportunity?
 
   // Relaciones Workshop
   serviceOrder    ServiceOrder?   @relation(fields: [serviceOrderId], references: [id], onDelete: SetNull)
@@ -592,8 +694,261 @@ model Lead {
   @@index([customerId])
   @@index([channel])
   @@index([status])
+  @@index([campaignId])
   @@index([assignedTo])
   @@index([expectedCloseAt])
+}
+
+
+enum LoyaltyEventType {
+  NPS_SENT
+  NPS_RECEIVED
+  MAINTENANCE_REMINDER
+  REACTIVATION_CONTACT
+  FOLLOW_UP
+}
+
+enum LoyaltyEventStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+model LoyaltyEvent {
+  id             String             @id @default(cuid())
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  type           LoyaltyEventType
+  status         LoyaltyEventStatus @default(PENDING)
+  title          String
+  description    String?            @db.Text
+  suggestedAction String?
+
+  dueAt          DateTime?
+  completedAt    DateTime?
+
+  createdBy      String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("crm_loyalty_events")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([type])
+  @@index([status])
+}
+
+model CustomerSurvey {
+  id             String      @id @default(cuid())
+  empresaId      String
+  empresa        Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId     String
+  customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  source         String      @default("NPS")
+  score          Int?
+  feedback       String?     @db.Text
+  submittedAt    DateTime    @default(now())
+  createdBy      String
+
+  @@map("crm_customer_surveys")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([submittedAt])
+}
+
+
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CrmAlertStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum CrmAlertType {
+  STALE_OPPORTUNITY
+  OVERDUE_ACTIVITY
+  OVERDUE_CASE
+  CLOSE_DATE_REMINDER
+}
+
+model Opportunity {
+  id              String            @id @default(uuid())
+
+  empresaId       String
+  empresa         Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  leadId          String?           @unique
+  lead            Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  customerId      String?
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  campaignId      String?
+  campaign        Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  channel         LeadChannel
+  stageCode       String
+  status          OpportunityStatus @default(OPEN)
+
+  title           String
+  description     String?           @db.Text
+  amount          Decimal?          @db.Decimal(12, 2)
+  currency        String            @default("USD")
+
+  ownerId         String
+  nextActivityAt  DateTime
+  expectedCloseAt DateTime?
+
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReasonId    String?
+  lostReason      OpportunityLossReason? @relation(fields: [lostReasonId], references: [id], onDelete: SetNull)
+  lostReasonText  String?           @db.Text
+
+  createdBy       String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  stageHistory    OpportunityStageHistory[]
+  activityLinks   OpportunityActivityLink[]
+
+  @@map("crm_opportunities")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([campaignId])
+  @@index([channel])
+  @@index([stageCode])
+  @@index([status])
+  @@index([ownerId])
+  @@index([nextActivityAt])
+  @@index([expectedCloseAt])
+}
+
+model OpportunityStageConfig {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  channel       LeadChannel
+  code          String
+  label         String
+  position      Int
+  isTerminal    Boolean     @default(false)
+  isActive      Boolean     @default(true)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("crm_opportunity_stage_configs")
+  @@unique([empresaId, channel, code])
+  @@unique([empresaId, channel, position])
+  @@index([empresaId])
+  @@index([channel])
+  @@index([isActive])
+}
+
+model OpportunityLossReason {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  code          String
+  label         String
+  isActive      Boolean     @default(true)
+
+  opportunities Opportunity[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("crm_opportunity_loss_reasons")
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+}
+
+model OpportunityStageHistory {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  fromStage     String?
+  toStage       String
+  notes         String?     @db.Text
+  changedBy     String
+  changedAt     DateTime    @default(now())
+
+  @@map("crm_opportunity_stage_history")
+  @@index([empresaId])
+  @@index([opportunityId])
+  @@index([changedAt])
+}
+
+model OpportunityActivityLink {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  activityId    String
+  activity      Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  linkedBy      String
+  linkedAt      DateTime    @default(now())
+
+  @@map("crm_opportunity_activity_links")
+  @@unique([opportunityId, activityId])
+  @@index([empresaId])
+  @@index([activityId])
+}
+
+model CrmAutomationAlert {
+  id            String        @id @default(cuid())
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  type          CrmAlertType
+  status        CrmAlertStatus @default(OPEN)
+  severity      AlertSeverity @default(MEDIUM)
+
+  entityType    String
+  entityId      String
+  title         String
+  message       String        @db.Text
+  dedupeKey     String
+  metadata      Json?
+
+  createdAt     DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  @@map("crm_automation_alerts")
+  @@unique([empresaId, dedupeKey])
+  @@index([empresaId, status])
+  @@index([type])
+  @@index([createdAt])
 }
 
 
@@ -723,6 +1078,574 @@ model QuoteItem {
 }
 
 
+enum DealerAfterSaleType {
+  WARRANTY_CHECK
+  FIRST_SERVICE
+  SATISFACTION_CALL
+  CLAIM
+}
+
+enum DealerAfterSaleStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+  CANCELLED
+}
+
+model DealerAfterSale {
+  id                 String                 @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa                @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String?
+  dealerUnit          DealerUnit?            @relation("DealerUnitAfterSales", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType       String?
+  referenceId         String?
+
+  caseNumber          String
+  type                DealerAfterSaleType
+  status              DealerAfterSaleStatus  @default(OPEN)
+  customerName        String
+  customerPhone       String?
+  customerEmail       String?
+  title               String
+  description         String?
+  openedAt            DateTime               @default(now())
+  dueAt               DateTime?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  assignedTo          String?
+  resolutionNotes     String?
+  satisfactionScore   Int?
+  isActive            Boolean                @default(true)
+
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@map("dealer_after_sales")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
+  @@index([openedAt])
+  @@unique([empresaId, caseNumber])
+}
+
+
+enum DealerApprovalType {
+  DISCOUNT_EXCEPTION
+  TRADE_IN_APPROVAL
+  FINANCING_OVERRIDE
+  DELIVERY_EXCEPTION
+  DOCUMENT_EXCEPTION
+}
+
+enum DealerApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+model DealerApproval {
+  id                 String                @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa               @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String?
+  dealerUnit          DealerUnit?           @relation("DealerUnitApprovals", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType       String?
+  referenceId         String?
+
+  approvalNumber      String
+  type                DealerApprovalType
+  status              DealerApprovalStatus  @default(PENDING)
+  title               String
+  reason              String?
+  requestedBy         String?
+  requestedAmount     Decimal?              @db.Decimal(14, 2)
+  requestedPct        Decimal?              @db.Decimal(6, 2)
+  resolvedBy          String?
+  resolvedAt          DateTime?
+  resolutionNotes     String?
+  isActive            Boolean               @default(true)
+
+  createdAt           DateTime              @default(now())
+  updatedAt           DateTime              @updatedAt
+
+  @@map("dealer_approvals")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
+  @@unique([empresaId, approvalNumber])
+}
+
+
+enum DealerDeliveryStatus {
+  SCHEDULED
+  READY
+  DELIVERED
+  CANCELLED
+}
+
+model DealerDelivery {
+  id                  String                @id @default(uuid())
+
+  empresaId            String
+  empresa              Empresa               @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId         String
+  dealerUnit           DealerUnit            @relation("DealerUnitDelivery", fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  deliveryNumber       String
+  status               DealerDeliveryStatus  @default(SCHEDULED)
+
+  customerName         String
+  customerDocument     String?
+  customerPhone        String?
+  customerEmail        String?
+
+  scheduledAt          DateTime
+  deliveredAt          DateTime?
+  advisorName          String?
+  checklistCompleted   Boolean               @default(false)
+  documentsSigned      Boolean               @default(false)
+  accessoriesDelivered Boolean               @default(false)
+  observations         String?
+  actNumber            String?
+  isActive             Boolean               @default(true)
+
+  createdAt            DateTime              @default(now())
+  updatedAt            DateTime              @updatedAt
+
+  @@map("dealer_deliveries")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([scheduledAt])
+  @@unique([empresaId, deliveryNumber])
+}
+
+
+enum DealerDocumentReferenceType {
+  UNIT
+  RESERVATION
+  QUOTE
+  TEST_DRIVE
+  TRADE_IN
+  FINANCING
+  DELIVERY
+  CUSTOMER
+}
+
+enum DealerDocumentStatus {
+  PENDING
+  VALID
+  EXPIRED
+  REJECTED
+}
+
+model DealerDocument {
+  id                String                      @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa                     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String?
+  dealerUnit         DealerUnit?                 @relation("DealerUnitDocuments", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType      DealerDocumentReferenceType
+  referenceId        String?
+
+  documentType       String
+  documentNumber     String?
+  name               String
+  fileUrl            String
+  mimeType           String?
+  sizeBytes          Int?
+  issuedAt           DateTime?
+  expiresAt          DateTime?
+  status             DealerDocumentStatus        @default(PENDING)
+  notes              String?
+  isActive           Boolean                     @default(true)
+
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@map("dealer_documents")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([isActive])
+}
+
+
+enum DealerFinancingStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  DISBURSED
+}
+
+model DealerFinancing {
+  id                 String                 @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa                @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String
+  dealerUnit          DealerUnit             @relation("DealerUnitFinancing", fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  financingNumber     String
+  status              DealerFinancingStatus  @default(DRAFT)
+
+  customerName        String
+  customerDocument    String?
+  customerPhone       String?
+  customerEmail       String?
+
+  bankName            String?
+  planName            String?
+  requestedAmount     Decimal?               @db.Decimal(14, 2)
+  downPaymentAmount   Decimal?               @db.Decimal(14, 2)
+  approvedAmount      Decimal?               @db.Decimal(14, 2)
+  termMonths          Int?
+  annualRatePct       Decimal?               @db.Decimal(6, 2)
+  installmentAmount   Decimal?               @db.Decimal(14, 2)
+  currency            String?                @default("USD")
+
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  disbursedAt         DateTime?
+
+  notes               String?
+  isActive            Boolean                @default(true)
+
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@map("dealer_financing")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@unique([empresaId, financingNumber])
+}
+
+
+enum DealerQuoteStatus {
+  DRAFT
+  SENT
+  NEGOTIATING
+  APPROVED
+  REJECTED
+  EXPIRED
+  CONVERTED
+}
+
+model DealerQuote {
+  id                String             @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit         @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  quoteNumber        String
+  status             DealerQuoteStatus  @default(DRAFT)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+
+  listPrice          Decimal?           @db.Decimal(14, 2)
+  discountPct        Decimal?           @db.Decimal(6, 2)
+  discountAmount     Decimal?           @db.Decimal(14, 2)
+  offeredPrice       Decimal?           @db.Decimal(14, 2)
+  taxPct             Decimal?           @db.Decimal(6, 2)
+  taxAmount          Decimal?           @db.Decimal(14, 2)
+  totalAmount        Decimal?           @db.Decimal(14, 2)
+  currency           String?            @default("USD")
+
+  validUntil         DateTime?
+  paymentTerms       String?
+  financingRequired  Boolean            @default(false)
+  notes              String?
+  isActive           Boolean            @default(true)
+
+  sentAt             DateTime?
+  approvedAt         DateTime?
+  rejectedAt         DateTime?
+  convertedAt        DateTime?
+
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  @@map("dealer_quotes")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([createdAt])
+  @@unique([empresaId, quoteNumber])
+}
+
+
+enum DealerReservationStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+model DealerReservation {
+  id                String                  @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa                 @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit              @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  reservationNumber  String
+  status             DealerReservationStatus @default(PENDING)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+
+  offeredPrice       Decimal?                @db.Decimal(14, 2)
+  depositAmount      Decimal?                @db.Decimal(14, 2)
+  currency           String?                 @default("USD")
+
+  reservedAt         DateTime                @default(now())
+  expiresAt          DateTime?
+  confirmedAt        DateTime?
+  cancelledAt        DateTime?
+  convertedAt        DateTime?
+
+  notes              String?
+  sourceChannel      String?
+  isActive           Boolean                 @default(true)
+
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@map("dealer_reservations")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([reservedAt])
+  @@index([expiresAt])
+  @@unique([empresaId, reservationNumber])
+}
+
+
+enum DealerTestDriveStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  NO_SHOW
+  CANCELLED
+}
+
+model DealerTestDrive {
+  id                String                @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa               @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit            @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  testDriveNumber    String
+  status             DealerTestDriveStatus @default(SCHEDULED)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+  driverLicense      String?
+
+  scheduledAt        DateTime
+  startedAt          DateTime?
+  completedAt        DateTime?
+  cancelledAt        DateTime?
+
+  advisorName        String?
+  routeDescription   String?
+  observations       String?
+  customerFeedback   String?
+  isActive           Boolean               @default(true)
+
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+
+  @@map("dealer_test_drives")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([scheduledAt])
+  @@unique([empresaId, testDriveNumber])
+}
+
+
+enum DealerTradeInStatus {
+  PENDING
+  INSPECTED
+  VALUED
+  APPROVED
+  REJECTED
+  APPLIED
+}
+
+model DealerTradeIn {
+  id                 String               @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa              @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  targetDealerUnitId  String?
+  targetDealerUnit    DealerUnit?          @relation("TradeInTargetUnit", fields: [targetDealerUnitId], references: [id], onDelete: SetNull)
+
+  tradeInNumber       String
+  status              DealerTradeInStatus  @default(PENDING)
+
+  customerName        String
+  customerDocument    String?
+  customerPhone       String?
+  customerEmail       String?
+
+  vehicleBrand        String
+  vehicleModel        String?
+  vehicleYear         Int?
+  vehicleVersion      String?
+  vehicleVin          String?
+  vehiclePlate        String?
+  mileage             Int?
+  conditionSummary    String?
+
+  requestedValue      Decimal?             @db.Decimal(14, 2)
+  appraisedValue      Decimal?             @db.Decimal(14, 2)
+  approvedValue       Decimal?             @db.Decimal(14, 2)
+  appraisalDate       DateTime?
+
+  appraiserName       String?
+  notes               String?
+  isActive            Boolean              @default(true)
+
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  @@map("dealer_trade_ins")
+  @@index([empresaId])
+  @@index([targetDealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@unique([empresaId, tradeInNumber])
+}
+
+
+enum DealerUnitCondition {
+  NEW
+  USED
+  DEMO
+  CONSIGNMENT
+}
+
+enum DealerUnitStatus {
+  AVAILABLE
+  RESERVED
+  IN_DOCUMENTATION
+  INVOICED
+  READY_FOR_DELIVERY
+  DELIVERED
+  BLOCKED
+}
+
+model DealerUnit {
+  id            String              @id @default(uuid())
+
+  empresaId     String
+  empresa       Empresa             @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  brandId       String
+  brand         Brand               @relation(fields: [brandId], references: [id], onDelete: Restrict)
+
+  modelId       String?
+  model         Model?              @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  code          String?
+  version       String?
+  year          Int?
+
+  vin           String?
+  engineSerial  String?
+  plate         String?
+
+  condition     DealerUnitCondition @default(NEW)
+  status        DealerUnitStatus    @default(AVAILABLE)
+  mileage       Int?
+
+  colorExterior String?
+  colorInterior String?
+  fuelType      String?
+  transmission  String?
+
+  listPrice     Decimal?            @db.Decimal(14, 2)
+  promoPrice    Decimal?            @db.Decimal(14, 2)
+  location      String?
+
+  description   String?
+  specifications Json?
+
+  isActive      Boolean             @default(true)
+  isPublished   Boolean             @default(false)
+
+  reservations  DealerReservation[]
+  quotes        DealerQuote[]
+  testDrives    DealerTestDrive[]
+  tradeInsAsTarget DealerTradeIn[] @relation("TradeInTargetUnit")
+  financing     DealerFinancing[] @relation("DealerUnitFinancing")
+  deliveries    DealerDelivery[] @relation("DealerUnitDelivery")
+  documents     DealerDocument[] @relation("DealerUnitDocuments")
+  approvals     DealerApproval[] @relation("DealerUnitApprovals")
+  afterSales    DealerAfterSale[] @relation("DealerUnitAfterSales")
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("dealer_units")
+  @@index([empresaId])
+  @@index([brandId])
+  @@index([modelId])
+  @@index([status])
+  @@index([condition])
+  @@index([isActive])
+  @@unique([empresaId, vin])
+}
+
+
 model Empresa {
   id_empresa      String       @id @default(cuid())
   nombre          String
@@ -764,6 +1687,16 @@ model Empresa {
   categories      Category[]
   units           Unit[]
   models          Model[]
+  dealerUnits     DealerUnit[]
+  dealerReservations DealerReservation[]
+  dealerQuotes    DealerQuote[]
+  dealerTestDrives DealerTestDrive[]
+  dealerTradeIns  DealerTradeIn[]
+  dealerFinancing DealerFinancing[]
+  dealerDeliveries DealerDelivery[]
+  dealerDocuments DealerDocument[]
+  dealerApprovals DealerApproval[]
+  dealerAfterSales DealerAfterSale[]
 
   // Sales
   customers       Customer[]
@@ -776,6 +1709,17 @@ model Empresa {
   customerContacts CustomerContact[]
   customerVehicles CustomerVehicle[]
   leads            Lead[]
+  opportunities    Opportunity[]
+  opportunityStageConfigs OpportunityStageConfig[]
+  opportunityLossReasons OpportunityLossReason[]
+  opportunityStageHistory OpportunityStageHistory[]
+  opportunityActivityLinks OpportunityActivityLink[]
+  crmAutomationAlerts CrmAutomationAlert[]
+  campaigns        Campaign[]
+  campaignAudiences CampaignAudience[]
+  campaignResults  CampaignResult[]
+  loyaltyEvents    LoyaltyEvent[]
+  customerSurveys  CustomerSurvey[]
   interactions     Interaction[]
   activities       Activity[]
   quotes           Quote[]
@@ -962,6 +1906,7 @@ model Brand {
   items            Item[]
   models           Model[]
   customerVehicles CustomerVehicle[]
+  dealerUnits      DealerUnit[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -975,6 +1920,7 @@ model Brand {
   @@index([isActive])
   @@index([empresaId])
 }
+
 
 // backend/prisma/models/inventory/bulkOperation.prisma
 
@@ -1377,6 +2323,7 @@ enum ExitType {
   TRANSFER        // Traslado
   OTHER           // Otro
   LOAN_RETURN     // Devolución de préstamo
+  WORKSHOP_SUPPLY // Suministro de repuesto a taller desde almacén
 }
 
 model ExitNote {
@@ -1413,18 +2360,22 @@ model ExitNote {
   // Relación con Transfer (cuando type=TRANSFER)
   transfer        Transfer?
 
+  // FK con ServiceOrderMaterial (cuando type=WORKSHOP_SUPPLY)
+  serviceOrderMaterialId String?  @unique
+  serviceOrderMaterial   ServiceOrderMaterial? @relation(fields: [serviceOrderMaterialId], references: [id], onDelete: SetNull)
+
   notes           String?        @db.Text
-  
+
   // Fechas
   reservedAt      DateTime?
   preparedAt      DateTime?
   deliveredAt     DateTime?
-  
+
   // Auditoría
   preparedBy      String?
   deliveredBy     String?
   authorizedBy    String?        // Quien autorizó salida sin factura
-  
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -1433,6 +2384,7 @@ model ExitNote {
   @@index([type])
   @@index([status])
   @@index([preInvoiceId])
+  @@index([serviceOrderMaterialId])
 }
 
 // backend/prisma/models/inventory/exitNoteItem.prisma
@@ -1722,6 +2674,7 @@ model Model {
   // Relaciones
   items            Item[]
   customerVehicles CustomerVehicle[]
+  dealerUnits      DealerUnit[]
   
   // Auditoría
   createdAt   DateTime  @default(now())
@@ -1735,6 +2688,7 @@ model Model {
   @@index([isActive])
   @@index([empresaId])
 }
+
 
 // backend/prisma/models/inventory/modelCompatibility.prisma
 
@@ -2578,6 +3532,7 @@ model Warehouse {
   serialNumbers   SerialNumber[]
   transfersFrom   Transfer[]     @relation("TransferFrom")
   transfersTo     Transfer[]     @relation("TransferTo")
+  serviceOrderMaterials ServiceOrderMaterial[]
   
   // Auditoría
   createdAt   DateTime      @default(now())
@@ -2589,6 +3544,7 @@ model Warehouse {
   @@index([isActive])
   @@index([empresaId])
 }
+
 
 enum MembershipStatus {
   invited
@@ -4010,6 +4966,10 @@ model ServiceOrderMaterial {
   serviceOrderId String
   serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
+  // Almacén origen para reserva/consumo (se fija al reservar)
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
   itemId         String?
   item           Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
   description    String         @db.Text
@@ -4037,8 +4997,17 @@ model ServiceOrderMaterial {
 
   status    MaterialStatus @default(REQUESTED)
 
+  // Aprobación del cliente por línea de material
+  clientApproved      Boolean?
+  clientApprovalAt    DateTime?
+  clientApprovedBy    String?
+  clientApprovalNotes String? @db.Text
+
   // Historial de movimientos
   movements ServiceOrderMaterialMovement[]
+
+  // Back-reference: nota de salida creada por almacén para este material
+  exitNote ExitNote?
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -4048,6 +5017,7 @@ model ServiceOrderMaterial {
 
   @@index([serviceOrderId])
   @@index([serviceOrderId, status]) // Materiales por estado en una OT
+  @@index([warehouseId])
   @@index([itemId])
   @@index([empresaId])
   @@map("service_order_materials")
@@ -4151,7 +5121,6 @@ model ServiceOrderObservation {
   @@index([empresaId])
   @@map("service_order_observations")
 }
-
 
 
 // backend/prisma/models/workshop/serviceOrderHistory.prisma

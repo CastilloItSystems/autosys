@@ -11,6 +11,7 @@ import inventoryRoutes from '../features/inventory/index.js'
 import salesRoutes from '../features/sales/index.js'
 import crmRoutes from '../features/crm/index.js'
 import workshopRoutes from '../features/workshop/index.js'
+import dealerRoutes from '../features/dealer/index.js'
 
 // Middlewares
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
@@ -47,5 +48,8 @@ router.use('/crm', authenticate, extractEmpresa, crmRoutes)
 
 // Módulo Taller (Workshop)
 router.use('/workshop', authenticate, extractEmpresa, workshopRoutes)
+
+// Módulo Concesionario
+router.use('/dealer', authenticate, extractEmpresa, dealerRoutes)
 
 export default router

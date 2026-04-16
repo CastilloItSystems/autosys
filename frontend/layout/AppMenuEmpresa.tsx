@@ -345,6 +345,11 @@ const AppMenuEmpresa = () => {
           to: "/empresa/crm/leads",
         },
         {
+          label: "Oportunidades",
+          icon: "pi pi-fw pi-sitemap",
+          to: "/empresa/crm/oportunidades",
+        },
+        {
           label: "Cotizaciones",
           icon: "pi pi-fw pi-file-text",
           to: "/empresa/crm/cotizaciones",
@@ -364,6 +369,16 @@ const AppMenuEmpresa = () => {
           icon: "pi pi-fw pi-comments",
           to: "/empresa/crm/interacciones",
         },
+        {
+          label: "Campañas",
+          icon: "pi pi-fw pi-megaphone",
+          to: "/empresa/crm/campanas",
+        },
+        {
+          label: "Fidelización",
+          icon: "pi pi-fw pi-heart",
+          to: "/empresa/crm/fidelizacion",
+        },
       ],
     },
 
@@ -373,12 +388,32 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-wrench",
       items: [
         {
-          label: "Dashboard Operativo",
+          label: "Dashboard",
           icon: "pi pi-fw pi-chart-line",
           to: "/empresa/workshop",
         },
         {
-          label: "Operaciones Diarias",
+          label: "Citas",
+          icon: "pi pi-fw pi-calendar",
+          to: "/empresa/workshop/appointments",
+        },
+        {
+          label: "Recepciones",
+          icon: "pi pi-fw pi-inbox",
+          to: "/empresa/workshop/receptions",
+        },
+        {
+          label: "Tablero de Planeación",
+          icon: "pi pi-fw pi-th-large",
+          to: "/empresa/workshop/planning",
+        },
+        {
+          label: "Materiales",
+          icon: "pi pi-fw pi-box",
+          to: "/empresa/workshop/materials",
+        },
+        {
+          label: "Operación y Planificación",
           icon: "pi pi-fw pi-refresh",
           items: [
             {
@@ -387,24 +422,9 @@ const AppMenuEmpresa = () => {
               to: "/empresa/workshop/garita",
             },
             {
-              label: "Citas",
-              icon: "pi pi-fw pi-calendar",
-              to: "/empresa/workshop/appointments",
-            },
-            {
-              label: "Recepciones",
-              icon: "pi pi-fw pi-inbox",
-              to: "/empresa/workshop/receptions",
-            },
-            {
               label: "Órdenes de Trabajo",
               icon: "pi pi-fw pi-file-edit",
               to: "/empresa/workshop/service-orders",
-            },
-            {
-              label: "Tablero de Planeación",
-              icon: "pi pi-fw pi-th-large",
-              to: "/empresa/workshop/planning",
             },
             {
               label: "Control de Tiempos",
@@ -419,7 +439,7 @@ const AppMenuEmpresa = () => {
           ],
         },
         {
-          label: "Diagnóstico y Cotización",
+          label: "Diagnóstico y Presupuesto",
           icon: "pi pi-fw pi-search",
           items: [
             {
@@ -440,18 +460,8 @@ const AppMenuEmpresa = () => {
           ],
         },
         {
-          label: "Facturación",
-          icon: "pi pi-fw pi-dollar",
-          to: "/empresa/workshop/billing",
-        },
-        {
-          label: "Materiales",
-          icon: "pi pi-fw pi-box",
-          to: "/empresa/workshop/materials",
-        },
-        {
-          label: "Calidad y Entrega",
-          icon: "pi pi-fw pi-verified",
+          label: "Cierre y Entrega",
+          icon: "pi pi-fw pi-check-circle",
           items: [
             {
               label: "Control de Calidad",
@@ -463,10 +473,15 @@ const AppMenuEmpresa = () => {
               icon: "pi pi-fw pi-sign-out",
               to: "/empresa/workshop/deliveries",
             },
+            {
+              label: "Facturación",
+              icon: "pi pi-fw pi-dollar",
+              to: "/empresa/workshop/billing",
+            },
           ],
         },
         {
-          label: "Historial",
+          label: "Historial y Garantías",
           icon: "pi pi-fw pi-history",
           items: [
             {
@@ -487,12 +502,12 @@ const AppMenuEmpresa = () => {
           ],
         },
         {
-          label: "Reportes",
+          label: "Analítica",
           icon: "pi pi-fw pi-chart-bar",
           to: "/empresa/workshop/reports",
         },
         {
-          label: "Configuración",
+          label: "Catálogos de Taller",
           icon: "pi pi-fw pi-cog",
           items: [
             {
@@ -546,19 +561,92 @@ const AppMenuEmpresa = () => {
           to: "/empresa/concesionario",
         },
         {
-          label: "Inventario de Vehículos",
-          icon: "pi pi-fw pi-car",
-          to: "/empresa/concesionario/vehicles",
+          label: "Operación Comercial",
+          icon: "pi pi-fw pi-briefcase",
+          items: [
+            {
+              label: "Unidades",
+              icon: "pi pi-fw pi-car",
+              to: "/empresa/concesionario/vehicles",
+            },
+            {
+              label: "Reservas",
+              icon: "pi pi-fw pi-bookmark",
+              to: "/empresa/concesionario/reservations",
+            },
+            {
+              label: "Pruebas de Manejo",
+              icon: "pi pi-fw pi-send",
+              to: "/empresa/concesionario/test-drives",
+            },
+            {
+              label: "Retomas / Avalúos",
+              icon: "pi pi-fw pi-refresh",
+              to: "/empresa/concesionario/trade-ins",
+            },
+          ],
         },
         {
-          label: "Cotizaciones",
-          icon: "pi pi-fw pi-file-text",
-          to: "/empresa/concesionario/quotes",
+          label: "Cierre de Negocio",
+          icon: "pi pi-fw pi-dollar",
+          items: [
+            {
+              label: "Cotizaciones",
+              icon: "pi pi-fw pi-file-text",
+              to: "/empresa/concesionario/quotes",
+            },
+            {
+              label: "Financiamiento",
+              icon: "pi pi-fw pi-money-bill",
+              to: "/empresa/concesionario/financing",
+            },
+            {
+              label: "Entregas",
+              icon: "pi pi-fw pi-check-circle",
+              to: "/empresa/concesionario/deliveries",
+            },
+            {
+              label: "Documentos",
+              icon: "pi pi-fw pi-folder",
+              to: "/empresa/concesionario/documents",
+            },
+          ],
         },
         {
-          label: "Financiamiento",
-          icon: "pi pi-fw pi-money-bill",
-          to: "/empresa/concesionario/financing",
+          label: "Control y Seguimiento",
+          icon: "pi pi-fw pi-sitemap",
+          items: [
+            {
+              label: "Aprobaciones",
+              icon: "pi pi-fw pi-check-square",
+              to: "/empresa/concesionario/approvals",
+            },
+            {
+              label: "Postventa Inicial",
+              icon: "pi pi-fw pi-heart",
+              to: "/empresa/concesionario/after-sales",
+            },
+            {
+              label: "Historial Comercial",
+              icon: "pi pi-fw pi-history",
+              to: "/empresa/concesionario/history",
+            },
+            {
+              label: "Integraciones",
+              icon: "pi pi-fw pi-link",
+              to: "/empresa/concesionario/integrations",
+            },
+            {
+              label: "Reportes",
+              icon: "pi pi-fw pi-chart-bar",
+              to: "/empresa/concesionario/reports",
+            },
+            {
+              label: "Automatizaciones",
+              icon: "pi pi-fw pi-bolt",
+              to: "/empresa/concesionario/automations",
+            },
+          ],
         },
       ],
     },

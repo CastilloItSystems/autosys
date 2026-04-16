@@ -9,6 +9,7 @@ import {
   updateLeadSchema,
   updateLeadStatusSchema,
   leadFiltersSchema,
+  convertLeadSchema,
 } from './leads.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 
@@ -46,6 +47,13 @@ router.patch(
   authorize(PERMISSIONS.CRM_LEADS_UPDATE),
   validateBody(updateLeadStatusSchema),
   leadsController.updateStatus
+)
+
+router.post(
+  '/:id/convert',
+  authorize(PERMISSIONS.CRM_OPPORTUNITIES_CREATE),
+  validateBody(convertLeadSchema),
+  leadsController.convertToOpportunity
 )
 
 router.delete(

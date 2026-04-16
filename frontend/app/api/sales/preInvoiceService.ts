@@ -13,6 +13,9 @@ interface PreInvoiceParams {
   status?: PreInvoiceStatus;
   customerId?: string;
   orderId?: string;
+  serviceOrderId?: string;
+  hasServiceOrder?: boolean;
+  origin?: "ORDER" | "WORKSHOP";
   search?: string;
   sortBy?: string;
   sortOrder?: "asc" | "desc";

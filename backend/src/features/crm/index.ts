@@ -9,6 +9,10 @@ import interactionRoutes from './interactions/interactions.routes.js'
 import activityRoutes from './activities/activities.routes.js'
 import quoteRoutes from './quotes/quotes.routes.js'
 import caseRoutes from './cases/cases.routes.js'
+import opportunityRoutes from './opportunities/opportunities.routes.js'
+import campaignRoutes from './campaigns/campaigns.routes.js'
+import loyaltyRoutes from './loyalty/loyalty.routes.js'
+import automationRoutes from './automations/index.js'
 
 const router = Router()
 
@@ -40,5 +44,17 @@ router.use('/quotes', quoteRoutes)
 
 // Casos / Reclamos / PQRS
 router.use('/cases', caseRoutes)
+
+// Oportunidades
+router.use('/opportunities', opportunityRoutes)
+
+// Campañas
+router.use('/campaigns', campaignRoutes)
+
+// Fidelización / postventa
+router.use('/loyalty', loyaltyRoutes)
+
+// Automatizaciones y alertas CRM
+router.use('/automations', automationRoutes)
 
 export default router

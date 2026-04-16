@@ -1,0 +1,55 @@
+enum DealerFinancingStatus {
+  DRAFT
+  SUBMITTED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  CANCELLED
+  DISBURSED
+}
+
+model DealerFinancing {
+  id                 String                 @id @default(uuid())
+
+  empresaId           String
+  empresa             Empresa                @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId        String
+  dealerUnit          DealerUnit             @relation("DealerUnitFinancing", fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  financingNumber     String
+  status              DealerFinancingStatus  @default(DRAFT)
+
+  customerName        String
+  customerDocument    String?
+  customerPhone       String?
+  customerEmail       String?
+
+  bankName            String?
+  planName            String?
+  requestedAmount     Decimal?               @db.Decimal(14, 2)
+  downPaymentAmount   Decimal?               @db.Decimal(14, 2)
+  approvedAmount      Decimal?               @db.Decimal(14, 2)
+  termMonths          Int?
+  annualRatePct       Decimal?               @db.Decimal(6, 2)
+  installmentAmount   Decimal?               @db.Decimal(14, 2)
+  currency            String?                @default("USD")
+
+  submittedAt         DateTime?
+  approvedAt          DateTime?
+  rejectedAt          DateTime?
+  disbursedAt         DateTime?
+
+  notes               String?
+  isActive            Boolean                @default(true)
+
+  createdAt           DateTime               @default(now())
+  updatedAt           DateTime               @updatedAt
+
+  @@map("dealer_financing")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@unique([empresaId, financingNumber])
+}

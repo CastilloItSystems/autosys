@@ -7,7 +7,7 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { Dialog } from "primereact/dialog";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
@@ -20,9 +20,12 @@ import {
   QUOTE_TYPE_CONFIG,
   QUOTE_TYPE_OPTIONS,
 } from "@/libs/interfaces/crm/quote.interface";
+import { handleFormError } from "@/utils/errorHandlers";
 import QuoteForm from "./QuoteForm";
 import QuoteStatusDialog from "./QuoteStatusDialog";
 import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
+import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const typeFilterOptions = [
   { label: "Todos los tipos", value: "" },
@@ -50,26 +53,27 @@ export default function QuoteList() {
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
 
-  const [formVisible, setFormVisible] = useState(false);
+  const [formDialog, setFormDialog] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [editQuote, setEditQuote] = useState<Quote | null>(null);
+
+  const [deleteDialog, setDeleteDialog] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [statusDialogQuote, setStatusDialogQuote] = useState<Quote | null>(null);
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
 
   const limit = 20;
 
-  // ── Debounce search ───────────────────────────────────────────────────────
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 500);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  // ── Reset page on filter changes ──────────────────────────────────────────
   useEffect(() => {
     setPage(1);
   }, [search, filterType, filterStatus]);
 
-  // ── Load ──────────────────────────────────────────────────────────────────
   const load = useCallback(async () => {
     setLoading(true);
     try {
@@ -99,20 +103,53 @@ export default function QuoteList() {
     load();
   }, [load]);
 
-  // ── Actions ───────────────────────────────────────────────────────────────
   const openNew = () => {
     setEditQuote(null);
-    setFormVisible(true);
+    setFormDialog(true);
   };
 
   const openEdit = (quote: Quote) => {
     setEditQuote(quote);
-    setFormVisible(true);
+    setFormDialog(true);
   };
 
   const openStatusDialog = (quote: Quote) => {
     setStatusDialogQuote(quote);
     setStatusDialogVisible(true);
+  };
+
+  const openDeleteDialog = (quote: Quote) => {
+    setEditQuote(quote);
+    setDeleteDialog(true);
+  };
+
+  const handleSave = async () => {
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: editQuote ? "Cotización actualizada" : "Cotización creada",
+      life: 3000,
+    });
+    setFormDialog(false);
+    setEditQuote(null);
+    await load();
+  };
+
+  const handleDelete = async () => {
+    if (!editQuote) return;
+
+    setIsDeleting(true);
+    try {
+      await quoteService.delete(editQuote.id);
+      toast.current?.show({ severity: "success", summary: "Cotización eliminada" });
+      setDeleteDialog(false);
+      setEditQuote(null);
+      await load();
+    } catch (e: any) {
+      handleFormError(e, toast);
+    } finally {
+      setIsDeleting(false);
+    }
   };
 
   const handleRevise = async (quote: Quote) => {
@@ -126,27 +163,6 @@ export default function QuoteList() {
         summary: e?.response?.data?.message ?? "Error al crear versión",
       });
     }
-  };
-
-  const handleDelete = (quote: Quote) => {
-    confirmDialog({
-      message: `¿Eliminar la cotización "${quote.quoteNumber} – ${quote.title}"? Solo se pueden eliminar cotizaciones en borrador.`,
-      header: "Confirmar eliminación",
-      icon: "pi pi-exclamation-triangle",
-      acceptClassName: "p-button-danger",
-      accept: async () => {
-        try {
-          await quoteService.delete(quote.id);
-          toast.current?.show({ severity: "success", summary: "Cotización eliminada" });
-          load();
-        } catch (e: any) {
-          toast.current?.show({
-            severity: "error",
-            summary: e?.response?.data?.message ?? "Error al eliminar",
-          });
-        }
-      },
-    });
   };
 
   const menuItems = (quote: Quote): MenuItem[] => [
@@ -171,12 +187,11 @@ export default function QuoteList() {
       label: "Eliminar",
       icon: "pi pi-trash",
       className: "p-menuitem-danger",
-      command: () => handleDelete(quote),
+      command: () => openDeleteDialog(quote),
       disabled: quote.status !== "DRAFT",
     },
   ];
 
-  // ── Column templates ──────────────────────────────────────────────────────
   const quoteNumberBody = (q: Quote) => (
     <div>
       <div className="font-semibold text-sm">
@@ -261,10 +276,62 @@ export default function QuoteList() {
     </div>
   );
 
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Cotizaciones</h4>
+        <span className="text-600 text-sm">({total} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Dropdown
+          value={filterStatus}
+          onChange={(e) => {
+            setFilterStatus(e.value);
+            setPage(1);
+          }}
+          options={statusFilterOptions}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Estado"
+          style={{ minWidth: "160px" }}
+        />
+        <Dropdown
+          value={filterType}
+          onChange={(e) => {
+            setFilterType(e.value);
+            setPage(1);
+          }}
+          options={typeFilterOptions}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Tipo"
+          style={{ minWidth: "160px" }}
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            value={searchInput}
+            onChange={(e) => {
+              setSearchInput(e.target.value);
+              setPage(1);
+            }}
+            placeholder="Buscar..."
+            style={{ width: "220px" }}
+          />
+        </span>
+        <CreateButton
+          label="Nueva Cotización"
+          onClick={openNew}
+          tooltip="Crear nueva cotización"
+        />
+      </div>
+    </div>
+  );
+
   return (
     <>
       <Toast ref={toast} />
-      <ConfirmDialog />
       <Menu
         ref={menuRef}
         popup
@@ -277,51 +344,9 @@ export default function QuoteList() {
         transition={{ duration: 0.3 }}
         className="card"
       >
-        {/* Header */}
-        <div className="flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
-          <div>
-            <h4 className="mb-1 text-900">Cotizaciones</h4>
-            <span className="text-500 text-sm">{total} registros</span>
-          </div>
-          <CreateButton
-            label="Nueva Cotización"
-            onClick={openNew}
-            tooltip="Crear nueva cotización"
-          />
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-wrap gap-2 mb-3">
-          <span className="p-input-icon-left">
-            <i className="pi pi-search" />
-            <InputText
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Buscar cotización..."
-              style={{ width: "220px" }}
-            />
-          </span>
-          <Dropdown
-            value={filterType}
-            onChange={(e) => setFilterType(e.value)}
-            options={typeFilterOptions}
-            optionLabel="label"
-            optionValue="value"
-            style={{ minWidth: "160px" }}
-          />
-          <Dropdown
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.value)}
-            options={statusFilterOptions}
-            optionLabel="label"
-            optionValue="value"
-            style={{ minWidth: "180px" }}
-          />
-        </div>
-
-        {/* Table */}
         <DataTable
           value={quotes}
+          header={header}
           loading={loading}
           lazy
           paginator
@@ -329,6 +354,9 @@ export default function QuoteList() {
           totalRecords={total}
           first={(page - 1) * limit}
           onPage={(e: DataTableStateEvent) => setPage((e.page ?? 0) + 1)}
+          rowsPerPageOptions={[10, 20, 50]}
+          scrollable
+          sortMode="multiple"
           emptyMessage="No hay cotizaciones registradas"
           size="small"
           stripedRows
@@ -371,7 +399,7 @@ export default function QuoteList() {
             style={{ width: "110px" }}
           />
           <Column
-            header=""
+            header="Acciones"
             body={actionsBody}
             style={{ width: "90px", textAlign: "center" }}
             headerStyle={{ textAlign: "center" }}
@@ -381,16 +409,59 @@ export default function QuoteList() {
         </DataTable>
       </motion.div>
 
-      {/* Quote Form Dialog */}
-      <QuoteForm
-        quote={editQuote}
-        visible={formVisible}
-        onHide={() => setFormVisible(false)}
-        onSaved={load}
-        toast={toast}
+      <DeleteConfirmDialog
+        visible={deleteDialog}
+        onHide={() => {
+          setDeleteDialog(false);
+          setEditQuote(null);
+        }}
+        onConfirm={handleDelete}
+        itemName={editQuote?.title || "esta cotización"}
+        isDeleting={isDeleting}
       />
 
-      {/* Status Dialog */}
+      <Dialog
+        visible={formDialog}
+        onHide={() => {
+          setFormDialog(false);
+          setEditQuote(null);
+        }}
+        modal
+        maximizable
+        style={{ width: "75vw" }}
+        breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-file-edit mr-3 text-primary text-3xl"></i>
+                {editQuote ? "Editar Cotización" : "Nueva Cotización"}
+              </h2>
+            </div>
+          </div>
+        }
+        footer={
+          <FormActionButtons
+            formId="quote-form"
+            onCancel={() => {
+              setFormDialog(false);
+              setEditQuote(null);
+            }}
+            isSubmitting={isSubmitting}
+            isUpdate={!!editQuote}
+            submitLabel={editQuote ? "Guardar Cambios" : "Crear Cotización"}
+          />
+        }
+      >
+        <QuoteForm
+          quote={editQuote}
+          formId="quote-form"
+          onSave={handleSave}
+          onSubmittingChange={setIsSubmitting}
+          toast={toast}
+        />
+      </Dialog>
+
       <QuoteStatusDialog
         quote={statusDialogQuote}
         visible={statusDialogVisible}

@@ -206,28 +206,32 @@ export async function validateSOQuoteApproval(
 
   const serviceOrder = await prisma.serviceOrder.findUnique({
     where: { id: serviceOrderId },
-    include: { workshopQuote: true },
+    include: {
+      quotations: {
+        select: {
+          id: true,
+          status: true,
+        },
+      },
+    },
   })
 
   if (!serviceOrder) {
     throw new NotFoundError(`ServiceOrder ${serviceOrderId} not found`)
   }
 
-  // If SO came from a quote, validate it's approved
-  if (serviceOrder.workshopQuoteId) {
-    if (!serviceOrder.workshopQuote) {
-      throw new BadRequestError(
-        `ServiceOrder linked to Quote ${serviceOrder.workshopQuoteId} but quote not found. Cannot transition to ${proposedStatus}.`
-      )
-    }
-
-    if (serviceOrder.workshopQuote.status !== 'APPROVED') {
-      throw new BadRequestError(
-        `ServiceOrder originating from Quote ${serviceOrder.workshopQuoteId} cannot transition to ${proposedStatus}. Quote status is ${serviceOrder.workshopQuote.status}, must be APPROVED.`
-      )
-    }
+  // Si no hay cotizaciones de taller asociadas, se permite flujo interno.
+  if (!serviceOrder.quotations.length) {
+    return
   }
 
-  // If SO did not originate from a quote, it's internal-only (internal approval flow)
-  // This is allowed per business rules
+  const hasApprovedWorkshopQuotation = serviceOrder.quotations.some((q) =>
+    ['APPROVED_TOTAL', 'APPROVED_PARTIAL', 'CONVERTED'].includes(q.status)
+  )
+
+  if (!hasApprovedWorkshopQuotation) {
+    throw new BadRequestError(
+      `ServiceOrder ${serviceOrderId} cannot transition to ${proposedStatus}. It requires an approved WorkshopQuotation (APPROVED_TOTAL, APPROVED_PARTIAL, or CONVERTED).`
+    )
+  }
 }

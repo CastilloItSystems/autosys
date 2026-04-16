@@ -129,11 +129,52 @@ export const PERMISSIONS = [
   { code: 'crm.activities.update', description: 'Actualizar actividades CRM' },
   { code: 'crm.activities.delete', description: 'Eliminar actividades CRM' },
 
+  // CRM: Cotizaciones
+  { code: 'crm.quotes.view', description: 'Ver cotizaciones CRM' },
+  { code: 'crm.quotes.create', description: 'Crear cotizaciones CRM' },
+  { code: 'crm.quotes.update', description: 'Actualizar cotizaciones CRM' },
+  { code: 'crm.quotes.delete', description: 'Eliminar cotizaciones CRM' },
+
+  // CRM: Casos / Reclamos
+  { code: 'crm.cases.view', description: 'Ver casos y reclamos CRM' },
+  { code: 'crm.cases.create', description: 'Crear casos y reclamos CRM' },
+  { code: 'crm.cases.update', description: 'Actualizar casos y reclamos CRM' },
+  { code: 'crm.cases.delete', description: 'Eliminar casos y reclamos CRM' },
+
+  // CRM: Oportunidades
+  { code: 'crm.opportunities.view', description: 'Ver oportunidades CRM' },
+  { code: 'crm.opportunities.create', description: 'Crear oportunidades CRM' },
+  { code: 'crm.opportunities.update', description: 'Actualizar oportunidades CRM' },
+  { code: 'crm.opportunities.delete', description: 'Eliminar oportunidades CRM' },
+
+  // CRM: Campañas
+  { code: 'crm.campaigns.view', description: 'Ver campañas CRM' },
+  { code: 'crm.campaigns.create', description: 'Crear campañas CRM' },
+  { code: 'crm.campaigns.update', description: 'Actualizar campañas CRM' },
+  { code: 'crm.campaigns.delete', description: 'Eliminar campañas CRM' },
+
+  // CRM: Fidelización
+  { code: 'crm.loyalty.view', description: 'Ver fidelización CRM' },
+  { code: 'crm.loyalty.create', description: 'Crear registros de fidelización CRM' },
+  { code: 'crm.loyalty.update', description: 'Actualizar registros de fidelización CRM' },
+  { code: 'crm.loyalty.delete', description: 'Eliminar registros de fidelización CRM' },
+
+  // CRM: Automatizaciones
+  { code: 'crm.automations.view', description: 'Ver alertas de automatizaciones CRM' },
+  { code: 'crm.automations.run', description: 'Ejecutar reglas de automatizaciones CRM' },
+
   // Taller
   { code: 'workshop.view', description: 'Ver órdenes de taller' },
   { code: 'workshop.create', description: 'Crear órdenes de taller' },
   { code: 'workshop.update', description: 'Actualizar órdenes de taller' },
   { code: 'workshop.delete', description: 'Eliminar órdenes de taller' },
+
+  // Concesionario
+  { code: 'dealer.view', description: 'Ver módulo de concesionario' },
+  { code: 'dealer.create', description: 'Crear registros en concesionario' },
+  { code: 'dealer.update', description: 'Actualizar registros en concesionario' },
+  { code: 'dealer.delete', description: 'Eliminar registros en concesionario' },
+  { code: 'dealer.approve', description: 'Aprobar acciones de concesionario' },
 ]
 
 export default async function seedPermissions(prisma: PrismaClient) {

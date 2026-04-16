@@ -9,6 +9,7 @@ import type {
   ICreateDeliveryInput,
   IUpdateDeliveryInput,
 } from './deliveries.interface.js'
+import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
 
 type Db =
   | PrismaClient
@@ -95,9 +96,13 @@ export async function createDelivery(
   })
 
   // FASE 2.4: Auto-transition ServiceOrder.status to DELIVERED
-  await (db as PrismaClient).serviceOrder.update({
-    where: { id: data.serviceOrderId },
-    data: { status: 'DELIVERED', updatedAt: new Date() },
+  await changeServiceOrderStatusWithHistory(db, {
+    serviceOrderId: data.serviceOrderId,
+    empresaId,
+    newStatus: 'DELIVERED',
+    userId,
+    comment: 'Entrega de vehículo registrada',
+    extraData: { updatedAt: new Date() },
   })
 
   return delivery

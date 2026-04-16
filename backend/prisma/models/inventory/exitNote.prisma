@@ -20,6 +20,7 @@ enum ExitType {
   TRANSFER        // Traslado
   OTHER           // Otro
   LOAN_RETURN     // Devolución de préstamo
+  WORKSHOP_SUPPLY // Suministro de repuesto a taller desde almacén
 }
 
 model ExitNote {
@@ -56,18 +57,22 @@ model ExitNote {
   // Relación con Transfer (cuando type=TRANSFER)
   transfer        Transfer?
 
+  // FK con ServiceOrderMaterial (cuando type=WORKSHOP_SUPPLY)
+  serviceOrderMaterialId String?  @unique
+  serviceOrderMaterial   ServiceOrderMaterial? @relation(fields: [serviceOrderMaterialId], references: [id], onDelete: SetNull)
+
   notes           String?        @db.Text
-  
+
   // Fechas
   reservedAt      DateTime?
   preparedAt      DateTime?
   deliveredAt     DateTime?
-  
+
   // Auditoría
   preparedBy      String?
   deliveredBy     String?
   authorizedBy    String?        // Quien autorizó salida sin factura
-  
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 
@@ -76,4 +81,5 @@ model ExitNote {
   @@index([type])
   @@index([status])
   @@index([preInvoiceId])
+  @@index([serviceOrderMaterialId])
 }

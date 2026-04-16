@@ -10,6 +10,7 @@ import type {
 export class CreateQuotationDTO {
   receptionId?: string
   diagnosisId?: string
+  serviceOrderId?: string
   customerId: string
   customerVehicleId?: string
   isSupplementary: boolean
@@ -22,6 +23,7 @@ export class CreateQuotationDTO {
   constructor(data: any) {
     this.receptionId = data.receptionId || undefined
     this.diagnosisId = data.diagnosisId || undefined
+    this.serviceOrderId = data.serviceOrderId || undefined
     this.customerId = data.customerId
     this.customerVehicleId = data.customerVehicleId || undefined
     this.isSupplementary = Boolean(data.isSupplementary ?? false)

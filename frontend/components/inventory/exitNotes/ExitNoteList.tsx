@@ -12,6 +12,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { handleFormError } from "@/utils/errorHandlers";
 import exitNoteService from "@/app/api/inventory/exitNoteService";
 import {
@@ -35,7 +36,12 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 
-const ExitNoteList = () => {
+interface ExitNoteListProps {
+  fixedType?: string; // Para pre-filtrar por tipo (ej. WORKSHOP_SUPPLY)
+}
+
+const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
+  const searchParams = useSearchParams();
   const [exitNotes, setExitNotes] = useState<ExitNote[]>([]);
   const [selectedExitNote, setSelectedExitNote] = useState<ExitNote | null>(
     null,
@@ -70,6 +76,15 @@ const ExitNoteList = () => {
   }, [globalFilterValue]);
 
   useEffect(() => {
+    const querySearch = (searchParams.get("search") || "").trim();
+    if (!querySearch) return;
+
+    setGlobalFilterValue((prev) => (prev === querySearch ? prev : querySearch));
+    setDebouncedSearch(querySearch);
+    setPage(0);
+  }, [searchParams]);
+
+  useEffect(() => {
     loadExitNotes();
   }, [page, rows, sortField, sortOrder, debouncedSearch]);
 
@@ -97,6 +112,7 @@ const ExitNoteList = () => {
         page: page + 1,
         limit: rows,
         search: debouncedSearch || undefined,
+        type: fixedType || undefined, // Filtro predefinido (ej. WORKSHOP_SUPPLY)
       });
       setExitNotes(Array.isArray(res.data) ? res.data : []);
       setTotalRecords(res.meta?.total || 0);
@@ -259,7 +275,11 @@ const ExitNoteList = () => {
   const renderHeader = () => (
     <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
-        <h4 className="m-0 font-bold text-900">Notas de Salida</h4>
+        <h4 className="m-0 font-bold text-900">
+          {fixedType === 'WORKSHOP_SUPPLY'
+            ? 'Solicitudes de Taller'
+            : 'Notas de Salida'}
+        </h4>
         <span className="text-600 text-sm">({totalRecords} total)</span>
       </div>
       <div className="flex flex-wrap gap-2 align-items-center w-full sm:w-auto">

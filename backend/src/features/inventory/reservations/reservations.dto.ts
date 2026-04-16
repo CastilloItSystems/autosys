@@ -2,7 +2,6 @@
 
 import {
   IReservation,
-  IReservationAlert,
   IReservationWithRelations,
   ReservationStatus,
 } from './reservations.interface.js'
@@ -37,7 +36,6 @@ export class CreateReservationDTO {
 
 export class UpdateReservationDTO {
   quantity?: number
-  status?: ReservationStatus
   workOrderId?: string | null
   saleOrderId?: string | null
   reference?: string | null
@@ -46,8 +44,6 @@ export class UpdateReservationDTO {
 
   constructor(data: Record<string, unknown>) {
     if (data.quantity !== undefined) this.quantity = Number(data.quantity)
-    if (data.status !== undefined)
-      this.status = data.status as ReservationStatus
     if (data.workOrderId !== undefined)
       this.workOrderId = data.workOrderId ? String(data.workOrderId) : null
     if (data.saleOrderId !== undefined)
@@ -110,6 +106,7 @@ export class ReservationResponseDTO {
   updatedAt: Date
   item?: unknown
   exitNote?: unknown
+  warehouse?: unknown
 
   constructor(
     reservation: IReservation | IReservationWithRelations,
@@ -140,24 +137,8 @@ export class ReservationResponseDTO {
       if (withRelations.item !== undefined) this.item = withRelations.item
       if (withRelations.exitNote !== undefined)
         this.exitNote = withRelations.exitNote
+      if (withRelations.warehouse !== undefined)
+        this.warehouse = withRelations.warehouse
     }
-  }
-}
-
-export class ReservationAlertResponseDTO {
-  id: string
-  reservationId: string
-  type: 'EXPIRED' | 'EXPIRING_SOON' | 'PENDING_DELIVERY'
-  message: string
-  isRead: boolean
-  createdAt: Date
-
-  constructor(alert: IReservationAlert) {
-    this.id = alert.id
-    this.reservationId = alert.reservationId
-    this.type = alert.type
-    this.message = alert.message
-    this.isRead = alert.isRead
-    this.createdAt = alert.createdAt
   }
 }

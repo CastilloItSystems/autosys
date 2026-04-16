@@ -92,7 +92,7 @@ export default function CrmDashboard() {
 
   if (!data) return null;
 
-  const { leads, quotes, cases, customers, activities, serviceOrders } = data;
+  const { leads, quotes, cases, customers, activities, serviceOrders, opportunities, alerts } = data as any;
 
   // ── KPI Cards ─────────────────────────────────────────────────────────────
 
@@ -129,6 +129,30 @@ export default function CrmDashboard() {
       subtitle: `${customers.newThisMonth} nuevos este mes`,
       subtitleColor: "text-500",
     },
+    ...(opportunities
+      ? [
+          {
+            label: "Oportunidades abiertas",
+            value: opportunities.open,
+            icon: "pi pi-sitemap",
+            color: "teal",
+            subtitle: `Win rate: ${Number(opportunities.winRate ?? 0).toFixed(1)}%`,
+            subtitleColor: "text-500",
+          },
+        ]
+      : []),
+    ...(alerts
+      ? [
+          {
+            label: "Alertas CRM abiertas",
+            value: alerts.open,
+            icon: "pi pi-bell",
+            color: "orange",
+            subtitle: "Automatizaciones v1",
+            subtitleColor: alerts.open > 0 ? "text-red-500 font-semibold" : "text-500",
+          },
+        ]
+      : []),
   ];
 
   // ── Bar chart helper ───────────────────────────────────────────────────────

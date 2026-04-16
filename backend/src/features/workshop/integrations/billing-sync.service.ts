@@ -93,17 +93,28 @@ export async function syncServiceOrderItems(
   )
 
   for (const material of dispatchedMaterials) {
+    const dispatchedQty = Number(material.quantityDispatched || 0)
+    const returnedQty = Number(material.quantityReturned || 0)
+    const billableQty =
+      material.status === 'RETURNED'
+        ? Math.max(dispatchedQty - returnedQty, 0)
+        : dispatchedQty
+
+    if (billableQty <= 0) {
+      continue
+    }
+
     const taxAmount = calculateTaxAmount(
-      Number(material.quantityDispatched),
+      billableQty,
       Number(material.unitPrice),
       Number(material.discountPct || 0),
       Number(material.taxRate)
     )
 
     const subtotal =
-      Number(material.quantityDispatched) * Number(material.unitPrice) -
+      billableQty * Number(material.unitPrice) -
       (Number(material.discountPct || 0) / 100) *
-        Number(material.quantityDispatched) *
+        billableQty *
         Number(material.unitPrice)
 
     const totalLine = subtotal + taxAmount
@@ -118,7 +129,7 @@ export async function syncServiceOrderItems(
       await (prisma as PrismaClient).serviceOrderItem.update({
         where: { id: existingItem.id },
         data: {
-          quantity: Number(material.quantityDispatched),
+          quantity: billableQty,
           unitPrice: Number(material.unitPrice),
           discountPct: Number(material.discountPct || 0),
           taxType: material.taxType,
@@ -140,7 +151,7 @@ export async function syncServiceOrderItems(
           status: 'PENDING',
           description: material.description,
           itemName: material.item?.name || material.description,
-          quantity: Number(material.quantityDispatched),
+          quantity: billableQty,
           unitPrice: Number(material.unitPrice),
           discountPct: Number(material.discountPct || 0),
           taxType: material.taxType,
@@ -207,7 +218,12 @@ export async function syncServiceOrderItems(
         const newItem = await (prisma as PrismaClient).serviceOrderItem.create({
           data: {
             serviceOrderId,
-            type: addItem.type === 'LABOR' ? 'LABOR' : 'PART',
+            type:
+              addItem.type === 'LABOR'
+                ? 'LABOR'
+                : addItem.type === 'PART'
+                  ? 'PART'
+                  : 'OTHER',
             status: 'PENDING',
             description: addItem.description,
             quantity: Number(addItem.quantity),

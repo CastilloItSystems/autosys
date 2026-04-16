@@ -1,0 +1,51 @@
+enum DealerReservationStatus {
+  PENDING
+  CONFIRMED
+  EXPIRED
+  CANCELLED
+  CONVERTED
+}
+
+model DealerReservation {
+  id                String                  @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa                 @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String
+  dealerUnit         DealerUnit              @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  reservationNumber  String
+  status             DealerReservationStatus @default(PENDING)
+
+  customerName       String
+  customerDocument   String?
+  customerPhone      String?
+  customerEmail      String?
+
+  offeredPrice       Decimal?                @db.Decimal(14, 2)
+  depositAmount      Decimal?                @db.Decimal(14, 2)
+  currency           String?                 @default("USD")
+
+  reservedAt         DateTime                @default(now())
+  expiresAt          DateTime?
+  confirmedAt        DateTime?
+  cancelledAt        DateTime?
+  convertedAt        DateTime?
+
+  notes              String?
+  sourceChannel      String?
+  isActive           Boolean                 @default(true)
+
+  createdAt          DateTime                @default(now())
+  updatedAt          DateTime                @updatedAt
+
+  @@map("dealer_reservations")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([status])
+  @@index([isActive])
+  @@index([reservedAt])
+  @@index([expiresAt])
+  @@unique([empresaId, reservationNumber])
+}

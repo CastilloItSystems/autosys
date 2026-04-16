@@ -113,6 +113,27 @@ const ALL_CRM = [
   'crm.activities.create',
   'crm.activities.update',
   'crm.activities.delete',
+  'crm.quotes.view',
+  'crm.quotes.create',
+  'crm.quotes.update',
+  'crm.quotes.delete',
+  'crm.cases.view',
+  'crm.cases.create',
+  'crm.cases.update',
+  'crm.cases.delete',
+  'crm.opportunities.view',
+  'crm.opportunities.create',
+  'crm.opportunities.update',
+  'crm.opportunities.delete',
+  'crm.campaigns.view',
+  'crm.campaigns.create',
+  'crm.campaigns.update',
+  'crm.campaigns.delete',
+  'crm.loyalty.view',
+  'crm.loyalty.create',
+  'crm.loyalty.update',
+  'crm.loyalty.delete',
+  'crm.automations.view',
 ]
 
 const VIEW_CRM = [
@@ -121,6 +142,12 @@ const VIEW_CRM = [
   'crm.leads.view',
   'crm.interactions.view',
   'crm.activities.view',
+  'crm.quotes.view',
+  'crm.cases.view',
+  'crm.opportunities.view',
+  'crm.campaigns.view',
+  'crm.loyalty.view',
+  'crm.automations.view',
 ]
 
 const ALL_WORKSHOP = [
@@ -128,6 +155,14 @@ const ALL_WORKSHOP = [
   'workshop.create',
   'workshop.update',
   'workshop.delete',
+]
+
+const ALL_DEALER = [
+  'dealer.view',
+  'dealer.create',
+  'dealer.update',
+  'dealer.delete',
+  'dealer.approve',
 ]
 
 const ROLE_PERMISSIONS: Record<string, string[]> = {
@@ -148,7 +183,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
     ...ALL_CRM,
+    'crm.automations.run',
     ...ALL_WORKSHOP,
+    ...ALL_DEALER,
   ],
 
   // Como OWNER pero sin eliminar usuarios
@@ -171,7 +208,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
     ...ALL_CRM,
+    'crm.automations.run',
     ...ALL_WORKSHOP,
+    ...ALL_DEALER,
   ],
 
   // Gerencia operativa: inventario completo + ventas completo
@@ -194,7 +233,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
     ...ALL_CRM,
+    'crm.automations.run',
     ...ALL_WORKSHOP,
+    ...ALL_DEALER,
   ],
 
   // Almacenista: operaciones de inventario y stock, sin ventas
@@ -222,6 +263,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'workshop.view',
     'workshop.create',
     'workshop.update',
+    'dealer.view',
   ],
 
   // Vendedor: módulos de ventas + inventario en modo lectura
@@ -238,6 +280,9 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     ...ALL_CRM,
     'workshop.view',
+    'dealer.view',
+    'dealer.create',
+    'dealer.update',
   ],
 
   // Solo lectura en todo
@@ -258,6 +303,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     ...VIEW_CRM,
     'workshop.view',
+    'dealer.view',
   ],
 }
 

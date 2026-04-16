@@ -6,6 +6,7 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
 import { CreateLeadDTO, UpdateLeadDTO } from './leads.dto.js'
 import { ILead, ILeadFilters } from './leads.interface.js'
+import { ConvertLeadDTO } from './leads.dto.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -263,6 +264,85 @@ class LeadsService {
 
     logger.info(`CRM - Lead eliminado: ${id}`, { empresaId })
     return { success: true, id }
+  }
+
+  async convertToOpportunity(
+    id: string,
+    dto: ConvertLeadDTO,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<Record<string, unknown>> {
+    const lead = await (db as PrismaClient).lead.findFirst({
+      where: { id, empresaId },
+    })
+    if (!lead) throw new NotFoundError('Lead no encontrado')
+
+    const existing = await (db as PrismaClient).opportunity.findFirst({
+      where: { leadId: id, empresaId },
+      select: { id: true },
+    })
+    if (existing) {
+      throw new BadRequestError('El lead ya fue convertido previamente')
+    }
+
+    const stageCode = dto.stageCode || 'DISCOVERY'
+    const now = new Date()
+
+    const created = await (db as PrismaClient).$transaction(async (tx) => {
+      const opportunity = await tx.opportunity.create({
+        data: {
+          empresaId,
+          leadId: lead.id,
+          customerId: lead.customerId ?? null,
+          campaignId: dto.campaignId ?? lead.campaignId ?? null,
+          channel: lead.channel as any,
+          stageCode,
+          status: 'OPEN',
+          title: lead.title,
+          description: dto.notes ?? lead.description ?? null,
+          amount: dto.amount ?? lead.estimatedValue ?? null,
+          currency: lead.currency ?? 'USD',
+          ownerId: dto.ownerId || userId,
+          nextActivityAt: new Date(dto.nextActivityAt),
+          expectedCloseAt: dto.expectedCloseAt
+            ? new Date(dto.expectedCloseAt)
+            : lead.expectedCloseAt ?? null,
+          createdBy: userId,
+          stageHistory: {
+            create: {
+              empresaId,
+              fromStage: null,
+              toStage: stageCode,
+              changedBy: userId,
+              notes: 'Conversión desde lead',
+            },
+          },
+        },
+      })
+
+      await tx.lead.update({
+        where: { id: lead.id },
+        data: {
+          status: 'WON',
+          closedAt: now,
+          campaignId: dto.campaignId ?? lead.campaignId ?? null,
+        },
+      })
+
+      return opportunity
+    })
+
+    logger.info(`CRM - Lead convertido a oportunidad: ${id}`, {
+      empresaId,
+      opportunityId: created.id,
+    })
+
+    return {
+      leadId: id,
+      opportunityId: created.id,
+      status: 'converted',
+    }
   }
 }
 

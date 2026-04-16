@@ -16,7 +16,11 @@ import type { UnifiedCatalogItem } from "@/app/api/workshop/catalogSearchService
 import { Dialog } from "primereact/dialog";
 import ItemForm from "@/components/inventory/items/ItemForm";
 import WorkshopOperationForm from "@/components/workshop/operations/WorkshopOperationForm";
-import { WORKSHOP_ITEM_COL_WIDTHS, WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS, type WorkshopItemRowColWidths } from "./WorkshopItemConstants";
+import {
+  WORKSHOP_ITEM_COL_WIDTHS,
+  WORKSHOP_SUGGESTED_ITEM_COL_WIDTHS,
+  type WorkshopItemRowColWidths,
+} from "./WorkshopItemConstants";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -93,6 +97,17 @@ const TYPE_TAG_CLASS: Record<WorkshopItemType, string> = {
 };
 
 const leafKey = (path: string) => path.split(".").pop() ?? path;
+
+const isLikelyReferenceId = (value: string) => {
+  const v = value.trim();
+  if (!v) return false;
+  const isUuid =
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      v,
+    );
+  const isCuid = /^c[a-z0-9]{20,}$/i.test(v);
+  return isUuid || isCuid;
+};
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
@@ -176,7 +191,9 @@ export default function WorkshopItemRow({
     if (typeof val !== "string") return val;
     const found =
       selectedItemsMap[val] ?? suggestionsToUse.find((s: any) => s.id === val);
-    return found ?? val;
+    if (found) return found;
+    // Keep free typing visible, but hide persisted raw IDs (uuid/cuid)
+    return isLikelyReferenceId(val) ? "" : val;
   };
 
   const rowStyle: React.CSSProperties = {
@@ -229,7 +246,7 @@ export default function WorkshopItemRow({
                 field="name"
                 selectedItemTemplate={(item: any) => {
                   if (!item) return "";
-                  if (typeof item === "string") return item;
+                  if (typeof item === "string") return "";
                   return item.sku || item.code || item.name || "";
                 }}
                 placeholder="Buscar código o nombre..."
@@ -288,29 +305,29 @@ export default function WorkshopItemRow({
                     </div>
                   );
                 }}
-                  emptyMessage={
-                    <div className="flex flex-column gap-2 p-3">
-                      <div className="text-600 text-sm text-center">
-                        No se encontraron resultados
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          label="Crear repuesto"
-                          icon="pi pi-plus"
-                          size="small"
-                          className="flex-1"
-                          onClick={() => setShowCreateItem(true)}
-                        />
-                        <Button
-                          label="Crear servicio"
-                          icon="pi pi-plus"
-                          size="small"
-                          className="flex-1"
-                          onClick={() => setShowCreateOperation(true)}
-                        />
-                      </div>
+                emptyMessage={
+                  <div className="flex flex-column gap-2 p-3">
+                    <div className="text-600 text-sm text-center">
+                      No se encontraron resultados
                     </div>
-                  }
+                    <div className="flex gap-2">
+                      <Button
+                        label="Crear repuesto"
+                        icon="pi pi-plus"
+                        size="small"
+                        className="flex-1"
+                        onClick={() => setShowCreateItem(true)}
+                      />
+                      <Button
+                        label="Crear servicio"
+                        icon="pi pi-plus"
+                        size="small"
+                        className="flex-1"
+                        onClick={() => setShowCreateOperation(true)}
+                      />
+                    </div>
+                  </div>
+                }
                 className="w-full"
                 inputClassName="w-full text-xs"
                 inputStyle={{
@@ -356,7 +373,7 @@ export default function WorkshopItemRow({
                 field="name"
                 selectedItemTemplate={(item: any) => {
                   if (!item) return "";
-                  if (typeof item === "string") return item;
+                  if (typeof item === "string") return "";
                   return item.sku || item.code || item.name || "";
                 }}
                 placeholder="Buscar código o nombre..."
@@ -683,7 +700,7 @@ export default function WorkshopItemRow({
 
       {/* ── Toast y Create Dialogs ── */}
       <Toast ref={toastRef} />
-      
+
       {/* Item Dialog */}
       <Dialog
         visible={showCreateItem}

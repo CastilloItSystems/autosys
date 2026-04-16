@@ -67,6 +67,7 @@ export default function ActivityForm({
     formState: { errors },
   } = useForm<CreateActivityInput>({
     resolver: zodResolver(createActivitySchema),
+    mode: "onBlur",
     defaultValues: activity
       ? {
           customerId: activity.customerId,

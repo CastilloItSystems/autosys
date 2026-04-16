@@ -68,11 +68,13 @@ export const create = async (req: Request, res: Response) => {
 }
 
 export const submit = async (req: Request, res: Response) => {
+  const userId = (req as any).user?.userId as string
   const item = await submitQualityCheck(
     prisma,
     req.params.id as string,
     req.empresaId!,
-    new SubmitQualityCheckDTO(req.body)
+    new SubmitQualityCheckDTO(req.body),
+    userId
   )
   const msg =
     item.status === 'PASSED'

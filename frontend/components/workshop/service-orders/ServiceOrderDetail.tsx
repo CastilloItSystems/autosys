@@ -16,6 +16,7 @@ import AttachmentPanel from "@/components/workshop/shared/AttachmentPanel";
 import AuditLogPanel from "@/components/workshop/shared/AuditLogPanel";
 import BillingTab from "./tabs/BillingTab";
 import QuotationTab from "./tabs/QuotationTab";
+import ServiceOrderStatusHistoryTab from "./tabs/ServiceOrderStatusHistoryTab";
 
 // Dynamic imports for tab components (avoid circular deps + faster initial load)
 const DiagnosisList = React.lazy(
@@ -44,12 +45,14 @@ interface ServiceOrderDetailProps {
   serviceOrderId: string;
   onClose?: () => void;
   embedded?: boolean;
+  initialTabIndex?: number;
 }
 
 export default function ServiceOrderDetail({
   serviceOrderId,
   onClose,
   embedded = false,
+  initialTabIndex,
 }: ServiceOrderDetailProps) {
   const [serviceOrder, setServiceOrder] = useState<ServiceOrder | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,12 @@ export default function ServiceOrderDetail({
   useEffect(() => {
     if (serviceOrderId) loadServiceOrder();
   }, [serviceOrderId]);
+
+  useEffect(() => {
+    if (typeof initialTabIndex === "number") {
+      setActiveTab(initialTabIndex);
+    }
+  }, [initialTabIndex, serviceOrderId]);
 
   const loadServiceOrder = async () => {
     try {
@@ -270,6 +279,10 @@ export default function ServiceOrderDetail({
               entityType="SERVICE_ORDER"
               entityId={serviceOrderId}
             />
+          </TabPanel>
+
+          <TabPanel header="Historial" leftIcon="pi pi-clock mr-2">
+            <ServiceOrderStatusHistoryTab serviceOrderId={serviceOrderId} />
           </TabPanel>
 
           {/* FASE 5: Cotización y Facturación integradas con CRM/Sales */}

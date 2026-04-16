@@ -11,8 +11,8 @@ const billingBridgeService = {
     return res.data
   },
 
-  async createQuoteFromSO(serviceOrderId: string): Promise<WorkshopResponse<any>> {
-    const res = await apiClient.post(`${BASE}/${serviceOrderId}/create-quote`)
+  async createWorkshopQuotationFromSO(serviceOrderId: string): Promise<WorkshopResponse<any>> {
+    const res = await apiClient.post(`${BASE}/${serviceOrderId}/create-quotation`)
     return res.data
   },
 

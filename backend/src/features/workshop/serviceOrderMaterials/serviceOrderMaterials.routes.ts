@@ -12,6 +12,7 @@ import {
   createServiceOrderMaterialSchema,
   updateServiceOrderMaterialSchema,
   changeStatusSchema,
+  materialApprovalSchema,
   materialFiltersSchema,
 } from './serviceOrderMaterials.validation.js'
 import * as controller from './serviceOrderMaterials.controller.js'
@@ -45,6 +46,12 @@ router.delete(
   '/:id',
   authorize(PERMISSIONS.WORKSHOP_DELETE),
   asyncHandler(controller.remove)
+)
+router.patch(
+  '/:id/approval',
+  authorize(PERMISSIONS.WORKSHOP_UPDATE),
+  validateBody(materialApprovalSchema),
+  asyncHandler(controller.updateApproval)
 )
 router.patch(
   '/:id/status',

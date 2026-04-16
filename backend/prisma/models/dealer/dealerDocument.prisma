@@ -1,0 +1,52 @@
+enum DealerDocumentReferenceType {
+  UNIT
+  RESERVATION
+  QUOTE
+  TEST_DRIVE
+  TRADE_IN
+  FINANCING
+  DELIVERY
+  CUSTOMER
+}
+
+enum DealerDocumentStatus {
+  PENDING
+  VALID
+  EXPIRED
+  REJECTED
+}
+
+model DealerDocument {
+  id                String                      @id @default(uuid())
+
+  empresaId          String
+  empresa            Empresa                     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerUnitId       String?
+  dealerUnit         DealerUnit?                 @relation("DealerUnitDocuments", fields: [dealerUnitId], references: [id], onDelete: SetNull)
+
+  referenceType      DealerDocumentReferenceType
+  referenceId        String?
+
+  documentType       String
+  documentNumber     String?
+  name               String
+  fileUrl            String
+  mimeType           String?
+  sizeBytes          Int?
+  issuedAt           DateTime?
+  expiresAt          DateTime?
+  status             DealerDocumentStatus        @default(PENDING)
+  notes              String?
+  isActive           Boolean                     @default(true)
+
+  createdAt          DateTime                    @default(now())
+  updatedAt          DateTime                    @updatedAt
+
+  @@map("dealer_documents")
+  @@index([empresaId])
+  @@index([dealerUnitId])
+  @@index([referenceType, referenceId])
+  @@index([status])
+  @@index([isActive])
+}

@@ -85,3 +85,8 @@ export interface IServiceOrderFilters {
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
 }
+
+export interface IServiceOrderStatusHistoryFilters {
+  page?: number
+  limit?: number
+}

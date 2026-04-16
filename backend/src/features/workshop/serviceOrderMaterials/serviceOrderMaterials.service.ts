@@ -7,9 +7,9 @@ import {
 } from '../../../generated/prisma/client.js'
 import {
   NotFoundError,
-  ConflictError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { MovementNumberGenerator } from '../../inventory/shared/utils/movementNumberGenerator.js'
 import stockService from '../../inventory/stock/stock.service.js'
 import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
 import type {
@@ -22,9 +22,75 @@ import type {
 type DbType = PrismaClient | Prisma.TransactionClient
 
 const BASE_INCLUDE = {
-  serviceOrder: { select: { id: true } },
+  serviceOrder: { select: { id: true, folio: true } },
   item: { select: { id: true, code: true, name: true, sku: true } },
+  warehouse: { select: { id: true, code: true, name: true } },
 } as const
+
+async function assertWarehouseBelongsToEmpresa(
+  db: DbType,
+  warehouseId: string,
+  empresaId: string
+) {
+  const warehouse = await (db as PrismaClient).warehouse.findFirst({
+    where: {
+      id: warehouseId,
+      empresaId,
+      isActive: true,
+    },
+    select: {
+      id: true,
+      code: true,
+      name: true,
+    },
+  })
+
+  if (!warehouse) {
+    throw new NotFoundError('Almacén no encontrado o inactivo')
+  }
+
+  return warehouse
+}
+
+async function attachDispatchExitNotes(
+  db: DbType,
+  materials: IServiceOrderMaterialWithRelations[]
+): Promise<IServiceOrderMaterialWithRelations[]> {
+  if (!materials.length) return materials
+
+  const materialIds = materials.map((m) => m.id)
+
+  const notes = await (db as PrismaClient).exitNote.findMany({
+    where: {
+      serviceOrderMaterialId: { in: materialIds },
+    },
+    select: {
+      id: true,
+      exitNoteNumber: true,
+      status: true,
+      serviceOrderMaterialId: true,
+    },
+  })
+
+  const noteByMaterialId = new Map(
+    notes.map((note) => [note.serviceOrderMaterialId ?? '', note])
+  )
+
+  return materials.map((material) => {
+    const note = noteByMaterialId.get(material.id)
+
+    return {
+      ...material,
+      dispatchExitNote: note
+        ? {
+            id: note.id,
+            exitNoteNumber: note.exitNoteNumber,
+            status: note.status,
+          }
+        : null,
+    }
+  })
+}
 
 export async function findAll(
   db: DbType,
@@ -68,8 +134,13 @@ export async function findAll(
     (db as PrismaClient).serviceOrderMaterial.count({ where }),
   ])
 
+  const enriched = await attachDispatchExitNotes(
+    db,
+    data as unknown as IServiceOrderMaterialWithRelations[]
+  )
+
   return {
-    data: data as unknown as IServiceOrderMaterialWithRelations[],
+    data: enriched,
     page,
     limit,
     total,
@@ -86,7 +157,10 @@ export async function findById(
   })
 
   if (!material) throw new NotFoundError('Material no encontrado')
-  return material as unknown as IServiceOrderMaterialWithRelations
+  const [enriched] = await attachDispatchExitNotes(db, [
+    material as unknown as IServiceOrderMaterialWithRelations,
+  ])
+  return enriched
 }
 
 export async function create(
@@ -100,6 +174,14 @@ export async function create(
   })
 
   if (!serviceOrder) throw new NotFoundError('Orden de servicio no encontrada')
+
+  if (data.warehouseId) {
+    await assertWarehouseBelongsToEmpresa(
+      db,
+      data.warehouseId,
+      serviceOrder.empresaId
+    )
+  }
 
   // Verify item exists if provided and inherit tax fields
   let taxType = 'IVA'
@@ -141,6 +223,11 @@ export async function create(
       taxAmount: 0, // Will be calculated during sync
       total: 0, // Will be calculated when quantity is set
       status: data.status || 'REQUESTED',
+      clientApproved: data.clientApproved ?? null,
+      clientApprovalAt: data.clientApprovalAt ?? null,
+      clientApprovedBy: data.clientApprovedBy ?? null,
+      clientApprovalNotes: data.clientApprovalNotes ?? null,
+      warehouseId: data.warehouseId ?? null,
       serviceOrderId: data.serviceOrderId,
       itemId: data.itemId,
       empresaId: serviceOrder.empresaId,
@@ -149,7 +236,7 @@ export async function create(
     include: BASE_INCLUDE,
   })
 
-  return material as unknown as IServiceOrderMaterialWithRelations
+  return findById(db, material.id)
 }
 
 export async function update(
@@ -186,9 +273,25 @@ export async function update(
   if (data.discountPct !== undefined)
     updateData.discountPct = Number(data.discountPct)
   if (data.status !== undefined) updateData.status = data.status
+  if (data.clientApproved !== undefined)
+    updateData.clientApproved = data.clientApproved
+  if (data.clientApprovalAt !== undefined)
+    updateData.clientApprovalAt = data.clientApprovalAt
+  if (data.clientApprovedBy !== undefined)
+    updateData.clientApprovedBy = data.clientApprovedBy
+  if (data.clientApprovalNotes !== undefined)
+    updateData.clientApprovalNotes = data.clientApprovalNotes
   if (data.serviceOrderId !== undefined)
     updateData.serviceOrderId = data.serviceOrderId
   if (data.itemId !== undefined) updateData.itemId = data.itemId
+  if (data.warehouseId !== undefined) {
+    if (data.warehouseId) {
+      await assertWarehouseBelongsToEmpresa(db, data.warehouseId, existing.empresaId)
+      updateData.warehouseId = data.warehouseId
+    } else {
+      updateData.warehouseId = null
+    }
+  }
 
   // If itemId changed, re-inherit tax settings
   if (data.itemId && data.itemId !== existing.itemId) {
@@ -226,7 +329,7 @@ export async function update(
     include: BASE_INCLUDE,
   })
 
-  return material as unknown as IServiceOrderMaterialWithRelations
+  return findById(db, material.id)
 }
 
 export async function remove(db: DbType, id: string): Promise<void> {
@@ -281,7 +384,92 @@ export async function recordMovement(
   })
 }
 
-export async function changeStatus(
+async function createWorkshopSupplyExitNote(
+  db: DbType,
+  material: IServiceOrderMaterialWithRelations,
+  warehouseId: string,
+  userId: string
+) {
+  if (!material.itemId) return
+
+  const qty = Number(material.quantityRequested)
+
+  if (qty <= 0) return
+
+  // Check no existing WORKSHOP_SUPPLY note for this material
+  const existing = await (db as PrismaClient).exitNote.findFirst({
+    where: { serviceOrderMaterialId: material.id },
+    select: { id: true },
+  })
+
+  if (existing) return
+
+  const exitNote = await (db as PrismaClient).exitNote.create({
+    data: {
+      exitNoteNumber: MovementNumberGenerator.generate('EXIT'),
+      type: 'WORKSHOP_SUPPLY',
+      status: 'PENDING', // Creada en PENDING para que el almacenista la trabaje
+      warehouseId,
+      serviceOrderMaterialId: material.id,
+      recipientName: 'Taller',
+      reason: 'Suministro de repuesto a taller por orden de servicio',
+      notes: `OT ${material.serviceOrder?.folio ?? material.serviceOrderId} - ${material.description}`,
+      authorizedBy: userId,
+      items: {
+        create: [
+          {
+            itemId: material.itemId,
+            itemName: material.item?.name ?? material.description,
+            quantity: qty,
+            notes: `Material ${material.id} - Solicitud de taller`,
+          },
+        ],
+      },
+    },
+  })
+
+  await (db as PrismaClient).movement.create({
+    data: {
+      movementNumber: MovementNumberGenerator.generate('MOV'),
+      type: 'ADJUSTMENT_OUT',
+      itemId: material.itemId,
+      warehouseFromId: warehouseId,
+      quantity: qty,
+      reference: exitNote.exitNoteNumber,
+      notes: `Solicitud taller OT ${material.serviceOrder?.folio ?? material.serviceOrderId}`,
+      createdBy: userId,
+      exitNoteId: exitNote.id,
+      workOrderId: material.serviceOrderId,
+      exitType: 'WORKSHOP_SUPPLY',
+    },
+  })
+}
+
+async function createWorkshopReturnMovement(
+  db: DbType,
+  material: IServiceOrderMaterialWithRelations,
+  warehouseId: string,
+  quantityReturned: number,
+  userId: string
+) {
+  if (!material.itemId || quantityReturned <= 0) return
+
+  await (db as PrismaClient).movement.create({
+    data: {
+      movementNumber: MovementNumberGenerator.generate('MOV'),
+      type: 'WORKSHOP_RETURN',
+      itemId: material.itemId,
+      warehouseToId: warehouseId,
+      quantity: quantityReturned,
+      reference: `WS-RETURN:${material.id}`,
+      notes: `Devolución material taller - OT ${material.serviceOrder?.folio ?? material.serviceOrderId}`,
+      createdBy: userId,
+      workOrderId: material.serviceOrderId,
+    },
+  })
+}
+
+async function changeStatusInternal(
   db: DbType,
   id: string,
   status:
@@ -300,6 +488,13 @@ export async function changeStatus(
 ): Promise<IServiceOrderMaterialWithRelations> {
   const material = await findById(db, id)
 
+  // Block manual DISPATCHED transition — must be done via exit note delivery
+  if (status === 'DISPATCHED') {
+    throw new BadRequestError(
+      'El despacho de material se realiza desde el almacén a través de la nota de salida'
+    )
+  }
+
   const validTransitions: Record<string, string[]> = {
     REQUESTED: ['RESERVED', 'CANCELLED'],
     RESERVED: ['DISPATCHED', 'RETURNED', 'CANCELLED'],
@@ -315,76 +510,132 @@ export async function changeStatus(
     )
   }
 
-  const { warehouseId, empresaId, userId = 'system' } = context ?? {}
+  if (
+    ['RESERVED', 'DISPATCHED', 'CONSUMED'].includes(status) &&
+    material.clientApproved !== true
+  ) {
+    throw new BadRequestError(
+      'El material debe estar aprobado por el cliente para avanzar a este estado'
+    )
+  }
+
+  const { warehouseId, quantityReturned, userId = 'system' } = context ?? {}
+  const effectiveEmpresaId = context?.empresaId ?? material.empresaId
   const itemId = material.itemId
 
-  // Ajustes de inventario solo si el material está vinculado a un item y se proveyó almacén
-  if (itemId && warehouseId && empresaId) {
-    try {
-      if (status === 'RESERVED') {
-        // Reservar en inventario: quantityReserved += qty, quantityAvailable -= qty
-        await stockService.reserve(
-          { itemId, warehouseId, quantity: Number(material.quantityRequested) },
-          empresaId,
-          userId,
-          db
-        )
-      } else if (status === 'DISPATCHED') {
-        const qty =
-          Number(material.quantityReserved) ||
-          Number(material.quantityRequested)
-        // 1. Liberar la reserva
-        await stockService.releaseReservation(
-          { itemId, warehouseId, quantity: qty },
-          empresaId,
-          userId,
-          db
-        )
-        // 2. Descontar del stock físico
-        await stockService.adjust(
-          {
-            itemId,
-            warehouseId,
-            quantityChange: -qty,
-            reason: `Despacho OT material ${id}`,
-          },
-          empresaId,
-          userId,
-          db
-        )
-      } else if (status === 'RETURNED') {
-        const returnQty =
-          context?.quantityReturned ??
-          Number(material.quantityDispatched) ??
-          Number(material.quantityRequested)
-        // Reponer al stock físico
-        await stockService.adjust(
-          {
-            itemId,
-            warehouseId,
-            quantityChange: returnQty,
-            reason: `Devolución OT material ${id}`,
-          },
-          empresaId,
-          userId,
-          db
-        )
-      } else if (status === 'CANCELLED' && material.status === 'RESERVED') {
-        // Liberar la reserva si se cancela estando reservado
-        await stockService.releaseReservation(
-          { itemId, warehouseId, quantity: Number(material.quantityReserved) },
-          empresaId,
-          userId,
-          db
-        )
-      }
-    } catch (err: any) {
-      // Si el error viene de insuficiencia de stock, lo propagamos al usuario
-      if (err?.statusCode === 400 || err?.name === 'BadRequestError') throw err
-      // Otros errores de inventario: logear pero no bloquear el cambio de estado
-      console.error(
-        `[workshop-materials] Error ajustando stock para material ${id}:`,
-        err?.message
+  let effectiveWarehouseId = material.warehouseId ?? warehouseId ?? undefined
+
+  const requiresWarehouseForInventory =
+    Boolean(itemId) &&
+    (status === 'RESERVED' ||
+      status === 'DISPATCHED' ||
+      status === 'RETURNED' ||
+      (status === 'CANCELLED' &&
+        (material.status === 'RESERVED' || material.status === 'DISPATCHED')))
+
+  if (
+    status !== 'RESERVED' &&
+    material.warehouseId &&
+    warehouseId &&
+    warehouseId !== material.warehouseId
+  ) {
+    throw new BadRequestError(
+      'El almacén del material ya fue fijado al reservar y no puede cambiarse'
+    )
+  }
+
+  if (status === 'RESERVED') {
+    if (!warehouseId) {
+      throw new BadRequestError(
+        'Debe seleccionar un almacén para reservar el material'
+      )
+    }
+
+    await assertWarehouseBelongsToEmpresa(db, warehouseId, effectiveEmpresaId)
+    effectiveWarehouseId = warehouseId
+  }
+
+  // Create WORKSHOP_SUPPLY exit note when material is RESERVED (not DISPATCHED)
+  if (status === 'RESERVED' && material.itemId && effectiveWarehouseId) {
+    await createWorkshopSupplyExitNote(
+      db,
+      material as unknown as IServiceOrderMaterialWithRelations,
+      effectiveWarehouseId,
+      userId
+    )
+  }
+
+  if (requiresWarehouseForInventory && !effectiveWarehouseId) {
+    throw new BadRequestError(
+      'El material requiere almacén asignado para operaciones de inventario'
+    )
+  }
+
+  if (itemId && effectiveWarehouseId) {
+    if (status === 'RESERVED') {
+      // Reservar en inventario: quantityReserved += qty, quantityAvailable -= qty
+      await stockService.reserve(
+        {
+          itemId,
+          warehouseId: effectiveWarehouseId,
+          quantity: Number(material.quantityRequested),
+        },
+        effectiveEmpresaId,
+        userId,
+        db
+      )
+    } else if (status === 'DISPATCHED') {
+      const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
+
+      // 1. Liberar la reserva
+      await stockService.releaseReservation(
+        { itemId, warehouseId: effectiveWarehouseId, quantity: qty },
+        effectiveEmpresaId,
+        userId,
+        db
+      )
+
+      // 2. Descontar del stock físico
+      await stockService.adjust(
+        {
+          itemId,
+          warehouseId: effectiveWarehouseId,
+          quantityChange: -qty,
+          reason: `Despacho OT material ${id}`,
+        },
+        effectiveEmpresaId,
+        userId,
+        db
+      )
+    } else if (status === 'RETURNED') {
+      const returnQty =
+        quantityReturned ??
+        Number(material.quantityDispatched) ??
+        Number(material.quantityRequested)
+
+      // Reponer al stock físico
+      await stockService.adjust(
+        {
+          itemId,
+          warehouseId: effectiveWarehouseId,
+          quantityChange: returnQty,
+          reason: `Devolución OT material ${id}`,
+        },
+        effectiveEmpresaId,
+        userId,
+        db
+      )
+    } else if (status === 'CANCELLED' && material.status === 'RESERVED') {
+      // Liberar la reserva si se cancela estando reservado
+      await stockService.releaseReservation(
+        {
+          itemId,
+          warehouseId: effectiveWarehouseId,
+          quantity: Number(material.quantityReserved),
+        },
+        effectiveEmpresaId,
+        userId,
+        db
       )
     }
   }
@@ -398,15 +649,14 @@ export async function changeStatus(
     quantityUpdate.quantityConsumed = Number(material.quantityDispatched)
   } else if (status === 'RETURNED') {
     quantityUpdate.quantityReturned =
-      context?.quantityReturned ??
+      quantityReturned ??
       Number(material.quantityDispatched) ??
       Number(material.quantityRequested)
   }
 
   // Update quantity and total when dispatched
   if (status === 'DISPATCHED') {
-    const qty =
-      Number(material.quantityReserved) || Number(material.quantityRequested)
+    const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
     const unitPrice = Number(material.unitPrice || 0)
     const discountPct = Number(material.discountPct || 0)
     const taxRate = Number(material.taxRate || 0.16)
@@ -421,35 +671,96 @@ export async function changeStatus(
     quantityUpdate.taxAmount = taxAmount
     quantityUpdate.total = total
   } else if (status === 'RETURNED') {
-    const returnQty =
-      context?.quantityReturned ??
-      Number(material.quantityDispatched) ??
-      Number(material.quantityRequested)
     // Keep quantity as is (it represents what was dispatched)
     quantityUpdate.quantity = Number(material.quantityDispatched || 0)
   }
 
+  const updateData: any = { status, ...quantityUpdate }
+
+  if (status === 'RESERVED' && effectiveWarehouseId) {
+    updateData.warehouseId = effectiveWarehouseId
+  }
+
   const updated = await (db as PrismaClient).serviceOrderMaterial.update({
     where: { id },
-    data: { status, ...quantityUpdate },
+    data: updateData,
     include: BASE_INCLUDE,
   })
 
-  // Trigger billing sync after critical status changes
-  if (
-    (status === 'DISPATCHED' || status === 'RETURNED') &&
-    db instanceof PrismaClient
-  ) {
-    try {
-      await syncAfterMaterialChange(db, id)
-    } catch (err: any) {
-      console.error(
-        `[workshop-materials] Error syncing billing for material ${id}:`,
-        err?.message
-      )
-      // Don't throw - sync error shouldn't block the material status change
-    }
+  if (status === 'RETURNED' && updated.itemId && effectiveWarehouseId) {
+    await createWorkshopReturnMovement(
+      db,
+      updated as unknown as IServiceOrderMaterialWithRelations,
+      effectiveWarehouseId,
+      Number(quantityUpdate.quantityReturned || 0),
+      userId
+    )
   }
 
   return updated as unknown as IServiceOrderMaterialWithRelations
+}
+
+export async function changeStatus(
+  db: DbType,
+  id: string,
+  status:
+    | 'REQUESTED'
+    | 'RESERVED'
+    | 'DISPATCHED'
+    | 'CONSUMED'
+    | 'RETURNED'
+    | 'CANCELLED',
+  context?: {
+    warehouseId?: string
+    quantityReturned?: number
+    empresaId?: string
+    userId?: string
+  }
+): Promise<IServiceOrderMaterialWithRelations> {
+  if (db instanceof PrismaClient) {
+    const updated = await db.$transaction(async (tx) =>
+      changeStatusInternal(tx as unknown as DbType, id, status, context)
+    )
+
+    if (status === 'DISPATCHED' || status === 'RETURNED') {
+      try {
+        await syncAfterMaterialChange(db, id)
+      } catch (err: any) {
+        console.error(
+          `[workshop-materials] Error syncing billing for material ${id}:`,
+          err?.message
+        )
+      }
+    }
+
+    return findById(db, updated.id)
+  }
+
+  const updated = await changeStatusInternal(db, id, status, context)
+  return findById(db, updated.id)
+}
+
+export async function setClientApproval(
+  db: DbType,
+  id: string,
+  clientApproved: boolean,
+  context?: { userId?: string; notes?: string | null }
+): Promise<IServiceOrderMaterialWithRelations> {
+  await findById(db, id)
+
+  const userId = context?.userId ?? null
+  const notes = context?.notes ?? null
+
+  const updated = await (db as PrismaClient).serviceOrderMaterial.update({
+    where: { id },
+    data: {
+      clientApproved,
+      clientApprovalAt: new Date(),
+      clientApprovedBy: userId,
+      clientApprovalNotes: notes,
+    },
+    include: BASE_INCLUDE,
+  })
+
+  return findById(db, updated.id)
 }

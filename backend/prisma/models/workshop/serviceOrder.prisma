@@ -243,6 +243,10 @@ model ServiceOrderMaterial {
   serviceOrderId String
   serviceOrder   ServiceOrder   @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
 
+  // Almacén origen para reserva/consumo (se fija al reservar)
+  warehouseId String?
+  warehouse   Warehouse? @relation(fields: [warehouseId], references: [id], onDelete: SetNull)
+
   itemId         String?
   item           Item?          @relation(fields: [itemId], references: [id], onDelete: SetNull)
   description    String         @db.Text
@@ -270,8 +274,17 @@ model ServiceOrderMaterial {
 
   status    MaterialStatus @default(REQUESTED)
 
+  // Aprobación del cliente por línea de material
+  clientApproved      Boolean?
+  clientApprovalAt    DateTime?
+  clientApprovedBy    String?
+  clientApprovalNotes String? @db.Text
+
   // Historial de movimientos
   movements ServiceOrderMaterialMovement[]
+
+  // Back-reference: nota de salida creada por almacén para este material
+  exitNote ExitNote?
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -281,6 +294,7 @@ model ServiceOrderMaterial {
 
   @@index([serviceOrderId])
   @@index([serviceOrderId, status]) // Materiales por estado en una OT
+  @@index([warehouseId])
   @@index([itemId])
   @@index([empresaId])
   @@map("service_order_materials")
@@ -384,4 +398,3 @@ model ServiceOrderObservation {
   @@index([empresaId])
   @@map("service_order_observations")
 }
-

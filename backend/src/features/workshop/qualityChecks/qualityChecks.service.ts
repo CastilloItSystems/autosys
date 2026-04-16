@@ -9,6 +9,7 @@ import type {
   ICreateQualityCheckInput,
   ISubmitQualityCheckInput,
 } from './qualityChecks.interface.js'
+import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
 
 type Db =
   | PrismaClient
@@ -139,9 +140,12 @@ export async function createQualityCheck(
 
   // Mover OT a QUALITY_CHECK si estaba en IN_PROGRESS
   if (so.status === 'IN_PROGRESS') {
-    await (db as PrismaClient).serviceOrder.update({
-      where: { id: data.serviceOrderId },
-      data: { status: 'QUALITY_CHECK' },
+    await changeServiceOrderStatusWithHistory(db, {
+      serviceOrderId: data.serviceOrderId,
+      empresaId,
+      newStatus: 'QUALITY_CHECK',
+      userId,
+      comment: 'Control de calidad iniciado',
     })
   }
 
@@ -163,7 +167,8 @@ export async function submitQualityCheck(
   db: Db,
   id: string,
   empresaId: string,
-  data: ISubmitQualityCheckInput
+  data: ISubmitQualityCheckInput,
+  userId: string
 ) {
   const item = await findQualityCheckById(db, id, empresaId)
 
@@ -188,11 +193,17 @@ export async function submitQualityCheck(
 
   const allPassed = data.checklistItems.every((i) => i.passed)
   const newStatus = allPassed ? 'PASSED' : 'FAILED'
+  const targetStatus = allPassed ? 'READY' : 'IN_PROGRESS'
 
   // Si aprueba → mover OT a READY; si falla → regresar a IN_PROGRESS
-  await (db as PrismaClient).serviceOrder.update({
-    where: { id: item.serviceOrderId },
-    data: { status: allPassed ? 'READY' : 'IN_PROGRESS' },
+  await changeServiceOrderStatusWithHistory(db, {
+    serviceOrderId: item.serviceOrderId,
+    empresaId,
+    newStatus: targetStatus,
+    userId,
+    comment: allPassed
+      ? 'Control de calidad aprobado'
+      : 'Control de calidad rechazado',
   })
 
   return (db as PrismaClient).qualityCheck.update({

@@ -11,6 +11,29 @@ export interface CrmDashboardData {
     conversionRate: number
     recentLeads: { id: string; title: string; channel: string; status: string; customer: { name: string } | null; createdAt: string }[]
   }
+  opportunities?: {
+    total: number
+    open: number
+    wonThisMonth: number
+    lostThisMonth: number
+    winRate: number
+    pipelineValue: number
+    stale: number
+    overdueActivities: number
+    byChannel: Record<string, number>
+    recent: {
+      id: string
+      title: string
+      channel: string
+      stageCode: string
+      status: string
+      amount: number
+      ownerId: string
+      nextActivityAt: string
+      expectedCloseAt: string | null
+      createdAt: string
+    }[]
+  }
   quotes: {
     total: number
     active: number
@@ -39,6 +62,19 @@ export interface CrmDashboardData {
     overdue: number
     completedThisMonth: number
     recentOverdue: { id: string; title: string; type: string; dueAt: string; assignedTo: string | null }[]
+  }
+  alerts?: {
+    open: number
+    recent: {
+      id: string
+      type: string
+      severity: string
+      title: string
+      message: string
+      createdAt: string
+      entityType: string
+      entityId: string
+    }[]
   }
   serviceOrders: {
     active: number

@@ -1,0 +1,61 @@
+enum LoyaltyEventType {
+  NPS_SENT
+  NPS_RECEIVED
+  MAINTENANCE_REMINDER
+  REACTIVATION_CONTACT
+  FOLLOW_UP
+}
+
+enum LoyaltyEventStatus {
+  PENDING
+  DONE
+  CANCELLED
+}
+
+model LoyaltyEvent {
+  id             String             @id @default(cuid())
+  empresaId      String
+  empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId     String
+  customer       Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  type           LoyaltyEventType
+  status         LoyaltyEventStatus @default(PENDING)
+  title          String
+  description    String?            @db.Text
+  suggestedAction String?
+
+  dueAt          DateTime?
+  completedAt    DateTime?
+
+  createdBy      String
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  @@map("crm_loyalty_events")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([type])
+  @@index([status])
+}
+
+model CustomerSurvey {
+  id             String      @id @default(cuid())
+  empresaId      String
+  empresa        Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  customerId     String
+  customer       Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
+  source         String      @default("NPS")
+  score          Int?
+  feedback       String?     @db.Text
+  submittedAt    DateTime    @default(now())
+  createdBy      String
+
+  @@map("crm_customer_surveys")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([submittedAt])
+}

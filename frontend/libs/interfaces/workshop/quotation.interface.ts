@@ -37,12 +37,17 @@ export interface QuotationItem {
   id: string;
   type: QuotationItemType;
   referenceId: string | null;
+  referenceCode?: string | null;
+  referenceSku?: string | null;
+  referenceName?: string | null;
   description: string;
   quantity: number;
   unitPrice: number;
   unitCost: number;
-  discount: number;
-  tax: number;
+  discountPct: number;
+  taxType: "IVA" | "EXEMPT" | "REDUCED";
+  taxRate: number;
+  taxAmount: number;
   subtotal: number;
   total: number;
   approved: boolean;
@@ -80,7 +85,7 @@ export interface WorkshopQuotation {
   convertedAt: string | null;
   subtotal: number;
   discount: number;
-  tax: number;
+  taxAmt: number;
   total: number;
   notes: string | null;
   internalNotes: string | null;
@@ -96,6 +101,7 @@ export interface QuotationFilters {
   status?: QuotationStatus;
   customerId?: string;
   receptionId?: string;
+  serviceOrderId?: string;
   isSupplementary?: boolean;
   search?: string;
   page?: number;
@@ -130,6 +136,7 @@ export interface CreateQuotationItemInput {
 export interface CreateQuotationInput {
   receptionId?: string;
   diagnosisId?: string;
+  serviceOrderId?: string;
   customerId: string;
   customerVehicleId?: string;
   isSupplementary?: boolean;
@@ -157,7 +164,7 @@ export interface RegisterApprovalInput {
 }
 
 export interface ConvertToSOInput {
-  advisorId?: string;
+  assignedAdvisorId?: string;
   notes?: string;
 }
 

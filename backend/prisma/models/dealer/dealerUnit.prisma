@@ -1,0 +1,78 @@
+enum DealerUnitCondition {
+  NEW
+  USED
+  DEMO
+  CONSIGNMENT
+}
+
+enum DealerUnitStatus {
+  AVAILABLE
+  RESERVED
+  IN_DOCUMENTATION
+  INVOICED
+  READY_FOR_DELIVERY
+  DELIVERED
+  BLOCKED
+}
+
+model DealerUnit {
+  id            String              @id @default(uuid())
+
+  empresaId     String
+  empresa       Empresa             @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  brandId       String
+  brand         Brand               @relation(fields: [brandId], references: [id], onDelete: Restrict)
+
+  modelId       String?
+  model         Model?              @relation(fields: [modelId], references: [id], onDelete: SetNull)
+
+  code          String?
+  version       String?
+  year          Int?
+
+  vin           String?
+  engineSerial  String?
+  plate         String?
+
+  condition     DealerUnitCondition @default(NEW)
+  status        DealerUnitStatus    @default(AVAILABLE)
+  mileage       Int?
+
+  colorExterior String?
+  colorInterior String?
+  fuelType      String?
+  transmission  String?
+
+  listPrice     Decimal?            @db.Decimal(14, 2)
+  promoPrice    Decimal?            @db.Decimal(14, 2)
+  location      String?
+
+  description   String?
+  specifications Json?
+
+  isActive      Boolean             @default(true)
+  isPublished   Boolean             @default(false)
+
+  reservations  DealerReservation[]
+  quotes        DealerQuote[]
+  testDrives    DealerTestDrive[]
+  tradeInsAsTarget DealerTradeIn[] @relation("TradeInTargetUnit")
+  financing     DealerFinancing[] @relation("DealerUnitFinancing")
+  deliveries    DealerDelivery[] @relation("DealerUnitDelivery")
+  documents     DealerDocument[] @relation("DealerUnitDocuments")
+  approvals     DealerApproval[] @relation("DealerUnitApprovals")
+  afterSales    DealerAfterSale[] @relation("DealerUnitAfterSales")
+
+  createdAt     DateTime            @default(now())
+  updatedAt     DateTime            @updatedAt
+
+  @@map("dealer_units")
+  @@index([empresaId])
+  @@index([brandId])
+  @@index([modelId])
+  @@index([status])
+  @@index([condition])
+  @@index([isActive])
+  @@unique([empresaId, vin])
+}

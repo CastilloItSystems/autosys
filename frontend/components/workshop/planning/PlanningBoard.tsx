@@ -18,7 +18,7 @@ import { SelectButton } from "primereact/selectbutton";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { ProgressBar } from "primereact/progressbar";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { ConfirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 import serviceOrderService from "@/app/api/workshop/serviceOrderService";
 import workshopBayService from "@/app/api/workshop/workshopBayService";
@@ -31,6 +31,8 @@ import type { WorkshopBay } from "@/libs/interfaces/workshop/workshopBay.interfa
 import { handleFormError } from "@/utils/errorHandlers";
 import PlanningKanbanCard from "./PlanningKanbanCard";
 import ServiceOrderForm from "@/components/workshop/service-orders/ServiceOrderForm";
+import ServiceOrderDetail from "@/components/workshop/service-orders/ServiceOrderDetail";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 // NOTE: Keep `NEXT_STATUSES` in sync with backend VALID_TRANSITIONS
@@ -92,6 +94,18 @@ const BOARD_STATUSES: {
     color: "#16a34a",
     icon: "pi pi-truck",
   },
+  {
+    id: "INVOICED",
+    label: "Facturada",
+    color: "#0ea5e9",
+    icon: "pi pi-receipt",
+  },
+  {
+    id: "CLOSED",
+    label: "Cerrada",
+    color: "#64748b",
+    icon: "pi pi-lock",
+  },
 ];
 
 const PRIORITY_OPTIONS = [
@@ -149,9 +163,91 @@ const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
 };
 
+const STATUS_CHANGE_NOTE_TEMPLATES: Record<string, string[]> = {
+  "DRAFT->OPEN": [
+    "OT abierta para iniciar diagnóstico.",
+    "Se valida información inicial y se inicia flujo operativo.",
+  ],
+  "OPEN->DIAGNOSING": [
+    "Vehículo ingresado a diagnóstico técnico.",
+    "Se inicia evaluación de fallas reportadas por cliente.",
+  ],
+  "DIAGNOSING->PENDING_APPROVAL": [
+    "Diagnóstico finalizado, pendiente aprobación del cliente.",
+    "Se envía presupuesto para autorización.",
+  ],
+  "PENDING_APPROVAL->APPROVED": [
+    "Cliente aprueba cotización, se autoriza ejecución.",
+    "Aprobación recibida, OT lista para programación.",
+  ],
+  "APPROVED->IN_PROGRESS": [
+    "Trabajo iniciado por técnico asignado.",
+    "OT entra en ejecución según plan de trabajo.",
+  ],
+  "IN_PROGRESS->PAUSED": [
+    "Trabajo pausado temporalmente por prioridad operativa.",
+    "Se detiene ejecución hasta nueva instrucción.",
+  ],
+  "IN_PROGRESS->WAITING_PARTS": [
+    "OT en espera por repuestos.",
+    "Se requiere abastecimiento para continuar trabajo.",
+  ],
+  "IN_PROGRESS->WAITING_AUTH": [
+    "OT en espera de autorización adicional del cliente.",
+    "Pendiente confirmación para continuar con trabajos.",
+  ],
+  "IN_PROGRESS->QUALITY_CHECK": [
+    "Trabajo completado, pasa a control de calidad.",
+    "Se envía unidad para validación final.",
+  ],
+  "QUALITY_CHECK->READY": [
+    "Control de calidad aprobado, unidad lista para entrega.",
+    "Se finaliza validación y se habilita entrega.",
+  ],
+  "READY->DELIVERED": [
+    "Unidad entregada al cliente.",
+    "Entrega completada con conformidad del cliente.",
+  ],
+  "DELIVERED->INVOICED": [
+    "OT facturada correctamente.",
+    "Se emite documento fiscal de la orden.",
+  ],
+  "INVOICED->CLOSED": [
+    "OT cerrada administrativamente.",
+    "Proceso finalizado y orden cerrada.",
+  ],
+  "OPEN->CANCELLED": [
+    "OT cancelada por solicitud del cliente.",
+    "OT cancelada por decisión operativa.",
+  ],
+  "DIAGNOSING->CANCELLED": [
+    "OT cancelada durante diagnóstico.",
+    "Se cancela por falta de aprobación de continuidad.",
+  ],
+  "IN_PROGRESS->CANCELLED": [
+    "OT cancelada durante ejecución.",
+    "Trabajo cancelado por instrucción del cliente.",
+  ],
+};
+
+const getStatusChangeNoteOptions = (
+  from: ServiceOrderStatus,
+  to: ServiceOrderStatus,
+): string[] => {
+  const key = `${from}->${to}`;
+  return (
+    STATUS_CHANGE_NOTE_TEMPLATES[key] ?? [
+      `Cambio de estado: ${STATUS_LABELS[from] ?? from} -> ${
+        STATUS_LABELS[to] ?? to
+      }.`,
+    ]
+  );
+};
+
 interface StatusDialogProps {
   order: ServiceOrder | null;
   visible: boolean;
+  forcedStatus?: ServiceOrderStatus | null;
   onHide: () => void;
   onSaved: (id: string, newStatus: ServiceOrderStatus) => void;
   toast: React.RefObject<Toast>;
@@ -160,6 +256,7 @@ interface StatusDialogProps {
 function StatusDialog({
   order,
   visible,
+  forcedStatus = null,
   onHide,
   onSaved,
   toast,
@@ -168,16 +265,47 @@ function StatusDialog({
   const [selectedStatus, setSelectedStatus] =
     useState<ServiceOrderStatus | null>(null);
   const [notes, setNotes] = useState("");
+  const [noteOptions, setNoteOptions] = useState<string[]>([]);
 
   const nexts = order ? NEXT_STATUSES[order.status] ?? [] : [];
 
+  useEffect(() => {
+    if (!visible) {
+      setSelectedStatus(null);
+      setNotes("");
+      setNoteOptions([]);
+    }
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible || !order || !forcedStatus) return;
+    applyStatusSelection(forcedStatus);
+  }, [visible, order, forcedStatus]);
+
+  const applyStatusSelection = (status: ServiceOrderStatus) => {
+    if (!order) return;
+    setSelectedStatus(status);
+    const options = getStatusChangeNoteOptions(order.status, status);
+    setNoteOptions(options);
+    setNotes(options[0] ?? "");
+  };
+
   const handleSave = async () => {
     if (!order || !selectedStatus) return;
+    if (!notes.trim()) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Nota requerida",
+        detail: "Agrega una nota para registrar el cambio de estado.",
+        life: 3000,
+      });
+      return;
+    }
     setSaving(true);
     try {
       await serviceOrderService.updateStatus(order.id, {
         status: selectedStatus,
-        notes,
+        comment: notes.trim(),
       } as UpdateServiceOrderStatusInput);
       onSaved(order.id, selectedStatus);
       onHide();
@@ -210,7 +338,7 @@ function StatusDialog({
             icon="pi pi-check"
             onClick={handleSave}
             loading={saving}
-            disabled={!selectedStatus}
+            disabled={!selectedStatus || !notes.trim()}
           />
         </div>
       }
@@ -226,11 +354,16 @@ function StatusDialog({
               <div
                 key={s}
                 className={`p-3 border-round cursor-pointer transition-colors transition-duration-150 ${
-                  selectedStatus === s
+                  forcedStatus && forcedStatus !== s
+                    ? "surface-100 border-200 opacity-60"
+                    : selectedStatus === s
                     ? "bg-primary-100 border-primary-400"
                     : "surface-100 border-200"
                 } border-1`}
-                onClick={() => setSelectedStatus(s)}
+                onClick={() => {
+                  if (forcedStatus && forcedStatus !== s) return;
+                  applyStatusSelection(s);
+                }}
               >
                 {STATUS_LABELS[s] ?? s}
               </div>
@@ -241,8 +374,19 @@ function StatusDialog({
               </div>
             )}
           </div>
+          {selectedStatus && noteOptions.length > 0 && (
+            <div className="flex flex-column gap-1">
+              <label className="text-sm text-600">Plantilla sugerida</label>
+              <Dropdown
+                value={notes}
+                options={noteOptions.map((n) => ({ label: n, value: n }))}
+                onChange={(e) => setNotes(e.value ?? "")}
+                placeholder="Selecciona una plantilla"
+              />
+            </div>
+          )}
           <div className="flex flex-column gap-1">
-            <label className="text-sm text-600">Notas (opcional)</label>
+            <label className="text-sm text-600">Notas (requerido)</label>
             <InputText
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
@@ -268,7 +412,10 @@ interface ColumnConfig {
 interface ColumnProps {
   cfg: ColumnConfig;
   orders: ServiceOrder[];
-  onAction: (action: "edit" | "status", order: ServiceOrder) => void;
+  onAction: (
+    action: "view" | "history" | "times" | "edit" | "status",
+    order: ServiceOrder,
+  ) => void;
 }
 
 function KanbanColumn({ cfg, orders, onAction }: ColumnProps) {
@@ -389,6 +536,11 @@ export default function PlanningBoard() {
   const [statusDialogOrder, setStatusDialogOrder] =
     useState<ServiceOrder | null>(null);
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
+  const [statusDialogForcedStatus, setStatusDialogForcedStatus] =
+    useState<ServiceOrderStatus | null>(null);
+  const [detailDialogVisible, setDetailDialogVisible] = useState(false);
+  const [detailOrder, setDetailOrder] = useState<ServiceOrder | null>(null);
+  const [detailInitialTabIndex, setDetailInitialTabIndex] = useState<number>(0);
 
   const [bays, setBays] = useState<WorkshopBay[]>([]);
 
@@ -499,73 +651,34 @@ export default function PlanningBoard() {
     } else {
       const newStatus = over.id as ServiceOrderStatus;
       if (order.status === newStatus) return;
-      const prev = [...orders];
-
-      const performUpdate = async () => {
-        setOrders((curr) =>
-          curr.map((o) =>
-            o.id === order.id ? { ...o, status: newStatus } : o,
-          ),
-        );
-        try {
-          await serviceOrderService.updateStatus(order.id, {
-            status: newStatus,
-          } as UpdateServiceOrderStatusInput);
-        } catch (err) {
-          setOrders(prev);
-          handleFormError(err, toast);
-        }
-      };
-
-      // Lightweight UX safeguards: confirm destructive or side-effecting transitions
-      if (newStatus === "CANCELLED") {
-        confirmDialog({
-          message: `¿Confirmar cancelar OT ${order.folio}? Esta acción marcará la OT como cancelada.`,
-          header: "Confirmar Cancelación",
-          icon: "pi pi-exclamation-triangle",
-          acceptClassName: "p-button-danger",
-          acceptLabel: "Sí, cancelar",
-          rejectLabel: "No",
-          accept: performUpdate,
-        });
-        return;
-      }
-
-      if (newStatus === "QUALITY_CHECK") {
-        confirmDialog({
-          message: `Mover OT ${order.folio} a 'Control de calidad'. Esto iniciará el proceso de control de calidad. ¿Continuar?`,
-          header: "Confirmar Control de Calidad",
-          icon: "pi pi-shield",
-          acceptLabel: "Continuar",
-          rejectLabel: "No",
-          accept: performUpdate,
-        });
-        return;
-      }
-
-      if (newStatus === "DELIVERED") {
-        confirmDialog({
-          message: `Mover OT ${order.folio} a 'Entregada'. Esto puede generar una entrega automática. ¿Continuar?`,
-          header: "Confirmar Entrega",
-          icon: "pi pi-truck",
-          acceptLabel: "Continuar",
-          rejectLabel: "No",
-          accept: performUpdate,
-        });
-        return;
-      }
-
-      // No confirmation needed for other transitions
-      performUpdate();
+      setStatusDialogOrder(order);
+      setStatusDialogForcedStatus(newStatus);
+      setStatusDialogVisible(true);
     }
   };
 
-  const handleAction = (action: "edit" | "status", order: ServiceOrder) => {
-    if (action === "edit") {
+  const handleAction = (
+    action: "view" | "history" | "times" | "edit" | "status",
+    order: ServiceOrder,
+  ) => {
+    if (action === "view") {
+      setDetailInitialTabIndex(0);
+      setDetailOrder(order);
+      setDetailDialogVisible(true);
+    } else if (action === "history") {
+      setDetailInitialTabIndex(10);
+      setDetailOrder(order);
+      setDetailDialogVisible(true);
+    } else if (action === "times") {
+      setDetailInitialTabIndex(4);
+      setDetailOrder(order);
+      setDetailDialogVisible(true);
+    } else if (action === "edit") {
       setEditOrder(order);
       setFormVisible(true);
     } else {
       setStatusDialogOrder(order);
+      setStatusDialogForcedStatus(null);
       setStatusDialogVisible(true);
     }
   };
@@ -575,25 +688,6 @@ export default function PlanningBoard() {
       curr.map((o) => (o.id === id ? { ...o, status: newStatus } : o)),
     );
   };
-
-  const formFooter = (
-    <div className="flex justify-content-end gap-2">
-      <Button
-        label="Cancelar"
-        outlined
-        severity="secondary"
-        onClick={() => setFormVisible(false)}
-        disabled={formSubmitting}
-      />
-      <Button
-        label={editOrder ? "Guardar" : "Crear OT"}
-        icon="pi pi-check"
-        form="planning-so-form"
-        type="submit"
-        loading={formSubmitting}
-      />
-    </div>
-  );
 
   return (
     <>
@@ -710,15 +804,41 @@ export default function PlanningBoard() {
       {/* OT Form Dialog */}
       <Dialog
         visible={formVisible}
-        onHide={() => setFormVisible(false)}
-        header={editOrder ? "Editar OT" : "Nueva OT"}
-        style={{ width: "860px" }}
-        footer={formFooter}
+        style={{ width: "85vw" }}
+        breakpoints={{ "1200px": "90vw", "900px": "95vw", "600px": "100vw" }}
+        maximizable
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-file-edit mr-3 text-primary text-3xl" />
+                {editOrder
+                  ? `Editar ${editOrder.folio}`
+                  : "Nueva Orden de Trabajo"}
+              </h2>
+            </div>
+          </div>
+        }
         modal
-        draggable={false}
+        className="p-fluid"
+        onHide={() => {
+          setFormVisible(false);
+          setEditOrder(null);
+        }}
+        footer={
+          <FormActionButtons
+            formId="planning-so-form"
+            isUpdate={!!editOrder?.id}
+            onCancel={() => {
+              setFormVisible(false);
+              setEditOrder(null);
+            }}
+            isSubmitting={formSubmitting}
+          />
+        }
       >
         <ServiceOrderForm
-          serviceOrder={editOrder}
+          order={editOrder}
           formId="planning-so-form"
           onSave={() => {
             setFormVisible(false);
@@ -729,11 +849,57 @@ export default function PlanningBoard() {
         />
       </Dialog>
 
+      <Dialog
+        visible={detailDialogVisible}
+        onHide={() => {
+          setDetailDialogVisible(false);
+          setDetailOrder(null);
+        }}
+        maximizable
+        modal
+        draggable={false}
+        style={{ width: "95vw" }}
+        breakpoints={{ "960px": "98vw" }}
+        contentStyle={{ padding: 0 }}
+        header={
+          detailOrder ? (
+            <div className="flex align-items-center gap-2 flex-wrap">
+              <i className="pi pi-wrench text-primary" />
+              <span className="font-semibold">{detailOrder.folio}</span>
+              <span className="text-600 text-sm">·</span>
+              <span className="text-sm text-600">
+                {detailOrder.vehiclePlate}
+                {detailOrder.vehicleDesc ? ` — ${detailOrder.vehicleDesc}` : ""}
+              </span>
+            </div>
+          ) : (
+            <span>Orden de Servicio</span>
+          )
+        }
+      >
+        {detailOrder && (
+          <ServiceOrderDetail
+            serviceOrderId={detailOrder.id}
+            initialTabIndex={detailInitialTabIndex}
+            embedded
+            onClose={() => {
+              setDetailDialogVisible(false);
+              setDetailOrder(null);
+              load();
+            }}
+          />
+        )}
+      </Dialog>
+
       {/* Status Dialog */}
       <StatusDialog
         order={statusDialogOrder}
         visible={statusDialogVisible}
-        onHide={() => setStatusDialogVisible(false)}
+        forcedStatus={statusDialogForcedStatus}
+        onHide={() => {
+          setStatusDialogVisible(false);
+          setStatusDialogForcedStatus(null);
+        }}
         onSaved={handleStatusSaved}
         toast={toast}
       />

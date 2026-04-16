@@ -16,6 +16,7 @@ export enum ExitNoteType {
   OWNER_PICKUP = "OWNER_PICKUP",
   DEMO = "DEMO",
   TRANSFER = "TRANSFER",
+  WORKSHOP_SUPPLY = "WORKSHOP_SUPPLY",
   OTHER = "OTHER",
   LOAN_RETURN = "LOAN_RETURN",
 }
@@ -48,6 +49,7 @@ export interface ExitNote {
     name: string;
   };
   preInvoiceId?: string;
+  serviceOrderMaterialId?: string | null;
   recipientName?: string;
   recipientId?: string;
   recipientPhone?: string;
@@ -188,6 +190,11 @@ export const EXIT_NOTE_TYPE_CONFIG: Record<
     label: "Transferencia",
     severity: "primary",
     icon: "pi pi-arrow-right",
+  },
+  [ExitNoteType.WORKSHOP_SUPPLY]: {
+    label: "Suministro Taller",
+    severity: "warning",
+    icon: "pi pi-wrench",
   },
   [ExitNoteType.LOAN_RETURN]: {
     label: "Retorno Préstamo",

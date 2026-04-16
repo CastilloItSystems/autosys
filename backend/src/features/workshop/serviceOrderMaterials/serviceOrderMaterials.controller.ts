@@ -95,3 +95,28 @@ export async function updateStatus(
     next(error)
   }
 }
+
+export async function updateApproval(
+  req: Request,
+  res: Response,
+  next: NextFunction
+) {
+  try {
+    const { clientApproved, notes } = req.body
+    const userId = (req as any).user?.userId as string | undefined
+
+    const result = await service.setClientApproval(
+      prisma,
+      req.params.id as string,
+      Boolean(clientApproved),
+      {
+        userId,
+        notes,
+      }
+    )
+
+    res.json(result)
+  } catch (error) {
+    next(error)
+  }
+}

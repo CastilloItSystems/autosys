@@ -323,8 +323,14 @@ const PreInvoiceList = () => {
   const customerBodyTemplate = (rowData: PreInvoice) =>
     rowData.customer?.name || "—";
 
-  const orderBodyTemplate = (rowData: PreInvoice) =>
-    rowData.order?.orderNumber || "—";
+  const orderBodyTemplate = (rowData: PreInvoice) => {
+    if (rowData.order?.orderNumber) return rowData.order.orderNumber;
+    if (rowData.serviceOrder?.folio) return rowData.serviceOrder.folio;
+    if ((rowData.consolidatedServiceOrders?.length ?? 0) > 0) {
+      return `Consolidada (${rowData.consolidatedServiceOrders!.length} OTs)`;
+    }
+    return "—";
+  };
 
   const totalBodyTemplate = (rowData: PreInvoice) => (
     <span className="font-semibold">{formatCurrency(rowData.total)}</span>
@@ -349,7 +355,11 @@ const PreInvoiceList = () => {
                 <span className="text-500 text-sm font-medium">Orden</span>
               </div>
               <div className="font-bold text-900">
-                {data.order?.orderNumber || "—"}
+                {data.order?.orderNumber ||
+                  data.serviceOrder?.folio ||
+                  ((data.consolidatedServiceOrders?.length ?? 0) > 0
+                    ? `Consolidada (${data.consolidatedServiceOrders!.length} OTs)`
+                    : "—")}
               </div>
             </div>
           </div>
@@ -374,7 +384,10 @@ const PreInvoiceList = () => {
                 <span className="text-500 text-sm font-medium">Almacén</span>
               </div>
               <div className="font-bold text-900">
-                {data.warehouse?.name || "—"}
+                {data.warehouse?.name ||
+                  (data.serviceOrderId
+                    ? "Taller (sin almacén)"
+                    : "—")}
               </div>
             </div>
           </div>

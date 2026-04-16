@@ -30,6 +30,7 @@ model Activity {
   // Contexto opcional (puede estar ligada a un lead)
   leadId      String?
   lead        Lead?          @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  opportunityLinks OpportunityActivityLink[]
 
   // Clasificación
   type        ActivityType

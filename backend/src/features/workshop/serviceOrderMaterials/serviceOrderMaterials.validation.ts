@@ -28,6 +28,11 @@ export const createServiceOrderMaterialSchema = Joi.object({
       'CANCELLED'
     )
     .optional(),
+  clientApproved: Joi.boolean().optional().allow(null),
+  clientApprovalAt: Joi.date().optional().allow(null),
+  clientApprovedBy: Joi.string().optional().allow(null, ''),
+  clientApprovalNotes: Joi.string().max(1000).optional().allow(null, ''),
+  warehouseId: Joi.string().uuid().optional().allow(null, ''),
   serviceOrderId: Joi.string()
     .required()
     .messages({ 'any.required': 'El ID de la orden es requerido' }),
@@ -53,9 +58,21 @@ export const updateServiceOrderMaterialSchema = Joi.object({
       'CANCELLED'
     )
     .optional(),
+  clientApproved: Joi.boolean().optional().allow(null),
+  clientApprovalAt: Joi.date().optional().allow(null),
+  clientApprovedBy: Joi.string().optional().allow(null, ''),
+  clientApprovalNotes: Joi.string().max(1000).optional().allow(null, ''),
+  warehouseId: Joi.string().uuid().optional().allow(null, ''),
   serviceOrderId: Joi.string().optional(),
   itemId: Joi.string().optional(),
 }).min(1)
+
+export const materialApprovalSchema = Joi.object({
+  clientApproved: Joi.boolean()
+    .required()
+    .messages({ 'any.required': 'La aprobación del cliente es requerida' }),
+  notes: Joi.string().max(1000).optional().allow(null, ''),
+})
 
 export const changeStatusSchema = Joi.object({
   status: Joi.string()
@@ -70,7 +87,7 @@ export const changeStatusSchema = Joi.object({
     .required()
     .messages({ 'any.required': 'El estado es requerido' }),
   // Requerido para transiciones que tocan inventario (RESERVED, DISPATCHED, RETURNED, CANCELLED)
-  warehouseId: Joi.string().optional(),
+  warehouseId: Joi.string().uuid().optional(),
   // Cantidad a retornar (solo para RETURNED)
   quantityReturned: Joi.number().positive().optional(),
 })

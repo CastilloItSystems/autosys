@@ -26,12 +26,23 @@ export interface ServiceOrderMaterial {
   taxAmount: number;
   total: number;
   status: MaterialStatus;
+  clientApproved?: boolean | null;
+  clientApprovalAt?: string | null;
+  clientApprovedBy?: string | null;
+  clientApprovalNotes?: string | null;
+  warehouseId?: string | null;
   serviceOrderId: string;
   itemId?: string | null;
   empresaId: string;
   createdBy: string;
   serviceOrder?: { id: string; folio: string } | null;
   item?: { id: string; name: string; code: string } | null;
+  warehouse?: { id: string; code: string; name: string } | null;
+  dispatchExitNote?: {
+    id: string;
+    exitNoteNumber: string;
+    status: string;
+  } | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -52,6 +63,7 @@ export interface CreateMaterialInput {
   discountPct?: number;
   taxType?: "IVA" | "EXEMPT" | "REDUCED";
   taxRate?: number;
+  warehouseId?: string;
   serviceOrderId: string;
   itemId?: string;
 }

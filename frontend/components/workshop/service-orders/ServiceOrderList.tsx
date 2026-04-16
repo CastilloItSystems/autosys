@@ -19,7 +19,7 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import { handleFormError } from "@/utils/errorHandlers";
-import { serviceOrderService } from "@/app/api/workshop";
+import { billingBridgeService, serviceOrderService } from "@/app/api/workshop";
 import type {
   ServiceOrder,
   ServiceOrderStatus,
@@ -196,11 +196,31 @@ export default function ServiceOrderList() {
     }
   };
 
+  const handleGeneratePreInvoice = async (order: ServiceOrder) => {
+    try {
+      await billingBridgeService.generatePreInvoice(order.id);
+      toast.current?.show({
+        severity: "success",
+        summary: "Pre-factura generada",
+        detail: `Se generó la pre-factura para ${order.folio}`,
+        life: 3000,
+      });
+      await loadItems();
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
   const transitionBodyTemplate = (rowData: ServiceOrder) => {
     const { status } = rowData;
-    const terminal = ["DELIVERED", "INVOICED", "CLOSED", "CANCELLED"].includes(
-      status,
-    );
+    const preInvoice = rowData.preInvoice ?? rowData.consolidatedPreInvoice;
+    const canGeneratePreInvoice =
+      ["READY", "DELIVERED"].includes(status) && !preInvoice;
+    const canMarkAsInvoiced =
+      status === "DELIVERED" &&
+      !!preInvoice &&
+      ["READY_FOR_PAYMENT", "PAID"].includes(preInvoice.status);
+
     const canCancel = ![
       "DELIVERED",
       "INVOICED",
@@ -345,6 +365,68 @@ export default function ServiceOrderList() {
                 acceptLabel: "Entregar",
                 acceptSeverity: "success",
                 onAccept: () => handleStatusTransition(rowData, "DELIVERED"),
+              })
+            }
+          />
+        )}
+        {canGeneratePreInvoice && (
+          <Button
+            icon="pi pi-receipt"
+            className="p-button-rounded p-button-help p-button-sm"
+            tooltip="Generar pre-factura"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Generar pre-factura para la OT ${rowData.folio}?`,
+                icon: "pi pi-receipt",
+                iconClass: "text-indigo-500",
+                acceptLabel: "Generar",
+                acceptSeverity: "success",
+                onAccept: () => handleGeneratePreInvoice(rowData),
+              })
+            }
+          />
+        )}
+        {status === "DELIVERED" && preInvoice && (
+          <Button
+            icon="pi pi-check-circle"
+            disabled={!canMarkAsInvoiced}
+            className="p-button-rounded p-button-success p-button-sm"
+            tooltip={
+              canMarkAsInvoiced
+                ? "Marcar facturada"
+                : `Pre-factura en estado ${preInvoice.status}. Debe estar en READY_FOR_PAYMENT o PAID`
+            }
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Marcar como facturada la OT ${rowData.folio}?`,
+                icon: "pi pi-check-circle",
+                iconClass: "text-green-500",
+                acceptLabel: "Facturar",
+                acceptSeverity: "success",
+                onAccept: () => handleStatusTransition(rowData, "INVOICED"),
+              })
+            }
+          />
+        )}
+        {status === "INVOICED" && (
+          <Button
+            icon="pi pi-lock"
+            className="p-button-rounded p-button-secondary p-button-sm"
+            tooltip="Cerrar OT"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Cerrar administrativamente la OT ${rowData.folio}?`,
+                icon: "pi pi-lock",
+                iconClass: "text-gray-500",
+                acceptLabel: "Cerrar",
+                acceptSeverity: "secondary",
+                onAccept: () => handleStatusTransition(rowData, "CLOSED"),
               })
             }
           />
@@ -853,8 +935,8 @@ export default function ServiceOrderList() {
       {/* Form Dialog */}
       <Dialog
         visible={formDialog}
-        style={{ width: "860px" }}
-        breakpoints={{ "1200px": "860px", "900px": "90vw", "600px": "100vw" }}
+        style={{ width: "85vw" }}
+        breakpoints={{ "1200px": "90vw", "900px": "95vw", "600px": "100vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">

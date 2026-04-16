@@ -1,0 +1,187 @@
+enum OpportunityStatus {
+  OPEN
+  WON
+  LOST
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum CrmAlertStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+enum CrmAlertType {
+  STALE_OPPORTUNITY
+  OVERDUE_ACTIVITY
+  OVERDUE_CASE
+  CLOSE_DATE_REMINDER
+}
+
+model Opportunity {
+  id              String            @id @default(uuid())
+
+  empresaId       String
+  empresa         Empresa           @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  leadId          String?           @unique
+  lead            Lead?             @relation(fields: [leadId], references: [id], onDelete: SetNull)
+
+  customerId      String?
+  customer        Customer?         @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  campaignId      String?
+  campaign        Campaign?         @relation(fields: [campaignId], references: [id], onDelete: SetNull)
+
+  channel         LeadChannel
+  stageCode       String
+  status          OpportunityStatus @default(OPEN)
+
+  title           String
+  description     String?           @db.Text
+  amount          Decimal?          @db.Decimal(12, 2)
+  currency        String            @default("USD")
+
+  ownerId         String
+  nextActivityAt  DateTime
+  expectedCloseAt DateTime?
+
+  wonAt           DateTime?
+  lostAt          DateTime?
+  lostReasonId    String?
+  lostReason      OpportunityLossReason? @relation(fields: [lostReasonId], references: [id], onDelete: SetNull)
+  lostReasonText  String?           @db.Text
+
+  createdBy       String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  stageHistory    OpportunityStageHistory[]
+  activityLinks   OpportunityActivityLink[]
+
+  @@map("crm_opportunities")
+  @@index([empresaId])
+  @@index([customerId])
+  @@index([campaignId])
+  @@index([channel])
+  @@index([stageCode])
+  @@index([status])
+  @@index([ownerId])
+  @@index([nextActivityAt])
+  @@index([expectedCloseAt])
+}
+
+model OpportunityStageConfig {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  channel       LeadChannel
+  code          String
+  label         String
+  position      Int
+  isTerminal    Boolean     @default(false)
+  isActive      Boolean     @default(true)
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("crm_opportunity_stage_configs")
+  @@unique([empresaId, channel, code])
+  @@unique([empresaId, channel, position])
+  @@index([empresaId])
+  @@index([channel])
+  @@index([isActive])
+}
+
+model OpportunityLossReason {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  code          String
+  label         String
+  isActive      Boolean     @default(true)
+
+  opportunities Opportunity[]
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("crm_opportunity_loss_reasons")
+  @@unique([empresaId, code])
+  @@index([empresaId])
+  @@index([isActive])
+}
+
+model OpportunityStageHistory {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  fromStage     String?
+  toStage       String
+  notes         String?     @db.Text
+  changedBy     String
+  changedAt     DateTime    @default(now())
+
+  @@map("crm_opportunity_stage_history")
+  @@index([empresaId])
+  @@index([opportunityId])
+  @@index([changedAt])
+}
+
+model OpportunityActivityLink {
+  id            String      @id @default(cuid())
+  empresaId     String
+  empresa       Empresa     @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  opportunityId String
+  opportunity   Opportunity @relation(fields: [opportunityId], references: [id], onDelete: Cascade)
+
+  activityId    String
+  activity      Activity    @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  linkedBy      String
+  linkedAt      DateTime    @default(now())
+
+  @@map("crm_opportunity_activity_links")
+  @@unique([opportunityId, activityId])
+  @@index([empresaId])
+  @@index([activityId])
+}
+
+model CrmAutomationAlert {
+  id            String        @id @default(cuid())
+  empresaId     String
+  empresa       Empresa       @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  type          CrmAlertType
+  status        CrmAlertStatus @default(OPEN)
+  severity      AlertSeverity @default(MEDIUM)
+
+  entityType    String
+  entityId      String
+  title         String
+  message       String        @db.Text
+  dedupeKey     String
+  metadata      Json?
+
+  createdAt     DateTime      @default(now())
+  resolvedAt    DateTime?
+
+  @@map("crm_automation_alerts")
+  @@unique([empresaId, dedupeKey])
+  @@index([empresaId, status])
+  @@index([type])
+  @@index([createdAt])
+}

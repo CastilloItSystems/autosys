@@ -27,6 +27,9 @@ class PreInvoicesController {
       status,
       customerId,
       orderId,
+      serviceOrderId,
+      hasServiceOrder,
+      origin,
       search,
       page,
       limit,
@@ -38,6 +41,15 @@ class PreInvoicesController {
     if (status) filters.status = status
     if (customerId) filters.customerId = String(customerId)
     if (orderId) filters.orderId = String(orderId)
+    if (serviceOrderId) filters.serviceOrderId = String(serviceOrderId)
+    if (hasServiceOrder !== undefined) {
+      const rawHasServiceOrder = Array.isArray(hasServiceOrder)
+        ? hasServiceOrder[0]
+        : hasServiceOrder
+      filters.hasServiceOrder =
+        String(rawHasServiceOrder).toLowerCase() === 'true'
+    }
+    if (origin) filters.origin = String(origin)
     if (search) filters.search = String(search)
 
     const pageNum = Number(page) || 1

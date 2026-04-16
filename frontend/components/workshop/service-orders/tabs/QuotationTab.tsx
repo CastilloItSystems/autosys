@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useRef } from "react";
+import React, { useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
@@ -10,23 +10,28 @@ import { handleFormError } from "@/utils/errorHandlers";
 import billingBridgeService from "@/app/api/workshop/billingBridgeService";
 import type { ServiceOrder } from "@/libs/interfaces/workshop";
 
-const QUOTE_STATUS_LABELS: Record<string, string> = {
+const QUOTATION_STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
   ISSUED: "Emitida",
   SENT: "Enviada",
-  NEGOTIATING: "Negociando",
-  APPROVED: "Aprobada",
+  PENDING_APPROVAL: "Pendiente de aprobación",
+  APPROVED_TOTAL: "Aprobada total",
+  APPROVED_PARTIAL: "Aprobada parcial",
   CONVERTED: "Convertida",
   REJECTED: "Rechazada",
   EXPIRED: "Vencida",
 };
 
-const QUOTE_STATUS_SEVERITY: Record<string, "success" | "info" | "warning" | "danger" | "secondary"> = {
+const QUOTATION_STATUS_SEVERITY: Record<
+  string,
+  "success" | "info" | "warning" | "danger" | "secondary"
+> = {
   DRAFT: "secondary",
   ISSUED: "info",
   SENT: "info",
-  NEGOTIATING: "warning",
-  APPROVED: "success",
+  PENDING_APPROVAL: "warning",
+  APPROVED_TOTAL: "success",
+  APPROVED_PARTIAL: "success",
   CONVERTED: "success",
   REJECTED: "danger",
   EXPIRED: "danger",
@@ -34,7 +39,7 @@ const QUOTE_STATUS_SEVERITY: Record<string, "success" | "info" | "warning" | "da
 
 const fmt = (v?: number | string | null) => {
   const n = Number(v ?? 0);
-  return n.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
+  return n.toLocaleString("es-VE", { style: "currency", currency: "USD" });
 };
 
 interface QuotationTabProps {
@@ -42,30 +47,29 @@ interface QuotationTabProps {
   onRefresh: () => void;
 }
 
-export default function QuotationTab({ serviceOrder, onRefresh }: QuotationTabProps) {
+export default function QuotationTab({
+  serviceOrder,
+  onRefresh,
+}: QuotationTabProps) {
   const toast = useRef<Toast>(null);
   const router = useRouter();
   const [creating, setCreating] = useState(false);
 
-  const quote = (serviceOrder as any).workshopQuote;
+  const quotation = serviceOrder.quotations?.[0] ?? null;
 
-  const handleCreateQuote = async () => {
+  const handleCreateQuotation = async () => {
     setCreating(true);
     try {
-      const res = await billingBridgeService.createQuoteFromSO(serviceOrder.id);
-      const quoteId = res.data?.id;
+      await billingBridgeService.createWorkshopQuotationFromSO(serviceOrder.id);
       toast.current?.show({
         severity: "success",
         summary: "Cotización creada",
-        detail: "Redirigiendo al módulo CRM...",
-        life: 2000,
+        detail: "Se creó la cotización de taller desde la OT",
+        life: 2500,
       });
-      if (quoteId) {
-        setTimeout(() => router.push(`/empresa/crm/cotizaciones`), 1500);
-      }
       onRefresh();
     } catch (err) {
-      handleFormError(err, toast.current!);
+      handleFormError(err, toast);
     } finally {
       setCreating(false);
     }
@@ -75,42 +79,46 @@ export default function QuotationTab({ serviceOrder, onRefresh }: QuotationTabPr
     <>
       <Toast ref={toast} />
 
-      {!quote && (
+      {!quotation && (
         <div className="flex flex-column align-items-center py-5 gap-3">
           <i className="pi pi-file-o text-4xl text-400" />
           <p className="text-500 m-0 text-center">
-            Esta OT no tiene una cotización CRM asociada.
+            Esta OT no tiene una cotización de taller asociada.
           </p>
           <Button
-            label="Crear Cotización"
+            label="Crear cotización de taller"
             icon="pi pi-plus"
             loading={creating}
-            onClick={handleCreateQuote}
-            tooltip="Crea una cotización pre-llenada con los items de esta OT"
+            onClick={handleCreateQuotation}
+            tooltip="Crea una cotización pre-llenada con los ítems facturables de esta OT"
             tooltipOptions={{ position: "top" }}
           />
         </div>
       )}
 
-      {quote && (
+      {quotation && (
         <div className="flex flex-column gap-3">
           <Card>
             <div className="flex align-items-center justify-content-between mb-3">
               <div className="flex align-items-center gap-2">
                 <i className="pi pi-file-o text-primary text-xl" />
-                <span className="font-bold text-900">Cotización {quote.quoteNumber}</span>
-                {quote.version > 1 && (
-                  <Tag value={`v${quote.version}`} severity="secondary" />
+                <span className="font-bold text-900">
+                  Cotización {quotation.quotationNumber}
+                </span>
+                {quotation.version > 1 && (
+                  <Tag value={`v${quotation.version}`} severity="secondary" />
                 )}
               </div>
               <Tag
-                value={QUOTE_STATUS_LABELS[quote.status] ?? quote.status}
-                severity={QUOTE_STATUS_SEVERITY[quote.status] ?? "info"}
+                value={
+                  QUOTATION_STATUS_LABELS[quotation.status] ?? quotation.status
+                }
+                severity={QUOTATION_STATUS_SEVERITY[quotation.status] ?? "info"}
               />
             </div>
 
-            {quote.title && (
-              <p className="text-700 mb-3">{quote.title}</p>
+            {quotation.notes && (
+              <p className="text-700 mb-3">{quotation.notes}</p>
             )}
 
             <div className="grid">
@@ -118,29 +126,33 @@ export default function QuotationTab({ serviceOrder, onRefresh }: QuotationTabPr
                 <div className="flex flex-column gap-2 text-sm">
                   <div className="flex justify-content-between">
                     <span className="text-600">Subtotal</span>
-                    <span>{fmt(quote.subtotal)}</span>
+                    <span>{fmt(quotation.subtotal)}</span>
                   </div>
                   <div className="flex justify-content-between">
                     <span className="text-600">Impuesto</span>
-                    <span>{fmt(quote.taxAmt)}</span>
+                    <span>{fmt(quotation.taxAmt)}</span>
                   </div>
                   <div className="flex justify-content-between font-bold">
                     <span className="text-600">Total</span>
-                    <span className="text-lg">{fmt(quote.total)}</span>
+                    <span className="text-lg">{fmt(quotation.total)}</span>
                   </div>
                 </div>
               </div>
               <div className="col-12 md:col-6">
                 <div className="flex flex-column gap-2 text-sm">
-                  {quote.validUntil && (
+                  {quotation.validUntil && (
                     <div className="flex justify-content-between">
                       <span className="text-600">Válida hasta</span>
-                      <span>{new Date(quote.validUntil).toLocaleDateString("es-MX")}</span>
+                      <span>
+                        {new Date(quotation.validUntil).toLocaleDateString(
+                          "es-MX"
+                        )}
+                      </span>
                     </div>
                   )}
                   <div className="flex justify-content-between">
-                    <span className="text-600">Items</span>
-                    <span>{quote.items?.length ?? 0}</span>
+                    <span className="text-600">Ítems</span>
+                    <span>{quotation.items?.length ?? 0}</span>
                   </div>
                 </div>
               </div>

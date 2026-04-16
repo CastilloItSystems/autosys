@@ -44,6 +44,7 @@ export const quotationItemSchema = z.object({
 export const createQuotationSchema = z.object({
   receptionId: z.string().optional().nullable(),
   diagnosisId: z.string().optional().nullable(),
+  serviceOrderId: z.string().optional().nullable(),
   customerId: z.string().min(1, "El cliente es requerido"),
   customerVehicleId: z.string().optional().nullable(),
   isSupplementary: z.boolean().optional().default(false),
@@ -79,7 +80,7 @@ export const registerApprovalSchema = z.object({
 });
 
 export const convertToSOSchema = z.object({
-  advisorId: z.string().optional().nullable(),
+  assignedAdvisorId: z.string().optional().nullable(),
   notes: z.string().max(1000).optional(),
 });
 

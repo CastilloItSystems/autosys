@@ -46,12 +46,6 @@ export const updateReservationSchema = Joi.object({
   quantity: Joi.number().integer().positive().optional().messages({
     'number.positive': 'quantity debe ser un número positivo',
   }),
-  status: Joi.string()
-    .valid(...Object.values(ReservationStatus))
-    .optional()
-    .messages({
-      'any.only': `status debe ser uno de: ${Object.values(ReservationStatus).join(', ')}`,
-    }),
   workOrderId: Joi.string().uuid({ version: 'uuidv4' }).optional().allow(null),
   saleOrderId: Joi.string().uuid({ version: 'uuidv4' }).optional().allow(null),
   reference: Joi.string().max(100).optional().allow(null),
@@ -60,15 +54,16 @@ export const updateReservationSchema = Joi.object({
 }).min(1)
 
 export const consumeReservationSchema = Joi.object({
-  reservationId: Joi.string().optional(),
   quantity: Joi.number().integer().positive().optional().messages({
     'number.positive': 'quantity debe ser un número positivo',
   }),
-  deliveredBy: Joi.string().optional(),
+  deliveredBy: Joi.string().uuid({ version: 'uuidv4' }).required().messages({
+    'string.guid': 'deliveredBy debe ser un UUID válido',
+    'any.required': 'deliveredBy es requerido',
+  }),
 })
 
 export const releaseReservationSchema = Joi.object({
-  reservationId: Joi.string().optional(),
   reason: Joi.string().max(500).optional().messages({
     'string.max': 'reason no puede exceder 500 caracteres',
   }),
@@ -91,7 +86,14 @@ export const getReservationsQuerySchema = Joi.object({
   limit: Joi.number().integer().min(1).max(100).default(20),
   status: Joi.string().valid('ACTIVE', 'PENDING_PICKUP', 'CONSUMED', 'RELEASED'),
   itemId: Joi.string().uuid(),
-  warehouseId: Joi.string().uuid()
+  warehouseId: Joi.string().uuid(),
+  workOrderId: Joi.string().uuid().optional(),
+  saleOrderId: Joi.string().uuid().optional(),
+  createdBy: Joi.string().uuid().optional(),
+  sortBy: Joi.string().optional(),
+  sortOrder: Joi.string().valid('asc', 'desc').optional(),
+  reservedFrom: Joi.date().iso().optional(),
+  reservedTo: Joi.date().iso().optional(),
 })
 
 export const paginationQuerySchema = Joi.object({

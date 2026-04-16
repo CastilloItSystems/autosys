@@ -101,10 +101,6 @@ export const approve = async (req: Request, res: Response) => {
 }
 
 export const convert = async (req: Request, res: Response) => {
-  console.log('DEBUG: Iniciando conversión', {
-    id: req.params.id,
-    body: req.body,
-  }) // Agregar esto
   const userId = req.user?.userId as string
   const item = await convertToServiceOrder(
     prisma,

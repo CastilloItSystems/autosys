@@ -48,6 +48,9 @@ export const searchUnifiedCatalog = asyncHandler(
       const suggestedItems =
         op.suggestedMaterials?.map((sm: any) => ({
           itemId: sm.itemId,
+          code: sm.item?.code || null,
+          sku: sm.item?.sku || null,
+          name: sm.item?.name || sm.description || null,
           description: sm.description,
           quantity: Number(sm.quantity),
           isRequired: sm.isRequired,

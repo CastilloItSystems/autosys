@@ -26,6 +26,10 @@ const PI_INCLUDE = {
     },
   },
   order: { select: { id: true, orderNumber: true, status: true } },
+  serviceOrder: { select: { id: true, folio: true, status: true } },
+  consolidatedServiceOrders: {
+    select: { id: true, folio: true, status: true },
+  },
   customer: true,
   warehouse: { select: { id: true, name: true, code: true } },
 } as const
@@ -64,16 +68,57 @@ class PreInvoicesService {
     const { skip, take } = PaginationHelper.validateAndParse({ page, limit })
 
     const where: Prisma.PreInvoiceWhereInput = { empresaId }
+    const andConditions: Prisma.PreInvoiceWhereInput[] = []
+
     if (filters.status) where.status = filters.status as any
     if (filters.customerId) where.customerId = filters.customerId
     if (filters.orderId) where.orderId = filters.orderId
+    if (filters.serviceOrderId) where.serviceOrderId = filters.serviceOrderId
+
+    if (filters.hasServiceOrder === true) {
+      andConditions.push({
+        OR: [
+          { serviceOrderId: { not: null } },
+          { consolidatedServiceOrders: { some: {} } },
+        ],
+      })
+    } else if (filters.hasServiceOrder === false) {
+      andConditions.push({
+        serviceOrderId: null,
+        consolidatedServiceOrders: { none: {} },
+      })
+    }
+
+    if (filters.origin === 'WORKSHOP') {
+      andConditions.push({
+        OR: [
+          { serviceOrderId: { not: null } },
+          { consolidatedServiceOrders: { some: {} } },
+        ],
+      })
+    } else if (filters.origin === 'ORDER') {
+      andConditions.push({ orderId: { not: null } })
+    }
+
     if (filters.search) {
       const search = filters.search.trim()
-      where.OR = [
-        { preInvoiceNumber: { contains: search, mode: 'insensitive' } },
-        { customer: { name: { contains: search, mode: 'insensitive' } } },
-        { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
-      ]
+      andConditions.push({
+        OR: [
+          { preInvoiceNumber: { contains: search, mode: 'insensitive' } },
+          { customer: { name: { contains: search, mode: 'insensitive' } } },
+          { order: { orderNumber: { contains: search, mode: 'insensitive' } } },
+          { serviceOrder: { folio: { contains: search, mode: 'insensitive' } } },
+          {
+            consolidatedServiceOrders: {
+              some: { folio: { contains: search, mode: 'insensitive' } },
+            },
+          },
+        ],
+      })
+    }
+
+    if (andConditions.length > 0) {
+      where.AND = andConditions
     }
 
     const validSortFields = new Set([
