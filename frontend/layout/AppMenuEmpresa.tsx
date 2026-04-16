@@ -561,33 +561,27 @@ const AppMenuEmpresa = () => {
           to: "/empresa/concesionario",
         },
         {
-          label: "Operación Comercial",
-          icon: "pi pi-fw pi-briefcase",
-          items: [
-            {
-              label: "Unidades",
-              icon: "pi pi-fw pi-car",
-              to: "/empresa/concesionario/vehicles",
-            },
-            {
-              label: "Reservas",
-              icon: "pi pi-fw pi-bookmark",
-              to: "/empresa/concesionario/reservations",
-            },
-            {
-              label: "Pruebas de Manejo",
-              icon: "pi pi-fw pi-send",
-              to: "/empresa/concesionario/test-drives",
-            },
-            {
-              label: "Retomas / Avalúos",
-              icon: "pi pi-fw pi-refresh",
-              to: "/empresa/concesionario/trade-ins",
-            },
-          ],
+          label: "Unidades",
+          icon: "pi pi-fw pi-car",
+          to: "/empresa/concesionario/vehicles",
         },
         {
-          label: "Cierre de Negocio",
+          label: "Reservas",
+          icon: "pi pi-fw pi-bookmark",
+          to: "/empresa/concesionario/reservations",
+        },
+        {
+          label: "Pruebas de Manejo",
+          icon: "pi pi-fw pi-send",
+          to: "/empresa/concesionario/test-drives",
+        },
+        {
+          label: "Retomas / Avalúos",
+          icon: "pi pi-fw pi-refresh",
+          to: "/empresa/concesionario/trade-ins",
+        },
+        {
+          label: "Cierre de Venta",
           icon: "pi pi-fw pi-dollar",
           items: [
             {
@@ -605,21 +599,21 @@ const AppMenuEmpresa = () => {
               icon: "pi pi-fw pi-check-circle",
               to: "/empresa/concesionario/deliveries",
             },
-            {
-              label: "Documentos",
-              icon: "pi pi-fw pi-folder",
-              to: "/empresa/concesionario/documents",
-            },
           ],
         },
         {
-          label: "Control y Seguimiento",
+          label: "Control",
           icon: "pi pi-fw pi-sitemap",
           items: [
             {
               label: "Aprobaciones",
               icon: "pi pi-fw pi-check-square",
               to: "/empresa/concesionario/approvals",
+            },
+            {
+              label: "Documentos",
+              icon: "pi pi-fw pi-folder",
+              to: "/empresa/concesionario/documents",
             },
             {
               label: "Postventa Inicial",
@@ -631,22 +625,12 @@ const AppMenuEmpresa = () => {
               icon: "pi pi-fw pi-history",
               to: "/empresa/concesionario/history",
             },
-            {
-              label: "Integraciones",
-              icon: "pi pi-fw pi-link",
-              to: "/empresa/concesionario/integrations",
-            },
-            {
-              label: "Reportes",
-              icon: "pi pi-fw pi-chart-bar",
-              to: "/empresa/concesionario/reports",
-            },
-            {
-              label: "Automatizaciones",
-              icon: "pi pi-fw pi-bolt",
-              to: "/empresa/concesionario/automations",
-            },
           ],
+        },
+        {
+          label: "Reportes",
+          icon: "pi pi-fw pi-chart-bar",
+          to: "/empresa/concesionario/reports",
         },
       ],
     },
@@ -688,6 +672,16 @@ const AppMenuEmpresa = () => {
           label: "Usuarios y Permisos",
           icon: "pi pi-fw pi-users",
           to: "/empresa/configuracion/usuarios",
+        },
+        {
+          label: "Integraciones",
+          icon: "pi pi-fw pi-link",
+          to: "/empresa/concesionario/integrations",
+        },
+        {
+          label: "Automatizaciones",
+          icon: "pi pi-fw pi-bolt",
+          to: "/empresa/concesionario/automations",
         },
         {
           label: "Catálogo",
