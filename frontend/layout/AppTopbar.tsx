@@ -19,6 +19,7 @@ import { useSocket } from "@/hooks/useSocket";
 import { useRefineriaStore } from "@/store/refineriaStore";
 import AppNotificationDropdown from "./AppNotificationDropdown";
 import { Dialog } from "primereact/dialog";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 interface ExtendedUser extends User {
   usuario: {
@@ -32,6 +33,7 @@ interface ExtendedUser extends User {
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
   const { data: session } = useSession();
   const { activeRefineria } = useRefineriaStore();
+  const { activeEmpresa } = useEmpresasStore();
   console.log("sersion", session);
   const { online, desconectarSocket } = useSocket();
 
@@ -145,14 +147,13 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
         })}
         {!tabs ||
           (tabs.length === 0 &&
-            (pathname.startsWith("/refineria") ||
-              pathname.startsWith("/bunkering")) &&
-            activeRefineria && (
+            // pathname.startsWith("/empresa") &&
+            activeEmpresa && (
               // <li className="topbar-menu-empty ">
 
-              <Link href={"/refineria"} className="app-logo">
-                <img alt="app logo" src={activeRefineria.img} />
-                <span className="app-name">{activeRefineria.nombre}</span>
+              <Link href={"/empresa"} className="app-logo">
+                <img alt="app logo" src={activeEmpresa.logo_url} />
+                <span className="app-name">{activeEmpresa.name_prefijo}</span>
               </Link>
               // </li>
             ))}
