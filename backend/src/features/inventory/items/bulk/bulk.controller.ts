@@ -4,24 +4,33 @@ import { Request, Response } from 'express'
 import { BulkService } from './bulk.service.js'
 import { ApiResponse } from '../../../../shared/utils/apiResponse.js'
 import { asyncHandler } from '../../../../shared/middleware/asyncHandler.middleware.js'
+import { BadRequestError } from '../../../../shared/utils/apiError.js'
 
 const bulkService = new BulkService()
 
+function getEmpresaId(req: Request): string {
+  if (!req.empresaId) throw new BadRequestError('El header X-Empresa-Id es requerido')
+  return req.empresaId
+}
+
+function getUserId(req: Request): string {
+  return req.user?.userId ?? 'system'
+}
+
 export class BulkController {
   import = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.userId || 'system'
-    const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+    const userId = getUserId(req)
+    const empresaId = getEmpresaId(req)
 
     // Support both multipart/form-data (req.file) and legacy JSON (req.body.fileContent)
     let fileContent: string
     let fileName: string
     let options: any
 
-    if ((req as any).file) {
+    if (req.file) {
       // Multipart upload — decode buffer to UTF-8 string
-      const file = (req as any).file as Express.Multer.File
-      fileContent = file.buffer.toString('utf-8')
-      fileName = file.originalname
+      fileContent = req.file.buffer.toString('utf-8')
+      fileName = req.file.originalname
       // Options come as form fields (JSON-stringified or individual fields)
       try {
         options = req.body.options ? JSON.parse(req.body.options) : {}
@@ -56,8 +65,8 @@ export class BulkController {
   })
 
   export = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.userId || 'system'
-    const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+    const userId = getUserId(req)
+    const empresaId = getEmpresaId(req)
     const result = await bulkService.exportItems(req.body, userId, empresaId)
 
     let mimeType = 'text/csv'
@@ -85,15 +94,15 @@ export class BulkController {
   })
 
   update = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.userId || 'system'
-    const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+    const userId = getUserId(req)
+    const empresaId = getEmpresaId(req)
     const result = await bulkService.bulkUpdate(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Actualización en lote completada')
   })
 
   delete = asyncHandler(async (req: Request, res: Response): Promise<void> => {
-    const userId = (req as any).user?.userId || 'system'
-    const empresaId = (req.headers['x-empresa-id'] as string) || undefined
+    const userId = getUserId(req)
+    const empresaId = getEmpresaId(req)
     const result = await bulkService.bulkDelete(req.body, userId, empresaId)
     ApiResponse.success(res, result, 'Eliminación en lote completada')
   })

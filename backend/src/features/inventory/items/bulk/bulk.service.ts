@@ -25,7 +25,7 @@ export class BulkService {
   async importItems(
     data: IBulkImportInput,
     userId: string,
-    empresaId?: string
+    empresaId: string
   ): Promise<IBulkImportResult> {
     const operationId = uuid()
 
@@ -83,22 +83,26 @@ export class BulkService {
       return n !== undefined && n >= 0 ? n : undefined
     }
 
-    const isUuid = (v?: string) => !!v && /^[0-9a-fA-F-]{36}$/.test(v)
+    // Matches both UUID (xxxxxxxx-xxxx-...) and cuid (c...) formats used by Prisma
+    const isId = (v?: string) =>
+      !!v &&
+      (/^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/.test(v) ||
+        /^c[a-z0-9]{20,}$/.test(v))
 
     // Pre-load existing catalogs for the empresa to avoid N+1 queries inside the loop.
     // Each map is keyed by normalized lower-case name → id.
     const [existingCategories, existingBrands, existingUnits] =
       await Promise.all([
         prisma.category.findMany({
-          where: empresaId ? { empresaId } : {},
+          where: { empresaId },
           select: { id: true, name: true },
         }),
         prisma.brand.findMany({
-          where: empresaId ? { empresaId } : {},
+          where: { empresaId },
           select: { id: true, name: true },
         }),
         prisma.unit.findMany({
-          where: empresaId ? { empresaId } : {},
+          where: { empresaId },
           select: { id: true, name: true },
         }),
       ])
@@ -145,7 +149,7 @@ export class BulkService {
 
     // ── Phase 2: resolve catalog IDs (sequential only for cache misses) ───
     for (const row of normalized) {
-      if (!isUuid(row.categoryId) && row.category) {
+      if (!isId(row.categoryId) && row.category) {
         const key = row.category.toLowerCase()
         if (categoryCache.has(key)) {
           row.categoryId = categoryCache.get(key)
@@ -157,7 +161,7 @@ export class BulkService {
           if (row.categoryId) categoryCache.set(key, row.categoryId)
         }
       }
-      if (!isUuid(row.brandId) && row.brand) {
+      if (!isId(row.brandId) && row.brand) {
         const key = row.brand.toLowerCase()
         if (brandCache.has(key)) {
           row.brandId = brandCache.get(key)
@@ -166,7 +170,7 @@ export class BulkService {
           if (row.brandId) brandCache.set(key, row.brandId)
         }
       }
-      if (!isUuid(row.unitId) && row.unit) {
+      if (!isId(row.unitId) && row.unit) {
         const key = row.unit.toLowerCase()
         if (unitCache.has(key)) {
           row.unitId = unitCache.get(key)
@@ -177,19 +181,38 @@ export class BulkService {
       }
     }
 
+    // ── Phase 2b: reject rows missing required FK IDs ─────────────────────
+    const validNormalized = normalized.filter((row) => {
+      const missing: string[] = []
+      if (!row.brandId) missing.push('brand')
+      if (!row.categoryId) missing.push('category')
+      if (!row.unitId) missing.push('unit')
+      if (missing.length > 0) {
+        errors.push({
+          rowNumber: (row as any)._rowIndex,
+          field: missing.join(', '),
+          value: missing.map((f) => (row as any)[f] ?? '').join(', '),
+          error: `No se pudo resolver: ${missing.join(', ')}. Verifica que existan en el catálogo.`,
+        })
+        failed++
+        return false
+      }
+      return true
+    })
+
     // ── Phase 3: ONE query to find which SKUs already exist ───────────────
-    const allSkus = normalized.map((r) => r.sku as string)
+    const allSkus = validNormalized.map((r) => r.sku as string)
     const existingItems = await prisma.item.findMany({
-      where: { sku: { in: allSkus }, ...(empresaId ? { empresaId } : {}) },
+      where: { sku: { in: allSkus }, empresaId },
       select: { id: true, sku: true },
     })
     const existingMap = new Map(existingItems.map((it) => [it.sku, it.id]))
 
     // ── Phase 4: separate into creates vs updates ─────────────────────────
-    const toCreate: typeof normalized = []
-    const toUpdate: typeof normalized = []
+    const toCreate: typeof validNormalized = []
+    const toUpdate: typeof validNormalized = []
 
-    for (const row of normalized) {
+    for (const row of validNormalized) {
       const existingId = existingMap.get(row.sku as string)
       if (existingId) {
         if (data.options?.updateExisting) {
@@ -215,21 +238,22 @@ export class BulkService {
         const result = await prisma.item.createMany({
           data: toCreate.map((row) => ({
             sku: row.sku as string,
-            code: (row as any).code ?? row.sku,
+            // Generate a unique code distinct from sku to avoid @@unique([empresaId, code]) conflicts
+            code: (row as any).code ?? this.safeCode(row.name as string),
             name: row.name as string,
             description: row.description,
             costPrice: row.costPrice ?? 0,
             salePrice: row.salePrice ?? 0,
             wholesalePrice: row.wholesalePrice ?? undefined,
-            minStock: row.minStock ?? 0,
+            minStock: row.minStock !== undefined ? Math.round(row.minStock) : 0,
             barcode: row.barcode,
             identity: row.identity,
             location: row.location?.toUpperCase(),
             isActive: true,
-            empresaId: empresaId as string,
-            brandId: row.brandId,
-            categoryId: row.categoryId,
-            unitId: row.unitId,
+            empresaId,
+            brandId: row.brandId as string,
+            categoryId: row.categoryId as string,
+            unitId: row.unitId as string,
           })),
           skipDuplicates: true,
         })

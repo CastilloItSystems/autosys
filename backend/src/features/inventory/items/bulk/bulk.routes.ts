@@ -250,10 +250,10 @@ import {
 } from '../items.validation.js'
 import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
 
-// Accept CSV and Excel files up to 50 MB in memory (no disk I/O)
+// Accept CSV and Excel files up to 10 MB in memory (matches service-side limit)
 const upload = multer({
   storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 },
+  limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       'text/csv',
@@ -295,8 +295,6 @@ router.put(
   validateRequest(itemsBulkUpdateSchema, 'body'),
   itemsController.bulkUpdate
 )
-
-router.post('/test-import', controller.import)
 
 // POST /api/inventory/items/bulk/import  (multipart/form-data)
 router.post(
