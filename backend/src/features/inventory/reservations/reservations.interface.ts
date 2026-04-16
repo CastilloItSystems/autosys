@@ -32,6 +32,7 @@ export interface IReservation {
 export interface IReservationWithRelations extends IReservation {
   item?: any
   exitNote?: any
+  warehouse?: any
 }
 
 export interface ICreateReservationInput {
@@ -49,6 +50,7 @@ export interface ICreateReservationInput {
 
 export interface IUpdateReservationInput {
   quantity?: number | undefined
+  status?: ReservationStatus | undefined
   workOrderId?: string | null | undefined
   saleOrderId?: string | null | undefined
   reference?: string | null | undefined

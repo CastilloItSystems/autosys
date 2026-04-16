@@ -489,7 +489,9 @@ async function changeStatusInternal(
   const material = await findById(db, id)
 
   // Block manual DISPATCHED transition — must be done via exit note delivery
-  if (status === 'DISPATCHED') {
+  // Block manual DISPATCHED transition — must be done via exit note delivery
+  // Allow DISPATCHED when there is an associated dispatch exit note (internal flow).
+  if (status === 'DISPATCHED' && !material.dispatchExitNote) {
     throw new BadRequestError(
       'El despacho de material se realiza desde el almacén a través de la nota de salida'
     )
