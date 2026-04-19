@@ -236,6 +236,8 @@ export async function createServiceOrder(
     internalNotes: dto.observations ?? null, // Map observations to internalNotes (Prisma schema naming)
     assignedTechnicianId: dto.assignedTechnicianId ?? null,
     estimatedDelivery: dto.estimatedDelivery ?? null,
+    currency: (dto.currency as any) ?? 'USD',
+    exchangeRate: dto.exchangeRate ?? null,
     laborTotal: laborTotal.toString(),
     partsTotal: partsTotal.toString(),
     otherTotal: otherTotal.toString(),

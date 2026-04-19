@@ -75,6 +75,7 @@ model Order {
 
   // Relación 1 a 1 con Pre-factura
   preInvoice        PreInvoice?
+  dealerQuotes      DealerQuote[]
 
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt

@@ -32,6 +32,7 @@ export interface GetDealerTestDrivesParams {
 
 export interface SaveDealerTestDriveRequest {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   customerDocument?: string | null;
   customerPhone?: string | null;

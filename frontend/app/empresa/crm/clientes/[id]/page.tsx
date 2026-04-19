@@ -17,23 +17,24 @@ import CustomerTimeline from "@/components/crm/customer/CustomerTimeline";
 import CustomerVehiclePanel from "@/components/crm/customer/CustomerVehiclePanel";
 
 export default function CustomerDetailPage() {
-  const params = useParams<{ id: string }>();
+  const params = useParams();
+  const customerId = (params as { id?: string })?.id;
   const router = useRouter();
   const toast = useRef<Toast>(null);
   const [customer, setCustomer] = useState<CustomerCrm | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!params.id) return;
+    if (!customerId) return;
     setLoading(true);
     customerCrmService
-      .getById(params.id)
+      .getById(customerId)
       .then((res) => setCustomer(res.data))
       .catch(() =>
         toast.current?.show({ severity: "error", summary: "Error al cargar cliente" })
       )
       .finally(() => setLoading(false));
-  }, [params.id]);
+  }, [customerId]);
 
   if (loading) {
     return (

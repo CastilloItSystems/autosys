@@ -15,6 +15,8 @@ export const createTOTSchema = Joi.object({
   technicalInstruction: Joi.string().trim().max(2000).optional().allow('', null),
   estimatedReturnAt: Joi.date().iso().optional().allow(null),
   providerQuote: Joi.number().min(0).optional().allow(null),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional().default('USD'),
+  exchangeRate: Joi.number().positive().optional().allow(null),
   notes: Joi.string().trim().max(2000).optional().allow('', null),
 })
 
@@ -34,6 +36,8 @@ export const updateTOTSchema = Joi.object({
   providerQuote: Joi.number().min(0).optional().allow(null),
   finalCost: Joi.number().min(0).optional().allow(null),
   providerInvoiceRef: Joi.string().trim().max(100).optional().allow('', null),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
   notes: Joi.string().trim().max(2000).optional().allow('', null),
 }).min(1).messages({ 'object.min': 'Debe proporcionar al menos un campo para actualizar' })
 

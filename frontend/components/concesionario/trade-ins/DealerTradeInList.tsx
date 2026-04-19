@@ -210,7 +210,11 @@ export default function DealerTradeInList() {
         scrollable
       >
         <Column field="tradeInNumber" header="Retoma" sortable />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerTradeIn) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column field="vehicleBrand" header="Marca" />
         <Column field="vehicleModel" header="Modelo" />
         <Column

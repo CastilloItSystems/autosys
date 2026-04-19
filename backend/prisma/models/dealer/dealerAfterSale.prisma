@@ -22,6 +22,9 @@ model DealerAfterSale {
   dealerUnitId        String?
   dealerUnit          DealerUnit?            @relation("DealerUnitAfterSales", fields: [dealerUnitId], references: [id], onDelete: SetNull)
 
+  customerId          String
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   referenceType       String?
   referenceId         String?
 
@@ -48,6 +51,7 @@ model DealerAfterSale {
   @@map("dealer_after_sales")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([type])
   @@index([isActive])

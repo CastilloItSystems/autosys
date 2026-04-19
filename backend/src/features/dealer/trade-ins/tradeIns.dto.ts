@@ -2,6 +2,7 @@ import { IDealerTradeIn } from './tradeIns.interface.js'
 
 export class CreateDealerTradeInDTO {
   targetDealerUnitId?: string
+  customerId: string
   customerName: string
   customerDocument?: string
   customerPhone?: string
@@ -23,6 +24,7 @@ export class CreateDealerTradeInDTO {
   status?: string
 
   constructor(data: Record<string, unknown>) {
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     this.vehicleBrand = String(data.vehicleBrand).trim()
     if (data.targetDealerUnitId != null && String(data.targetDealerUnitId).trim() !== '')
@@ -57,6 +59,7 @@ export class CreateDealerTradeInDTO {
 
 export class UpdateDealerTradeInDTO {
   targetDealerUnitId?: string
+  customerId?: string
   customerName?: string
   customerDocument?: string | null
   customerPhone?: string | null
@@ -81,6 +84,7 @@ export class UpdateDealerTradeInDTO {
   constructor(data: Record<string, unknown>) {
     if (data.targetDealerUnitId !== undefined)
       this.targetDealerUnitId = data.targetDealerUnitId ? String(data.targetDealerUnitId).trim() : undefined
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.customerName !== undefined) this.customerName = String(data.customerName).trim()
     if (data.customerDocument !== undefined) this.customerDocument = data.customerDocument ? String(data.customerDocument).trim() : null
     if (data.customerPhone !== undefined) this.customerPhone = data.customerPhone ? String(data.customerPhone).trim() : null
@@ -107,6 +111,7 @@ export class UpdateDealerTradeInDTO {
 
 export class DealerTradeInResponseDTO {
   id: string
+  customerId: string
   tradeInNumber: string
   status: string
   customerName: string
@@ -116,15 +121,18 @@ export class DealerTradeInResponseDTO {
   appraisedValue?: any | null
   approvedValue?: any | null
   createdAt: Date
+  customer: IDealerTradeIn['customer']
   targetDealerUnit?: IDealerTradeIn['targetDealerUnit']
 
   constructor(data: IDealerTradeIn) {
     this.id = data.id
+    this.customerId = data.customerId
     this.tradeInNumber = data.tradeInNumber
     this.status = data.status
     this.customerName = data.customerName
     this.vehicleBrand = data.vehicleBrand
     this.createdAt = data.createdAt
+    this.customer = data.customer
     if (data.vehicleModel != null) this.vehicleModel = data.vehicleModel
     if (data.requestedValue != null) this.requestedValue = data.requestedValue
     if (data.appraisedValue != null) this.appraisedValue = data.appraisedValue

@@ -5,6 +5,7 @@ const STATUSES = ['OPEN', 'IN_PROGRESS', 'RESOLVED', 'CLOSED', 'CANCELLED']
 
 export const createDealerAfterSaleSchema = Joi.object({
   dealerUnitId: Joi.string().optional().allow(null, ''),
+  customerId: Joi.string().required(),
   referenceType: Joi.string().max(80).optional().allow(null, ''),
   referenceId: Joi.string().optional().allow(null, ''),
   type: Joi.string().valid(...TYPES).required(),
@@ -22,6 +23,7 @@ export const createDealerAfterSaleSchema = Joi.object({
 
 export const updateDealerAfterSaleSchema = Joi.object({
   dealerUnitId: Joi.string().optional().allow(null, ''),
+  customerId: Joi.string().optional(),
   referenceType: Joi.string().max(80).optional().allow(null, ''),
   referenceId: Joi.string().optional().allow(null, ''),
   type: Joi.string().valid(...TYPES).optional(),

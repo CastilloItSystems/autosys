@@ -4,6 +4,7 @@ export interface IDealerTradeIn {
   id: string
   empresaId: string
   targetDealerUnitId?: string | null
+  customerId: string
   tradeInNumber: string
   status: DealerTradeInStatus
   customerName: string
@@ -27,6 +28,14 @@ export interface IDealerTradeIn {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   targetDealerUnit?: {
     id: string
     code?: string | null

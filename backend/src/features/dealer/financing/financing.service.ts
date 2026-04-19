@@ -8,6 +8,16 @@ import { IDealerFinancing, IDealerFinancingFilters } from './financing.interface
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const FINANCING_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   dealerUnit: {
     select: {
       id: true,
@@ -50,19 +60,37 @@ class DealerFinancingService {
     return `${prefix}${String(countToday + 1).padStart(4, '0')}`
   }
 
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
+  }
+
   async create(data: CreateDealerFinancingDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerFinancing> {
     const financingNumber = await this.generateNumber(empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
     const status = (data.status as DealerFinancingStatus) || DealerFinancingStatus.DRAFT
     const created = await (db as PrismaClient).dealerFinancing.create({
       data: {
         empresaId,
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         financingNumber,
         status,
-        customerName: data.customerName,
-        customerDocument: data.customerDocument ?? null,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerDocument: data.customerDocument ?? customer.taxId ?? null,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         bankName: data.bankName ?? null,
         planName: data.planName ?? null,
         requestedAmount: data.requestedAmount ?? null,
@@ -71,7 +99,9 @@ class DealerFinancingService {
         termMonths: data.termMonths ?? null,
         annualRatePct: data.annualRatePct ?? null,
         installmentAmount: data.installmentAmount ?? null,
-        currency: data.currency ?? 'USD',
+        currency: (data.currency as any) ?? 'USD',
+        exchangeRate: data.exchangeRate ?? null,
+        exchangeRateSource: (data.exchangeRateSource as any) ?? null,
         notes: data.notes ?? null,
         ...(status === DealerFinancingStatus.SUBMITTED ? { submittedAt: new Date() } : {}),
         ...(status === DealerFinancingStatus.APPROVED ? { approvedAt: new Date() } : {}),
@@ -118,6 +148,7 @@ class DealerFinancingService {
         { financingNumber: { contains: search, mode: 'insensitive' } },
         { customerName: { contains: search, mode: 'insensitive' } },
         { customerDocument: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
         { bankName: { contains: search, mode: 'insensitive' } },
       ]
     }
@@ -147,9 +178,21 @@ class DealerFinancingService {
     const current = await this.findById(id, empresaId, db)
     const status = data.status as DealerFinancingStatus | undefined
     if (status) this.validateTransition(current.status, status)
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+    }
     const updated = await (db as PrismaClient).dealerFinancing.update({
       where: { id },
       data: {
+        ...(data.customerId !== undefined
+          ? {
+              customer: {
+                connect: {
+                  id: data.customerId,
+                },
+              },
+            }
+          : {}),
         ...(data.customerName !== undefined ? { customerName: data.customerName } : {}),
         ...(data.customerDocument !== undefined ? { customerDocument: data.customerDocument || null } : {}),
         ...(data.customerPhone !== undefined ? { customerPhone: data.customerPhone || null } : {}),
@@ -162,7 +205,11 @@ class DealerFinancingService {
         ...(data.termMonths !== undefined ? { termMonths: data.termMonths ?? null } : {}),
         ...(data.annualRatePct !== undefined ? { annualRatePct: data.annualRatePct ?? null } : {}),
         ...(data.installmentAmount !== undefined ? { installmentAmount: data.installmentAmount ?? null } : {}),
-        ...(data.currency !== undefined ? { currency: data.currency || null } : {}),
+        ...(data.currency !== undefined ? { currency: data.currency ? (String(data.currency).toUpperCase() as any) : null } : {}),
+        ...(data.exchangeRate !== undefined ? { exchangeRate: data.exchangeRate ?? null } : {}),
+        ...(data.exchangeRateSource !== undefined
+          ? { exchangeRateSource: data.exchangeRateSource ? (data.exchangeRateSource as any) : null }
+          : {}),
         ...(data.notes !== undefined ? { notes: data.notes || null } : {}),
         ...(data.status !== undefined ? { status } : {}),
         ...(data.isActive !== undefined ? { isActive: data.isActive } : {}),

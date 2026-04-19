@@ -222,7 +222,7 @@ export default function ExitNoteForm({
       };
 
       if (isEditing && exitNote) {
-        await exitNoteService.update(exitNote.id, payload);
+        await exitNoteService.update(exitNote.id, payload as any);
       } else {
         await exitNoteService.create(payload as any);
       }

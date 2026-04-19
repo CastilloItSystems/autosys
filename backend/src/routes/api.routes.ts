@@ -12,6 +12,7 @@ import salesRoutes from '../features/sales/index.js'
 import crmRoutes from '../features/crm/index.js'
 import workshopRoutes from '../features/workshop/index.js'
 import dealerRoutes from '../features/dealer/index.js'
+import exchangeRateRoutes from '../features/exchangeRates/index.js'
 
 // Middlewares
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
@@ -51,5 +52,8 @@ router.use('/workshop', authenticate, extractEmpresa, workshopRoutes)
 
 // Módulo Concesionario
 router.use('/dealer', authenticate, extractEmpresa, dealerRoutes)
+
+// Tasas de cambio (cross-cutting)
+router.use('/exchange-rates', authenticate, extractEmpresa, exchangeRateRoutes)
 
 export default router

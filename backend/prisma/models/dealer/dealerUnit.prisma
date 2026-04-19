@@ -26,6 +26,10 @@ model DealerUnit {
 
   modelId       String?
   model         Model?              @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  itemId        String
+  item          Item                @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouseId   String
+  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   code          String?
   version       String?
@@ -71,6 +75,8 @@ model DealerUnit {
   @@index([empresaId])
   @@index([brandId])
   @@index([modelId])
+  @@index([itemId])
+  @@index([warehouseId])
   @@index([status])
   @@index([condition])
   @@index([isActive])

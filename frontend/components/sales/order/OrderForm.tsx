@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
@@ -40,6 +40,28 @@ import { Button } from "primereact/button";
 import customerService from "@/app/api/sales/customerService";
 import CustomerForm from "@/components/sales/customer/CustomerForm";
 import FormActionButtons from "@/components/common/FormActionButtons";
+
+/**
+ * Convert a USD base price to the target currency.
+ * - USD  → as-is
+ * - VES  → price × usdVesRate
+ * - EUR  → price × usdVesRate / eurVesRate
+ */
+function convertPriceFromUsd(
+  priceUsd: number,
+  currency: string,
+  usdVesRate: number | null,
+  currencyVesRate: number | null | undefined,
+): number {
+  if (!priceUsd) return 0;
+  if (currency === "VES" && usdVesRate && usdVesRate > 0) {
+    return Math.round(priceUsd * usdVesRate * 100) / 100;
+  }
+  if (currency === "EUR" && usdVesRate && currencyVesRate && currencyVesRate > 0) {
+    return Math.round((priceUsd * usdVesRate / currencyVesRate) * 100) / 100;
+  }
+  return priceUsd; // USD or no rate available
+}
 
 /** Column widths */
 const COLS: ItemRowColWidths = {
@@ -162,9 +184,50 @@ export default function OrderForm({
   const watchDiscount = watch("discountAmount") || 0;
   const watchIgtf = watch("igtfApplies") || false;
   const watchCurrency = watch("currency");
+  const watchExchangeRate = watch("exchangeRate");
 
   /* ── BCV Rate ── */
-  const { rate: bcvRate, loading: bcvLoading } = useBcvRate();
+  const { rate: bcvRate, loading: bcvLoading } = useBcvRate(
+    (watchCurrency || "USD") as "USD" | "EUR" | "VES"
+  );
+  // Always fetch USD/VES for cross-reference display when primary currency is VES
+  const { rate: referenceUsdRate } = useBcvRate("USD");
+
+  // Track currency changes to detect when we need to reconvert
+  const prevCurrencyRef = useRef<string | undefined>(undefined);
+
+  // When bcvRate updates (either on mount or after currency change):
+  // 1. Auto-fill exchange rate field
+  // 2. Reconvert item prices if currency changed
+  useEffect(() => {
+    const currencyChanged =
+      prevCurrencyRef.current !== undefined &&
+      prevCurrencyRef.current !== watchCurrency;
+    prevCurrencyRef.current = watchCurrency;
+
+    // Auto-fill exchange rate for new orders
+    if (bcvRate && bcvRate > 1 && watchCurrency !== "VES" && !isEditing) {
+      setValue("exchangeRate", bcvRate);
+      setValue("exchangeRateSource", "BCV_AUTO");
+    }
+
+    // Reconvert item prices when currency actually changed
+    if (currencyChanged) {
+      const currentItems = (watch("items") || []) as any[];
+      currentItems.forEach((item: any, idx: number) => {
+        const storedItem = selectedItemsMap[item.itemId];
+        if (!storedItem?.salePrice) return;
+        const priceUsd = Number(storedItem.salePrice);
+        const converted = convertPriceFromUsd(
+          priceUsd,
+          watchCurrency,
+          referenceUsdRate,
+          bcvRate && bcvRate > 1 ? bcvRate : null,
+        );
+        setValue(`items.${idx}.unitPrice`, converted);
+      });
+    }
+  }, [bcvRate]);
 
   /* ── Real-time calculation ── */
   const watchItemsSerialized = JSON.stringify(watchItems);
@@ -499,7 +562,7 @@ export default function OrderForm({
               { label: "Producto (SKU)", style: COLS.product },
               { label: "Nombre en Registro", style: COLS.itemName! },
               { label: "Cant.", style: COLS.quantity },
-              { label: "Precio Unit.", style: COLS.unitCost },
+              { label: "Precio Unit.", style: COLS.unitCost! },
               { label: "Desc. %", style: COLS.discountPercent! },
               { label: "Impuesto", style: COLS.taxType! },
               { label: "Total Línea", style: COLS.totalLine! },
@@ -511,6 +574,7 @@ export default function OrderForm({
                 register={register}
                 rowErrors={(errors.items as any)?.[index]}
                 itemOptions={itemOptions}
+                currency={watchCurrency}
                 fieldPaths={{
                   itemId: `items.${index}.itemId`,
                   itemName: `items.${index}.itemName`,
@@ -542,10 +606,14 @@ export default function OrderForm({
                     }));
                     setValue(`items.${index}.itemName`, item.name);
                     if (item.salePrice) {
-                      setValue(
-                        `items.${index}.unitPrice`,
-                        Number(item.salePrice),
+                      const priceUsd = Number(item.salePrice);
+                      const converted = convertPriceFromUsd(
+                        priceUsd,
+                        watchCurrency,
+                        referenceUsdRate,
+                        bcvRate && bcvRate > 1 ? bcvRate : null,
                       );
+                      setValue(`items.${index}.unitPrice`, converted);
                     }
                   }
                 }}
@@ -561,7 +629,7 @@ export default function OrderForm({
 
           {/* ══ 4. DESCUENTO GENERAL + IGTF ══════════════════════════════════ */}
           <div className="col-12 md:col-6 field">
-            <label>Descuento General ($)</label>
+            <label>Descuento General ({watchCurrency === "VES" ? "Bs." : watchCurrency === "EUR" ? "€" : "$"})</label>
             <Controller
               name="discountAmount"
               control={control}
@@ -569,9 +637,9 @@ export default function OrderForm({
                 <InputNumber
                   value={field.value}
                   onValueChange={(e) => field.onChange(e.value)}
-                  mode="currency"
-                  currency="USD"
-                  locale="en-US"
+                  mode="decimal"
+                  minFractionDigits={2}
+                  maxFractionDigits={2}
                   min={0}
                 />
               )}
@@ -604,7 +672,12 @@ export default function OrderForm({
           {/* ══ 5. RESUMEN FINANCIERO ════════════════════════════════════════ */}
           {calcResult && (
             <div className="col-12">
-              <OrderFinancialSummary totals={calcResult} />
+              <OrderFinancialSummary
+                totals={calcResult}
+                currency={watchCurrency}
+                exchangeRate={watchExchangeRate}
+                referenceUsdRate={referenceUsdRate}
+              />
             </div>
           )}
 

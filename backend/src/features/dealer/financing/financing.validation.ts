@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 export const createDealerFinancingSchema = Joi.object({
   dealerUnitId: Joi.string().required(),
+  customerId: Joi.string().required(),
   customerName: Joi.string().max(180).required(),
   customerDocument: Joi.string().max(60).optional().allow(null, ''),
   customerPhone: Joi.string().max(40).optional().allow(null, ''),
@@ -14,13 +15,16 @@ export const createDealerFinancingSchema = Joi.object({
   termMonths: Joi.number().integer().min(1).optional().allow(null),
   annualRatePct: Joi.number().min(0).max(100).optional().allow(null),
   installmentAmount: Joi.number().min(0).optional().allow(null),
-  currency: Joi.string().max(8).optional().allow(null, ''),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  exchangeRateSource: Joi.string().valid('BCV_AUTO', 'MANUAL').optional().allow(null, ''),
   notes: Joi.string().optional().allow(null, ''),
   status: Joi.string().valid('DRAFT', 'SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'REJECTED', 'CANCELLED', 'DISBURSED').optional(),
 })
 
 export const updateDealerFinancingSchema = createDealerFinancingSchema.keys({
   dealerUnitId: Joi.string().optional(),
+  customerId: Joi.string().optional(),
   customerName: Joi.string().max(180).optional(),
   isActive: Joi.boolean().optional(),
 })

@@ -22,6 +22,7 @@ export interface IDealerReservation {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   reservationNumber: string
   status: DealerReservationStatus
   customerName: string
@@ -30,7 +31,9 @@ export interface IDealerReservation {
   customerEmail?: string | null
   offeredPrice?: any | null
   depositAmount?: any | null
-  currency?: string | null
+  currency: 'USD' | 'VES' | 'EUR'
+  exchangeRate?: any | null
+  exchangeRateSource?: 'BCV_AUTO' | 'MANUAL' | null
   reservedAt: Date
   expiresAt?: Date | null
   confirmedAt?: Date | null
@@ -41,6 +44,14 @@ export interface IDealerReservation {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   dealerUnit: IDealerReservationUnit
 }
 

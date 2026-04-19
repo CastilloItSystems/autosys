@@ -160,7 +160,10 @@ const FinanceDashboard = () => {
   // =============================================
   const calculateFinancialStats = () => {
     const totalIngresos = invoices.reduce((sum, inv) => sum + inv.total, 0);
-    const totalPagado = invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
+    const totalPagado = invoices.reduce(
+      (sum, inv) => sum + (inv.paidAmount ?? 0),
+      0,
+    );
     const totalPendiente = totalIngresos - totalPagado;
 
     const totalEgresos = purchaseOrders.reduce(
@@ -565,7 +568,7 @@ const FinanceDashboard = () => {
               <Column
                 field="paidAmount"
                 header="Pagado"
-                body={(rowData) => formatPrice(rowData.paidAmount)}
+                body={(rowData) => formatPrice(rowData.paidAmount ?? 0)}
                 sortable
               />
               <Column
@@ -844,7 +847,7 @@ const FinanceDashboard = () => {
                 <strong>Cliente:</strong>{" "}
                 {typeof selectedInvoice.customer === "string"
                   ? selectedInvoice.customer
-                  : selectedInvoice.customer.nombre}
+                  : selectedInvoice.customer?.nombre ?? selectedInvoice.customer?.name ?? "N/A"}
               </div>
               <div>
                 <strong>Fecha de Emisión:</strong>{" "}

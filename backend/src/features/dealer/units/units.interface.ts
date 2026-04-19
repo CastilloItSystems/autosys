@@ -14,10 +14,25 @@ export interface IDealerUnitModel {
   year?: number | null
 }
 
+export interface IDealerUnitItem {
+  id: string
+  code: string
+  sku: string
+  name: string
+}
+
+export interface IDealerUnitWarehouse {
+  id: string
+  code: string
+  name: string
+}
+
 export interface IDealerUnit {
   id: string
   empresaId: string
   brandId: string
+  itemId: string
+  warehouseId: string
   modelId?: string | null
   code?: string | null
   version?: string | null
@@ -43,6 +58,8 @@ export interface IDealerUnit {
   updatedAt: Date
   brand: IDealerUnitBrand
   model?: IDealerUnitModel | null
+  item: IDealerUnitItem
+  warehouse: IDealerUnitWarehouse
 }
 
 export interface IDealerUnitFilters {

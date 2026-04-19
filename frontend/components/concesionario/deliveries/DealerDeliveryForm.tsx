@@ -6,6 +6,8 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerDeliveryService from "@/app/api/dealer/dealerDeliveryService";
 import type { DealerDelivery } from "@/libs/interfaces/dealer/dealerDelivery.interface";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -19,6 +21,7 @@ const STATUS_OPTIONS = [
 
 type DealerDeliveryFormValues = {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   scheduledAt: Date | null;
   status: string;
@@ -44,11 +47,13 @@ export default function DealerDeliveryForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerDeliveryFormValues>({
     mode: "onBlur",
     defaultValues: {
       dealerUnitId: delivery?.dealerUnit?.id || "",
+      customerId: delivery?.customerId || "",
       customerName: delivery?.customerName || "",
       scheduledAt: delivery?.scheduledAt ? new Date(delivery.scheduledAt) : null,
       status: delivery?.status || "SCHEDULED",
@@ -60,6 +65,7 @@ export default function DealerDeliveryForm({
     try {
       const payload = {
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         scheduledAt: data.scheduledAt ? data.scheduledAt.toISOString() : "",
         status: data.status,
@@ -74,6 +80,27 @@ export default function DealerDeliveryForm({
       handleFormError(error, toast);
     } finally {
       onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (customer) {
+        setValue("customerName", customer.name || "");
+      }
+    } catch {
+      // noop
     }
   };
 
@@ -106,21 +133,21 @@ export default function DealerDeliveryForm({
         </div>
 
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
             rules={{ required: "Cliente requerido" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 

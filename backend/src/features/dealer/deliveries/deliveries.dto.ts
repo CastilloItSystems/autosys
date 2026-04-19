@@ -2,6 +2,7 @@ import { IDealerDelivery } from './deliveries.interface.js'
 
 export class CreateDealerDeliveryDTO {
   dealerUnitId: string
+  customerId: string
   customerName: string
   customerDocument?: string
   customerPhone?: string
@@ -17,6 +18,7 @@ export class CreateDealerDeliveryDTO {
 
   constructor(data: Record<string, unknown>) {
     this.dealerUnitId = String(data.dealerUnitId).trim()
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     this.scheduledAt = new Date(String(data.scheduledAt))
     if (data.customerDocument != null && String(data.customerDocument).trim() !== '')
@@ -37,6 +39,7 @@ export class CreateDealerDeliveryDTO {
 }
 
 export class UpdateDealerDeliveryDTO {
+  customerId?: string
   customerName?: string
   customerDocument?: string | null
   customerPhone?: string | null
@@ -52,6 +55,7 @@ export class UpdateDealerDeliveryDTO {
   isActive?: boolean
 
   constructor(data: Record<string, unknown>) {
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.customerName !== undefined) this.customerName = String(data.customerName).trim()
     if (data.customerDocument !== undefined) this.customerDocument = data.customerDocument ? String(data.customerDocument).trim() : null
     if (data.customerPhone !== undefined) this.customerPhone = data.customerPhone ? String(data.customerPhone).trim() : null
@@ -70,6 +74,7 @@ export class UpdateDealerDeliveryDTO {
 
 export class DealerDeliveryResponseDTO {
   id: string
+  customerId: string
   deliveryNumber: string
   status: string
   customerName: string
@@ -79,10 +84,12 @@ export class DealerDeliveryResponseDTO {
   documentsSigned: boolean
   accessoriesDelivered: boolean
   createdAt: Date
+  customer: IDealerDelivery['customer']
   dealerUnit: IDealerDelivery['dealerUnit']
 
   constructor(data: IDealerDelivery) {
     this.id = data.id
+    this.customerId = data.customerId
     this.deliveryNumber = data.deliveryNumber
     this.status = data.status
     this.customerName = data.customerName
@@ -91,6 +98,7 @@ export class DealerDeliveryResponseDTO {
     this.documentsSigned = data.documentsSigned
     this.accessoriesDelivered = data.accessoriesDelivered
     this.createdAt = data.createdAt
+    this.customer = data.customer
     this.dealerUnit = data.dealerUnit
     if (data.deliveredAt != null) this.deliveredAt = data.deliveredAt
   }

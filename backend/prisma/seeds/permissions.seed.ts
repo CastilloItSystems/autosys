@@ -175,6 +175,12 @@ export const PERMISSIONS = [
   { code: 'dealer.update', description: 'Actualizar registros en concesionario' },
   { code: 'dealer.delete', description: 'Eliminar registros en concesionario' },
   { code: 'dealer.approve', description: 'Aprobar acciones de concesionario' },
+
+  // Tasas de Cambio
+  { code: 'exchange_rates.view', description: 'Ver tasas de cambio' },
+  { code: 'exchange_rates.create', description: 'Crear tasas de cambio manuales' },
+  { code: 'exchange_rates.update', description: 'Actualizar tasas de cambio' },
+  { code: 'exchange_rates.delete', description: 'Eliminar tasas de cambio' },
 ]
 
 export default async function seedPermissions(prisma: PrismaClient) {

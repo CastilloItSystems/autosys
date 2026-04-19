@@ -17,15 +17,10 @@ export const supplierCodeSchema = Joi.object({
 
 export const createSupplierSchema = Joi.object({
   code: Joi.string()
-    .required()
+    .optional()
     .max(50)
-    .uppercase()
-    .regex(/^[A-Z0-9_-]+$/)
     .messages({
-      'any.required': 'code es requerido',
       'string.max': 'code no puede exceder 50 caracteres',
-      'string.pattern.base':
-        'code solo puede contener mayúsculas, números, guiones y guiones bajos',
     }),
 
   name: Joi.string().required().max(200).messages({

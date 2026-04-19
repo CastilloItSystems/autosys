@@ -6,6 +6,7 @@ export interface DealerReservation {
   id: string;
   empresaId: string;
   dealerUnitId: string;
+  customerId: string;
   reservationNumber: string;
   status: DealerReservationStatus;
   customerName: string;
@@ -14,7 +15,9 @@ export interface DealerReservation {
   customerEmail?: string | null;
   offeredPrice?: string | number | null;
   depositAmount?: string | number | null;
-  currency?: string | null;
+  currency: "USD" | "VES" | "EUR";
+  exchangeRate?: string | number | null;
+  exchangeRateSource?: "BCV_AUTO" | "MANUAL" | null;
   reservedAt: string;
   expiresAt?: string | null;
   confirmedAt?: string | null;
@@ -25,5 +28,13 @@ export interface DealerReservation {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  customer: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    taxId?: string | null;
+  };
   dealerUnit: Pick<DealerUnit, "id" | "code" | "vin" | "plate" | "status" | "brand" | "model">;
 }

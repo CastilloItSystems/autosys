@@ -81,6 +81,15 @@ class DealerQuotesController {
     const result = await dealerQuotesService.delete(id, empresaId, userId, req.prisma)
     return ApiResponse.success(res, result, 'Cotización desactivada exitosamente')
   })
+
+  convertAndFiscalize = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = getUserId(req)
+    const { id } = req.params as { id: string }
+    const force = Boolean(req.body?.force)
+    const updated = await dealerQuotesService.convertAndFiscalize(id, empresaId, userId, req.prisma, force)
+    return ApiResponse.success(res, new DealerQuoteResponseDTO(updated), 'Cotización convertida y fiscalizada exitosamente')
+  })
 }
 
 export default new DealerQuotesController()

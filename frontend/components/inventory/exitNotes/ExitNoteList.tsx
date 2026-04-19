@@ -112,7 +112,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
         page: page + 1,
         limit: rows,
         search: debouncedSearch || undefined,
-        type: fixedType || undefined, // Filtro predefinido (ej. WORKSHOP_SUPPLY)
+        type: (fixedType as any) || undefined, // Filtro predefinido (ej. WORKSHOP_SUPPLY)
       });
       setExitNotes(Array.isArray(res.data) ? res.data : []);
       setTotalRecords(res.meta?.total || 0);

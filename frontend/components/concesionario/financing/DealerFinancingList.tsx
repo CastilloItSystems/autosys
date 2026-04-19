@@ -244,7 +244,11 @@ export default function DealerFinancingList() {
         scrollable
       >
         <Column field="financingNumber" header="Financiamiento" sortable />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerFinancing) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column
           header="Unidad"
           body={(row: DealerFinancing) =>

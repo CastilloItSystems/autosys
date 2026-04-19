@@ -102,7 +102,14 @@ const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);
     try {
-      await movementService.create(data);
+      await movementService.create({
+        ...data,
+        warehouseFromId: data.warehouseFromId ?? undefined,
+        warehouseToId: data.warehouseToId ?? undefined,
+        unitCost: data.unitCost ?? undefined,
+        reference: data.reference ?? undefined,
+        notes: data.notes ?? undefined,
+      });
       toast?.current?.show({
         severity: "success",
         summary: "Éxito",

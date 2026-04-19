@@ -51,6 +51,8 @@ export const createQuotationSchema = Joi.object({
   validUntil: Joi.date().iso().optional().allow(null),
   notes: Joi.string().trim().max(2000).optional().allow('', null),
   internalNotes: Joi.string().trim().max(2000).optional().allow('', null),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional().default('USD'),
+  exchangeRate: Joi.number().positive().optional().allow(null),
   items: Joi.array().items(itemSchema).min(1).required().messages({
     'any.required': 'Debe incluir al menos un ítem en la cotización',
     'array.min': 'Debe incluir al menos un ítem en la cotización',
@@ -61,6 +63,8 @@ export const updateQuotationSchema = Joi.object({
   validUntil: Joi.date().iso().optional().allow(null),
   notes: Joi.string().trim().max(2000).optional().allow('', null),
   internalNotes: Joi.string().trim().max(2000).optional().allow('', null),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
   items: Joi.array().items(itemSchema).min(1).optional(),
 }).min(1).messages({ 'object.min': 'Debe proporcionar al menos un campo para actualizar' })
 

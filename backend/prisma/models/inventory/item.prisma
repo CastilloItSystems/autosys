@@ -91,6 +91,7 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
+  dealerUnits      DealerUnit[]
   stockAlerts         StockAlert[]
   // Workshop: repuestos consumidos en OT
   serviceOrderItems   ServiceOrderItem[]

@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 export const createDealerDeliverySchema = Joi.object({
   dealerUnitId: Joi.string().required(),
+  customerId: Joi.string().required(),
   customerName: Joi.string().max(180).required(),
   customerDocument: Joi.string().max(60).optional().allow(null, ''),
   customerPhone: Joi.string().max(40).optional().allow(null, ''),
@@ -18,6 +19,7 @@ export const createDealerDeliverySchema = Joi.object({
 
 export const updateDealerDeliverySchema = createDealerDeliverySchema.keys({
   dealerUnitId: Joi.string().optional(),
+  customerId: Joi.string().optional(),
   customerName: Joi.string().max(180).optional(),
   scheduledAt: Joi.date().iso().optional(),
   isActive: Joi.boolean().optional(),

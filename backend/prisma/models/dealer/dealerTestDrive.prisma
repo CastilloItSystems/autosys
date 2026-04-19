@@ -15,6 +15,9 @@ model DealerTestDrive {
   dealerUnitId       String
   dealerUnit         DealerUnit            @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId         String
+  customer           Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   testDriveNumber    String
   status             DealerTestDriveStatus @default(SCHEDULED)
 
@@ -41,6 +44,7 @@ model DealerTestDrive {
   @@map("dealer_test_drives")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([scheduledAt])

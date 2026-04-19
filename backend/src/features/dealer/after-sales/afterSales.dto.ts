@@ -2,6 +2,7 @@ import { IDealerAfterSale } from './afterSales.interface.js'
 
 export class CreateDealerAfterSaleDTO {
   dealerUnitId?: string
+  customerId: string
   referenceType?: string
   referenceId?: string
   type: string
@@ -18,6 +19,7 @@ export class CreateDealerAfterSaleDTO {
 
   constructor(data: Record<string, unknown>) {
     this.type = String(data.type).trim()
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     this.title = String(data.title).trim()
     if (data.dealerUnitId != null && String(data.dealerUnitId).trim() !== '') this.dealerUnitId = String(data.dealerUnitId).trim()
@@ -38,6 +40,7 @@ export class CreateDealerAfterSaleDTO {
 
 export class UpdateDealerAfterSaleDTO {
   dealerUnitId?: string | null
+  customerId?: string
   referenceType?: string | null
   referenceId?: string | null
   type?: string
@@ -55,6 +58,7 @@ export class UpdateDealerAfterSaleDTO {
 
   constructor(data: Record<string, unknown>) {
     if (data.dealerUnitId !== undefined) this.dealerUnitId = data.dealerUnitId ? String(data.dealerUnitId).trim() : null
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.referenceType !== undefined) this.referenceType = data.referenceType ? String(data.referenceType).trim() : null
     if (data.referenceId !== undefined) this.referenceId = data.referenceId ? String(data.referenceId).trim() : null
     if (data.type !== undefined) this.type = String(data.type).trim()
@@ -75,6 +79,7 @@ export class UpdateDealerAfterSaleDTO {
 
 export class DealerAfterSaleResponseDTO {
   id: string
+  customerId: string
   caseNumber: string
   type: string
   status: string
@@ -83,16 +88,19 @@ export class DealerAfterSaleResponseDTO {
   dueAt?: Date | null
   satisfactionScore?: number | null
   createdAt: Date
+  customer: IDealerAfterSale['customer']
   dealerUnit?: IDealerAfterSale['dealerUnit']
 
   constructor(data: IDealerAfterSale) {
     this.id = data.id
+    this.customerId = data.customerId
     this.caseNumber = data.caseNumber
     this.type = data.type
     this.status = data.status
     this.customerName = data.customerName
     this.title = data.title
     this.createdAt = data.createdAt
+    this.customer = data.customer
     if (data.dueAt != null) this.dueAt = data.dueAt
     if (data.satisfactionScore != null) this.satisfactionScore = data.satisfactionScore
     if (data.dealerUnit !== undefined) this.dealerUnit = data.dealerUnit

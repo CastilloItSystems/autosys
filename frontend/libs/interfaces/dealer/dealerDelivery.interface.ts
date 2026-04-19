@@ -4,6 +4,7 @@ export type DealerDeliveryStatus = "SCHEDULED" | "READY" | "DELIVERED" | "CANCEL
 
 export interface DealerDelivery {
   id: string;
+  customerId: string;
   deliveryNumber: string;
   status: DealerDeliveryStatus;
   customerName: string;
@@ -13,5 +14,13 @@ export interface DealerDelivery {
   documentsSigned: boolean;
   accessoriesDelivered: boolean;
   createdAt: string;
+  customer: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    taxId?: string | null;
+  };
   dealerUnit: Pick<DealerUnit, "id" | "code" | "vin" | "brand" | "model">;
 }

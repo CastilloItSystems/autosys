@@ -7,7 +7,13 @@ export * from './serviceOrder.interface'
 export * from './appointment.interface'
 export * from './reception.interface'
 export * from './laborTime.interface'
-export * from './qualityCheck.interface'
+export {
+  type QualityCheckStatus,
+  type InspectorRef,
+  type QualityCheck,
+  type CreateQualityCheckInput,
+  type SubmitQualityCheckInput,
+} from './qualityCheck.interface'
 export * from './warranty.interface'
 export * from './workshopShift.interface'
 export * from './checklist.interface'
@@ -22,3 +28,6 @@ export * from './report.interface'
 export * from './quotation.interface'
 export * from './tot.interface'
 export * from './garita.interface'
+export * from './delivery.interface'
+export * from './rework.interface'
+export * from './legacy.interface'

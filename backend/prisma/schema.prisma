@@ -401,6 +401,15 @@ model Customer {
   warranties        WorkshopWarranty[]
   workshopQuotations WorkshopQuotation[]
 
+  // Relaciones Concesionario
+  dealerQuotes       DealerQuote[]
+  dealerReservations DealerReservation[]
+  dealerTestDrives   DealerTestDrive[]
+  dealerDeliveries   DealerDelivery[]
+  dealerFinancing    DealerFinancing[]
+  dealerTradeIns     DealerTradeIn[]
+  dealerAfterSales   DealerAfterSale[]
+
   // Relaciones CRM: Cotizaciones
   quotes            Quote[]
 
@@ -1102,6 +1111,9 @@ model DealerAfterSale {
   dealerUnitId        String?
   dealerUnit          DealerUnit?            @relation("DealerUnitAfterSales", fields: [dealerUnitId], references: [id], onDelete: SetNull)
 
+  customerId          String
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   referenceType       String?
   referenceId         String?
 
@@ -1128,6 +1140,7 @@ model DealerAfterSale {
   @@map("dealer_after_sales")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([type])
   @@index([isActive])
@@ -1205,6 +1218,9 @@ model DealerDelivery {
   dealerUnitId         String
   dealerUnit           DealerUnit            @relation("DealerUnitDelivery", fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId           String
+  customer             Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   deliveryNumber       String
   status               DealerDeliveryStatus  @default(SCHEDULED)
 
@@ -1229,6 +1245,7 @@ model DealerDelivery {
   @@map("dealer_deliveries")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([scheduledAt])
@@ -1309,6 +1326,9 @@ model DealerFinancing {
   dealerUnitId        String
   dealerUnit          DealerUnit             @relation("DealerUnitFinancing", fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId          String
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   financingNumber     String
   status              DealerFinancingStatus  @default(DRAFT)
 
@@ -1325,7 +1345,9 @@ model DealerFinancing {
   termMonths          Int?
   annualRatePct       Decimal?               @db.Decimal(6, 2)
   installmentAmount   Decimal?               @db.Decimal(14, 2)
-  currency            String?                @default("USD")
+  currency            OrderCurrency          @default(USD)
+  exchangeRate        Decimal?               @db.Decimal(14, 4)
+  exchangeRateSource  DealerExchangeRateSource?
 
   submittedAt         DateTime?
   approvedAt          DateTime?
@@ -1341,6 +1363,7 @@ model DealerFinancing {
   @@map("dealer_financing")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@unique([empresaId, financingNumber])
@@ -1357,6 +1380,21 @@ enum DealerQuoteStatus {
   CONVERTED
 }
 
+enum DealerExchangeRateSource {
+  BCV_AUTO
+  MANUAL
+}
+
+enum DealerFiscalStatus {
+  NOT_REQUESTED
+  ORDER_DRAFT
+  ORDER_APPROVED
+  PREINVOICE_READY
+  PAID
+  INVOICED
+  ERROR
+}
+
 model DealerQuote {
   id                String             @id @default(uuid())
 
@@ -1365,6 +1403,9 @@ model DealerQuote {
 
   dealerUnitId       String
   dealerUnit         DealerUnit         @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   quoteNumber        String
   status             DealerQuoteStatus  @default(DRAFT)
@@ -1381,7 +1422,17 @@ model DealerQuote {
   taxPct             Decimal?           @db.Decimal(6, 2)
   taxAmount          Decimal?           @db.Decimal(14, 2)
   totalAmount        Decimal?           @db.Decimal(14, 2)
-  currency           String?            @default("USD")
+  currency           OrderCurrency      @default(USD)
+  exchangeRate       Decimal?           @db.Decimal(14, 4)
+  exchangeRateSource DealerExchangeRateSource?
+  fiscalStatus       DealerFiscalStatus @default(NOT_REQUESTED)
+  fiscalError        String?
+  salesOrderId       String?            @unique
+  salesOrder         Order?             @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  preInvoiceId       String?            @unique
+  preInvoice         PreInvoice?        @relation(fields: [preInvoiceId], references: [id], onDelete: SetNull)
+  invoiceId          String?            @unique
+  invoice            Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   validUntil         DateTime?
   paymentTerms       String?
@@ -1400,7 +1451,12 @@ model DealerQuote {
   @@map("dealer_quotes")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
+  @@index([fiscalStatus])
+  @@index([empresaId, fiscalStatus])
+  @@index([salesOrderId])
+  @@index([preInvoiceId])
   @@index([isActive])
   @@index([createdAt])
   @@unique([empresaId, quoteNumber])
@@ -1424,6 +1480,9 @@ model DealerReservation {
   dealerUnitId       String
   dealerUnit         DealerUnit              @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId         String
+  customer           Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   reservationNumber  String
   status             DealerReservationStatus @default(PENDING)
 
@@ -1434,7 +1493,9 @@ model DealerReservation {
 
   offeredPrice       Decimal?                @db.Decimal(14, 2)
   depositAmount      Decimal?                @db.Decimal(14, 2)
-  currency           String?                 @default("USD")
+  currency           OrderCurrency           @default(USD)
+  exchangeRate       Decimal?                @db.Decimal(14, 4)
+  exchangeRateSource DealerExchangeRateSource?
 
   reservedAt         DateTime                @default(now())
   expiresAt          DateTime?
@@ -1452,6 +1513,7 @@ model DealerReservation {
   @@map("dealer_reservations")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([reservedAt])
@@ -1476,6 +1538,9 @@ model DealerTestDrive {
 
   dealerUnitId       String
   dealerUnit         DealerUnit            @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  customerId         String
+  customer           Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   testDriveNumber    String
   status             DealerTestDriveStatus @default(SCHEDULED)
@@ -1503,6 +1568,7 @@ model DealerTestDrive {
   @@map("dealer_test_drives")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([scheduledAt])
@@ -1527,6 +1593,9 @@ model DealerTradeIn {
 
   targetDealerUnitId  String?
   targetDealerUnit    DealerUnit?          @relation("TradeInTargetUnit", fields: [targetDealerUnitId], references: [id], onDelete: SetNull)
+
+  customerId          String
+  customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   tradeInNumber       String
   status              DealerTradeInStatus  @default(PENDING)
@@ -1560,6 +1629,7 @@ model DealerTradeIn {
   @@map("dealer_trade_ins")
   @@index([empresaId])
   @@index([targetDealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@unique([empresaId, tradeInNumber])
@@ -1594,6 +1664,10 @@ model DealerUnit {
 
   modelId       String?
   model         Model?              @relation(fields: [modelId], references: [id], onDelete: SetNull)
+  itemId        String
+  item          Item                @relation(fields: [itemId], references: [id], onDelete: Restrict)
+  warehouseId   String
+  warehouse     Warehouse           @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
 
   code          String?
   version       String?
@@ -1639,6 +1713,8 @@ model DealerUnit {
   @@index([empresaId])
   @@index([brandId])
   @@index([modelId])
+  @@index([itemId])
+  @@index([warehouseId])
   @@index([status])
   @@index([condition])
   @@index([isActive])
@@ -1769,8 +1845,53 @@ model Empresa {
   workshopTOTs                WorkshopTOT[]
   workshopGarita              WorkshopGarita[]
 
+  // Configuración de moneda
+  defaultCurrency             CurrencyCode?  @default(USD)
+  exchangeRates               ExchangeRate[]
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
+}
+
+
+enum ExchangeRateSource {
+  BCV
+  PARALLEL
+  MANUAL
+}
+
+enum CurrencyCode {
+  USD
+  VES
+  EUR
+}
+
+model ExchangeRate {
+  id              String             @id @default(cuid())
+
+  empresaId       String
+  empresa         Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  fromCurrency    CurrencyCode
+  toCurrency      CurrencyCode
+
+  rate            Decimal            @db.Decimal(20, 7)
+  rateDate        DateTime           @db.Date
+
+  source          ExchangeRateSource @default(BCV)
+  isActive        Boolean            @default(true)
+
+  fetchedAt       DateTime?
+  createdBy       String?
+  notes           String?            @db.Text
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([empresaId, fromCurrency, toCurrency, rateDate, source])
+  @@index([empresaId, rateDate])
+  @@index([empresaId, fromCurrency, toCurrency, rateDate])
+  @@map("exchange_rates")
 }
 
 
@@ -2513,6 +2634,7 @@ model Item {
   loanItems      LoanItem[]
   returnOrderItems ReturnOrderItem[]
   transferItems    TransferItem[]
+  dealerUnits      DealerUnit[]
   stockAlerts         StockAlert[]
   // Workshop: repuestos consumidos en OT
   serviceOrderItems   ServiceOrderItem[]
@@ -2546,6 +2668,7 @@ model Item {
   @@index([tags])
   @@index([empresaId])
 }
+
 
 // backend/prisma/models/inventory/itemImage.prisma
 
@@ -3518,6 +3641,7 @@ model Warehouse {
   movementsFrom   Movement[]    @relation("WarehouseFrom")
   movementsTo     Movement[]    @relation("WarehouseTo")
   orders          Order[]
+  dealerUnits     DealerUnit[]
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
   entryNotes      EntryNote[]
@@ -3658,6 +3782,7 @@ model Invoice {
 
   // Relaciones
   items              InvoiceItem[]
+  dealerQuotes       DealerQuote[]
 
   // Workshop: OT facturada con esta invoice
   serviceOrder       ServiceOrder?
@@ -3839,6 +3964,7 @@ model Order {
 
   // Relación 1 a 1 con Pre-factura
   preInvoice        PreInvoice?
+  dealerQuotes      DealerQuote[]
 
   createdAt         DateTime      @default(now())
   updatedAt         DateTime      @updatedAt
@@ -4048,6 +4174,7 @@ model PreInvoice {
   consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
 
   payments            Payment[]
+  dealerQuotes        DealerQuote[]
 
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt
@@ -4836,6 +4963,10 @@ model ServiceOrder {
   estimatedDelivery DateTime?
   deliveredAt       DateTime?
   closedAt          DateTime?
+
+  // Moneda y tasa de cambio
+  currency     CurrencyCode @default(USD)
+  exchangeRate Decimal?     @db.Decimal(14, 4)
 
   // Totales calculados
   laborTotal Decimal @default(0) @db.Decimal(12, 2)
@@ -5737,6 +5868,10 @@ model WorkshopQuotation {
   expiredAt  DateTime?
   convertedAt DateTime?
 
+  // Moneda y tasa de cambio
+  currency     CurrencyCode @default(USD)
+  exchangeRate Decimal?     @db.Decimal(14, 4)
+
   // Totales (calculados a partir de los ítems)
   laborTotal Decimal @default(0) @db.Decimal(12, 2)
   partsTotal Decimal @default(0) @db.Decimal(12, 2)
@@ -5953,6 +6088,10 @@ model WorkshopTOT {
   departedAt         DateTime? // Fecha/hora de salida del taller
   estimatedReturnAt  DateTime? // Fecha estimada de reingreso
   returnedAt         DateTime? // Fecha/hora real de reingreso
+
+  // Moneda y tasa de cambio
+  currency     CurrencyCode @default(USD)
+  exchangeRate Decimal?     @db.Decimal(14, 4)
 
   // Costos (perspectiva del costo del taller)
   providerQuote      Decimal? @db.Decimal(12, 2) // Presupuesto del proveedor

@@ -7,6 +7,8 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerAfterSaleService, {
   DealerAfterSale,
 } from "@/app/api/dealer/dealerAfterSaleService";
@@ -30,6 +32,7 @@ const STATUS_OPTIONS = [
 type DealerAfterSaleFormValues = {
   type: string;
   status: string;
+  customerId: string;
   customerName: string;
   title: string;
   description?: string;
@@ -55,12 +58,14 @@ export default function DealerAfterSaleForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerAfterSaleFormValues>({
     mode: "onBlur",
     defaultValues: {
       type: afterSale?.type || "WARRANTY_CHECK",
       status: afterSale?.status || "OPEN",
+      customerId: (afterSale as any)?.customerId || "",
       customerName: afterSale?.customerName || "",
       title: afterSale?.title || "",
       description: "",
@@ -75,6 +80,7 @@ export default function DealerAfterSaleForm({
       const payload = {
         type: data.type,
         status: data.status,
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         title: data.title.trim(),
         description: data.description?.trim() || null,
@@ -93,6 +99,27 @@ export default function DealerAfterSaleForm({
       handleFormError(error, toast);
     } finally {
       onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (customer) {
+        setValue("customerName", customer.name || "");
+      }
+    } catch {
+      // noop
     }
   };
 
@@ -146,21 +173,21 @@ export default function DealerAfterSaleForm({
         </div>
 
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
             rules={{ required: "Cliente requerido" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 

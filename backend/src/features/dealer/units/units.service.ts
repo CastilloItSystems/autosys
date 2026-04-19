@@ -1,4 +1,4 @@
-import { BrandType, Prisma, PrismaClient } from '../../../generated/prisma/client.js'
+import { BrandType, Prisma, PrismaClient, UnitType } from '../../../generated/prisma/client.js'
 import { BadRequestError, ConflictError, NotFoundError } from '../../../shared/utils/apiError.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
@@ -10,6 +10,8 @@ type PrismaClientType = PrismaClient | Prisma.TransactionClient
 const UNIT_INCLUDE = {
   brand: { select: { id: true, code: true, name: true, type: true } },
   model: { select: { id: true, code: true, name: true, year: true } },
+  item: { select: { id: true, code: true, sku: true, name: true } },
+  warehouse: { select: { id: true, code: true, name: true } },
 } as const
 
 class DealerUnitsService {
@@ -30,6 +32,121 @@ class DealerUnitsService {
     if (!model) throw new NotFoundError('Modelo de vehículo no encontrado')
   }
 
+  private async assertItemValid(itemId: string, empresaId: string, db: PrismaClientType): Promise<void> {
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id: itemId, empresaId, isActive: true },
+      select: { id: true },
+    })
+    if (!item) throw new NotFoundError('Ítem fiscal no encontrado')
+  }
+
+  private async assertWarehouseValid(warehouseId: string, empresaId: string, db: PrismaClientType): Promise<void> {
+    const warehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { id: warehouseId, empresaId, isActive: true },
+      select: { id: true },
+    })
+    if (!warehouse) throw new NotFoundError('Almacén fiscal no encontrado')
+  }
+
+  private buildAutoItemCode(data: CreateDealerUnitDTO): string {
+    const token =
+      (data.vin && data.vin.trim()) ||
+      (data.code && data.code.trim()) ||
+      `DU-${Date.now().toString(36).toUpperCase()}`
+    return `VEH-${token.toUpperCase().replace(/[^A-Z0-9-]/g, '').slice(0, 30)}`
+  }
+
+  private async ensureVehicleCategoryAndUnit(
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<{ categoryId: string; unitId: string }> {
+    const [category, unit] = await Promise.all([
+      (db as PrismaClient).category.findFirst({
+        where: { empresaId, code: 'VEHICLE' },
+        select: { id: true },
+      }),
+      (db as PrismaClient).unit.findFirst({
+        where: { empresaId, code: 'UND' },
+        select: { id: true },
+      }),
+    ])
+
+    const ensuredCategory =
+      category ??
+      (await (db as PrismaClient).category.create({
+        data: {
+          empresaId,
+          code: 'VEHICLE',
+          name: 'Vehículos',
+          description: 'Categoría autogenerada para unidades de concesionario',
+          isActive: true,
+        },
+        select: { id: true },
+      }))
+
+    const ensuredUnit =
+      unit ??
+      (await (db as PrismaClient).unit.create({
+        data: {
+          empresaId,
+          code: 'UND',
+          name: 'Unidad',
+          abbreviation: 'UND',
+          type: UnitType.COUNTABLE,
+          isActive: true,
+        },
+        select: { id: true },
+      }))
+
+    return { categoryId: ensuredCategory.id, unitId: ensuredUnit.id }
+  }
+
+  private async createAutoItemForUnit(
+    data: CreateDealerUnitDTO,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<string> {
+    const { categoryId, unitId } = await this.ensureVehicleCategoryAndUnit(empresaId, db)
+    const baseCode = this.buildAutoItemCode(data)
+
+    let suffix = 0
+    while (suffix < 50) {
+      const finalCode = suffix === 0 ? baseCode : `${baseCode}-${suffix}`
+      const existing = await (db as PrismaClient).item.findFirst({
+        where: { empresaId, OR: [{ code: finalCode }, { sku: finalCode }] },
+        select: { id: true },
+      })
+      if (!existing) {
+        const created = await (db as PrismaClient).item.create({
+          data: {
+            empresaId,
+            sku: finalCode,
+            code: finalCode,
+            name: data.version || data.code || data.vin || `Unidad ${new Date().getFullYear()}`,
+            description: `Unidad concesionario${data.vin ? ` VIN ${data.vin}` : ''}`,
+            brandId: data.brandId,
+            modelId: data.modelId ?? null,
+            categoryId,
+            unitId,
+            costPrice: (data.listPrice ?? data.promoPrice ?? 0) as never,
+            salePrice: (data.promoPrice ?? data.listPrice ?? 0) as never,
+            minStock: 0,
+            maxStock: 1,
+            reorderPoint: 0,
+            isSerialized: true,
+            isActive: true,
+            tags: ['dealer', 'vehicle'],
+          },
+          select: { id: true },
+        })
+        return created.id
+      }
+      suffix += 1
+    }
+
+    throw new ConflictError('No se pudo generar un código único para el ítem fiscal de la unidad')
+  }
+
   async create(
     data: CreateDealerUnitDTO,
     empresaId: string,
@@ -37,7 +154,9 @@ class DealerUnitsService {
     db: PrismaClientType
   ): Promise<IDealerUnit> {
     await this.assertBrandValid(data.brandId, empresaId, db)
+    await this.assertWarehouseValid(data.warehouseId, empresaId, db)
     if (data.modelId) await this.assertModelValid(data.modelId, empresaId, db)
+    if (data.itemId) await this.assertItemValid(data.itemId, empresaId, db)
 
     if (data.vin) {
       const duplicateVin = await (db as PrismaClient).dealerUnit.findFirst({
@@ -46,33 +165,38 @@ class DealerUnitsService {
       if (duplicateVin) throw new ConflictError('Ya existe una unidad con ese VIN')
     }
 
-    const created = await (db as PrismaClient).dealerUnit.create({
-      data: {
-        empresaId,
-        brandId: data.brandId,
-        modelId: data.modelId ?? null,
-        code: data.code ?? null,
-        version: data.version ?? null,
-        year: data.year ?? null,
-        vin: data.vin ?? null,
-        engineSerial: data.engineSerial ?? null,
-        plate: data.plate ?? null,
-        condition: (data.condition as any) ?? undefined,
-        status: (data.status as any) ?? undefined,
-        mileage: data.mileage ?? null,
-        colorExterior: data.colorExterior ?? null,
-        colorInterior: data.colorInterior ?? null,
-        fuelType: data.fuelType ?? null,
-        transmission: data.transmission ?? null,
-        listPrice: data.listPrice ?? null,
-        promoPrice: data.promoPrice ?? null,
-        location: data.location ?? null,
-        description: data.description ?? null,
-        isPublished: data.isPublished ?? false,
-        isActive: data.isActive ?? true,
-        ...(data.specifications != null ? { specifications: data.specifications as Prisma.InputJsonValue } : {}),
-      },
-      include: UNIT_INCLUDE,
+    const created = await (db as PrismaClient).$transaction(async (tx) => {
+      const itemId = data.itemId ?? (await this.createAutoItemForUnit(data, empresaId, tx))
+      return tx.dealerUnit.create({
+        data: {
+          empresaId,
+          brandId: data.brandId,
+          itemId,
+          warehouseId: data.warehouseId,
+          modelId: data.modelId ?? null,
+          code: data.code ?? null,
+          version: data.version ?? null,
+          year: data.year ?? null,
+          vin: data.vin ?? null,
+          engineSerial: data.engineSerial ?? null,
+          plate: data.plate ?? null,
+          condition: (data.condition as any) ?? undefined,
+          status: (data.status as any) ?? undefined,
+          mileage: data.mileage ?? null,
+          colorExterior: data.colorExterior ?? null,
+          colorInterior: data.colorInterior ?? null,
+          fuelType: data.fuelType ?? null,
+          transmission: data.transmission ?? null,
+          listPrice: data.listPrice ?? null,
+          promoPrice: data.promoPrice ?? null,
+          location: data.location ?? null,
+          description: data.description ?? null,
+          isPublished: data.isPublished ?? false,
+          isActive: data.isActive ?? true,
+          ...(data.specifications != null ? { specifications: data.specifications as Prisma.InputJsonValue } : {}),
+        },
+        include: UNIT_INCLUDE,
+      })
     })
 
     logger.info('Dealer unit creada', { id: created.id, empresaId, userId })
@@ -146,6 +270,8 @@ class DealerUnitsService {
     await this.findById(id, empresaId, db)
 
     if (data.brandId) await this.assertBrandValid(data.brandId, empresaId, db)
+    if (data.itemId) await this.assertItemValid(data.itemId, empresaId, db)
+    if (data.warehouseId) await this.assertWarehouseValid(data.warehouseId, empresaId, db)
     if (data.modelId) await this.assertModelValid(data.modelId, empresaId, db)
 
     if (data.vin) {
@@ -157,6 +283,8 @@ class DealerUnitsService {
 
     const updateData: Prisma.DealerUnitUpdateInput = {}
     if (data.brandId !== undefined) updateData.brand = { connect: { id: data.brandId } }
+    if (data.itemId !== undefined) updateData.item = { connect: { id: data.itemId } }
+    if (data.warehouseId !== undefined) updateData.warehouse = { connect: { id: data.warehouseId } }
     if (data.modelId !== undefined) {
       updateData.model = data.modelId ? { connect: { id: data.modelId } } : { disconnect: true }
     }
@@ -182,10 +310,34 @@ class DealerUnitsService {
     if (data.specifications !== undefined)
       updateData.specifications = (data.specifications ?? Prisma.JsonNull) as Prisma.InputJsonValue
 
-    const updated = await (db as PrismaClient).dealerUnit.update({
-      where: { id },
-      data: updateData,
-      include: UNIT_INCLUDE,
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const record = await tx.dealerUnit.update({
+        where: { id },
+        data: updateData,
+        include: UNIT_INCLUDE,
+      })
+
+      const priceUpdate: Record<string, unknown> = {}
+      if (data.promoPrice !== undefined || data.listPrice !== undefined) {
+        const newSale = data.promoPrice ?? data.listPrice
+        const newCost = data.listPrice ?? data.promoPrice
+        if (newSale != null) priceUpdate.salePrice = newSale
+        if (newCost != null) priceUpdate.costPrice = newCost
+      }
+
+      await tx.item.update({
+        where: { id: record.itemId },
+        data: {
+          ...(data.brandId !== undefined ? { brandId: data.brandId } : {}),
+          ...(data.modelId !== undefined ? { modelId: data.modelId || null } : {}),
+          ...(data.version !== undefined || data.code !== undefined || data.vin !== undefined
+            ? { name: data.version || data.code || data.vin || record.item.name }
+            : {}),
+          ...priceUpdate,
+        },
+      })
+
+      return record
     })
 
     logger.info('Dealer unit actualizada', { id, empresaId, userId })
@@ -205,4 +357,3 @@ class DealerUnitsService {
 }
 
 export default new DealerUnitsService()
-

@@ -3,7 +3,12 @@ import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import { authorize } from '../../../shared/middleware/authorize.middleware.js'
 import { validateBody, validateQuery } from '../../../shared/middleware/validateRequest.middleware.js'
 import dealerQuotesController from './quotes.controller.js'
-import { createDealerQuoteSchema, dealerQuoteFiltersSchema, updateDealerQuoteSchema } from './quotes.validation.js'
+import {
+  convertAndFiscalizeDealerQuoteSchema,
+  createDealerQuoteSchema,
+  dealerQuoteFiltersSchema,
+  updateDealerQuoteSchema,
+} from './quotes.validation.js'
 
 const router = Router()
 
@@ -14,6 +19,12 @@ router.post('/', authorize(PERMISSIONS.DEALER_CREATE), validateBody(createDealer
 router.get('/:id', authorize(PERMISSIONS.DEALER_VIEW), dealerQuotesController.getOne)
 
 router.put('/:id', authorize(PERMISSIONS.DEALER_UPDATE), validateBody(updateDealerQuoteSchema), dealerQuotesController.update)
+router.post(
+  '/:id/convert-and-fiscalize',
+  authorize(PERMISSIONS.DEALER_UPDATE),
+  validateBody(convertAndFiscalizeDealerQuoteSchema),
+  dealerQuotesController.convertAndFiscalize
+)
 
 router.delete('/:id', authorize(PERMISSIONS.DEALER_DELETE), dealerQuotesController.delete)
 

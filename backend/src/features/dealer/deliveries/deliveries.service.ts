@@ -8,6 +8,16 @@ import { IDealerDelivery, IDealerDeliveryFilters } from './deliveries.interface.
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const DELIVERY_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   dealerUnit: {
     select: {
       id: true,
@@ -47,19 +57,37 @@ class DealerDeliveriesService {
     return `${prefix}${String(countToday + 1).padStart(4, '0')}`
   }
 
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
+  }
+
   async create(data: CreateDealerDeliveryDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerDelivery> {
     const deliveryNumber = await this.generateNumber(empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
     const status = (data.status as DealerDeliveryStatus) || DealerDeliveryStatus.SCHEDULED
     const created = await (db as PrismaClient).dealerDelivery.create({
       data: {
         empresaId,
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         deliveryNumber,
         status,
-        customerName: data.customerName,
-        customerDocument: data.customerDocument ?? null,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerDocument: data.customerDocument ?? customer.taxId ?? null,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         scheduledAt: data.scheduledAt,
         advisorName: data.advisorName ?? null,
         checklistCompleted: data.checklistCompleted ?? false,
@@ -117,6 +145,7 @@ class DealerDeliveriesService {
         { deliveryNumber: { contains: search, mode: 'insensitive' } },
         { customerName: { contains: search, mode: 'insensitive' } },
         { customerDocument: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
         { actNumber: { contains: search, mode: 'insensitive' } },
       ]
     }
@@ -146,9 +175,21 @@ class DealerDeliveriesService {
     const current = await this.findById(id, empresaId, db)
     const status = data.status as DealerDeliveryStatus | undefined
     if (status) this.validateTransition(current.status, status)
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+    }
     const updated = await (db as PrismaClient).dealerDelivery.update({
       where: { id },
       data: {
+        ...(data.customerId !== undefined
+          ? {
+              customer: {
+                connect: {
+                  id: data.customerId,
+                },
+              },
+            }
+          : {}),
         ...(data.customerName !== undefined ? { customerName: data.customerName } : {}),
         ...(data.customerDocument !== undefined ? { customerDocument: data.customerDocument || null } : {}),
         ...(data.customerPhone !== undefined ? { customerPhone: data.customerPhone || null } : {}),

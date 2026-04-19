@@ -3,7 +3,7 @@
 import { SupplierType, ISupplier } from './suppliers.interface.js'
 
 export class CreateSupplierDTO {
-  code: string
+  code?: string
   name: string
   contactName?: string
   email?: string
@@ -20,7 +20,7 @@ export class CreateSupplierDTO {
   metadata?: any
 
   constructor(data: Record<string, unknown>) {
-    this.code = (data.code as string).toUpperCase()
+    if (data.code != null) this.code = (data.code as string).toUpperCase()
     this.name = data.name as string
     if (data.contactName !== undefined)
       this.contactName = data.contactName as string

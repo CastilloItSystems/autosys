@@ -8,6 +8,16 @@ import { IDealerTradeIn, IDealerTradeInFilters } from './tradeIns.interface.js'
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const TRADE_IN_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   targetDealerUnit: {
     select: {
       id: true,
@@ -49,18 +59,36 @@ class DealerTradeInsService {
     return `${prefix}${String(countToday + 1).padStart(4, '0')}`
   }
 
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
+  }
+
   async create(data: CreateDealerTradeInDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerTradeIn> {
     const tradeInNumber = await this.generateNumber(empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
     const created = await (db as PrismaClient).dealerTradeIn.create({
       data: {
         empresaId,
         targetDealerUnitId: data.targetDealerUnitId ?? null,
+        customerId: data.customerId,
         tradeInNumber,
         status: (data.status as DealerTradeInStatus) || DealerTradeInStatus.PENDING,
-        customerName: data.customerName,
-        customerDocument: data.customerDocument ?? null,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerDocument: data.customerDocument ?? customer.taxId ?? null,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         vehicleBrand: data.vehicleBrand,
         vehicleModel: data.vehicleModel ?? null,
         vehicleYear: data.vehicleYear ?? null,
@@ -115,6 +143,7 @@ class DealerTradeInsService {
       where.OR = [
         { tradeInNumber: { contains: search, mode: 'insensitive' } },
         { customerName: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
         { vehicleBrand: { contains: search, mode: 'insensitive' } },
         { vehicleModel: { contains: search, mode: 'insensitive' } },
         { vehiclePlate: { contains: search, mode: 'insensitive' } },
@@ -149,10 +178,34 @@ class DealerTradeInsService {
     if (data.status) {
       this.validateTransition(current.status, data.status as DealerTradeInStatus)
     }
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+    }
     const updated = await (db as PrismaClient).dealerTradeIn.update({
       where: { id },
       data: {
-        ...(data.targetDealerUnitId !== undefined ? { targetDealerUnitId: data.targetDealerUnitId || null } : {}),
+        ...(data.targetDealerUnitId !== undefined
+          ? {
+              targetDealerUnit: data.targetDealerUnitId
+                ? {
+                    connect: {
+                      id: data.targetDealerUnitId,
+                    },
+                  }
+                : {
+                    disconnect: true,
+                  },
+            }
+          : {}),
+        ...(data.customerId !== undefined
+          ? {
+              customer: {
+                connect: {
+                  id: data.customerId,
+                },
+              },
+            }
+          : {}),
         ...(data.status !== undefined ? { status: data.status as DealerTradeInStatus } : {}),
         ...(data.customerName !== undefined ? { customerName: data.customerName } : {}),
         ...(data.customerDocument !== undefined ? { customerDocument: data.customerDocument || null } : {}),

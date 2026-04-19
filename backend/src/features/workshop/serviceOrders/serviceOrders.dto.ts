@@ -48,6 +48,8 @@ export class CreateServiceOrderDTO {
   observations?: string
   assignedTechnicianId?: string
   estimatedDelivery?: Date
+  currency?: string
+  exchangeRate?: number
   items: CreateServiceOrderItemDTO[]
 
   constructor(data: any) {
@@ -66,6 +68,8 @@ export class CreateServiceOrderDTO {
     this.estimatedDelivery = data.estimatedDelivery
       ? new Date(data.estimatedDelivery)
       : undefined
+    this.currency = data.currency ?? undefined
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : undefined
     this.items = (data.items ?? []).map(
       (i: any) => new CreateServiceOrderItemDTO(i)
     )
@@ -86,6 +90,8 @@ export class UpdateServiceOrderDTO {
   observations?: string
   assignedTechnicianId?: string | null
   estimatedDelivery?: Date | null
+  currency?: string
+  exchangeRate?: number | null
   items?: CreateServiceOrderItemDTO[]
 
   constructor(data: any) {
@@ -105,6 +111,10 @@ export class UpdateServiceOrderDTO {
     this.estimatedDelivery = data.estimatedDelivery
       ? new Date(data.estimatedDelivery)
       : null
+    this.currency = data.currency ?? undefined
+    this.exchangeRate = data.exchangeRate !== undefined
+      ? (data.exchangeRate != null ? Number(data.exchangeRate) : null)
+      : undefined
     this.items = data.items?.map((i: any) => new CreateServiceOrderItemDTO(i))
   }
 }
@@ -144,6 +154,8 @@ export class ServiceOrderResponseDTO {
   receivedAt: Date
   estimatedDelivery: Date | null
   deliveredAt: Date | null
+  currency: string
+  exchangeRate: number | null
   laborTotal: number
   partsTotal: number
   otherTotal: number
@@ -181,6 +193,8 @@ export class ServiceOrderResponseDTO {
     this.receivedAt = data.receivedAt
     this.estimatedDelivery = data.estimatedDelivery ?? null
     this.deliveredAt = data.deliveredAt ?? null
+    this.currency = data.currency ?? 'USD'
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : null
     this.laborTotal = Number(data.laborTotal ?? 0)
     this.partsTotal = Number(data.partsTotal ?? 0)
     this.otherTotal = Number(data.otherTotal ?? 0)

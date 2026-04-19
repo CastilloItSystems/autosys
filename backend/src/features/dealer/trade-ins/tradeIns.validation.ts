@@ -2,6 +2,7 @@ import Joi from 'joi'
 
 export const createDealerTradeInSchema = Joi.object({
   targetDealerUnitId: Joi.string().optional().allow(null, ''),
+  customerId: Joi.string().required(),
   customerName: Joi.string().max(180).required(),
   customerDocument: Joi.string().max(60).optional().allow(null, ''),
   customerPhone: Joi.string().max(40).optional().allow(null, ''),
@@ -24,6 +25,7 @@ export const createDealerTradeInSchema = Joi.object({
 })
 
 export const updateDealerTradeInSchema = createDealerTradeInSchema.keys({
+  customerId: Joi.string().optional(),
   customerName: Joi.string().max(180).optional(),
   vehicleBrand: Joi.string().max(120).optional(),
   isActive: Joi.boolean().optional(),

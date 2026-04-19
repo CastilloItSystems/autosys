@@ -162,7 +162,8 @@ export async function generatePreInvoiceFromServiceOrder(
       serviceOrderId: so.id,
       customerId: so.customerId,
       // warehouseId: null for workshop (no warehouse needed)
-      currency: 'USD', // Default for workshop (can be extended)
+      currency: (so as any).currency ?? 'USD',
+      exchangeRate: (so as any).exchangeRate ?? null,
       discountAmount: 0,
       subtotalBruto,
       baseImponible,

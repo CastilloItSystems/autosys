@@ -249,8 +249,6 @@ const AutoSysList = () => {
               </div>
             </div>
           }
-          /* createdBy={selectedAuditAutoSys?.createdBy!} */
-          createdAt={selectedAuditAutoSys?.createdAt!}
           historial={selectedAuditAutoSys?.historial}
         />
 

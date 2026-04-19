@@ -740,13 +740,7 @@ const PurchaseOrderForm = ({
           <div className="col-12 md:col-6 md:col-offset-6 mt-4">
             <OrderFinancialSummary
               totals={calcResult}
-              currencySymbol={
-                watchCurrency === "VES"
-                  ? "Bs "
-                  : watchCurrency === "EUR"
-                  ? "€ "
-                  : "$ "
-              }
+              currency={watchCurrency}
             />
           </div>
         </div>

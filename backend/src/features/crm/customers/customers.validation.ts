@@ -3,8 +3,7 @@
 import Joi from 'joi'
 
 export const createCustomerSchema = Joi.object({
-  code: Joi.string().max(50).required().messages({
-    'any.required': 'El código es requerido',
+  code: Joi.string().max(50).optional().messages({
     'string.max': 'El código no puede exceder 50 caracteres',
   }),
   name: Joi.string().max(255).required().messages({

@@ -1,11 +1,5 @@
 import { useState, useEffect } from "react";
-
-// Interfaz para la respuesta del servicio del BCV
-interface BcvResponse {
-  date: string;
-  usd: number;
-  eur: number;
-}
+import apiClient from "@/app/api/apiClient";
 
 interface UseBcvRateReturn {
   rate: number | null;
@@ -25,10 +19,7 @@ export const useBcvRate = (
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<"BCV_AUTO" | "MANUAL">("BCV_AUTO");
 
-  // En un ambiente real, este endpoint debería estar en el backend para evitar problemas de CORS
-  // Por ahora se simulará una llamada a API
   const fetchRate = async () => {
-    // Si la moneda base es VES (Bolívar), la tasa es 1
     if (currency === "VES") {
       setRate(1);
       setSource("BCV_AUTO");
@@ -38,21 +29,14 @@ export const useBcvRate = (
     setLoading(true);
     setError(null);
     try {
-      // Simulación de una petición a un proxy del BCV (ajustar con endpoint real)
-      // const response = await fetch('/api/bcv-rates');
-      // const data: BcvResponse = await response.json();
-
-      // Simulando delay de red
-      await new Promise((resolve) => setTimeout(resolve, 800));
-
-      // Tasa simulada (TODO: Cambiar a endpoint real)
-      const mockData: BcvResponse = {
-        date: new Date().toISOString(),
-        usd: 36.25,
-        eur: 39.4,
-      };
-
-      setRate(currency === "USD" ? mockData.usd : mockData.eur);
+      const response = await apiClient.get("/exchange-rates/latest", {
+        params: { fromCurrency: currency, toCurrency: "VES" },
+      });
+      const value = Number(response?.data?.data?.rate ?? 0);
+      if (!value || Number.isNaN(value) || value <= 0) {
+        throw new Error(`No hay tasa BCV activa para ${currency}/VES`);
+      }
+      setRate(value);
       setSource("BCV_AUTO");
     } catch (err: any) {
       setError(err.message || "Error al obtener tasa del BCV");

@@ -11,7 +11,7 @@ import type { CustomerCrm } from "@/libs/interfaces/crm/customer.crm.interface";
 
 interface CustomerSelectorProps {
   value: string | null | undefined;
-  onChange: (id: string) => void;
+  onChange: (id: string | null) => void;
   disabled?: boolean;
   invalid?: boolean;
   placeholder?: string;
@@ -93,7 +93,7 @@ export default function CustomerSelector({
       <Dropdown
         value={value ?? null}
         options={options}
-        onChange={(e) => onChange(e.value)}
+      onChange={(e) => onChange(e.value)}
         placeholder={loading ? "Cargando clientes..." : placeholder}
         disabled={disabled || loading}
         filter

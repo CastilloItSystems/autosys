@@ -26,6 +26,14 @@ export interface DealerHistoryItem {
   number: string;
   status: string;
   customerName: string;
+  customer?: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    taxId?: string | null;
+  };
   unitRef: string;
   occurredAt: string;
 }

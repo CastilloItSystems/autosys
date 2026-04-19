@@ -15,6 +15,7 @@ import {
   IUpdateSupplierInput,
   ISupplierFilters,
 } from './suppliers.interface.js'
+import { OrderNumberGenerator } from '../../sales/shared/utils/orderNumberGenerator.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -27,12 +28,7 @@ class SupplierService {
     userId: string,
     db: PrismaClientType
   ): Promise<ISupplier> {
-    const code = data.code.toUpperCase()
-
-    const existing = await (db as PrismaClient).supplier.findFirst({
-      where: { code, empresaId },
-    })
-    if (existing) throw new ConflictError(MSG.codeExists)
+    const code = await OrderNumberGenerator.generateSupplierCode(db, empresaId)
 
     if (data.taxId) {
       const existingTax = await (db as PrismaClient).supplier.findFirst({

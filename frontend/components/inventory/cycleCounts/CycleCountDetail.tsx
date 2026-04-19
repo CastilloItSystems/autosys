@@ -269,22 +269,18 @@ export default function CycleCountDetail({
           onValueChange={(e) =>
             handleQuantityChange(rowData.itemId, e.value ?? null)
           }
+          onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+            // onValueChange no dispara al hacer click fuera, onBlur sí
+            const raw = e.target.value.replace(/[^0-9.-]/g, "");
+            const val = parseFloat(raw);
+            if (!isNaN(val) && val !== local?.countedQuantity) {
+              handleQuantityChange(rowData.itemId, val);
+            }
+          }}
           min={0}
           placeholder="0"
           className="flex-1"
-          pt={{
-            input: {
-              className: "w-full text-right",
-              onBlur: (e: React.FocusEvent<HTMLInputElement>) => {
-                // onValueChange no dispara al hacer click fuera, onBlur sí
-                const raw = e.target.value.replace(/[^0-9.-]/g, "");
-                const val = parseFloat(raw);
-                if (!isNaN(val) && val !== local?.countedQuantity) {
-                  handleQuantityChange(rowData.itemId, val);
-                }
-              },
-            },
-          }}
+          inputClassName="w-full text-right"
         />
         {local?.saving && (
           <ProgressSpinner

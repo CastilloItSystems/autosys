@@ -21,11 +21,24 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 
-const formatCurrency = (value: number | string) =>
-  `$${Number(value || 0).toLocaleString("es-VE", {
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatAmount = (value: number | string, currency = "USD") => {
+  const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+  return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+};
+
+const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const PaymentList = () => {
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -161,15 +174,30 @@ const PaymentList = () => {
     );
   };
 
-  const amountBodyTemplate = (rowData: Payment) => (
-    <div className="flex flex-column">
-      <span className="font-semibold">{formatCurrency(rowData.amount)}</span>
-      {rowData.igtfApplies && Number(rowData.igtfAmount) > 0 && (
-        <span className="text-xs text-yellow-600">
-          +IGTF {formatCurrency(rowData.igtfAmount)}
-        </span>
-      )}
-    </div>
+  const amountBodyTemplate = (rowData: Payment) => {
+    const cur = rowData.currency || "USD";
+    const crossRef = formatCrossRef(Number(rowData.amount), cur, rowData.exchangeRate);
+    return (
+      <div className="flex flex-column gap-1">
+        <span className="font-semibold">{formatAmount(rowData.amount, cur)}</span>
+        {crossRef && <span className="text-xs text-500">{crossRef}</span>}
+        {rowData.igtfApplies && Number(rowData.igtfAmount) > 0 && (
+          <span className="text-xs text-yellow-600">
+            +IGTF {formatAmount(rowData.igtfAmount, cur)}
+          </span>
+        )}
+      </div>
+    );
+  };
+
+  const currencyBodyTemplate = (rowData: Payment) => (
+    <Tag
+      value={rowData.currency || "USD"}
+      severity={
+        rowData.currency === "VES" ? "warning" : rowData.currency === "EUR" ? "help" : "info"
+      }
+      className="text-xs"
+    />
   );
 
   const customerBodyTemplate = (rowData: Payment) =>
@@ -233,8 +261,13 @@ const PaymentList = () => {
           <div className="surface-100 border-round p-3">
             <span className="text-500 text-sm">Total con IGTF</span>
             <div className="font-bold text-primary text-lg">
-              {formatCurrency(data.totalWithIgtf)}
+              {formatAmount(data.totalWithIgtf, data.currency || "USD")}
             </div>
+            {formatCrossRef(Number(data.totalWithIgtf), data.currency || "USD", data.exchangeRate) && (
+              <div className="text-xs text-500 mt-1">
+                {formatCrossRef(Number(data.totalWithIgtf), data.currency || "USD", data.exchangeRate)}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -264,7 +297,7 @@ const PaymentList = () => {
                     )}
                   </div>
                   <span className="font-semibold">
-                    {formatCurrency(d.amount)}
+                    {formatAmount(d.amount, data.currency || "USD")}
                   </span>
                 </div>
               );
@@ -321,6 +354,12 @@ const PaymentList = () => {
           <Column field="paymentNumber" header="Nro. Pago" sortable />
           <Column header="Estado" body={statusBodyTemplate} />
           <Column header="Método" body={methodBodyTemplate} />
+          <Column
+            header="Moneda"
+            body={currencyBodyTemplate}
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
           <Column
             header="Monto"
             body={amountBodyTemplate}

@@ -31,6 +31,8 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "Taller", icon: "pi pi-wrench", prefix: "workshop" },
   // Concesionario
   { label: "Concesionario", icon: "pi pi-car", prefix: "dealer" },
+  // Tasas de Cambio
+  { label: "Tasas de Cambio", icon: "pi pi-sync", prefix: "exchange_rates" },
 ]
 
 export const PERMISSION_LABELS: Record<string, string> = {
@@ -179,6 +181,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "dealer.update": "Editar",
   "dealer.delete": "Eliminar",
   "dealer.approve": "Aprobar",
+  // Tasas de Cambio
+  "exchange_rates.view": "Ver",
+  "exchange_rates.create": "Crear",
+  "exchange_rates.update": "Editar",
+  "exchange_rates.delete": "Eliminar",
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)

@@ -4,6 +4,7 @@ export interface IDealerDelivery {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   deliveryNumber: string
   status: DealerDeliveryStatus
   customerName: string
@@ -21,6 +22,14 @@ export interface IDealerDelivery {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   dealerUnit: {
     id: string
     code?: string | null

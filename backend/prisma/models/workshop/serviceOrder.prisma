@@ -114,6 +114,10 @@ model ServiceOrder {
   deliveredAt       DateTime?
   closedAt          DateTime?
 
+  // Moneda y tasa de cambio
+  currency     CurrencyCode @default(USD)
+  exchangeRate Decimal?     @db.Decimal(14, 4)
+
   // Totales calculados
   laborTotal Decimal @default(0) @db.Decimal(12, 2)
   partsTotal Decimal @default(0) @db.Decimal(12, 2)

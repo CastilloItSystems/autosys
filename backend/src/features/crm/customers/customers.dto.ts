@@ -3,7 +3,7 @@
 import { ICustomer } from './customers.interface.js'
 
 export class CreateCustomerDTO {
-  code: string
+  code?: string
   name: string
   taxId?: string
   email?: string
@@ -29,7 +29,7 @@ export class CreateCustomerDTO {
   metadata?: any
 
   constructor(data: Record<string, unknown>) {
-    this.code = String(data.code)
+    if (data.code != null) this.code = String(data.code)
     this.name = String(data.name)
     if (data.taxId != null && String(data.taxId).trim() !== '')
       this.taxId = String(data.taxId).trim()

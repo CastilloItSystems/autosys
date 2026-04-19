@@ -232,7 +232,11 @@ export default function DealerDeliveryList() {
         scrollable
       >
         <Column field="deliveryNumber" header="Entrega" sortable />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerDelivery) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column
           header="Unidad"
           body={(row: DealerDelivery) =>

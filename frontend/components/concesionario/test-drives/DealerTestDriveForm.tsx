@@ -6,6 +6,8 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerTestDriveService, {
   SaveDealerTestDriveRequest,
 } from "@/app/api/dealer/dealerTestDriveService";
@@ -22,6 +24,7 @@ const STATUS_OPTIONS = [
 
 type DealerTestDriveFormValues = {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   customerDocument: string;
   customerPhone: string;
@@ -56,11 +59,13 @@ export default function DealerTestDriveForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerTestDriveFormValues>({
     mode: "onBlur",
     defaultValues: {
       dealerUnitId: testDrive?.dealerUnitId || "",
+      customerId: testDrive?.customerId || "",
       customerName: testDrive?.customerName || "",
       customerDocument: testDrive?.customerDocument || "",
       customerPhone: testDrive?.customerPhone || "",
@@ -81,6 +86,7 @@ export default function DealerTestDriveForm({
     try {
       const payload: SaveDealerTestDriveRequest = {
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         customerDocument: data.customerDocument || null,
         customerPhone: data.customerPhone || null,
@@ -105,6 +111,32 @@ export default function DealerTestDriveForm({
       handleFormError(error, toast);
     } finally {
       onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      setValue("customerDocument", "");
+      setValue("customerPhone", "");
+      setValue("customerEmail", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (!customer) return;
+      setValue("customerName", customer.name || "");
+      setValue("customerDocument", customer.taxId || "");
+      setValue("customerPhone", customer.phone || customer.mobile || "");
+      setValue("customerEmail", customer.email || "");
+    } catch {
+      // noop
     }
   };
 
@@ -175,21 +207,21 @@ export default function DealerTestDriveForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
-            rules={{ required: "El nombre del cliente es requerido" }}
+            rules={{ required: "Debe seleccionar un cliente" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 

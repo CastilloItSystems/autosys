@@ -48,7 +48,7 @@ const AppMenuEmpresa = () => {
         {
           label: "Clientes",
           icon: "pi pi-fw pi-users",
-          to: "/empresa/crm/clientes",
+          to: "/empresa/inventario/clientes",
         },
         {
           label: "Órdenes de Venta",
@@ -654,6 +654,11 @@ const AppMenuEmpresa = () => {
           label: "Cuentas por Pagar",
           icon: "pi pi-fw pi-arrow-down",
           to: "/empresa/finance/cuentas-pagar",
+        },
+        {
+          label: "Tipos de Cambio",
+          icon: "pi pi-fw pi-sync",
+          to: "/empresa/finance/tipos-cambio",
         },
       ],
     },

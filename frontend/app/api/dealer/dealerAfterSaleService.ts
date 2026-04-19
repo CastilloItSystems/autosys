@@ -10,8 +10,20 @@ interface PaginatedResponse<T> extends ApiResponse<T[]> {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface SaveDealerAfterSaleRequest {
+  customerId: string;
+  customerName: string;
+  type: string;
+  status?: string;
+  title: string;
+  description?: string | null;
+  dueAt?: string | null;
+  satisfactionScore?: number | null;
+}
+
 export interface DealerAfterSale {
   id: string;
+  customerId: string;
   caseNumber: string;
   type: string;
   status: string;
@@ -20,6 +32,14 @@ export interface DealerAfterSale {
   dueAt?: string | null;
   satisfactionScore?: number | null;
   createdAt: string;
+  customer: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    taxId?: string | null;
+  };
 }
 
 const BASE_ROUTE = "/dealer/after-sales";
@@ -29,11 +49,11 @@ const dealerAfterSaleService = {
     const res = await apiClient.get(BASE_ROUTE, { params });
     return res.data;
   },
-  async create(data: Record<string, unknown>): Promise<ApiResponse<DealerAfterSale>> {
+  async create(data: SaveDealerAfterSaleRequest): Promise<ApiResponse<DealerAfterSale>> {
     const res = await apiClient.post(BASE_ROUTE, data);
     return res.data;
   },
-  async update(id: string, data: Record<string, unknown>): Promise<ApiResponse<DealerAfterSale>> {
+  async update(id: string, data: Partial<SaveDealerAfterSaleRequest>): Promise<ApiResponse<DealerAfterSale>> {
     const res = await apiClient.put(`${BASE_ROUTE}/${id}`, data);
     return res.data;
   },

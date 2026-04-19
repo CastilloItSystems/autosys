@@ -2,6 +2,8 @@ import { IDealerUnit } from './units.interface.js'
 
 export class CreateDealerUnitDTO {
   brandId: string
+  warehouseId: string
+  itemId?: string
   modelId?: string
   code?: string
   version?: string
@@ -26,6 +28,8 @@ export class CreateDealerUnitDTO {
 
   constructor(data: Record<string, unknown>) {
     this.brandId = String(data.brandId).trim()
+    this.warehouseId = String(data.warehouseId).trim()
+    if (data.itemId != null && String(data.itemId).trim() !== '') this.itemId = String(data.itemId).trim()
     if (data.modelId != null && String(data.modelId).trim() !== '') this.modelId = String(data.modelId).trim()
     if (data.code != null && String(data.code).trim() !== '') this.code = String(data.code).trim()
     if (data.version != null && String(data.version).trim() !== '') this.version = String(data.version).trim()
@@ -57,6 +61,8 @@ export class CreateDealerUnitDTO {
 
 export class UpdateDealerUnitDTO {
   brandId?: string
+  itemId?: string
+  warehouseId?: string
   modelId?: string | null
   code?: string | null
   version?: string | null
@@ -81,6 +87,8 @@ export class UpdateDealerUnitDTO {
 
   constructor(data: Record<string, unknown>) {
     if (data.brandId !== undefined) this.brandId = String(data.brandId).trim()
+    if (data.itemId !== undefined) this.itemId = String(data.itemId).trim()
+    if (data.warehouseId !== undefined) this.warehouseId = String(data.warehouseId).trim()
     if (data.modelId !== undefined) this.modelId = data.modelId ? String(data.modelId).trim() : null
     if (data.code !== undefined) this.code = data.code ? String(data.code).trim() : null
     if (data.version !== undefined) this.version = data.version ? String(data.version).trim() : null
@@ -109,6 +117,8 @@ export class DealerUnitResponseDTO {
   id: string
   empresaId: string
   brandId: string
+  itemId: string
+  warehouseId: string
   modelId?: string | null
   code?: string | null
   version?: string | null
@@ -134,11 +144,15 @@ export class DealerUnitResponseDTO {
   updatedAt: Date
   brand: IDealerUnit['brand']
   model?: IDealerUnit['model']
+  item: IDealerUnit['item']
+  warehouse: IDealerUnit['warehouse']
 
   constructor(data: IDealerUnit) {
     this.id = data.id
     this.empresaId = data.empresaId
     this.brandId = data.brandId
+    this.itemId = data.itemId
+    this.warehouseId = data.warehouseId
     this.condition = data.condition
     this.status = data.status
     this.isPublished = data.isPublished
@@ -146,6 +160,8 @@ export class DealerUnitResponseDTO {
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
     this.brand = data.brand
+    this.item = data.item
+    this.warehouse = data.warehouse
     if (data.model != null) this.model = data.model
     if (data.modelId != null) this.modelId = data.modelId
     if (data.code != null) this.code = data.code

@@ -15,6 +15,9 @@ model DealerReservation {
   dealerUnitId       String
   dealerUnit         DealerUnit              @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId         String
+  customer           Customer                 @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   reservationNumber  String
   status             DealerReservationStatus @default(PENDING)
 
@@ -25,7 +28,9 @@ model DealerReservation {
 
   offeredPrice       Decimal?                @db.Decimal(14, 2)
   depositAmount      Decimal?                @db.Decimal(14, 2)
-  currency           String?                 @default("USD")
+  currency           OrderCurrency           @default(USD)
+  exchangeRate       Decimal?                @db.Decimal(14, 4)
+  exchangeRateSource DealerExchangeRateSource?
 
   reservedAt         DateTime                @default(now())
   expiresAt          DateTime?
@@ -43,6 +48,7 @@ model DealerReservation {
   @@map("dealer_reservations")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([reservedAt])

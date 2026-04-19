@@ -32,13 +32,16 @@ export interface GetDealerReservationsParams {
 
 export interface SaveDealerReservationRequest {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   customerDocument?: string | null;
   customerPhone?: string | null;
   customerEmail?: string | null;
   offeredPrice?: number | null;
   depositAmount?: number | null;
-  currency?: string | null;
+  currency?: "USD" | "VES" | "EUR" | null;
+  exchangeRate?: number | null;
+  exchangeRateSource?: "BCV_AUTO" | "MANUAL" | null;
   expiresAt?: string | null;
   notes?: string | null;
   sourceChannel?: string | null;

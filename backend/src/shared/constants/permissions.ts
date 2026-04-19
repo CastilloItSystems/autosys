@@ -175,6 +175,12 @@ export const PERMISSIONS = {
   DEALER_UPDATE: 'dealer.update',
   DEALER_DELETE: 'dealer.delete',
   DEALER_APPROVE: 'dealer.approve',
+
+  // ── Tasas de Cambio ───────────────────────────────────────────────────────
+  EXCHANGE_RATES_VIEW: 'exchange_rates.view',
+  EXCHANGE_RATES_CREATE: 'exchange_rates.create',
+  EXCHANGE_RATES_UPDATE: 'exchange_rates.update',
+  EXCHANGE_RATES_DELETE: 'exchange_rates.delete',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

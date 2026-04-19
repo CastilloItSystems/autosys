@@ -6,6 +6,8 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerTradeInService from "@/app/api/dealer/dealerTradeInService";
 import type { DealerTradeIn } from "@/libs/interfaces/dealer/dealerTradeIn.interface";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -20,6 +22,7 @@ const STATUS_OPTIONS = [
 ];
 
 type DealerTradeInFormValues = {
+  customerId: string;
   customerName: string;
   vehicleBrand: string;
   vehicleModel: string;
@@ -47,10 +50,12 @@ export default function DealerTradeInForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerTradeInFormValues>({
     mode: "onBlur",
     defaultValues: {
+      customerId: tradeIn?.customerId || "",
       customerName: tradeIn?.customerName || "",
       vehicleBrand: tradeIn?.vehicleBrand || "",
       vehicleModel: tradeIn?.vehicleModel || "",
@@ -68,6 +73,7 @@ export default function DealerTradeInForm({
     onSubmittingChange?.(true);
     try {
       const payload = {
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         vehicleBrand: data.vehicleBrand.trim(),
         vehicleModel: data.vehicleModel || null,
@@ -91,6 +97,27 @@ export default function DealerTradeInForm({
     }
   };
 
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (customer) {
+        setValue("customerName", customer.name || "");
+      }
+    } catch {
+      // noop
+    }
+  };
+
   return (
     <form
       id={formId || "dealer-trade-in-form"}
@@ -99,21 +126,21 @@ export default function DealerTradeInForm({
     >
       <div className="grid formgrid">
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
             rules={{ required: "Cliente requerido" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 

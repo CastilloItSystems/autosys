@@ -76,6 +76,7 @@ model PreInvoice {
   consolidatedServiceOrders ServiceOrder[] @relation("ConsolidatedSOPreInvoice")
 
   payments            Payment[]
+  dealerQuotes        DealerQuote[]
 
   createdAt           DateTime          @default(now())
   updatedAt           DateTime          @updatedAt

@@ -4,6 +4,10 @@ export const createDealerUnitSchema = Joi.object({
   brandId: Joi.string().required().messages({
     'any.required': 'La marca es requerida',
   }),
+  itemId: Joi.string().optional().allow(null, ''),
+  warehouseId: Joi.string().required().messages({
+    'any.required': 'El almacén fiscal es requerido',
+  }),
   modelId: Joi.string().optional().allow(null, ''),
   code: Joi.string().max(40).optional().allow(null, ''),
   version: Joi.string().max(120).optional().allow(null, ''),
@@ -31,6 +35,8 @@ export const createDealerUnitSchema = Joi.object({
 
 export const updateDealerUnitSchema = Joi.object({
   brandId: Joi.string().optional(),
+  itemId: Joi.string().optional(),
+  warehouseId: Joi.string().optional(),
   modelId: Joi.string().optional().allow(null, ''),
   code: Joi.string().max(40).optional().allow(null, ''),
   version: Joi.string().max(120).optional().allow(null, ''),

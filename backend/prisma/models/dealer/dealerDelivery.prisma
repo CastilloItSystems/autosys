@@ -14,6 +14,9 @@ model DealerDelivery {
   dealerUnitId         String
   dealerUnit           DealerUnit            @relation("DealerUnitDelivery", fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId           String
+  customer             Customer              @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   deliveryNumber       String
   status               DealerDeliveryStatus  @default(SCHEDULED)
 
@@ -38,6 +41,7 @@ model DealerDelivery {
   @@map("dealer_deliveries")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@index([scheduledAt])

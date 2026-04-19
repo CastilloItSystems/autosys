@@ -1,6 +1,9 @@
 // backend/src/features/sales/shared/utils/orderNumberGenerator.ts
 
+import { PrismaClient, Prisma } from '../../../../generated/prisma/client.js'
 import prisma from '../../../../services/prisma.service.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 export class OrderNumberGenerator {
   /**
@@ -147,27 +150,30 @@ export class OrderNumberGenerator {
   }
 
   /**
-   * Genera código de cliente: CLI-00001
+   * Genera código de cliente por empresa: CLI-00001
+   * La constraint @@unique([empresaId, code]) es el safety net ante concurrencia
    */
-  static async generateCustomerCode(): Promise<string> {
-    const lastCustomer = await prisma.customer.findFirst({
-      where: {
-        code: {
-          startsWith: 'CLI-',
-        },
-      },
-      orderBy: {
-        code: 'desc',
-      },
+  static async generateCustomerCode(db: PrismaClientType, empresaId: string): Promise<string> {
+    const last = await (db as PrismaClient).customer.findFirst({
+      where: { empresaId, code: { startsWith: 'CLI-' } },
+      orderBy: { code: 'desc' },
+      select: { code: true },
     })
+    const lastNum = last ? parseInt(last.code.replace('CLI-', ''), 10) : 0
+    return `CLI-${String(lastNum + 1).padStart(5, '0')}`
+  }
 
-    let nextNumber = 1
-
-    if (lastCustomer) {
-      const lastNumber = parseInt(lastCustomer.code.split('-')[1])
-      nextNumber = lastNumber + 1
-    }
-
-    return `CLI-${String(nextNumber).padStart(5, '0')}`
+  /**
+   * Genera código de proveedor por empresa: PROV-00001
+   * La constraint @@unique([empresaId, code]) es el safety net ante concurrencia
+   */
+  static async generateSupplierCode(db: PrismaClientType, empresaId: string): Promise<string> {
+    const last = await (db as PrismaClient).supplier.findFirst({
+      where: { empresaId, code: { startsWith: 'PROV-' } },
+      orderBy: { code: 'desc' },
+      select: { code: true },
+    })
+    const lastNum = last ? parseInt(last.code.replace('PROV-', ''), 10) : 0
+    return `PROV-${String(lastNum + 1).padStart(5, '0')}`
   }
 }

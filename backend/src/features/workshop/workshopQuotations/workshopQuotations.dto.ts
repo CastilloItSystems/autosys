@@ -18,6 +18,8 @@ export class CreateQuotationDTO {
   validUntil?: Date
   notes?: string
   internalNotes?: string
+  currency?: string
+  exchangeRate?: number
   items: IQuotationItem[]
 
   constructor(data: any) {
@@ -33,6 +35,8 @@ export class CreateQuotationDTO {
     this.internalNotes = data.internalNotes
       ? String(data.internalNotes).trim()
       : undefined
+    this.currency = data.currency ?? undefined
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : undefined
     this.items = (data.items ?? []).map((it: any) => ({
       id: it.id || undefined,
       type: it.type as QuotationItemType,
@@ -55,6 +59,8 @@ export class UpdateQuotationDTO {
   validUntil?: Date | null
   notes?: string | null
   internalNotes?: string | null
+  currency?: string
+  exchangeRate?: number | null
   items?: IQuotationItem[]
 
   constructor(data: any) {
@@ -66,6 +72,9 @@ export class UpdateQuotationDTO {
       this.internalNotes = data.internalNotes
         ? String(data.internalNotes).trim()
         : null
+    if (data.currency !== undefined) this.currency = data.currency
+    if (data.exchangeRate !== undefined)
+      this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : null
     if (data.items) {
       this.items = data.items.map((it: any) => ({
         id: it.id || undefined,
@@ -105,6 +114,8 @@ export class QuotationResponseDTO {
   validUntil: Date | null
   expiredAt: Date | null
   convertedAt: Date | null
+  currency: string
+  exchangeRate: number | null
   laborTotal: number
   partsTotal: number
   otherTotal: number
@@ -140,6 +151,8 @@ export class QuotationResponseDTO {
     this.validUntil = data.validUntil ?? null
     this.expiredAt = data.expiredAt ?? null
     this.convertedAt = data.convertedAt ?? null
+    this.currency = data.currency ?? 'USD'
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : null
     this.laborTotal = Number(data.laborTotal ?? 0)
     this.partsTotal = Number(data.partsTotal ?? 0)
     this.otherTotal = Number(data.otherTotal ?? 0)

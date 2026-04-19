@@ -21,11 +21,24 @@ import {
   PaymentMethod,
 } from "@/libs/interfaces/sales/payment.interface";
 
-const formatCurrency = (value: number | string) =>
-  `$${Number(value || 0).toLocaleString("es-VE", {
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatAmount = (value: number | string, currency = "USD") => {
+  const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+  return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+};
+
+const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const InvoiceList = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -185,8 +198,22 @@ const InvoiceList = () => {
     </div>
   );
 
-  const totalBodyTemplate = (rowData: Invoice) => (
-    <span className="font-semibold">{formatCurrency(rowData.total)}</span>
+  const totalBodyTemplate = (rowData: Invoice) => {
+    const crossRef = formatCrossRef(Number(rowData.total), rowData.currency, rowData.exchangeRate);
+    return (
+      <div className="flex flex-column align-items-end gap-1">
+        <span className="font-semibold">{formatAmount(rowData.total, rowData.currency)}</span>
+        {crossRef && <span className="text-xs text-500">{crossRef}</span>}
+      </div>
+    );
+  };
+
+  const currencyBodyTemplate = (rowData: Invoice) => (
+    <Tag
+      value={rowData.currency || "USD"}
+      severity={rowData.currency === "VES" ? "warning" : rowData.currency === "EUR" ? "help" : "info"}
+      className="text-xs"
+    />
   );
 
   const dateBodyTemplate = (rowData: Invoice) =>
@@ -249,11 +276,28 @@ const InvoiceList = () => {
                 {data.payment?.paymentNumber || "—"}
                 {data.payment?.method && (
                   <span className="text-xs text-500 ml-2">
-                    (
-                    {PAYMENT_METHOD_CONFIG[
-                      data.payment.method as PaymentMethod
-                    ]?.label || data.payment.method}
-                    )
+                    ({PAYMENT_METHOD_CONFIG[data.payment.method as PaymentMethod]?.label || data.payment.method})
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="col-12 md:col-3">
+            <div className="surface-100 border-round p-3">
+              <span className="text-500 text-sm">Moneda / Tasa</span>
+              <div className="flex align-items-center gap-2 mt-1">
+                <Tag
+                  value={data.currency || "USD"}
+                  severity={data.currency === "VES" ? "warning" : data.currency === "EUR" ? "help" : "info"}
+                />
+                {data.exchangeRate && data.currency !== "VES" && (
+                  <span className="text-xs text-500">
+                    1 {data.currency} = Bs. {Number(data.exchangeRate).toFixed(4)}
+                  </span>
+                )}
+                {data.currency === "VES" && data.exchangeRate && (
+                  <span className="text-xs text-500">
+                    1 USD = Bs. {Number(data.exchangeRate).toFixed(4)}
                   </span>
                 )}
               </div>
@@ -389,7 +433,7 @@ const InvoiceList = () => {
                     flexShrink: 0,
                   }}
                 >
-                  {formatCurrency(line.unitPrice)}
+                  {formatAmount(line.unitPrice, data.currency)}
                 </div>
                 <div
                   style={{
@@ -433,41 +477,52 @@ const InvoiceList = () => {
                     flexShrink: 0,
                   }}
                 >
-                  {formatCurrency(line.totalLine)}
+                  {formatAmount(line.totalLine, data.currency)}
                 </div>
               </div>
             ))}
             {/* Totals footer */}
             <div
               style={{
-                display: "flex",
-                justifyContent: "flex-end",
-                gap: "1rem",
-                padding: "8px",
+                padding: "8px 12px",
                 backgroundColor: "var(--surface-50)",
                 borderTop: "2px solid var(--surface-300)",
                 fontSize: "0.8rem",
               }}
             >
-              <span className="text-500">
-                Subtotal: <b>{formatCurrency(data.subtotalBruto)}</b>
-              </span>
-              {Number(data.discountAmount) > 0 && (
-                <span className="text-orange-500">
-                  Desc: <b>-{formatCurrency(data.discountAmount)}</b>
+              <div className="flex justify-content-end gap-3 flex-wrap">
+                <span className="text-500">
+                  Subtotal: <b>{formatAmount(data.subtotalBruto, data.currency)}</b>
                 </span>
-              )}
-              <span className="text-blue-500">
-                IVA: <b>{formatCurrency(data.taxAmount)}</b>
-              </span>
-              {data.igtfApplies && (
-                <span className="text-purple-500">
-                  IGTF: <b>{formatCurrency(data.igtfAmount)}</b>
+                {Number(data.discountAmount) > 0 && (
+                  <span className="text-orange-500">
+                    Desc: <b>-{formatAmount(data.discountAmount, data.currency)}</b>
+                  </span>
+                )}
+                <span className="text-blue-500">
+                  IVA: <b>{formatAmount(data.taxAmount, data.currency)}</b>
                 </span>
+                {data.igtfApplies && (
+                  <span className="text-purple-500">
+                    IGTF: <b>{formatAmount(data.igtfAmount, data.currency)}</b>
+                  </span>
+                )}
+                <span className="text-primary font-bold">
+                  Total: {formatAmount(data.total, data.currency)}
+                </span>
+              </div>
+              {formatCrossRef(Number(data.total), data.currency, data.exchangeRate) && (
+                <div className="flex justify-content-end mt-1">
+                  <span className="text-xs text-500">
+                    {formatCrossRef(Number(data.total), data.currency, data.exchangeRate)}
+                    {data.exchangeRate && (
+                      <span className="ml-1">
+                        (tasa: 1 {data.currency === "VES" ? "USD" : data.currency} = Bs. {Number(data.exchangeRate).toFixed(4)})
+                      </span>
+                    )}
+                  </span>
+                </div>
               )}
-              <span className="text-primary font-bold">
-                Total: {formatCurrency(data.total)}
-              </span>
             </div>
           </div>
         )}
@@ -526,10 +581,18 @@ const InvoiceList = () => {
           <Column header="Estado" body={statusBodyTemplate} />
           <Column header="Cliente" body={customerBodyTemplate} />
           <Column
+            header="Moneda"
+            body={currencyBodyTemplate}
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column
             header="Total"
             body={totalBodyTemplate}
             sortable
             sortField="total"
+            headerStyle={{ textAlign: "right" }}
+            style={{ textAlign: "right" }}
           />
           <Column
             header="Fecha"

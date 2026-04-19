@@ -11,6 +11,7 @@ import {
 } from './services/empresa-setup.service.js'
 import SocketService from './features/inventory/shared/events/socket.service.js'
 import { startCrmAutomationScheduler } from './features/crm/automations/crm-automations.service.js'
+import { initBcvFetchJob } from './features/exchangeRates/bcv/bcvFetch.job.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -75,6 +76,10 @@ export const startServer = async (): Promise<void> => {
 
     // Automatizaciones CRM (reglas fijas v1)
     startCrmAutomationScheduler(prisma)
+
+    // BCV fetch automático (L-V 17:15 UTC + retry 18:00 UTC)
+    initBcvFetchJob(prisma)
+    logger.info('📈 BCV fetch job inicializado')
     logger.info('📦 Módulos disponibles:')
     logger.info('   • Inventory: /api/inventory')
     logger.info('   • Sales: /api/sales')

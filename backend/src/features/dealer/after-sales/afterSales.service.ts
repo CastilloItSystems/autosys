@@ -8,6 +8,16 @@ import { IDealerAfterSale, IDealerAfterSaleFilters } from './afterSales.interfac
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const AFTER_SALE_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   dealerUnit: {
     select: {
       id: true,
@@ -46,21 +56,39 @@ class DealerAfterSalesService {
     return `${prefix}${String(countToday + 1).padStart(4, '0')}`
   }
 
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
+  }
+
   async create(data: CreateDealerAfterSaleDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerAfterSale> {
     const caseNumber = await this.generateNumber(empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
     const status = (data.status as DealerAfterSaleStatus) || DealerAfterSaleStatus.OPEN
     const created = await (db as PrismaClient).dealerAfterSale.create({
       data: {
         empresaId,
         dealerUnitId: data.dealerUnitId ?? null,
+        customerId: data.customerId,
         referenceType: data.referenceType ?? null,
         referenceId: data.referenceId ?? null,
         caseNumber,
         type: data.type as DealerAfterSaleType,
         status,
-        customerName: data.customerName,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         title: data.title,
         description: data.description ?? null,
         dueAt: data.dueAt ?? null,
@@ -105,6 +133,7 @@ class DealerAfterSalesService {
       where.OR = [
         { caseNumber: { contains: q, mode: 'insensitive' } },
         { customerName: { contains: q, mode: 'insensitive' } },
+        { customer: { name: { contains: q, mode: 'insensitive' } } },
         { title: { contains: q, mode: 'insensitive' } },
         { description: { contains: q, mode: 'insensitive' } },
       ]
@@ -135,11 +164,35 @@ class DealerAfterSalesService {
     const current = await this.findById(id, empresaId, db)
     const status = data.status as DealerAfterSaleStatus | undefined
     if (status) this.validateTransition(current.status, status)
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+    }
 
     const updated = await (db as PrismaClient).dealerAfterSale.update({
       where: { id },
       data: {
-        ...(data.dealerUnitId !== undefined ? { dealerUnitId: data.dealerUnitId || null } : {}),
+        ...(data.dealerUnitId !== undefined
+          ? {
+              dealerUnit: data.dealerUnitId
+                ? {
+                    connect: {
+                      id: data.dealerUnitId,
+                    },
+                  }
+                : {
+                    disconnect: true,
+                  },
+            }
+          : {}),
+        ...(data.customerId !== undefined
+          ? {
+              customer: {
+                connect: {
+                  id: data.customerId,
+                },
+              },
+            }
+          : {}),
         ...(data.referenceType !== undefined ? { referenceType: data.referenceType || null } : {}),
         ...(data.referenceId !== undefined ? { referenceId: data.referenceId || null } : {}),
         ...(data.type !== undefined ? { type: data.type as DealerAfterSaleType } : {}),

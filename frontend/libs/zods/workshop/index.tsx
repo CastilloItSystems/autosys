@@ -16,3 +16,7 @@ export * from "./additionalZod";
 export * from "./quotationZod";
 export * from "./totZod";
 export * from "./garitaZod";
+export type {
+  WorkOrderFormData,
+  WorkOrderStatusFormData,
+} from "../workshopZod";

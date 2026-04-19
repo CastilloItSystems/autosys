@@ -32,6 +32,8 @@ export interface GetDealerUnitsParams {
 
 export interface SaveDealerUnitRequest {
   brandId: string;
+  warehouseId: string;
+  itemId?: string;
   modelId?: string | null;
   code?: string | null;
   version?: string | null;
@@ -78,4 +80,3 @@ const dealerUnitService = {
 };
 
 export default dealerUnitService;
-

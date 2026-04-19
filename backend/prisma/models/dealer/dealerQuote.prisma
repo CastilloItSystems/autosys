@@ -8,6 +8,21 @@ enum DealerQuoteStatus {
   CONVERTED
 }
 
+enum DealerExchangeRateSource {
+  BCV_AUTO
+  MANUAL
+}
+
+enum DealerFiscalStatus {
+  NOT_REQUESTED
+  ORDER_DRAFT
+  ORDER_APPROVED
+  PREINVOICE_READY
+  PAID
+  INVOICED
+  ERROR
+}
+
 model DealerQuote {
   id                String             @id @default(uuid())
 
@@ -16,6 +31,9 @@ model DealerQuote {
 
   dealerUnitId       String
   dealerUnit         DealerUnit         @relation(fields: [dealerUnitId], references: [id], onDelete: Restrict)
+
+  customerId         String
+  customer           Customer           @relation(fields: [customerId], references: [id], onDelete: Restrict)
 
   quoteNumber        String
   status             DealerQuoteStatus  @default(DRAFT)
@@ -32,7 +50,17 @@ model DealerQuote {
   taxPct             Decimal?           @db.Decimal(6, 2)
   taxAmount          Decimal?           @db.Decimal(14, 2)
   totalAmount        Decimal?           @db.Decimal(14, 2)
-  currency           String?            @default("USD")
+  currency           OrderCurrency      @default(USD)
+  exchangeRate       Decimal?           @db.Decimal(14, 4)
+  exchangeRateSource DealerExchangeRateSource?
+  fiscalStatus       DealerFiscalStatus @default(NOT_REQUESTED)
+  fiscalError        String?
+  salesOrderId       String?            @unique
+  salesOrder         Order?             @relation(fields: [salesOrderId], references: [id], onDelete: SetNull)
+  preInvoiceId       String?            @unique
+  preInvoice         PreInvoice?        @relation(fields: [preInvoiceId], references: [id], onDelete: SetNull)
+  invoiceId          String?            @unique
+  invoice            Invoice?           @relation(fields: [invoiceId], references: [id], onDelete: SetNull)
 
   validUntil         DateTime?
   paymentTerms       String?
@@ -51,7 +79,12 @@ model DealerQuote {
   @@map("dealer_quotes")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
+  @@index([fiscalStatus])
+  @@index([empresaId, fiscalStatus])
+  @@index([salesOrderId])
+  @@index([preInvoiceId])
   @@index([isActive])
   @@index([createdAt])
   @@unique([empresaId, quoteNumber])

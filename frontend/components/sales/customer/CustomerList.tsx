@@ -449,8 +449,8 @@ const CustomerList = () => {
         {/* Form dialog */}
         <Dialog
           visible={formDialog}
-          style={{ width: "800px" }}
-          breakpoints={{ "960px": "80vw", "640px": "95vw" }}
+          style={{ width: "80vw" }}
+          breakpoints={{ "1400px": "85vw", "900px": "90vw", "600px": "95vw" }}
           maximizable
           header={
             <div className="mb-2 text-center md:text-left">

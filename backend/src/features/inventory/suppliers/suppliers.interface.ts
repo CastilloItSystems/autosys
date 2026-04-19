@@ -29,7 +29,7 @@ export interface ISupplier {
 }
 
 export interface ICreateSupplierInput {
-  code: string
+  code?: string
   name: string
   contactName?: string
   email?: string

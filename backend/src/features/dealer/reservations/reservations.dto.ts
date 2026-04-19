@@ -2,6 +2,7 @@ import { IDealerReservation } from './reservations.interface.js'
 
 export class CreateDealerReservationDTO {
   dealerUnitId: string
+  customerId: string
   customerName: string
   customerDocument?: string
   customerPhone?: string
@@ -9,6 +10,8 @@ export class CreateDealerReservationDTO {
   offeredPrice?: number | null
   depositAmount?: number | null
   currency?: string
+  exchangeRate?: number | null
+  exchangeRateSource?: string
   expiresAt?: Date | null
   notes?: string
   sourceChannel?: string
@@ -16,6 +19,7 @@ export class CreateDealerReservationDTO {
 
   constructor(data: Record<string, unknown>) {
     this.dealerUnitId = String(data.dealerUnitId).trim()
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     if (data.customerDocument != null && String(data.customerDocument).trim() !== '')
       this.customerDocument = String(data.customerDocument).trim()
@@ -27,6 +31,9 @@ export class CreateDealerReservationDTO {
     if (data.depositAmount !== undefined)
       this.depositAmount = data.depositAmount !== null ? Number(data.depositAmount) : null
     if (data.currency != null && String(data.currency).trim() !== '') this.currency = String(data.currency).trim()
+    if (data.exchangeRate !== undefined) this.exchangeRate = data.exchangeRate !== null ? Number(data.exchangeRate) : null
+    if (data.exchangeRateSource != null && String(data.exchangeRateSource).trim() !== '')
+      this.exchangeRateSource = String(data.exchangeRateSource).trim()
     if (data.expiresAt !== undefined) this.expiresAt = data.expiresAt ? new Date(data.expiresAt as string) : null
     if (data.notes != null && String(data.notes).trim() !== '') this.notes = String(data.notes).trim()
     if (data.sourceChannel != null && String(data.sourceChannel).trim() !== '')
@@ -36,6 +43,7 @@ export class CreateDealerReservationDTO {
 }
 
 export class UpdateDealerReservationDTO {
+  customerId?: string
   customerName?: string
   customerDocument?: string | null
   customerPhone?: string | null
@@ -43,6 +51,8 @@ export class UpdateDealerReservationDTO {
   offeredPrice?: number | null
   depositAmount?: number | null
   currency?: string | null
+  exchangeRate?: number | null
+  exchangeRateSource?: string | null
   expiresAt?: Date | null
   notes?: string | null
   sourceChannel?: string | null
@@ -50,6 +60,7 @@ export class UpdateDealerReservationDTO {
   isActive?: boolean
 
   constructor(data: Record<string, unknown>) {
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.customerName !== undefined) this.customerName = String(data.customerName).trim()
     if (data.customerDocument !== undefined) this.customerDocument = data.customerDocument ? String(data.customerDocument).trim() : null
     if (data.customerPhone !== undefined) this.customerPhone = data.customerPhone ? String(data.customerPhone).trim() : null
@@ -58,6 +69,9 @@ export class UpdateDealerReservationDTO {
     if (data.depositAmount !== undefined)
       this.depositAmount = data.depositAmount !== null ? Number(data.depositAmount) : null
     if (data.currency !== undefined) this.currency = data.currency ? String(data.currency).trim() : null
+    if (data.exchangeRate !== undefined) this.exchangeRate = data.exchangeRate !== null ? Number(data.exchangeRate) : null
+    if (data.exchangeRateSource !== undefined)
+      this.exchangeRateSource = data.exchangeRateSource ? String(data.exchangeRateSource).trim() : null
     if (data.expiresAt !== undefined) this.expiresAt = data.expiresAt ? new Date(data.expiresAt as string) : null
     if (data.notes !== undefined) this.notes = data.notes ? String(data.notes).trim() : null
     if (data.sourceChannel !== undefined) this.sourceChannel = data.sourceChannel ? String(data.sourceChannel).trim() : null
@@ -70,6 +84,7 @@ export class DealerReservationResponseDTO {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   reservationNumber: string
   status: string
   customerName: string
@@ -78,7 +93,9 @@ export class DealerReservationResponseDTO {
   customerEmail?: string | null
   offeredPrice?: any | null
   depositAmount?: any | null
-  currency?: string | null
+  currency: string
+  exchangeRate?: number | null
+  exchangeRateSource?: string | null
   reservedAt: Date
   expiresAt?: Date | null
   confirmedAt?: Date | null
@@ -89,12 +106,14 @@ export class DealerReservationResponseDTO {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: IDealerReservation['customer']
   dealerUnit: IDealerReservation['dealerUnit']
 
   constructor(data: IDealerReservation) {
     this.id = data.id
     this.empresaId = data.empresaId
     this.dealerUnitId = data.dealerUnitId
+    this.customerId = data.customerId
     this.reservationNumber = data.reservationNumber
     this.status = data.status
     this.customerName = data.customerName
@@ -102,13 +121,16 @@ export class DealerReservationResponseDTO {
     this.isActive = data.isActive
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
+    this.customer = data.customer
     this.dealerUnit = data.dealerUnit
     if (data.customerDocument != null) this.customerDocument = data.customerDocument
     if (data.customerPhone != null) this.customerPhone = data.customerPhone
     if (data.customerEmail != null) this.customerEmail = data.customerEmail
     if (data.offeredPrice != null) this.offeredPrice = data.offeredPrice
     if (data.depositAmount != null) this.depositAmount = data.depositAmount
-    if (data.currency != null) this.currency = data.currency
+    this.currency = String(data.currency)
+    if (data.exchangeRate != null) this.exchangeRate = Number(data.exchangeRate)
+    if (data.exchangeRateSource != null) this.exchangeRateSource = String(data.exchangeRateSource)
     if (data.expiresAt != null) this.expiresAt = data.expiresAt
     if (data.confirmedAt != null) this.confirmedAt = data.confirmedAt
     if (data.cancelledAt != null) this.cancelledAt = data.cancelledAt

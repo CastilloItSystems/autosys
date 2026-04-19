@@ -71,6 +71,10 @@ model WorkshopQuotation {
   expiredAt  DateTime?
   convertedAt DateTime?
 
+  // Moneda y tasa de cambio
+  currency     CurrencyCode @default(USD)
+  exchangeRate Decimal?     @db.Decimal(14, 4)
+
   // Totales (calculados a partir de los ítems)
   laborTotal Decimal @default(0) @db.Decimal(12, 2)
   partsTotal Decimal @default(0) @db.Decimal(12, 2)

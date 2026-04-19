@@ -2,6 +2,7 @@ import { IDealerTestDrive } from './testDrives.interface.js'
 
 export class CreateDealerTestDriveDTO {
   dealerUnitId: string
+  customerId: string
   customerName: string
   customerDocument?: string
   customerPhone?: string
@@ -16,6 +17,7 @@ export class CreateDealerTestDriveDTO {
 
   constructor(data: Record<string, unknown>) {
     this.dealerUnitId = String(data.dealerUnitId).trim()
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     this.scheduledAt = new Date(String(data.scheduledAt))
     if (data.customerDocument != null && String(data.customerDocument).trim() !== '')
@@ -39,6 +41,7 @@ export class CreateDealerTestDriveDTO {
 }
 
 export class UpdateDealerTestDriveDTO {
+  customerId?: string
   customerName?: string
   customerDocument?: string | null
   customerPhone?: string | null
@@ -53,6 +56,7 @@ export class UpdateDealerTestDriveDTO {
   isActive?: boolean
 
   constructor(data: Record<string, unknown>) {
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.customerName !== undefined) this.customerName = String(data.customerName).trim()
     if (data.customerDocument !== undefined) this.customerDocument = data.customerDocument ? String(data.customerDocument).trim() : null
     if (data.customerPhone !== undefined) this.customerPhone = data.customerPhone ? String(data.customerPhone).trim() : null
@@ -74,6 +78,7 @@ export class DealerTestDriveResponseDTO {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   testDriveNumber: string
   status: string
   customerName: string
@@ -92,12 +97,14 @@ export class DealerTestDriveResponseDTO {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: IDealerTestDrive['customer']
   dealerUnit: IDealerTestDrive['dealerUnit']
 
   constructor(data: IDealerTestDrive) {
     this.id = data.id
     this.empresaId = data.empresaId
     this.dealerUnitId = data.dealerUnitId
+    this.customerId = data.customerId
     this.testDriveNumber = data.testDriveNumber
     this.status = data.status
     this.customerName = data.customerName
@@ -105,6 +112,7 @@ export class DealerTestDriveResponseDTO {
     this.isActive = data.isActive
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
+    this.customer = data.customer
     this.dealerUnit = data.dealerUnit
     if (data.customerDocument != null) this.customerDocument = data.customerDocument
     if (data.customerPhone != null) this.customerPhone = data.customerPhone

@@ -248,7 +248,11 @@ export default function DealerTestDriveList() {
             `${row.dealerUnit?.code || row.dealerUnit?.vin || row.dealerUnit?.id || "N/A"}`
           }
         />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerTestDrive) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column
           header="Fecha"
           body={(row: DealerTestDrive) => new Date(row.scheduledAt).toLocaleString()}

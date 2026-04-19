@@ -244,7 +244,11 @@ export default function DealerReservationList() {
             `${row.dealerUnit?.code || row.dealerUnit?.vin || row.dealerUnit?.id || "N/A"}`
           }
         />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerReservation) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column
           header="Estatus"
           body={(row: DealerReservation) => {

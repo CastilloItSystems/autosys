@@ -7,7 +7,7 @@ import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Tag } from "primereact/tag";
-import * as imageService from "@/app/api/inventory/imageUploadService";
+import imageService from "@/app/api/inventory/imageUploadService";
 import type { IItemImage } from "@/app/api/inventory/imageUploadService";
 
 interface ItemImageUploadProps {

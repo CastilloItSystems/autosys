@@ -4,7 +4,7 @@ import { Toast } from "primereact/toast";
 
 export const handleFormError = (
   error: unknown,
-  toastRef: React.RefObject<Toast> | null,
+  toastRef: React.RefObject<Toast | null> | Toast | null,
 ) => {
   const axiosError = error as AxiosError<{
     message?: string;
@@ -60,8 +60,11 @@ export const handleFormError = (
   if (axiosError.response?.data?.message) {
     summary = axiosError.response.data.message;
   }
-  if (toastRef?.current) {
-    toastRef.current.show({
+  const toastInstance =
+    toastRef && "current" in toastRef ? toastRef.current : toastRef;
+
+  if (toastInstance) {
+    toastInstance.show({
       severity: "error",
       summary,
       detail: errorDetails.length > 0 ? errorDetails.join(", ") : errorMessage,

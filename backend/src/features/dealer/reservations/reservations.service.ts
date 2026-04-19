@@ -8,6 +8,16 @@ import { IDealerReservation, IDealerReservationFilters } from './reservations.in
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const RESERVATION_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   dealerUnit: {
     select: {
       id: true,
@@ -32,6 +42,22 @@ class DealerReservationsService {
       throw new BadRequestError('La unidad ya fue entregada y no puede reservarse')
     }
     return unit
+  }
+
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
   }
 
   private async assertNoActiveReservation(dealerUnitId: string, empresaId: string, db: PrismaClientType, excludeId?: string) {
@@ -82,6 +108,7 @@ class DealerReservationsService {
     db: PrismaClientType
   ): Promise<IDealerReservation> {
     await this.assertUnitValid(data.dealerUnitId, empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
 
     const status = (data.status as DealerReservationStatus) || DealerReservationStatus.PENDING
     if (this.shouldReserveUnit(status)) {
@@ -94,15 +121,18 @@ class DealerReservationsService {
       data: {
         empresaId,
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         reservationNumber,
         status,
-        customerName: data.customerName,
-        customerDocument: data.customerDocument ?? null,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerDocument: data.customerDocument ?? customer.taxId ?? null,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         offeredPrice: data.offeredPrice ?? null,
         depositAmount: data.depositAmount ?? null,
-        currency: data.currency ?? 'USD',
+        currency: (data.currency as any) ?? 'USD',
+        exchangeRate: data.exchangeRate ?? null,
+        exchangeRateSource: (data.exchangeRateSource as any) ?? null,
         expiresAt: data.expiresAt ?? null,
         notes: data.notes ?? null,
         sourceChannel: data.sourceChannel ?? null,
@@ -158,6 +188,7 @@ class DealerReservationsService {
         { customerDocument: { contains: search, mode: 'insensitive' } },
         { customerPhone: { contains: search, mode: 'insensitive' } },
         { customerEmail: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { vin: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { code: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { plate: { contains: search, mode: 'insensitive' } } },
@@ -198,13 +229,20 @@ class DealerReservationsService {
     }
 
     const updateData: Prisma.DealerReservationUpdateInput = {}
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+      updateData.customer = { connect: { id: data.customerId } }
+    }
     if (data.customerName !== undefined) updateData.customerName = data.customerName
     if (data.customerDocument !== undefined) updateData.customerDocument = data.customerDocument || null
     if (data.customerPhone !== undefined) updateData.customerPhone = data.customerPhone || null
     if (data.customerEmail !== undefined) updateData.customerEmail = data.customerEmail || null
     if (data.offeredPrice !== undefined) updateData.offeredPrice = data.offeredPrice ?? null
     if (data.depositAmount !== undefined) updateData.depositAmount = data.depositAmount ?? null
-    if (data.currency !== undefined) updateData.currency = data.currency || null
+    if (data.currency !== undefined) updateData.currency = data.currency ? (String(data.currency).toUpperCase() as any) : null
+    if (data.exchangeRate !== undefined) updateData.exchangeRate = data.exchangeRate ?? null
+    if (data.exchangeRateSource !== undefined)
+      updateData.exchangeRateSource = data.exchangeRateSource ? (data.exchangeRateSource as any) : null
     if (data.expiresAt !== undefined) updateData.expiresAt = data.expiresAt ?? null
     if (data.notes !== undefined) updateData.notes = data.notes || null
     if (data.sourceChannel !== undefined) updateData.sourceChannel = data.sourceChannel || null

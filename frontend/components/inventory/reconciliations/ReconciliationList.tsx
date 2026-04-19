@@ -88,7 +88,7 @@ export default function ReconciliationList() {
         params,
       );
       setReconciliations(Array.isArray(response.data) ? response.data : []);
-      setTotalRecords(response.pagination?.total ?? 0);
+      setTotalRecords(response.meta?.total ?? 0);
     } catch (error: any) {
       toast.current?.show({
         severity: "error",
@@ -416,7 +416,11 @@ export default function ReconciliationList() {
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
           onPage={(e) =>
-            setFilters({ ...filters, page: e.page + 1, limit: e.rows })
+            setFilters({
+              ...filters,
+              page: (e.page ?? 0) + 1,
+              limit: e.rows,
+            })
           }
           rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"

@@ -87,6 +87,15 @@ model Customer {
   warranties        WorkshopWarranty[]
   workshopQuotations WorkshopQuotation[]
 
+  // Relaciones Concesionario
+  dealerQuotes       DealerQuote[]
+  dealerReservations DealerReservation[]
+  dealerTestDrives   DealerTestDrive[]
+  dealerDeliveries   DealerDelivery[]
+  dealerFinancing    DealerFinancing[]
+  dealerTradeIns     DealerTradeIn[]
+  dealerAfterSales   DealerAfterSale[]
+
   // Relaciones CRM: Cotizaciones
   quotes            Quote[]
 

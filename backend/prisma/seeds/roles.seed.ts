@@ -170,6 +170,13 @@ const ALL_DEALER = [
   'dealer.approve',
 ] as const
 
+const ALL_EXCHANGE_RATES = [
+  'exchange_rates.view',
+  'exchange_rates.create',
+  'exchange_rates.update',
+  'exchange_rates.delete',
+] as const
+
 const ROLE_DEFINITIONS = {
   OWNER: [
     ...ALL_USERS,
@@ -190,6 +197,7 @@ const ROLE_DEFINITIONS = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   ADMIN: [
     'users.view',
@@ -213,6 +221,7 @@ const ROLE_DEFINITIONS = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   GERENTE: [
     'users.view',
@@ -236,6 +245,7 @@ const ROLE_DEFINITIONS = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   ALMACENISTA: [
     'inventory.view',
@@ -262,6 +272,7 @@ const ROLE_DEFINITIONS = {
     'workshop.create',
     'workshop.update',
     'dealer.view',
+    'exchange_rates.view',
   ],
   VENDEDOR: [
     'inventory.view',
@@ -279,6 +290,7 @@ const ROLE_DEFINITIONS = {
     'dealer.view',
     'dealer.create',
     'dealer.update',
+    'exchange_rates.view',
   ],
   VIEWER: [
     'users.view',
@@ -298,6 +310,7 @@ const ROLE_DEFINITIONS = {
     ...VIEW_CRM,
     'workshop.view',
     'dealer.view',
+    'exchange_rates.view',
   ],
 } as const
 

@@ -22,11 +22,24 @@ import {
 import paymentService from "@/app/api/sales/paymentService";
 import { handleFormError } from "@/utils/errorHandlers";
 
-const formatCurrency = (value: number) =>
-  `$${value.toLocaleString("es-VE", {
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatAmount = (value: number, currency = "USD") => {
+  const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+  return `${sym} ${value.toLocaleString("es-VE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+};
+
+const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -134,9 +147,7 @@ const PaymentDialog = ({
       toast.current?.show({
         severity: "warn",
         summary: "Atención",
-        detail: `El monto excede el saldo pendiente (${formatCurrency(
-          remainingAmount,
-        )})`,
+        detail: `El monto excede el saldo pendiente (${formatAmount(remainingAmount, preInvoice.currency || "USD")})`,
         life: 3000,
       });
       return;
@@ -181,7 +192,7 @@ const PaymentDialog = ({
       toast.current?.show({
         severity: "success",
         summary: "Pago Procesado",
-        detail: `Pago de ${formatCurrency(amount)} registrado exitosamente`,
+        detail: `Pago de ${formatAmount(amount, preInvoice.currency || "USD")} registrado exitosamente`,
         life: 3000,
       });
 
@@ -195,6 +206,8 @@ const PaymentDialog = ({
   };
 
   if (!preInvoice) return null;
+
+  const currency = preInvoice.currency || "USD";
 
   const mixedMethodOptions = PAYMENT_METHOD_OPTIONS.filter(
     (o) => o.value !== PaymentMethod.MIXED,
@@ -228,7 +241,7 @@ const PaymentDialog = ({
             className="flex-1"
           />
           <Button
-            label={`Procesar Pago ${formatCurrency(totalWithIgtf)}`}
+            label={`Procesar Pago ${formatAmount(totalWithIgtf, currency)}`}
             icon="pi pi-check"
             severity="success"
             onClick={handleSubmit}
@@ -252,8 +265,13 @@ const PaymentDialog = ({
             <div className="col-6 text-right">
               <span className="text-500 text-sm">Total</span>
               <div className="font-bold text-primary text-xl">
-                {formatCurrency(totalPreInvoice)}
+                {formatAmount(totalPreInvoice, currency)}
               </div>
+              {formatCrossRef(totalPreInvoice, currency, preInvoice.exchangeRate) && (
+                <div className="text-xs text-500">
+                  {formatCrossRef(totalPreInvoice, currency, preInvoice.exchangeRate)}
+                </div>
+              )}
             </div>
           </div>
           {preInvoice.customer && (
@@ -284,23 +302,21 @@ const PaymentDialog = ({
                     {PAYMENT_METHOD_CONFIG[p.method]?.label || p.method}
                   </span>
                   <span className="font-semibold text-sm">
-                    {formatCurrency(Number(p.amount))}
+                    {formatAmount(Number(p.amount), currency)}
                   </span>
                 </div>
               ))}
             <Divider className="my-2" />
             <div className="flex justify-content-between">
               <span className="text-sm text-600">Pagado</span>
-              <span className="font-bold">
-                {formatCurrency(totalPaidSoFar)}
-              </span>
+              <span className="font-bold">{formatAmount(totalPaidSoFar, currency)}</span>
             </div>
             <div className="flex justify-content-between">
               <span className="text-sm font-semibold text-orange-500">
                 Saldo pendiente
               </span>
               <span className="font-bold text-orange-500">
-                {formatCurrency(remainingAmount)}
+                {formatAmount(remainingAmount, currency)}
               </span>
             </div>
           </div>
@@ -354,9 +370,10 @@ const PaymentDialog = ({
                   onValueChange={(e) =>
                     handleMixedChange(idx, "amount", e.value || 0)
                   }
-                  mode="currency"
-                  currency="USD"
-                  locale="en-US"
+                  mode="decimal"
+                  prefix={CURRENCY_SYMBOLS[currency] ? `${CURRENCY_SYMBOLS[currency]} ` : "$ "}
+                  minFractionDigits={2}
+                  maxFractionDigits={2}
                   min={0}
                   className="flex-1"
                   placeholder="Monto"
@@ -382,10 +399,9 @@ const PaymentDialog = ({
               <span className="text-sm text-600">
                 Suma:{" "}
                 <b>
-                  {formatCurrency(
-                    round2(
-                      mixedDetails.reduce((s, d) => s + (d.amount || 0), 0),
-                    ),
+                  {formatAmount(
+                    round2(mixedDetails.reduce((s, d) => s + (d.amount || 0), 0)),
+                    currency,
                   )}
                 </b>
               </span>
@@ -402,9 +418,10 @@ const PaymentDialog = ({
             <InputNumber
               value={amount}
               onValueChange={(e) => setAmount(e.value || 0)}
-              mode="currency"
-              currency="USD"
-              locale="en-US"
+              mode="decimal"
+              prefix={CURRENCY_SYMBOLS[currency] ? `${CURRENCY_SYMBOLS[currency]} ` : "$ "}
+              minFractionDigits={2}
+              maxFractionDigits={2}
               min={0}
               max={remainingAmount}
               className="w-full"
@@ -412,7 +429,7 @@ const PaymentDialog = ({
             {amount < remainingAmount && amount > 0 && (
               <small className="text-orange-500">
                 Pago parcial — quedarán{" "}
-                {formatCurrency(round2(remainingAmount - amount))} pendientes
+                {formatAmount(round2(remainingAmount - amount), currency)} pendientes
               </small>
             )}
           </div>
@@ -447,7 +464,7 @@ const PaymentDialog = ({
           </div>
           {igtfApplies && igtfAmount > 0 && (
             <Tag
-              value={`+${formatCurrency(igtfAmount)}`}
+              value={`+${formatAmount(igtfAmount, currency)}`}
               severity="warning"
               className="ml-auto"
             />
@@ -471,22 +488,25 @@ const PaymentDialog = ({
         <div className="surface-100 border-round p-3">
           <div className="flex justify-content-between align-items-center">
             <span className="text-600">Monto:</span>
-            <span className="font-semibold">{formatCurrency(amount)}</span>
+            <span className="font-semibold">{formatAmount(amount, currency)}</span>
           </div>
           {igtfApplies && (
             <div className="flex justify-content-between align-items-center text-yellow-600">
               <span>IGTF (3%):</span>
-              <span className="font-semibold">
-                +{formatCurrency(igtfAmount)}
-              </span>
+              <span className="font-semibold">+{formatAmount(igtfAmount, currency)}</span>
             </div>
           )}
           <Divider className="my-2" />
           <div className="flex justify-content-between align-items-center text-xl font-bold">
             <span className="text-900">Total a cobrar:</span>
-            <span className="text-primary">
-              {formatCurrency(totalWithIgtf)}
-            </span>
+            <div className="flex flex-column align-items-end gap-1">
+              <span className="text-primary">{formatAmount(totalWithIgtf, currency)}</span>
+              {formatCrossRef(totalWithIgtf, currency, preInvoice.exchangeRate) && (
+                <span className="text-sm font-normal text-500">
+                  {formatCrossRef(totalWithIgtf, currency, preInvoice.exchangeRate)}
+                </span>
+              )}
+            </div>
           </div>
         </div>
       </div>

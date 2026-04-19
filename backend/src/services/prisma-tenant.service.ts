@@ -12,6 +12,7 @@ const tenantModels = new Set([
   'order',
   'preInvoice',
   'invoice',
+  'exchangeRate',
 ])
 
 const addEmpresaFilter = (args: any, empresaId: string) => {

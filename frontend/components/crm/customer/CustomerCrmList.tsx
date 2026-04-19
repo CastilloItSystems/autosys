@@ -293,7 +293,9 @@ const CustomerCrmList = () => {
       <div className="flex align-items-center gap-1">
         <span className="font-semibold text-900">{rowData.name}</span>
         {rowData.isSpecialTaxpayer && (
-          <Tag value="CT" severity="warning" className="text-xs" style={{ fontSize: "0.65rem", padding: "1px 4px" }} tooltip="Contribuyente Especial" />
+          <span title="Contribuyente Especial">
+            <Tag value="CT" severity="warning" className="text-xs" style={{ fontSize: "0.65rem", padding: "1px 4px" }} />
+          </span>
         )}
       </div>
       <span className="text-xs text-500">{rowData.code}</span>

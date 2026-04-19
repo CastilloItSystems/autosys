@@ -152,6 +152,8 @@ export async function createTOT(
         const tax = Math.round(base * (data.taxRate ?? 0.16) * 100) / 100
         return Math.round((base + tax) * 100) / 100
       })(),
+      currency: (data.currency as any) ?? 'USD',
+      exchangeRate: data.exchangeRate ?? null,
       notes: data.notes || null,
       empresaId,
       createdBy: userId,
@@ -209,6 +211,8 @@ export async function updateTOT(
       providerInvoiceRef: data.providerInvoiceRef,
     }),
     ...(data.notes !== undefined && { notes: data.notes }),
+    ...(data.currency !== undefined && { currency: (data.currency as any) }),
+    ...(data.exchangeRate !== undefined && { exchangeRate: data.exchangeRate }),
   }
 
   // Handle financial fields

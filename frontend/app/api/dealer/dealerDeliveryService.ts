@@ -11,6 +11,14 @@ interface PaginatedResponse<T> extends ApiResponse<T[]> {
   meta: { page: number; limit: number; total: number; totalPages: number };
 }
 
+export interface SaveDealerDeliveryRequest {
+  dealerUnitId: string;
+  customerId: string;
+  customerName: string;
+  scheduledAt: string;
+  status?: string;
+}
+
 const BASE_ROUTE = "/dealer/deliveries";
 
 const dealerDeliveryService = {
@@ -18,11 +26,11 @@ const dealerDeliveryService = {
     const res = await apiClient.get(BASE_ROUTE, { params });
     return res.data;
   },
-  async create(data: Record<string, unknown>): Promise<ApiResponse<DealerDelivery>> {
+  async create(data: SaveDealerDeliveryRequest): Promise<ApiResponse<DealerDelivery>> {
     const res = await apiClient.post(BASE_ROUTE, data);
     return res.data;
   },
-  async update(id: string, data: Record<string, unknown>): Promise<ApiResponse<DealerDelivery>> {
+  async update(id: string, data: Partial<SaveDealerDeliveryRequest>): Promise<ApiResponse<DealerDelivery>> {
     const res = await apiClient.put(`${BASE_ROUTE}/${id}`, data);
     return res.data;
   },

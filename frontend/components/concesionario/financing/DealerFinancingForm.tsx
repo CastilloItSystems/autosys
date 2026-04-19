@@ -6,6 +6,8 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerFinancingService from "@/app/api/dealer/dealerFinancingService";
 import type { DealerFinancing } from "@/libs/interfaces/dealer/dealerFinancing.interface";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -22,6 +24,7 @@ const STATUS_OPTIONS = [
 
 type DealerFinancingFormValues = {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   bankName: string;
   requestedAmount?: number;
@@ -50,11 +53,13 @@ export default function DealerFinancingForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerFinancingFormValues>({
     mode: "onBlur",
     defaultValues: {
       dealerUnitId: financing?.dealerUnit?.id || "",
+      customerId: financing?.customerId || "",
       customerName: financing?.customerName || "",
       bankName: "",
       requestedAmount:
@@ -71,6 +76,7 @@ export default function DealerFinancingForm({
     try {
       const payload = {
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         bankName: data.bankName || null,
         requestedAmount: data.requestedAmount ?? null,
@@ -89,6 +95,27 @@ export default function DealerFinancingForm({
       handleFormError(error, toast);
     } finally {
       onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (customer) {
+        setValue("customerName", customer.name || "");
+      }
+    } catch {
+      // noop
     }
   };
 
@@ -136,21 +163,21 @@ export default function DealerFinancingForm({
         </div>
 
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
             rules={{ required: "Cliente requerido" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 

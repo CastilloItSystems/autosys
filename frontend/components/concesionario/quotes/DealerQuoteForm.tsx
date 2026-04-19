@@ -1,12 +1,16 @@
 "use client";
 
 import React from "react";
-import { Controller, useForm } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 import { Calendar } from "primereact/calendar";
+import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
+import { useBcvRate } from "@/hooks/useBcvRate";
 import dealerQuoteService, {
   SaveDealerQuoteRequest,
 } from "@/app/api/dealer/dealerQuoteService";
@@ -28,8 +32,20 @@ const YES_NO_OPTIONS = [
   { label: "No", value: false },
 ];
 
+const CURRENCY_OPTIONS = [
+  { label: "USD ($)", value: "USD" },
+  { label: "VES (Bs.)", value: "VES" },
+  { label: "EUR (€)", value: "EUR" },
+];
+
+const FX_SOURCE_OPTIONS = [
+  { label: "BCV automático", value: "BCV_AUTO" },
+  { label: "Manual", value: "MANUAL" },
+];
+
 type DealerQuoteFormValues = {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   customerDocument: string;
   customerPhone: string;
@@ -38,7 +54,9 @@ type DealerQuoteFormValues = {
   discountPct?: number;
   offeredPrice?: number;
   taxPct?: number;
-  currency: string;
+  currency: "USD" | "VES" | "EUR";
+  exchangeRate?: number;
+  exchangeRateSource: "BCV_AUTO" | "MANUAL";
   validUntil?: Date | null;
   paymentTerms: string;
   financingRequired: boolean;
@@ -67,11 +85,13 @@ export default function DealerQuoteForm({
   const {
     control,
     handleSubmit,
+    setValue,
     formState: { errors },
   } = useForm<DealerQuoteFormValues>({
     mode: "onBlur",
     defaultValues: {
       dealerUnitId: quote?.dealerUnitId || "",
+      customerId: quote?.customerId || "",
       customerName: quote?.customerName || "",
       customerDocument: quote?.customerDocument || "",
       customerPhone: quote?.customerPhone || "",
@@ -83,6 +103,9 @@ export default function DealerQuoteForm({
         quote?.offeredPrice != null ? Number(quote.offeredPrice) : undefined,
       taxPct: quote?.taxPct != null ? Number(quote.taxPct) : 16,
       currency: quote?.currency || "USD",
+      exchangeRate:
+        quote?.exchangeRate != null ? Number(quote.exchangeRate) : undefined,
+      exchangeRateSource: quote?.exchangeRateSource || "BCV_AUTO",
       validUntil: quote?.validUntil ? new Date(quote.validUntil) : null,
       paymentTerms: quote?.paymentTerms || "",
       financingRequired: quote?.financingRequired ?? false,
@@ -91,12 +114,17 @@ export default function DealerQuoteForm({
       isActive: quote?.isActive ?? true,
     },
   });
+  const watchCurrency = useWatch({ control, name: "currency" });
+  const watchFxSource = useWatch({ control, name: "exchangeRateSource" });
+  const watchStatus = useWatch({ control, name: "status" });
+  const { rate: bcvRate } = useBcvRate(watchCurrency || "USD");
 
   const onSubmit = async (data: DealerQuoteFormValues) => {
     onSubmittingChange?.(true);
     try {
       const payload: SaveDealerQuoteRequest = {
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         customerName: data.customerName.trim(),
         customerDocument: data.customerDocument || null,
         customerPhone: data.customerPhone || null,
@@ -106,6 +134,8 @@ export default function DealerQuoteForm({
         offeredPrice: data.offeredPrice ?? null,
         taxPct: data.taxPct ?? null,
         currency: data.currency || "USD",
+        exchangeRate: data.exchangeRate ?? null,
+        exchangeRateSource: data.exchangeRateSource || "BCV_AUTO",
         validUntil: data.validUntil ? data.validUntil.toISOString() : null,
         paymentTerms: data.paymentTerms || null,
         financingRequired: data.financingRequired,
@@ -125,6 +155,56 @@ export default function DealerQuoteForm({
       handleFormError(error, toast);
     } finally {
       onSubmittingChange?.(false);
+    }
+  };
+
+  React.useEffect(() => {
+    if (watchCurrency === "VES") {
+      setValue("exchangeRate", 1);
+      setValue("exchangeRateSource", "BCV_AUTO");
+      return;
+    }
+    if (watchFxSource === "BCV_AUTO" && bcvRate) {
+      setValue("exchangeRate", bcvRate);
+    }
+  }, [watchCurrency, watchFxSource, bcvRate, setValue]);
+
+  const handleConvertAndFiscalize = async () => {
+    if (!quote?.id) return;
+    onSubmittingChange?.(true);
+    try {
+      await dealerQuoteService.convertAndFiscalize(quote.id);
+      await onSave();
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      setValue("customerDocument", "");
+      setValue("customerPhone", "");
+      setValue("customerEmail", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (!customer) return;
+      setValue("customerName", customer.name || "");
+      setValue("customerDocument", customer.taxId || "");
+      setValue("customerPhone", customer.phone || customer.mobile || "");
+      setValue("customerEmail", customer.email || "");
+    } catch {
+      // noop
     }
   };
 
@@ -188,21 +268,21 @@ export default function DealerQuoteForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label className="font-semibold">Cliente *</label>
+          <label className="font-semibold">Cliente CRM *</label>
           <Controller
-            name="customerName"
+            name="customerId"
             control={control}
-            rules={{ required: "El nombre del cliente es requerido" }}
+            rules={{ required: "Debe seleccionar un cliente" }}
             render={({ field }) => (
-              <InputText
-                {...field}
-                className={errors.customerName ? "p-invalid" : ""}
-                autoFocus
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) => handleCustomerChange(value, field.onChange)}
+                invalid={!!errors.customerId}
               />
             )}
           />
-          {errors.customerName && (
-            <small className="p-error">{errors.customerName.message}</small>
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
           )}
         </div>
 
@@ -238,7 +318,48 @@ export default function DealerQuoteForm({
           <Controller
             name="currency"
             control={control}
-            render={({ field }) => <InputText {...field} value={field.value || ""} />}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={CURRENCY_OPTIONS}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Fuente Tasa</label>
+          <Controller
+            name="exchangeRateSource"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={FX_SOURCE_OPTIONS}
+                disabled={watchCurrency === "VES"}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Tasa Cambiaria</label>
+          <Controller
+            name="exchangeRate"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                min={0}
+                minFractionDigits={2}
+                maxFractionDigits={7}
+                disabled={watchCurrency === "VES" || watchFxSource === "BCV_AUTO"}
+              />
+            )}
           />
         </div>
 
@@ -349,6 +470,19 @@ export default function DealerQuoteForm({
             render={({ field }) => <InputText {...field} value={field.value || ""} />}
           />
         </div>
+
+        {quote?.id && (
+          <div className="col-12 field mb-0">
+            <Button
+              type="button"
+              label="Convertir y Fiscalizar"
+              icon="pi pi-check-circle"
+              className="p-button-success"
+              disabled={watchStatus !== "APPROVED"}
+              onClick={handleConvertAndFiscalize}
+            />
+          </div>
+        )}
       </div>
     </form>
   );

@@ -3,10 +3,7 @@
 import { z } from "zod";
 
 export const createCustomerSchema = z.object({
-  code: z
-    .string()
-    .min(1, "El código es requerido")
-    .max(50, "Máximo 50 caracteres"),
+  code: z.string().max(50, "Máximo 50 caracteres").optional(),
   taxId: z.string().max(20).optional().or(z.literal("")),
   name: z
     .string()

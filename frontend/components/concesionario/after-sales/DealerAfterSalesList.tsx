@@ -235,7 +235,11 @@ export default function DealerAfterSalesList() {
         scrollable
       >
         <Column field="caseNumber" header="Caso" sortable />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerAfterSale) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column field="title" header="Título" sortable />
         <Column field="type" header="Tipo" sortable />
         <Column

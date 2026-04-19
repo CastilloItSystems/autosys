@@ -168,19 +168,16 @@ export default function CustomerForm({
           />
         </div>
 
-        <div className="col-12 md:col-6 field">
-          <label className="font-semibold">
-            Código <span className="text-red-500">*</span>
-          </label>
-          <InputText
-            {...register("code")}
-            placeholder="Ej: CLI-001"
-            className={errors.code ? "p-invalid" : ""}
-          />
-          {errors.code && (
-            <small className="p-error">{errors.code.message}</small>
-          )}
-        </div>
+        {isEditing && (
+          <div className="col-12 md:col-6 field">
+            <label className="font-semibold">Código</label>
+            <InputText
+              {...register("code")}
+              disabled
+              className="p-disabled"
+            />
+          </div>
+        )}
 
         <div className="col-12 md:col-8 field">
           <label className="font-semibold">

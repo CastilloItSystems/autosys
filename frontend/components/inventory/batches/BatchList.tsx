@@ -129,35 +129,35 @@ export default function BatchList({ warehouseId }: BatchListProps) {
         <Button
           icon="pi pi-eye"
           rounded
-          outline
+          outlined
           severity="info"
           onClick={() => {
             setSelectedBatch(rowData);
             setShowDetail(true);
           }}
           tooltip="Ver detalles"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
         <Button
           icon="pi pi-pencil"
           rounded
-          outline
+          outlined
           severity="warning"
           onClick={() => {
             setSelectedBatch(rowData);
             setShowForm(true);
           }}
           tooltip="Editar"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
         <Button
           icon="pi pi-trash"
           rounded
-          outline
+          outlined
           severity="danger"
           onClick={() => handleDelete(rowData)}
           tooltip="Eliminar"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
       </div>
     );
@@ -251,7 +251,6 @@ export default function BatchList({ warehouseId }: BatchListProps) {
         onPage={onPage}
         loading={loading}
         className="p-datatable-striped"
-        responsive
       >
         <Column field="batchNumber" header="Número de Lote" sortable />
         <Column field="sku" header="SKU" sortable />

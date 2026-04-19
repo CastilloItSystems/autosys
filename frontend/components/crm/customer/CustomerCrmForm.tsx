@@ -94,6 +94,7 @@ export default function CustomerCrmForm({
           customerSince: customer.customerSince || undefined,
           referredById: customer.referredById || undefined,
           notes: customer.notes || undefined,
+          metadata: customer.metadata ?? null,
           isActive: customer.isActive ?? true,
         }
       : {
@@ -105,6 +106,7 @@ export default function CustomerCrmForm({
           defaultDiscount: 0,
           segment: "PROSPECT",
           preferredChannel: "ALL",
+          metadata: null,
           isActive: true,
         },
   });
@@ -136,6 +138,7 @@ export default function CustomerCrmForm({
         customerSince: data.customerSince || undefined,
         referredById: data.referredById || undefined,
         notes: data.notes || undefined,
+        metadata: data.metadata ?? null,
         isActive: data.isActive,
       };
 
@@ -182,15 +185,16 @@ export default function CustomerCrmForm({
           />
         </div>
 
-        <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Código <span className="text-red-500">*</span></label>
-          <InputText
-            {...register("code")}
-            placeholder="Ej: CLI-001"
-            className={errors.code ? "p-invalid" : ""}
-          />
-          {errors.code && <small className="p-error">{errors.code.message}</small>}
-        </div>
+        {isEditing && (
+          <div className="col-12 md:col-6 field">
+            <label className="font-semibold">Código</label>
+            <InputText
+              {...register("code")}
+              disabled
+              className="p-disabled"
+            />
+          </div>
+        )}
 
         <div className="col-12 md:col-8 field">
           <label className="font-semibold">Nombre / Razón Social <span className="text-red-500">*</span></label>

@@ -4,6 +4,7 @@ export interface IDealerFinancing {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   financingNumber: string
   status: DealerFinancingStatus
   customerName: string
@@ -18,11 +19,21 @@ export interface IDealerFinancing {
   termMonths?: number | null
   annualRatePct?: any | null
   installmentAmount?: any | null
-  currency?: string | null
+  currency: 'USD' | 'VES' | 'EUR'
+  exchangeRate?: any | null
+  exchangeRateSource?: 'BCV_AUTO' | 'MANUAL' | null
   notes?: string | null
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   dealerUnit: {
     id: string
     code?: string | null

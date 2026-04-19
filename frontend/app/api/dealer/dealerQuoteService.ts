@@ -32,6 +32,7 @@ export interface GetDealerQuotesParams {
 
 export interface SaveDealerQuoteRequest {
   dealerUnitId: string;
+  customerId: string;
   customerName: string;
   customerDocument?: string | null;
   customerPhone?: string | null;
@@ -40,7 +41,9 @@ export interface SaveDealerQuoteRequest {
   discountPct?: number | null;
   offeredPrice?: number | null;
   taxPct?: number | null;
-  currency?: string | null;
+  currency?: "USD" | "VES" | "EUR" | null;
+  exchangeRate?: number | null;
+  exchangeRateSource?: "BCV_AUTO" | "MANUAL" | null;
   validUntil?: string | null;
   paymentTerms?: string | null;
   financingRequired?: boolean;
@@ -69,6 +72,11 @@ const dealerQuoteService = {
 
   async update(id: string, data: Partial<SaveDealerQuoteRequest>): Promise<ApiResponse<DealerQuote>> {
     const res = await apiClient.put(`${BASE_ROUTE}/${id}`, data);
+    return res.data;
+  },
+
+  async convertAndFiscalize(id: string, force = false): Promise<ApiResponse<DealerQuote>> {
+    const res = await apiClient.post(`${BASE_ROUTE}/${id}/convert-and-fiscalize`, { force });
     return res.data;
   },
 

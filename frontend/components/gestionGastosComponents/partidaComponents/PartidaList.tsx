@@ -253,8 +253,6 @@ const PartidaList = () => {
             </div>
           </div>
         }
-        /* createdBy={selectedAuditPartida?.createdBy!} */
-        createdAt={selectedAuditPartida?.createdAt!}
         historial={selectedAuditPartida?.historial}
       />
       <Dialog

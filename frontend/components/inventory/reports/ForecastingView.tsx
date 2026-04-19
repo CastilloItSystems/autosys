@@ -405,7 +405,7 @@ const ForecastingView = () => {
             detailedMetrics.recommendations.length > 0 && (
               <Card title="Recomendaciones del Sistema">
                 <ul className="list-none p-0 m-0 flex flex-column gap-2">
-                  {detailedMetrics.recommendations.map((rec, idx) => (
+                  {detailedMetrics.recommendations.map((rec: string, idx: number) => (
                     <li key={idx} className="flex align-items-start gap-3">
                       <i className="pi pi-check-circle text-green-500 mt-1"></i>
                       <span className="text-700">{rec}</span>

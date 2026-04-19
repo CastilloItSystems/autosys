@@ -81,9 +81,9 @@ export default function ReconciliationForm({
     setIsSubmitting(true);
     try {
       if (reconciliation) {
-        await reconciliationService.update(reconciliation.id, data);
+        await reconciliationService.update(reconciliation.id, data as any);
       } else {
-        await reconciliationService.create(data);
+        await reconciliationService.create(data as any);
       }
       onSuccess();
     } catch (error) {

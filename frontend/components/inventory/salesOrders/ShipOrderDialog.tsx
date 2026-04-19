@@ -174,10 +174,11 @@ const ShipOrderDialog = ({
         itemsToShip,
         idempotencyKey,
       );
+      const shippedOrder = (response as any)?.data ?? response;
 
       localStorage.removeItem(`ship-pending-${order.id || order._id}`);
 
-      const isFullyShipped = response.estado === "despachada";
+      const isFullyShipped = shippedOrder?.estado === "despachada";
 
       toast?.current?.show({
         severity: "success",
@@ -187,7 +188,7 @@ const ShipOrderDialog = ({
           : `Despacho parcial procesado exitosamente`,
       });
 
-      onSuccess(response);
+      onSuccess(shippedOrder);
       onHide();
     } catch (error) {
       console.error("Error shipping order:", error);

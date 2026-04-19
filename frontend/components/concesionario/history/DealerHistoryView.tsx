@@ -99,7 +99,10 @@ export default function DealerHistoryView() {
         />
         <Column field="number" header="Número" />
         <Column field="status" header="Estatus" />
-        <Column field="customerName" header="Cliente" />
+        <Column
+          header="Cliente"
+          body={(row: DealerHistoryItem) => row.customer?.name || row.customerName}
+        />
         <Column field="unitRef" header="Unidad" />
         <Column
           header="Fecha"

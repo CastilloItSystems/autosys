@@ -5,6 +5,7 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
 import { CreateCustomerDTO, UpdateCustomerDTO } from './customers.dto.js'
+import { OrderNumberGenerator } from '../../sales/shared/utils/orderNumberGenerator.js'
 import { ICustomer, ICustomerFilters } from './customers.interface.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
@@ -19,12 +20,7 @@ class CustomersService {
     empresaId: string,
     db: PrismaClientType
   ): Promise<ICustomer> {
-    const existing = await (db as PrismaClient).customer.findFirst({
-      where: { code: data.code, empresaId },
-    })
-    if (existing) {
-      throw new BadRequestError(`Ya existe un cliente con código ${data.code}`)
-    }
+    const code = await OrderNumberGenerator.generateCustomerCode(db, empresaId)
 
     if (data.taxId) {
       const existingTax = await (db as PrismaClient).customer.findFirst({
@@ -37,7 +33,7 @@ class CustomersService {
 
     const customer = await (db as PrismaClient).customer.create({
       data: {
-        code: data.code,
+        code,
         name: data.name,
         taxId: data.taxId ?? null,
         email: data.email ?? null,

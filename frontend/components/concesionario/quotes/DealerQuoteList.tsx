@@ -11,6 +11,7 @@ import { MenuItem } from "primereact/menuitem";
 import { Toast } from "primereact/toast";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
+import Link from "next/link";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
@@ -43,6 +44,19 @@ const STATUS_META: Record<
   REJECTED: { label: "Rechazada", severity: "danger" },
   EXPIRED: { label: "Expirada", severity: "danger" },
   CONVERTED: { label: "Convertida", severity: "success" },
+};
+
+const FISCAL_STATUS_META: Record<
+  string,
+  { label: string; severity: "success" | "warning" | "danger" | "info" | "secondary" }
+> = {
+  NOT_REQUESTED: { label: "No Solicitado", severity: "secondary" },
+  ORDER_DRAFT: { label: "Orden Borrador", severity: "warning" },
+  ORDER_APPROVED: { label: "Orden Aprobada", severity: "info" },
+  PREINVOICE_READY: { label: "Pre-Factura Lista", severity: "success" },
+  PAID: { label: "Pagada", severity: "success" },
+  INVOICED: { label: "Facturada", severity: "success" },
+  ERROR: { label: "Error", severity: "danger" },
 };
 
 export default function DealerQuoteList() {
@@ -169,6 +183,28 @@ export default function DealerQuoteList() {
     if (!item) return [];
     return [
       {
+        label: "Convertir y Fiscalizar",
+        icon: "pi pi-check-circle",
+        disabled: item.status !== "APPROVED",
+        command: async () => {
+          try {
+            await dealerQuoteService.convertAndFiscalize(item.id);
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Cotización fiscalizada correctamente",
+              life: 3000,
+            });
+            await loadItems();
+          } catch (error) {
+            handleFormError(error, toast);
+          }
+        },
+      },
+      {
+        separator: true,
+      },
+      {
         label: "Editar",
         icon: "pi pi-pencil",
         command: () => editItem(item),
@@ -252,7 +288,11 @@ export default function DealerQuoteList() {
             `${row.dealerUnit?.code || row.dealerUnit?.vin || row.dealerUnit?.id || "N/A"}`
           }
         />
-        <Column field="customerName" header="Cliente" sortable />
+        <Column
+          header="Cliente"
+          body={(row: DealerQuote) => row.customer?.name || row.customerName}
+          sortable
+        />
         <Column
           header="Estatus"
           body={(row: DealerQuote) => {
@@ -264,11 +304,41 @@ export default function DealerQuoteList() {
           }}
         />
         <Column
+          header="Estatus Fiscal"
+          body={(row: DealerQuote) => {
+            const meta = FISCAL_STATUS_META[row.fiscalStatus] || {
+              label: row.fiscalStatus || "N/A",
+              severity: "secondary" as const,
+            };
+            return <Tag value={meta.label} severity={meta.severity} />;
+          }}
+        />
+        <Column
           header="Total"
           body={(row: DealerQuote) =>
             row.totalAmount != null
               ? `${row.currency || "USD"} ${Number(row.totalAmount).toFixed(2)}`
               : "-"
+          }
+        />
+        <Column
+          header="Order"
+          body={(row: DealerQuote) =>
+            row.salesOrderId ? (
+              <Link href={`/empresa/ventas?orderId=${row.salesOrderId}`}>Ver</Link>
+            ) : (
+              "-"
+            )
+          }
+        />
+        <Column
+          header="Pre-Factura"
+          body={(row: DealerQuote) =>
+            row.preInvoiceId ? (
+              <Link href={`/empresa/inventario/pre-invoice?preInvoiceId=${row.preInvoiceId}`}>Ver</Link>
+            ) : (
+              "-"
+            )
           }
         />
         <Column

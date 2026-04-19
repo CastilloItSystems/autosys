@@ -54,6 +54,8 @@ export interface ICreateQuotationInput {
   validUntil?: Date
   notes?: string
   internalNotes?: string
+  currency?: string
+  exchangeRate?: number
   items: IQuotationItem[]
 }
 
@@ -61,6 +63,8 @@ export interface IUpdateQuotationInput {
   validUntil?: Date | null
   notes?: string
   internalNotes?: string
+  currency?: string
+  exchangeRate?: number | null
   items?: IQuotationItem[]
 }
 

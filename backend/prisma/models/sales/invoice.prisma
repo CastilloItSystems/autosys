@@ -28,6 +28,7 @@ model Invoice {
 
   // Relaciones
   items              InvoiceItem[]
+  dealerQuotes       DealerQuote[]
 
   // Workshop: OT facturada con esta invoice
   serviceOrder       ServiceOrder?

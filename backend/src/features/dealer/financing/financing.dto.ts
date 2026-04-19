@@ -2,6 +2,7 @@ import { IDealerFinancing } from './financing.interface.js'
 
 export class CreateDealerFinancingDTO {
   dealerUnitId: string
+  customerId: string
   customerName: string
   customerDocument?: string
   customerPhone?: string
@@ -15,11 +16,14 @@ export class CreateDealerFinancingDTO {
   annualRatePct?: number | null
   installmentAmount?: number | null
   currency?: string
+  exchangeRate?: number | null
+  exchangeRateSource?: string
   notes?: string
   status?: string
 
   constructor(data: Record<string, unknown>) {
     this.dealerUnitId = String(data.dealerUnitId).trim()
+    this.customerId = String(data.customerId).trim()
     this.customerName = String(data.customerName).trim()
     if (data.customerDocument != null && String(data.customerDocument).trim() !== '')
       this.customerDocument = String(data.customerDocument).trim()
@@ -38,12 +42,16 @@ export class CreateDealerFinancingDTO {
     if (data.installmentAmount !== undefined)
       this.installmentAmount = data.installmentAmount !== null ? Number(data.installmentAmount) : null
     if (data.currency != null && String(data.currency).trim() !== '') this.currency = String(data.currency).trim()
+    if (data.exchangeRate !== undefined) this.exchangeRate = data.exchangeRate !== null ? Number(data.exchangeRate) : null
+    if (data.exchangeRateSource != null && String(data.exchangeRateSource).trim() !== '')
+      this.exchangeRateSource = String(data.exchangeRateSource).trim()
     if (data.notes != null && String(data.notes).trim() !== '') this.notes = String(data.notes).trim()
     if (data.status != null && String(data.status).trim() !== '') this.status = String(data.status).trim()
   }
 }
 
 export class UpdateDealerFinancingDTO {
+  customerId?: string
   customerName?: string
   customerDocument?: string | null
   customerPhone?: string | null
@@ -57,11 +65,14 @@ export class UpdateDealerFinancingDTO {
   annualRatePct?: number | null
   installmentAmount?: number | null
   currency?: string | null
+  exchangeRate?: number | null
+  exchangeRateSource?: string | null
   notes?: string | null
   status?: string
   isActive?: boolean
 
   constructor(data: Record<string, unknown>) {
+    if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
     if (data.customerName !== undefined) this.customerName = String(data.customerName).trim()
     if (data.customerDocument !== undefined) this.customerDocument = data.customerDocument ? String(data.customerDocument).trim() : null
     if (data.customerPhone !== undefined) this.customerPhone = data.customerPhone ? String(data.customerPhone).trim() : null
@@ -77,6 +88,9 @@ export class UpdateDealerFinancingDTO {
     if (data.installmentAmount !== undefined)
       this.installmentAmount = data.installmentAmount !== null ? Number(data.installmentAmount) : null
     if (data.currency !== undefined) this.currency = data.currency ? String(data.currency).trim() : null
+    if (data.exchangeRate !== undefined) this.exchangeRate = data.exchangeRate !== null ? Number(data.exchangeRate) : null
+    if (data.exchangeRateSource !== undefined)
+      this.exchangeRateSource = data.exchangeRateSource ? String(data.exchangeRateSource).trim() : null
     if (data.notes !== undefined) this.notes = data.notes ? String(data.notes).trim() : null
     if (data.status !== undefined) this.status = String(data.status).trim()
     if (data.isActive !== undefined) this.isActive = Boolean(data.isActive)
@@ -85,23 +99,33 @@ export class UpdateDealerFinancingDTO {
 
 export class DealerFinancingResponseDTO {
   id: string
+  customerId: string
   financingNumber: string
   status: string
   customerName: string
+  currency: string
+  exchangeRate?: number | null
+  exchangeRateSource?: string | null
   requestedAmount?: any | null
   approvedAmount?: any | null
   termMonths?: number | null
   createdAt: Date
+  customer: IDealerFinancing['customer']
   dealerUnit: IDealerFinancing['dealerUnit']
 
   constructor(data: IDealerFinancing) {
     this.id = data.id
+    this.customerId = data.customerId
     this.financingNumber = data.financingNumber
     this.status = data.status
     this.customerName = data.customerName
+    this.currency = String(data.currency)
     this.createdAt = data.createdAt
+    this.customer = data.customer
     this.dealerUnit = data.dealerUnit
     if (data.requestedAmount != null) this.requestedAmount = data.requestedAmount
+    if (data.exchangeRate != null) this.exchangeRate = Number(data.exchangeRate)
+    if (data.exchangeRateSource != null) this.exchangeRateSource = String(data.exchangeRateSource)
     if (data.approvedAmount != null) this.approvedAmount = data.approvedAmount
     if (data.termMonths != null) this.termMonths = data.termMonths
   }

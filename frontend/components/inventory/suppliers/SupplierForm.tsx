@@ -94,7 +94,7 @@ export default function SupplierForm({
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload = {
-        code: data.code,
+        code: data.code || "",
         name: data.name,
         type: data.type,
         taxId: data.taxId || undefined,
@@ -165,21 +165,16 @@ export default function SupplierForm({
           )}
         </div>
 
-        <div className="col-12 md:col-6 field">
-          <label className="font-semibold">
-            Código <span className="text-red-500">*</span>
-          </label>
-          <InputText
-            {...register("code")}
-            placeholder="Ej: PROV-001"
-            className={errors.code ? "p-invalid" : ""}
-            disabled={isEditing}
-            title={isEditing ? "El código no puede ser modificado" : ""}
-          />
-          {errors.code && (
-            <small className="p-error">{errors.code.message}</small>
-          )}
-        </div>
+        {isEditing && (
+          <div className="col-12 md:col-6 field">
+            <label className="font-semibold">Código</label>
+            <InputText
+              {...register("code")}
+              disabled
+              className="p-disabled"
+            />
+          </div>
+        )}
 
         <div className="col-12 md:col-8 field">
           <label className="font-semibold">

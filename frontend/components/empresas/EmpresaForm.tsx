@@ -11,11 +11,11 @@ import { FileUpload, FileUploadSelectEvent } from "primereact/fileupload";
 import { Image } from "primereact/image";
 import { handleFormError } from "@/utils/errorHandlers";
 import { empresaSchema, EmpresaFormData } from "@/libs/zods/empresaZod";
-import { Empresa } from "@/libs/interfaces/empresaInterface";
 import {
   createEmpresa,
   updateEmpresa,
   uploadEmpresaLogo,
+  type Empresa,
 } from "@/app/api/empresaService";
 import RifInput from "../common/RifInput";
 import PhoneInput from "../common/PhoneInput";

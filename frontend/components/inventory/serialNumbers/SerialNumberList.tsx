@@ -115,47 +115,47 @@ export default function SerialNumberList({
         <Button
           icon="pi pi-map"
           rounded
-          outline
+          outlined
           severity="info"
           onClick={() => {
             setSelectedSerial(rowData);
             setShowTimeline(true);
           }}
           tooltip="Ver trayectoria"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
         <Button
           icon="pi pi-eye"
           rounded
-          outline
+          outlined
           severity="info"
           onClick={() => {
             setSelectedSerial(rowData);
             setShowDetail(true);
           }}
           tooltip="Ver detalles"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
         <Button
           icon="pi pi-pencil"
           rounded
-          outline
+          outlined
           severity="warning"
           onClick={() => {
             setSelectedSerial(rowData);
             setShowForm(true);
           }}
           tooltip="Editar"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
         <Button
           icon="pi pi-trash"
           rounded
-          outline
+          outlined
           severity="danger"
           onClick={() => handleDelete(rowData)}
           tooltip="Eliminar"
-          tooltipPosition="left"
+          tooltipOptions={{ position: "left" }}
         />
       </div>
     );
@@ -257,7 +257,6 @@ export default function SerialNumberList({
         onPage={onPage}
         loading={loading}
         className="p-datatable-striped"
-        responsive
       >
         <Column field="serialNumber" header="Número de Serie" sortable />
         <Column field="sku" header="SKU" sortable />

@@ -6,6 +6,7 @@ export interface DealerTestDrive {
   id: string;
   empresaId: string;
   dealerUnitId: string;
+  customerId: string;
   testDriveNumber: string;
   status: DealerTestDriveStatus;
   customerName: string;
@@ -24,5 +25,13 @@ export interface DealerTestDrive {
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
+  customer: {
+    id: string;
+    code: string;
+    name: string;
+    phone?: string | null;
+    email?: string | null;
+    taxId?: string | null;
+  };
   dealerUnit: Pick<DealerUnit, "id" | "code" | "vin" | "plate" | "brand" | "model">;
 }

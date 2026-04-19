@@ -36,6 +36,7 @@ const BOOLEAN_OPTIONS = [
 
 type DealerUnitFormValues = {
   brandId: string;
+  warehouseId: string;
   modelId: string;
   code: string;
   version: string;
@@ -55,6 +56,7 @@ interface DealerUnitFormProps {
   unit: DealerUnit | null;
   brandOptions: Array<{ label: string; value: string }>;
   modelOptions: Array<{ label: string; value: string }>;
+  warehouseOptions: Array<{ label: string; value: string }>;
   onSave: () => void | Promise<void>;
   formId?: string;
   onSubmittingChange?: (isSubmitting: boolean) => void;
@@ -65,6 +67,7 @@ export default function DealerUnitForm({
   unit,
   brandOptions,
   modelOptions,
+  warehouseOptions,
   onSave,
   formId,
   onSubmittingChange,
@@ -78,6 +81,7 @@ export default function DealerUnitForm({
     mode: "onBlur",
     defaultValues: {
       brandId: unit?.brandId || "",
+      warehouseId: unit?.warehouseId || "",
       modelId: unit?.modelId || "",
       code: unit?.code || "",
       version: unit?.version || "",
@@ -99,6 +103,7 @@ export default function DealerUnitForm({
     try {
       const payload: SaveDealerUnitRequest = {
         brandId: data.brandId,
+        warehouseId: data.warehouseId,
         modelId: data.modelId || null,
         code: data.code || null,
         version: data.version || null,
@@ -172,6 +177,36 @@ export default function DealerUnitForm({
               />
             )}
           />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Ítem Fiscal</label>
+          <InputText
+            value={unit?.item ? `${unit.item.code} - ${unit.item.name}` : "Se genera automáticamente al crear"}
+            disabled
+          />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Almacén Fiscal *</label>
+          <Controller
+            name="warehouseId"
+            control={control}
+            rules={{ required: "El almacén fiscal es requerido" }}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={warehouseOptions}
+                className={errors.warehouseId ? "p-invalid" : ""}
+                filter
+                placeholder="Seleccione almacén"
+              />
+            )}
+          />
+          {errors.warehouseId && (
+            <small className="p-error">{errors.warehouseId.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-4 field">

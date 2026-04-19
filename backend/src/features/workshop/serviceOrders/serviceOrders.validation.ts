@@ -109,6 +109,12 @@ export const createServiceOrderSchema = Joi.object({
         'La fecha de entrega debe ser un formato ISO válido (ej: 2026-04-08T14:19)',
       'string.base': 'La fecha de entrega debe ser un string ISO válido',
     }),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional().default('USD').messages({
+    'any.only': 'La moneda debe ser USD, VES o EUR',
+  }),
+  exchangeRate: Joi.number().positive().optional().allow(null).messages({
+    'number.positive': 'La tasa de cambio debe ser un número positivo',
+  }),
   items: Joi.array().items(itemSchema).default([]).messages({
     'array.base': 'Los items deben ser un array',
     'array.includesRequiredUnknowns': 'Uno o más items tienen campos inválidos',
@@ -165,6 +171,12 @@ export const updateServiceOrderSchema = Joi.object({
       'date.base': 'La fecha de entrega debe ser un formato ISO válido',
       'string.base': 'La fecha de entrega debe ser un string ISO válido',
     }),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional().messages({
+    'any.only': 'La moneda debe ser USD, VES o EUR',
+  }),
+  exchangeRate: Joi.number().positive().optional().allow(null).messages({
+    'number.positive': 'La tasa de cambio debe ser un número positivo',
+  }),
   items: Joi.array().items(itemSchema).optional().messages({
     'array.base': 'Los items deben ser un array',
   }),

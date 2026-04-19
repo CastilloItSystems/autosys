@@ -23,6 +23,7 @@ model Warehouse {
   movementsFrom   Movement[]    @relation("WarehouseFrom")
   movementsTo     Movement[]    @relation("WarehouseTo")
   orders          Order[]
+  dealerUnits     DealerUnit[]
   preInvoices     PreInvoice[]
   exitNotes       ExitNote[]
   entryNotes      EntryNote[]

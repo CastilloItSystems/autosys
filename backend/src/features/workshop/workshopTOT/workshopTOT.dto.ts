@@ -23,6 +23,8 @@ export class CreateTOTDTO implements ICreateTOT {
   discountPct?: number
   taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
   taxRate?: number
+  currency?: string
+  exchangeRate?: number
   notes?: string
 
   constructor(data: any) {
@@ -59,6 +61,8 @@ export class CreateTOTDTO implements ICreateTOT {
       ? data.taxType
       : 'IVA'
     this.taxRate = data.taxRate !== undefined ? Number(data.taxRate) : 0.16
+    this.currency = data.currency ?? undefined
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : undefined
     this.notes = data.notes ? String(data.notes).trim() : undefined
   }
 }
@@ -83,6 +87,8 @@ export class UpdateTOTDTO implements IUpdateTOT {
   discountPct?: number
   taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
   taxRate?: number
+  currency?: string
+  exchangeRate?: number | null
   notes?: string | null
 
   constructor(data: any) {
@@ -135,6 +141,9 @@ export class UpdateTOTDTO implements IUpdateTOT {
     )
       this.taxType = data.taxType
     if ('taxRate' in data) this.taxRate = Number(data.taxRate)
+    if (data.currency !== undefined) this.currency = data.currency
+    if (data.exchangeRate !== undefined)
+      this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : null
     if ('notes' in data)
       this.notes = data.notes ? String(data.notes).trim() : null
   }
@@ -176,6 +185,8 @@ export class TOTResponseDTO {
   providerQuote: number | null
   finalCost: number | null
   providerInvoiceRef: string | null
+  currency: string
+  exchangeRate: number | null
   notes: string | null
   documents: any[]
   empresaId: string
@@ -211,6 +222,8 @@ export class TOTResponseDTO {
         ? Number(data.finalCost)
         : null
     this.providerInvoiceRef = data.providerInvoiceRef ?? null
+    this.currency = data.currency ?? 'USD'
+    this.exchangeRate = data.exchangeRate != null ? Number(data.exchangeRate) : null
     this.notes = data.notes ?? null
     this.documents = data.documents ?? []
     this.empresaId = data.empresaId

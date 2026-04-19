@@ -25,11 +25,22 @@ interface AuditLog {
   createdAt: string;
 }
 
+interface LegacyHistorialCambio {
+  _id?: string;
+  fecha?: string;
+  modificadoPor?: {
+    nombre?: string;
+    correo?: string;
+  };
+  cambios?: Record<string, { from: any; to: any }>;
+}
+
 interface AuditHistoryDialogProps {
   visible: boolean;
   onHide: () => void;
   title: React.ReactNode;
   auditLogs?: AuditLog[];
+  historial?: LegacyHistorialCambio[];
   loading?: boolean;
 }
 
@@ -38,6 +49,7 @@ const AuditHistoryDialog: React.FC<AuditHistoryDialogProps> = ({
   onHide,
   title,
   auditLogs = [],
+  historial = [],
   loading = false,
 }) => {
   const getActionLabel = (action: string) => {
@@ -83,6 +95,32 @@ const AuditHistoryDialog: React.FC<AuditHistoryDialogProps> = ({
     return changes;
   };
 
+  const logsToRender: AuditLog[] =
+    auditLogs.length > 0
+      ? auditLogs
+      : historial.map((entry, idx) => ({
+          id: entry._id ?? String(idx),
+          entity: "LEGACY",
+          entityId: "",
+          action: "UPDATE",
+          user: entry.modificadoPor
+            ? {
+                id: "",
+                nombre: entry.modificadoPor.nombre ?? "Sistema",
+                correo: entry.modificadoPor.correo ?? "",
+              }
+            : undefined,
+          changes: {
+            before: Object.fromEntries(
+              Object.entries(entry.cambios ?? {}).map(([k, v]) => [k, v?.from]),
+            ),
+            after: Object.fromEntries(
+              Object.entries(entry.cambios ?? {}).map(([k, v]) => [k, v?.to]),
+            ),
+          },
+          createdAt: entry.fecha ?? new Date().toISOString(),
+        }));
+
   return (
     <Dialog
       visible={visible}
@@ -108,10 +146,10 @@ const AuditHistoryDialog: React.FC<AuditHistoryDialogProps> = ({
         <div className="flex justify-content-center align-items-center p-6">
           <ProgressSpinner />
         </div>
-      ) : auditLogs.length > 0 ? (
+      ) : logsToRender.length > 0 ? (
         <div className="m-3 p-3 border-round surface-50 border-left-3 border-primary">
           <Accordion multiple>
-            {auditLogs.map((log, idx) => {
+            {logsToRender.map((log, idx) => {
               const changes = compareChanges(
                 log.changes.before,
                 log.changes.after,

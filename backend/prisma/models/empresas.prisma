@@ -121,6 +121,10 @@ model Empresa {
   workshopTOTs                WorkshopTOT[]
   workshopGarita              WorkshopGarita[]
 
+  // Configuración de moneda
+  defaultCurrency             CurrencyCode?  @default(USD)
+  exchangeRates               ExchangeRate[]
+
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt
 }

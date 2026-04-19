@@ -482,7 +482,11 @@ const ReturnList = () => {
           first={(filters.page - 1) * filters.limit}
           totalRecords={totalRecords}
           onPage={(e) =>
-            setFilters({ ...filters, page: e.page + 1, limit: e.rows })
+            setFilters({
+              ...filters,
+              page: (e.page ?? 0) + 1,
+              limit: e.rows,
+            })
           }
           rowsPerPageOptions={[10, 20, 50]}
           dataKey="id"

@@ -21,6 +21,7 @@ export interface IDealerTestDrive {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   testDriveNumber: string
   status: DealerTestDriveStatus
   customerName: string
@@ -39,6 +40,14 @@ export interface IDealerTestDrive {
   isActive: boolean
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   dealerUnit: IDealerTestDriveUnit
 }
 

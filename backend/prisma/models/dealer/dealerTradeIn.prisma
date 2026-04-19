@@ -16,6 +16,9 @@ model DealerTradeIn {
   targetDealerUnitId  String?
   targetDealerUnit    DealerUnit?          @relation("TradeInTargetUnit", fields: [targetDealerUnitId], references: [id], onDelete: SetNull)
 
+  customerId          String
+  customer            Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   tradeInNumber       String
   status              DealerTradeInStatus  @default(PENDING)
 
@@ -48,6 +51,7 @@ model DealerTradeIn {
   @@map("dealer_trade_ins")
   @@index([empresaId])
   @@index([targetDealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@unique([empresaId, tradeInNumber])

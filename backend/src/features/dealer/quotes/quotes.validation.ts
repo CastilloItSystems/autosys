@@ -4,6 +4,9 @@ export const createDealerQuoteSchema = Joi.object({
   dealerUnitId: Joi.string().required().messages({
     'any.required': 'La unidad es requerida',
   }),
+  customerId: Joi.string().required().messages({
+    'any.required': 'El cliente es requerido',
+  }),
   customerName: Joi.string().max(180).required().messages({
     'any.required': 'El nombre del cliente es requerido',
   }),
@@ -14,7 +17,9 @@ export const createDealerQuoteSchema = Joi.object({
   discountPct: Joi.number().min(0).max(100).optional().allow(null),
   offeredPrice: Joi.number().min(0).optional().allow(null),
   taxPct: Joi.number().min(0).max(100).optional().allow(null),
-  currency: Joi.string().max(8).optional().allow(null, ''),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  exchangeRateSource: Joi.string().valid('BCV_AUTO', 'MANUAL').optional().allow(null, ''),
   validUntil: Joi.date().iso().optional().allow(null),
   paymentTerms: Joi.string().optional().allow(null, ''),
   financingRequired: Joi.boolean().optional(),
@@ -23,6 +28,7 @@ export const createDealerQuoteSchema = Joi.object({
 })
 
 export const updateDealerQuoteSchema = Joi.object({
+  customerId: Joi.string().optional(),
   customerName: Joi.string().max(180).optional(),
   customerDocument: Joi.string().max(60).optional().allow(null, ''),
   customerPhone: Joi.string().max(40).optional().allow(null, ''),
@@ -31,7 +37,9 @@ export const updateDealerQuoteSchema = Joi.object({
   discountPct: Joi.number().min(0).max(100).optional().allow(null),
   offeredPrice: Joi.number().min(0).optional().allow(null),
   taxPct: Joi.number().min(0).max(100).optional().allow(null),
-  currency: Joi.string().max(8).optional().allow(null, ''),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  exchangeRateSource: Joi.string().valid('BCV_AUTO', 'MANUAL').optional().allow(null, ''),
   validUntil: Joi.date().iso().optional().allow(null),
   paymentTerms: Joi.string().optional().allow(null, ''),
   financingRequired: Joi.boolean().optional(),
@@ -54,4 +62,8 @@ export const dealerQuoteFiltersSchema = Joi.object({
   limit: Joi.number().integer().min(1).max(500).default(20),
   sortBy: Joi.string().valid('createdAt', 'updatedAt', 'status', 'totalAmount', 'validUntil').default('createdAt'),
   sortOrder: Joi.string().valid('asc', 'desc').default('desc'),
+})
+
+export const convertAndFiscalizeDealerQuoteSchema = Joi.object({
+  force: Joi.boolean().optional().default(false),
 })

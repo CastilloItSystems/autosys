@@ -435,7 +435,7 @@ export default function CrmDashboard() {
               </div>
             ) : (
               <div className="flex flex-column gap-2">
-                {activities.recentOverdue.map((act) => (
+                {activities.recentOverdue.map((act: any) => (
                   <div
                     key={act.id}
                     className="flex justify-content-between align-items-center surface-50 border-round p-2 border-left-3 border-red-400"

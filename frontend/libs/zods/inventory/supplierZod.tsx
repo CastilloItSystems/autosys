@@ -1,11 +1,7 @@
 import { z } from "zod";
 
 export const createSupplierSchema = z.object({
-  code: z
-    .string()
-    .min(2, "El código debe tener al menos 2 caracteres")
-    .max(50, "El código no puede exceder 50 caracteres")
-    .toUpperCase(),
+  code: z.string().max(50, "El código no puede exceder 50 caracteres").optional(),
   name: z
     .string()
     .min(1, "El nombre es obligatorio")

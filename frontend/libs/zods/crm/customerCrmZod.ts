@@ -3,7 +3,7 @@
 import { z } from "zod";
 
 export const createCustomerCrmSchema = z.object({
-  code: z.string().min(1, "El código es requerido").max(50, "Máximo 50 caracteres"),
+  code: z.string().max(50, "Máximo 50 caracteres").optional(),
   name: z.string().min(1, "El nombre es requerido").max(255, "Máximo 255 caracteres"),
   taxId: z.string().max(20).optional().or(z.literal("")),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
@@ -31,6 +31,7 @@ export const createCustomerCrmSchema = z.object({
   customerSince: z.string().optional().or(z.literal("")),
   referredById: z.string().uuid("UUID inválido").optional().or(z.literal("")),
   notes: z.string().optional().or(z.literal("")),
+  metadata: z.record(z.string()).nullable().optional(),
   isActive: z.boolean().optional().default(true),
 });
 

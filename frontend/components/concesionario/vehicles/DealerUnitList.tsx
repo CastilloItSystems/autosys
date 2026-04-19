@@ -17,6 +17,7 @@ import FormActionButtons from "@/components/common/FormActionButtons";
 import dealerUnitService from "@/app/api/dealer/dealerUnitService";
 import brandsService from "@/app/api/inventory/brandService";
 import modelsService from "@/app/api/inventory/modelService";
+import warehouseService from "@/app/api/inventory/warehouseService";
 import type { DealerUnit } from "@/libs/interfaces/dealer/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import DealerUnitForm from "./DealerUnitForm";
@@ -81,6 +82,7 @@ export default function DealerUnitList() {
 
   const [brandOptions, setBrandOptions] = useState<Array<{ label: string; value: string }>>([]);
   const [modelOptions, setModelOptions] = useState<Array<{ label: string; value: string }>>([]);
+  const [warehouseOptions, setWarehouseOptions] = useState<Array<{ label: string; value: string }>>([]);
 
   const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
@@ -98,17 +100,20 @@ export default function DealerUnitList() {
 
   const loadCatalogs = async () => {
     try {
-      const [brandsRes, modelsRes] = await Promise.all([
-        brandsService.getActive("VEHICLE"),
+      const [brandsRes, modelsRes, warehousesRes] = await Promise.all([
+        brandsService.getActive(),
         modelsService.getActive("VEHICLE"),
+        warehouseService.getAll({ page: 1, limit: 200, isActive: "true" }),
       ]);
 
-      const brands = Array.isArray(brandsRes.data) ? brandsRes.data : [];
+      const brands = Array.isArray(brandsRes.data)
+        ? brandsRes.data.filter((brand) => brand.type === "VEHICLE" || brand.type === "BOTH")
+        : [];
       const models = Array.isArray(modelsRes.data) ? modelsRes.data : [];
 
       setBrandOptions(
         brands.map((b) => ({
-          label: `${b.code} - ${b.name}`,
+          label: b.code ? `${b.code} - ${b.name}` : b.name,
           value: b.id,
         })),
       );
@@ -116,6 +121,12 @@ export default function DealerUnitList() {
         models.map((m) => ({
           label: `${m.name}${m.year ? ` (${m.year})` : ""}`,
           value: m.id,
+        })),
+      );
+      setWarehouseOptions(
+        (Array.isArray(warehousesRes.data) ? warehousesRes.data : []).map((warehouse) => ({
+          label: `${warehouse.code} - ${warehouse.name}`,
+          value: warehouse.id,
         })),
       );
     } catch (error) {
@@ -389,6 +400,7 @@ export default function DealerUnitList() {
           unit={selected}
           brandOptions={brandOptions}
           modelOptions={modelOptions}
+          warehouseOptions={warehouseOptions}
           formId="dealer-unit-form"
           onSave={handleSave}
           onSubmittingChange={setIsSubmitting}

@@ -5,6 +5,19 @@ export interface IDealerQuoteUnit {
   code?: string | null
   vin?: string | null
   plate?: string | null
+  itemId: string
+  warehouseId: string
+  item: {
+    id: string
+    code: string
+    sku: string
+    name: string
+  }
+  warehouse: {
+    id: string
+    code: string
+    name: string
+  }
   status: string
   brand: {
     id: string
@@ -22,6 +35,7 @@ export interface IDealerQuote {
   id: string
   empresaId: string
   dealerUnitId: string
+  customerId: string
   quoteNumber: string
   status: DealerQuoteStatus
   customerName: string
@@ -35,7 +49,14 @@ export interface IDealerQuote {
   taxPct?: any | null
   taxAmount?: any | null
   totalAmount?: any | null
-  currency?: string | null
+  currency: 'USD' | 'VES' | 'EUR'
+  exchangeRate?: any | null
+  exchangeRateSource?: 'BCV_AUTO' | 'MANUAL' | null
+  fiscalStatus: 'NOT_REQUESTED' | 'ORDER_DRAFT' | 'ORDER_APPROVED' | 'PREINVOICE_READY' | 'PAID' | 'INVOICED' | 'ERROR'
+  fiscalError?: string | null
+  salesOrderId?: string | null
+  preInvoiceId?: string | null
+  invoiceId?: string | null
   validUntil?: Date | null
   paymentTerms?: string | null
   financingRequired: boolean
@@ -47,6 +68,14 @@ export interface IDealerQuote {
   convertedAt?: Date | null
   createdAt: Date
   updatedAt: Date
+  customer: {
+    id: string
+    code: string
+    name: string
+    phone?: string | null
+    email?: string | null
+    taxId?: string | null
+  }
   dealerUnit: IDealerQuoteUnit
 }
 

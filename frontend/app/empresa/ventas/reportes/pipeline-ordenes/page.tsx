@@ -131,12 +131,12 @@ const OrderPipelinePage = () => {
             />
           </DataTable>
         )}
-        {!loading && data?.pendingOldestDays > 0 && (
+        {!loading && (data?.pendingOldestDays ?? 0) > 0 && (
           <div className="mt-3 p-3 border-round surface-100">
             <i className="pi pi-exclamation-triangle text-orange-500 mr-2" />
             <span className="text-sm">
               Orden más antigua pendiente de aprobación:{" "}
-              <strong>{data.pendingOldestDays} días</strong>
+              <strong>{data?.pendingOldestDays ?? 0} días</strong>
             </span>
           </div>
         )}

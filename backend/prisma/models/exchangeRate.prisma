@@ -1,0 +1,39 @@
+enum ExchangeRateSource {
+  BCV
+  PARALLEL
+  MANUAL
+}
+
+enum CurrencyCode {
+  USD
+  VES
+  EUR
+}
+
+model ExchangeRate {
+  id              String             @id @default(cuid())
+
+  empresaId       String
+  empresa         Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  fromCurrency    CurrencyCode
+  toCurrency      CurrencyCode
+
+  rate            Decimal            @db.Decimal(20, 7)
+  rateDate        DateTime           @db.Date
+
+  source          ExchangeRateSource @default(BCV)
+  isActive        Boolean            @default(true)
+
+  fetchedAt       DateTime?
+  createdBy       String?
+  notes           String?            @db.Text
+
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
+
+  @@unique([empresaId, fromCurrency, toCurrency, rateDate, source])
+  @@index([empresaId, rateDate])
+  @@index([empresaId, fromCurrency, toCurrency, rateDate])
+  @@map("exchange_rates")
+}

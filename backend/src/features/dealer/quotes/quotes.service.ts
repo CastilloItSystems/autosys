@@ -4,16 +4,32 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerQuoteDTO, UpdateDealerQuoteDTO } from './quotes.dto.js'
 import { IDealerQuote, IDealerQuoteFilters } from './quotes.interface.js'
+import ordersService from '../../sales/orders/orders.service.js'
+import { CreateOrderDTO } from '../../sales/orders/orders.dto.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const QUOTE_INCLUDE = {
+  customer: {
+    select: {
+      id: true,
+      code: true,
+      name: true,
+      phone: true,
+      email: true,
+      taxId: true,
+    },
+  },
   dealerUnit: {
     select: {
       id: true,
       code: true,
       vin: true,
       plate: true,
+      itemId: true,
+      warehouseId: true,
+      item: { select: { id: true, code: true, sku: true, name: true } },
+      warehouse: { select: { id: true, code: true, name: true } },
       status: true,
       brand: { select: { id: true, code: true, name: true } },
       model: { select: { id: true, name: true, year: true } },
@@ -32,6 +48,56 @@ const STATUS_TRANSITIONS: Record<DealerQuoteStatus, DealerQuoteStatus[]> = {
 }
 
 class DealerQuotesService {
+  private normalizeCurrency(currency?: string | null): 'USD' | 'VES' | 'EUR' {
+    const normalized = String(currency || 'USD').toUpperCase()
+    if (normalized !== 'USD' && normalized !== 'VES' && normalized !== 'EUR') {
+      throw new BadRequestError('Moneda inválida. Debe ser USD, VES o EUR')
+    }
+    return normalized
+  }
+
+  private async resolveExchangeRate(
+    empresaId: string,
+    currency: 'USD' | 'VES' | 'EUR',
+    exchangeRate: number | null | undefined,
+    exchangeRateSource: 'BCV_AUTO' | 'MANUAL' | null | undefined,
+    db: PrismaClientType
+  ): Promise<{ exchangeRate: number; exchangeRateSource: 'BCV_AUTO' | 'MANUAL' }> {
+    if (currency === 'VES') {
+      return { exchangeRate: 1, exchangeRateSource: exchangeRateSource ?? 'BCV_AUTO' }
+    }
+
+    if (exchangeRateSource === 'MANUAL') {
+      if (!exchangeRate || exchangeRate <= 0) {
+        throw new BadRequestError('Debe indicar exchangeRate manual para moneda distinta a VES')
+      }
+      return { exchangeRate, exchangeRateSource: 'MANUAL' }
+    }
+
+    if (exchangeRate && exchangeRate > 0) {
+      return { exchangeRate, exchangeRateSource: exchangeRateSource ?? 'BCV_AUTO' }
+    }
+
+    const latestRate = await (db as PrismaClient).exchangeRate.findFirst({
+      where: {
+        empresaId,
+        fromCurrency: currency as any,
+        toCurrency: 'VES',
+        isActive: true,
+      },
+      orderBy: [{ rateDate: 'desc' }, { createdAt: 'desc' }],
+    })
+
+    if (!latestRate) {
+      throw new BadRequestError(`No existe tasa activa para ${currency}/VES`)
+    }
+
+    return {
+      exchangeRate: Number(latestRate.rate),
+      exchangeRateSource: 'BCV_AUTO',
+    }
+  }
+
   private async assertUnitValid(dealerUnitId: string, empresaId: string, db: PrismaClientType) {
     const unit = await (db as PrismaClient).dealerUnit.findFirst({
       where: { id: dealerUnitId, empresaId, isActive: true },
@@ -39,6 +105,22 @@ class DealerQuotesService {
     })
     if (!unit) throw new NotFoundError('Unidad no encontrada')
     return unit
+  }
+
+  private async assertCustomerValid(customerId: string, empresaId: string, db: PrismaClientType) {
+    const customer = await (db as PrismaClient).customer.findFirst({
+      where: { id: customerId, empresaId, isActive: true },
+      select: {
+        id: true,
+        name: true,
+        taxId: true,
+        phone: true,
+        mobile: true,
+        email: true,
+      },
+    })
+    if (!customer) throw new NotFoundError('Cliente no encontrado')
+    return customer
   }
 
   private async generateQuoteNumber(empresaId: string, db: PrismaClientType): Promise<string> {
@@ -101,6 +183,7 @@ class DealerQuotesService {
 
   async create(data: CreateDealerQuoteDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerQuote> {
     const unit = await this.assertUnitValid(data.dealerUnitId, empresaId, db)
+    const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
 
     const status = (data.status as DealerQuoteStatus) || DealerQuoteStatus.DRAFT
     const quoteNumber = await this.generateQuoteNumber(empresaId, db)
@@ -115,12 +198,13 @@ class DealerQuotesService {
       data: {
         empresaId,
         dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
         quoteNumber,
         status,
-        customerName: data.customerName,
-        customerDocument: data.customerDocument ?? null,
-        customerPhone: data.customerPhone ?? null,
-        customerEmail: data.customerEmail ?? null,
+        customerName: data.customerName || customer.name,
+        customerDocument: data.customerDocument ?? customer.taxId ?? null,
+        customerPhone: data.customerPhone ?? customer.phone ?? customer.mobile ?? null,
+        customerEmail: data.customerEmail ?? customer.email ?? null,
         listPrice: totals.listPrice,
         discountPct: totals.discountPct,
         discountAmount: totals.discountAmount,
@@ -128,25 +212,20 @@ class DealerQuotesService {
         taxPct: totals.taxPct,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
-        currency: data.currency ?? 'USD',
+        currency: this.normalizeCurrency(data.currency),
+        exchangeRate: data.exchangeRate ?? null,
+        exchangeRateSource: (data.exchangeRateSource as any) ?? null,
         validUntil: data.validUntil ?? null,
         paymentTerms: data.paymentTerms ?? null,
         financingRequired: data.financingRequired ?? false,
         notes: data.notes ?? null,
+        fiscalStatus: 'NOT_REQUESTED',
         ...(status === DealerQuoteStatus.SENT ? { sentAt: new Date() } : {}),
         ...(status === DealerQuoteStatus.APPROVED ? { approvedAt: new Date() } : {}),
         ...(status === DealerQuoteStatus.REJECTED ? { rejectedAt: new Date() } : {}),
-        ...(status === DealerQuoteStatus.CONVERTED ? { convertedAt: new Date() } : {}),
       },
       include: QUOTE_INCLUDE,
     })
-
-    if (status === DealerQuoteStatus.CONVERTED) {
-      await (db as PrismaClient).dealerUnit.update({
-        where: { id: data.dealerUnitId },
-        data: { status: DealerUnitStatus.IN_DOCUMENTATION },
-      })
-    }
 
     logger.info('Dealer quote creada', { id: created.id, quoteNumber, empresaId, userId })
     return created as unknown as IDealerQuote
@@ -189,6 +268,7 @@ class DealerQuotesService {
         { customerDocument: { contains: search, mode: 'insensitive' } },
         { customerPhone: { contains: search, mode: 'insensitive' } },
         { customerEmail: { contains: search, mode: 'insensitive' } },
+        { customer: { name: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { vin: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { code: { contains: search, mode: 'insensitive' } } },
         { dealerUnit: { plate: { contains: search, mode: 'insensitive' } } },
@@ -234,11 +314,17 @@ class DealerQuotesService {
       totalAmount: totals.totalAmount,
     }
 
+    if (data.customerId !== undefined) {
+      await this.assertCustomerValid(data.customerId, empresaId, db)
+      updateData.customer = { connect: { id: data.customerId } }
+    }
     if (data.customerName !== undefined) updateData.customerName = data.customerName
     if (data.customerDocument !== undefined) updateData.customerDocument = data.customerDocument || null
     if (data.customerPhone !== undefined) updateData.customerPhone = data.customerPhone || null
     if (data.customerEmail !== undefined) updateData.customerEmail = data.customerEmail || null
-    if (data.currency !== undefined) updateData.currency = data.currency || null
+    if (data.currency !== undefined) updateData.currency = this.normalizeCurrency(data.currency || null) as any
+    if (data.exchangeRate !== undefined) updateData.exchangeRate = data.exchangeRate ?? null
+    if (data.exchangeRateSource !== undefined) updateData.exchangeRateSource = (data.exchangeRateSource as any) ?? null
     if (data.validUntil !== undefined) updateData.validUntil = data.validUntil ?? null
     if (data.paymentTerms !== undefined) updateData.paymentTerms = data.paymentTerms || null
     if (data.financingRequired !== undefined) updateData.financingRequired = data.financingRequired
@@ -250,7 +336,9 @@ class DealerQuotesService {
       if (newStatus === DealerQuoteStatus.SENT) updateData.sentAt = new Date()
       if (newStatus === DealerQuoteStatus.APPROVED) updateData.approvedAt = new Date()
       if (newStatus === DealerQuoteStatus.REJECTED) updateData.rejectedAt = new Date()
-      if (newStatus === DealerQuoteStatus.CONVERTED) updateData.convertedAt = new Date()
+      if (newStatus === DealerQuoteStatus.CONVERTED) {
+        throw new BadRequestError('Para convertir una cotización debe usar la acción convert-and-fiscalize')
+      }
     }
 
     const updated = await (db as PrismaClient).dealerQuote.update({
@@ -258,16 +346,163 @@ class DealerQuotesService {
       data: updateData,
       include: QUOTE_INCLUDE,
     })
-
-    if (current.status !== newStatus && newStatus === DealerQuoteStatus.CONVERTED) {
-      await (db as PrismaClient).dealerUnit.update({
-        where: { id: current.dealerUnitId },
-        data: { status: DealerUnitStatus.IN_DOCUMENTATION },
-      })
-    }
-
     logger.info('Dealer quote actualizada', { id, empresaId, userId, status: newStatus })
     return updated as unknown as IDealerQuote
+  }
+
+  async convertAndFiscalize(
+    id: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType,
+    force = false
+  ): Promise<IDealerQuote> {
+    const quote = await this.findById(id, empresaId, db)
+
+    if (!force && quote.salesOrderId && quote.preInvoiceId) {
+      return quote
+    }
+
+    if (!force && quote.status !== DealerQuoteStatus.APPROVED) {
+      throw new BadRequestError('Solo se pueden fiscalizar cotizaciones aprobadas')
+    }
+
+    const unit = await (db as PrismaClient).dealerUnit.findFirst({
+      where: { id: quote.dealerUnitId, empresaId, isActive: true },
+      select: { id: true, itemId: true, warehouseId: true },
+    })
+    if (!unit) throw new NotFoundError('Unidad no encontrada')
+    if (!unit.itemId || !unit.warehouseId) {
+      throw new BadRequestError('La unidad no tiene itemId/warehouseId fiscal configurado')
+    }
+
+    if (quote.salesOrderId && !force) {
+      const existingOrder = await (db as PrismaClient).order.findFirst({
+        where: { id: quote.salesOrderId, empresaId },
+        select: { id: true },
+      })
+      const existingPreInvoice = await (db as PrismaClient).preInvoice.findFirst({
+        where: { orderId: quote.salesOrderId, empresaId },
+        select: { id: true, invoice: { select: { id: true } } },
+      })
+
+      if (existingOrder && existingPreInvoice) {
+        const synced = await (db as PrismaClient).dealerQuote.update({
+          where: { id: quote.id },
+          data: {
+            status: DealerQuoteStatus.CONVERTED,
+            convertedAt: quote.convertedAt ?? new Date(),
+            fiscalStatus: existingPreInvoice.invoice ? 'INVOICED' : 'PREINVOICE_READY',
+            preInvoiceId: existingPreInvoice.id,
+            invoiceId: existingPreInvoice.invoice?.id ?? null,
+            fiscalError: null,
+          },
+          include: QUOTE_INCLUDE,
+        })
+        return synced as unknown as IDealerQuote
+      }
+    }
+
+    try {
+      const currency = this.normalizeCurrency(quote.currency)
+      const fx = await this.resolveExchangeRate(
+        empresaId,
+        currency,
+        quote.exchangeRate ? Number(quote.exchangeRate) : null,
+        (quote.exchangeRateSource as any) ?? null,
+        db
+      )
+      const unitPrice = Number(quote.offeredPrice ?? quote.listPrice ?? quote.totalAmount ?? 0)
+      if (unitPrice <= 0) {
+        throw new BadRequestError('La cotización debe tener precio válido para fiscalizar')
+      }
+
+      await (db as PrismaClient).dealerQuote.update({
+        where: { id: quote.id },
+        data: { fiscalStatus: 'ORDER_DRAFT', fiscalError: null },
+      })
+
+      const createdOrder = await ordersService.createWithItems(
+        new CreateOrderDTO({
+          customerId: quote.customerId,
+          warehouseId: unit.warehouseId,
+          currency,
+          exchangeRate: fx.exchangeRate,
+          exchangeRateSource: fx.exchangeRateSource,
+          paymentTerms: quote.paymentTerms ?? undefined,
+          taxRate: Number(quote.taxPct ?? 16),
+          igtfApplies: currency !== 'VES',
+          items: [
+            {
+              itemId: unit.itemId,
+              itemName: quote.dealerUnit.code || quote.dealerUnit.vin || quote.dealerUnit.item.name,
+              quantity: 1,
+              unitPrice,
+              discountPercent: Number(quote.discountPct ?? 0),
+              taxType: Number(quote.taxPct ?? 16) > 0 ? 'IVA' : 'EXEMPT',
+            },
+          ],
+          notes: `Generada desde cotización dealer ${quote.quoteNumber}`,
+        }),
+        empresaId,
+        userId,
+        db
+      )
+
+      const approvedOrder = await ordersService.approve(createdOrder.id, empresaId, userId, db)
+      const preInvoice = await (db as PrismaClient).preInvoice.findFirst({
+        where: { orderId: approvedOrder.id, empresaId },
+        select: { id: true, invoice: { select: { id: true } } },
+      })
+
+      const fiscalStatus = preInvoice?.invoice
+        ? 'INVOICED'
+        : preInvoice
+          ? 'PREINVOICE_READY'
+          : 'ORDER_APPROVED'
+
+      const updated = await (db as PrismaClient).dealerQuote.update({
+        where: { id: quote.id },
+        data: {
+          status: DealerQuoteStatus.CONVERTED,
+          convertedAt: new Date(),
+          currency,
+          exchangeRate: fx.exchangeRate,
+          exchangeRateSource: fx.exchangeRateSource as any,
+          salesOrderId: approvedOrder.id,
+          preInvoiceId: preInvoice?.id ?? null,
+          invoiceId: preInvoice?.invoice?.id ?? null,
+          fiscalStatus: fiscalStatus as any,
+          fiscalError: null,
+        },
+        include: QUOTE_INCLUDE,
+      })
+
+      await (db as PrismaClient).dealerUnit.update({
+        where: { id: quote.dealerUnitId },
+        data: { status: DealerUnitStatus.IN_DOCUMENTATION },
+      })
+
+      logger.info('Dealer quote convertida y fiscalizada', {
+        quoteId: quote.id,
+        orderId: approvedOrder.id,
+        preInvoiceId: preInvoice?.id ?? null,
+        empresaId,
+        userId,
+      })
+
+      return updated as unknown as IDealerQuote
+    } catch (error: any) {
+      const message = error?.message ? String(error.message).slice(0, 600) : 'Error de fiscalización'
+      await (db as PrismaClient).dealerQuote.update({
+        where: { id: quote.id },
+        data: {
+          fiscalStatus: 'ERROR',
+          fiscalError: message,
+        },
+      })
+      throw error
+    }
   }
 
   async delete(id: string, empresaId: string, userId: string, db: PrismaClientType): Promise<{ success: boolean; id: string }> {

@@ -185,6 +185,12 @@ export const PERMISSION_CATALOG = [
   { code: 'dealer.update', description: 'Actualizar registros en concesionario' },
   { code: 'dealer.delete', description: 'Eliminar registros en concesionario' },
   { code: 'dealer.approve', description: 'Aprobar acciones de concesionario' },
+
+  // Tasas de Cambio
+  { code: 'exchange_rates.view', description: 'Ver tasas de cambio' },
+  { code: 'exchange_rates.create', description: 'Crear tasas de cambio manuales' },
+  { code: 'exchange_rates.update', description: 'Actualizar tasas de cambio' },
+  { code: 'exchange_rates.delete', description: 'Eliminar tasas de cambio' },
 ]
 
 // ── Default system roles per empresa ──────────────────────────────────────
@@ -274,6 +280,13 @@ const ALL_DEALER = [
   'dealer.approve',
 ]
 
+const ALL_EXCHANGE_RATES = [
+  'exchange_rates.view',
+  'exchange_rates.create',
+  'exchange_rates.update',
+  'exchange_rates.delete',
+]
+
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   OWNER: [
     'users.view',
@@ -347,6 +360,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   ADMIN: [
     'users.view',
@@ -419,6 +433,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   GERENTE: [
     'users.view',
@@ -487,6 +502,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
   ALMACENISTA: [
     'inventory.view',
@@ -518,6 +534,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     // CRM Casos
     ...CRM_CASES_VENDEDOR,
     'dealer.view',
+    'exchange_rates.view',
   ],
   VENDEDOR: [
     'inventory.view',
@@ -555,6 +572,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'dealer.view',
     'dealer.create',
     'dealer.update',
+    'exchange_rates.view',
   ],
   VIEWER: [
     'users.view',
@@ -574,6 +592,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     ...VIEW_CRM,
     'workshop.view',
     'dealer.view',
+    'exchange_rates.view',
   ],
 }
 

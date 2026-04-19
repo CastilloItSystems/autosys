@@ -17,6 +17,9 @@ model DealerFinancing {
   dealerUnitId        String
   dealerUnit          DealerUnit             @relation("DealerUnitFinancing", fields: [dealerUnitId], references: [id], onDelete: Restrict)
 
+  customerId          String
+  customer            Customer               @relation(fields: [customerId], references: [id], onDelete: Restrict)
+
   financingNumber     String
   status              DealerFinancingStatus  @default(DRAFT)
 
@@ -33,7 +36,9 @@ model DealerFinancing {
   termMonths          Int?
   annualRatePct       Decimal?               @db.Decimal(6, 2)
   installmentAmount   Decimal?               @db.Decimal(14, 2)
-  currency            String?                @default("USD")
+  currency            OrderCurrency          @default(USD)
+  exchangeRate        Decimal?               @db.Decimal(14, 4)
+  exchangeRateSource  DealerExchangeRateSource?
 
   submittedAt         DateTime?
   approvedAt          DateTime?
@@ -49,6 +54,7 @@ model DealerFinancing {
   @@map("dealer_financing")
   @@index([empresaId])
   @@index([dealerUnitId])
+  @@index([customerId])
   @@index([status])
   @@index([isActive])
   @@unique([empresaId, financingNumber])

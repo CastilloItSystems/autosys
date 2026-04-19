@@ -69,6 +69,8 @@ export interface ICreateTOT {
   discountPct?: number
   taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
   taxRate?: number
+  currency?: string
+  exchangeRate?: number
   notes?: string
 }
 
@@ -92,6 +94,8 @@ export interface IUpdateTOT {
   discountPct?: number
   taxType?: 'IVA' | 'EXEMPT' | 'REDUCED'
   taxRate?: number
+  currency?: string
+  exchangeRate?: number | null
   notes?: string | null
 }
 

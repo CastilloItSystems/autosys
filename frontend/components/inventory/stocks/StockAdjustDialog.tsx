@@ -65,7 +65,9 @@ export default function StockAdjustDialog({
     setSubmitting(true);
     if (onSubmittingChange) onSubmittingChange(true);
     try {
-      await stockService.adjust(stock?.id || "", {
+      await stockService.adjust({
+        itemId: data.itemId,
+        warehouseId: data.warehouseId,
         quantityChange: data.quantityChange,
         reason: data.reason,
       });

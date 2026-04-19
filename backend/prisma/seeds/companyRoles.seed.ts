@@ -165,6 +165,13 @@ const ALL_DEALER = [
   'dealer.approve',
 ]
 
+const ALL_EXCHANGE_RATES = [
+  'exchange_rates.view',
+  'exchange_rates.create',
+  'exchange_rates.update',
+  'exchange_rates.delete',
+]
+
 const ROLE_PERMISSIONS: Record<string, string[]> = {
   // Acceso total
   OWNER: [
@@ -186,6 +193,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
 
   // Como OWNER pero sin eliminar usuarios
@@ -211,6 +219,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
 
   // Gerencia operativa: inventario completo + ventas completo
@@ -236,6 +245,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
+    ...ALL_EXCHANGE_RATES,
   ],
 
   // Almacenista: operaciones de inventario y stock, sin ventas
@@ -264,6 +274,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'workshop.create',
     'workshop.update',
     'dealer.view',
+    'exchange_rates.view',
   ],
 
   // Vendedor: módulos de ventas + inventario en modo lectura
@@ -283,6 +294,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'dealer.view',
     'dealer.create',
     'dealer.update',
+    'exchange_rates.view',
   ],
 
   // Solo lectura en todo
@@ -304,6 +316,7 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...VIEW_CRM,
     'workshop.view',
     'dealer.view',
+    'exchange_rates.view',
   ],
 }
 

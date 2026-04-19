@@ -26,6 +26,8 @@ export interface DealerUnit {
   id: string;
   empresaId: string;
   brandId: string;
+  itemId: string;
+  warehouseId: string;
   modelId?: string | null;
   code?: string | null;
   version?: string | null;
@@ -43,5 +45,15 @@ export interface DealerUnit {
   updatedAt: string;
   brand: DealerBrandRef;
   model?: DealerUnitRef | null;
+  item: {
+    id: string;
+    code: string;
+    sku: string;
+    name: string;
+  };
+  warehouse: {
+    id: string;
+    code: string;
+    name: string;
+  };
 }
-

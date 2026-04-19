@@ -84,6 +84,7 @@ export interface ItemRowProps {
   onItemChange?: (itemId: string) => void;
   selectedItemsMap?: Record<string, any>;
   autoFocus?: boolean;
+  currency?: string;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -115,7 +116,9 @@ export default function ItemRow({
   items = [],
   selectedItemsMap = {},
   autoFocus = false,
+  currency = "USD",
 }: ItemRowProps) {
+  const currencyPrefix = currency === "VES" ? "Bs. " : currency === "EUR" ? "€ " : "$ ";
   const [mounted, setMounted] = useState(false);
   const autoCompleteRef = useRef<any>(null);
 
@@ -352,9 +355,8 @@ export default function ItemRow({
                 min={0}
                 minFractionDigits={2}
                 maxFractionDigits={2}
-                mode="currency"
-                currency="USD"
-                locale="es-VE"
+                mode="decimal"
+                prefix={currencyPrefix}
                 className="w-full"
                 inputClassName={`w-full text-right ${
                   costError ? "p-invalid" : ""
@@ -454,9 +456,10 @@ export default function ItemRow({
               <InputNumber
                 value={f.value}
                 readOnly
-                mode="currency"
-                currency="USD"
-                locale="es-VE"
+                mode="decimal"
+                prefix={currencyPrefix}
+                minFractionDigits={2}
+                maxFractionDigits={2}
                 className="w-full"
                 inputClassName="w-full text-right surface-200"
                 inputStyle={{

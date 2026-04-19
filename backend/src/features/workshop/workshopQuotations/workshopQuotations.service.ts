@@ -325,6 +325,8 @@ export async function createQuotation(
       validUntil: data.validUntil ?? null,
       notes: data.notes ?? null,
       internalNotes: data.internalNotes ?? null,
+      currency: (data.currency as any) ?? 'USD',
+      exchangeRate: data.exchangeRate ?? null,
       ...totals,
       empresaId,
       createdBy: userId,

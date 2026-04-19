@@ -4,6 +4,9 @@ export const createDealerReservationSchema = Joi.object({
   dealerUnitId: Joi.string().required().messages({
     'any.required': 'La unidad es requerida',
   }),
+  customerId: Joi.string().required().messages({
+    'any.required': 'El cliente es requerido',
+  }),
   customerName: Joi.string().max(180).required().messages({
     'any.required': 'El nombre del cliente es requerido',
   }),
@@ -12,7 +15,9 @@ export const createDealerReservationSchema = Joi.object({
   customerEmail: Joi.string().email().max(180).optional().allow(null, ''),
   offeredPrice: Joi.number().min(0).optional().allow(null),
   depositAmount: Joi.number().min(0).optional().allow(null),
-  currency: Joi.string().max(8).optional().allow(null, ''),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  exchangeRateSource: Joi.string().valid('BCV_AUTO', 'MANUAL').optional().allow(null, ''),
   expiresAt: Joi.date().iso().optional().allow(null),
   notes: Joi.string().optional().allow(null, ''),
   sourceChannel: Joi.string().max(80).optional().allow(null, ''),
@@ -20,13 +25,16 @@ export const createDealerReservationSchema = Joi.object({
 })
 
 export const updateDealerReservationSchema = Joi.object({
+  customerId: Joi.string().optional(),
   customerName: Joi.string().max(180).optional(),
   customerDocument: Joi.string().max(60).optional().allow(null, ''),
   customerPhone: Joi.string().max(40).optional().allow(null, ''),
   customerEmail: Joi.string().email().max(180).optional().allow(null, ''),
   offeredPrice: Joi.number().min(0).optional().allow(null),
   depositAmount: Joi.number().min(0).optional().allow(null),
-  currency: Joi.string().max(8).optional().allow(null, ''),
+  currency: Joi.string().valid('USD', 'VES', 'EUR').optional(),
+  exchangeRate: Joi.number().positive().optional().allow(null),
+  exchangeRateSource: Joi.string().valid('BCV_AUTO', 'MANUAL').optional().allow(null, ''),
   expiresAt: Joi.date().iso().optional().allow(null),
   notes: Joi.string().optional().allow(null, ''),
   sourceChannel: Joi.string().max(80).optional().allow(null, ''),
