@@ -286,7 +286,11 @@ export async function update(
   if (data.itemId !== undefined) updateData.itemId = data.itemId
   if (data.warehouseId !== undefined) {
     if (data.warehouseId) {
-      await assertWarehouseBelongsToEmpresa(db, data.warehouseId, existing.empresaId)
+      await assertWarehouseBelongsToEmpresa(
+        db,
+        data.warehouseId,
+        existing.empresaId
+      )
       updateData.warehouseId = data.warehouseId
     } else {
       updateData.warehouseId = null
@@ -587,7 +591,8 @@ async function changeStatusInternal(
         db
       )
     } else if (status === 'DISPATCHED') {
-      const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
+      const qty =
+        Number(material.quantityReserved) || Number(material.quantityRequested)
 
       // 1. Liberar la reserva
       await stockService.releaseReservation(
@@ -658,7 +663,8 @@ async function changeStatusInternal(
 
   // Update quantity and total when dispatched
   if (status === 'DISPATCHED') {
-    const qty = Number(material.quantityReserved) || Number(material.quantityRequested)
+    const qty =
+      Number(material.quantityReserved) || Number(material.quantityRequested)
     const unitPrice = Number(material.unitPrice || 0)
     const discountPct = Number(material.discountPct || 0)
     const taxRate = Number(material.taxRate || 0.16)

@@ -68,4 +68,3 @@ export interface IReservationFilters {
   reservedFrom?: Date
   reservedTo?: Date
 }
-
