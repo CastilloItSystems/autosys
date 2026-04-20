@@ -225,6 +225,30 @@ describe('Exit Notes API Tests', () => {
 
       expect(res.status).toBe(422)
     })
+
+    test('Debe fallar cuando no hay stock suficiente en el almacén indicado', async () => {
+      const res = await request(app)
+        .post('/api/inventory/exit-notes')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          type: 'TRANSFER',
+          warehouseId,
+          notes: 'Stock insuficiente',
+          items: [
+            {
+              itemId,
+              quantity: 999999,
+            },
+          ],
+        })
+
+      expect([400, 422]).toContain(res.status)
+      if (res.status === 400) {
+        expect(String(res.body.message || '')).toContain('Stock insuficiente')
+        expect(String(res.body.message || '')).toContain('itemId=')
+        expect(String(res.body.message || '')).toContain('warehouseId=')
+      }
+    })
   })
 
   // ============================================
@@ -402,6 +426,71 @@ describe('Exit Notes API Tests', () => {
         .send({ deliveredBy: userId })
 
       expect([200, 400]).toContain(res.status)
+    })
+
+    test('PATCH /:id/start - Debe bloquear preparación si reservas/stock están inconsistentes', async () => {
+      const isolatedItem = await prisma.item.create({
+        data: {
+          sku: `TEST-EXIT-INCONS-${testSuffix}`,
+          name: 'Test EXIT Inconsistency Item',
+          brandId,
+          categoryId,
+          unitId,
+          costPrice: 10,
+          salePrice: 20,
+          isActive: true,
+        },
+      })
+
+      await prisma.stock.create({
+        data: {
+          itemId: isolatedItem.id,
+          warehouseId,
+          quantityReal: 20,
+          quantityReserved: 0,
+          quantityAvailable: 20,
+          averageCost: 10,
+        },
+      })
+
+      const createRes = await request(app)
+        .post('/api/inventory/exit-notes')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          type: 'TRANSFER',
+          warehouseId,
+          notes: 'Inconsistencia de reservas',
+          items: [{ itemId: isolatedItem.id, quantity: 10 }],
+        })
+
+      expect(createRes.status).toBe(201)
+      const isolatedExitNoteId = createRes.body.data.id as string
+
+      // Simula inconsistencia histórica: se pierde la reserva antes de iniciar preparación
+      await prisma.stock.update({
+        where: {
+          itemId_warehouseId: {
+            itemId: isolatedItem.id,
+            warehouseId,
+          },
+        },
+        data: {
+          quantityReserved: 0,
+          quantityAvailable: 0,
+        },
+      })
+
+      const startRes = await request(app)
+        .patch(`/api/inventory/exit-notes/${isolatedExitNoteId}/start`)
+        .set('Authorization', `Bearer ${authToken}`)
+
+      expect(startRes.status).toBe(400)
+      expect(String(startRes.body.message || '')).toContain('Stock insuficiente')
+
+      const reservationsCount = await prisma.reservation.count({
+        where: { exitNoteId: isolatedExitNoteId },
+      })
+      expect(reservationsCount).toBe(0)
     })
   })
 

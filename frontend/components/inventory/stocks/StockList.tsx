@@ -5,7 +5,10 @@ import { DataTable } from "primereact/datatable";
 import { DataView } from "primereact/dataview";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
-import { InputText } from "primereact/inputtext";
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from "primereact/autocomplete";
 import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
@@ -35,6 +38,12 @@ import StockAdjustDialog from "./StockAdjustDialog";
 
 type StockFilter = "all" | "lowStock" | "outOfStock";
 
+interface StockSuggestion {
+  label: string;
+  query: string;
+  stock: Stock;
+}
+
 export default function StockList() {
   const router = useRouter();
 
@@ -48,10 +57,12 @@ export default function StockList() {
 
   // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearch, setDebouncedSearch] = useState<string>("");
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
   const [stockFilter, setStockFilter] = useState<StockFilter>("all");
   const [warehouseFilter, setWarehouseFilter] = useState<string | null>(null);
+  const [suggestions, setSuggestions] = useState<StockSuggestion[]>([]);
 
   // UI
   const [loading, setLoading] = useState<boolean>(true);
@@ -65,6 +76,7 @@ export default function StockList() {
   const [actionItem, setActionItem] = useState<Stock | null>(null);
   const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
+  const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Historial de movimientos (inline dialog)
   const [historyDialog, setHistoryDialog] = useState<boolean>(false);
@@ -87,7 +99,51 @@ export default function StockList() {
   // Cargar stocks cuando cambien los filtros
   useEffect(() => {
     loadStocks();
-  }, [page, rows, stockFilter, warehouseFilter]);
+  }, [page, rows, stockFilter, warehouseFilter, debouncedSearch]);
+
+  // Debounce para búsqueda server-side
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
+  }, []);
+
+  const fetchStocksByCurrentFilter = async (
+    search: string,
+    nextPage: number,
+    nextRows: number,
+  ) => {
+    if (stockFilter === "lowStock") {
+      return stockService.getLowStock(
+        warehouseFilter || undefined,
+        nextPage,
+        nextRows,
+        search || undefined,
+      );
+    }
+    if (stockFilter === "outOfStock") {
+      return stockService.getOutOfStock(
+        warehouseFilter || undefined,
+        nextPage,
+        nextRows,
+        search || undefined,
+      );
+    }
+    return stockService.getAll(nextPage, nextRows, {
+      warehouseId: warehouseFilter || undefined,
+      search: search || undefined,
+    });
+  };
 
   const loadWarehouses = async () => {
     try {
@@ -112,24 +168,11 @@ export default function StockList() {
     try {
       setLoading(true);
 
-      let response;
-      if (stockFilter === "lowStock") {
-        response = await stockService.getLowStock(
-          warehouseFilter || undefined,
-          page + 1,
-          rows,
-        );
-      } else if (stockFilter === "outOfStock") {
-        response = await stockService.getOutOfStock(
-          warehouseFilter || undefined,
-          page + 1,
-          rows,
-        );
-      } else {
-        response = await stockService.getAll(page + 1, rows, {
-          warehouseId: warehouseFilter || undefined,
-        });
-      }
+      const response = await fetchStocksByCurrentFilter(
+        debouncedSearch,
+        page + 1,
+        rows,
+      );
 
       const stocksData = response.data || [];
       const total = response.meta?.total || 0;
@@ -148,6 +191,58 @@ export default function StockList() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleSearch = (value: string) => {
+    setSearchQuery(value);
+  };
+
+  const searchSuggestions = async (event: AutoCompleteCompleteEvent) => {
+    const query = event.query?.trim() || "";
+
+    if (searchTimeout.current) {
+      clearTimeout(searchTimeout.current);
+    }
+
+    searchTimeout.current = setTimeout(async () => {
+      if (query.length < 2) {
+        setSuggestions([]);
+        return;
+      }
+
+      try {
+        const response = await fetchStocksByCurrentFilter(query, 1, 10);
+        const unique = new Map<string, StockSuggestion>();
+
+        for (const stock of response.data || []) {
+          const itemName = stock.item?.name || "Sin nombre";
+          const sku = stock.item?.sku || "";
+          const warehouse = stock.warehouse?.name || stock.warehouse?.code || "";
+          const location = stock.location || "";
+          const queryValue =
+            sku || itemName || warehouse || location || stock.itemId;
+
+          if (!unique.has(queryValue)) {
+            unique.set(queryValue, {
+              label: [itemName, sku, warehouse].filter(Boolean).join(" • "),
+              query: queryValue,
+              stock,
+            });
+          }
+        }
+
+        setSuggestions(Array.from(unique.values()));
+      } catch (error) {
+        console.error("Error loading stock search suggestions:", error);
+        setSuggestions([]);
+      }
+    }, 300);
+  };
+
+  const onSuggestionSelect = (event: any) => {
+    const selected = event.value as StockSuggestion;
+    setSearchQuery(selected?.query || "");
+    setPage(0);
   };
 
   const onPageChange = (event: any) => {
@@ -529,6 +624,18 @@ export default function StockList() {
     <span>{rowData.warehouse?.name || rowData.warehouseId}</span>
   );
 
+  const stockSuggestionTemplate = (suggestion: StockSuggestion) => (
+    <div className="flex flex-column gap-1">
+      <span className="font-semibold text-sm">{suggestion.stock.item?.name}</span>
+      <span className="text-xs text-600">
+        {(suggestion.stock.item?.sku || "SIN-SKU") +
+          " • " +
+          (suggestion.stock.warehouse?.name || "Sin almacén") +
+          (suggestion.stock.location ? ` • ${suggestion.stock.location}` : "")}
+      </span>
+    </div>
+  );
+
   // ── DataView templates (list / grid) ──────────────────────────────────
 
   const gridItemTemplate = (stock: Stock) => {
@@ -878,6 +985,27 @@ export default function StockList() {
         <span className="text-600 text-sm">({totalRecords} registros)</span>
       </div>
       <div className="flex flex-wrap gap-2 align-items-center">
+        <span className="p-input-icon-left w-20rem">
+          <i className="pi pi-search" style={{ zIndex: 1 }} />
+          <AutoComplete
+            value={searchQuery}
+            suggestions={suggestions}
+            completeMethod={searchSuggestions}
+            field="label"
+            placeholder="Buscar (SKU, nombre, código, almacén, ubicación...)"
+            itemTemplate={stockSuggestionTemplate}
+            onSelect={onSuggestionSelect}
+            onChange={(e) =>
+              handleSearch(
+                typeof e.value === "string" ? e.value : e.value?.query || "",
+              )
+            }
+            delay={300}
+            inputClassName="w-full pl-5"
+            className="w-full"
+          />
+        </span>
+
         {/* Filtro por estado de stock */}
         <div className="flex gap-1">
           <Button

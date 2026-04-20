@@ -175,6 +175,57 @@ ${TEST_SKU},${WH_CODE},20,30.00`
       })
       expect(after?.quantityReal).toBe(prevQty + 20)
     })
+
+    test('should process a high-volume import without transaction start timeout errors', async () => {
+      const dataRows = Array.from({ length: 120 }, () => `${TEST_SKU},${WH_CODE},1`)
+      const csv = ['sku,warehouseCode,quantity', ...dataRows].join('\n')
+
+      const res = await request(app)
+        .post('/api/inventory/stock/bulk/import')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({ fileName: 'high-volume.csv', fileContent: csv, options: { updateExisting: true } })
+
+      expect(res.status).toBe(201)
+      expect(res.body.data.processed).toBe(120)
+      expect(res.body.data.failed).toBe(0)
+      expect(
+        (res.body.data.errors ?? []).some((e: any) =>
+          String(e.error || '').includes('Unable to start a transaction in the given time')
+        )
+      ).toBe(false)
+    })
+
+    test('should preserve per-row errors in high-volume import mixes', async () => {
+      const validRows = Array.from({ length: 119 }, () => `${TEST_SKU},${WH_CODE},1`)
+      const csv = ['sku,warehouseCode,quantity', ...validRows, `UNKNOWN-SKU-ERR,${WH_CODE},1`].join('\n')
+
+      const res = await request(app)
+        .post('/api/inventory/stock/bulk/import')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({ fileName: 'high-volume-with-error.csv', fileContent: csv, options: { updateExisting: true } })
+
+      expect(res.status).toBe(201)
+      expect(res.body.data.processed).toBe(119)
+      expect(res.body.data.failed).toBe(1)
+      expect(res.body.data.errors).toHaveLength(1)
+      expect(res.body.data.errors[0].rowNumber).toBe(120)
+      expect(res.body.data.errors[0].error).toContain('no encontrado')
+
+      const op = await prisma.bulkOperation.findUnique({
+        where: { id: res.body.data.operationId },
+      })
+      expect(op?.status).toBe('COMPLETED_WITH_ERRORS')
+      const parsedErrorDetails = !op?.errorDetails
+        ? []
+        : typeof op.errorDetails === 'string'
+          ? JSON.parse(op.errorDetails)
+          : op.errorDetails
+      expect(Array.isArray(parsedErrorDetails)).toBe(true)
+      expect(parsedErrorDetails).toHaveLength(1)
+      expect(parsedErrorDetails[0].rowNumber).toBe(120)
+    })
   })
 
   // ── ADJUSTMENT ─────────────────────────────────────────────────────────────

@@ -11,6 +11,7 @@ import customerCrmService from "@/app/api/crm/customerCrmService";
 import dealerFinancingService from "@/app/api/dealer/dealerFinancingService";
 import type { DealerFinancing } from "@/libs/interfaces/dealer/dealerFinancing.interface";
 import { handleFormError } from "@/utils/errorHandlers";
+import { useBcvRate } from "@/hooks/useBcvRate";
 
 const STATUS_OPTIONS = [
   { label: "Borrador", value: "DRAFT" },
@@ -22,11 +23,41 @@ const STATUS_OPTIONS = [
   { label: "Desembolsada", value: "DISBURSED" },
 ];
 
+const CURRENCY_OPTIONS = [
+  { label: "USD – Dólar", value: "USD" },
+  { label: "VES – Bolívar", value: "VES" },
+  { label: "EUR – Euro", value: "EUR" },
+];
+
+const FX_SOURCE_OPTIONS = [
+  { label: "BCV Auto", value: "BCV_AUTO" },
+  { label: "Manual", value: "MANUAL" },
+];
+
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+function formatCrossRef(
+  amount: number,
+  currency: string,
+  rate: number | null | undefined,
+): string | null {
+  if (!rate || rate <= 0 || !amount) return null;
+  if (currency === "VES") {
+    const usd = amount / rate;
+    return `≈ $ ${usd.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  const ves = amount * rate;
+  return `≈ Bs. ${ves.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 type DealerFinancingFormValues = {
   dealerUnitId: string;
   customerId: string;
   customerName: string;
   bankName: string;
+  currency: "USD" | "VES" | "EUR";
+  exchangeRate?: number;
+  exchangeRateSource: "BCV_AUTO" | "MANUAL";
   requestedAmount?: number;
   approvedAmount?: number;
   termMonths?: number;
@@ -54,6 +85,7 @@ export default function DealerFinancingForm({
     control,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<DealerFinancingFormValues>({
     mode: "onBlur",
@@ -62,6 +94,10 @@ export default function DealerFinancingForm({
       customerId: financing?.customerId || "",
       customerName: financing?.customerName || "",
       bankName: "",
+      currency: financing?.currency || "USD",
+      exchangeRate:
+        financing?.exchangeRate != null ? Number(financing.exchangeRate) : undefined,
+      exchangeRateSource: financing?.exchangeRateSource || "BCV_AUTO",
       requestedAmount:
         financing?.requestedAmount != null ? Number(financing.requestedAmount) : undefined,
       approvedAmount:
@@ -71,6 +107,60 @@ export default function DealerFinancingForm({
     },
   });
 
+  const watchCurrency = watch("currency") as "USD" | "VES" | "EUR";
+  const watchFxSource = watch("exchangeRateSource");
+  const watchExchangeRate = watch("exchangeRate");
+  const watchRequestedAmount = watch("requestedAmount");
+  const watchApprovedAmount = watch("approvedAmount");
+
+  // Always fetch USD/VES — needed for VES conversion cross-ref
+  const { rate: usdVesRate } = useBcvRate("USD");
+  // EUR/VES when needed
+  const { rate: eurVesRate } = useBcvRate(
+    watchCurrency === "EUR" ? "EUR" : "USD",
+  );
+
+  const effectiveRate =
+    watchCurrency === "USD" ? usdVesRate
+    : watchCurrency === "EUR" ? eurVesRate
+    : usdVesRate; // VES doc → store USD/VES for cross-ref
+
+  const prevCurrencyRef = React.useRef<string>(watchCurrency);
+  const pendingRateRef = React.useRef(false);
+
+  // Auto-fill exchange rate when BCV rate loads
+  React.useEffect(() => {
+    if (watchFxSource !== "BCV_AUTO") return;
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate", effectiveRate);
+      pendingRateRef.current = false;
+    } else {
+      pendingRateRef.current = true;
+    }
+  }, [effectiveRate, watchFxSource, setValue]);
+
+  // When currency changes, reset source to BCV_AUTO
+  React.useEffect(() => {
+    if (prevCurrencyRef.current === watchCurrency) return;
+    prevCurrencyRef.current = watchCurrency;
+    if (watchCurrency === "USD") {
+      setValue("exchangeRateSource", "BCV_AUTO");
+      setValue("exchangeRate", undefined);
+    } else {
+      setValue("exchangeRateSource", "BCV_AUTO");
+      pendingRateRef.current = true;
+    }
+  }, [watchCurrency, setValue]);
+
+  const currencyPrefix = CURRENCY_SYMBOLS[watchCurrency] + " ";
+
+  const requestedCrossRef = watchRequestedAmount
+    ? formatCrossRef(watchRequestedAmount, watchCurrency, watchExchangeRate)
+    : null;
+  const approvedCrossRef = watchApprovedAmount
+    ? formatCrossRef(watchApprovedAmount, watchCurrency, watchExchangeRate)
+    : null;
+
   const onSubmit = async (data: DealerFinancingFormValues) => {
     onSubmittingChange?.(true);
     try {
@@ -79,6 +169,9 @@ export default function DealerFinancingForm({
         customerId: data.customerId,
         customerName: data.customerName.trim(),
         bankName: data.bankName || null,
+        currency: data.currency || "USD",
+        exchangeRate: data.exchangeRate ?? null,
+        exchangeRateSource: data.exchangeRateSource || "BCV_AUTO",
         requestedAmount: data.requestedAmount ?? null,
         approvedAmount: data.approvedAmount ?? null,
         termMonths: data.termMonths ?? null,
@@ -190,6 +283,63 @@ export default function DealerFinancingForm({
           />
         </div>
 
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Moneda</label>
+          <Controller
+            name="currency"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={CURRENCY_OPTIONS}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Fuente Tasa</label>
+          <Controller
+            name="exchangeRateSource"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={FX_SOURCE_OPTIONS}
+                disabled={watchCurrency === "USD"}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Tasa de Cambio</label>
+          <Controller
+            name="exchangeRate"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                minFractionDigits={2}
+                maxFractionDigits={4}
+                min={0}
+                disabled={watchCurrency === "USD" || watchFxSource === "BCV_AUTO"}
+                placeholder={
+                  watchCurrency === "USD"
+                    ? "N/A"
+                    : effectiveRate
+                      ? effectiveRate.toFixed(4)
+                      : "Cargando..."
+                }
+              />
+            )}
+          />
+        </div>
+
         <div className="col-12 md:col-4 field">
           <label className="font-semibold">Monto solicitado</label>
           <Controller
@@ -199,9 +349,17 @@ export default function DealerFinancingForm({
               <InputNumber
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                prefix={currencyPrefix}
+                minFractionDigits={2}
+                maxFractionDigits={2}
+                min={0}
               />
             )}
           />
+          {requestedCrossRef && (
+            <small className="text-500">{requestedCrossRef}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-4 field">
@@ -213,9 +371,17 @@ export default function DealerFinancingForm({
               <InputNumber
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                prefix={currencyPrefix}
+                minFractionDigits={2}
+                maxFractionDigits={2}
+                min={0}
               />
             )}
           />
+          {approvedCrossRef && (
+            <small className="text-500">{approvedCrossRef}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-4 field mb-0">

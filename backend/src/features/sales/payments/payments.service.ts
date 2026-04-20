@@ -91,7 +91,16 @@ class PaymentsService {
     // Validate PreInvoice exists and is payable
     const preInvoice = await (db as PrismaClient).preInvoice.findFirst({
       where: { id: data.preInvoiceId, empresaId },
-      include: { items: true, customer: { select: { name: true } } },
+      include: {
+        items: {
+          include: {
+            item: {
+              select: { id: true, location: true },
+            },
+          },
+        },
+        customer: { select: { name: true } },
+      },
     })
     if (!preInvoice) throw new NotFoundError('Pre-factura no encontrada')
 
@@ -262,13 +271,14 @@ class PaymentsService {
         if (!isWorkshopPreInvoice) {
           // 4. Generate ExitNote tipo SALE (despacho — PENDING, no descuenta stock)
           const exitNoteNumber = generateExitNoteNumber()
+          const warehouseId = (preInvoice as any).warehouseId as string
 
           const exitNote = await tx.exitNote.create({
             data: {
               exitNoteNumber,
               type: 'SALE',
               status: 'PENDING',
-              warehouseId: (preInvoice as any).warehouseId,
+              warehouseId,
               preInvoiceId: data.preInvoiceId,
               recipientName: (preInvoice as any).customer?.name ?? null,
               reference: invoiceNumber,
@@ -279,28 +289,32 @@ class PaymentsService {
 
           // Copy items to ExitNote items and reserve stock
           for (const item of piItems) {
+            const stock = await tx.stock.findUnique({
+              where: {
+                itemId_warehouseId: {
+                  itemId: item.itemId,
+                  warehouseId,
+                },
+              },
+            })
+
+            const pickedFromLocation =
+              stock?.location ?? item.item?.location ?? null
+
             await tx.exitNoteItem.create({
               data: {
                 exitNoteId: exitNote.id,
                 itemId: item.itemId,
                 itemName: item.itemName ?? null,
                 quantity: item.quantity,
+                pickedFromLocation,
               },
             })
 
             // Reserve stock: product already sold, lock immediately
-            const stock = await tx.stock.findUnique({
-              where: {
-                itemId_warehouseId: {
-                  itemId: item.itemId,
-                  warehouseId: (preInvoice as any).warehouseId,
-                },
-              },
-            })
-
             if (!stock) {
               logger.warn(
-                `Sin registro de stock para item ${item.itemId} en almacén ${(preInvoice as any).warehouseId}. No se reservó stock.`,
+                `Sin registro de stock para item ${item.itemId} en almacén ${warehouseId}. No se reservó stock.`,
                 { preInvoiceId: data.preInvoiceId }
               )
               continue

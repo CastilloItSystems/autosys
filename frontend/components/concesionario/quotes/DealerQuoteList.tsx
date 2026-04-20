@@ -59,6 +59,36 @@ const FISCAL_STATUS_META: Record<
   ERROR: { label: "Error", severity: "danger" },
 };
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+const CURRENCY_SEVERITY: Record<string, "success" | "warning" | "info" | "secondary"> = {
+  USD: "info",
+  VES: "warning",
+  EUR: "success",
+};
+
+function formatAmount(value: number | string | null | undefined, currency: string): string {
+  if (value == null) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "-";
+  const sym = CURRENCY_SYMBOLS[currency] || currency;
+  return `${sym} ${num.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatCrossRef(
+  amount: number | string | null | undefined,
+  currency: string,
+  rate: number | string | null | undefined,
+): string | null {
+  if (amount == null || rate == null) return null;
+  const num = Number(amount);
+  const r = Number(rate);
+  if (!num || !r || r <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(num / r).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(num * r).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function DealerQuoteList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
@@ -314,12 +344,26 @@ export default function DealerQuoteList() {
           }}
         />
         <Column
+          header="Moneda"
+          body={(row: DealerQuote) => (
+            <Tag
+              value={row.currency || "USD"}
+              severity={CURRENCY_SEVERITY[row.currency] || "secondary"}
+            />
+          )}
+          style={{ width: "7rem" }}
+        />
+        <Column
           header="Total"
-          body={(row: DealerQuote) =>
-            row.totalAmount != null
-              ? `${row.currency || "USD"} ${Number(row.totalAmount).toFixed(2)}`
-              : "-"
-          }
+          body={(row: DealerQuote) => {
+            const crossRef = formatCrossRef(row.totalAmount, row.currency, row.exchangeRate);
+            return (
+              <div>
+                <div>{formatAmount(row.totalAmount, row.currency || "USD")}</div>
+                {crossRef && <small className="text-500">{crossRef}</small>}
+              </div>
+            );
+          }}
         />
         <Column
           header="Order"

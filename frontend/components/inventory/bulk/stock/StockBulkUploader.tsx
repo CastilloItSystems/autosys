@@ -33,7 +33,7 @@ type FieldMapping = Record<string, string>;
 type UploadStage = "idle" | "converting" | "processing";
 
 const SKIP_VALUE = "__skip__";
-const CHUNK_SIZE = 500;
+const CHUNK_SIZE = 200;
 const LARGE_FILE_THRESHOLD = 500;
 
 // ============================================================================

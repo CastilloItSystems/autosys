@@ -56,6 +56,7 @@ export interface IUpdateStockInput {
 export interface IStockFilters {
   itemId?: string
   warehouseId?: string
+  search?: string
   minQuantity?: number
   maxQuantity?: number
   lowStock?: boolean

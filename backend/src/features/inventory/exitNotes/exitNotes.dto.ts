@@ -107,6 +107,11 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
   type: ExitNoteType
   status: ExitNoteStatus
   warehouseId: string
+  warehouse?: {
+    id: string
+    name?: string
+    code?: string
+  }
   preInvoiceId?: string
   serviceOrderMaterialId?: string | null
   recipientName?: string
@@ -136,6 +141,7 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
     this.items = data.items ?? []
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
+    if (data.warehouse !== undefined) this.warehouse = data.warehouse
     // Optional fields — only assign if present to satisfy exactOptionalPropertyTypes
     if (data.preInvoiceId !== undefined) this.preInvoiceId = data.preInvoiceId
     if (data.serviceOrderMaterialId !== undefined)

@@ -490,8 +490,13 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     );
   };
 
-  const warehouseBodyTemplate = (rowData: ExitNote) =>
-    rowData.warehouse?.name || "—";
+  const warehouseBodyTemplate = (rowData: ExitNote) => {
+    const fromNote = rowData.warehouse?.name || rowData.warehouse?.code;
+    if (fromNote) return fromNote;
+
+    const fromCatalog = warehouses.find((w) => w.id === rowData.warehouseId);
+    return fromCatalog?.name || fromCatalog?.code || "—";
+  };
 
   /* ── Row expansion with stepper + styled table ── */
   const rowExpansionTemplate = (data: ExitNote) => {
@@ -601,7 +606,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
                       flexShrink: 0,
                     }}
                   >
-                    {line.pickedFromLocation || (
+                    {line.pickedFromLocation || line.location || (
                       <span className="text-400">—</span>
                     )}
                   </div>

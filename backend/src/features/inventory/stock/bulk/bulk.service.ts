@@ -26,6 +26,11 @@ const VALID_MOVEMENT_TYPES = [
   'LOAN_OUT',
   'LOAN_RETURN',
 ]
+const BULK_ROW_CONCURRENCY = 10
+const BULK_TRANSACTION_OPTIONS = {
+  maxWait: 10_000,
+  timeout: 20_000,
+} as const
 
 export class StockBulkService {
   // ─── IMPORT ───────────────────────────────────────────────────────────────
@@ -117,9 +122,8 @@ export class StockBulkService {
     const itemMap = new Map(itemRecords.map((it) => [it.sku, it.id]))
     const warehouseMap = new Map(warehouseRecords.map((wh) => [wh.code, wh.id]))
 
-    // ── Process each row ───────────────────────────────────────────────────
-    const results = await Promise.allSettled(
-      rows.map(async (row) => {
+    // ── Process rows with bounded concurrency ───────────────────────────────
+    const importExecution = await this.processRowsInChunks(rows, async (row) => {
         const itemId = itemMap.get(row.sku)
         if (!itemId) throw new Error(`SKU "${row.sku}" no encontrado en la empresa`)
 
@@ -187,24 +191,18 @@ export class StockBulkService {
               movementDate: new Date(),
             },
           })
+        }, BULK_TRANSACTION_OPTIONS)
+      },
+      (row, reason) => {
+        errors.push({
+          rowNumber: row._rowIndex,
+          sku: row.sku,
+          warehouseCode: row.warehouseCode,
+          error: (reason as any)?.message ?? 'Error desconocido',
         })
       })
-    )
-
-    for (let i = 0; i < results.length; i++) {
-      const res = results[i]
-      if (res.status === 'fulfilled') {
-        processed++
-      } else {
-        failed++
-        errors.push({
-          rowNumber: rows[i]._rowIndex,
-          sku: rows[i].sku,
-          warehouseCode: rows[i].warehouseCode,
-          error: (res.reason as any)?.message ?? 'Error desconocido',
-        })
-      }
-    }
+    processed += importExecution.processed
+    failed += importExecution.failed
 
     const finalStatus = failed === 0 ? 'COMPLETED' : processed > 0 ? 'COMPLETED_WITH_ERRORS' : 'FAILED'
     await prisma.bulkOperation.update({
@@ -318,9 +316,8 @@ export class StockBulkService {
     const itemMap = new Map(itemRecords.map((it) => [it.sku, it.id]))
     const warehouseMap = new Map(warehouseRecords.map((wh) => [wh.code, wh.id]))
 
-    // ── Process each row independently (Promise.allSettled for resilience) ──
-    const results = await Promise.allSettled(
-      rows.map(async (row) => {
+    // ── Process rows with bounded concurrency ───────────────────────────────
+    const adjustmentExecution = await this.processRowsInChunks(rows, async (row) => {
         const itemId = itemMap.get(row.sku)
         if (!itemId) throw new Error(`SKU "${row.sku}" no encontrado en la empresa`)
 
@@ -369,24 +366,18 @@ export class StockBulkService {
               movementDate: new Date(),
             },
           })
+        }, BULK_TRANSACTION_OPTIONS)
+      },
+      (row, reason) => {
+        errors.push({
+          rowNumber: row._rowIndex,
+          sku: row.sku,
+          warehouseCode: row.warehouseCode,
+          error: (reason as any)?.message ?? 'Error desconocido',
         })
       })
-    )
-
-    for (let i = 0; i < results.length; i++) {
-      const res = results[i]
-      if (res.status === 'fulfilled') {
-        processed++
-      } else {
-        failed++
-        errors.push({
-          rowNumber: rows[i]._rowIndex,
-          sku: rows[i].sku,
-          warehouseCode: rows[i].warehouseCode,
-          error: (res.reason as any)?.message ?? 'Error desconocido',
-        })
-      }
-    }
+    processed += adjustmentExecution.processed
+    failed += adjustmentExecution.failed
 
     const finalStatus = failed === 0 ? 'COMPLETED' : processed > 0 ? 'COMPLETED_WITH_ERRORS' : 'FAILED'
     await prisma.bulkOperation.update({
@@ -499,9 +490,8 @@ export class StockBulkService {
     const itemMap = new Map(itemRecords.map((it) => [it.sku, it.id]))
     const warehouseMap = new Map(warehouseRecords.map((wh) => [wh.code, wh.id]))
 
-    // ── Process each row in its own transaction ──────────────────────────────
-    const results = await Promise.allSettled(
-      rows.map(async (row) => {
+    // ── Process rows with bounded concurrency ───────────────────────────────
+    const transferExecution = await this.processRowsInChunks(rows, async (row) => {
         const itemId = itemMap.get(row.sku)
         if (!itemId) throw new Error(`SKU "${row.sku}" no encontrado en la empresa`)
 
@@ -573,23 +563,17 @@ export class StockBulkService {
               movementDate: new Date(),
             },
           })
+        }, BULK_TRANSACTION_OPTIONS)
+      },
+      (row, reason) => {
+        errors.push({
+          rowNumber: row._rowIndex,
+          sku: row.sku,
+          error: (reason as any)?.message ?? 'Error desconocido',
         })
       })
-    )
-
-    for (let i = 0; i < results.length; i++) {
-      const res = results[i]
-      if (res.status === 'fulfilled') {
-        processed++
-      } else {
-        failed++
-        errors.push({
-          rowNumber: rows[i]._rowIndex,
-          sku: rows[i].sku,
-          error: (res.reason as any)?.message ?? 'Error desconocido',
-        })
-      }
-    }
+    processed += transferExecution.processed
+    failed += transferExecution.failed
 
     const finalStatus = failed === 0 ? 'COMPLETED' : processed > 0 ? 'COMPLETED_WITH_ERRORS' : 'FAILED'
     await prisma.bulkOperation.update({
@@ -760,6 +744,32 @@ export class StockBulkService {
   }
 
   // ─── Private helpers ───────────────────────────────────────────────────────
+
+  private async processRowsInChunks<TRow extends { _rowIndex: number }>(
+    rows: TRow[],
+    handler: (row: TRow) => Promise<void>,
+    onError: (row: TRow, reason: unknown) => void
+  ): Promise<{ processed: number; failed: number }> {
+    let processed = 0
+    let failed = 0
+
+    for (let start = 0; start < rows.length; start += BULK_ROW_CONCURRENCY) {
+      const chunk = rows.slice(start, start + BULK_ROW_CONCURRENCY)
+      const results = await Promise.allSettled(chunk.map((row) => handler(row)))
+
+      for (let i = 0; i < results.length; i++) {
+        const result = results[i]
+        if (result.status === 'fulfilled') {
+          processed++
+        } else {
+          failed++
+          onError(chunk[i], result.reason)
+        }
+      }
+    }
+
+    return { processed, failed }
+  }
 
   /** Normalize a CSV value: trim, remove surrounding quotes, return undefined if empty */
   private norm(v: any): string | undefined {

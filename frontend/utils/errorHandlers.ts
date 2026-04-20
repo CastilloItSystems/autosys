@@ -2,6 +2,30 @@
 import { AxiosError } from "axios";
 import { Toast } from "primereact/toast";
 
+const stripTechnicalDetails = (message: string): string => {
+  if (!message) return message;
+  return message
+    .replace(/\s*Detalle t[eé]cnico:.*$/i, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+};
+
+const getUserFriendlySummary = (
+  message: string,
+  status?: number,
+): string => {
+  if (/stock insuficiente/i.test(message)) return "Stock insuficiente";
+  if (/no autorizado|token/i.test(message) || status === 401)
+    return "No autorizado";
+  if (/acceso denegado/i.test(message) || status === 403)
+    return "Acceso denegado";
+  if (status === 404) return "No encontrado";
+  if (status === 409) return "Conflicto";
+  if (status === 422) return "Error de validación";
+  if (status === 500) return "Error interno";
+  return "Error";
+};
+
 export const handleFormError = (
   error: unknown,
   toastRef: React.RefObject<Toast | null> | Toast | null,
@@ -13,6 +37,7 @@ export const handleFormError = (
   }>;
 
   let errorMessage = "Ocurrió un error al procesar la solicitud";
+  let rawBackendMessage = "";
   let errorDetails: string[] = [];
   let summary = "Error";
   // Manejo estructurado de diferentes tipos de errores
@@ -25,7 +50,7 @@ export const handleFormError = (
           return err.message;
         }
         return String(err);
-      });
+      }).map(stripTechnicalDetails);
       errorMessage = "Errores de validación";
     }
     // Mensaje de error específico del backend
@@ -36,6 +61,12 @@ export const handleFormError = (
     else if (axiosError.response.data?.message) {
       errorMessage = axiosError.response.data.message;
     }
+
+    rawBackendMessage =
+      axiosError.response.data?.message ||
+      axiosError.response.data?.error ||
+      errorMessage;
+    errorMessage = stripTechnicalDetails(errorMessage);
 
     // // Errores HTTP específicos
     // switch (axiosError.response.status) {
@@ -57,9 +88,10 @@ export const handleFormError = (
   } else {
     errorMessage = `Error de configuración: ${axiosError.message}`;
   }
-  if (axiosError.response?.data?.message) {
-    summary = axiosError.response.data.message;
-  }
+  summary = getUserFriendlySummary(
+    rawBackendMessage || errorMessage,
+    axiosError.response?.status,
+  );
   const toastInstance =
     toastRef && "current" in toastRef ? toastRef.current : toastRef;
 
@@ -76,6 +108,7 @@ export const handleFormError = (
   if (process.env.NODE_ENV === "development") {
     console.error("Error detallado:", {
       message: errorMessage,
+      rawBackendMessage,
       details: errorDetails,
       fullError: axiosError,
     });

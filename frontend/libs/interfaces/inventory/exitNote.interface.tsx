@@ -28,6 +28,7 @@ export interface ExitNoteItem {
   itemName?: string | null;
   quantity: number;
   pickedFromLocation?: string;
+  location?: string;
   batchId?: string;
   serialNumberId?: string;
   notes?: string;
@@ -47,6 +48,7 @@ export interface ExitNote {
   warehouse?: {
     id: string;
     name: string;
+    code?: string;
   };
   preInvoiceId?: string;
   serviceOrderMaterialId?: string | null;

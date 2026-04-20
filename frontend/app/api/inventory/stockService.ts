@@ -202,6 +202,7 @@ const stockService = {
     const params: Record<string, any> = { page, limit };
     if (filters?.itemId) params.itemId = filters.itemId;
     if (filters?.warehouseId) params.warehouseId = filters.warehouseId;
+    if (filters?.search) params.search = filters.search;
     if (filters?.lowStock) params.lowStock = "true";
     if (filters?.outOfStock) params.outOfStock = "true";
 
@@ -246,9 +247,11 @@ const stockService = {
     warehouseId?: string,
     page = 1,
     limit = 20,
+    search?: string,
   ): Promise<StocksResponse> {
     const params: Record<string, any> = { page, limit };
     if (warehouseId) params.warehouseId = warehouseId;
+    if (search) params.search = search;
 
     const response = await apiClient.get<StocksResponse>(
       `/inventory/stock/low-stock`,
@@ -261,9 +264,11 @@ const stockService = {
     warehouseId?: string,
     page = 1,
     limit = 20,
+    search?: string,
   ): Promise<StocksResponse> {
     const params: Record<string, any> = { page, limit };
     if (warehouseId) params.warehouseId = warehouseId;
+    if (search) params.search = search;
 
     const response = await apiClient.get<StocksResponse>(
       `/inventory/stock/out-of-stock`,

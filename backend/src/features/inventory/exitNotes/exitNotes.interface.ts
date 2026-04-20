@@ -61,9 +61,15 @@ export interface IExitNoteItem {
   itemName?: string | null
   quantity: number
   pickedFromLocation?: string
+  location?: string
   batchId?: string
   serialNumberId?: string
   notes?: string
+  item?: {
+    id: string
+    sku?: string
+    name?: string
+  }
   createdAt: Date
 }
 
@@ -125,6 +131,11 @@ export interface IExitNoteResponse {
   type: ExitNoteType
   status: ExitNoteStatus
   warehouseId: string
+  warehouse?: {
+    id: string
+    name?: string
+    code?: string
+  }
   preInvoiceId?: string
   serviceOrderMaterialId?: string | null
   recipientName?: string

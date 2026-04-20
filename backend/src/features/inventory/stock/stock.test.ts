@@ -144,6 +144,7 @@ describe('Stock API Tests', () => {
           warehouseId,
           quantityReal: 100,
           quantityReserved: 0,
+          location: 'PASILLO-A1',
           averageCost: 50,
         })
 
@@ -179,6 +180,54 @@ describe('Stock API Tests', () => {
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
       expect(Array.isArray(res.body.data)).toBe(true)
+    })
+
+    test('Debe buscar stock por SKU', async () => {
+      const res = await request(app)
+        .get('/api/inventory/stock')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({ page: 1, limit: 10, search: 'TEST-STOCK-001' })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(
+        (res.body.data || []).some(
+          (row: any) => row?.item?.sku === 'TEST-STOCK-001'
+        )
+      ).toBe(true)
+    })
+
+    test('Debe buscar stock por nombre/código de almacén', async () => {
+      const res = await request(app)
+        .get('/api/inventory/stock')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({ page: 1, limit: 10, search: 'TEST-STK-WH-1' })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(
+        (res.body.data || []).some(
+          (row: any) => row?.warehouse?.code === 'TEST-STK-WH-1'
+        )
+      ).toBe(true)
+    })
+
+    test('Debe combinar búsqueda con filtro por almacén', async () => {
+      const res = await request(app)
+        .get('/api/inventory/stock')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({
+          page: 1,
+          limit: 10,
+          search: 'PASILLO-A1',
+          warehouseId,
+        })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(
+        (res.body.data || []).every((row: any) => row?.warehouseId === warehouseId)
+      ).toBe(true)
     })
   })
 
@@ -218,6 +267,16 @@ describe('Stock API Tests', () => {
         expect(Array.isArray(res.body.data)).toBe(true)
       }
     })
+
+    test('Debe aceptar búsqueda combinada con low-stock y almacén', async () => {
+      const res = await request(app)
+        .get('/api/inventory/stock/low-stock')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({ search: 'TEST-STOCK', warehouseId, page: 1, limit: 10 })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
+    })
   })
 
   // ── GET /api/inventory/stock/out-of-stock ──
@@ -231,6 +290,16 @@ describe('Stock API Tests', () => {
       if (res.status === 200) {
         expect(Array.isArray(res.body.data)).toBe(true)
       }
+    })
+
+    test('Debe aceptar búsqueda combinada con out-of-stock y almacén', async () => {
+      const res = await request(app)
+        .get('/api/inventory/stock/out-of-stock')
+        .set('Authorization', `Bearer ${authToken}`)
+        .query({ search: 'TEST-STOCK', warehouseId, page: 1, limit: 10 })
+
+      expect(res.status).toBe(200)
+      expect(Array.isArray(res.body.data)).toBe(true)
     })
   })
 

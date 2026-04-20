@@ -43,6 +43,16 @@ const FX_SOURCE_OPTIONS = [
   { label: "Manual", value: "MANUAL" },
 ];
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES")
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 type DealerQuoteFormValues = {
   dealerUnitId: string;
   customerId: string;
@@ -86,6 +96,7 @@ export default function DealerQuoteForm({
     control,
     handleSubmit,
     setValue,
+    watch,
     formState: { errors },
   } = useForm<DealerQuoteFormValues>({
     mode: "onBlur",
@@ -97,14 +108,11 @@ export default function DealerQuoteForm({
       customerPhone: quote?.customerPhone || "",
       customerEmail: quote?.customerEmail || "",
       listPrice: quote?.listPrice != null ? Number(quote.listPrice) : undefined,
-      discountPct:
-        quote?.discountPct != null ? Number(quote.discountPct) : undefined,
-      offeredPrice:
-        quote?.offeredPrice != null ? Number(quote.offeredPrice) : undefined,
+      discountPct: quote?.discountPct != null ? Number(quote.discountPct) : undefined,
+      offeredPrice: quote?.offeredPrice != null ? Number(quote.offeredPrice) : undefined,
       taxPct: quote?.taxPct != null ? Number(quote.taxPct) : 16,
       currency: quote?.currency || "USD",
-      exchangeRate:
-        quote?.exchangeRate != null ? Number(quote.exchangeRate) : undefined,
+      exchangeRate: quote?.exchangeRate != null ? Number(quote.exchangeRate) : undefined,
       exchangeRateSource: quote?.exchangeRateSource || "BCV_AUTO",
       validUntil: quote?.validUntil ? new Date(quote.validUntil) : null,
       paymentTerms: quote?.paymentTerms || "",
@@ -114,10 +122,50 @@ export default function DealerQuoteForm({
       isActive: quote?.isActive ?? true,
     },
   });
-  const watchCurrency = useWatch({ control, name: "currency" });
+
+  const watchCurrency = useWatch({ control, name: "currency" }) || "USD";
   const watchFxSource = useWatch({ control, name: "exchangeRateSource" });
   const watchStatus = useWatch({ control, name: "status" });
-  const { rate: bcvRate } = useBcvRate(watchCurrency || "USD");
+  const watchExchangeRate = useWatch({ control, name: "exchangeRate" });
+  const watchOfferedPrice = useWatch({ control, name: "offeredPrice" });
+
+  // Always fetch USD/VES — needed for VES conversion and as cross-ref base
+  const { rate: usdVesRate } = useBcvRate("USD");
+  // EUR/VES rate when needed
+  const { rate: eurVesRate } = useBcvRate(
+    watchCurrency === "EUR" ? "EUR" : "USD",
+  );
+
+  const effectiveRate =
+    watchCurrency === "USD" ? usdVesRate
+    : watchCurrency === "EUR" ? eurVesRate
+    : usdVesRate; // VES → store USD/VES for cross-reference
+
+  const prevCurrencyRef = React.useRef<string>(watchCurrency);
+  const pendingRateRef = React.useRef(false);
+
+  // Auto-fill exchange rate when BCV loads or source/currency changes
+  React.useEffect(() => {
+    if (watchFxSource !== "BCV_AUTO") return;
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate", effectiveRate);
+      if (pendingRateRef.current) {
+        pendingRateRef.current = false;
+      }
+    }
+  }, [effectiveRate, watchFxSource]);
+
+  React.useEffect(() => {
+    const prev = prevCurrencyRef.current;
+    if (prev === watchCurrency) return;
+    prevCurrencyRef.current = watchCurrency;
+
+    if (!effectiveRate || effectiveRate <= 0) {
+      pendingRateRef.current = true;
+    }
+  }, [watchCurrency]);
+
+  const currencyPrefix = CURRENCY_SYMBOLS[watchCurrency] + " ";
 
   const onSubmit = async (data: DealerQuoteFormValues) => {
     onSubmittingChange?.(true);
@@ -158,17 +206,6 @@ export default function DealerQuoteForm({
     }
   };
 
-  React.useEffect(() => {
-    if (watchCurrency === "VES") {
-      setValue("exchangeRate", 1);
-      setValue("exchangeRateSource", "BCV_AUTO");
-      return;
-    }
-    if (watchFxSource === "BCV_AUTO" && bcvRate) {
-      setValue("exchangeRate", bcvRate);
-    }
-  }, [watchCurrency, watchFxSource, bcvRate, setValue]);
-
   const handleConvertAndFiscalize = async () => {
     if (!quote?.id) return;
     onSubmittingChange?.(true);
@@ -207,6 +244,10 @@ export default function DealerQuoteForm({
       // noop
     }
   };
+
+  const crossRef = watchOfferedPrice
+    ? formatCrossRef(watchOfferedPrice, watchCurrency, watchExchangeRate)
+    : null;
 
   return (
     <form
@@ -313,6 +354,7 @@ export default function DealerQuoteForm({
           />
         </div>
 
+        {/* ── Moneda y tasa ── */}
         <div className="col-12 md:col-2 field">
           <label className="font-semibold">Moneda</label>
           <Controller
@@ -328,7 +370,7 @@ export default function DealerQuoteForm({
           />
         </div>
 
-        <div className="col-12 md:col-3 field">
+        <div className="col-12 md:col-2 field">
           <label className="font-semibold">Fuente Tasa</label>
           <Controller
             name="exchangeRateSource"
@@ -338,13 +380,13 @@ export default function DealerQuoteForm({
                 value={field.value}
                 onChange={(e) => field.onChange(e.value)}
                 options={FX_SOURCE_OPTIONS}
-                disabled={watchCurrency === "VES"}
+                disabled={watchCurrency === "USD"}
               />
             )}
           />
         </div>
 
-        <div className="col-12 md:col-3 field">
+        <div className="col-12 md:col-2 field">
           <label className="font-semibold">Tasa Cambiaria</label>
           <Controller
             name="exchangeRate"
@@ -357,7 +399,7 @@ export default function DealerQuoteForm({
                 min={0}
                 minFractionDigits={2}
                 maxFractionDigits={7}
-                disabled={watchCurrency === "VES" || watchFxSource === "BCV_AUTO"}
+                disabled={watchCurrency === "USD" || watchFxSource === "BCV_AUTO"}
               />
             )}
           />
@@ -379,6 +421,7 @@ export default function DealerQuoteForm({
           />
         </div>
 
+        {/* ── Precios ── */}
         <div className="col-12 md:col-3 field">
           <label className="font-semibold">Precio Lista</label>
           <Controller
@@ -389,6 +432,7 @@ export default function DealerQuoteForm({
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
                 mode="decimal"
+                prefix={currencyPrefix}
                 min={0}
                 minFractionDigits={2}
                 maxFractionDigits={2}
@@ -397,7 +441,7 @@ export default function DealerQuoteForm({
           />
         </div>
 
-        <div className="col-12 md:col-3 field">
+        <div className="col-12 md:col-2 field">
           <label className="font-semibold">Desc. %</label>
           <Controller
             name="discountPct"
@@ -407,6 +451,7 @@ export default function DealerQuoteForm({
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
                 mode="decimal"
+                suffix="%"
                 min={0}
                 max={100}
                 minFractionDigits={2}
@@ -426,15 +471,19 @@ export default function DealerQuoteForm({
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
                 mode="decimal"
+                prefix={currencyPrefix}
                 min={0}
                 minFractionDigits={2}
                 maxFractionDigits={2}
               />
             )}
           />
+          {crossRef && (
+            <small className="text-500">{crossRef}</small>
+          )}
         </div>
 
-        <div className="col-12 md:col-3 field">
+        <div className="col-12 md:col-2 field">
           <label className="font-semibold">Impuesto %</label>
           <Controller
             name="taxPct"
@@ -444,6 +493,7 @@ export default function DealerQuoteForm({
                 value={field.value ?? null}
                 onValueChange={(e) => field.onChange(e.value ?? undefined)}
                 mode="decimal"
+                suffix="%"
                 min={0}
                 max={100}
                 minFractionDigits={2}

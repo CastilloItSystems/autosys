@@ -65,6 +65,7 @@ class StockController {
       limit,
       itemId,
       warehouseId,
+      search,
       lowStock,
       outOfStock,
       minQuantity,
@@ -76,6 +77,7 @@ class StockController {
     const filters: IStockFilters = {}
     if (itemId) filters.itemId = String(itemId)
     if (warehouseId) filters.warehouseId = String(warehouseId)
+    if (search) filters.search = String(search)
     if (lowStock === 'true') filters.lowStock = true
     if (outOfStock === 'true') filters.outOfStock = true
     if (minQuantity) filters.minQuantity = Number(minQuantity)
@@ -174,25 +176,35 @@ class StockController {
    */
   getLowStock = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
+    const { page, limit, sortBy, sortOrder } = req.query
     const warehouseId = req.query.warehouseId
       ? String(req.query.warehouseId)
       : undefined
+    const search = req.query.search ? String(req.query.search) : undefined
 
-    const stocks = await stockService.findLowStock(
+    const result = await stockService.findAll(
+      {
+        warehouseId,
+        search,
+        lowStock: true,
+      },
+      Number(page) || 1,
+      parseLimit(limit, 10),
+      parseSortBy(sortBy),
+      sortOrder === 'asc' ? 'asc' : 'desc',
       empresaId,
-      req.prisma,
-      warehouseId
+      req.prisma
     )
-    const response = stocks.map(
+    const response = result.items.map(
       (s) => new StockResponseDTO(s, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
       res,
       response,
-      1,
-      response.length,
-      response.length,
+      result.page,
+      result.limit,
+      result.total,
       'Items con bajo stock obtenidos'
     )
   })
@@ -202,25 +214,35 @@ class StockController {
    */
   getOutOfStock = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
+    const { page, limit, sortBy, sortOrder } = req.query
     const warehouseId = req.query.warehouseId
       ? String(req.query.warehouseId)
       : undefined
+    const search = req.query.search ? String(req.query.search) : undefined
 
-    const stocks = await stockService.findOutOfStock(
+    const result = await stockService.findAll(
+      {
+        warehouseId,
+        search,
+        outOfStock: true,
+      },
+      Number(page) || 1,
+      parseLimit(limit, 10),
+      parseSortBy(sortBy),
+      sortOrder === 'asc' ? 'asc' : 'desc',
       empresaId,
-      req.prisma,
-      warehouseId
+      req.prisma
     )
-    const response = stocks.map(
+    const response = result.items.map(
       (s) => new StockResponseDTO(s, { includeRelations: true })
     )
 
     return ApiResponse.paginated(
       res,
       response,
-      1,
-      response.length,
-      response.length,
+      result.page,
+      result.limit,
+      result.total,
       'Items sin stock obtenidos'
     )
   })

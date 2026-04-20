@@ -41,6 +41,36 @@ const STATUS_META: Record<
   CONVERTED: { label: "Convertida", severity: "success" },
 };
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+const CURRENCY_SEVERITY: Record<string, "success" | "warning" | "info" | "secondary"> = {
+  USD: "info",
+  VES: "warning",
+  EUR: "success",
+};
+
+function formatAmount(value: number | string | null | undefined, currency: string): string {
+  if (value == null) return "-";
+  const num = Number(value);
+  if (Number.isNaN(num)) return "-";
+  const sym = CURRENCY_SYMBOLS[currency] || currency;
+  return `${sym} ${num.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function formatCrossRef(
+  amount: number | string | null | undefined,
+  currency: string,
+  rate: number | string | null | undefined,
+): string | null {
+  if (amount == null || rate == null) return null;
+  const num = Number(amount);
+  const r = Number(rate);
+  if (!num || !r || r <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(num / r).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(num * r).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
 export default function DealerReservationList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
@@ -266,10 +296,26 @@ export default function DealerReservationList() {
           }
         />
         <Column
+          header="Moneda"
+          body={(row: DealerReservation) => (
+            <Tag
+              value={row.currency || "USD"}
+              severity={CURRENCY_SEVERITY[row.currency] || "secondary"}
+            />
+          )}
+          style={{ width: "7rem" }}
+        />
+        <Column
           header="Precio"
-          body={(row: DealerReservation) =>
-            row.offeredPrice != null ? `${row.currency || "USD"} ${Number(row.offeredPrice).toFixed(2)}` : "-"
-          }
+          body={(row: DealerReservation) => {
+            const crossRef = formatCrossRef(row.offeredPrice, row.currency, row.exchangeRate);
+            return (
+              <div>
+                <div>{formatAmount(row.offeredPrice, row.currency || "USD")}</div>
+                {crossRef && <small className="text-500">{crossRef}</small>}
+              </div>
+            );
+          }}
         />
         <Column
           header="Acciones"

@@ -342,7 +342,9 @@ export default function DealerUnitList() {
         <Column
           header="Precio Lista"
           body={(row: DealerUnit) =>
-            row.listPrice != null ? Number(row.listPrice).toLocaleString("es-VE") : "-"
+            row.listPrice != null
+              ? `$ ${Number(row.listPrice).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              : "-"
           }
         />
         <Column

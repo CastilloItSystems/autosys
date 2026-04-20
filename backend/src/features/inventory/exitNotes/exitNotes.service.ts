@@ -89,6 +89,252 @@ function generateExitNoteNumber(): string {
 // ---------------------------------------------------------------------------
 
 class ExitNotesService {
+  private shouldManageStockForType(type: ExitNoteType): boolean {
+    return (
+      STOCK_DEDUCTING_TYPES.has(type) &&
+      type !== ExitNoteType.WORKSHOP_SUPPLY
+    )
+  }
+
+  private aggregateItemQuantities(
+    items: Array<{ itemId: string; quantity: number }>
+  ): Map<string, number> {
+    const aggregated = new Map<string, number>()
+    for (const item of items) {
+      aggregated.set(item.itemId, (aggregated.get(item.itemId) ?? 0) + item.quantity)
+    }
+    return aggregated
+  }
+
+  private buildInsufficientStockError(
+    itemId: string,
+    warehouseId: string,
+    required: number,
+    itemRef?: {
+      sku?: string | null
+      code?: string | null
+      name?: string | null
+    } | null,
+    warehouseRef?: {
+      code?: string | null
+      name?: string | null
+    } | null,
+    stock?: {
+      quantityAvailable: number
+      quantityReserved: number
+      quantityReal: number
+    } | null
+  ): BadRequestError {
+    const available = stock?.quantityAvailable ?? 0
+    const reserved = stock?.quantityReserved ?? 0
+    const real = stock?.quantityReal ?? 0
+    const itemLabel =
+      itemRef?.sku?.trim() ||
+      itemRef?.code?.trim() ||
+      itemRef?.name?.trim() ||
+      itemId
+    const itemName = itemRef?.name?.trim() || 'Sin nombre'
+    const warehouseLabel =
+      warehouseRef?.code?.trim() || warehouseRef?.name?.trim() || warehouseId
+    const warehouseName = warehouseRef?.name?.trim() || 'Sin nombre'
+
+    return new BadRequestError(
+      `Stock insuficiente en almacen para la nota de salida. Articulo: ${itemLabel} (${itemName}). Almacen: ${warehouseLabel} (${warehouseName}). Requerido: ${required}, disponible: ${available}. Detalle tecnico: itemId=${itemId}, warehouseId=${warehouseId}, available=${available}, reserved=${reserved}, real=${real}, required=${required}`
+    )
+  }
+
+  private async loadStockReferenceData(
+    tx: Prisma.TransactionClient,
+    itemId: string,
+    warehouseId: string
+  ): Promise<{
+    itemRef: { sku?: string | null; code?: string | null; name?: string | null } | null
+    warehouseRef: { code?: string | null; name?: string | null } | null
+  }> {
+    const [itemRef, warehouseRef] = await Promise.all([
+      tx.item.findUnique({
+        where: { id: itemId },
+        select: { sku: true, code: true, name: true },
+      }),
+      tx.warehouse.findUnique({
+        where: { id: warehouseId },
+        select: { code: true, name: true },
+      }),
+    ])
+
+    return { itemRef, warehouseRef }
+  }
+
+  private async reserveExitNoteItems(
+    tx: Prisma.TransactionClient,
+    warehouseId: string,
+    items: Array<{ itemId: string; quantity: number }>
+  ): Promise<void> {
+    const aggregated = this.aggregateItemQuantities(items)
+    for (const [itemId, quantity] of aggregated.entries()) {
+      const updated = await tx.stock.updateMany({
+        where: {
+          itemId,
+          warehouseId,
+          quantityAvailable: { gte: quantity },
+        },
+        data: {
+          quantityReserved: { increment: quantity },
+          quantityAvailable: { decrement: quantity },
+          lastMovementAt: new Date(),
+        },
+      })
+
+      if (updated.count === 0) {
+        const stock = await tx.stock.findUnique({
+          where: { itemId_warehouseId: { itemId, warehouseId } },
+          select: {
+            quantityAvailable: true,
+            quantityReserved: true,
+            quantityReal: true,
+          },
+        })
+        const { itemRef, warehouseRef } = await this.loadStockReferenceData(
+          tx,
+          itemId,
+          warehouseId
+        )
+        throw this.buildInsufficientStockError(
+          itemId,
+          warehouseId,
+          quantity,
+          itemRef,
+          warehouseRef,
+          stock
+        )
+      }
+    }
+  }
+
+  private async releaseExitNoteItems(
+    tx: Prisma.TransactionClient,
+    warehouseId: string,
+    items: Array<{ itemId: string; quantity: number }>
+  ): Promise<void> {
+    const aggregated = this.aggregateItemQuantities(items)
+    for (const [itemId, quantity] of aggregated.entries()) {
+      const updated = await tx.stock.updateMany({
+        where: {
+          itemId,
+          warehouseId,
+          quantityReserved: { gte: quantity },
+        },
+        data: {
+          quantityReserved: { decrement: quantity },
+          quantityAvailable: { increment: quantity },
+          lastMovementAt: new Date(),
+        },
+      })
+
+      if (updated.count === 0) {
+        const stock = await tx.stock.findUnique({
+          where: { itemId_warehouseId: { itemId, warehouseId } },
+          select: {
+            quantityAvailable: true,
+            quantityReserved: true,
+            quantityReal: true,
+          },
+        })
+        logger.warn('Inconsistencia al liberar reserva de exit note', {
+          itemId,
+          warehouseId,
+          requiredReserved: quantity,
+          reserved: stock?.quantityReserved ?? 0,
+          available: stock?.quantityAvailable ?? 0,
+          real: stock?.quantityReal ?? 0,
+        })
+        throw new BadRequestError(
+          `Inconsistencia al liberar reserva (itemId=${itemId}, warehouseId=${warehouseId}, requiredReserved=${quantity}, reserved=${stock?.quantityReserved ?? 0})`
+        )
+      }
+    }
+  }
+
+  private async consumeReservedExitNoteItems(
+    tx: Prisma.TransactionClient,
+    warehouseId: string,
+    items: Array<{ itemId: string; quantity: number }>
+  ): Promise<void> {
+    const aggregated = this.aggregateItemQuantities(items)
+    for (const [itemId, quantity] of aggregated.entries()) {
+      const updated = await tx.stock.updateMany({
+        where: {
+          itemId,
+          warehouseId,
+          quantityReserved: { gte: quantity },
+          quantityReal: { gte: quantity },
+        },
+        data: {
+          quantityReal: { decrement: quantity },
+          quantityReserved: { decrement: quantity },
+          quantityConsumed: { increment: quantity },
+          lastMovementAt: new Date(),
+        },
+      })
+
+      if (updated.count === 0) {
+        const stock = await tx.stock.findUnique({
+          where: { itemId_warehouseId: { itemId, warehouseId } },
+          select: {
+            quantityAvailable: true,
+            quantityReserved: true,
+            quantityReal: true,
+          },
+        })
+        logger.warn('Inconsistencia al consumir reserva de exit note', {
+          itemId,
+          warehouseId,
+          required: quantity,
+          reserved: stock?.quantityReserved ?? 0,
+          real: stock?.quantityReal ?? 0,
+          available: stock?.quantityAvailable ?? 0,
+        })
+        throw new BadRequestError(
+          `Inconsistencia al consumir reserva (itemId=${itemId}, warehouseId=${warehouseId}, required=${quantity}, reserved=${stock?.quantityReserved ?? 0}, real=${stock?.quantityReal ?? 0})`
+        )
+      }
+    }
+  }
+
+  private async assertReservedCoverageForExitNote(
+    tx: Prisma.TransactionClient,
+    warehouseId: string,
+    items: Array<{ itemId: string; quantity: number }>
+  ): Promise<void> {
+    const aggregated = this.aggregateItemQuantities(items)
+    for (const [itemId, quantity] of aggregated.entries()) {
+      const stock = await tx.stock.findUnique({
+        where: { itemId_warehouseId: { itemId, warehouseId } },
+        select: {
+          quantityAvailable: true,
+          quantityReserved: true,
+          quantityReal: true,
+        },
+      })
+
+      if (!stock || stock.quantityReserved < quantity) {
+        const { itemRef, warehouseRef } = await this.loadStockReferenceData(
+          tx,
+          itemId,
+          warehouseId
+        )
+        throw this.buildInsufficientStockError(
+          itemId,
+          warehouseId,
+          quantity,
+          itemRef,
+          warehouseRef,
+          stock
+        )
+      }
+    }
+  }
+
   // -------------------------------------------------------------------------
   // CREATE
   // -------------------------------------------------------------------------
@@ -118,23 +364,6 @@ class ExitNotesService {
       if (!dbItem)
         throw new NotFoundError(`Artículo ${item.itemId} no encontrado`)
       itemNameMap.set(item.itemId, dbItem.name)
-
-      if (STOCK_DEDUCTING_TYPES.has(data.type)) {
-        const stock = await (db as PrismaClient).stock.findUnique({
-          where: {
-            itemId_warehouseId: {
-              itemId: item.itemId,
-              warehouseId: data.warehouseId,
-            },
-          },
-        })
-        if (!stock || stock.quantityAvailable < item.quantity) {
-          throw new BadRequestError(
-            `Stock insuficiente para artículo ${item.itemId}. ` +
-              `Disponible: ${stock?.quantityAvailable ?? 0}, Requerido: ${item.quantity}`
-          )
-        }
-      }
 
       if (item.serialNumberId) {
         const serial = await (db as PrismaClient).serialNumber.findUnique({
@@ -194,21 +423,8 @@ class ExitNotesService {
         include: EXIT_NOTE_INCLUDE,
       })
 
-      if (STOCK_DEDUCTING_TYPES.has(data.type) && data.type !== ExitNoteType.WORKSHOP_SUPPLY) {
-        for (const item of data.items) {
-          await tx.stock.update({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: data.warehouseId,
-              },
-            },
-            data: {
-              quantityReserved: { increment: item.quantity },
-              quantityAvailable: { decrement: item.quantity },
-            },
-          })
-        }
+      if (this.shouldManageStockForType(data.type as ExitNoteType)) {
+        await this.reserveExitNoteItems(tx, data.warehouseId, data.items)
       }
 
       return note
@@ -366,49 +582,19 @@ class ExitNotesService {
       }
       const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
 
-      // Validate stock for new items
-      if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
-        for (const item of data.items!) {
-          const stock = await (db as PrismaClient).stock.findUnique({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: exitNote.warehouseId,
-              },
-            },
-          })
-          // Add back the old reserved qty for this item if it existed before
-          const oldItem = (exitNote.items as any[]).find(
-            (i: any) => i.itemId === item.itemId
-          )
-          const oldReserved = oldItem?.quantity ?? 0
-          const available = (stock?.quantityAvailable ?? 0) + oldReserved
-          if (available < item.quantity) {
-            throw new BadRequestError(
-              `Stock insuficiente para artículo ${item.itemId}. ` +
-                `Disponible: ${available}, Requerido: ${item.quantity}`
-            )
-          }
-        }
-      }
-
       const updated = await (db as PrismaClient).$transaction(async (tx) => {
         // Release old stock reservations
-        if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
-          for (const oldItem of exitNote.items as any[]) {
-            await tx.stock.update({
-              where: {
-                itemId_warehouseId: {
-                  itemId: oldItem.itemId,
-                  warehouseId: exitNote.warehouseId,
-                },
-              },
-              data: {
-                quantityReserved: { decrement: oldItem.quantity },
-                quantityAvailable: { increment: oldItem.quantity },
-              },
-            })
-          }
+        if (this.shouldManageStockForType(exitNote.type as ExitNoteType)) {
+          await this.releaseExitNoteItems(
+            tx,
+            exitNote.warehouseId,
+            (exitNote.items as Array<{ itemId: string; quantity: number }>).map(
+              (oldItem) => ({
+                itemId: oldItem.itemId,
+                quantity: oldItem.quantity,
+              })
+            )
+          )
         }
 
         // Delete old items
@@ -431,21 +617,15 @@ class ExitNotesService {
         }
 
         // Reserve new stock
-        if (STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)) {
-          for (const item of data.items!) {
-            await tx.stock.update({
-              where: {
-                itemId_warehouseId: {
-                  itemId: item.itemId,
-                  warehouseId: exitNote.warehouseId,
-                },
-              },
-              data: {
-                quantityReserved: { increment: item.quantity },
-                quantityAvailable: { decrement: item.quantity },
-              },
-            })
-          }
+        if (this.shouldManageStockForType(exitNote.type as ExitNoteType)) {
+          await this.reserveExitNoteItems(
+            tx,
+            exitNote.warehouseId,
+            data.items!.map((item) => ({
+              itemId: item.itemId,
+              quantity: item.quantity,
+            }))
+          )
         }
 
         // Update header
@@ -489,14 +669,25 @@ class ExitNotesService {
 
     // For WORKSHOP_SUPPLY: stock already reserved by the workshop materials service.
     // Skip the stock reservation step here; only update status.
-    const shouldReserve =
-      STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType) &&
-      exitNote.type !== ExitNoteType.WORKSHOP_SUPPLY
+    const shouldReserve = this.shouldManageStockForType(
+      exitNote.type as ExitNoteType
+    )
 
     if (shouldReserve && exitNote.items.length > 0) {
       // Stock was already reserved at create(). Only create Reservation records for
       // traceability and transition status to IN_PROGRESS.
       const updated = await (db as PrismaClient).$transaction(async (tx) => {
+        await this.assertReservedCoverageForExitNote(
+          tx,
+          exitNote.warehouseId,
+          (exitNote.items as Array<{ itemId: string; quantity: number }>).map(
+            (item) => ({
+              itemId: item.itemId,
+              quantity: item.quantity,
+            })
+          )
+        )
+
         for (const item of exitNote.items as Array<{
           itemId: string
           quantity: number
@@ -600,6 +791,14 @@ class ExitNotesService {
         include: EXIT_NOTE_INCLUDE,
       })
 
+      const stockItems = (note.items as Array<{
+        itemId: string
+        quantity: number
+      }>).map((item) => ({
+        itemId: item.itemId,
+        quantity: item.quantity,
+      }))
+
       for (const item of note.items as Array<{
         itemId: string
         quantity: number
@@ -619,21 +818,11 @@ class ExitNotesService {
           },
         })
 
-        // Deduct real stock (reserved goes down too since it was reserved on start)
-        await tx.stock.update({
-          where: {
-            itemId_warehouseId: {
-              itemId: item.itemId,
-              warehouseId: note.warehouseId,
-            },
-          },
-          data: {
-            quantityReal: { decrement: item.quantity },
-            quantityReserved: { decrement: item.quantity },
-            quantityConsumed: { increment: item.quantity },
-            lastMovementAt: new Date(),
-          },
-        })
+      }
+
+      if (this.shouldManageStockForType(note.type as ExitNoteType)) {
+        // Deduct real stock (reserved goes down too since it was reserved earlier)
+        await this.consumeReservedExitNoteItems(tx, note.warehouseId, stockItems)
       }
 
       // Mark all linked reservations as CONSUMED
@@ -680,31 +869,20 @@ class ExitNotesService {
       // PENDING (reserved at create), IN_PROGRESS, READY
       // Exclude WORKSHOP_SUPPLY — its stock is managed by the workshop materials service
       const wasReserved =
-        STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType) &&
-        exitNote.type !== ExitNoteType.WORKSHOP_SUPPLY &&
+        this.shouldManageStockForType(exitNote.type as ExitNoteType) &&
         (exitNote.status === ExitNoteStatus.PENDING ||
           exitNote.status === ExitNoteStatus.IN_PROGRESS ||
           exitNote.status === ExitNoteStatus.READY)
 
-      if (
-        wasReserved &&
-        STOCK_DEDUCTING_TYPES.has(exitNote.type as ExitNoteType)
-      ) {
-        for (const item of exitNote.items) {
-          await tx.stock.update({
-            where: {
-              itemId_warehouseId: {
-                itemId: item.itemId,
-                warehouseId: exitNote.warehouseId,
-              },
-            },
-            data: {
-              quantityReserved: { decrement: item.quantity },
-              quantityAvailable: { increment: item.quantity },
-              lastMovementAt: new Date(),
-            },
-          })
-        }
+      if (wasReserved) {
+        await this.releaseExitNoteItems(
+          tx,
+          exitNote.warehouseId,
+          exitNote.items.map((item) => ({
+            itemId: item.itemId,
+            quantity: item.quantity,
+          }))
+        )
 
         // Release all linked reservations
         await tx.reservation.updateMany({

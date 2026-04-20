@@ -172,6 +172,22 @@ export class StockService {
 
     if (filters.itemId) where.itemId = filters.itemId
     if (filters.warehouseId) where.warehouseId = filters.warehouseId
+    if (filters.search && filters.search.trim().length > 0) {
+      const search = filters.search.trim()
+      where.OR = [
+        { location: { contains: search, mode: 'insensitive' } },
+        { item: { sku: { contains: search, mode: 'insensitive' } } },
+        { item: { name: { contains: search, mode: 'insensitive' } } },
+        { item: { code: { contains: search, mode: 'insensitive' } } },
+        { item: { identity: { contains: search, mode: 'insensitive' } } },
+        {
+          warehouse: { name: { contains: search, mode: 'insensitive' } },
+        },
+        {
+          warehouse: { code: { contains: search, mode: 'insensitive' } },
+        },
+      ]
+    }
 
     if (filters.outOfStock) {
       where.quantityAvailable = 0

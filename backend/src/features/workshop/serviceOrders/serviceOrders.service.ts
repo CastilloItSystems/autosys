@@ -917,6 +917,8 @@ export async function generateConsolidatedPreInvoice(
       folio: true,
       status: true,
       customerId: true,
+      currency: true,
+      exchangeRate: true,
     },
   })
 
@@ -1061,7 +1063,15 @@ export async function generateConsolidatedPreInvoice(
       status: 'PENDING_PREPARATION',
       empresaId,
       customerId,
-      currency: 'USD',
+      // Use dominant currency: if all SOs share one currency use it, else default USD
+      currency: (() => {
+        const currencies = [...new Set(orders.map((o) => (o as any).currency ?? 'USD'))]
+        return currencies.length === 1 ? currencies[0] : 'USD'
+      })() as any,
+      exchangeRate: (() => {
+        const rates = orders.map((o) => (o as any).exchangeRate).filter(Boolean)
+        return rates.length > 0 ? rates[0] : null
+      })(),
       discountAmount: 0,
       subtotalBruto,
       baseImponible,
