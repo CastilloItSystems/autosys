@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
@@ -11,7 +13,11 @@ import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 
-import { PreInvoice } from "@/libs/interfaces/sales/preInvoice.interface";
+import preInvoiceService from "@/app/api/sales/preInvoiceService";
+import {
+  PreInvoice,
+  PreInvoiceSalesStockDiagnosis,
+} from "@/libs/interfaces/sales/preInvoice.interface";
 import {
   Payment,
   PaymentMethod,
@@ -43,6 +49,29 @@ const formatCrossRef = (total: number, currency: string, exchangeRate?: number |
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
+const extractSalesStockShortage = (
+  error: unknown,
+): PreInvoiceSalesStockDiagnosis | null => {
+  const axiosError = error as AxiosError<{
+    errors?: Array<Record<string, any>>;
+  }>;
+
+  const errors = axiosError.response?.data?.errors;
+  if (!Array.isArray(errors)) return null;
+
+  const payload = errors.find((entry) => entry?.code === "SALES_STOCK_SHORTAGE");
+  if (!payload) return null;
+
+  return {
+    preInvoiceId: String(payload.preInvoiceId ?? ""),
+    preInvoiceNumber: String(payload.preInvoiceNumber ?? ""),
+    isWorkshopPreInvoice: Boolean(payload.isWorkshopPreInvoice),
+    salesWarehouse: payload.salesWarehouse ?? null,
+    hasShortages: Boolean(payload.hasShortages),
+    shortages: Array.isArray(payload.shortages) ? payload.shortages : [],
+  };
+};
+
 interface PaymentDialogProps {
   visible: boolean;
   onHide: () => void;
@@ -60,12 +89,18 @@ const PaymentDialog = ({
   onSuccess,
   toast,
 }: PaymentDialogProps) => {
+  const router = useRouter();
   const [method, setMethod] = useState<PaymentMethod>(PaymentMethod.CASH);
   const [amount, setAmount] = useState<number>(0);
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
   const [igtfApplies, setIgtfApplies] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [shortageDialogVisible, setShortageDialogVisible] = useState(false);
+  const [shortagePayload, setShortagePayload] =
+    useState<PreInvoiceSalesStockDiagnosis | null>(null);
+  const [creatingSuggestedTransfers, setCreatingSuggestedTransfers] =
+    useState(false);
 
   // Mixed payment details
   const [mixedDetails, setMixedDetails] = useState<PaymentDetail[]>([
@@ -93,6 +128,8 @@ const PaymentDialog = ({
       setReference("");
       setNotes("");
       setIgtfApplies(preInvoice.igtfApplies || false);
+      setShortageDialogVisible(false);
+      setShortagePayload(null);
       setMixedDetails([
         { method: PaymentMethod.CASH, amount: 0 },
         { method: PaymentMethod.TRANSFER, amount: 0 },
@@ -107,6 +144,31 @@ const PaymentDialog = ({
       setAmount(sum);
     }
   }, [mixedDetails, method]);
+
+  const handleCreateSuggestedTransfers = async () => {
+    if (!preInvoice) return;
+    setCreatingSuggestedTransfers(true);
+    try {
+      const result = await preInvoiceService.createSuggestedTransfers(preInvoice.id);
+      const transferCount = result.data?.createdTransfers?.length ?? 0;
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Transferencias Creadas",
+        detail: `Se generaron ${transferCount} transferencias sugeridas en borrador`,
+        life: 4000,
+      });
+
+      setShortageDialogVisible(false);
+      onHide();
+      onSuccess();
+      router.push(`/empresa/inventario/transferencias?preInvoiceId=${preInvoice.id}`);
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setCreatingSuggestedTransfers(false);
+    }
+  };
 
   const handleAddMixedLine = () => {
     setMixedDetails((prev) => [
@@ -199,6 +261,12 @@ const PaymentDialog = ({
       onSuccess();
       onHide();
     } catch (error) {
+      const shortage = extractSalesStockShortage(error);
+      if (shortage) {
+        setShortagePayload(shortage);
+        setShortageDialogVisible(true);
+        return;
+      }
       handleFormError(error, toast);
     } finally {
       setLoading(false);
@@ -214,7 +282,8 @@ const PaymentDialog = ({
   );
 
   return (
-    <Dialog
+    <>
+      <Dialog
       visible={visible}
       style={{ width: "700px" }}
       header={
@@ -251,8 +320,8 @@ const PaymentDialog = ({
           />
         </div>
       }
-    >
-      <div className="flex flex-column gap-3">
+      >
+        <div className="flex flex-column gap-3">
         {/* ── Resumen Pre-factura ── */}
         <div className="surface-100 border-round p-3">
           <div className="grid">
@@ -509,8 +578,88 @@ const PaymentDialog = ({
             </div>
           </div>
         </div>
-      </div>
-    </Dialog>
+        </div>
+      </Dialog>
+
+      <Dialog
+        visible={shortageDialogVisible}
+        style={{ width: "760px", maxWidth: "95vw" }}
+        header="Stock insuficiente en almacén de venta"
+        modal
+        onHide={() => setShortageDialogVisible(false)}
+        footer={
+          <div className="flex w-full gap-2">
+            <Button
+              label="Cerrar"
+              icon="pi pi-times"
+              severity="secondary"
+              outlined
+              onClick={() => setShortageDialogVisible(false)}
+              disabled={creatingSuggestedTransfers}
+              className="flex-1"
+            />
+            <Button
+              label="Generar transferencias sugeridas"
+              icon="pi pi-arrow-right-arrow-left"
+              severity="warning"
+              onClick={handleCreateSuggestedTransfers}
+              loading={creatingSuggestedTransfers}
+              className="flex-1"
+            />
+          </div>
+        }
+      >
+        <div className="flex flex-column gap-3">
+          <p className="m-0 text-700">
+            La venta está bloqueada porque el almacén de venta no tiene stock
+            suficiente. Puedes generar borradores de transferencia para
+            reabastecer y continuar cuando lleguen a <b>RECEIVED</b>.
+          </p>
+
+          {shortagePayload?.salesWarehouse && (
+            <div className="surface-100 border-round p-3">
+              <span className="text-600 text-sm">Almacén de venta</span>
+              <div className="font-semibold">
+                {shortagePayload.salesWarehouse.code} (
+                {shortagePayload.salesWarehouse.name})
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-column gap-2">
+            {(shortagePayload?.shortages || []).map((row) => (
+              <div
+                key={row.itemId}
+                className="border-1 border-round border-300 p-3 surface-50"
+              >
+                <div className="font-semibold text-900">
+                  {row.itemSku} ({row.itemName})
+                </div>
+                <div className="text-sm text-700 mt-1">
+                  Requerido: <b>{row.required}</b> | Disponible:{" "}
+                  <b>{row.available}</b> | Faltante: <b>{row.shortage}</b>
+                </div>
+                {row.suggestions?.length > 0 ? (
+                  <div className="text-sm text-600 mt-2">
+                    Orígenes sugeridos:{" "}
+                    {row.suggestions
+                      .map(
+                        (s) =>
+                          `${s.fromWarehouseCode} (${s.fromWarehouseName}) → ${s.suggestedQuantity}`
+                      )
+                      .join(" | ")}
+                  </div>
+                ) : (
+                  <div className="text-sm text-orange-600 mt-2">
+                    Sin origen sugerido con disponibilidad suficiente.
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      </Dialog>
+    </>
   );
 };
 

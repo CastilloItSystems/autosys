@@ -103,6 +103,47 @@ class OrdersController {
   })
 
   /**
+   * GET /api/sales/orders/:id/sales-stock-diagnosis
+   */
+  getSalesStockDiagnosis = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const diagnosis = await ordersService.getSalesStockDiagnosis(
+      id,
+      empresaId,
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      diagnosis,
+      'Diagnóstico de faltantes generado exitosamente'
+    )
+  })
+
+  /**
+   * POST /api/sales/orders/:id/suggested-transfers
+   */
+  createSuggestedTransfers = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const userId = req.user?.userId ?? 'system'
+
+    const result = await ordersService.createSuggestedTransfers(
+      id,
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.created(
+      res,
+      result,
+      'Transferencias sugeridas creadas exitosamente'
+    )
+  })
+
+  /**
    * POST /api/sales/orders
    */
   create = asyncHandler(async (req: Request, res: Response) => {

@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -10,6 +11,8 @@ import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import {
   Transfer,
@@ -22,8 +25,6 @@ import TransferDetail from "./TransferDetail";
 import CreateButton from "@/components/common/CreateButton";
 import { Warehouse } from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
-import { hasPermission, PERMISSIONS } from "@/lib/roles";
-import { useUserRoles } from "@/hooks/useUserRoles";
 
 interface TransferListProps {
   warehouseId?: string;
@@ -42,7 +43,9 @@ export default function TransferList({
   warehouseId,
   warehouses,
 }: TransferListProps) {
-  const userRoles = useUserRoles();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const preInvoiceFilter = searchParams.get("preInvoiceId") || "";
 
   // Datos
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -62,6 +65,7 @@ export default function TransferList({
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [detailDialog, setDetailDialog] = useState<boolean>(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [actionTransfer, setActionTransfer] = useState<Transfer | null>(null);
 
   // Rejection dialog state
   const [showRejectDialog, setShowRejectDialog] = useState(false);
@@ -71,14 +75,12 @@ export default function TransferList({
   const [rejectionReason, setRejectionReason] = useState("");
 
   const toast = useRef<Toast>(null);
-
-  const canApprove = hasPermission(userRoles, PERMISSIONS.TRANSFER_APPROVE);
-  const canTransfer = hasPermission(userRoles, PERMISSIONS.STOCK_TRANSFER);
+  const menuRef = useRef<Menu>(null);
 
   // Cargar transferencias cuando cambien los filtros
   useEffect(() => {
     loadTransfers();
-  }, [page, rows, searchQuery, filterStatus, warehouseId]);
+  }, [page, rows, searchQuery, filterStatus, warehouseId, preInvoiceFilter]);
 
   const loadTransfers = async () => {
     try {
@@ -86,6 +88,7 @@ export default function TransferList({
       const response = await transferService.getAll(page + 1, rows, {
         status: filterStatus || undefined,
         fromWarehouseId: warehouseId || undefined,
+        preInvoiceId: preInvoiceFilter || undefined,
         search: searchQuery || undefined,
       });
       setTransfers(response.data || []);
@@ -215,6 +218,46 @@ export default function TransferList({
     });
   };
 
+  const handleSend = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Enviar la transferencia ${transfer.transferNumber} a tránsito?`,
+      header: "Confirmar Envío a Tránsito",
+      icon: "pi pi-truck",
+      acceptLabel: "Enviar",
+      rejectLabel: "Cancelar",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await transferService.send(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia enviada a tránsito",
+            life: 3000,
+          });
+        }),
+    });
+  };
+
+  const handleReceive = (transfer: Transfer) => {
+    confirmDialog({
+      message: `¿Confirmar recepción de la transferencia ${transfer.transferNumber}?`,
+      header: "Confirmar Recepción",
+      icon: "pi pi-download",
+      acceptLabel: "Recibir",
+      rejectLabel: "Cancelar",
+      accept: () =>
+        withAction(transfer.id, async () => {
+          await transferService.receive(transfer.id);
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Transferencia recibida correctamente",
+            life: 3000,
+          });
+        }),
+    });
+  };
+
   const handleRejectOpen = (transfer: Transfer) => {
     setRejectingTransfer(transfer);
     setRejectionReason("");
@@ -336,101 +379,133 @@ export default function TransferList({
 
   const actionBodyTemplate = (rowData: Transfer) => {
     const isLoading = actionInProgress === rowData.id;
+    const canCancel = [
+      TransferStatus.DRAFT,
+      TransferStatus.PENDING_APPROVAL,
+      TransferStatus.APPROVED,
+      TransferStatus.IN_TRANSIT,
+    ].includes(rowData.status);
 
     return (
-      <div className="flex gap-2">
-        {/* Ver detalles */}
-        <Button
-          icon="pi pi-eye"
-          rounded
-          severity="info"
-          text
-          onClick={() => viewDetail(rowData)}
-          tooltip="Ver detalles"
-          disabled={isLoading}
-        />
-
-        {/* Editar (solo DRAFT) */}
-        {rowData.status === TransferStatus.DRAFT && canTransfer && (
-          <Button
-            icon="pi pi-pencil"
-            rounded
-            severity="info"
-            text
-            onClick={() => editTransfer(rowData)}
-            tooltip="Editar borrador"
-            disabled={isLoading}
-          />
-        )}
-
-        {/* Enviar para aprobación (DRAFT → PENDING_APPROVAL) */}
-        {rowData.status === TransferStatus.DRAFT && canTransfer && (
+      <div className="flex gap-1 flex-nowrap">
+        {rowData.status === TransferStatus.DRAFT && (
           <Button
             icon="pi pi-send"
-            rounded
-            severity="warning"
-            text
+            className="p-button-rounded p-button-warning p-button-sm"
             onClick={() => handleSubmitForApproval(rowData)}
             tooltip="Enviar para aprobación"
             loading={isLoading}
           />
         )}
 
-        {/* Aprobar (PENDING_APPROVAL → APPROVED) */}
-        {rowData.status === TransferStatus.PENDING_APPROVAL && canApprove && (
-          <Button
-            icon="pi pi-check"
-            rounded
-            severity="success"
-            text
-            onClick={() => handleApprove(rowData)}
-            tooltip="Aprobar"
-            loading={isLoading}
-          />
-        )}
-
-        {/* Rechazar (PENDING_APPROVAL → REJECTED) */}
-        {rowData.status === TransferStatus.PENDING_APPROVAL && canApprove && (
-          <Button
-            icon="pi pi-ban"
-            rounded
-            severity="danger"
-            text
-            onClick={() => handleRejectOpen(rowData)}
-            tooltip="Rechazar"
-            loading={isLoading}
-          />
-        )}
-
-        {/* Cancelar (cualquier estado no terminal) */}
-        {![TransferStatus.CANCELLED, TransferStatus.REJECTED].includes(
-          rowData.status,
-        ) &&
-          canTransfer && (
+        {rowData.status === TransferStatus.PENDING_APPROVAL && (
+          <>
             <Button
-              icon="pi pi-times"
-              rounded
-              severity="danger"
-              text
-              onClick={() => handleCancel(rowData)}
-              tooltip="Cancelar transferencia"
+              icon="pi pi-check"
+              className="p-button-rounded p-button-success p-button-sm"
+              onClick={() => handleApprove(rowData)}
+              tooltip="Aprobar"
               loading={isLoading}
             />
-          )}
+            <Button
+              icon="pi pi-ban"
+              className="p-button-rounded p-button-danger p-button-sm"
+              onClick={() => handleRejectOpen(rowData)}
+              tooltip="Rechazar"
+              loading={isLoading}
+            />
+          </>
+        )}
 
-        {/* Eliminar (solo DRAFT) */}
-        {rowData.status === TransferStatus.DRAFT && canTransfer && (
+        {rowData.status === TransferStatus.APPROVED && (
           <Button
-            icon="pi pi-trash"
-            rounded
-            severity="danger"
-            text
-            onClick={() => handleDeleteTransfer(rowData)}
-            tooltip="Eliminar"
+            icon="pi pi-truck"
+            className="p-button-rounded p-button-warning p-button-sm"
+            onClick={() => handleSend(rowData)}
+            tooltip="Enviar a tránsito"
+            loading={isLoading}
+          />
+        )}
+
+        {rowData.status === TransferStatus.IN_TRANSIT && (
+          <Button
+            icon="pi pi-download"
+            className="p-button-rounded p-button-success p-button-sm"
+            onClick={() => handleReceive(rowData)}
+            tooltip="Recibir en destino"
+            loading={isLoading}
+          />
+        )}
+
+        {canCancel && (
+          <Button
+            icon="pi pi-times"
+            className="p-button-rounded p-button-danger p-button-sm"
+            onClick={() => handleCancel(rowData)}
+            tooltip="Cancelar transferencia"
             loading={isLoading}
           />
         )}
       </div>
+    );
+  };
+
+  const getMenuItems = (transfer: Transfer | null): MenuItem[] => {
+    if (!transfer) {
+      return [];
+    }
+    const items: MenuItem[] = [
+      {
+        label: "Ver detalle",
+        icon: "pi pi-eye",
+        command: () => {
+          viewDetail(transfer);
+        },
+      },
+    ];
+
+    if (transfer.status === TransferStatus.DRAFT) {
+      items.push(
+        {
+          label: "Editar",
+          icon: "pi pi-pencil",
+          command: () => {
+            editTransfer(transfer);
+          },
+        },
+        { separator: true },
+        {
+          label: "Eliminar",
+          icon: "pi pi-trash",
+          className: "p-menuitem-danger",
+          command: () => {
+            handleDeleteTransfer(transfer);
+          },
+        },
+      );
+    }
+
+    return items;
+  };
+
+  const crudBodyTemplate = (rowData: Transfer) => {
+    const isLoading = actionInProgress === rowData.id;
+
+    return (
+      <Button
+        icon="pi pi-cog"
+        rounded
+        text
+        onClick={(e) => {
+          setActionTransfer(rowData);
+          menuRef.current?.toggle(e);
+        }}
+        aria-controls="transfer-menu"
+        aria-haspopup
+        tooltip="Opciones"
+        tooltipOptions={{ position: "left" }}
+        disabled={isLoading}
+      />
     );
   };
 
@@ -439,6 +514,13 @@ export default function TransferList({
       <div className="flex align-items-center gap-2">
         <h4 className="m-0">Transferencias Entre Almacenes</h4>
         <span className="text-600 text-sm">({totalRecords} total)</span>
+        {preInvoiceFilter && (
+          <Tag
+            value={`Pre-factura: ${preInvoiceFilter}`}
+            severity="info"
+            rounded
+          />
+        )}
       </div>
       <div className="flex gap-2">
         <Dropdown
@@ -460,6 +542,14 @@ export default function TransferList({
             onChange={(e) => handleSearch(e.target.value)}
           />
         </span>
+        {preInvoiceFilter && (
+          <Button
+            label="Limpiar filtro"
+            icon="pi pi-filter-slash"
+            outlined
+            onClick={() => router.push("/empresa/inventario/transferencias")}
+          />
+        )}
         <CreateButton label="Nueva Transferencia" onClick={openNew} />
       </div>
     </div>
@@ -490,13 +580,26 @@ export default function TransferList({
           sortMode="multiple"
           lazy
           stripedRows
+          scrollable
         >
+          <Column
+            header="Proceso"
+            body={actionBodyTemplate}
+            style={{ width: "7rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
           <Column
             field="transferNumber"
             header="Número"
             sortable
             body={transferNumberTemplate}
             style={{ minWidth: "140px" }}
+          />
+          <Column
+            field="preInvoiceNumber"
+            header="Pre-factura"
+            body={(rowData: Transfer) => rowData.preInvoiceNumber ?? "—"}
+            style={{ minWidth: "130px" }}
           />
           <Column
             header="Origen"
@@ -643,9 +746,13 @@ export default function TransferList({
             style={{ minWidth: "120px" }}
           />
           <Column
-            body={actionBodyTemplate}
+            header="Acciones"
+            body={crudBodyTemplate}
             exportable={false}
-            style={{ minWidth: "200px" }}
+            frozen
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
       </div>
@@ -761,6 +868,13 @@ export default function TransferList({
           </small>
         </div>
       </Dialog>
+
+      <Menu
+        model={getMenuItems(actionTransfer)}
+        popup
+        ref={menuRef}
+        id="transfer-menu"
+      />
     </motion.div>
   );
 }

@@ -39,6 +39,9 @@ model Transfer {
 
   createdBy        String
 
+  preInvoiceId     String?
+  preInvoice       PreInvoice?    @relation(fields: [preInvoiceId], references: [id], onDelete: SetNull)
+
   // Documentos generados al aprobar
   exitNoteId       String?        @unique
   exitNote         ExitNote?      @relation(fields: [exitNoteId], references: [id], onDelete: SetNull)
@@ -58,6 +61,7 @@ model Transfer {
   @@index([status])
   @@index([fromWarehouseId, status])
   @@index([toWarehouseId, status])
+  @@index([preInvoiceId])
 }
 
 model TransferItem {

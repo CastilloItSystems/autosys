@@ -41,12 +41,14 @@ const FULL_INCLUDE = {
   items: { include: { item: true } },
   fromWarehouse: true,
   toWarehouse: true,
+  preInvoice: { select: { id: true, preInvoiceNumber: true } },
   ...NOTE_INCLUDE,
 }
 
 const LIST_INCLUDE = {
   fromWarehouse: { select: { id: true, name: true } },
   toWarehouse: { select: { id: true, name: true } },
+  preInvoice: { select: { id: true, preInvoiceNumber: true } },
   ...NOTE_INCLUDE,
 }
 
@@ -85,6 +87,17 @@ class TransfersService {
       throw new BadRequestError(MSG.sameWarehouse)
     }
 
+    if (input.preInvoiceId) {
+      const preInvoice = await (db as PrismaClient).preInvoice.findFirst({
+        where: { id: input.preInvoiceId, empresaId },
+        select: { id: true },
+      })
+
+      if (!preInvoice) {
+        throw new NotFoundError('Pre-factura no encontrada para la transferencia')
+      }
+    }
+
     // Validate all items belong to tenant
     const itemIds = input.items.map((i) => i.itemId)
     const itemRecords = await (db as PrismaClient).item.findMany({
@@ -102,6 +115,7 @@ class TransfersService {
         transferNumber: generateTransferNumber(),
         fromWarehouseId: input.fromWarehouseId,
         toWarehouseId: input.toWarehouseId,
+        preInvoiceId: input.preInvoiceId ?? null,
         status: TransferStatus.DRAFT as any,
         quantity: totalQuantity,
         notes: input.notes ?? null,
@@ -168,6 +182,7 @@ class TransfersService {
 
     if (filters.fromWarehouseId) where.fromWarehouseId = filters.fromWarehouseId
     if (filters.toWarehouseId) where.toWarehouseId = filters.toWarehouseId
+    if (filters.preInvoiceId) where.preInvoiceId = filters.preInvoiceId
     if (filters.status) where.status = filters.status as any
 
     if (filters.createdFrom || filters.createdTo) {

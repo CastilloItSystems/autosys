@@ -9,6 +9,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { InputSwitch } from "primereact/inputswitch";
 
 // API functions
 import warehouseService, { Warehouse, WarehouseType } from "@/app/api/inventory/warehouseService";
@@ -60,6 +61,7 @@ export default function WarehouseForm({
       name: "",
       type: "PRINCIPAL",
       address: "",
+      isSalesDefault: false,
     },
   });
 
@@ -79,6 +81,7 @@ export default function WarehouseForm({
         name: warehouse.name || "",
         type: warehouse.type || "PRINCIPAL",
         address: warehouse.address || "",
+        isSalesDefault: warehouse.isSalesDefault ?? false,
       });
     } else if (!warehouse && !isLoading) {
       reset({
@@ -86,6 +89,7 @@ export default function WarehouseForm({
         name: "",
         type: "PRINCIPAL",
         address: "",
+        isSalesDefault: false,
       });
     }
   }, [warehouse, reset, isLoading]);
@@ -236,6 +240,36 @@ export default function WarehouseForm({
                   {errors.address.message}
                 </small>
               )}
+            </div>
+
+            {/* Almacén por defecto para ventas */}
+            <div className="col-12">
+              <div className="surface-50 border-round p-3">
+                <div className="flex align-items-center justify-content-between gap-3">
+                  <div>
+                    <label
+                      htmlFor="isSalesDefault"
+                      className="block text-900 font-medium"
+                    >
+                      Almacén de venta por defecto
+                    </label>
+                    <small className="text-600">
+                      Se usará para validar y consolidar stock en ventas.
+                    </small>
+                  </div>
+                  <Controller
+                    name="isSalesDefault"
+                    control={control}
+                    render={({ field }) => (
+                      <InputSwitch
+                        id="isSalesDefault"
+                        checked={Boolean(field.value)}
+                        onChange={(e) => field.onChange(Boolean(e.value))}
+                      />
+                    )}
+                  />
+                </div>
+              </div>
             </div>
           </div>
 

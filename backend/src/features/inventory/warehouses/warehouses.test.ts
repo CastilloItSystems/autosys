@@ -89,6 +89,44 @@ describe('Warehouses API Tests', () => {
       expect(res.status).toBe(422)
       expect(res.body.success).toBe(false)
     })
+
+    test('Debe mantener un único almacén de venta por empresa', async () => {
+      const firstRes = await request(app)
+        .post('/api/inventory/warehouses')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TEST-WH-SALES-1',
+          name: 'Warehouse Sales 1',
+          type: 'SUCURSAL',
+          isSalesDefault: true,
+        })
+
+      expect(firstRes.status).toBe(201)
+      expect(firstRes.body.data.isSalesDefault).toBe(true)
+
+      const secondRes = await request(app)
+        .post('/api/inventory/warehouses')
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+        .send({
+          code: 'TEST-WH-SALES-2',
+          name: 'Warehouse Sales 2',
+          type: 'SUCURSAL',
+          isSalesDefault: true,
+        })
+
+      expect(secondRes.status).toBe(201)
+      expect(secondRes.body.data.isSalesDefault).toBe(true)
+
+      const firstWarehouseAfter = await request(app)
+        .get(`/api/inventory/warehouses/${firstRes.body.data.id}`)
+        .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
+
+      expect(firstWarehouseAfter.status).toBe(200)
+      expect(firstWarehouseAfter.body.data.isSalesDefault).toBe(false)
+    })
   })
 
   // ── GET /api/inventory/warehouses ──

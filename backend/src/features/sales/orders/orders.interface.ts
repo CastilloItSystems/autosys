@@ -123,3 +123,52 @@ export interface IOrderFilters {
   endDate?: Date
   search?: string
 }
+
+export interface IOrderSalesWarehouseRef {
+  id: string
+  code: string
+  name: string
+}
+
+export interface IOrderStockOriginSuggestion {
+  fromWarehouseId: string
+  fromWarehouseCode: string
+  fromWarehouseName: string
+  availableToTransfer: number
+  suggestedQuantity: number
+}
+
+export interface IOrderStockShortage {
+  itemId: string
+  itemSku: string
+  itemName: string
+  required: number
+  available: number
+  shortage: number
+  suggestions: IOrderStockOriginSuggestion[]
+}
+
+export interface IOrderSalesStockDiagnosis {
+  orderId: string
+  orderNumber: string
+  salesWarehouse: IOrderSalesWarehouseRef
+  hasShortages: boolean
+  shortages: IOrderStockShortage[]
+}
+
+export interface IOrderSuggestedTransfersResult {
+  orderId: string
+  orderNumber: string
+  salesWarehouse: IOrderSalesWarehouseRef
+  createdTransfers: Array<{
+    id: string
+    transferNumber: string
+    fromWarehouseId: string
+    fromWarehouseCode: string
+    fromWarehouseName: string
+    toWarehouseId: string
+    status: string
+    quantity: number
+  }>
+  shortages: IOrderStockShortage[]
+}

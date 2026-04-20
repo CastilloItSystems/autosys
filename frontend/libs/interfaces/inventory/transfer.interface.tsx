@@ -2,6 +2,8 @@ export enum TransferStatus {
   DRAFT = "DRAFT",
   PENDING_APPROVAL = "PENDING_APPROVAL",
   APPROVED = "APPROVED",
+  IN_TRANSIT = "IN_TRANSIT",
+  RECEIVED = "RECEIVED",
   REJECTED = "REJECTED",
   CANCELLED = "CANCELLED",
 }
@@ -21,6 +23,16 @@ export const TRANSFER_STATUS_CONFIG = {
     label: "Aprobada",
     severity: "success" as const,
     icon: "pi pi-check",
+  },
+  [TransferStatus.IN_TRANSIT]: {
+    label: "En Tránsito",
+    severity: "warning" as const,
+    icon: "pi pi-truck",
+  },
+  [TransferStatus.RECEIVED]: {
+    label: "Recibida",
+    severity: "success" as const,
+    icon: "pi pi-check-circle",
   },
   [TransferStatus.REJECTED]: {
     label: "Rechazada",
@@ -59,6 +71,8 @@ export interface Transfer {
   transferNumber: string;
   fromWarehouseId: string;
   toWarehouseId: string;
+  preInvoiceId?: string | null;
+  preInvoiceNumber?: string | null;
   status: TransferStatus;
   items: TransferItem[];
   notes?: string;

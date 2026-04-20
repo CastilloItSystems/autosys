@@ -13,6 +13,7 @@ model Warehouse {
   type        WarehouseType @default(PRINCIPAL)
   address     String?
   isActive    Boolean       @default(true)
+  isSalesDefault Boolean    @default(false)
   
   // Multi-tenancy
   empresaId   String
@@ -48,5 +49,6 @@ model Warehouse {
   @@map("warehouses")
   @@index([type])
   @@index([isActive])
+  @@index([isSalesDefault])
   @@index([empresaId])
 }

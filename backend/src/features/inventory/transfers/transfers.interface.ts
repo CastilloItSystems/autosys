@@ -17,6 +17,7 @@ export interface ITransfer {
   transferNumber: string
   fromWarehouseId: string
   toWarehouseId: string
+  preInvoiceId?: string | null
   status: TransferStatus
   quantity: number
   notes?: string | null
@@ -45,6 +46,10 @@ export interface ITransferWithRelations extends ITransfer {
   items?: ITransferItem[]
   fromWarehouse?: any
   toWarehouse?: any
+  preInvoice?: {
+    id: string
+    preInvoiceNumber: string
+  } | null
   exitNote?: ITransferNoteInfo | null
   entryNote?: ITransferNoteInfo | null
 }
@@ -61,6 +66,7 @@ export interface ITransferItem {
 export interface ICreateTransferInput {
   fromWarehouseId: string
   toWarehouseId: string
+  preInvoiceId?: string | null
   items: ICreateTransferItemInput[]
   notes?: string | null
 }
@@ -76,6 +82,7 @@ export interface IRejectTransferInput {
 export interface ITransferFilters {
   fromWarehouseId?: string
   toWarehouseId?: string
+  preInvoiceId?: string
   status?: TransferStatus
   search?: string
   createdFrom?: Date

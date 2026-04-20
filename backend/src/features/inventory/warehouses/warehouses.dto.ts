@@ -10,12 +10,15 @@ export class CreateWarehouseDTO {
   name: string
   type: WarehouseType
   address?: string
+  isSalesDefault?: boolean
 
   constructor(data: Record<string, unknown>) {
     this.code = (data.code as string)?.toUpperCase()
     this.name = data.name as string
     this.type = (data.type as WarehouseType) ?? WarehouseType.PRINCIPAL
     if (data.address !== undefined) this.address = data.address as string
+    if (data.isSalesDefault !== undefined)
+      this.isSalesDefault = Boolean(data.isSalesDefault)
   }
 }
 
@@ -25,6 +28,7 @@ export class UpdateWarehouseDTO {
   type?: WarehouseType
   address?: string | null
   isActive?: boolean
+  isSalesDefault?: boolean
 
   constructor(data: Record<string, unknown>) {
     if (data.code !== undefined) this.code = (data.code as string).toUpperCase()
@@ -33,6 +37,8 @@ export class UpdateWarehouseDTO {
     if (data.address !== undefined)
       this.address = (data.address as string | null) ?? null
     if (data.isActive !== undefined) this.isActive = data.isActive as boolean
+    if (data.isSalesDefault !== undefined)
+      this.isSalesDefault = Boolean(data.isSalesDefault)
   }
 }
 
@@ -43,6 +49,7 @@ export class WarehouseResponseDTO {
   type: WarehouseType
   address: string | null
   isActive: boolean
+  isSalesDefault: boolean
   empresaId: string
   createdAt: Date
   updatedAt: Date
@@ -63,6 +70,7 @@ export class WarehouseResponseDTO {
     this.type = warehouse.type
     this.address = warehouse.address ?? null
     this.isActive = warehouse.isActive
+    this.isSalesDefault = warehouse.isSalesDefault
     this.empresaId = warehouse.empresaId
     this.createdAt = warehouse.createdAt
     this.updatedAt = warehouse.updatedAt

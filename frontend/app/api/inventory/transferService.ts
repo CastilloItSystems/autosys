@@ -15,6 +15,7 @@ export type { Transfer, TransferItem, TransferNoteInfo };
 interface CreateTransferRequest {
   fromWarehouseId: string;
   toWarehouseId: string;
+  preInvoiceId?: string | null;
   items: Array<{
     itemId: string;
     quantity: number;
@@ -42,6 +43,7 @@ const transferService = {
       status?: string;
       fromWarehouseId?: string;
       toWarehouseId?: string;
+      preInvoiceId?: string;
       search?: string;
     },
   ): Promise<PaginatedResponse<Transfer>> {
@@ -52,6 +54,7 @@ const transferService = {
       if (filters.fromWarehouseId)
         params.fromWarehouseId = filters.fromWarehouseId;
       if (filters.toWarehouseId) params.toWarehouseId = filters.toWarehouseId;
+      if (filters.preInvoiceId) params.preInvoiceId = filters.preInvoiceId;
       if (filters.search) params.search = filters.search;
     }
 
@@ -116,6 +119,20 @@ const transferService = {
   },
 
   // ─── State transitions ───────────────────────────────────────────────
+
+  async send(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/send`,
+    );
+    return response.data;
+  },
+
+  async receive(id: string): Promise<ApiResponse<Transfer>> {
+    const response = await apiClient.patch<ApiResponse<Transfer>>(
+      `/inventory/transfers/${id}/receive`,
+    );
+    return response.data;
+  },
 
   async cancel(id: string): Promise<ApiResponse<Transfer>> {
     const response = await apiClient.patch<ApiResponse<Transfer>>(

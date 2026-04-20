@@ -33,6 +33,7 @@ export class TransfersController {
       limit = 20,
       fromWarehouseId,
       toWarehouseId,
+      preInvoiceId,
       status,
       search,
       createdFrom,
@@ -42,6 +43,7 @@ export class TransfersController {
     const filters: ITransferFilters = {}
     if (fromWarehouseId) filters.fromWarehouseId = fromWarehouseId as string
     if (toWarehouseId) filters.toWarehouseId = toWarehouseId as string
+    if (preInvoiceId) filters.preInvoiceId = preInvoiceId as string
     if (status) filters.status = status as any
     if (search) filters.search = search as string
     if (createdFrom) filters.createdFrom = new Date(createdFrom as string)

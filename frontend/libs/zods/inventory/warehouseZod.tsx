@@ -20,6 +20,7 @@ export const createWarehouseSchema = z.object({
     .max(500, "La dirección no puede exceder 500 caracteres")
     .nullable()
     .optional(),
+  isSalesDefault: z.boolean().optional().default(false),
 });
 
 export const updateWarehouseSchema = z.object({
@@ -41,6 +42,7 @@ export const updateWarehouseSchema = z.object({
     .nullable()
     .optional(),
   isActive: z.boolean().optional(),
+  isSalesDefault: z.boolean().optional(),
 });
 
 export type CreateWarehouse = z.infer<typeof createWarehouseSchema>;

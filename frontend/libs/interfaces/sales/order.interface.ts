@@ -99,6 +99,55 @@ export interface OrderResponse {
   data: Order;
 }
 
+export interface OrderSalesWarehouseRef {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface OrderStockOriginSuggestion {
+  fromWarehouseId: string;
+  fromWarehouseCode: string;
+  fromWarehouseName: string;
+  availableToTransfer: number;
+  suggestedQuantity: number;
+}
+
+export interface OrderStockShortage {
+  itemId: string;
+  itemSku: string;
+  itemName: string;
+  required: number;
+  available: number;
+  shortage: number;
+  suggestions: OrderStockOriginSuggestion[];
+}
+
+export interface OrderSalesStockDiagnosis {
+  orderId: string;
+  orderNumber: string;
+  salesWarehouse: OrderSalesWarehouseRef | null;
+  hasShortages: boolean;
+  shortages: OrderStockShortage[];
+}
+
+export interface OrderSuggestedTransfersResult {
+  orderId: string;
+  orderNumber: string;
+  salesWarehouse: OrderSalesWarehouseRef;
+  createdTransfers: Array<{
+    id: string;
+    transferNumber: string;
+    fromWarehouseId: string;
+    fromWarehouseCode: string;
+    fromWarehouseName: string;
+    toWarehouseId: string;
+    status: string;
+    quantity: number;
+  }>;
+  shortages: OrderStockShortage[];
+}
+
 // ── Status Config ──
 export const ORDER_STATUS_CONFIG = {
   [OrderStatus.DRAFT]: {

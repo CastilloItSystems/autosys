@@ -46,6 +46,16 @@ const FULL_INCLUDE = {
 }
 
 class WarehouseService {
+  private async clearExistingSalesDefault(
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    await (db as PrismaClient).warehouse.updateMany({
+      where: { empresaId, isSalesDefault: true },
+      data: { isSalesDefault: false },
+    })
+  }
+
   async create(
     data: ICreateWarehouseInput,
     userId: string,
@@ -59,16 +69,32 @@ class WarehouseService {
     })
     if (existing) throw new ConflictError(MSG.codeExists)
 
-    const warehouse = await (db as PrismaClient).warehouse.create({
-      data: {
-        code,
-        name: data.name,
-        type: data.type ?? WarehouseType.PRINCIPAL,
-        address: data.address ?? null,
-        isActive: data.isActive ?? true,
-        empresaId,
-      },
-      include: FULL_INCLUDE,
+    const wantsSalesDefault = Boolean(data.isSalesDefault)
+    const isActive = data.isActive ?? true
+
+    if (wantsSalesDefault && !isActive) {
+      throw new BadRequestError(
+        'No se puede marcar como almacén de venta un almacén inactivo'
+      )
+    }
+
+    const warehouse = await (db as PrismaClient).$transaction(async (tx) => {
+      if (wantsSalesDefault) {
+        await this.clearExistingSalesDefault(empresaId, tx)
+      }
+
+      return tx.warehouse.create({
+        data: {
+          code,
+          name: data.name,
+          type: data.type ?? WarehouseType.PRINCIPAL,
+          address: data.address ?? null,
+          isActive,
+          isSalesDefault: wantsSalesDefault,
+          empresaId,
+        },
+        include: FULL_INCLUDE,
+      })
     })
 
     logger.info('Almacén creado', { userId, warehouseId: warehouse.id, code })
@@ -202,17 +228,35 @@ class WarehouseService {
       if (duplicate) throw new ConflictError(MSG.codeExists)
     }
 
+    const nextIsActive = data.isActive ?? existing.isActive
+    const wantsSalesDefault = data.isSalesDefault ?? existing.isSalesDefault
+
+    if (wantsSalesDefault && !nextIsActive) {
+      throw new BadRequestError(
+        'No se puede marcar como almacén de venta un almacén inactivo'
+      )
+    }
+
     const updateData: Prisma.WarehouseUpdateInput = {}
     if (data.code !== undefined) updateData.code = data.code.toUpperCase()
     if (data.name !== undefined) updateData.name = data.name
     if (data.type !== undefined) updateData.type = data.type as any
     if (data.address !== undefined) updateData.address = data.address ?? null
     if (data.isActive !== undefined) updateData.isActive = data.isActive
+    if (data.isSalesDefault !== undefined)
+      updateData.isSalesDefault = data.isSalesDefault
+    if (wantsSalesDefault) updateData.isSalesDefault = true
 
-    const warehouse = await (db as PrismaClient).warehouse.update({
-      where: { id },
-      data: updateData,
-      include: FULL_INCLUDE,
+    const warehouse = await (db as PrismaClient).$transaction(async (tx) => {
+      if (wantsSalesDefault) {
+        await this.clearExistingSalesDefault(empresaId, tx)
+      }
+
+      return tx.warehouse.update({
+        where: { id },
+        data: updateData,
+        include: FULL_INCLUDE,
+      })
     })
 
     logger.info('Almacén actualizado', { userId, warehouseId: id })
@@ -272,7 +316,7 @@ class WarehouseService {
 
     const warehouse = await (db as PrismaClient).warehouse.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, isSalesDefault: false },
       include: FULL_INCLUDE,
     })
 

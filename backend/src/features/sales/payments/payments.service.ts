@@ -8,6 +8,7 @@ import {
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
 import { CreatePaymentDTO } from './payments.dto.js'
+import preInvoicesService from '../preInvoices/preInvoices.service.js'
 import {
   IPayment,
   PaymentStatus,
@@ -205,6 +206,13 @@ class PaymentsService {
       const isFullyPaid = newTotalPaid >= round2(expectedAmount)
 
       if (isFullyPaid) {
+        const salesStockDiagnosis =
+          await preInvoicesService.assertSalesWarehouseStockAvailable(
+            data.preInvoiceId,
+            empresaId,
+            tx
+          )
+
         await tx.preInvoice.update({
           where: { id: data.preInvoiceId },
           data: {
@@ -271,7 +279,7 @@ class PaymentsService {
         if (!isWorkshopPreInvoice) {
           // 4. Generate ExitNote tipo SALE (despacho — PENDING, no descuenta stock)
           const exitNoteNumber = generateExitNoteNumber()
-          const warehouseId = (preInvoice as any).warehouseId as string
+          const warehouseId = salesStockDiagnosis.salesWarehouse!.id
 
           const exitNote = await tx.exitNote.create({
             data: {
@@ -317,17 +325,37 @@ class PaymentsService {
                 `Sin registro de stock para item ${item.itemId} en almacén ${warehouseId}. No se reservó stock.`,
                 { preInvoiceId: data.preInvoiceId }
               )
-              continue
             }
-
-            await tx.stock.update({
-              where: { id: stock.id },
+            const reserveResult = await tx.stock.updateMany({
+              where: {
+                itemId: item.itemId,
+                warehouseId,
+                quantityAvailable: { gte: item.quantity },
+              },
               data: {
                 quantityReserved: { increment: item.quantity },
                 quantityAvailable: { decrement: item.quantity },
                 lastMovementAt: new Date(),
               },
             })
+
+            if (reserveResult.count === 0) {
+              const updatedDiagnosis =
+                await preInvoicesService.getSalesStockDiagnosis(
+                  data.preInvoiceId,
+                  empresaId,
+                  tx
+                )
+              throw new BadRequestError(
+                'No hay stock suficiente en el almacén de venta para completar esta venta.',
+                [
+                  {
+                    code: 'SALES_STOCK_SHORTAGE',
+                    ...updatedDiagnosis,
+                  } as any,
+                ]
+              )
+            }
           }
 
           logger.info(

@@ -31,6 +31,18 @@ router.post(
   ordersController.create
 )
 
+router.get(
+  '/:id/sales-stock-diagnosis',
+  authorize(PERMISSIONS.ORDERS_VIEW),
+  ordersController.getSalesStockDiagnosis
+)
+
+router.post(
+  '/:id/suggested-transfers',
+  authorize(PERMISSIONS.ORDERS_APPROVE),
+  ordersController.createSuggestedTransfers
+)
+
 router.get('/:id', authorize(PERMISSIONS.ORDERS_VIEW), ordersController.getOne)
 
 router.put(

@@ -2,7 +2,12 @@
 
 import apiClient from "../apiClient";
 import { ApiResponse, PaginatedResponse } from "../inventory/types";
-import { Order, OrderStatus } from "@/libs/interfaces/sales/order.interface";
+import {
+  Order,
+  OrderSalesStockDiagnosis,
+  OrderStatus,
+  OrderSuggestedTransfersResult,
+} from "@/libs/interfaces/sales/order.interface";
 
 // ===== Types =====
 
@@ -42,6 +47,20 @@ const orderService = {
 
   async approve(id: string): Promise<ApiResponse<Order>> {
     const res = await apiClient.patch(`/sales/orders/${id}/approve`);
+    return res.data;
+  },
+
+  async getSalesStockDiagnosis(
+    id: string,
+  ): Promise<ApiResponse<OrderSalesStockDiagnosis>> {
+    const res = await apiClient.get(`/sales/orders/${id}/sales-stock-diagnosis`);
+    return res.data;
+  },
+
+  async createSuggestedTransfers(
+    id: string,
+  ): Promise<ApiResponse<OrderSuggestedTransfersResult>> {
+    const res = await apiClient.post(`/sales/orders/${id}/suggested-transfers`);
     return res.data;
   },
 

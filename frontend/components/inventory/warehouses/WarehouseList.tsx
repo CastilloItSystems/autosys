@@ -206,6 +206,37 @@ export default function WarehouseList() {
     );
   };
 
+  const salesDefaultBodyTemplate = (rowData: Warehouse) => {
+    if (!rowData.isSalesDefault) {
+      return <span className="text-500">—</span>;
+    }
+
+    return (
+      <Tag
+        value="Por defecto"
+        severity="warning"
+        icon="pi pi-star-fill"
+        rounded
+      />
+    );
+  };
+
+  const handleSetSalesDefault = async (warehouse: Warehouse) => {
+    if (!warehouse.id) return;
+    try {
+      await warehouseService.update(warehouse.id, { isSalesDefault: true });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Almacén marcado como predeterminado para ventas",
+        life: 3000,
+      });
+      await loadWarehouses();
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
@@ -313,6 +344,13 @@ export default function WarehouseList() {
             style={{ minWidth: "100px" }}
           />
           <Column
+            field="isSalesDefault"
+            header="Venta"
+            body={salesDefaultBodyTemplate}
+            sortable
+            style={{ minWidth: "140px" }}
+          />
+          <Column
             header="Acciones"
             body={actionBodyTemplate}
             exportable={false}
@@ -385,6 +423,15 @@ export default function WarehouseList() {
                   icon: actionWarehouse.isActive ? "pi pi-pause" : "pi pi-play",
                   command: () => handleToggleWarehouse(actionWarehouse),
                 },
+                ...(!actionWarehouse.isSalesDefault
+                  ? [
+                      {
+                        label: "Marcar como venta",
+                        icon: "pi pi-star",
+                        command: () => handleSetSalesDefault(actionWarehouse),
+                      },
+                    ]
+                  : []),
                 { separator: true },
                 {
                   label: "Eliminar",

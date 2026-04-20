@@ -5,6 +5,8 @@ import { ApiResponse, PaginatedResponse } from "../inventory/types";
 import {
   PreInvoice,
   PreInvoiceStatus,
+  PreInvoiceSalesStockDiagnosis,
+  SuggestedTransfersResult,
 } from "@/libs/interfaces/sales/preInvoice.interface";
 
 interface PreInvoiceParams {
@@ -53,6 +55,24 @@ const preInvoiceService = {
 
   async cancel(id: string): Promise<ApiResponse<PreInvoice>> {
     const res = await apiClient.patch(`/sales/pre-invoices/${id}/cancel`);
+    return res.data;
+  },
+
+  async getSalesStockDiagnosis(
+    id: string,
+  ): Promise<ApiResponse<PreInvoiceSalesStockDiagnosis>> {
+    const res = await apiClient.get(
+      `/sales/pre-invoices/${id}/sales-stock-diagnosis`,
+    );
+    return res.data;
+  },
+
+  async createSuggestedTransfers(
+    id: string,
+  ): Promise<ApiResponse<SuggestedTransfersResult>> {
+    const res = await apiClient.post(
+      `/sales/pre-invoices/${id}/suggested-transfers`,
+    );
     return res.data;
   },
 };

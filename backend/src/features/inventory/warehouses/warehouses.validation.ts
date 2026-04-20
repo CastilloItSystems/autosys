@@ -46,6 +46,7 @@ export const createWarehouseSchema = Joi.object({
   }),
 
   isActive: Joi.boolean().optional().default(true),
+  isSalesDefault: Joi.boolean().optional().default(false),
 })
 
 export const updateWarehouseSchema = Joi.object({
@@ -79,6 +80,7 @@ export const updateWarehouseSchema = Joi.object({
   }),
 
   isActive: Joi.boolean().optional(),
+  isSalesDefault: Joi.boolean().optional(),
 })
   .min(1)
   .messages({

@@ -1,5 +1,7 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
+import { AxiosError } from "axios";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -20,6 +22,7 @@ import {
   ORDER_STATUS_CONFIG,
   ORDER_CURRENCY_LABELS,
   OrderCurrency,
+  OrderSalesStockDiagnosis,
 } from "@/libs/interfaces/sales/order.interface";
 import itemService, { Item } from "@/app/api/inventory/itemService";
 import warehouseService, {
@@ -41,7 +44,34 @@ const formatCurrency = (value: number | string) =>
     maximumFractionDigits: 2,
   })}`;
 
+const extractSalesStockShortage = (
+  error: unknown,
+): OrderSalesStockDiagnosis | null => {
+  const axiosError = error as AxiosError<{
+    errors?: Array<Record<string, any>>;
+  }>;
+
+  const errors = axiosError.response?.data?.errors;
+  if (!Array.isArray(errors)) return null;
+
+  const payload = errors.find(
+    (entry) =>
+      entry?.code === "SALES_STOCK_SHORTAGE" &&
+      (!entry?.scope || entry?.scope === "ORDER"),
+  );
+  if (!payload) return null;
+
+  return {
+    orderId: String(payload.orderId ?? ""),
+    orderNumber: String(payload.orderNumber ?? ""),
+    salesWarehouse: payload.salesWarehouse ?? null,
+    hasShortages: Boolean(payload.hasShortages),
+    shortages: Array.isArray(payload.shortages) ? payload.shortages : [],
+  };
+};
+
 const OrderList = () => {
+  const router = useRouter();
   const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,6 +90,11 @@ const OrderList = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionOrder, setActionOrder] = useState<Order | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [shortageDialogVisible, setShortageDialogVisible] = useState(false);
+  const [shortagePayload, setShortagePayload] =
+    useState<OrderSalesStockDiagnosis | null>(null);
+  const [creatingSuggestedTransfers, setCreatingSuggestedTransfers] =
+    useState(false);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -191,7 +226,41 @@ const OrderList = () => {
         life: 3000,
       });
     } catch (error) {
+      const shortage = extractSalesStockShortage(error);
+      if (shortage) {
+        setShortagePayload(shortage);
+        setShortageDialogVisible(true);
+        return;
+      }
       handleFormError(error, toast);
+    }
+  };
+
+  const handleCreateSuggestedTransfers = async () => {
+    if (!shortagePayload?.orderId) return;
+
+    setCreatingSuggestedTransfers(true);
+    try {
+      const result = await orderService.createSuggestedTransfers(
+        shortagePayload.orderId,
+      );
+      const transferCount = result.data?.createdTransfers?.length ?? 0;
+
+      toast.current?.show({
+        severity: "success",
+        summary: "Transferencias Creadas",
+        detail: `Se generaron ${transferCount} transferencias sugeridas en borrador`,
+        life: 4000,
+      });
+
+      setShortageDialogVisible(false);
+      setShortagePayload(null);
+      await loadOrders();
+      router.push("/empresa/inventario/transferencias");
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      setCreatingSuggestedTransfers(false);
     }
   };
 
@@ -743,6 +812,85 @@ const OrderList = () => {
           ref={menuRef}
           id="order-menu"
         />
+
+        <Dialog
+          visible={shortageDialogVisible}
+          style={{ width: "760px", maxWidth: "95vw" }}
+          header="Stock insuficiente en almacén de venta"
+          modal
+          onHide={() => setShortageDialogVisible(false)}
+          footer={
+            <div className="flex w-full gap-2">
+              <Button
+                label="Cerrar"
+                icon="pi pi-times"
+                severity="secondary"
+                outlined
+                onClick={() => setShortageDialogVisible(false)}
+                disabled={creatingSuggestedTransfers}
+                className="flex-1"
+              />
+              <Button
+                label="Generar transferencias sugeridas"
+                icon="pi pi-arrow-right-arrow-left"
+                severity="warning"
+                onClick={handleCreateSuggestedTransfers}
+                loading={creatingSuggestedTransfers}
+                className="flex-1"
+              />
+            </div>
+          }
+        >
+          <div className="flex flex-column gap-3">
+            <p className="m-0 text-700">
+              La orden no puede aprobarse porque el almacén de venta no tiene
+              stock suficiente. Puedes generar borradores de transferencia para
+              reabastecer y luego aprobar la orden.
+            </p>
+
+            {shortagePayload?.salesWarehouse && (
+              <div className="surface-100 border-round p-3">
+                <span className="text-600 text-sm">Almacén de venta</span>
+                <div className="font-semibold">
+                  {shortagePayload.salesWarehouse.code} (
+                  {shortagePayload.salesWarehouse.name})
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-column gap-2">
+              {(shortagePayload?.shortages || []).map((row) => (
+                <div
+                  key={row.itemId}
+                  className="border-1 border-round border-300 p-3 surface-50"
+                >
+                  <div className="font-semibold text-900">
+                    {row.itemSku} ({row.itemName})
+                  </div>
+                  <div className="text-sm text-700 mt-1">
+                    Requerido: <b>{row.required}</b> | Disponible:{" "}
+                    <b>{row.available}</b> | Faltante: <b>{row.shortage}</b>
+                  </div>
+                  {row.suggestions?.length > 0 ? (
+                    <div className="text-sm text-600 mt-2">
+                      Orígenes sugeridos:{" "}
+                      {row.suggestions
+                        .map(
+                          (s) =>
+                            `${s.fromWarehouseCode} (${s.fromWarehouseName}) → ${s.suggestedQuantity}`,
+                        )
+                        .join(" | ")}
+                    </div>
+                  ) : (
+                    <div className="text-sm text-orange-600 mt-2">
+                      Sin origen sugerido con disponibilidad suficiente.
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </Dialog>
       </motion.div>
     </>
   );

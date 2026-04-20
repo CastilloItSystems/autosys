@@ -9,12 +9,15 @@ import {
 export class CreateTransferDTO {
   fromWarehouseId: string
   toWarehouseId: string
+  preInvoiceId?: string | null
   items: CreateTransferItemDTO[]
   notes?: string | null
 
   constructor(data: any) {
     this.fromWarehouseId = data.fromWarehouseId
     this.toWarehouseId = data.toWarehouseId
+    if (data.preInvoiceId !== undefined)
+      this.preInvoiceId = data.preInvoiceId ?? null
     this.items = (data.items ?? []).map(
       (item: any) => new CreateTransferItemDTO(item)
     )
@@ -57,6 +60,7 @@ export class TransferResponseDTO {
   transferNumber: string
   fromWarehouseId: string
   toWarehouseId: string
+  preInvoiceId?: string | null
   status: TransferStatus
   quantity: number
   notes?: string | null
@@ -77,12 +81,14 @@ export class TransferResponseDTO {
   items?: any[]
   fromWarehouse?: any
   toWarehouse?: any
+  preInvoice?: { id: string; preInvoiceNumber: string } | null
 
   constructor(
     data: ITransfer & {
       items?: any[]
       fromWarehouse?: any
       toWarehouse?: any
+      preInvoice?: { id: string; preInvoiceNumber: string } | null
       exitNote?: any
       entryNote?: any
     }
@@ -91,6 +97,7 @@ export class TransferResponseDTO {
     this.transferNumber = data.transferNumber
     this.fromWarehouseId = data.fromWarehouseId
     this.toWarehouseId = data.toWarehouseId
+    this.preInvoiceId = data.preInvoiceId ?? null
     this.status = data.status
     this.quantity = data.quantity
     this.notes = data.notes ?? null
@@ -112,12 +119,15 @@ export class TransferResponseDTO {
     if (data.fromWarehouse !== undefined)
       this.fromWarehouse = data.fromWarehouse
     if (data.toWarehouse !== undefined) this.toWarehouse = data.toWarehouse
+    if (data.preInvoice !== undefined) this.preInvoice = data.preInvoice
   }
 }
 
 export class TransferListResponseDTO {
   id: string
   transferNumber: string
+  preInvoiceId?: string | null
+  preInvoiceNumber?: string | null
   fromWarehouse?: string
   toWarehouse?: string
   status: TransferStatus
@@ -131,6 +141,8 @@ export class TransferListResponseDTO {
   constructor(data: any) {
     this.id = data.id
     this.transferNumber = data.transferNumber
+    this.preInvoiceId = data.preInvoiceId ?? null
+    this.preInvoiceNumber = data.preInvoice?.preInvoiceNumber ?? null
     this.fromWarehouse = data.fromWarehouse?.name
     this.toWarehouse = data.toWarehouse?.name
     this.status = data.status

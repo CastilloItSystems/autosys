@@ -93,6 +93,56 @@ export interface PreInvoice {
   updatedAt: string;
 }
 
+export interface SalesWarehouseRef {
+  id: string;
+  code: string;
+  name: string;
+}
+
+export interface StockOriginSuggestion {
+  fromWarehouseId: string;
+  fromWarehouseCode: string;
+  fromWarehouseName: string;
+  availableToTransfer: number;
+  suggestedQuantity: number;
+}
+
+export interface PreInvoiceStockShortage {
+  itemId: string;
+  itemSku: string;
+  itemName: string;
+  required: number;
+  available: number;
+  shortage: number;
+  suggestions: StockOriginSuggestion[];
+}
+
+export interface PreInvoiceSalesStockDiagnosis {
+  preInvoiceId: string;
+  preInvoiceNumber: string;
+  isWorkshopPreInvoice: boolean;
+  salesWarehouse: SalesWarehouseRef | null;
+  hasShortages: boolean;
+  shortages: PreInvoiceStockShortage[];
+}
+
+export interface SuggestedTransfersResult {
+  preInvoiceId: string;
+  preInvoiceNumber: string;
+  salesWarehouse: SalesWarehouseRef;
+  createdTransfers: Array<{
+    id: string;
+    transferNumber: string;
+    fromWarehouseId: string;
+    fromWarehouseCode: string;
+    fromWarehouseName: string;
+    toWarehouseId: string;
+    status: string;
+    quantity: number;
+  }>;
+  shortages: PreInvoiceStockShortage[];
+}
+
 export const PREINVOICE_STATUS_CONFIG = {
   [PreInvoiceStatus.PENDING_PREPARATION]: {
     label: "Pendiente",

@@ -13,6 +13,7 @@ export interface Warehouse {
   type: WarehouseType;
   address?: string | null;
   isActive: boolean;
+  isSalesDefault: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -33,6 +34,7 @@ export interface CreateWarehouseRequest {
   name: string; // Requerido
   type?: WarehouseType; // Opcional
   address?: string; // Opcional
+  isSalesDefault?: boolean;
 }
 
 export interface UpdateWarehouseRequest {
@@ -41,6 +43,7 @@ export interface UpdateWarehouseRequest {
   type?: WarehouseType;
   address?: string | null;
   isActive?: boolean;
+  isSalesDefault?: boolean;
 }
 
 // ============================================

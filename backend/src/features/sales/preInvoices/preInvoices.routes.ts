@@ -19,6 +19,18 @@ router.get(
 )
 
 router.get(
+  '/:id/sales-stock-diagnosis',
+  authorize(PERMISSIONS.PAYMENTS_VIEW),
+  preInvoicesController.getSalesStockDiagnosis
+)
+
+router.post(
+  '/:id/suggested-transfers',
+  authorize(PERMISSIONS.PAYMENTS_CREATE),
+  preInvoicesController.createSuggestedTransfers
+)
+
+router.get(
   '/:id',
   authorize(PERMISSIONS.INVOICES_VIEW),
   preInvoicesController.getOne

@@ -76,3 +76,53 @@ export interface IPreInvoiceFilters {
   origin?: 'ORDER' | 'WORKSHOP'
   search?: string
 }
+
+export interface ISalesWarehouseRef {
+  id: string
+  code: string
+  name: string
+}
+
+export interface IStockOriginSuggestion {
+  fromWarehouseId: string
+  fromWarehouseCode: string
+  fromWarehouseName: string
+  availableToTransfer: number
+  suggestedQuantity: number
+}
+
+export interface IPreInvoiceStockShortage {
+  itemId: string
+  itemSku: string
+  itemName: string
+  required: number
+  available: number
+  shortage: number
+  suggestions: IStockOriginSuggestion[]
+}
+
+export interface IPreInvoiceSalesStockDiagnosis {
+  preInvoiceId: string
+  preInvoiceNumber: string
+  isWorkshopPreInvoice: boolean
+  salesWarehouse: ISalesWarehouseRef | null
+  hasShortages: boolean
+  shortages: IPreInvoiceStockShortage[]
+}
+
+export interface ICreateSuggestedTransfersResult {
+  preInvoiceId: string
+  preInvoiceNumber: string
+  salesWarehouse: ISalesWarehouseRef
+  createdTransfers: Array<{
+    id: string
+    transferNumber: string
+    fromWarehouseId: string
+    fromWarehouseCode: string
+    fromWarehouseName: string
+    toWarehouseId: string
+    status: string
+    quantity: number
+  }>
+  shortages: IPreInvoiceStockShortage[]
+}

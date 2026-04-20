@@ -11,7 +11,12 @@ import {
   IPreInvoice,
   PreInvoiceStatus,
   IPreInvoiceFilters,
+  IPreInvoiceSalesStockDiagnosis,
+  IPreInvoiceStockShortage,
+  ISalesWarehouseRef,
+  ICreateSuggestedTransfersResult,
 } from './preInvoices.interface.js'
+import transfersService from '../../inventory/transfers/transfers.service.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -39,6 +44,355 @@ const PI_INCLUDE = {
 // ---------------------------------------------------------------------------
 
 class PreInvoicesService {
+  private async resolveSalesWarehouse(
+    empresaId: string,
+    fallbackWarehouseId: string | null | undefined,
+    db: PrismaClientType
+  ): Promise<ISalesWarehouseRef | null> {
+    const defaultWarehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { empresaId, isActive: true, isSalesDefault: true },
+      select: { id: true, code: true, name: true },
+    })
+
+    if (defaultWarehouse) return defaultWarehouse
+
+    if (!fallbackWarehouseId) return null
+
+    const fallbackWarehouse = await (db as PrismaClient).warehouse.findFirst({
+      where: { id: fallbackWarehouseId, empresaId, isActive: true },
+      select: { id: true, code: true, name: true },
+    })
+
+    return fallbackWarehouse ?? null
+  }
+
+  async getSalesStockDiagnosis(
+    preInvoiceId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IPreInvoiceSalesStockDiagnosis> {
+    const preInvoice = await (db as PrismaClient).preInvoice.findFirst({
+      where: { id: preInvoiceId, empresaId },
+      include: {
+        items: {
+          include: {
+            item: {
+              select: { id: true, sku: true, name: true },
+            },
+          },
+        },
+        warehouse: { select: { id: true, code: true, name: true } },
+      },
+    })
+
+    if (!preInvoice) throw new NotFoundError('Pre-factura no encontrada')
+
+    const isWorkshopPreInvoice =
+      Boolean((preInvoice as any).serviceOrderId) || !(preInvoice as any).warehouseId
+
+    if (isWorkshopPreInvoice) {
+      return {
+        preInvoiceId: preInvoice.id,
+        preInvoiceNumber: preInvoice.preInvoiceNumber,
+        isWorkshopPreInvoice: true,
+        salesWarehouse: null,
+        hasShortages: false,
+        shortages: [],
+      }
+    }
+
+    const salesWarehouse = await this.resolveSalesWarehouse(
+      empresaId,
+      preInvoice.warehouseId,
+      db
+    )
+
+    if (!salesWarehouse) {
+      throw new BadRequestError(
+        'No hay un almacén de venta activo configurado para esta empresa.',
+        [
+          {
+            code: 'SALES_WAREHOUSE_NOT_CONFIGURED',
+            preInvoiceId: preInvoice.id,
+          } as any,
+        ]
+      )
+    }
+
+    const requiredByItem = new Map<
+      string,
+      { required: number; itemSku: string; itemName: string }
+    >()
+
+    for (const row of preInvoice.items as any[]) {
+      if (!row.itemId) continue
+
+      const prev = requiredByItem.get(row.itemId)
+      const qty = Number(row.quantity ?? 0)
+      const itemSku = row.item?.sku ?? row.itemId
+      const itemName = row.itemName ?? row.item?.name ?? 'Artículo sin nombre'
+
+      if (prev) {
+        prev.required += qty
+      } else {
+        requiredByItem.set(row.itemId, { required: qty, itemSku, itemName })
+      }
+    }
+
+    const itemIds = [...requiredByItem.keys()]
+    if (itemIds.length === 0) {
+      return {
+        preInvoiceId: preInvoice.id,
+        preInvoiceNumber: preInvoice.preInvoiceNumber,
+        isWorkshopPreInvoice: false,
+        salesWarehouse,
+        hasShortages: false,
+        shortages: [],
+      }
+    }
+
+    const [salesWarehouseStocks, originStocks] = await Promise.all([
+      (db as PrismaClient).stock.findMany({
+        where: {
+          warehouseId: salesWarehouse.id,
+          itemId: { in: itemIds },
+          item: { empresaId },
+        },
+        select: {
+          itemId: true,
+          quantityAvailable: true,
+        },
+      }),
+      (db as PrismaClient).stock.findMany({
+        where: {
+          itemId: { in: itemIds },
+          warehouseId: { not: salesWarehouse.id },
+          quantityAvailable: { gt: 0 },
+          item: { empresaId },
+          warehouse: { empresaId, isActive: true },
+        },
+        select: {
+          itemId: true,
+          quantityAvailable: true,
+          warehouseId: true,
+          warehouse: { select: { id: true, code: true, name: true } },
+        },
+      }),
+    ])
+
+    const salesStockMap = new Map(
+      salesWarehouseStocks.map((s) => [s.itemId, Number(s.quantityAvailable)])
+    )
+
+    const originStocksByItem = new Map<
+      string,
+      Array<{
+        fromWarehouseId: string
+        fromWarehouseCode: string
+        fromWarehouseName: string
+        availableToTransfer: number
+      }>
+    >()
+
+    for (const stock of originStocks) {
+      const list = originStocksByItem.get(stock.itemId) ?? []
+      list.push({
+        fromWarehouseId: stock.warehouseId,
+        fromWarehouseCode: stock.warehouse.code,
+        fromWarehouseName: stock.warehouse.name,
+        availableToTransfer: Number(stock.quantityAvailable),
+      })
+      originStocksByItem.set(stock.itemId, list)
+    }
+
+    for (const list of originStocksByItem.values()) {
+      list.sort((a, b) => b.availableToTransfer - a.availableToTransfer)
+    }
+
+    const shortages: IPreInvoiceStockShortage[] = []
+
+    for (const [itemId, requiredMeta] of requiredByItem.entries()) {
+      const available = salesStockMap.get(itemId) ?? 0
+      if (available >= requiredMeta.required) continue
+
+      let remaining = requiredMeta.required - available
+      const suggestions = []
+
+      for (const origin of originStocksByItem.get(itemId) ?? []) {
+        if (remaining <= 0) break
+        const suggestedQuantity = Math.min(origin.availableToTransfer, remaining)
+        if (suggestedQuantity <= 0) continue
+
+        suggestions.push({
+          ...origin,
+          suggestedQuantity,
+        })
+        remaining -= suggestedQuantity
+      }
+
+      shortages.push({
+        itemId,
+        itemSku: requiredMeta.itemSku,
+        itemName: requiredMeta.itemName,
+        required: requiredMeta.required,
+        available,
+        shortage: requiredMeta.required - available,
+        suggestions,
+      })
+    }
+
+    return {
+      preInvoiceId: preInvoice.id,
+      preInvoiceNumber: preInvoice.preInvoiceNumber,
+      isWorkshopPreInvoice: false,
+      salesWarehouse,
+      hasShortages: shortages.length > 0,
+      shortages,
+    }
+  }
+
+  async assertSalesWarehouseStockAvailable(
+    preInvoiceId: string,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<IPreInvoiceSalesStockDiagnosis> {
+    const diagnosis = await this.getSalesStockDiagnosis(preInvoiceId, empresaId, db)
+
+    if (!diagnosis.hasShortages) return diagnosis
+
+    throw new BadRequestError(
+      'No hay stock suficiente en el almacén de venta para completar esta venta.',
+      [
+        {
+          code: 'SALES_STOCK_SHORTAGE',
+          ...diagnosis,
+        } as any,
+      ]
+    )
+  }
+
+  async createSuggestedTransfers(
+    preInvoiceId: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<ICreateSuggestedTransfersResult> {
+    const diagnosis = await this.getSalesStockDiagnosis(preInvoiceId, empresaId, db)
+
+    if (diagnosis.isWorkshopPreInvoice) {
+      throw new BadRequestError(
+        'La pre-factura de taller no requiere transferencias de inventario.'
+      )
+    }
+
+    if (!diagnosis.salesWarehouse) {
+      throw new BadRequestError(
+        'No hay un almacén de venta activo configurado para esta empresa.'
+      )
+    }
+
+    if (!diagnosis.hasShortages) {
+      throw new BadRequestError(
+        'No hay faltantes en el almacén de venta para esta pre-factura.'
+      )
+    }
+
+    const groupedByOrigin = new Map<
+      string,
+      {
+        fromWarehouseCode: string
+        fromWarehouseName: string
+        itemsById: Map<string, number>
+      }
+    >()
+
+    for (const shortage of diagnosis.shortages) {
+      for (const suggestion of shortage.suggestions) {
+        const current = groupedByOrigin.get(suggestion.fromWarehouseId) ?? {
+          fromWarehouseCode: suggestion.fromWarehouseCode,
+          fromWarehouseName: suggestion.fromWarehouseName,
+          itemsById: new Map<string, number>(),
+        }
+
+        current.itemsById.set(
+          shortage.itemId,
+          (current.itemsById.get(shortage.itemId) ?? 0) + suggestion.suggestedQuantity
+        )
+
+        groupedByOrigin.set(suggestion.fromWarehouseId, current)
+      }
+    }
+
+    if (groupedByOrigin.size === 0) {
+      throw new BadRequestError(
+        'No hay stock disponible en otros almacenes para sugerir transferencias.',
+        [
+          {
+            code: 'SALES_TRANSFER_SUGGESTION_EMPTY',
+            ...diagnosis,
+          } as any,
+        ]
+      )
+    }
+
+    const preInvoice = await (db as PrismaClient).preInvoice.findFirst({
+      where: { id: preInvoiceId, empresaId },
+      select: { id: true, preInvoiceNumber: true },
+    })
+    if (!preInvoice) throw new NotFoundError('Pre-factura no encontrada')
+
+    const createdTransfers = await (db as PrismaClient).$transaction(async (tx) => {
+      const created = []
+
+      for (const [fromWarehouseId, group] of groupedByOrigin.entries()) {
+        const items = [...group.itemsById.entries()].map(([itemId, quantity]) => ({
+          itemId,
+          quantity,
+        }))
+
+        const transfer = await transfersService.create(
+          {
+            fromWarehouseId,
+            toWarehouseId: diagnosis.salesWarehouse!.id,
+            preInvoiceId,
+            items,
+            notes: `Reabastecimiento sugerido para ${preInvoice.preInvoiceNumber}`,
+          },
+          userId,
+          empresaId,
+          tx
+        )
+
+        created.push({
+          id: transfer.id,
+          transferNumber: transfer.transferNumber,
+          fromWarehouseId,
+          fromWarehouseCode: group.fromWarehouseCode,
+          fromWarehouseName: group.fromWarehouseName,
+          toWarehouseId: diagnosis.salesWarehouse!.id,
+          status: String(transfer.status),
+          quantity: transfer.quantity,
+        })
+      }
+
+      return created
+    })
+
+    logger.info('Transferencias sugeridas generadas para pre-factura', {
+      empresaId,
+      preInvoiceId,
+      transferCount: createdTransfers.length,
+    })
+
+    return {
+      preInvoiceId,
+      preInvoiceNumber: preInvoice.preInvoiceNumber,
+      salesWarehouse: diagnosis.salesWarehouse,
+      createdTransfers,
+      shortages: diagnosis.shortages,
+    }
+  }
+
   // -------------------------------------------------------------------------
   // READ
   // -------------------------------------------------------------------------

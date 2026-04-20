@@ -6,55 +6,24 @@ type AnyFn = ReturnType<typeof jest.fn>
 
 function createMockDb(options?: {
   stockLocation?: string | null
-  hasStock?: boolean
-  isWorkshopPreInvoice?: boolean
   itemLocation?: string | null
+  availableInSalesWarehouse?: number
+  availableInOriginWarehouse?: number
+  hasStockRecord?: boolean
+  isWorkshopPreInvoice?: boolean
 }) {
   const stockLocation =
     options && 'stockLocation' in options ? options.stockLocation : 'RACK-A1'
-  const hasStock = options?.hasStock ?? true
-  const isWorkshopPreInvoice = options?.isWorkshopPreInvoice ?? false
   const itemLocation =
     options && 'itemLocation' in options ? options.itemLocation : 'PASILLO-ITEM-1'
-
-  const tx = {
-    payment: {
-      create: jest.fn(async () => ({
-        id: 'pay-1',
-        paymentNumber: 'PAG-1',
-        status: PaymentStatus.COMPLETED,
-      })),
-    },
-    preInvoice: {
-      update: jest.fn(async () => ({})),
-    },
-    invoice: {
-      create: jest.fn(async () => ({ id: 'inv-1' })),
-    },
-    invoiceItem: {
-      create: jest.fn(async () => ({})),
-    },
-    exitNote: {
-      create: jest.fn(async () => ({ id: 'en-1' })),
-    },
-    exitNoteItem: {
-      create: jest.fn(async () => ({})),
-    },
-    stock: {
-      findUnique: jest.fn(async () =>
-        hasStock
-          ? {
-              id: 'stock-1',
-              location: stockLocation,
-            }
-          : null
-      ),
-      update: jest.fn(async () => ({})),
-    },
-  }
+  const availableInSalesWarehouse = options?.availableInSalesWarehouse ?? 10
+  const availableInOriginWarehouse = options?.availableInOriginWarehouse ?? 20
+  const hasStockRecord = options?.hasStockRecord ?? true
+  const isWorkshopPreInvoice = options?.isWorkshopPreInvoice ?? false
 
   const preInvoice = {
     id: 'pi-1',
+    preInvoiceNumber: 'PREF-1',
     status: 'READY_FOR_PAYMENT',
     total: 100,
     customerId: 'cust-1',
@@ -66,7 +35,7 @@ function createMockDb(options?: {
         itemId: 'item-1',
         itemName: 'TOBERA INYECTOR',
         quantity: 2,
-        item: { id: 'item-1', location: itemLocation },
+        item: { id: 'item-1', sku: 'SKU-1', name: 'TOBERA INYECTOR', location: itemLocation },
         unitPrice: 50,
         discountPercent: 0,
         discountAmount: 0,
@@ -87,6 +56,79 @@ function createMockDb(options?: {
     taxRate: 16,
     igtfRate: 3,
     notes: null,
+  }
+
+  const tx = {
+    payment: {
+      create: jest.fn(async () => ({
+        id: 'pay-1',
+        paymentNumber: 'PAG-1',
+        status: PaymentStatus.COMPLETED,
+      })),
+    },
+    preInvoice: {
+      findFirst: jest.fn(async () => preInvoice),
+      update: jest.fn(async () => ({})),
+    },
+    invoice: {
+      create: jest.fn(async () => ({ id: 'inv-1' })),
+    },
+    invoiceItem: {
+      create: jest.fn(async () => ({})),
+    },
+    exitNote: {
+      create: jest.fn(async () => ({ id: 'en-1' })),
+    },
+    exitNoteItem: {
+      create: jest.fn(async () => ({})),
+    },
+    warehouse: {
+      findFirst: jest.fn(async () => ({
+        id: 'wh-1',
+        code: 'PRINCIPAL',
+        name: 'Almacén Principal',
+      })),
+    },
+    stock: {
+      findMany: jest.fn(async (args: any) => {
+        if (args?.where?.warehouseId === 'wh-1') {
+          if (availableInSalesWarehouse <= 0) return []
+          return [
+            {
+              itemId: 'item-1',
+              quantityAvailable: availableInSalesWarehouse,
+            },
+          ]
+        }
+
+        if (args?.where?.warehouseId?.not === 'wh-1') {
+          if (availableInOriginWarehouse <= 0) return []
+          return [
+            {
+              itemId: 'item-1',
+              quantityAvailable: availableInOriginWarehouse,
+              warehouseId: 'wh-2',
+              warehouse: {
+                id: 'wh-2',
+                code: 'OBS-3',
+                name: 'Almacén Observación',
+              },
+            },
+          ]
+        }
+
+        return []
+      }),
+      findUnique: jest.fn(async () =>
+        hasStockRecord
+          ? {
+              id: 'stock-1',
+              location: stockLocation,
+            }
+          : null
+      ),
+      updateMany: jest.fn(async () => ({ count: availableInSalesWarehouse >= 2 ? 1 : 0 })),
+    },
   }
 
   const db = {
@@ -119,18 +161,21 @@ describe('PaymentsService - ExitNote auto generation', () => {
     expect((tx.exitNoteItem.create as AnyFn).mock.calls.length).toBe(1)
     const exitNoteItemPayload = (tx.exitNoteItem.create as AnyFn).mock.calls[0][0]
     expect(exitNoteItemPayload.data.pickedFromLocation).toBe('PASILLO-3-A')
-    expect((tx.stock.update as AnyFn).mock.calls.length).toBe(1)
+    expect((tx.stock.updateMany as AnyFn).mock.calls.length).toBe(1)
   })
 
-  test('debe crear exitNoteItem con pickedFromLocation null cuando no existe stock', async () => {
-    const { db, tx } = createMockDb({ hasStock: false, itemLocation: null })
+  test('debe crear exitNoteItem con pickedFromLocation null cuando no hay ubicación en stock ni item', async () => {
+    const { db, tx } = createMockDb({
+      stockLocation: null,
+      itemLocation: null,
+      hasStockRecord: true,
+    })
 
     await paymentsService.create(baseInput as any, 'empresa-1', 'user-1', db as any)
 
     expect((tx.exitNoteItem.create as AnyFn).mock.calls.length).toBe(1)
     const exitNoteItemPayload = (tx.exitNoteItem.create as AnyFn).mock.calls[0][0]
     expect(exitNoteItemPayload.data.pickedFromLocation).toBeNull()
-    expect((tx.stock.update as AnyFn).mock.calls.length).toBe(0)
   })
 
   test('debe usar item.location cuando stock.location viene null', async () => {
@@ -144,7 +189,7 @@ describe('PaymentsService - ExitNote auto generation', () => {
     expect((tx.exitNoteItem.create as AnyFn).mock.calls.length).toBe(1)
     const exitNoteItemPayload = (tx.exitNoteItem.create as AnyFn).mock.calls[0][0]
     expect(exitNoteItemPayload.data.pickedFromLocation).toBe('ANAQUEL-B-07')
-    expect((tx.stock.update as AnyFn).mock.calls.length).toBe(1)
+    expect((tx.stock.updateMany as AnyFn).mock.calls.length).toBe(1)
   })
 
   test('no debe crear exitNote para pre-facturas de taller', async () => {
@@ -154,5 +199,28 @@ describe('PaymentsService - ExitNote auto generation', () => {
 
     expect((tx.exitNote.create as AnyFn).mock.calls.length).toBe(0)
     expect((tx.exitNoteItem.create as AnyFn).mock.calls.length).toBe(0)
+  })
+
+  test('debe bloquear el pago final cuando falta stock en almacén de venta', async () => {
+    const { db, tx } = createMockDb({
+      availableInSalesWarehouse: 0,
+      availableInOriginWarehouse: 5,
+      hasStockRecord: false,
+    })
+
+    await expect(
+      paymentsService.create(baseInput as any, 'empresa-1', 'user-1', db as any)
+    ).rejects.toMatchObject({
+      message:
+        'No hay stock suficiente en el almacén de venta para completar esta venta.',
+      errors: [
+        expect.objectContaining({
+          code: 'SALES_STOCK_SHORTAGE',
+        }),
+      ],
+    })
+
+    expect((tx.invoice.create as AnyFn).mock.calls.length).toBe(0)
+    expect((tx.exitNote.create as AnyFn).mock.calls.length).toBe(0)
   })
 })

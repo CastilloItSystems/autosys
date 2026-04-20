@@ -13,6 +13,7 @@ export interface IWarehouse {
   type: WarehouseType
   address?: string | null
   isActive: boolean
+  isSalesDefault: boolean
   empresaId: string
 
   // Auditoría
@@ -43,6 +44,7 @@ export interface ICreateWarehouseInput {
   type?: WarehouseType
   address?: string
   isActive?: boolean
+  isSalesDefault?: boolean
 }
 
 export interface IUpdateWarehouseInput {
@@ -51,6 +53,7 @@ export interface IUpdateWarehouseInput {
   type?: WarehouseType
   address?: string | null
   isActive?: boolean
+  isSalesDefault?: boolean
 }
 
 export interface IWarehouseFilters {

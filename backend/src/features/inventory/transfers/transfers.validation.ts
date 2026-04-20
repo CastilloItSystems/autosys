@@ -11,6 +11,7 @@ export const createTransferSchema = Joi.object({
     'string.guid': 'toWarehouseId debe ser un UUID válido',
     'any.required': 'toWarehouseId es requerido',
   }),
+  preInvoiceId: Joi.string().uuid().optional().allow(null, ''),
   items: Joi.array()
     .items(
       Joi.object({
@@ -38,6 +39,7 @@ export const rejectTransferSchema = Joi.object({
 export const transferFiltersSchema = Joi.object({
   fromWarehouseId: Joi.string().uuid().optional(),
   toWarehouseId: Joi.string().uuid().optional(),
+  preInvoiceId: Joi.string().uuid().optional(),
   status: Joi.string()
     .valid(
       'DRAFT',
