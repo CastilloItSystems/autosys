@@ -33,10 +33,22 @@ import QuotationForm from "./QuotationForm";
 import QuotationApprovalDialog from "./QuotationApprovalDialog";
 import QuotationStepper from "./QuotationStepper";
 
-const fmt = (v?: number | null) =>
-  v != null
-    ? `$ ${v.toLocaleString("es-MX", { minimumFractionDigits: 2 })}`
-    : "—";
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatAmount = (value: number | null | undefined, currency = "USD") => {
+  if (value == null) return "—";
+  const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+  return `${sym} ${Number(value).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
 
 // Estados que permiten editar la cotización
 const EDITABLE_STATUSES: QuotationStatus[] = ["DRAFT", "ISSUED", "SENT"];
@@ -225,9 +237,27 @@ export default function QuotationList() {
       <span className="text-500">—</span>
     );
 
-  const totalTemplate = (row: WorkshopQuotation) => (
-    <span className="font-bold">{fmt(row.total)}</span>
-  );
+  const totalTemplate = (row: WorkshopQuotation) => {
+    const cur = (row as any).currency || "USD";
+    const xRef = formatCrossRef(row.total, cur, (row as any).exchangeRate);
+    return (
+      <div className="flex flex-column gap-1">
+        <span className="font-bold">{formatAmount(row.total, cur)}</span>
+        {xRef && <span className="text-xs text-500">{xRef}</span>}
+      </div>
+    );
+  };
+
+  const currencyBodyTemplate = (row: WorkshopQuotation) => {
+    const cur = (row as any).currency || "USD";
+    return (
+      <Tag
+        value={cur}
+        severity={cur === "VES" ? "warning" : cur === "EUR" ? "help" : "info"}
+        className="text-xs"
+      />
+    );
+  };
 
   const dateTemplate = (row: WorkshopQuotation) =>
     new Date(row.createdAt).toLocaleDateString("es-MX", {
@@ -355,9 +385,9 @@ export default function QuotationList() {
                       </td>
                       <td className="p-2">{item.description}</td>
                       <td className="p-2 text-center">{item.quantity}</td>
-                      <td className="p-2 text-right">{fmt(item.unitPrice)}</td>
+                      <td className="p-2 text-right">{formatAmount(item.unitPrice, (data as any).currency || "USD")}</td>
                       <td className="p-2 text-right font-semibold">
-                        {fmt(item.total)}
+                        {formatAmount(item.total, (data as any).currency || "USD")}
                       </td>
                       <td className="p-2 text-center">
                         {item.approved ? (
@@ -377,11 +407,14 @@ export default function QuotationList() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50 font-bold">
-                    <td colSpan={4} className="p-2 text-right">
-                      TOTAL
-                    </td>
+                    <td colSpan={4} className="p-2 text-right">TOTAL</td>
                     <td className="p-2 text-right text-primary">
-                      {fmt(data.total)}
+                      <div>{formatAmount(data.total, (data as any).currency || "USD")}</div>
+                      {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate) && (
+                        <div className="text-xs text-500 font-normal">
+                          {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate)}
+                        </div>
+                      )}
                     </td>
                     <td></td>
                   </tr>
@@ -581,9 +614,15 @@ export default function QuotationList() {
             style={{ minWidth: "110px" }}
           />
           <Column
+            header="Moneda"
+            body={currencyBodyTemplate}
+            style={{ minWidth: "80px", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column
             header="Total"
             body={totalTemplate}
-            style={{ minWidth: "120px" }}
+            style={{ minWidth: "140px" }}
           />
           <Column
             header="OS generada"

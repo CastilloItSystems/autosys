@@ -3,9 +3,12 @@ import React from "react";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputTextarea } from "primereact/inputtextarea";
+import { InputNumber } from "primereact/inputnumber";
+import { Dropdown } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
+import { useBcvRate } from "@/hooks/useBcvRate";
 import {
   quotationService,
   workshopOperationService,
@@ -27,6 +30,25 @@ import { useServiceOrderCalculation } from "@/hooks/useServiceOrderCalculation";
 import type { WorkshopItemType } from "@/components/workshop/shared";
 import CustomerSelector from "@/components/common/CustomerSelector";
 import VehicleSelector from "@/components/common/VehicleSelector";
+
+const CURRENCY_OPTIONS = [
+  { label: "USD ($)", value: "USD" },
+  { label: "VES (Bs.)", value: "VES" },
+  { label: "EUR (€)", value: "EUR" },
+];
+
+function convertPriceFromUsd(
+  priceUsd: number,
+  currency: string,
+  usdVesRate: number | null,
+  currencyVesRate?: number | null,
+): number {
+  if (currency === "VES" && usdVesRate && usdVesRate > 0)
+    return Math.round(priceUsd * usdVesRate * 100) / 100;
+  if (currency === "EUR" && usdVesRate && currencyVesRate && currencyVesRate > 0)
+    return Math.round((priceUsd * usdVesRate / currencyVesRate) * 100) / 100;
+  return priceUsd;
+}
 
 interface Props {
   quotation?: WorkshopQuotation | null;
@@ -102,6 +124,8 @@ export default function QuotationForm({
           : null,
         notes: quotation.notes ?? "",
         internalNotes: quotation.internalNotes ?? "",
+        currency: (quotation as any).currency ?? "USD",
+        exchangeRate: (quotation as any).exchangeRate ?? null,
         items: quotation.items.map((it) => ({
           id: it.id,
           type: it.type,
@@ -127,6 +151,8 @@ export default function QuotationForm({
         validUntil: null,
         notes: "",
         internalNotes: "",
+        currency: "USD",
+        exchangeRate: null,
         items: [EMPTY_ITEM],
       };
 
@@ -146,6 +172,76 @@ export default function QuotationForm({
     control,
     name: "items",
   });
+
+  const watchCurrency = (watch("currency") as string) ?? "USD";
+
+  // USD/VES rate is always needed — for VES documents AND as base for EUR conversion
+  const { rate: usdVesRate } = useBcvRate("USD");
+  // Currency-specific rate (only meaningful for EUR)
+  const { rate: currencyVesRate } = useBcvRate(
+    (watchCurrency === "EUR" ? "EUR" : "USD") as "USD" | "EUR" | "VES",
+  );
+
+  // Effective rate to store in the document (X/VES for the selected currency)
+  const effectiveRate = watchCurrency === "USD" ? usdVesRate
+    : watchCurrency === "EUR" ? currencyVesRate
+    : usdVesRate; // VES → store USD/VES for cross-reference
+
+  const prevCurrencyRef = React.useRef<string>(watchCurrency);
+  // Flag: currency changed but rate not ready yet → reconvert once rate arrives
+  const pendingReconversionRef = React.useRef(false);
+
+  // Auto-fill exchangeRate field when BCV rate loads
+  React.useEffect(() => {
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate", effectiveRate);
+
+      // If a reconversion was pending (rate arrived after currency change), do it now
+      if (pendingReconversionRef.current) {
+        pendingReconversionRef.current = false;
+        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+      }
+    }
+  }, [effectiveRate]);
+
+  const reconvertItems = React.useCallback(
+    (currency: string, usdRate: number | null, curRate: number | null) => {
+      const currentItems = watch("items") as any[];
+      if (!currentItems?.length) return;
+      currentItems.forEach((item: any, idx: number) => {
+        const refId = item.referenceId;
+        const catalogItem = refId ? selectedItemsMap[refId] : null;
+        if (!catalogItem?.price) return;
+        const newPrice = convertPriceFromUsd(
+          Number(catalogItem.price),
+          currency,
+          usdRate,
+          curRate,
+        );
+        setValue(`items.${idx}.unitPrice`, newPrice);
+      });
+    },
+    [selectedItemsMap, setValue, watch],
+  );
+
+  React.useEffect(() => {
+    const prev = prevCurrencyRef.current;
+    if (prev === watchCurrency) return;
+    prevCurrencyRef.current = watchCurrency;
+
+    const rateReady =
+      watchCurrency === "USD" ||
+      (watchCurrency === "VES" && usdVesRate && usdVesRate > 0) ||
+      (watchCurrency === "EUR" && currencyVesRate && currencyVesRate > 0 && usdVesRate && usdVesRate > 0);
+
+    if (rateReady) {
+      reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+    } else {
+      // Rate still loading — mark pending, reconvert when it arrives via effectiveRate effect
+      pendingReconversionRef.current = true;
+    }
+  }, [watchCurrency]);
+
   const watchedItems = (watch("items") ?? []) as any[];
 
   // Map quotation types to LABOR / PART / OTHER for the shared calculation hook
@@ -196,8 +292,9 @@ export default function QuotationForm({
       );
       setValue(`items.${index}.description`, descValue);
 
-      console.log("[QuotationForm] Setting unitPrice:", item.price);
-      setValue(`items.${index}.unitPrice`, item.price ?? 0);
+      const convertedPrice = convertPriceFromUsd(Number(item.price ?? 0), watchCurrency, usdVesRate, currencyVesRate);
+      console.log("[QuotationForm] Setting unitPrice:", convertedPrice);
+      setValue(`items.${index}.unitPrice`, convertedPrice);
 
       console.log("[QuotationForm] Setting unitCost:", item.cost);
       setValue(`items.${index}.unitCost`, item.cost ?? 0);
@@ -278,7 +375,7 @@ export default function QuotationForm({
     <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
       {/* Encabezado */}
       <div className="grid">
-        <div className="col-12 md:col-6 lg:col-4">
+        <div className="col-12 md:col-6 lg:col-3">
           <label className="block mb-1 font-semibold text-sm">Cliente *</label>
           <Controller
             name="customerId"
@@ -299,7 +396,7 @@ export default function QuotationForm({
           )}
         </div>
 
-        <div className="col-12 md:col-6 lg:col-4">
+        <div className="col-12 md:col-6 lg:col-3">
           <label className="block mb-1 font-semibold text-sm">Vehículo</label>
           <Controller
             name="customerVehicleId"
@@ -315,7 +412,45 @@ export default function QuotationForm({
           />
         </div>
 
-        <div className="col-12 md:col-6 lg:col-4">
+        <div className="col-12 md:col-4 lg:col-2">
+          <label className="block mb-1 font-semibold text-sm">Moneda</label>
+          <Controller
+            name="currency"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={CURRENCY_OPTIONS}
+                className="w-full"
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 lg:col-2">
+          <label className="block mb-1 font-semibold text-sm">
+            Tasa de cambio
+          </label>
+          <Controller
+            name="exchangeRate"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? null)}
+                mode="decimal"
+                minFractionDigits={2}
+                maxFractionDigits={4}
+                placeholder="Tasa BCV"
+                className="w-full"
+                disabled={watchCurrency === "USD"}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 lg:col-2">
           <label className="block mb-1 font-semibold text-sm">
             Válida hasta
           </label>
@@ -355,11 +490,16 @@ export default function QuotationForm({
           onItemSelect={handleItemSelect}
           selectedItemsMap={selectedItemsMap}
           catalogRefField="referenceId"
+          currency={watchCurrency}
         />
       </div>
 
       {/* Totales */}
-      <WorkshopFinancialSummary totals={calcResult} />
+      <WorkshopFinancialSummary
+        totals={calcResult}
+        currency={watchCurrency}
+        exchangeRate={watch("exchangeRate") as number | null}
+      />
 
       {/* Notas */}
       <div className="grid">

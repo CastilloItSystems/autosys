@@ -74,6 +74,8 @@ export interface WorkshopItemRowProps {
   autoFocus?: boolean;
   /** Whether table has catalog column (shows placeholder in OTHER rows) */
   hasCatalog?: boolean;
+  /** ISO currency code — controls prefix on monetary inputs */
+  currency?: string;
 }
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -131,7 +133,9 @@ export default function WorkshopItemRow({
   onItemSelect,
   selectedItemsMap = {},
   autoFocus = false,
+  currency = "USD",
 }: WorkshopItemRowProps) {
+  const currencyPrefix = currency === "VES" ? "Bs. " : currency === "EUR" ? "€ " : "$ ";
   const [mounted, setMounted] = useState(false);
   const descRef = useRef<HTMLInputElement>(null);
   const toastRef = useRef<any>(null);
@@ -526,8 +530,8 @@ export default function WorkshopItemRow({
                   min={0}
                   minFractionDigits={2}
                   maxFractionDigits={2}
-                  mode="currency"
-                  currency="USD"
+                  mode="decimal"
+                  prefix={currencyPrefix}
                   locale="es-VE"
                   className="w-full"
                   inputClassName={`w-full text-right ${
@@ -612,8 +616,9 @@ export default function WorkshopItemRow({
           <InputNumber
             value={calculatedTotal}
             readOnly
-            mode="currency"
-            currency="USD"
+            mode="decimal"
+            prefix={currencyPrefix}
+            minFractionDigits={2}
             locale="es-VE"
             className="w-full"
             inputClassName="w-full text-right surface-200 font-medium"

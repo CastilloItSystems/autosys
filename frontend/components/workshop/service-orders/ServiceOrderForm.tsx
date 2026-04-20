@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
@@ -8,6 +8,7 @@ import VehicleSelector from "@/components/common/VehicleSelector";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
+import { useBcvRate } from "@/hooks/useBcvRate";
 import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import {
@@ -36,6 +37,25 @@ import type {
   WorkshopBay,
 } from "@/libs/interfaces/workshop";
 import { SO_PRIORITY_OPTIONS } from "@/components/workshop/shared/ServiceOrderStatusBadge";
+
+const CURRENCY_OPTIONS = [
+  { label: "USD ($)", value: "USD" },
+  { label: "VES (Bs.)", value: "VES" },
+  { label: "EUR (€)", value: "EUR" },
+];
+
+function convertPriceFromUsd(
+  priceUsd: number,
+  currency: string,
+  usdVesRate: number | null,
+  currencyVesRate?: number | null,
+): number {
+  if (currency === "VES" && usdVesRate && usdVesRate > 0)
+    return Math.round(priceUsd * usdVesRate * 100) / 100;
+  if (currency === "EUR" && usdVesRate && currencyVesRate && currencyVesRate > 0)
+    return Math.round((priceUsd * usdVesRate / currencyVesRate) * 100) / 100;
+  return priceUsd;
+}
 
 interface ServiceOrderFormProps {
   order: ServiceOrder | null;
@@ -90,6 +110,8 @@ export default function ServiceOrderForm({
       estimatedDelivery: undefined,
       diagnosisNotes: "",
       observations: "",
+      currency: "USD" as const,
+      exchangeRate: undefined,
       items: [],
     },
   });
@@ -102,6 +124,62 @@ export default function ServiceOrderForm({
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
     {},
   );
+
+  const watchCurrency = (watch("currency") as string) ?? "USD";
+
+  // USD/VES always needed — base for VES docs and EUR conversion
+  const { rate: usdVesRate } = useBcvRate("USD");
+  const { rate: currencyVesRate } = useBcvRate(
+    (watchCurrency === "EUR" ? "EUR" : "USD") as "USD" | "EUR" | "VES",
+  );
+
+  const effectiveRate = watchCurrency === "USD" ? usdVesRate
+    : watchCurrency === "EUR" ? currencyVesRate
+    : usdVesRate;
+
+  const prevCurrencyRef = useRef<string>(watchCurrency);
+  const pendingReconversionRef = useRef(false);
+
+  useEffect(() => {
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate" as any, effectiveRate);
+      if (pendingReconversionRef.current) {
+        pendingReconversionRef.current = false;
+        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+      }
+    }
+  }, [effectiveRate]);
+
+  const reconvertItems = useCallback(
+    (currency: string, usdRate: number | null, curRate: number | null) => {
+      const currentItems = watch("items") as any[];
+      if (!currentItems?.length) return;
+      currentItems.forEach((item: any, idx: number) => {
+        const refId = item.itemId ?? item.operationId;
+        const catalogItem = refId ? selectedItemsMap[refId] : null;
+        if (!catalogItem?.price) return;
+        setValue(`items.${idx}.unitPrice`, convertPriceFromUsd(Number(catalogItem.price), currency, usdRate, curRate));
+      });
+    },
+    [selectedItemsMap, setValue, watch],
+  );
+
+  useEffect(() => {
+    const prev = prevCurrencyRef.current;
+    if (prev === watchCurrency) return;
+    prevCurrencyRef.current = watchCurrency;
+
+    const rateReady =
+      watchCurrency === "USD" ||
+      (watchCurrency === "VES" && usdVesRate && usdVesRate > 0) ||
+      (watchCurrency === "EUR" && currencyVesRate && currencyVesRate > 0 && usdVesRate && usdVesRate > 0);
+
+    if (rateReady) {
+      reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+    } else {
+      pendingReconversionRef.current = true;
+    }
+  }, [watchCurrency]);
 
   const watchedItems = (watch("items") ?? []) as any[];
   const watchedTypes = watchedItems.map(
@@ -151,8 +229,9 @@ export default function ServiceOrderForm({
       );
       setValue(`items.${index}.description`, descValue);
 
-      console.log("[ServiceOrderForm] Setting unitPrice:", item.price);
-      setValue(`items.${index}.unitPrice`, item.price ?? 0);
+      const convertedPrice = convertPriceFromUsd(Number(item.price ?? 0), watchCurrency, usdVesRate, currencyVesRate);
+      console.log("[ServiceOrderForm] Setting unitPrice:", convertedPrice);
+      setValue(`items.${index}.unitPrice`, convertedPrice);
 
       console.log("[ServiceOrderForm] Setting unitCost:", item.cost);
       setValue(`items.${index}.unitCost` as any, item.cost ?? 0);
@@ -263,6 +342,8 @@ export default function ServiceOrderForm({
           : undefined,
         diagnosisNotes: order.diagnosisNotes ?? "",
         observations: order.observations ?? "",
+        currency: ((order as any).currency ?? "USD") as any,
+        exchangeRate: (order as any).exchangeRate ?? undefined,
         items: (order.items ?? []).map((i) => ({
           id: i.id,
           type: i.type,
@@ -506,6 +587,42 @@ export default function ServiceOrderForm({
           />
         </div>
 
+        <div className="col-12 md:col-2">
+          <label className="block text-900 font-medium mb-2">Moneda</label>
+          <Controller
+            name="currency"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={CURRENCY_OPTIONS}
+                className="w-full"
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-2">
+          <label className="block text-900 font-medium mb-2">Tasa cambio</label>
+          <Controller
+            name={"exchangeRate" as any}
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? null)}
+                mode="decimal"
+                minFractionDigits={2}
+                maxFractionDigits={4}
+                placeholder="Tasa BCV"
+                className="w-full"
+                disabled={watchCurrency === "USD"}
+              />
+            )}
+          />
+        </div>
+
         <div className="col-12 md:col-4">
           <label
             htmlFor="estimatedDelivery"
@@ -593,11 +710,16 @@ export default function ServiceOrderForm({
           onItemSelect={handleItemSelect}
           selectedItemsMap={selectedItemsMap}
           title="Ítems de la orden"
+          currency={watchCurrency}
         />
 
         {/* ── Resumen financiero ── */}
         <div className="col-12">
-          <WorkshopFinancialSummary totals={calcResult} />
+          <WorkshopFinancialSummary
+            totals={calcResult}
+            currency={watchCurrency}
+            exchangeRate={(watch("exchangeRate" as any) as number | null) ?? null}
+          />
         </div>
       </div>
     </form>

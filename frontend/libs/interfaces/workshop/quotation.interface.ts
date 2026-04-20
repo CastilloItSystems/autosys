@@ -83,6 +83,8 @@ export interface WorkshopQuotation {
   validUntil: string | null;
   expiredAt: string | null;
   convertedAt: string | null;
+  currency: string;
+  exchangeRate: number | null;
   subtotal: number;
   discount: number;
   taxAmt: number;
@@ -144,6 +146,8 @@ export interface CreateQuotationInput {
   validUntil?: string;
   notes?: string;
   internalNotes?: string;
+  currency?: string;
+  exchangeRate?: number | null;
   items: CreateQuotationItemInput[];
 }
 
@@ -151,6 +155,8 @@ export interface UpdateQuotationInput {
   validUntil?: string | null;
   notes?: string | null;
   internalNotes?: string | null;
+  currency?: string;
+  exchangeRate?: number | null;
   items?: CreateQuotationItemInput[];
 }
 

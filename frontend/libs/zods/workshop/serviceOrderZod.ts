@@ -31,6 +31,8 @@ export const createServiceOrderSchema = z.object({
   estimatedDelivery: z.string().nullable().optional(),
   diagnosisNotes: z.string().max(2000).nullable().optional(),
   observations: z.string().max(2000).nullable().optional(),
+  currency: z.enum(['USD', 'VES', 'EUR']).optional().default('USD'),
+  exchangeRate: z.number().positive().optional().nullable(),
   items: z.array(itemSchema).default([]),
 })
 
@@ -48,6 +50,8 @@ export const updateServiceOrderSchema = z.object({
   estimatedDelivery: z.string().nullable().optional(),
   diagnosisNotes: z.string().max(2000).nullable().optional(),
   observations: z.string().max(2000).nullable().optional(),
+  currency: z.enum(['USD', 'VES', 'EUR']).optional(),
+  exchangeRate: z.number().positive().optional().nullable(),
   items: z.array(itemSchema).optional(),
 })
 

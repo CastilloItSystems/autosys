@@ -52,6 +52,8 @@ export const createQuotationSchema = z.object({
   validUntil: z.union([z.string(), z.date()]).optional().nullable(),
   notes: z.string().max(2000).optional().nullable(),
   internalNotes: z.string().max(2000).optional().nullable(),
+  currency: z.enum(["USD", "VES", "EUR"]).optional().default("USD"),
+  exchangeRate: z.number().positive().optional().nullable(),
   items: z.array(quotationItemSchema).min(1, "Debe agregar al menos un ítem"),
 });
 
@@ -60,6 +62,8 @@ export const updateQuotationSchema = z
     validUntil: z.union([z.string(), z.date()]).optional().nullable(),
     notes: z.string().max(2000).optional().nullable(),
     internalNotes: z.string().max(2000).optional().nullable(),
+    currency: z.enum(["USD", "VES", "EUR"]).optional(),
+    exchangeRate: z.number().positive().optional().nullable(),
     items: z.array(quotationItemSchema).min(1).optional(),
   })
   .refine((d) => Object.keys(d).length > 0, {

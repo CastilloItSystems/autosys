@@ -2,12 +2,30 @@ import React from "react";
 import { Divider } from "primereact/divider";
 import type { WorkshopCalculationResult } from "../../../hooks/useServiceOrderCalculation";
 
+const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+const formatAmt = (value: number, currency: string) => {
+  const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+  return `${sym} ${value.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
+const crossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const rate = Number(exchangeRate);
+  if (!rate || rate <= 0) return null;
+  if (currency === "VES") {
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+  }
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+};
+
 // ── Props ─────────────────────────────────────────────────────────────────────
 
 export interface WorkshopFinancialSummaryProps {
   totals: WorkshopCalculationResult;
   /** ISO 4217 currency code. Default: "USD" */
   currency?: string;
+  /** Exchange rate stored in document (X_currency / VES) */
+  exchangeRate?: number | null;
   /** Optional IGTF amount to display below total */
   igtfAmount?: number;
   /** Locale for number formatting. Default: "es-VE" */
@@ -19,14 +37,11 @@ export interface WorkshopFinancialSummaryProps {
 export default function WorkshopFinancialSummary({
   totals,
   currency = "USD",
+  exchangeRate,
   igtfAmount,
   locale = "es-VE",
 }: WorkshopFinancialSummaryProps) {
-  const fmt = new Intl.NumberFormat(locale, {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-  });
+  const fmt = { format: (v: number) => formatAmt(v, currency) };
 
   const {
     laborTotal,
@@ -132,9 +147,16 @@ export default function WorkshopFinancialSummary({
           <span className="font-bold text-900">
             {igtfAmount != null && igtfAmount > 0 ? "Total + IGTF" : "Total"}
           </span>
-          <span className="font-bold text-lg text-primary">
-            {fmt.format(igtfAmount != null && igtfAmount > 0 ? totalWithIgtf : total)}
-          </span>
+          <div className="text-right">
+            <div className="font-bold text-lg text-primary">
+              {fmt.format(igtfAmount != null && igtfAmount > 0 ? totalWithIgtf : total)}
+            </div>
+            {crossRef(igtfAmount != null && igtfAmount > 0 ? totalWithIgtf : total, currency, exchangeRate) && (
+              <div className="text-xs text-500 mt-1">
+                {crossRef(igtfAmount != null && igtfAmount > 0 ? totalWithIgtf : total, currency, exchangeRate)}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>

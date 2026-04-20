@@ -156,6 +156,8 @@ export interface WorkshopItemsTableProps {
   defaultItem?: Record<string, unknown>;
   /** Name of the catalog reference field in the form schema (default: "itemId") */
   catalogRefField?: string;
+  /** ISO currency code passed to each row for monetary input display */
+  currency?: string;
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -181,6 +183,7 @@ export default function WorkshopItemsTable({
   typeOptions,
   defaultItem: defaultItemProp,
   catalogRefField = "itemId",
+  currency = "USD",
 }: WorkshopItemsTableProps) {
   const columns =
     variant === "suggested" ? WORKSHOP_SUGGESTED_ITEM_COLS : WORKSHOP_ITEM_COLS; // Always use standard layout — catalog is always first column
@@ -257,6 +260,7 @@ export default function WorkshopItemsTable({
             onItemSelect={(item) => onItemSelect?.(item, index)}
             selectedItemsMap={selectedItemsMap}
             autoFocus={autoFocus}
+            currency={currency}
           />
         );
       }}

@@ -456,11 +456,21 @@ export default function ServiceOrderList() {
 
   // ── Row expansion ──────────────────────────────────────────────────────────
 
-  const formatCurrency = (value: number | string) =>
-    `$${Number(value || 0).toLocaleString("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })}`;
+  const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+  const formatAmount = (value: number | string, currency = "USD") => {
+    const sym = CURRENCY_SYMBOLS[currency] ?? "$";
+    return `${sym} ${Number(value || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+    const rate = Number(exchangeRate);
+    if (!rate || rate <= 0) return null;
+    if (currency === "VES") {
+      return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+    }
+    return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
 
   const rowExpansionTemplate = (data: ServiceOrder) => {
     const orderItems = data.items || [];
@@ -599,7 +609,7 @@ export default function ServiceOrderList() {
                     flexShrink: 0,
                   }}
                 >
-                  {formatCurrency(line.unitPrice)}
+                  {formatAmount(line.unitPrice, (data as any).currency || "USD")}
                 </div>
                 <div
                   style={{
@@ -635,7 +645,7 @@ export default function ServiceOrderList() {
                     flexShrink: 0,
                   }}
                 >
-                  {formatCurrency(line.total)}
+                  {formatAmount(line.total, (data as any).currency || "USD")}
                 </div>
               </div>
             ))}
@@ -654,17 +664,24 @@ export default function ServiceOrderList() {
               }}
             >
               <span className="text-500">
-                Mano de obra: <b>{formatCurrency(data.laborTotal)}</b>
+                Mano de obra: <b>{formatAmount(data.laborTotal, (data as any).currency || "USD")}</b>
               </span>
               <span className="text-500">
-                Partes: <b>{formatCurrency(data.partsTotal)}</b>
+                Partes: <b>{formatAmount(data.partsTotal, (data as any).currency || "USD")}</b>
               </span>
               <span className="text-blue-500">
-                IVA: <b>{formatCurrency(data.taxAmt)}</b>
+                IVA: <b>{formatAmount(data.taxAmt, (data as any).currency || "USD")}</b>
               </span>
-              <span className="text-primary font-bold">
-                Total: {formatCurrency(data.total)}
-              </span>
+              <div className="flex flex-column align-items-end">
+                <span className="text-primary font-bold">
+                  Total: {formatAmount(data.total, (data as any).currency || "USD")}
+                </span>
+                {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate) && (
+                  <span className="text-xs text-500">
+                    {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate)}
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         ) : (
@@ -718,14 +735,27 @@ export default function ServiceOrderList() {
     </div>
   );
 
-  const totalTemplate = (row: ServiceOrder) => (
-    <span className="font-semibold">
-      {new Intl.NumberFormat("es-MX", {
-        style: "currency",
-        currency: "MXN",
-      }).format(row.total)}
-    </span>
-  );
+  const totalTemplate = (row: ServiceOrder) => {
+    const cur = (row as any).currency || "USD";
+    const xRef = formatCrossRef(row.total, cur, (row as any).exchangeRate);
+    return (
+      <div className="flex flex-column gap-1">
+        <span className="font-semibold">{formatAmount(row.total, cur)}</span>
+        {xRef && <span className="text-xs text-500">{xRef}</span>}
+      </div>
+    );
+  };
+
+  const currencyBodyTemplate = (row: ServiceOrder) => {
+    const cur = (row as any).currency || "USD";
+    return (
+      <Tag
+        value={cur}
+        severity={cur === "VES" ? "warning" : cur === "EUR" ? "help" : "info"}
+        className="text-xs"
+      />
+    );
+  };
 
   const dateTemplate = (row: ServiceOrder) =>
     new Date(row.receivedAt).toLocaleDateString("es-MX", {
@@ -914,11 +944,17 @@ export default function ServiceOrderList() {
             style={{ minWidth: "120px" }}
           />
           <Column
+            header="Moneda"
+            body={currencyBodyTemplate}
+            style={{ minWidth: "80px", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column
             field="total"
             header="Total"
             body={totalTemplate}
             sortable
-            style={{ minWidth: "120px" }}
+            style={{ minWidth: "140px" }}
           />
           <Column
             header="Acciones"

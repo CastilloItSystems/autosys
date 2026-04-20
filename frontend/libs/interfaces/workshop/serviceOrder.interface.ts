@@ -147,6 +147,8 @@ export interface ServiceOrder {
   estimatedDelivery: string | null;
   deliveredAt: string | null;
   closedAt: string | null;
+  currency: string;
+  exchangeRate: number | null;
   laborTotal: number;
   partsTotal: number;
   otherTotal: number;
@@ -193,6 +195,8 @@ export interface CreateServiceOrderInput {
   serviceTypeId?: string;
   receptionId?: string;
   estimatedDelivery?: string;
+  currency?: string;
+  exchangeRate?: number | null;
   items?: Array<{
     id?: string;
     type: ServiceOrderItemType;
@@ -222,6 +226,8 @@ export interface UpdateServiceOrderInput {
   bayId?: string | null;
   serviceTypeId?: string | null;
   estimatedDelivery?: string | null;
+  currency?: string;
+  exchangeRate?: number | null;
   items?: CreateServiceOrderInput["items"];
 }
 
