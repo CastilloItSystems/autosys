@@ -5,7 +5,9 @@ import { ApiResponse, PaginatedResponse } from "../inventory/types";
 import {
   Order,
   OrderSalesStockDiagnosis,
+  OrderSuggestedReplenishmentResult,
   OrderStatus,
+  OrderSuggestedPurchaseOrdersResult,
   OrderSuggestedTransfersResult,
 } from "@/libs/interfaces/sales/order.interface";
 
@@ -61,6 +63,32 @@ const orderService = {
     id: string,
   ): Promise<ApiResponse<OrderSuggestedTransfersResult>> {
     const res = await apiClient.post(`/sales/orders/${id}/suggested-transfers`);
+    return res.data;
+  },
+
+  async createSuggestedPurchaseOrders(
+    id: string,
+  ): Promise<ApiResponse<OrderSuggestedPurchaseOrdersResult>> {
+    const res = await apiClient.post(
+      `/sales/orders/${id}/suggested-purchase-orders`,
+    );
+    return res.data;
+  },
+
+  async createSuggestedReplenishmentPlan(
+    id: string,
+    payload?: {
+      overrides?: Array<{
+        itemId: string;
+        purchaseQuantity?: number;
+        supplierId?: string;
+      }>;
+    },
+  ): Promise<ApiResponse<OrderSuggestedReplenishmentResult>> {
+    const res = await apiClient.post(
+      `/sales/orders/${id}/suggested-replenishment-plan`,
+      payload || {},
+    );
     return res.data;
   },
 

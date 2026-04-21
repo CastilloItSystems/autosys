@@ -1758,6 +1758,7 @@ model Empresa {
 
   warehouses      Warehouse[]
   items           Item[]
+  itemSuppliers   ItemSupplier[]
   suppliers       Supplier[]
   brands          Brand[]
   categories      Category[]
@@ -2613,6 +2614,8 @@ model Item {
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
+  lastSupplierId String?
+  lastSupplier   Supplier? @relation("ItemLastSupplier", fields: [lastSupplierId], references: [id], onDelete: SetNull)
 
   // Relaciones
   stocks              Stock[]
@@ -2644,6 +2647,7 @@ model Item {
   diagnosisSuggestedParts DiagnosisSuggestedPart[]
   // Workshop: repuestos sugeridos por operación estándar
   operationSuggestedMaterials OperationSuggestedMaterial[]
+  itemSuppliers   ItemSupplier[]
   // Auditoría con historial de cambios
   historial      Json?
 
@@ -2667,6 +2671,7 @@ model Item {
   @@index([isActive])
   @@index([tags])
   @@index([empresaId])
+  @@index([lastSupplierId])
 }
 
 
@@ -2687,6 +2692,32 @@ model ItemImage {
   @@map("item_images")
   @@index([itemId])
 }
+
+model ItemSupplier {
+  id             String    @id @default(uuid())
+  itemId         String
+  supplierId     String
+  empresaId      String
+  lastPurchasedAt DateTime?
+  lastUnitCost   Decimal?  @db.Decimal(12, 2)
+  purchaseCount  Int       @default(0)
+  isPreferred    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  item           Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  supplier       Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  empresa        Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  @@map("item_suppliers")
+  @@unique([itemId, supplierId, empresaId], map: "item_supplier_empresa_unique")
+  @@index([empresaId])
+  @@index([itemId])
+  @@index([supplierId])
+  @@index([isPreferred])
+  @@index([lastPurchasedAt])
+}
+
 
 /**
  * Loan Model - Temporary loans of items with due date
@@ -3472,6 +3503,7 @@ model Supplier {
 
   specialty         String?                         // Para proveedores externos de taller (rectificadora, A/C, etc.)
   isActive          Boolean         @default(true)
+  isGenericDefault  Boolean         @default(false)
 
   // Multi-tenancy
   empresaId         String
@@ -3481,6 +3513,8 @@ model Supplier {
   purchaseOrders    PurchaseOrder[]
   entryNotes        EntryNote[]
   workshopTOTs      WorkshopTOT[]
+  lastSuppliedItems Item[]          @relation("ItemLastSupplier")
+  itemSuppliers     ItemSupplier[]
   
   // Auditoría
   createdAt         DateTime        @default(now())
@@ -3493,7 +3527,10 @@ model Supplier {
   @@index([taxId])
   @@index([isActive])
   @@index([empresaId])
+  @@index([isGenericDefault])
+  @@index([empresaId, isGenericDefault])
 }
+
 
 // backend/prisma/models/inventory/transfer.prisma
 

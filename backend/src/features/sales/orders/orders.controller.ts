@@ -144,6 +144,59 @@ class OrdersController {
   })
 
   /**
+   * POST /api/sales/orders/:id/suggested-purchase-orders
+   */
+  createSuggestedPurchaseOrders = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const userId = req.user?.userId ?? 'system'
+
+    const result = await ordersService.createSuggestedPurchaseOrders(
+      id,
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.created(
+      res,
+      result,
+      'Órdenes de compra sugeridas creadas exitosamente'
+    )
+  })
+
+  /**
+   * POST /api/sales/orders/:id/suggested-replenishment-plan
+   */
+  createSuggestedReplenishmentPlan = asyncHandler(
+    async (req: Request, res: Response) => {
+      const empresaId = getEmpresaId(req)
+      const { id } = req.params as { id: string }
+      const userId = req.user?.userId ?? 'system'
+
+      const payload = {
+        overrides: Array.isArray(req.body?.overrides)
+          ? req.body.overrides
+          : [],
+      }
+
+      const result = await ordersService.createSuggestedReplenishmentPlan(
+        id,
+        empresaId,
+        userId,
+        payload,
+        req.prisma
+      )
+
+      return ApiResponse.created(
+        res,
+        result,
+        'Plan de reabastecimiento generado exitosamente'
+      )
+    }
+  )
+
+  /**
    * POST /api/sales/orders
    */
   create = asyncHandler(async (req: Request, res: Response) => {

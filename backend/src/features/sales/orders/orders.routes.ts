@@ -43,6 +43,18 @@ router.post(
   ordersController.createSuggestedTransfers
 )
 
+router.post(
+  '/:id/suggested-purchase-orders',
+  authorize(PERMISSIONS.ORDERS_APPROVE),
+  ordersController.createSuggestedPurchaseOrders
+)
+
+router.post(
+  '/:id/suggested-replenishment-plan',
+  authorize(PERMISSIONS.ORDERS_APPROVE),
+  ordersController.createSuggestedReplenishmentPlan
+)
+
 router.get('/:id', authorize(PERMISSIONS.ORDERS_VIEW), ordersController.getOne)
 
 router.put(

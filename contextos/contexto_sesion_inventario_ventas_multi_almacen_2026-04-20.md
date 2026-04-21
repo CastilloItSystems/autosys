@@ -112,3 +112,53 @@ Fecha: 20 de abril de 2026
 - Agregar pruebas de sugerencias multi-origen (1..N DRAFTs).
 - Validar en QA E2E con 4 almacenes y ciclo completo hasta `RECEIVED`.
 
+## 9) Reabastecimiento completo desde Orden de Venta (transferir + comprar)
+- Se extendio el flujo en `orders` para resolver faltantes no solo con transferencias, sino tambien con compras sugeridas cuando no hay stock transferible suficiente.
+- Politica aplicada:
+- No venta parcial.
+- Si el almacen de venta no cubre, se bloquea aprobacion.
+- Se propone plan operativo para cubrir faltantes.
+- Comportamiento por item:
+- Primero cubrir con orígenes transferibles.
+- Si aun queda faltante, sugerir compra por proveedor.
+- Resultado: caso mixto soportado (ejemplo: transferir 87 y comprar el restante).
+
+## 10) Proveedores sugeridos para compra y merge de borradores
+- Se implemento logica de proveedor por prioridad:
+- `Item.lastSupplierId`.
+- proveedor preferido en historial (`ItemSupplier`).
+- proveedor generico por empresa (`Supplier.isGenericDefault`) como fallback.
+- Se agrego historial `ItemSupplier` y puntero `Item.lastSupplierId` para mejorar sugerencias futuras.
+- En compras sugeridas se aplica merge estricto de borradores `DRAFT`:
+- clave de consolidacion: `supplier + warehouse + currency + DRAFT`.
+- Si ya existe OC compatible, se reusa y se mergean lineas.
+- Si la linea del item ya existe, suma `quantityOrdered` y recalcula totales.
+- Objetivo: evitar multiplicar OCs al mismo proveedor cuando ya hay borrador abierto.
+
+## 11) Orquestador de reabastecimiento en Ordenes (backend + frontend)
+- En backend de `orders` se agrego endpoint combinado para ejecutar plan en una sola accion:
+- `POST /api/sales/orders/:id/suggested-replenishment-plan`
+- El resultado consolidado incluye:
+- transferencias creadas/reusadas.
+- compras creadas/reusadas.
+- acciones por linea.
+- estado de ejecucion.
+- En frontend `OrderList` se paso de CTAs separados a flujo guiado:
+- bloque de faltantes detectados.
+- plan sugerido (transferir + comprar).
+- estado de ejecucion.
+- CTA principal unico: `Resolver faltantes`.
+- Soporta override por linea para compra (cantidad/proveedor) antes de ejecutar.
+
+## 12) Trazabilidad de documentos generados desde la Orden
+- Se mantiene trazabilidad por token de orden en documentos sugeridos para facilitar seguimiento.
+- Transferencias sugeridas quedan vinculadas de forma trazable al contexto de la orden/pre-factura.
+- OCs sugeridas reutilizan/crean con notas de trazabilidad para reintentos idempotentes.
+
+## Endpoints adicionales relevantes (Orden + Reabastecimiento)
+- `POST /api/sales/orders/:id/suggested-purchase-orders`
+- `POST /api/sales/orders/:id/suggested-replenishment-plan`
+
+## Nota de alcance (actualizacion)
+- Esta actualizacion se centra en flujo de Orden de Venta y reabastecimiento por faltantes multi-almacen.
+- No se incluye en este contexto la via de dashboard/metricas de inventario.

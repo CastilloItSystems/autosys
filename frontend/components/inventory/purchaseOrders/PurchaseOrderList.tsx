@@ -1,5 +1,6 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
@@ -33,6 +34,8 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 
 const PurchaseOrderList = () => {
+  const searchParams = useSearchParams();
+  const contextualSearchFilter = searchParams.get("search") || "";
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(
     null,
@@ -41,7 +44,9 @@ const PurchaseOrderList = () => {
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [globalFilterValue, setGlobalFilterValue] = useState(
+    contextualSearchFilter,
+  );
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
   const [totalRecords, setTotalRecords] = useState<number>(0);
@@ -68,6 +73,11 @@ const PurchaseOrderList = () => {
     }, 500);
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
+
+  useEffect(() => {
+    setGlobalFilterValue(contextualSearchFilter);
+    setPage(0);
+  }, [contextualSearchFilter]);
 
   useEffect(() => {
     loadPurchaseOrders();

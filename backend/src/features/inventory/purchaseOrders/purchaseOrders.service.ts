@@ -340,6 +340,18 @@ class PurchaseOrderService {
       where.orderDate = orderDate
     }
 
+    if (filters.search) {
+      const search = filters.search.trim()
+      if (search) {
+        where.OR = [
+          { orderNumber: { contains: search, mode: 'insensitive' } },
+          { notes: { contains: search, mode: 'insensitive' } },
+          { supplier: { name: { contains: search, mode: 'insensitive' } } },
+          { warehouse: { name: { contains: search, mode: 'insensitive' } } },
+        ]
+      }
+    }
+
     const [total, pos] = await Promise.all([
       db.purchaseOrder.count({ where }),
       db.purchaseOrder.findMany({
@@ -1005,6 +1017,35 @@ class PurchaseOrderService {
             notes: `Recepción ${entryNoteNumber} — OC ${po.orderNumber}`,
             createdBy: data.receivedBy ?? userId ?? null,
           },
+        })
+
+        // 2e. Update supplier memory for the item based on effective purchase
+        await tx.itemSupplier.upsert({
+          where: {
+            itemId_supplierId_empresaId: {
+              itemId: receiveItem.itemId,
+              supplierId: po.supplierId,
+              empresaId,
+            },
+          },
+          create: {
+            itemId: receiveItem.itemId,
+            supplierId: po.supplierId,
+            empresaId,
+            lastPurchasedAt: new Date(),
+            lastUnitCost: receiveItem.unitCost,
+            purchaseCount: 1,
+          },
+          update: {
+            lastPurchasedAt: new Date(),
+            lastUnitCost: receiveItem.unitCost,
+            purchaseCount: { increment: 1 },
+          },
+        })
+
+        await tx.item.update({
+          where: { id: receiveItem.itemId },
+          data: { lastSupplierId: po.supplierId },
         })
       }
 

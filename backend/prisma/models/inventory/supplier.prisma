@@ -29,6 +29,7 @@ model Supplier {
 
   specialty         String?                         // Para proveedores externos de taller (rectificadora, A/C, etc.)
   isActive          Boolean         @default(true)
+  isGenericDefault  Boolean         @default(false)
 
   // Multi-tenancy
   empresaId         String
@@ -38,6 +39,8 @@ model Supplier {
   purchaseOrders    PurchaseOrder[]
   entryNotes        EntryNote[]
   workshopTOTs      WorkshopTOT[]
+  lastSuppliedItems Item[]          @relation("ItemLastSupplier")
+  itemSuppliers     ItemSupplier[]
   
   // Auditoría
   createdAt         DateTime        @default(now())
@@ -50,4 +53,6 @@ model Supplier {
   @@index([taxId])
   @@index([isActive])
   @@index([empresaId])
+  @@index([isGenericDefault])
+  @@index([empresaId, isGenericDefault])
 }

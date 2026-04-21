@@ -107,6 +107,7 @@ export interface IPurchaseOrderFilters {
   createdBy?: string
   orderFrom?: Date
   orderTo?: Date
+  search?: string
 }
 
 export interface IPurchaseOrderItem {

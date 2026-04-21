@@ -1,0 +1,24 @@
+model ItemSupplier {
+  id             String    @id @default(uuid())
+  itemId         String
+  supplierId     String
+  empresaId      String
+  lastPurchasedAt DateTime?
+  lastUnitCost   Decimal?  @db.Decimal(12, 2)
+  purchaseCount  Int       @default(0)
+  isPreferred    Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  item           Item      @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  supplier       Supplier  @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+  empresa        Empresa   @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  @@map("item_suppliers")
+  @@unique([itemId, supplierId, empresaId], map: "item_supplier_empresa_unique")
+  @@index([empresaId])
+  @@index([itemId])
+  @@index([supplierId])
+  @@index([isPreferred])
+  @@index([lastPurchasedAt])
+}

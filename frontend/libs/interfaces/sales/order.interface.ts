@@ -121,6 +121,21 @@ export interface OrderStockShortage {
   available: number;
   shortage: number;
   suggestions: OrderStockOriginSuggestion[];
+  purchaseSuggestion?: OrderPurchaseSuggestion | null;
+  coverage?: {
+    transferCovered: number;
+    purchaseCovered: number;
+    remaining: number;
+  };
+}
+
+export interface OrderPurchaseSuggestion {
+  supplierId: string;
+  supplierCode: string;
+  supplierName: string;
+  source: "LAST_SUPPLIER" | "PREFERRED_HISTORY" | "GENERIC_DEFAULT";
+  lastUnitCost?: number | null;
+  suggestedQuantity: number;
 }
 
 export interface OrderSalesStockDiagnosis {
@@ -146,6 +161,100 @@ export interface OrderSuggestedTransfersResult {
     quantity: number;
   }>;
   shortages: OrderStockShortage[];
+}
+
+export interface OrderSuggestedPurchaseOrdersResult {
+  orderId: string;
+  orderNumber: string;
+  salesWarehouse: OrderSalesWarehouseRef;
+  created: Array<{
+    purchaseOrderId: string;
+    orderNumber: string;
+    supplierId: string;
+    supplierCode: string;
+    supplierName: string;
+  }>;
+  reused: Array<{
+    purchaseOrderId: string;
+    orderNumber: string;
+    supplierId: string;
+    supplierCode: string;
+    supplierName: string;
+  }>;
+  lineMerges: Array<{
+    purchaseOrderId: string;
+    itemId: string;
+    quantityAdded: number;
+    merged: boolean;
+  }>;
+  shortages: OrderStockShortage[];
+}
+
+export interface OrderSuggestedReplenishmentResult {
+  orderId: string;
+  orderNumber: string;
+  salesWarehouse: OrderSalesWarehouseRef;
+  shortages: Array<
+    OrderStockShortage & {
+      transferPlan: OrderStockOriginSuggestion[];
+      purchasePlan: Array<{
+        supplierId: string;
+        supplierCode: string;
+        supplierName: string;
+        quantity: number;
+      }>;
+      remainingAfterPlan: number;
+    }
+  >;
+  createdTransfers: Array<{
+    id: string;
+    transferNumber: string;
+    fromWarehouseId: string;
+    fromWarehouseCode: string;
+    fromWarehouseName: string;
+    toWarehouseId: string;
+    status: string;
+    quantity: number;
+  }>;
+  reusedTransfers: Array<{
+    id: string;
+    transferNumber: string;
+    fromWarehouseId: string;
+    fromWarehouseCode: string;
+    fromWarehouseName: string;
+    toWarehouseId: string;
+    status: string;
+    quantity: number;
+  }>;
+  createdPOs: Array<{
+    purchaseOrderId: string;
+    orderNumber: string;
+    supplierId: string;
+    supplierCode: string;
+    supplierName: string;
+    status: string;
+  }>;
+  reusedPOs: Array<{
+    purchaseOrderId: string;
+    orderNumber: string;
+    supplierId: string;
+    supplierCode: string;
+    supplierName: string;
+    status: string;
+  }>;
+  lineActions: Array<{
+    actionType: "TRANSFER" | "PURCHASE";
+    targetType: "CREATED" | "REUSED" | "MERGED";
+    targetId: string;
+    itemId: string;
+    quantity: number;
+  }>;
+  executionState: {
+    linkedTransfers: Array<{ id: string; transferNumber: string; status: string }>;
+    linkedPOs: Array<{ id: string; orderNumber: string; status: string }>;
+    pendingTransfersCount: number;
+    pendingPOsCount: number;
+  };
 }
 
 // ── Status Config ──

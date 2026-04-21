@@ -70,6 +70,8 @@ model Item {
   // Información adicional (flexible)
   technicalSpecs Json?    // Especificaciones técnicas
   tags           String[] // Tags para búsqueda: ["aceite", "sintético", "10w40"]
+  lastSupplierId String?
+  lastSupplier   Supplier? @relation("ItemLastSupplier", fields: [lastSupplierId], references: [id], onDelete: SetNull)
 
   // Relaciones
   stocks              Stock[]
@@ -101,6 +103,7 @@ model Item {
   diagnosisSuggestedParts DiagnosisSuggestedPart[]
   // Workshop: repuestos sugeridos por operación estándar
   operationSuggestedMaterials OperationSuggestedMaterial[]
+  itemSuppliers   ItemSupplier[]
   // Auditoría con historial de cambios
   historial      Json?
 
@@ -124,4 +127,5 @@ model Item {
   @@index([isActive])
   @@index([tags])
   @@index([empresaId])
+  @@index([lastSupplierId])
 }

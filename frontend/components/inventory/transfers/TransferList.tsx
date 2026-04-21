@@ -46,6 +46,7 @@ export default function TransferList({
   const router = useRouter();
   const searchParams = useSearchParams();
   const preInvoiceFilter = searchParams.get("preInvoiceId") || "";
+  const contextualSearchFilter = searchParams.get("search") || "";
 
   // Datos
   const [transfers, setTransfers] = useState<Transfer[]>([]);
@@ -55,7 +56,9 @@ export default function TransferList({
   );
 
   // Filtros y paginación
-  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [searchQuery, setSearchQuery] = useState<string>(
+    contextualSearchFilter,
+  );
   const [filterStatus, setFilterStatus] = useState<TransferStatus | null>(null);
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
@@ -81,6 +84,11 @@ export default function TransferList({
   useEffect(() => {
     loadTransfers();
   }, [page, rows, searchQuery, filterStatus, warehouseId, preInvoiceFilter]);
+
+  useEffect(() => {
+    setSearchQuery(contextualSearchFilter);
+    setPage(0);
+  }, [contextualSearchFilter]);
 
   const loadTransfers = async () => {
     try {

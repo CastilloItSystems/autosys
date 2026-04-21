@@ -69,6 +69,7 @@ class PurchaseOrderController {
       createdBy,
       orderFrom,
       orderTo,
+      search,
       sortBy,
       sortOrder,
     } = req.query
@@ -84,6 +85,7 @@ class PurchaseOrderController {
     if (createdBy) filters.createdBy = String(createdBy)
     if (orderFrom) filters.orderFrom = new Date(String(orderFrom))
     if (orderTo) filters.orderTo = new Date(String(orderTo))
+    if (search) filters.search = String(search)
 
     const result = await purchaseOrderService.findAll(
       filters,

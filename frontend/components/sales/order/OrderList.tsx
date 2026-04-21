@@ -5,6 +5,8 @@ import { AxiosError } from "axios";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
+import { Dropdown } from "primereact/dropdown";
+import { InputNumber } from "primereact/inputnumber";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
@@ -23,12 +25,14 @@ import {
   ORDER_CURRENCY_LABELS,
   OrderCurrency,
   OrderSalesStockDiagnosis,
+  OrderSuggestedReplenishmentResult,
 } from "@/libs/interfaces/sales/order.interface";
 import itemService, { Item } from "@/app/api/inventory/itemService";
 import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import customerService, { Customer } from "@/app/api/sales/customerService";
+import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
 import OrderForm from "./OrderForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/components/common/FormActionButtons";
@@ -87,14 +91,19 @@ const OrderList = () => {
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionOrder, setActionOrder] = useState<Order | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [shortageDialogVisible, setShortageDialogVisible] = useState(false);
   const [shortagePayload, setShortagePayload] =
     useState<OrderSalesStockDiagnosis | null>(null);
-  const [creatingSuggestedTransfers, setCreatingSuggestedTransfers] =
-    useState(false);
+  const [resolvingReplenishment, setResolvingReplenishment] = useState(false);
+  const [replenishmentResult, setReplenishmentResult] =
+    useState<OrderSuggestedReplenishmentResult | null>(null);
+  const [purchaseOverrides, setPurchaseOverrides] = useState<
+    Record<string, { purchaseQuantity: number; supplierId?: string }>
+  >({});
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -117,14 +126,16 @@ const OrderList = () => {
 
   const loadFormData = async () => {
     try {
-      const [whRes, itemRes, custRes] = await Promise.all([
+      const [whRes, itemRes, custRes, supRes] = await Promise.all([
         warehouseService.getActive(),
         itemService.getActive(),
         customerService.getActive(),
+        supplierService.getActive(),
       ]);
       setWarehouses(whRes.data || []);
       setItems(itemRes.data || []);
       setCustomers(custRes.data || []);
+      setSuppliers(supRes.data || []);
     } catch (error) {
       console.error("Error loading form data:", error);
     }
@@ -229,6 +240,18 @@ const OrderList = () => {
       const shortage = extractSalesStockShortage(error);
       if (shortage) {
         setShortagePayload(shortage);
+        setReplenishmentResult(null);
+        const defaults: Record<
+          string,
+          { purchaseQuantity: number; supplierId?: string }
+        > = {};
+        for (const row of shortage.shortages || []) {
+          defaults[row.itemId] = {
+            purchaseQuantity: row.purchaseSuggestion?.suggestedQuantity || 0,
+            supplierId: row.purchaseSuggestion?.supplierId,
+          };
+        }
+        setPurchaseOverrides(defaults);
         setShortageDialogVisible(true);
         return;
       }
@@ -236,31 +259,54 @@ const OrderList = () => {
     }
   };
 
-  const handleCreateSuggestedTransfers = async () => {
+  const updatePurchaseOverride = (
+    itemId: string,
+    patch: Partial<{ purchaseQuantity: number; supplierId?: string }>,
+  ) => {
+    setPurchaseOverrides((prev) => ({
+      ...prev,
+      [itemId]: {
+        ...(prev[itemId] || { purchaseQuantity: 0 }),
+        ...patch,
+      },
+    }));
+  };
+
+  const handleResolveReplenishment = async () => {
     if (!shortagePayload?.orderId) return;
 
-    setCreatingSuggestedTransfers(true);
+    setResolvingReplenishment(true);
     try {
-      const result = await orderService.createSuggestedTransfers(
+      const result = await orderService.createSuggestedReplenishmentPlan(
         shortagePayload.orderId,
+        {
+          overrides: Object.entries(purchaseOverrides).map(([itemId, value]) => ({
+            itemId,
+            purchaseQuantity: Number(value.purchaseQuantity || 0),
+            supplierId: value.supplierId,
+          })),
+        },
       );
-      const transferCount = result.data?.createdTransfers?.length ?? 0;
+      setReplenishmentResult(result.data);
+      const transferCount =
+        (result.data?.createdTransfers?.length ?? 0) +
+        (result.data?.reusedTransfers?.length ?? 0);
+      const poCount =
+        (result.data?.createdPOs?.length ?? 0) +
+        (result.data?.reusedPOs?.length ?? 0);
 
       toast.current?.show({
         severity: "success",
-        summary: "Transferencias Creadas",
-        detail: `Se generaron ${transferCount} transferencias sugeridas en borrador`,
-        life: 4000,
+        summary: "Plan de Reabastecimiento Ejecutado",
+        detail: `Transferencias: ${transferCount} | OCs: ${poCount}`,
+        life: 4500,
       });
 
-      setShortageDialogVisible(false);
-      setShortagePayload(null);
       await loadOrders();
-      router.push("/empresa/inventario/transferencias");
     } catch (error) {
       handleFormError(error, toast);
     } finally {
-      setCreatingSuggestedTransfers(false);
+      setResolvingReplenishment(false);
     }
   };
 
@@ -633,6 +679,11 @@ const OrderList = () => {
   };
 
   /* ── Render ── */
+  const supplierOptions = suppliers.map((s) => ({
+    label: `${s.code} - ${s.name}`,
+    value: s.id,
+  }));
+
   return (
     <>
       <Toast ref={toast} />
@@ -815,8 +866,8 @@ const OrderList = () => {
 
         <Dialog
           visible={shortageDialogVisible}
-          style={{ width: "760px", maxWidth: "95vw" }}
-          header="Stock insuficiente en almacén de venta"
+          style={{ width: "980px", maxWidth: "95vw" }}
+          header="Orquestador de Reabastecimiento"
           modal
           onHide={() => setShortageDialogVisible(false)}
           footer={
@@ -827,67 +878,196 @@ const OrderList = () => {
                 severity="secondary"
                 outlined
                 onClick={() => setShortageDialogVisible(false)}
-                disabled={creatingSuggestedTransfers}
+                disabled={resolvingReplenishment}
                 className="flex-1"
               />
               <Button
-                label="Generar transferencias sugeridas"
-                icon="pi pi-arrow-right-arrow-left"
+                label="Resolver faltantes"
+                icon="pi pi-wrench"
                 severity="warning"
-                onClick={handleCreateSuggestedTransfers}
-                loading={creatingSuggestedTransfers}
+                onClick={handleResolveReplenishment}
+                loading={resolvingReplenishment}
                 className="flex-1"
               />
             </div>
           }
         >
           <div className="flex flex-column gap-3">
-            <p className="m-0 text-700">
-              La orden no puede aprobarse porque el almacén de venta no tiene
-              stock suficiente. Puedes generar borradores de transferencia para
-              reabastecer y luego aprobar la orden.
-            </p>
-
-            {shortagePayload?.salesWarehouse && (
-              <div className="surface-100 border-round p-3">
-                <span className="text-600 text-sm">Almacén de venta</span>
-                <div className="font-semibold">
-                  {shortagePayload.salesWarehouse.code} (
-                  {shortagePayload.salesWarehouse.name})
-                </div>
+            <div className="surface-100 border-round p-3">
+              <div className="font-semibold text-900 mb-2">
+                1) Faltantes detectados
               </div>
-            )}
-
-            <div className="flex flex-column gap-2">
-              {(shortagePayload?.shortages || []).map((row) => (
-                <div
-                  key={row.itemId}
-                  className="border-1 border-round border-300 p-3 surface-50"
-                >
-                  <div className="font-semibold text-900">
-                    {row.itemSku} ({row.itemName})
-                  </div>
-                  <div className="text-sm text-700 mt-1">
-                    Requerido: <b>{row.required}</b> | Disponible:{" "}
-                    <b>{row.available}</b> | Faltante: <b>{row.shortage}</b>
-                  </div>
-                  {row.suggestions?.length > 0 ? (
-                    <div className="text-sm text-600 mt-2">
-                      Orígenes sugeridos:{" "}
-                      {row.suggestions
-                        .map(
-                          (s) =>
-                            `${s.fromWarehouseCode} (${s.fromWarehouseName}) → ${s.suggestedQuantity}`,
-                        )
-                        .join(" | ")}
-                    </div>
-                  ) : (
-                    <div className="text-sm text-orange-600 mt-2">
-                      Sin origen sugerido con disponibilidad suficiente.
-                    </div>
-                  )}
+              <p className="m-0 text-700">
+                La orden no puede aprobarse porque el almacén de venta no tiene
+                cobertura completa. Ajusta compra por línea si lo necesitas y
+                luego ejecuta el plan.
+              </p>
+              {shortagePayload?.salesWarehouse && (
+                <div className="mt-2 text-700 text-sm">
+                  Almacén de venta:{" "}
+                  <b>
+                    {shortagePayload.salesWarehouse.code} (
+                    {shortagePayload.salesWarehouse.name})
+                  </b>
                 </div>
-              ))}
+              )}
+            </div>
+
+            <div className="surface-50 border-round p-3">
+              <div className="font-semibold text-900 mb-2">
+                2) Plan sugerido (transferir + comprar)
+              </div>
+              <div className="flex flex-column gap-2">
+                {(shortagePayload?.shortages || []).map((row) => {
+                  const defaults = purchaseOverrides[row.itemId] || {
+                    purchaseQuantity: row.purchaseSuggestion?.suggestedQuantity || 0,
+                    supplierId: row.purchaseSuggestion?.supplierId,
+                  };
+                  const transferCovered = (row.suggestions || []).reduce(
+                    (sum, s) => sum + Number(s.suggestedQuantity || 0),
+                    0,
+                  );
+                  const purchaseCovered = Number(defaults.purchaseQuantity || 0);
+                  const remaining = Math.max(
+                    0,
+                    Number(row.shortage || 0) - transferCovered - purchaseCovered,
+                  );
+                  const statusLabel =
+                    remaining === 0
+                      ? "Cubierto"
+                      : transferCovered + purchaseCovered > 0
+                        ? "Parcial"
+                        : "Sin solución";
+                  const statusSeverity =
+                    remaining === 0
+                      ? "success"
+                      : transferCovered + purchaseCovered > 0
+                        ? "warning"
+                        : "danger";
+                  return (
+                    <div
+                      key={row.itemId}
+                      className="border-1 border-round border-300 p-3 surface-0"
+                    >
+                      <div className="font-semibold text-900 flex justify-content-between align-items-center">
+                        <span>
+                          {row.itemSku} ({row.itemName})
+                        </span>
+                        <Tag value={statusLabel} severity={statusSeverity as any} />
+                      </div>
+                      <div className="text-sm text-700 mt-1">
+                        Requerido: <b>{row.required}</b> | Disponible:{" "}
+                        <b>{row.available}</b> | Faltante: <b>{row.shortage}</b>
+                      </div>
+                      <div className="text-sm text-600 mt-2">
+                        Transferir sugerido:{" "}
+                        <b>
+                          {transferCovered}
+                        </b>
+                        {(row.suggestions || []).length > 0
+                          ? ` (${row.suggestions
+                              .map(
+                                (s) =>
+                                  `${s.fromWarehouseCode}: ${s.suggestedQuantity}`,
+                              )
+                              .join(" | ")})`
+                          : " (sin origen transferible)"}
+                      </div>
+                      <div className="grid mt-2">
+                        <div className="col-12 md:col-4">
+                          <label className="text-xs text-600">
+                            Cantidad a comprar
+                          </label>
+                          <InputNumber
+                            value={defaults.purchaseQuantity}
+                            min={0}
+                            onValueChange={(e) =>
+                              updatePurchaseOverride(row.itemId, {
+                                purchaseQuantity: Number(e.value || 0),
+                              })
+                            }
+                            className="w-full"
+                          />
+                        </div>
+                        <div className="col-12 md:col-8">
+                          <label className="text-xs text-600">
+                            Proveedor de compra
+                          </label>
+                          <Dropdown
+                            value={defaults.supplierId}
+                            options={supplierOptions}
+                            onChange={(e) =>
+                              updatePurchaseOverride(row.itemId, {
+                                supplierId: e.value,
+                              })
+                            }
+                            placeholder="Seleccione proveedor"
+                            className="w-full"
+                            filter
+                          />
+                        </div>
+                      </div>
+                      <div className="text-sm text-700 mt-2">
+                        Cobertura estimada: transferir <b>{transferCovered}</b> +
+                        comprar <b>{purchaseCovered}</b> ={" "}
+                        <b>{transferCovered + purchaseCovered}</b> | Pendiente:{" "}
+                        <b>{remaining}</b>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="surface-100 border-round p-3">
+              <div className="font-semibold text-900 mb-2">
+                3) Estado de ejecución
+              </div>
+              {!replenishmentResult ? (
+                <div className="text-700 text-sm">
+                  Aún no se ha ejecutado el plan. Presiona{" "}
+                  <b>Resolver faltantes</b>.
+                </div>
+              ) : (
+                <div className="text-sm text-700">
+                  <div>
+                    Transferencias: creadas{" "}
+                    <b>{replenishmentResult.createdTransfers.length}</b>,
+                    reusadas <b>{replenishmentResult.reusedTransfers.length}</b>
+                    , pendientes de recibir{" "}
+                    <b>{replenishmentResult.executionState.pendingTransfersCount}</b>
+                  </div>
+                  <div className="mt-1">
+                    Órdenes de compra: creadas{" "}
+                    <b>{replenishmentResult.createdPOs.length}</b>, reusadas{" "}
+                    <b>{replenishmentResult.reusedPOs.length}</b>, pendientes de
+                    completar{" "}
+                    <b>{replenishmentResult.executionState.pendingPOsCount}</b>
+                  </div>
+                  <div className="mt-2 flex gap-2">
+                    <Button
+                      size="small"
+                      outlined
+                      label="Ver transferencias vinculadas"
+                      onClick={() =>
+                        router.push(
+                          `/empresa/inventario/transferencias?search=${encodeURIComponent(replenishmentResult.orderNumber)}`,
+                        )
+                      }
+                    />
+                    <Button
+                      size="small"
+                      outlined
+                      label="Ver compras vinculadas"
+                      onClick={() =>
+                        router.push(
+                          `/empresa/inventario/ordenes-compra?search=${encodeURIComponent(replenishmentResult.orderNumber)}`,
+                        )
+                      }
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         </Dialog>

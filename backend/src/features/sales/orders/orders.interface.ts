@@ -146,6 +146,23 @@ export interface IOrderStockShortage {
   available: number
   shortage: number
   suggestions: IOrderStockOriginSuggestion[]
+  purchaseSuggestion?: IOrderPurchaseSuggestion | null
+  coverage?: IOrderReplenishmentCoverage
+}
+
+export interface IOrderPurchaseSuggestion {
+  supplierId: string
+  supplierCode: string
+  supplierName: string
+  source: 'LAST_SUPPLIER' | 'PREFERRED_HISTORY' | 'GENERIC_DEFAULT'
+  lastUnitCost?: number | null
+  suggestedQuantity: number
+}
+
+export interface IOrderReplenishmentCoverage {
+  transferCovered: number
+  purchaseCovered: number
+  remaining: number
 }
 
 export interface IOrderSalesStockDiagnosis {
@@ -171,4 +188,110 @@ export interface IOrderSuggestedTransfersResult {
     quantity: number
   }>
   shortages: IOrderStockShortage[]
+}
+
+export interface IOrderSuggestedPurchaseOrdersResult {
+  orderId: string
+  orderNumber: string
+  salesWarehouse: IOrderSalesWarehouseRef
+  created: Array<{
+    purchaseOrderId: string
+    orderNumber: string
+    supplierId: string
+    supplierCode: string
+    supplierName: string
+  }>
+  reused: Array<{
+    purchaseOrderId: string
+    orderNumber: string
+    supplierId: string
+    supplierCode: string
+    supplierName: string
+  }>
+  lineMerges: Array<{
+    purchaseOrderId: string
+    itemId: string
+    quantityAdded: number
+    merged: boolean
+  }>
+  shortages: IOrderStockShortage[]
+}
+
+export interface IOrderReplenishmentOverrideItem {
+  itemId: string
+  purchaseQuantity?: number
+  supplierId?: string
+}
+
+export interface ICreateOrderReplenishmentInput {
+  overrides?: IOrderReplenishmentOverrideItem[]
+}
+
+export interface IOrderReplenishmentLineAction {
+  actionType: 'TRANSFER' | 'PURCHASE'
+  targetType: 'CREATED' | 'REUSED' | 'MERGED'
+  targetId: string
+  itemId: string
+  quantity: number
+}
+
+export interface IOrderSuggestedReplenishmentResult {
+  orderId: string
+  orderNumber: string
+  salesWarehouse: IOrderSalesWarehouseRef
+  shortages: Array<
+    IOrderStockShortage & {
+      transferPlan: IOrderStockOriginSuggestion[]
+      purchasePlan: Array<{
+        supplierId: string
+        supplierCode: string
+        supplierName: string
+        quantity: number
+      }>
+      remainingAfterPlan: number
+    }
+  >
+  createdTransfers: Array<{
+    id: string
+    transferNumber: string
+    fromWarehouseId: string
+    fromWarehouseCode: string
+    fromWarehouseName: string
+    toWarehouseId: string
+    status: string
+    quantity: number
+  }>
+  reusedTransfers: Array<{
+    id: string
+    transferNumber: string
+    fromWarehouseId: string
+    fromWarehouseCode: string
+    fromWarehouseName: string
+    toWarehouseId: string
+    status: string
+    quantity: number
+  }>
+  createdPOs: Array<{
+    purchaseOrderId: string
+    orderNumber: string
+    supplierId: string
+    supplierCode: string
+    supplierName: string
+    status: string
+  }>
+  reusedPOs: Array<{
+    purchaseOrderId: string
+    orderNumber: string
+    supplierId: string
+    supplierCode: string
+    supplierName: string
+    status: string
+  }>
+  lineActions: IOrderReplenishmentLineAction[]
+  executionState: {
+    linkedTransfers: Array<{ id: string; transferNumber: string; status: string }>
+    linkedPOs: Array<{ id: string; orderNumber: string; status: string }>
+    pendingTransfersCount: number
+    pendingPOsCount: number
+  }
 }
