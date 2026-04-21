@@ -2,13 +2,10 @@ import { useRefineriaStore } from "@/store/refineriaStore";
 import AppSubMenu from "./AppSubMenu";
 import type { MenuModel } from "@/types";
 import { useAutoSysStore } from "@/store/autoSysStore";
-import { useVentasStore } from "@/store/ventasStore";
 import { Badge } from "primereact/badge";
 
 const AppMenuAutoSys = () => {
   const { activeAutoSys } = useAutoSysStore();
-  const { obtenerEstadisticas } = useVentasStore();
-  const estadisticas = obtenerEstadisticas();
 
   const model: MenuModel[] = [
     // =============================================
@@ -18,25 +15,6 @@ const AppMenuAutoSys = () => {
       label: activeAutoSys?.nombre || "Selecciona un AutoSys",
       icon: "pi pi-home",
       items: [
-        {
-          label: "Dashboard de Operaciones",
-          icon: "pi pi-fw pi-chart-line",
-          to: "/autosys/operation",
-        },
-        {
-          label: "Dashboard de Finanzas",
-          icon: "pi pi-fw pi-dollar",
-          to: "/autosys/finance",
-        },
-        {
-          label: "Dashboard de Ventas",
-          icon: "pi pi-fw pi-shopping-cart",
-          to: "/autosys/ventas",
-          badge:
-            estadisticas.pendientes > 0 ? estadisticas.pendientes : undefined,
-          badgeClassName: "p-badge-danger",
-        },
-
         {
           label: "Inicio",
           icon: "pi pi-fw pi-home",

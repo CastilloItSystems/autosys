@@ -1,12 +1,9 @@
 import AppSubMenu from "./AppSubMenu";
 import type { MenuModel } from "@/types";
-import { useVentasStore } from "@/store/ventasStore";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 const AppMenuEmpresa = () => {
   const { activeEmpresa } = useEmpresasStore();
-  const { obtenerEstadisticas } = useVentasStore();
-  const estadisticas = obtenerEstadisticas();
 
   const model: MenuModel[] = [
     // ── DASHBOARDS ──
@@ -14,24 +11,6 @@ const AppMenuEmpresa = () => {
       label: activeEmpresa?.name_prefijo || "Selecciona una Empresa",
       icon: "pi pi-home",
       items: [
-        {
-          label: "Dashboard de Operaciones",
-          icon: "pi pi-fw pi-chart-line",
-          to: "/empresa/operation",
-        },
-        {
-          label: "Dashboard de Finanzas",
-          icon: "pi pi-fw pi-dollar",
-          to: "/empresa/finance",
-        },
-        {
-          label: "Dashboard de Ventas",
-          icon: "pi pi-fw pi-shopping-cart",
-          to: "/empresa/ventas",
-          badge:
-            estadisticas.pendientes > 0 ? estadisticas.pendientes : undefined,
-          badgeClassName: "p-badge-danger",
-        },
         {
           label: "Inicio",
           icon: "pi pi-fw pi-home",
@@ -45,6 +24,11 @@ const AppMenuEmpresa = () => {
       label: "Ventas",
       icon: "pi pi-fw pi-shopping-cart",
       items: [
+        {
+          label: "Dashboard",
+          icon: "pi pi-fw pi-th-large",
+          to: "/empresa/ventas",
+        },
         {
           label: "Clientes",
           icon: "pi pi-fw pi-users",
@@ -74,11 +58,6 @@ const AppMenuEmpresa = () => {
           label: "Reportes",
           icon: "pi pi-fw pi-chart-bar",
           items: [
-            {
-              label: "Dashboard Ventas",
-              icon: "pi pi-fw pi-th-large",
-              to: "/empresa/ventas/reportes",
-            },
             {
               label: "Ventas por Período",
               icon: "pi pi-fw pi-chart-line",
