@@ -91,6 +91,36 @@ const ALL_PAYMENTS = [
   'payments.approve',
 ]
 const ALL_REPORTS = ['reports.view', 'reports.export', 'reports.approve']
+const ALL_NOTIFICATIONS = ['notifications.view', 'notifications.manage_policy']
+const ALL_MODULE_NOTIFICATIONS = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+  'system.notifications.view',
+]
+const ALL_MODULE_NOTIFICATIONS_NO_SYSTEM = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+]
+const SELLER_MODULE_NOTIFICATIONS = [
+  'sales.notifications.view',
+  'crm.notifications.view',
+  'inventory.notifications.view',
+  'dealer.notifications.view',
+]
+const WAREHOUSE_MODULE_NOTIFICATIONS = [
+  'inventory.notifications.view',
+  'purchases.notifications.view',
+]
 
 const ALL_CRM = [
   'crm.customers.view',
@@ -189,6 +219,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -215,6 +247,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -241,6 +275,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -275,6 +311,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'workshop.update',
     'dealer.view',
     'exchange_rates.view',
+    'notifications.view',
+    ...WAREHOUSE_MODULE_NOTIFICATIONS,
   ],
 
   // Vendedor: módulos de ventas + inventario en modo lectura
@@ -289,6 +327,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     'reports.view',
+    'notifications.view',
+    ...SELLER_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'workshop.view',
     'dealer.view',
@@ -313,6 +353,8 @@ const ROLE_PERMISSIONS: Record<string, string[]> = {
     'quotes.view',
     'payments.view',
     'reports.view',
+    'notifications.view',
+    ...ALL_MODULE_NOTIFICATIONS_NO_SYSTEM,
     ...VIEW_CRM,
     'workshop.view',
     'dealer.view',

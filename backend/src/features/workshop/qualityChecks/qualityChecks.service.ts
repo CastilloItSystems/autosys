@@ -5,11 +5,14 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
 import type {
   ICreateQualityCheckInput,
   ISubmitQualityCheckInput,
 } from './qualityChecks.interface.js'
 import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type Db =
   | PrismaClient
@@ -149,7 +152,7 @@ export async function createQualityCheck(
     })
   }
 
-  return (db as PrismaClient).qualityCheck.create({
+  const created = await (db as PrismaClient).qualityCheck.create({
     data: {
       serviceOrderId: data.serviceOrderId,
       inspectorId: data.inspectorId,
@@ -161,6 +164,43 @@ export async function createQualityCheck(
     },
     include: INCLUDE,
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.quality_check.created',
+        module: 'workshop',
+        title: `Control de calidad creado para OT ${created.serviceOrder.folio}`,
+        message: `Se inició un control de calidad para la orden ${created.serviceOrder.folio}.`,
+        type: 'info',
+        entityType: 'QUALITY_CHECK',
+        entityId: created.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/quality-checks/${created.id}`,
+        source: 'workshop.quality_checks',
+        dedupKey: `workshop.quality_check.created:${created.id}`,
+        metadata: {
+          qualityCheckId: created.id,
+          serviceOrderId: created.serviceOrderId,
+          serviceOrderFolio: created.serviceOrder.folio,
+          inspectorId: created.inspectorId,
+          status: created.status,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.quality_check.created', {
+      qualityCheckId: created.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
+  return created
 }
 
 export async function submitQualityCheck(
@@ -206,7 +246,7 @@ export async function submitQualityCheck(
       : 'Control de calidad rechazado',
   })
 
-  return (db as PrismaClient).qualityCheck.update({
+  const updated = await (db as PrismaClient).qualityCheck.update({
     where: { id },
     data: {
       status: newStatus,
@@ -218,4 +258,53 @@ export async function submitQualityCheck(
     },
     include: INCLUDE,
   })
+
+  const eventCode =
+    newStatus === 'PASSED'
+      ? 'workshop.quality_check.passed'
+      : 'workshop.quality_check.failed'
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode,
+        module: 'workshop',
+        title:
+          newStatus === 'PASSED'
+            ? `Control de calidad aprobado para OT ${updated.serviceOrder.folio}`
+            : `Control de calidad rechazado para OT ${updated.serviceOrder.folio}`,
+        message:
+          newStatus === 'PASSED'
+            ? 'El vehículo superó el control de calidad.'
+            : 'El vehículo no superó el control de calidad.',
+        type: newStatus === 'PASSED' ? 'success' : 'warning',
+        entityType: 'QUALITY_CHECK',
+        entityId: updated.id,
+        priority: newStatus === 'PASSED' ? 'MEDIUM' : 'HIGH',
+        severity: newStatus === 'PASSED' ? 'SUCCESS' : 'WARNING',
+        link: `/empresa/taller/quality-checks/${updated.id}`,
+        source: 'workshop.quality_checks',
+        dedupKey: `${eventCode}:${updated.id}`,
+        metadata: {
+          qualityCheckId: updated.id,
+          serviceOrderId: updated.serviceOrderId,
+          serviceOrderFolio: updated.serviceOrder.folio,
+          status: updated.status,
+          retryCount: updated.retryCount,
+          allPassed,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error(`Error publicando evento ${eventCode}`, {
+      qualityCheckId: updated.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
+  return updated
 }

@@ -3,6 +3,7 @@
 
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
+import { invalidateMembershipsCache } from '../features/notifications/memberships-permissions.cache.js'
 
 // Helper: incluir permisos como string[] de códigos en la respuesta
 const ROLE_INCLUDE = {
@@ -187,6 +188,7 @@ export const updateCompanyRole = async (req: Request, res: Response) => {
       })
     })
 
+    invalidateMembershipsCache(id)
     res.json({ role: mapRole(updated) })
   } catch (error) {
     console.error('Error actualizando rol de empresa:', error)

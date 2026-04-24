@@ -4,6 +4,7 @@ import authRoutes from './auth.routes.js'
 import empresaRoutes from './empresas.routes.js'
 import companyRoleRoutes from './companyRoles.routes.js'
 import membershipRoutes from './memberships.routes.js'
+import notificationRoutes from '../features/notifications/notifications.routes.js'
 // import { saveToken } from '../controllers/users.controller.js'
 
 // Módulos
@@ -35,8 +36,8 @@ router.use('/empresas/:id/roles', authenticate, companyRoleRoutes)
 // Empresas (entidad global del SaaS — no requiere extractEmpresa)
 router.use('/empresas', authenticate, empresaRoutes)
 
-// Token de notificaciones
-// router.post('/save-token', authenticate, saveToken)
+// Notificaciones
+router.use('/notifications', authenticate, extractEmpresa, notificationRoutes)
 
 // Módulo Inventario
 router.use('/inventory', authenticate, extractEmpresa, inventoryRoutes)

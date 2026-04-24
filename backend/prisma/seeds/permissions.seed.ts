@@ -99,6 +99,45 @@ export const PERMISSIONS = [
   { code: 'reports.export', description: 'Exportar reportes' },
   { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
 
+  // Notificaciones
+  { code: 'notifications.view', description: 'Ver centro de notificaciones' },
+  {
+    code: 'notifications.manage_policy',
+    description: 'Gestionar políticas de notificaciones por empresa',
+  },
+  {
+    code: 'inventory.notifications.view',
+    description: 'Ver notificaciones del módulo de inventario',
+  },
+  {
+    code: 'sales.notifications.view',
+    description: 'Ver notificaciones del módulo de ventas',
+  },
+  {
+    code: 'purchases.notifications.view',
+    description: 'Ver notificaciones del módulo de compras',
+  },
+  {
+    code: 'workshop.notifications.view',
+    description: 'Ver notificaciones del módulo de taller',
+  },
+  {
+    code: 'crm.notifications.view',
+    description: 'Ver notificaciones del módulo de CRM',
+  },
+  {
+    code: 'dealer.notifications.view',
+    description: 'Ver notificaciones del módulo de concesionario',
+  },
+  {
+    code: 'exchange_rates.notifications.view',
+    description: 'Ver notificaciones del módulo de tasas de cambio',
+  },
+  {
+    code: 'system.notifications.view',
+    description: 'Ver notificaciones del módulo de sistema',
+  },
+
   // CRM: Clientes
   { code: 'crm.customers.view', description: 'Ver clientes CRM' },
   { code: 'crm.customers.create', description: 'Crear clientes CRM' },

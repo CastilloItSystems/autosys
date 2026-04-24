@@ -4,6 +4,7 @@ import r2StorageService from '../services/r2-storage.service.js'
 import {
   ensurePermissionCatalog,
   seedDefaultRolesForEmpresa,
+  seedDefaultNotificationPoliciesForEmpresa,
 } from '../services/empresa-setup.service.js'
 
 export const uploadLogo = async (req: Request, res: Response) => {
@@ -107,6 +108,7 @@ export const createEmpresa = async (req: Request, res: Response) => {
     // Inicializar permisos globales (idempotente) y roles predeterminados
     await ensurePermissionCatalog()
     await seedDefaultRolesForEmpresa(newEmpresa.id_empresa)
+    await seedDefaultNotificationPoliciesForEmpresa(newEmpresa.id_empresa)
 
     return res.status(201).json(newEmpresa)
   } catch (error) {
@@ -246,6 +248,7 @@ export const seedDefaultsForEmpresa = async (req: Request, res: Response) => {
 
     await ensurePermissionCatalog()
     await seedDefaultRolesForEmpresa(String(id))
+    await seedDefaultNotificationPoliciesForEmpresa(String(id))
 
     return res.json({
       ok: true,

@@ -7,6 +7,8 @@
 import https from 'node:https'
 import { PrismaClient } from '../../../generated/prisma/client.js'
 import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { exchangeRateService } from '../exchangeRates.service.js'
 
 const BCV_URL = 'https://www.bcv.org.ve/'
@@ -161,24 +163,74 @@ class BcvFetchService {
    * Fetch y guardado de tasas BCV para una empresa específica.
    */
   async fetchAndSaveForEmpresa(empresaId: string, db: PrismaClient): Promise<void> {
-    const rates = await this.fetchRates()
+    try {
+      const rates = await this.fetchRates()
 
-    const toSave: Array<{ fromCurrency: 'USD' | 'EUR'; toCurrency: 'VES'; rate: number; date: Date }> = []
+      const toSave: Array<{ fromCurrency: 'USD' | 'EUR'; toCurrency: 'VES'; rate: number; date: Date }> = []
 
-    const usdValid = await this.validateRate(empresaId, 'USD', rates.usdVes, db)
-    if (usdValid) {
-      toSave.push({ fromCurrency: 'USD', toCurrency: 'VES', rate: rates.usdVes, date: rates.date })
-    }
-
-    if (rates.eurVes > 0) {
-      const eurValid = await this.validateRate(empresaId, 'EUR', rates.eurVes, db)
-      if (eurValid) {
-        toSave.push({ fromCurrency: 'EUR', toCurrency: 'VES', rate: rates.eurVes, date: rates.date })
+      const usdValid = await this.validateRate(empresaId, 'USD', rates.usdVes, db)
+      if (usdValid) {
+        toSave.push({ fromCurrency: 'USD', toCurrency: 'VES', rate: rates.usdVes, date: rates.date })
       }
-    }
 
-    if (toSave.length > 0) {
-      await exchangeRateService.saveBcvRates(empresaId, toSave, db)
+      if (rates.eurVes > 0) {
+        const eurValid = await this.validateRate(empresaId, 'EUR', rates.eurVes, db)
+        if (eurValid) {
+          toSave.push({ fromCurrency: 'EUR', toCurrency: 'VES', rate: rates.eurVes, date: rates.date })
+        }
+      }
+
+      if (toSave.length > 0) {
+        await exchangeRateService.saveBcvRates(empresaId, toSave, db)
+
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'exchange_rates.bcv.fetched',
+            module: 'exchange_rates',
+            title: 'Tasas BCV actualizadas',
+            message: `Se actualizaron ${toSave.length} tasa(s) BCV.`,
+            type: 'info',
+            entityType: 'EXCHANGE_RATE',
+            entityId: `bcv:${rates.date.toISOString().slice(0, 10)}`,
+            priority: 'LOW',
+            severity: 'INFO',
+            link: '/empresa/tasas-cambio',
+            source: 'exchange_rates.bcv_fetch',
+            dedupKey: `exchange_rates.bcv.fetched:${rates.date.toISOString().slice(0, 10)}`,
+            metadata: {
+              rates: toSave,
+              date: rates.date.toISOString(),
+            },
+            createdById: 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
+      }
+    } catch (error) {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'exchange_rates.bcv.fetch_failed',
+          module: 'exchange_rates',
+          title: 'Error al actualizar tasas BCV',
+          message: 'No se pudo actualizar la tasa BCV para la empresa.',
+          type: 'error',
+          entityType: 'EXCHANGE_RATE',
+          entityId: 'bcv',
+          priority: 'CRITICAL',
+          severity: 'ERROR',
+          link: '/empresa/tasas-cambio',
+          source: 'exchange_rates.bcv_fetch',
+          dedupKey: `exchange_rates.bcv.fetch_failed:${new Date().toISOString().slice(0, 10)}`,
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+      throw error
     }
   }
 
@@ -193,6 +245,34 @@ class BcvFetchService {
       rates = await this.fetchRates()
     } catch (error) {
       logger.error('[BCV] Error al obtener tasas del BCV', { error })
+      const empresas = await db.empresa.findMany({
+        where: { eliminado: false },
+        select: { id_empresa: true },
+      })
+      for (const empresa of empresas) {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId: empresa.id_empresa,
+            eventCode: 'exchange_rates.bcv.fetch_failed',
+            module: 'exchange_rates',
+            title: 'Error al actualizar tasas BCV',
+            message: 'No se pudo obtener la tasa BCV.',
+            type: 'error',
+            entityType: 'EXCHANGE_RATE',
+            entityId: 'bcv',
+            priority: 'CRITICAL',
+            severity: 'ERROR',
+            link: '/empresa/tasas-cambio',
+            source: 'exchange_rates.bcv_fetch',
+            dedupKey: `exchange_rates.bcv.fetch_failed:${new Date().toISOString().slice(0, 10)}`,
+            metadata: {
+              error: error instanceof Error ? error.message : String(error),
+            },
+            createdById: 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
+      }
       return
     }
 
@@ -221,10 +301,55 @@ class BcvFetchService {
         if (toSave.length > 0) {
           await exchangeRateService.saveBcvRates(empresa.id_empresa, toSave, db)
           saved++
+          await domainEventBus.publish(
+            toDomainEvent({
+              empresaId: empresa.id_empresa,
+              eventCode: 'exchange_rates.bcv.fetched',
+              module: 'exchange_rates',
+              title: 'Tasas BCV actualizadas',
+              message: `Se actualizaron ${toSave.length} tasa(s) BCV.`,
+              type: 'info',
+              entityType: 'EXCHANGE_RATE',
+              entityId: `bcv:${rates.date.toISOString().slice(0, 10)}`,
+              priority: 'LOW',
+              severity: 'INFO',
+              link: '/empresa/tasas-cambio',
+              source: 'exchange_rates.bcv_fetch',
+              dedupKey: `exchange_rates.bcv.fetched:${rates.date.toISOString().slice(0, 10)}`,
+              metadata: {
+                rates: toSave,
+                date: rates.date.toISOString(),
+              },
+              createdById: 'SYSTEM',
+              createdByName: 'Sistema',
+            })
+          )
         }
       } catch (error) {
         errors++
         logger.error(`[BCV] Error al guardar tasas para empresa ${empresa.id_empresa}`, { error })
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId: empresa.id_empresa,
+            eventCode: 'exchange_rates.bcv.fetch_failed',
+            module: 'exchange_rates',
+            title: 'Error al actualizar tasas BCV',
+            message: 'No se pudo guardar la tasa BCV en esta empresa.',
+            type: 'error',
+            entityType: 'EXCHANGE_RATE',
+            entityId: 'bcv',
+            priority: 'CRITICAL',
+            severity: 'ERROR',
+            link: '/empresa/tasas-cambio',
+            source: 'exchange_rates.bcv_fetch',
+            dedupKey: `exchange_rates.bcv.fetch_failed:${new Date().toISOString().slice(0, 10)}:${empresa.id_empresa}`,
+            metadata: {
+              error: error instanceof Error ? error.message : String(error),
+            },
+            createdById: 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
       }
     }
 

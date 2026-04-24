@@ -4,6 +4,9 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
   CreateServiceOrderDTO,
   UpdateServiceOrderDTO,
@@ -280,6 +283,39 @@ export async function createServiceOrder(
     order = await (prisma as PrismaClient).serviceOrder.create({
       data: createData as any,
       include: includeConfig,
+    })
+  }
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.service_order.created',
+        module: 'workshop',
+        title: `Orden ${order.folio} creada`,
+        message: `Se creó la orden de taller ${order.folio}.`,
+        type: 'info',
+        entityType: 'SERVICE_ORDER',
+        entityId: order.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/ordenes/${order.id}`,
+        source: 'workshop.service_orders',
+        dedupKey: `workshop.service_order.created:${order.id}`,
+        metadata: {
+          serviceOrderId: order.id,
+          folio: order.folio,
+          status: order.status,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.service_order.created', {
+      serviceOrderId: order.id,
+      empresaId,
+      error: publishError,
     })
   }
 

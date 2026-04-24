@@ -9,6 +9,8 @@ import {
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import {
   IAdjustmentWithRelations,
   IAdjustmentItem,
@@ -41,6 +43,67 @@ function generateAdjustmentNumber(): string {
 // ---------------------------------------------------------------------------
 
 class AdjustmentService {
+  private async publishAdjustmentEvent(input: {
+    empresaId: string
+    eventCode:
+      | 'inventory.adjustment.created'
+      | 'inventory.adjustment.approved'
+      | 'inventory.adjustment.applied'
+      | 'inventory.adjustment.rejected'
+      | 'inventory.adjustment.cancelled'
+    adjustment: {
+      id: string
+      adjustmentNumber: string
+      status?: string
+      warehouseId?: string
+      reason?: string | null
+    }
+    userId?: string
+    title: string
+    message: string
+    type: 'info' | 'success' | 'warning'
+    priority: 'MEDIUM' | 'HIGH'
+    severity: 'INFO' | 'SUCCESS' | 'WARNING'
+    dedupSuffix?: string
+    extraMetadata?: Record<string, unknown>
+  }): Promise<void> {
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId: input.empresaId,
+          eventCode: input.eventCode,
+          module: 'inventory',
+          title: input.title,
+          message: input.message,
+          type: input.type,
+          entityType: 'ADJUSTMENT',
+          entityId: input.adjustment.id,
+          priority: input.priority,
+          severity: input.severity,
+          link: `/empresa/inventario`,
+          source: 'inventory.adjustments',
+          dedupKey: `${input.eventCode}:${input.adjustment.id}${input.dedupSuffix ? `:${input.dedupSuffix}` : ''}`,
+          metadata: {
+            adjustmentId: input.adjustment.id,
+            adjustmentNumber: input.adjustment.adjustmentNumber,
+            status: input.adjustment.status,
+            warehouseId: input.adjustment.warehouseId,
+            reason: input.adjustment.reason ?? null,
+            ...(input.extraMetadata ?? {}),
+          },
+          createdById: input.userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error(`Error publicando evento ${input.eventCode}`, {
+        adjustmentId: input.adjustment.id,
+        empresaId: input.empresaId,
+        error: publishError,
+      })
+    }
+  }
+
   // -------------------------------------------------------------------------
   // READ
   // -------------------------------------------------------------------------
@@ -173,6 +236,19 @@ class AdjustmentService {
       empresaId,
       userId,
     })
+
+    await this.publishAdjustmentEvent({
+      empresaId,
+      eventCode: 'inventory.adjustment.created',
+      adjustment,
+      userId,
+      title: `Ajuste ${adjustment.adjustmentNumber} creado`,
+      message: `Se creó el ajuste ${adjustment.adjustmentNumber}.`,
+      type: 'info',
+      priority: 'MEDIUM',
+      severity: 'INFO',
+    })
+
     return adjustment as unknown as IAdjustmentWithRelations
   }
 
@@ -237,6 +313,19 @@ class AdjustmentService {
     })
 
     logger.info(`Ajuste aprobado: ${id}`, { empresaId, userId })
+
+    await this.publishAdjustmentEvent({
+      empresaId,
+      eventCode: 'inventory.adjustment.approved',
+      adjustment: updated,
+      userId,
+      title: `Ajuste ${updated.adjustmentNumber} aprobado`,
+      message: `El ajuste ${updated.adjustmentNumber} fue aprobado.`,
+      type: 'success',
+      priority: 'MEDIUM',
+      severity: 'SUCCESS',
+    })
+
     return updated as unknown as IAdjustmentWithRelations
   }
 
@@ -345,6 +434,19 @@ class AdjustmentService {
     })
 
     logger.info(`Ajuste aplicado: ${id}`, { empresaId, userId })
+
+    await this.publishAdjustmentEvent({
+      empresaId,
+      eventCode: 'inventory.adjustment.applied',
+      adjustment: updated,
+      userId,
+      title: `Ajuste ${updated.adjustmentNumber} aplicado`,
+      message: `El ajuste ${updated.adjustmentNumber} fue aplicado.`,
+      type: 'success',
+      priority: 'MEDIUM',
+      severity: 'SUCCESS',
+    })
+
     return updated as unknown as IAdjustmentWithRelations
   }
 
@@ -372,6 +474,20 @@ class AdjustmentService {
     })
 
     logger.info(`Ajuste rechazado: ${id}`, { reason, empresaId })
+
+    await this.publishAdjustmentEvent({
+      empresaId,
+      eventCode: 'inventory.adjustment.rejected',
+      adjustment: updated,
+      title: `Ajuste ${updated.adjustmentNumber} rechazado`,
+      message: `El ajuste ${updated.adjustmentNumber} fue rechazado.`,
+      type: 'warning',
+      priority: 'HIGH',
+      severity: 'WARNING',
+      dedupSuffix: reason,
+      extraMetadata: { rejectedReason: reason },
+    })
+
     return updated as unknown as IAdjustmentWithRelations
   }
 
@@ -398,6 +514,18 @@ class AdjustmentService {
     })
 
     logger.info(`Ajuste cancelado: ${id}`, { empresaId })
+
+    await this.publishAdjustmentEvent({
+      empresaId,
+      eventCode: 'inventory.adjustment.cancelled',
+      adjustment: updated,
+      title: `Ajuste ${updated.adjustmentNumber} cancelado`,
+      message: `El ajuste ${updated.adjustmentNumber} fue cancelado.`,
+      type: 'warning',
+      priority: 'HIGH',
+      severity: 'WARNING',
+    })
+
     return updated as unknown as IAdjustmentWithRelations
   }
 

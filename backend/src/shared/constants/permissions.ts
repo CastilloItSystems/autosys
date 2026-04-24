@@ -99,6 +99,18 @@ export const PERMISSIONS = {
   REPORTS_EXPORT: 'reports.export',
   REPORTS_APPROVE: 'reports.approve',
 
+  // ── Notificaciones ───────────────────────────────────────────────────────
+  NOTIFICATIONS_VIEW: 'notifications.view',
+  NOTIFICATIONS_MANAGE_POLICY: 'notifications.manage_policy',
+  INVENTORY_NOTIFICATIONS_VIEW: 'inventory.notifications.view',
+  SALES_NOTIFICATIONS_VIEW: 'sales.notifications.view',
+  PURCHASES_NOTIFICATIONS_VIEW: 'purchases.notifications.view',
+  WORKSHOP_NOTIFICATIONS_VIEW: 'workshop.notifications.view',
+  CRM_NOTIFICATIONS_VIEW: 'crm.notifications.view',
+  DEALER_NOTIFICATIONS_VIEW: 'dealer.notifications.view',
+  EXCHANGE_RATES_NOTIFICATIONS_VIEW: 'exchange_rates.notifications.view',
+  SYSTEM_NOTIFICATIONS_VIEW: 'system.notifications.view',
+
   // ── CRM: Clientes ─────────────────────────────────────────────────────────
   CRM_CUSTOMERS_VIEW: 'crm.customers.view',
   CRM_CUSTOMERS_CREATE: 'crm.customers.create',

@@ -143,7 +143,7 @@ class SocketService {
     event: IEvent,
     additionalData?: Record<string, any>
   ): void {
-    this.broadcastToChannel(`user:${userId}`, event, additionalData)
+    this.broadcastToChannel(`user-${userId}`, event, additionalData)
   }
 
   /**

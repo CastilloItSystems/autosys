@@ -5,6 +5,9 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
   IQuotationFilters,
   ICreateQuotationInput,
@@ -355,6 +358,40 @@ export async function createQuotation(
     include: INCLUDE,
   })
   const [enriched] = await enrichQuotationReferences(db, [created as any])
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.quotation.created',
+        module: 'workshop',
+        title: `Cotización ${enriched.quotationNumber} creada`,
+        message: `Se creó la cotización de taller ${enriched.quotationNumber}.`,
+        type: 'info',
+        entityType: 'WORKSHOP_QUOTATION',
+        entityId: enriched.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/cotizaciones/${enriched.id}`,
+        source: 'workshop.quotations',
+        dedupKey: `workshop.quotation.created:${enriched.id}`,
+        metadata: {
+          quotationId: enriched.id,
+          quotationNumber: enriched.quotationNumber,
+          status: enriched.status,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.quotation.created', {
+      quotationId: enriched.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
   return enriched
 }
 
@@ -505,6 +542,46 @@ export async function registerApproval(
     return quotation
   })
   const [enriched] = await enrichQuotationReferences(db, [updated as any])
+
+  const isApproved = ['APPROVED_TOTAL', 'APPROVED_PARTIAL'].includes(enriched.status)
+  const eventCode = isApproved
+    ? 'workshop.quotation.approved'
+    : 'workshop.quotation.rejected'
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode,
+        module: 'workshop',
+        title: `Cotización ${enriched.quotationNumber} actualizada`,
+        message: `La cotización ${enriched.quotationNumber} quedó en estado ${enriched.status}.`,
+        type: isApproved ? 'success' : 'warning',
+        entityType: 'WORKSHOP_QUOTATION',
+        entityId: enriched.id,
+        priority: isApproved ? 'MEDIUM' : 'HIGH',
+        severity: isApproved ? 'SUCCESS' : 'WARNING',
+        link: `/empresa/taller/cotizaciones/${enriched.id}`,
+        source: 'workshop.quotations',
+        dedupKey: `${eventCode}:${enriched.id}`,
+        metadata: {
+          quotationId: enriched.id,
+          quotationNumber: enriched.quotationNumber,
+          status: enriched.status,
+          approvalType: data.type,
+        },
+        createdById: 'SYSTEM',
+        createdByName: data.approvedByName || 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento de aprobación/rechazo de cotización', {
+      quotationId: enriched.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
   return enriched
 }
 
@@ -664,5 +741,41 @@ export async function convertToServiceOrder(
     return updated
   })
   const [enriched] = await enrichQuotationReferences(db, [updated as any])
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.quotation.converted',
+        module: 'workshop',
+        title: `Cotización ${enriched.quotationNumber} convertida`,
+        message: `La cotización ${enriched.quotationNumber} fue convertida a orden de servicio.`,
+        type: 'success',
+        entityType: 'WORKSHOP_QUOTATION',
+        entityId: enriched.id,
+        priority: 'MEDIUM',
+        severity: 'SUCCESS',
+        link: enriched.serviceOrderId
+          ? `/empresa/taller/ordenes/${enriched.serviceOrderId}`
+          : `/empresa/taller/cotizaciones/${enriched.id}`,
+        source: 'workshop.quotations',
+        dedupKey: `workshop.quotation.converted:${enriched.id}`,
+        metadata: {
+          quotationId: enriched.id,
+          quotationNumber: enriched.quotationNumber,
+          serviceOrderId: enriched.serviceOrderId,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.quotation.converted', {
+      quotationId: enriched.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
   return enriched
 }

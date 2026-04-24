@@ -13,6 +13,8 @@ const tenantModels = new Set([
   'preInvoice',
   'invoice',
   'exchangeRate',
+  'notification',
+  'notificationCompanyPolicy',
 ])
 
 const addEmpresaFilter = (args: any, empresaId: string) => {

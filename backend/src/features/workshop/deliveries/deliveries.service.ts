@@ -5,11 +5,14 @@ import {
   ConflictError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
 import type {
   ICreateDeliveryInput,
   IUpdateDeliveryInput,
 } from './deliveries.interface.js'
 import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type Db =
   | PrismaClient
@@ -104,6 +107,41 @@ export async function createDelivery(
     comment: 'Entrega de vehículo registrada',
     extraData: { updatedAt: new Date() },
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.delivery.created',
+        module: 'workshop',
+        title: `Entrega registrada para orden ${delivery.serviceOrder.folio}`,
+        message: `Se registró la entrega de la orden ${delivery.serviceOrder.folio}.`,
+        type: 'success',
+        entityType: 'DELIVERY',
+        entityId: delivery.id,
+        priority: 'HIGH',
+        severity: 'SUCCESS',
+        link: `/empresa/taller/entregas`,
+        source: 'workshop.deliveries',
+        dedupKey: `workshop.delivery.created:${delivery.id}`,
+        metadata: {
+          deliveryId: delivery.id,
+          serviceOrderId: delivery.serviceOrder.id,
+          serviceOrderFolio: delivery.serviceOrder.folio,
+          serviceOrderStatus: delivery.serviceOrder.status,
+          receivedByName: delivery.receivedByName,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.delivery.created', {
+      deliveryId: delivery.id,
+      empresaId,
+      error: publishError,
+    })
+  }
 
   return delivery
 }

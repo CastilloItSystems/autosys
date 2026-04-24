@@ -96,6 +96,39 @@ const ALL_REPORTS = [
   'reports.export',
   'reports.approve',
 ] as const
+const ALL_NOTIFICATIONS = [
+  'notifications.view',
+  'notifications.manage_policy',
+] as const
+const ALL_MODULE_NOTIFICATIONS = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+  'system.notifications.view',
+] as const
+const ALL_MODULE_NOTIFICATIONS_NO_SYSTEM = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+] as const
+const SELLER_MODULE_NOTIFICATIONS = [
+  'sales.notifications.view',
+  'crm.notifications.view',
+  'inventory.notifications.view',
+  'dealer.notifications.view',
+] as const
+const WAREHOUSE_MODULE_NOTIFICATIONS = [
+  'inventory.notifications.view',
+  'purchases.notifications.view',
+] as const
 
 const ALL_CRM = [
   'crm.customers.view',
@@ -193,6 +226,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -217,6 +252,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -241,6 +278,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     ...ALL_REPORTS,
+    ...ALL_NOTIFICATIONS,
+    ...ALL_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -273,6 +312,8 @@ const ROLE_DEFINITIONS = {
     'workshop.update',
     'dealer.view',
     'exchange_rates.view',
+    'notifications.view',
+    ...WAREHOUSE_MODULE_NOTIFICATIONS,
   ],
   VENDEDOR: [
     'inventory.view',
@@ -285,6 +326,8 @@ const ROLE_DEFINITIONS = {
     ...ALL_QUOTES,
     ...ALL_PAYMENTS,
     'reports.view',
+    'notifications.view',
+    ...SELLER_MODULE_NOTIFICATIONS,
     ...ALL_CRM,
     'workshop.view',
     'dealer.view',
@@ -307,6 +350,8 @@ const ROLE_DEFINITIONS = {
     'quotes.view',
     'payments.view',
     'reports.view',
+    'notifications.view',
+    ...ALL_MODULE_NOTIFICATIONS_NO_SYSTEM,
     ...VIEW_CRM,
     'workshop.view',
     'dealer.view',

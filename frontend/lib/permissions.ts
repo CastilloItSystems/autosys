@@ -15,6 +15,39 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "Cotizaciones", icon: "pi pi-file-edit", prefix: "quotes" },
   { label: "Pagos", icon: "pi pi-credit-card", prefix: "payments" },
   { label: "Reportes", icon: "pi pi-chart-line", prefix: "reports" },
+  { label: "Notificaciones", icon: "pi pi-bell", prefix: "notifications" },
+  {
+    label: "Notif: Inventario",
+    icon: "pi pi-bell",
+    prefix: "inventory.notifications",
+  },
+  { label: "Notif: Ventas", icon: "pi pi-bell", prefix: "sales.notifications" },
+  {
+    label: "Notif: Compras",
+    icon: "pi pi-bell",
+    prefix: "purchases.notifications",
+  },
+  {
+    label: "Notif: Taller",
+    icon: "pi pi-bell",
+    prefix: "workshop.notifications",
+  },
+  { label: "Notif: CRM", icon: "pi pi-bell", prefix: "crm.notifications" },
+  {
+    label: "Notif: Concesionario",
+    icon: "pi pi-bell",
+    prefix: "dealer.notifications",
+  },
+  {
+    label: "Notif: Tasas",
+    icon: "pi pi-bell",
+    prefix: "exchange_rates.notifications",
+  },
+  {
+    label: "Notif: Sistema",
+    icon: "pi pi-bell",
+    prefix: "system.notifications",
+  },
   // CRM
   { label: "CRM: Clientes", icon: "pi pi-users", prefix: "crm.customers" },
   { label: "CRM: Vehículos", icon: "pi pi-car", prefix: "crm.vehicles" },
@@ -117,6 +150,17 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "reports.view": "Ver",
   "reports.export": "Exportar",
   "reports.approve": "Aprobar",
+  // Notificaciones
+  "notifications.view": "Ver",
+  "notifications.manage_policy": "Gestionar políticas",
+  "inventory.notifications.view": "Ver",
+  "sales.notifications.view": "Ver",
+  "purchases.notifications.view": "Ver",
+  "workshop.notifications.view": "Ver",
+  "crm.notifications.view": "Ver",
+  "dealer.notifications.view": "Ver",
+  "exchange_rates.notifications.view": "Ver",
+  "system.notifications.view": "Ver",
   // CRM: Clientes
   "crm.customers.view": "Ver",
   "crm.customers.create": "Crear",

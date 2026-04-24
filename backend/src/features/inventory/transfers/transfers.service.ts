@@ -13,6 +13,8 @@ import {
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 const MSG = INVENTORY_MESSAGES.transfer
 import {
@@ -55,6 +57,71 @@ const LIST_INCLUDE = {
 // ─── Service ────────────────────────────────────────────────────────────────
 
 class TransfersService {
+  private async publishTransferEvent(input: {
+    empresaId: string
+    eventCode:
+      | 'inventory.transfer.created'
+      | 'inventory.transfer.approved'
+      | 'inventory.transfer.in_transit'
+      | 'inventory.transfer.received'
+      | 'inventory.transfer.cancelled'
+    transfer: {
+      id: string
+      transferNumber: string
+      status?: string
+      fromWarehouseId?: string
+      toWarehouseId?: string
+      exitNoteId?: string | null
+      entryNoteId?: string | null
+    }
+    userId: string
+    title: string
+    message: string
+    type: 'info' | 'success' | 'warning'
+    priority: 'MEDIUM' | 'HIGH'
+    severity: 'INFO' | 'SUCCESS' | 'WARNING'
+    dedupSuffix?: string
+    extraMetadata?: Record<string, unknown>
+  }): Promise<void> {
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId: input.empresaId,
+          eventCode: input.eventCode,
+          module: 'inventory',
+          title: input.title,
+          message: input.message,
+          type: input.type,
+          entityType: 'TRANSFER',
+          entityId: input.transfer.id,
+          priority: input.priority,
+          severity: input.severity,
+          link: `/empresa/inventario`,
+          source: 'inventory.transfers',
+          dedupKey: `${input.eventCode}:${input.transfer.id}${input.dedupSuffix ? `:${input.dedupSuffix}` : ''}`,
+          metadata: {
+            transferId: input.transfer.id,
+            transferNumber: input.transfer.transferNumber,
+            status: input.transfer.status,
+            fromWarehouseId: input.transfer.fromWarehouseId,
+            toWarehouseId: input.transfer.toWarehouseId,
+            exitNoteId: input.transfer.exitNoteId ?? null,
+            entryNoteId: input.transfer.entryNoteId ?? null,
+            ...(input.extraMetadata ?? {}),
+          },
+          createdById: input.userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error(`Error publicando evento ${input.eventCode}`, {
+        transferId: input.transfer.id,
+        empresaId: input.empresaId,
+        error: publishError,
+      })
+    }
+  }
+
   /**
    * Create a new transfer in DRAFT status.
    * Stock validation happens at approve() — not here.
@@ -135,6 +202,18 @@ class TransfersService {
     logger.info('Transfer created', {
       transferId: transfer.id,
       transferNumber: transfer.transferNumber,
+    })
+
+    await this.publishTransferEvent({
+      empresaId,
+      eventCode: 'inventory.transfer.created',
+      transfer,
+      userId,
+      title: `Transferencia ${transfer.transferNumber} creada`,
+      message: `Se creó la transferencia ${transfer.transferNumber}.`,
+      type: 'info',
+      priority: 'MEDIUM',
+      severity: 'INFO',
     })
 
     return transfer as ITransferWithRelations
@@ -400,6 +479,18 @@ class TransfersService {
       entryNoteId: updated.entryNoteId,
     })
 
+    await this.publishTransferEvent({
+      empresaId,
+      eventCode: 'inventory.transfer.approved',
+      transfer: updated,
+      userId,
+      title: `Transferencia ${updated.transferNumber} aprobada`,
+      message: `La transferencia ${updated.transferNumber} fue aprobada.`,
+      type: 'success',
+      priority: 'MEDIUM',
+      severity: 'SUCCESS',
+    })
+
     return updated as ITransferWithRelations
   }
 
@@ -513,6 +604,18 @@ class TransfersService {
 
     logger.info('Transfer sent (IN_TRANSIT)', { transferId: id })
 
+    await this.publishTransferEvent({
+      empresaId,
+      eventCode: 'inventory.transfer.in_transit',
+      transfer: updated,
+      userId,
+      title: `Transferencia ${updated.transferNumber} en tránsito`,
+      message: `La transferencia ${updated.transferNumber} fue despachada.`,
+      type: 'info',
+      priority: 'MEDIUM',
+      severity: 'INFO',
+    })
+
     return updated as ITransferWithRelations
   }
 
@@ -600,6 +703,18 @@ class TransfersService {
     })
 
     logger.info('Transfer received', { transferId: id })
+
+    await this.publishTransferEvent({
+      empresaId,
+      eventCode: 'inventory.transfer.received',
+      transfer: updated,
+      userId,
+      title: `Transferencia ${updated.transferNumber} recibida`,
+      message: `La transferencia ${updated.transferNumber} fue recibida.`,
+      type: 'success',
+      priority: 'MEDIUM',
+      severity: 'SUCCESS',
+    })
 
     return updated as ITransferWithRelations
   }
@@ -733,8 +848,23 @@ class TransfersService {
       transferId: id,
       previousStatus: transfer.status,
     })
+    const cancelled = await this.findById(id, empresaId, db)
 
-    return this.findById(id, empresaId, db)
+    await this.publishTransferEvent({
+      empresaId,
+      eventCode: 'inventory.transfer.cancelled',
+      transfer: cancelled,
+      userId,
+      title: `Transferencia ${cancelled.transferNumber} cancelada`,
+      message: `La transferencia ${cancelled.transferNumber} fue cancelada.`,
+      type: 'warning',
+      priority: 'HIGH',
+      severity: 'WARNING',
+      dedupSuffix: transfer.status,
+      extraMetadata: { previousStatus: transfer.status },
+    })
+
+    return cancelled
   }
 
   /**

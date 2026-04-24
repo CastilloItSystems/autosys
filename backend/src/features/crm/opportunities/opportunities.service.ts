@@ -2,6 +2,8 @@ import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { BadRequestError, NotFoundError } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import {
   CloseOpportunityDTO,
   CreateOpportunityDTO,
@@ -110,6 +112,40 @@ class OpportunitiesService {
     })
 
     logger.info(`CRM - Oportunidad creada: ${created.id}`, { empresaId, channel: dto.channel })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.opportunity.created',
+          module: 'crm',
+          title: `Oportunidad creada: ${created.title}`,
+          message: `Se creó la oportunidad ${created.title}.`,
+          type: 'info',
+          entityType: 'OPPORTUNITY',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/oportunidades/${created.id}`,
+          source: 'crm.opportunities',
+          dedupKey: `crm.opportunity.created:${created.id}`,
+          metadata: {
+            opportunityId: created.id,
+            title: created.title,
+            stageCode: created.stageCode,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.opportunity.created', {
+        opportunityId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IOpportunity
   }
 
@@ -263,6 +299,39 @@ class OpportunitiesService {
       },
     })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.opportunity.stage_changed',
+          module: 'crm',
+          title: `Oportunidad actualizada: ${updated.title}`,
+          message: `La oportunidad ${updated.title} cambió de ${row.stageCode} a ${dto.stageCode}.`,
+          type: 'info',
+          entityType: 'OPPORTUNITY',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/oportunidades/${updated.id}`,
+          source: 'crm.opportunities',
+          dedupKey: `crm.opportunity.stage_changed:${updated.id}:${dto.stageCode}`,
+          metadata: {
+            opportunityId: updated.id,
+            previousStage: row.stageCode,
+            stageCode: dto.stageCode,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.opportunity.stage_changed', {
+        opportunityId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IOpportunity
   }
 
@@ -310,6 +379,43 @@ class OpportunitiesService {
         },
       },
     })
+
+    const eventCode =
+      status === 'WON' ? 'crm.opportunity.won' : 'crm.opportunity.lost'
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode,
+          module: 'crm',
+          title: `Oportunidad cerrada: ${updated.title}`,
+          message: `La oportunidad ${updated.title} se cerró como ${status}.`,
+          type: status === 'WON' ? 'success' : 'warning',
+          entityType: 'OPPORTUNITY',
+          entityId: updated.id,
+          priority: 'HIGH',
+          severity: status === 'WON' ? 'SUCCESS' : 'WARNING',
+          link: `/empresa/crm/oportunidades/${updated.id}`,
+          source: 'crm.opportunities',
+          dedupKey: `${eventCode}:${updated.id}`,
+          metadata: {
+            opportunityId: updated.id,
+            result: status,
+            lostReasonId: dto.lostReasonId ?? null,
+            lostReasonText: dto.lostReasonText ?? null,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento de cierre de oportunidad', {
+        opportunityId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return updated as unknown as IOpportunity
   }

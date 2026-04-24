@@ -1755,6 +1755,8 @@ model Empresa {
 
   memberships     Membership[]
   companyRoles    CompanyRole[]
+  notificationPolicies NotificationCompanyPolicy[]
+  notifications        Notification[]
 
   warehouses      Warehouse[]
   items           Item[]
@@ -3738,6 +3740,7 @@ model Membership {
   updatedAt   DateTime             @updatedAt
 
   permissions MembershipPermission[]
+  notificationPreferences NotificationMembershipPreference[]
 
   @@unique([userId, empresaId])
   @@index([userId])
@@ -3745,6 +3748,7 @@ model Membership {
   @@index([roleId])
   @@map("memberships")
 }
+
 
 enum PermissionAction {
   GRANT
@@ -3770,6 +3774,102 @@ model MembershipPermission {
   @@index([permissionId])
   @@map("membership_permissions")
 }
+
+enum NotificationPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum NotificationSeverity {
+  INFO
+  WARNING
+  ERROR
+  SUCCESS
+}
+
+enum NotificationChannel {
+  IN_APP
+}
+
+model Notification {
+  id            String   @id @default(cuid())
+  empresaId     String
+  userId        String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+  eventCode     String
+  module        String
+  channel       NotificationChannel @default(IN_APP)
+  title         String
+  message       String
+  type          String   @default("info")
+  entityType    String?
+  entityId      String?
+  priority      NotificationPriority @default(MEDIUM)
+  severity      NotificationSeverity @default(INFO)
+  link          String?
+  source        String?
+  dedupKey      String?
+  isMandatory   Boolean  @default(false)
+  read          Boolean  @default(false)
+  readAt        DateTime?
+  readBy        String?
+  eliminado     Boolean  @default(false)
+  createdBy     String?
+  createdByName String?
+  metadata      Json?    @db.JsonB
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([empresaId, userId, createdAt])
+  @@index([empresaId, userId, read, eliminado, createdAt])
+  @@index([userId, read, eliminado])
+  @@index([empresaId, eventCode, createdAt])
+  @@index([empresaId, module, createdAt])
+  @@index([empresaId, userId, dedupKey, createdAt])
+  @@index([empresaId, eventCode, dedupKey, createdAt])
+  @@index([empresaId, entityType, entityId])
+  @@map("notifications")
+}
+
+model NotificationCompanyPolicy {
+  id                     String   @id @default(cuid())
+  empresaId              String
+  eventCode              String
+  enabled                Boolean  @default(true)
+  mandatory              Boolean  @default(false)
+  requiredPermissionsAny String[]
+  dedupWindowSec         Int      @default(300)
+  updatedBy              String?
+  updatedByName          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  empresa                Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  @@unique([empresaId, eventCode])
+  @@index([empresaId, enabled])
+  @@map("notification_company_policies")
+}
+
+model NotificationMembershipPreference {
+  id            String      @id @default(cuid())
+  membershipId  String
+  eventCode     String
+  enabled       Boolean     @default(true)
+  updatedBy     String?
+  updatedByName String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  membership    Membership  @relation(fields: [membershipId], references: [id], onDelete: Cascade)
+
+  @@unique([membershipId, eventCode])
+  @@index([eventCode])
+  @@map("notification_membership_preferences")
+}
+
 
 model Permission {
   id                    String                  @id @default(cuid())

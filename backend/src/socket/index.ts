@@ -1,8 +1,10 @@
 import { Server as SocketIOServer, Socket } from 'socket.io'
 import { Server as HTTPServer } from 'http'
+import { randomUUID } from 'crypto'
 import jwt from 'jsonwebtoken'
 import { corsConfig } from '../config/cors.config.js'
 import { logger } from '../shared/utils/logger.js'
+import prisma from '../services/prisma.service.js'
 
 let io: SocketIOServer
 
@@ -10,7 +12,7 @@ let io: SocketIOServer
 // Types
 // ==============================
 interface AuthPayload {
-  sub: string // userId
+  userId?: string
   empresaId?: string
   role?: string
 }
@@ -47,17 +49,51 @@ interface PaymentPayload {
 }
 
 interface NotificationPayload {
-  userId: string
   notification: {
+    id?: string
+    empresaId?: string
+    module?: string
     title: string
     message: string
     type?: string
+    entityType?: string
+    entityId?: string
+    eventCode?: string
+    priority?: string
+    severity?: string
+    link?: string
+    read?: boolean
+    metadata?: Record<string, any>
+    createdAt?: string | Date
+    createdBy?: {
+      id?: string
+      nombre?: string
+    }
   }
 }
 
 // ==============================
 // Helpers
 // ==============================
+const ROLE_ALIASES: Record<string, string> = {
+  MANAGER: 'GERENTE',
+  SELLER: 'VENDEDOR',
+  CASHIER: 'CAJERO',
+  WAREHOUSE: 'ALMACENISTA',
+}
+
+const normalizeRoleName = (role?: string): string | undefined => {
+  if (!role || typeof role !== 'string') return undefined
+  const normalized = role.trim().toUpperCase().replace(/\s+/g, '_')
+  return ROLE_ALIASES[normalized] ?? normalized
+}
+
+const resolveUserIdFromPayload = (payload: AuthPayload): string | null => {
+  if (!payload.userId || typeof payload.userId !== 'string') return null
+  const normalized = payload.userId.trim()
+  return normalized || null
+}
+
 const getTokenFromSocket = (socket: Socket): string | null => {
   const authToken = socket.handshake.auth?.token
   if (typeof authToken === 'string' && authToken.trim()) return authToken.trim()
@@ -70,11 +106,39 @@ const getTokenFromSocket = (socket: Socket): string | null => {
   return null
 }
 
+const getEmpresaIdFromSocket = (
+  socket: Socket<any, any, any, SocketData>,
+  payload?: AuthPayload
+): string | undefined => {
+  const authEmpresaId = socket.handshake.auth?.empresaId
+  if (typeof authEmpresaId === 'string' && authEmpresaId.trim()) {
+    return authEmpresaId.trim()
+  }
+
+  const headerEmpresaId = socket.handshake.headers['x-empresa-id']
+  if (typeof headerEmpresaId === 'string' && headerEmpresaId.trim()) {
+    return headerEmpresaId.trim()
+  }
+  if (Array.isArray(headerEmpresaId) && headerEmpresaId[0]?.trim()) {
+    return headerEmpresaId[0].trim()
+  }
+
+  if (payload?.empresaId && typeof payload.empresaId === 'string') {
+    const empresaId = payload.empresaId.trim()
+    return empresaId || undefined
+  }
+
+  return undefined
+}
+
 const hasRole = (
   socket: Socket<any, any, any, SocketData>,
   roles: string[]
 ): boolean => {
-  return socket.data.role ? roles.includes(socket.data.role) : false
+  const currentRole = normalizeRoleName(socket.data.role)
+  if (!currentRole) return false
+
+  return roles.some((role) => normalizeRoleName(role) === currentRole)
 }
 
 // Restringe rooms arbitrarias para evitar abuso
@@ -132,13 +196,56 @@ const isPaymentPayload = (data: unknown): data is PaymentPayload =>
   typeof (data as PaymentPayload).amount === 'number' &&
   typeof (data as PaymentPayload).empresaId === 'string'
 
-const isNotificationPayload = (data: unknown): data is NotificationPayload =>
-  !!data &&
-  typeof data === 'object' &&
-  typeof (data as NotificationPayload).userId === 'string' &&
-  !!(data as NotificationPayload).notification &&
-  typeof (data as NotificationPayload).notification.title === 'string' &&
-  typeof (data as NotificationPayload).notification.message === 'string'
+const buildSocketNotification = (
+  notification: NotificationPayload['notification'],
+  createdBy?: { id?: string; nombre?: string }
+) => {
+  const now = new Date().toISOString()
+  return {
+    id:
+      typeof notification.id === 'string' && notification.id.trim()
+        ? notification.id
+        : randomUUID(),
+    empresaId: notification.empresaId,
+    module: notification.module,
+    title: notification.title,
+    message: notification.message,
+    type: notification.type ?? 'info',
+    entityType: notification.entityType,
+    entityId: notification.entityId,
+    eventCode: notification.eventCode,
+    priority: notification.priority ?? 'MEDIUM',
+    severity: notification.severity ?? 'INFO',
+    link: notification.link,
+    read: notification.read ?? false,
+    metadata: notification.metadata,
+    createdAt:
+      notification.createdAt instanceof Date
+        ? notification.createdAt.toISOString()
+        : typeof notification.createdAt === 'string'
+          ? notification.createdAt
+          : now,
+    createdBy: createdBy ?? notification.createdBy ?? { id: 'SYSTEM', nombre: 'Sistema' },
+  }
+}
+
+export const emitNotificationToUser = (
+  userId: string,
+  notification: NotificationPayload['notification'],
+  createdBy?: { id?: string; nombre?: string }
+) => {
+  if (!io) {
+    logger.warn('Socket.IO: intento de emitir notificación sin inicializar io', {
+      userId,
+    })
+    return
+  }
+
+  io.to(`user-${userId}`).emit(
+    'notifications:received',
+    buildSocketNotification(notification, createdBy)
+  )
+}
 
 // ==============================
 // Init
@@ -153,7 +260,7 @@ export const initSocket = (server: HTTPServer) => {
   })
 
   // Middleware de autenticación
-  io.use((socket, next) => {
+  io.use(async (socket, next) => {
     try {
       const token = getTokenFromSocket(socket)
       if (!token) return next(new Error('Unauthorized: token requerido'))
@@ -164,9 +271,44 @@ export const initSocket = (server: HTTPServer) => {
       }
 
       const payload = jwt.verify(token, secret) as AuthPayload
-      socket.data.userId = payload.sub
-      socket.data.empresaId = payload.empresaId
-      socket.data.role = payload.role
+      const userId = resolveUserIdFromPayload(payload)
+      if (!userId) return next(new Error('Unauthorized: token sin userId'))
+
+      socket.data.userId = userId
+
+      const requestedEmpresaId = getEmpresaIdFromSocket(socket, payload)
+      if (requestedEmpresaId) {
+        const membership = await prisma.membership.findUnique({
+          where: {
+            userId_empresaId: {
+              userId,
+              empresaId: requestedEmpresaId,
+            },
+          },
+          include: {
+            role: {
+              select: { name: true },
+            },
+          },
+        })
+
+        if (!membership) {
+          return next(
+            new Error('Forbidden: no tienes acceso a la empresa seleccionada')
+          )
+        }
+        if (membership.status !== 'active') {
+          return next(
+            new Error('Forbidden: tu membresía de empresa no está activa')
+          )
+        }
+
+        socket.data.empresaId = requestedEmpresaId
+        socket.data.role = normalizeRoleName(membership.role?.name)
+      } else {
+        // Compatibilidad temporal: conexión por usuario (sin empresa activa)
+        socket.data.role = normalizeRoleName(payload.role)
+      }
 
       return next()
     } catch (error: unknown) {
@@ -228,9 +370,8 @@ export const initSocket = (server: HTTPServer) => {
     // INVENTORY
     socket.on('inventory:stock-update', (data: unknown) => {
       if (!isStockUpdatePayload(data)) return
-      if (!hasRole(socket, ['ADMIN', 'MANAGER'])) return
-      if (socket.data.empresaId && socket.data.empresaId !== data.empresaId)
-        return
+      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE'])) return
+      if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Actualización de stock', {
         productId: data.productId,
@@ -242,9 +383,11 @@ export const initSocket = (server: HTTPServer) => {
 
     socket.on('inventory:low-stock-alert', (data: unknown) => {
       if (!isLowStockPayload(data)) return
-      if (!hasRole(socket, ['ADMIN', 'MANAGER', 'SELLER'])) return
-      if (socket.data.empresaId && socket.data.empresaId !== data.empresaId)
+      if (
+        !hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'VENDEDOR', 'ALMACENISTA'])
+      )
         return
+      if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.warn('Socket.IO: Alerta de stock bajo', {
         productId: data.productId,
@@ -261,9 +404,9 @@ export const initSocket = (server: HTTPServer) => {
     // SALES
     socket.on('sales:new-order', (data: unknown) => {
       if (!isNewOrderPayload(data)) return
-      if (!hasRole(socket, ['ADMIN', 'MANAGER', 'SELLER'])) return
-      if (socket.data.empresaId && socket.data.empresaId !== data.empresaId)
+      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'VENDEDOR']))
         return
+      if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Nueva orden de venta', {
         orderId: data.orderId,
@@ -275,9 +418,9 @@ export const initSocket = (server: HTTPServer) => {
 
     socket.on('sales:payment-received', (data: unknown) => {
       if (!isPaymentPayload(data)) return
-      if (!hasRole(socket, ['ADMIN', 'MANAGER', 'CASHIER'])) return
-      if (socket.data.empresaId && socket.data.empresaId !== data.empresaId)
+      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'CAJERO']))
         return
+      if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Pago recibido', {
         orderId: data.orderId,
@@ -288,13 +431,9 @@ export const initSocket = (server: HTTPServer) => {
     })
 
     // NOTIFICATIONS
-    socket.on('notification:send', (data: unknown) => {
-      if (!isNotificationPayload(data)) return
-      if (!hasRole(socket, ['ADMIN', 'MANAGER'])) return
-
-      io.to(`user-${data.userId}`).emit(
-        'notification:received',
-        data.notification
+    socket.on('notification:send', (_data: unknown) => {
+      logger.warn(
+        'Socket.IO: notification:send está deshabilitado; use NotificationOrchestrator'
       )
     })
 

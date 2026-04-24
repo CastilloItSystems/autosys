@@ -109,6 +109,45 @@ export const PERMISSION_CATALOG = [
   { code: 'reports.export', description: 'Exportar reportes' },
   { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
 
+  // Notificaciones
+  { code: 'notifications.view', description: 'Ver centro de notificaciones' },
+  {
+    code: 'notifications.manage_policy',
+    description: 'Gestionar políticas de notificación por empresa',
+  },
+  {
+    code: 'inventory.notifications.view',
+    description: 'Ver notificaciones del módulo de inventario',
+  },
+  {
+    code: 'sales.notifications.view',
+    description: 'Ver notificaciones del módulo de ventas',
+  },
+  {
+    code: 'purchases.notifications.view',
+    description: 'Ver notificaciones del módulo de compras',
+  },
+  {
+    code: 'workshop.notifications.view',
+    description: 'Ver notificaciones del módulo de taller',
+  },
+  {
+    code: 'crm.notifications.view',
+    description: 'Ver notificaciones del módulo de CRM',
+  },
+  {
+    code: 'dealer.notifications.view',
+    description: 'Ver notificaciones del módulo de concesionario',
+  },
+  {
+    code: 'exchange_rates.notifications.view',
+    description: 'Ver notificaciones del módulo de tasas de cambio',
+  },
+  {
+    code: 'system.notifications.view',
+    description: 'Ver notificaciones del módulo de sistema',
+  },
+
   // CRM: Clientes
   { code: 'crm.customers.view', description: 'Ver clientes CRM' },
   { code: 'crm.customers.create', description: 'Crear clientes CRM' },
@@ -287,6 +326,42 @@ const ALL_EXCHANGE_RATES = [
   'exchange_rates.delete',
 ]
 
+const NOTIFICATIONS_VIEW = ['notifications.view']
+const NOTIFICATIONS_MODULES_ALL = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+  'system.notifications.view',
+]
+const NOTIFICATIONS_MODULES_NO_SYSTEM = [
+  'inventory.notifications.view',
+  'sales.notifications.view',
+  'purchases.notifications.view',
+  'workshop.notifications.view',
+  'crm.notifications.view',
+  'dealer.notifications.view',
+  'exchange_rates.notifications.view',
+]
+const NOTIFICATIONS_MODULES_VENDEDOR = [
+  'sales.notifications.view',
+  'crm.notifications.view',
+  'inventory.notifications.view',
+  'dealer.notifications.view',
+]
+const NOTIFICATIONS_MODULES_ALMACENISTA = [
+  'inventory.notifications.view',
+  'purchases.notifications.view',
+]
+const NOTIFICATIONS_MANAGE = [
+  'notifications.view',
+  'notifications.manage_policy',
+  ...NOTIFICATIONS_MODULES_ALL,
+]
+
 const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
   OWNER: [
     'users.view',
@@ -356,6 +431,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -429,6 +505,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -498,6 +575,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
@@ -535,6 +613,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     ...CRM_CASES_VENDEDOR,
     'dealer.view',
     'exchange_rates.view',
+    ...NOTIFICATIONS_VIEW,
+    ...NOTIFICATIONS_MODULES_ALMACENISTA,
   ],
   VENDEDOR: [
     'inventory.view',
@@ -573,6 +653,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'dealer.create',
     'dealer.update',
     'exchange_rates.view',
+    ...NOTIFICATIONS_VIEW,
+    ...NOTIFICATIONS_MODULES_VENDEDOR,
   ],
   VIEWER: [
     'users.view',
@@ -593,6 +675,8 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'workshop.view',
     'dealer.view',
     'exchange_rates.view',
+    ...NOTIFICATIONS_VIEW,
+    ...NOTIFICATIONS_MODULES_NO_SYSTEM,
   ],
 }
 
@@ -620,6 +704,36 @@ export async function ensurePermissionCatalog(): Promise<void> {
  * Safe to call on existing empresas: roles are upserted and their
  * permissions are fully replaced each time (re-sync).
  */
+/**
+ * Creates default notification policies for an empresa from the catalog.
+ * Uses skipDuplicates so existing customized policies are never overwritten.
+ * Safe to call on startup or when a new empresa is created.
+ */
+export async function seedDefaultNotificationPoliciesForEmpresa(
+  empresaId: string
+): Promise<void> {
+  const { getNotificationCatalog } = await import(
+    '../features/notifications/notifications.catalog.js'
+  )
+  const catalog = getNotificationCatalog()
+
+  const data = catalog.map((item) => ({
+    empresaId,
+    eventCode: item.eventCode,
+    enabled: item.defaultEnabled,
+    mandatory: item.defaultMandatory,
+    requiredPermissionsAny: item.requiredPermissionsAny,
+    dedupWindowSec: item.defaultDedupWindowSec,
+    updatedBy: 'SYSTEM',
+    updatedByName: 'Sistema',
+  }))
+
+  await prisma.notificationCompanyPolicy.createMany({
+    data,
+    skipDuplicates: true,
+  })
+}
+
 export async function seedDefaultRolesForEmpresa(
   empresaId: string
 ): Promise<void> {

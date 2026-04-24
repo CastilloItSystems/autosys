@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerReservationDTO, UpdateDealerReservationDTO } from './reservations.dto.js'
 import { IDealerReservation, IDealerReservationFilters } from './reservations.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -148,6 +150,42 @@ class DealerReservationsService {
     }
 
     logger.info('Dealer reservation creada', { id: created.id, reservationNumber, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.reservation.created',
+          module: 'dealer',
+          title: `Reserva ${created.reservationNumber} creada`,
+          message: `Se creó la reserva ${created.reservationNumber}.`,
+          type: 'info',
+          entityType: 'DEALER_RESERVATION',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: '/empresa/concesionario/reservations',
+          source: 'dealer.reservations',
+          dedupKey: `dealer.reservation.created:${created.id}`,
+          metadata: {
+            reservationId: created.id,
+            reservationNumber: created.reservationNumber,
+            status: created.status,
+            dealerUnitId: created.dealerUnitId,
+            customerId: created.customerId,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.reservation.created', {
+        reservationId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerReservation
   }
 
@@ -281,6 +319,50 @@ class DealerReservationsService {
     }
 
     logger.info('Dealer reservation actualizada', { id, empresaId, userId, status: newStatus })
+
+    if (statusChanged) {
+      const isWarningStatus =
+        newStatus === DealerReservationStatus.CANCELLED ||
+        newStatus === DealerReservationStatus.EXPIRED
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.reservation.status_changed',
+            module: 'dealer',
+            title: `Reserva ${updated.reservationNumber} actualizada`,
+            message: `La reserva cambió de ${current.status} a ${newStatus}.`,
+            type: isWarningStatus ? 'warning' : 'info',
+            entityType: 'DEALER_RESERVATION',
+            entityId: updated.id,
+            priority: isWarningStatus ? 'HIGH' : 'MEDIUM',
+            severity: isWarningStatus ? 'WARNING' : 'INFO',
+            link: '/empresa/concesionario/reservations',
+            source: 'dealer.reservations',
+            dedupKey: `dealer.reservation.status_changed:${updated.id}:${newStatus}`,
+            metadata: {
+              reservationId: updated.id,
+              reservationNumber: updated.reservationNumber,
+              previousStatus: current.status,
+              status: newStatus,
+              dealerUnitId: updated.dealerUnitId,
+              customerId: updated.customerId,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.reservation.status_changed', {
+          reservationId: updated.id,
+          empresaId,
+          status: newStatus,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as IDealerReservation
   }
 
@@ -309,6 +391,44 @@ class DealerReservationsService {
     }
 
     logger.info('Dealer reservation desactivada', { id, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.reservation.status_changed',
+          module: 'dealer',
+          title: `Reserva ${current.reservationNumber} cancelada`,
+          message: `La reserva cambió de ${current.status} a CANCELLED.`,
+          type: 'warning',
+          entityType: 'DEALER_RESERVATION',
+          entityId: current.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: '/empresa/concesionario/reservations',
+          source: 'dealer.reservations',
+          dedupKey: `dealer.reservation.status_changed:${current.id}:CANCELLED`,
+          metadata: {
+            reservationId: current.id,
+            reservationNumber: current.reservationNumber,
+            previousStatus: current.status,
+            status: DealerReservationStatus.CANCELLED,
+            dealerUnitId: current.dealerUnitId,
+            customerId: current.customerId,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.reservation.status_changed', {
+        reservationId: current.id,
+        empresaId,
+        status: DealerReservationStatus.CANCELLED,
+        error: publishError,
+      })
+    }
+
     return { success: true, id }
   }
 }

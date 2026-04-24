@@ -10,6 +10,8 @@ import {
 } from '../../../shared/utils/apiError.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import {
   IEntryNoteWithRelations,
   IEntryNoteItem,
@@ -203,6 +205,41 @@ export class EntryNoteService {
       empresaId,
       userId,
     })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'inventory.entry_note.created',
+          module: 'inventory',
+          title: `Nota de entrada ${entryNote.entryNoteNumber} creada`,
+          message: `Se creó la nota de entrada ${entryNote.entryNoteNumber}.`,
+          type: 'info',
+          entityType: 'ENTRY_NOTE',
+          entityId: entryNote.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/inventario`,
+          source: 'inventory.entry_notes',
+          dedupKey: `inventory.entry_note.created:${entryNote.id}`,
+          metadata: {
+            entryNoteId: entryNote.id,
+            entryNoteNumber: entryNote.entryNoteNumber,
+            status: entryNote.status,
+            warehouseId: entryNote.warehouseId,
+            type: entryNote.type,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento inventory.entry_note.created', {
+        entryNoteId: entryNote.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return entryNote as unknown as IEntryNoteWithRelations
   }

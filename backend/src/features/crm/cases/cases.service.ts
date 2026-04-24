@@ -4,6 +4,8 @@ import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreateCaseDTO, UpdateCaseDTO, UpdateCaseStatusDTO, AddCommentDTO } from './cases.dto.js'
 import { ICase, ICaseFilters } from './cases.interface.js'
 
@@ -128,6 +130,40 @@ class CasesService {
     })
 
     logger.info(`CRM - Caso creado: ${caseRecord.id}`, { caseNumber, empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.case.opened',
+          module: 'crm',
+          title: `Caso ${caseRecord.caseNumber} abierto`,
+          message: `Se abrió el caso ${caseRecord.caseNumber}.`,
+          type: 'info',
+          entityType: 'CASE',
+          entityId: caseRecord.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/casos/${caseRecord.id}`,
+          source: 'crm.cases',
+          dedupKey: `crm.case.opened:${caseRecord.id}`,
+          metadata: {
+            caseId: caseRecord.id,
+            caseNumber: caseRecord.caseNumber,
+            priority: caseRecord.priority,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.case.opened', {
+        caseId: caseRecord.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return caseRecord as unknown as ICase
   }
 
@@ -325,6 +361,50 @@ class CasesService {
     })
 
     logger.info(`CRM - Caso estado actualizado: ${id} → ${dto.status}`, { empresaId })
+
+    const eventCodeByStatus: Record<string, string | undefined> = {
+      ESCALATED: 'crm.case.escalated',
+      CLOSED: 'crm.case.closed',
+    }
+    const eventCode = eventCodeByStatus[dto.status]
+
+    if (eventCode) {
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode,
+            module: 'crm',
+            title: `Caso ${updated.caseNumber} actualizado`,
+            message: `El caso ${updated.caseNumber} cambió de ${currentStatus} a ${dto.status}.`,
+            type: dto.status === 'CLOSED' ? 'success' : 'warning',
+            entityType: 'CASE',
+            entityId: updated.id,
+            priority: dto.status === 'ESCALATED' ? 'HIGH' : 'MEDIUM',
+            severity: dto.status === 'ESCALATED' ? 'WARNING' : 'SUCCESS',
+            link: `/empresa/crm/casos/${updated.id}`,
+            source: 'crm.cases',
+            dedupKey: `${eventCode}:${updated.id}`,
+            metadata: {
+              caseId: updated.id,
+              caseNumber: updated.caseNumber,
+              previousStatus: currentStatus,
+              status: dto.status,
+            },
+            createdById: 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento de estado de caso CRM', {
+          caseId: updated.id,
+          empresaId,
+          status: dto.status,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as ICase
   }
 

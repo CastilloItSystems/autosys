@@ -9,7 +9,9 @@ import { Skeleton } from "primereact/skeleton";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { motion } from "framer-motion";
-import salesReportService, { type SalesDashboard } from "@/app/api/sales/reportService";
+import salesReportService, {
+  type SalesDashboard,
+} from "@/app/api/sales/reportService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -58,7 +60,9 @@ export default function SalesDashboard() {
         value: `$${formatCurrency(data?.today.revenue ?? 0)}`,
         icon: "pi pi-dollar",
         color: "blue",
-        subtitle: `${data?.today.invoices ?? 0} facturas · ${data?.today.payments ?? 0} pagos`,
+        subtitle: `${data?.today.invoices ?? 0} facturas · ${
+          data?.today.payments ?? 0
+        } pagos`,
       },
       {
         label: "Facturado Esta Semana",
@@ -79,10 +83,12 @@ export default function SalesDashboard() {
         value: data?.pending.ordersAwaitingApproval ?? 0,
         icon: "pi pi-clock",
         color: "red",
-        subtitle: `${data?.pending.preInvoicesAwaitingPayment ?? 0} prefacturas pendientes`,
+        subtitle: `${
+          data?.pending.preInvoicesAwaitingPayment ?? 0
+        } prefacturas pendientes`,
       },
     ],
-    [data]
+    [data],
   );
 
   // ── Skeleton ──────────────────────────────────────────────────────────────────
@@ -167,7 +173,9 @@ export default function SalesDashboard() {
             >
               <div className="flex justify-content-between align-items-center mb-2">
                 <div>
-                  <span className="block text-500 font-medium mb-1 text-sm">{kpi.label}</span>
+                  <span className="block text-500 font-medium mb-1 text-sm">
+                    {kpi.label}
+                  </span>
                   <div className="text-900 font-bold text-2xl">{kpi.value}</div>
                 </div>
                 <div
@@ -192,15 +200,22 @@ export default function SalesDashboard() {
         <div className="col-12 md:col-4">
           <Card title="Ingresos por Moneda (Mes)" className="h-full">
             <div className="flex flex-column gap-3">
-              {Object.entries(data?.byCurrency ?? {}).map(([currency, amount]) => (
-                <div key={currency} className="flex justify-content-between align-items-center">
-                  <Tag
-                    value={currency}
-                    severity={CURRENCY_SEVERITY[currency] ?? "info"}
-                  />
-                  <span className="font-semibold">{formatCurrency(amount as number)}</span>
-                </div>
-              ))}
+              {Object.entries(data?.byCurrency ?? {}).map(
+                ([currency, amount]) => (
+                  <div
+                    key={currency}
+                    className="flex justify-content-between align-items-center"
+                  >
+                    <Tag
+                      value={currency}
+                      severity={CURRENCY_SEVERITY[currency] ?? "info"}
+                    />
+                    <span className="font-semibold">
+                      {formatCurrency(amount as number)}
+                    </span>
+                  </div>
+                ),
+              )}
             </div>
           </Card>
         </div>
@@ -221,7 +236,11 @@ export default function SalesDashboard() {
               responsiveLayout="scroll"
               emptyMessage="Sin facturas recientes"
             >
-              <Column field="invoiceNumber" header="Nro. Factura" style={{ width: "130px" }} />
+              <Column
+                field="invoiceNumber"
+                header="Nro. Factura"
+                style={{ width: "130px" }}
+              />
               <Column field="customerName" header="Cliente" />
               <Column
                 field="invoiceDate"
@@ -249,7 +268,9 @@ export default function SalesDashboard() {
                 header="Total"
                 style={{ width: "120px" }}
                 body={(row) => (
-                  <span className="font-semibold">{formatCurrency(row.total)}</span>
+                  <span className="font-semibold">
+                    {formatCurrency(row.total)}
+                  </span>
                 )}
               />
             </DataTable>

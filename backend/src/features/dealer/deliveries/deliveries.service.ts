@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerDeliveryDTO, UpdateDealerDeliveryDTO } from './deliveries.dto.js'
 import { IDealerDelivery, IDealerDeliveryFilters } from './deliveries.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -108,6 +110,43 @@ class DealerDeliveriesService {
     }
 
     logger.info('Dealer delivery creada', { id: created.id, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.delivery.created',
+          module: 'dealer',
+          title: `Entrega ${created.deliveryNumber} creada`,
+          message: `Se creó la entrega ${created.deliveryNumber}.`,
+          type: 'info',
+          entityType: 'DEALER_DELIVERY',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: '/empresa/concesionario/deliveries',
+          source: 'dealer.deliveries',
+          dedupKey: `dealer.delivery.created:${created.id}`,
+          metadata: {
+            deliveryId: created.id,
+            deliveryNumber: created.deliveryNumber,
+            status: created.status,
+            dealerUnitId: created.dealerUnitId,
+            customerId: created.customerId,
+            scheduledAt: created.scheduledAt,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.delivery.created', {
+        deliveryId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerDelivery
   }
 
@@ -216,6 +255,59 @@ class DealerDeliveriesService {
     }
 
     logger.info('Dealer delivery actualizada', { id, empresaId, userId })
+
+    if (status && current.status !== status) {
+      const isWarningStatus = status === DealerDeliveryStatus.CANCELLED
+      const isSuccessStatus = status === DealerDeliveryStatus.DELIVERED
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.delivery.status_changed',
+            module: 'dealer',
+            title: `Entrega ${updated.deliveryNumber} actualizada`,
+            message: `La entrega cambió de ${current.status} a ${status}.`,
+            type: isWarningStatus
+              ? 'warning'
+              : isSuccessStatus
+                ? 'success'
+                : 'info',
+            entityType: 'DEALER_DELIVERY',
+            entityId: updated.id,
+            priority: isWarningStatus || isSuccessStatus ? 'HIGH' : 'MEDIUM',
+            severity: isWarningStatus
+              ? 'WARNING'
+              : isSuccessStatus
+                ? 'SUCCESS'
+                : 'INFO',
+            link: '/empresa/concesionario/deliveries',
+            source: 'dealer.deliveries',
+            dedupKey: `dealer.delivery.status_changed:${updated.id}:${status}`,
+            metadata: {
+              deliveryId: updated.id,
+              deliveryNumber: updated.deliveryNumber,
+              previousStatus: current.status,
+              status,
+              dealerUnitId: updated.dealerUnitId,
+              customerId: updated.customerId,
+              scheduledAt: updated.scheduledAt,
+              deliveredAt: updated.deliveredAt,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.delivery.status_changed', {
+          deliveryId: updated.id,
+          empresaId,
+          status,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as IDealerDelivery
   }
 

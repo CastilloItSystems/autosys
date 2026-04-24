@@ -23,6 +23,7 @@ model Membership {
   updatedAt   DateTime             @updatedAt
 
   permissions MembershipPermission[]
+  notificationPreferences NotificationMembershipPreference[]
 
   @@unique([userId, empresaId])
   @@index([userId])

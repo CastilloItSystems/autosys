@@ -8,10 +8,14 @@ import { initSocket } from './socket/index.js'
 import {
   ensurePermissionCatalog,
   seedDefaultRolesForEmpresa,
+  seedDefaultNotificationPoliciesForEmpresa,
 } from './services/empresa-setup.service.js'
 import SocketService from './features/inventory/shared/events/socket.service.js'
+import { registerInventoryRealtimeBridge } from './features/inventory/shared/events/realtime.bridge.js'
+import { registerNotificationsBridge } from './features/notifications/notifications.bridge.js'
 import { startCrmAutomationScheduler } from './features/crm/automations/crm-automations.service.js'
 import { initBcvFetchJob } from './features/exchangeRates/bcv/bcvFetch.job.js'
+import { initNotificationsCleanupJob } from './features/notifications/notifications.cleanup.job.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -23,6 +27,8 @@ const io = initSocket(server)
 
 // Initialize Inventory SocketService
 SocketService.getInstance().initialize(io)
+registerNotificationsBridge()
+registerInventoryRealtimeBridge()
 
 /**
  * Inicia el servidor HTTP y espera hasta que esté escuchando.
@@ -60,8 +66,9 @@ export const startServer = async (): Promise<void> => {
     })
     for (const empresa of empresas) {
       await seedDefaultRolesForEmpresa(empresa.id_empresa)
+      await seedDefaultNotificationPoliciesForEmpresa(empresa.id_empresa)
     }
-    logger.info(`✅ Roles sincronizados para ${empresas.length} empresa(s)`)
+    logger.info(`✅ Roles y políticas sincronizados para ${empresas.length} empresa(s)`)
 
     // Iniciar servidor HTTP
     await listenServer(port)
@@ -80,6 +87,8 @@ export const startServer = async (): Promise<void> => {
     // BCV fetch automático (L-V 17:15 UTC + retry 18:00 UTC)
     initBcvFetchJob(prisma)
     logger.info('📈 BCV fetch job inicializado')
+
+    initNotificationsCleanupJob()
     logger.info('📦 Módulos disponibles:')
     logger.info('   • Inventory: /api/inventory')
     logger.info('   • Sales: /api/sales')

@@ -6,6 +6,8 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
 import { CreateQuoteDTO, UpdateQuoteDTO, UpdateQuoteStatusDTO } from './quotes.dto.js'
 import { IQuote, IQuoteFilters } from './quotes.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -164,6 +166,43 @@ class QuotesService {
     })
 
     logger.info(`CRM - Cotización creada: ${quote.id}`, { quoteNumber, empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.quote.created',
+          module: 'crm',
+          title: `Cotización ${quote.quoteNumber} creada`,
+          message: `Se creó la cotización ${quote.quoteNumber}.`,
+          type: 'info',
+          entityType: 'CRM_QUOTE',
+          entityId: quote.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/quotes/${quote.id}`,
+          source: 'crm.quotes',
+          dedupKey: `crm.quote.created:${quote.id}`,
+          metadata: {
+            quoteId: quote.id,
+            quoteNumber: quote.quoteNumber,
+            status: quote.status,
+            customerId: quote.customerId,
+            leadId: quote.leadId,
+            total: quote.total,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.quote.created', {
+        quoteId: quote.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return quote as unknown as IQuote
   }
 
@@ -320,7 +359,8 @@ class QuotesService {
     db: PrismaClientType,
     id: string,
     empresaId: string,
-    dto: UpdateQuoteStatusDTO
+    dto: UpdateQuoteStatusDTO,
+    userId?: string
   ): Promise<IQuote> {
     const quote = await (db as PrismaClient).quote.findFirst({
       where: { id, empresaId },
@@ -363,6 +403,58 @@ class QuotesService {
     })
 
     logger.info(`CRM - Cotización estado actualizado: ${id} → ${dto.status}`, { empresaId })
+
+    const isWarningStatus =
+      dto.status === 'REJECTED' || dto.status === 'EXPIRED'
+    const isSuccessStatus =
+      dto.status === 'APPROVED' || dto.status === 'CONVERTED'
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.quote.status_changed',
+          module: 'crm',
+          title: `Cotización ${updated.quoteNumber} actualizada`,
+          message: `La cotización cambió de ${currentStatus} a ${dto.status}.`,
+          type: isWarningStatus
+            ? 'warning'
+            : isSuccessStatus
+              ? 'success'
+              : 'info',
+          entityType: 'CRM_QUOTE',
+          entityId: updated.id,
+          priority: isWarningStatus || isSuccessStatus ? 'HIGH' : 'MEDIUM',
+          severity: isWarningStatus
+            ? 'WARNING'
+            : isSuccessStatus
+              ? 'SUCCESS'
+              : 'INFO',
+          link: `/empresa/crm/quotes/${updated.id}`,
+          source: 'crm.quotes',
+          dedupKey: `crm.quote.status_changed:${updated.id}:${dto.status}`,
+          metadata: {
+            quoteId: updated.id,
+            quoteNumber: updated.quoteNumber,
+            previousStatus: currentStatus,
+            status: dto.status,
+            customerId: updated.customerId,
+            leadId: updated.leadId,
+            total: updated.total,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.quote.status_changed', {
+        quoteId: updated.id,
+        empresaId,
+        status: dto.status,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IQuote
   }
 
@@ -456,6 +548,45 @@ class QuotesService {
     })
 
     logger.info(`CRM - Cotización revisada: ${revised.id} (v${newVersion} de ${original.quoteNumber})`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.quote.revised',
+          module: 'crm',
+          title: `Cotización ${revised.quoteNumber} revisada`,
+          message: `Se creó la versión ${revised.version} de la cotización ${revised.quoteNumber}.`,
+          type: 'info',
+          entityType: 'CRM_QUOTE',
+          entityId: revised.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/quotes/${revised.id}`,
+          source: 'crm.quotes',
+          dedupKey: `crm.quote.revised:${revised.id}`,
+          metadata: {
+            quoteId: revised.id,
+            quoteNumber: revised.quoteNumber,
+            version: revised.version,
+            parentId: revised.parentId,
+            status: revised.status,
+            customerId: revised.customerId,
+            leadId: revised.leadId,
+            total: revised.total,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.quote.revised', {
+        quoteId: revised.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return revised as unknown as IQuote
   }
 
@@ -473,7 +604,8 @@ class QuotesService {
       rejectedReason?: string
       // Map de itemId -> true (aprobado) | false (rechazado). Si undefined = aprobación total
       itemApprovals?: Record<string, boolean>
-    }
+    },
+    userId?: string
   ): Promise<IQuote> {
     const quote = await (db as PrismaClient).quote.findFirst({
       where: { id, empresaId },
@@ -524,6 +656,54 @@ class QuotesService {
     })
 
     logger.info(`CRM - Cotización ${newStatus}: ${id} via ${data.approvalChannel}`, { empresaId })
+
+    const eventCode = newStatus === 'APPROVED' ? 'crm.quote.approved' : 'crm.quote.rejected'
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode,
+          module: 'crm',
+          title:
+            newStatus === 'APPROVED'
+              ? `Cotización ${updated.quoteNumber} aprobada`
+              : `Cotización ${updated.quoteNumber} rechazada`,
+          message:
+            newStatus === 'APPROVED'
+              ? `La cotización ${updated.quoteNumber} fue aprobada.`
+              : `La cotización ${updated.quoteNumber} fue rechazada.`,
+          type: newStatus === 'APPROVED' ? 'success' : 'warning',
+          entityType: 'CRM_QUOTE',
+          entityId: updated.id,
+          priority: newStatus === 'APPROVED' ? 'MEDIUM' : 'HIGH',
+          severity: newStatus === 'APPROVED' ? 'SUCCESS' : 'WARNING',
+          link: `/empresa/crm/quotes/${updated.id}`,
+          source: 'crm.quotes',
+          dedupKey: `${eventCode}:${updated.id}`,
+          metadata: {
+            quoteId: updated.id,
+            quoteNumber: updated.quoteNumber,
+            status: updated.status,
+            approvalChannel: updated.approvalChannel,
+            approvedByName: updated.approvedByName,
+            rejectedReason: updated.rejectedReason,
+            customerId: updated.customerId,
+            leadId: updated.leadId,
+            total: updated.total,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error(`Error publicando evento ${eventCode}`, {
+        quoteId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IQuote
   }
 

@@ -76,9 +76,16 @@ class QuotesController {
 
   updateStatus = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
+    const userId = getUserId(req)
     const { id } = req.params as { id: string }
     const dto = new UpdateQuoteStatusDTO(req.body)
-    const quote = await quotesService.updateStatus(req.prisma, id, empresaId, dto)
+    const quote = await quotesService.updateStatus(
+      req.prisma,
+      id,
+      empresaId,
+      dto,
+      userId
+    )
     return ApiResponse.success(res, quote, 'Estado de cotización actualizado exitosamente')
   })
 
@@ -93,8 +100,15 @@ class QuotesController {
 
   approve = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
+    const userId = getUserId(req)
     const { id } = req.params as { id: string }
-    const quote = await quotesService.approve(req.prisma, id, empresaId, req.body)
+    const quote = await quotesService.approve(
+      req.prisma,
+      id,
+      empresaId,
+      req.body,
+      userId
+    )
     return ApiResponse.success(res, quote, 'Cotización procesada exitosamente')
   })
 

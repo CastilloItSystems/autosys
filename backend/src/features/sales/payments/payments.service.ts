@@ -7,6 +7,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreatePaymentDTO } from './payments.dto.js'
 import preInvoicesService from '../preInvoices/preInvoices.service.js'
 import {
@@ -174,6 +176,19 @@ class PaymentsService {
 
     const paymentNumber = generatePaymentNumber()
 
+    let exitNoteNotifyInfo: {
+      id: string
+      exitNoteNumber: string
+      warehouseId: string
+      type: string
+      itemIds: string[]
+    } | null = null
+    let invoiceEmitInfo: {
+      id: string
+      invoiceNumber: string
+      preInvoiceId: string
+    } | null = null
+
     const payment = await (db as PrismaClient).$transaction(async (tx) => {
       // 1. Create Payment
       const created = await tx.payment.create({
@@ -250,6 +265,11 @@ class PaymentsService {
             issuedBy: userId ?? null,
           },
         })
+        invoiceEmitInfo = {
+          id: invoice.id,
+          invoiceNumber,
+          preInvoiceId: data.preInvoiceId,
+        }
 
         // Copy PreInvoice items to Invoice items
         const piItems = preInvoice.items as any[]
@@ -358,6 +378,14 @@ class PaymentsService {
             }
           }
 
+          exitNoteNotifyInfo = {
+            id: exitNote.id,
+            exitNoteNumber,
+            warehouseId,
+            type: 'SALE',
+            itemIds: piItems.map((item) => item.itemId as string),
+          }
+
           logger.info(
             `Factura y despacho generados para PreInvoice ${data.preInvoiceId}`,
             {
@@ -391,6 +419,96 @@ class PaymentsService {
       empresaId,
       userId,
     })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.payment.completed',
+          module: 'sales',
+          title: `Pago ${payment.paymentNumber} completado`,
+          message: `Se procesó un pago por ${payment.amount}.`,
+          type: 'success',
+          entityType: 'PAYMENT',
+          entityId: payment.id,
+          priority: 'MEDIUM',
+          severity: 'SUCCESS',
+          link: `/empresa/ventas/pagos/${payment.id}`,
+          source: 'sales.payments',
+          dedupKey: `sales.payment.completed:${payment.id}`,
+          metadata: {
+            paymentId: payment.id,
+            paymentNumber: payment.paymentNumber,
+            preInvoiceId: payment.preInvoiceId,
+            amount: Number(payment.amount),
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+
+      if (invoiceEmitInfo) {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'sales.invoice.issued',
+            module: 'sales',
+            title: `Factura ${invoiceEmitInfo.invoiceNumber} emitida`,
+            message: `Se emitió la factura ${invoiceEmitInfo.invoiceNumber}.`,
+            type: 'success',
+            entityType: 'INVOICE',
+            entityId: invoiceEmitInfo.id,
+            priority: 'MEDIUM',
+            severity: 'SUCCESS',
+            link: `/empresa/ventas/facturas/${invoiceEmitInfo.id}`,
+            source: 'sales.payments',
+            dedupKey: `sales.invoice.issued:${invoiceEmitInfo.id}`,
+            metadata: {
+              invoiceId: invoiceEmitInfo.id,
+              invoiceNumber: invoiceEmitInfo.invoiceNumber,
+              preInvoiceId: invoiceEmitInfo.preInvoiceId,
+            },
+            createdById: userId ?? 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
+      }
+
+      if (exitNoteNotifyInfo) {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'inventory.exit_note.created',
+            module: 'inventory',
+            title: `Nota de salida ${exitNoteNotifyInfo.exitNoteNumber} creada`,
+            message: `Se generó automáticamente la nota ${exitNoteNotifyInfo.exitNoteNumber}.`,
+            type: 'info',
+            entityType: 'EXIT_NOTE',
+            entityId: exitNoteNotifyInfo.id,
+            priority: 'MEDIUM',
+            severity: 'INFO',
+            link: `/empresa/inventario/notas-salida?search=${encodeURIComponent(exitNoteNotifyInfo.exitNoteNumber)}`,
+            source: 'sales.payments',
+            dedupKey: `inventory.exit_note.created:${exitNoteNotifyInfo.id}`,
+            metadata: {
+              exitNoteId: exitNoteNotifyInfo.id,
+              exitNoteNumber: exitNoteNotifyInfo.exitNoteNumber,
+              warehouseId: exitNoteNotifyInfo.warehouseId,
+              totalItems: exitNoteNotifyInfo.itemIds.length,
+              generatedByPaymentId: payment.id,
+            },
+            createdById: userId ?? 'SYSTEM',
+            createdByName: 'Sistema',
+          })
+        )
+      }
+    } catch (publishError) {
+      logger.error('Error publicando eventos de dominio de pago', {
+        paymentId: payment.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return payment as unknown as IPayment
   }

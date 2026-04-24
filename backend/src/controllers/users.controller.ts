@@ -2,6 +2,7 @@ import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import prisma from '../services/prisma.service.js'
 import r2StorageService from '../services/r2-storage.service.js'
+import { invalidateMembershipsCache } from '../features/notifications/memberships-permissions.cache.js'
 
 export const uploadProfilePicture = async (req: Request, res: Response) => {
   try {
@@ -273,6 +274,9 @@ export const updateUser = async (req: Request, res: Response) => {
       },
     })
 
+    if (userData.estado !== undefined || userData.eliminado !== undefined) {
+      invalidateMembershipsCache()
+    }
     return res.json(updatedUser)
   } catch (error) {
     console.error('Error actualizando usuario:', error)
@@ -302,6 +306,7 @@ export const deleteUser = async (req: Request, res: Response) => {
       data: { eliminado: true },
     })
 
+    invalidateMembershipsCache()
     return res.status(204).send()
   } catch (error) {
     console.error('Error eliminando usuario:', error)

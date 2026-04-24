@@ -4,6 +4,8 @@ import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreateActivityDTO, UpdateActivityDTO } from './activities.dto.js'
 import { IActivity, IActivityFilters } from './activities.interface.js'
 
@@ -36,6 +38,40 @@ class ActivitiesService {
     })
 
     logger.info(`CRM - Actividad creada: ${activity.id}`, { title: activity.title, customerId: data.customerId, empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.activity.created',
+          module: 'crm',
+          title: `Actividad creada: ${activity.title}`,
+          message: `Se creó la actividad ${activity.title}.`,
+          type: 'info',
+          entityType: 'ACTIVITY',
+          entityId: activity.id,
+          priority: 'LOW',
+          severity: 'INFO',
+          link: `/empresa/crm/actividades/${activity.id}`,
+          source: 'crm.activities',
+          dedupKey: `crm.activity.created:${activity.id}`,
+          metadata: {
+            activityId: activity.id,
+            title: activity.title,
+            dueAt: activity.dueAt,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.activity.created', {
+        activityId: activity.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return activity as unknown as IActivity
   }
 
@@ -125,6 +161,40 @@ class ActivitiesService {
     })
 
     logger.info(`CRM - Actividad completada: ${id}`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.activity.completed',
+          module: 'crm',
+          title: `Actividad completada: ${updated.title}`,
+          message: `Se completó la actividad ${updated.title}.`,
+          type: 'success',
+          entityType: 'ACTIVITY',
+          entityId: updated.id,
+          priority: 'LOW',
+          severity: 'SUCCESS',
+          link: `/empresa/crm/actividades/${updated.id}`,
+          source: 'crm.activities',
+          dedupKey: `crm.activity.completed:${updated.id}`,
+          metadata: {
+            activityId: updated.id,
+            completedBy: userId,
+            completedAt: updated.completedAt,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.activity.completed', {
+        activityId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IActivity
   }
 

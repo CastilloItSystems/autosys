@@ -7,6 +7,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { IInvoice, InvoiceStatus, IInvoiceFilters } from './invoices.interface.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
@@ -127,6 +129,39 @@ class InvoicesService {
       reason: cancellationReason,
       empresaId,
     })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.invoice.cancelled',
+          module: 'sales',
+          title: `Factura ${updated.invoiceNumber} anulada`,
+          message: `La factura ${updated.invoiceNumber} fue anulada.`,
+          type: 'warning',
+          entityType: 'INVOICE',
+          entityId: updated.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: `/empresa/ventas/facturas/${updated.id}`,
+          source: 'sales.invoices',
+          dedupKey: `sales.invoice.cancelled:${updated.id}`,
+          metadata: {
+            invoiceId: updated.id,
+            invoiceNumber: updated.invoiceNumber,
+            reason: cancellationReason,
+          },
+          createdById: cancelledBy,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento sales.invoice.cancelled', {
+        invoiceId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return updated as unknown as IInvoice
   }

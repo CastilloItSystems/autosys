@@ -16,6 +16,7 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import inventoryNotificationTriggerService from '../shared/notifications/inventory-notification-trigger.service.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -40,6 +41,11 @@ const EXIT_TYPES = new Set<MovementType>([
   MovementType.ADJUSTMENT_OUT,
   MovementType.SUPPLIER_RETURN,
   MovementType.LOAN_OUT,
+])
+
+const STOCK_DECREASING_TYPES = new Set<MovementType>([
+  ...EXIT_TYPES,
+  MovementType.TRANSFER,
 ])
 
 // ---------------------------------------------------------------------------
@@ -221,6 +227,31 @@ export class MovementService {
       movementNumber: movement.movementNumber,
       type: movement.type,
     })
+
+    try {
+      const movementType = movement.type as MovementType
+      if (
+        movement.warehouseFromId &&
+        STOCK_DECREASING_TYPES.has(movementType)
+      ) {
+        await inventoryNotificationTriggerService.notifyLowStockAfterMovement({
+          empresaId,
+          movementId: movement.id,
+          movementNumber: movement.movementNumber,
+          movementType,
+          warehouseId: movement.warehouseFromId,
+          itemId: movement.itemId,
+          actorUserId: userId,
+        })
+      }
+    } catch (error) {
+      logger.error('Error enviando notificación por stock bajo tras movimiento', {
+        movementId: movement.id,
+        empresaId,
+        userId,
+        error,
+      })
+    }
 
     return movement as IMovementWithRelations
   }

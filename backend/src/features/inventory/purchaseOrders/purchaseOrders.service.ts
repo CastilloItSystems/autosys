@@ -8,6 +8,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import {
@@ -147,6 +149,38 @@ class PurchaseOrderService {
       userId,
     })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.created',
+          module: 'purchases',
+          title: `Orden de compra ${po.orderNumber} creada`,
+          message: `Se creó la orden de compra ${po.orderNumber}.`,
+          type: 'info',
+          entityType: 'PURCHASE_ORDER',
+          entityId: po.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/inventario/ordenes-compra/${po.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.created:${po.id}`,
+          metadata: {
+            purchaseOrderId: po.id,
+            orderNumber: po.orderNumber,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.created', {
+        purchaseOrderId: po.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return enrichWithQuantityPending(
       po as unknown as Record<string, unknown>
     ) as unknown as IPurchaseOrderWithRelations
@@ -268,6 +302,39 @@ class PurchaseOrderService {
         userId,
       }
     )
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.created',
+          module: 'purchases',
+          title: `Orden de compra ${po.orderNumber} creada`,
+          message: `Se creó la orden de compra ${po.orderNumber} con ${data.items.length} item(s).`,
+          type: 'info',
+          entityType: 'PURCHASE_ORDER',
+          entityId: po.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/inventario/ordenes-compra/${po.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.created:${po.id}`,
+          metadata: {
+            purchaseOrderId: po.id,
+            orderNumber: po.orderNumber,
+            itemsCount: data.items.length,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.created', {
+        purchaseOrderId: po.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return enrichWithQuantityPending(
       po as unknown as Record<string, unknown>
@@ -606,6 +673,38 @@ class PurchaseOrderService {
 
     logger.info(`Orden de compra aprobada: ${id}`, { approvedBy, empresaId })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.approved',
+          module: 'purchases',
+          title: `Orden de compra ${updated.orderNumber} aprobada`,
+          message: `La orden de compra ${updated.orderNumber} fue aprobada.`,
+          type: 'success',
+          entityType: 'PURCHASE_ORDER',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'SUCCESS',
+          link: `/empresa/inventario/ordenes-compra/${updated.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.approved:${updated.id}`,
+          metadata: {
+            purchaseOrderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: approvedBy,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.approved', {
+        purchaseOrderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return enrichWithQuantityPending(
       updated as unknown as Record<string, unknown>
     ) as unknown as IPurchaseOrderWithRelations
@@ -640,6 +739,38 @@ class PurchaseOrderService {
     })
 
     logger.info(`Orden de compra cancelada: ${id}`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.cancelled',
+          module: 'purchases',
+          title: `Orden de compra ${updated.orderNumber} cancelada`,
+          message: `La orden de compra ${updated.orderNumber} fue cancelada.`,
+          type: 'warning',
+          entityType: 'PURCHASE_ORDER',
+          entityId: updated.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: `/empresa/inventario/ordenes-compra/${updated.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.cancelled:${updated.id}`,
+          metadata: {
+            purchaseOrderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.cancelled', {
+        purchaseOrderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return enrichWithQuantityPending(
       updated as unknown as Record<string, unknown>

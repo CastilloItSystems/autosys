@@ -10,9 +10,16 @@ import React, {
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { Recepcion, Refineria } from "@/libs/interfaces";
+import { useEmpresasStore } from "@/store/empresasStore";
+import { NotificationItem } from "@/app/api/notificationService";
 
 interface ExtendedUser {
   token: string;
+}
+
+interface SocketAuthPayload {
+  token: string;
+  empresaId?: string;
 }
 
 export interface UseSocketReturn {
@@ -22,7 +29,7 @@ export interface UseSocketReturn {
   desconectarSocket: () => void;
   recepcionModificado: Recepcion | null;
   refineriaModificado: Refineria | null;
-  notification: any | null;
+  notification: NotificationItem | null;
 }
 
 export const SocketContext = createContext<UseSocketReturn | undefined>(
@@ -31,13 +38,17 @@ export const SocketContext = createContext<UseSocketReturn | undefined>(
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const { data: session, status } = useSession();
+  const activeEmpresa = useEmpresasStore((state) => state.activeEmpresa);
+  const activeEmpresaId = activeEmpresa?.id_empresa;
   const [online, setOnline] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [recepcionModificado, setRecepcionModificado] =
     useState<Recepcion | null>(null);
   const [refineriaModificado, setRefineriaModificado] =
     useState<Refineria | null>(null);
-  const [notification, setNotification] = useState<any | null>(null);
+  const [notification, setNotification] = useState<NotificationItem | null>(
+    null,
+  );
 
   const conectarSocket = useCallback(() => {
     if (status !== "authenticated" || !session) {
@@ -54,12 +65,16 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
     const serverPath = apiBaseUrl.replace(/\/api\/?$/, "");
+    const authPayload: SocketAuthPayload = { token };
+    if (activeEmpresaId) {
+      authPayload.empresaId = activeEmpresaId;
+    }
 
     const socketTemp = io(serverPath, {
       transports: ["websocket"],
       autoConnect: true,
       forceNew: true,
-      auth: { token }, // Pasamos el token como auth para que el backend lo reciba en socket.handshake.auth.token
+      auth: authPayload, // Incluye token + empresa activa para validación multiempresa en backend
     });
 
     socketTemp.on("connect", () => setOnline(true));
@@ -77,13 +92,17 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     socketTemp.on("recepcion-modificada", (recepcion) =>
       setRecepcionModificado(recepcion),
     );
-    socketTemp.on("new-notification", (notificationData) =>
-      setNotification(notificationData),
-    );
-    // Listen to new inventory event patterns
-    socketTemp.on("notification:received", (notificationData) =>
-      setNotification(notificationData),
-    );
+    socketTemp.on("notifications:received", (notificationData: NotificationItem) => {
+      const incomingEmpresaId =
+        typeof notificationData?.empresaId === "string"
+          ? notificationData.empresaId
+          : null;
+
+      if (!activeEmpresaId || !incomingEmpresaId) return;
+      if (incomingEmpresaId !== activeEmpresaId) return;
+
+      setNotification(notificationData);
+    });
     socketTemp.on("inventory:stock-updated", (data) =>
       console.log("Stock actualizado:", data),
     );
@@ -92,7 +111,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     );
 
     setSocket(socketTemp);
-  }, [session, status]);
+  }, [session, status, activeEmpresaId]);
 
   const desconectarSocket = useCallback(() => {
     if (socket) {
@@ -110,6 +129,26 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       desconectarSocket();
     }
   }, [status, socket, conectarSocket, desconectarSocket]);
+
+  // Si cambia la empresa activa, forzamos reconexión para revalidar membresía/rol en backend
+  useEffect(() => {
+    if (!socket) return;
+
+    const socketOpts = socket.io.opts as { auth?: SocketAuthPayload };
+    const socketEmpresaId = socketOpts.auth?.empresaId;
+    const currentSocketEmpresaId = socketEmpresaId || null;
+    const currentActiveEmpresaId = activeEmpresaId || null;
+
+    if (currentSocketEmpresaId !== currentActiveEmpresaId) {
+      socket.disconnect();
+      setSocket(null);
+      setOnline(false);
+    }
+  }, [socket, activeEmpresaId]);
+
+  useEffect(() => {
+    setNotification(null);
+  }, [activeEmpresaId]);
 
   // Limpiar el socket al desmontar el Provider
   useEffect(() => {

@@ -4,6 +4,8 @@ import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreateLeadDTO, UpdateLeadDTO } from './leads.dto.js'
 import { ILead, ILeadFilters } from './leads.interface.js'
 import { ConvertLeadDTO } from './leads.dto.js'
@@ -82,6 +84,40 @@ class LeadsService {
     })
 
     logger.info(`CRM - Lead creado: ${lead.id}`, { title: lead.title, empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.lead.created',
+          module: 'crm',
+          title: `Lead creado: ${lead.title}`,
+          message: `Se creó el lead ${lead.title}.`,
+          type: 'info',
+          entityType: 'LEAD',
+          entityId: lead.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/leads/${lead.id}`,
+          source: 'crm.leads',
+          dedupKey: `crm.lead.created:${lead.id}`,
+          metadata: {
+            leadId: lead.id,
+            title: lead.title,
+            status: lead.status,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.lead.created', {
+        leadId: lead.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return lead as unknown as ILead
   }
 
@@ -197,6 +233,40 @@ class LeadsService {
     })
 
     logger.info(`CRM - Lead estado actualizado: ${id} → ${status}`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.lead.status_changed',
+          module: 'crm',
+          title: `Lead actualizado: ${updated.title}`,
+          message: `El lead ${updated.title} cambió de ${currentStatus} a ${status}.`,
+          type: 'info',
+          entityType: 'LEAD',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/crm/leads/${updated.id}`,
+          source: 'crm.leads',
+          dedupKey: `crm.lead.status_changed:${updated.id}:${status}`,
+          metadata: {
+            leadId: updated.id,
+            previousStatus: currentStatus,
+            status,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.lead.status_changed', {
+        leadId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as ILead
   }
 
@@ -337,6 +407,38 @@ class LeadsService {
       empresaId,
       opportunityId: created.id,
     })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'crm.lead.converted',
+          module: 'crm',
+          title: `Lead convertido: ${lead.title}`,
+          message: `El lead ${lead.title} se convirtió en oportunidad.`,
+          type: 'success',
+          entityType: 'LEAD',
+          entityId: id,
+          priority: 'MEDIUM',
+          severity: 'SUCCESS',
+          link: `/empresa/crm/oportunidades/${created.id}`,
+          source: 'crm.leads',
+          dedupKey: `crm.lead.converted:${id}`,
+          metadata: {
+            leadId: id,
+            opportunityId: created.id,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento crm.lead.converted', {
+        leadId: id,
+        empresaId,
+        error: publishError,
+      })
+    }
 
     return {
       leadId: id,

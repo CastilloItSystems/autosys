@@ -6,6 +6,8 @@ import { CreateDealerQuoteDTO, UpdateDealerQuoteDTO } from './quotes.dto.js'
 import { IDealerQuote, IDealerQuoteFilters } from './quotes.interface.js'
 import ordersService from '../../sales/orders/orders.service.js'
 import { CreateOrderDTO } from '../../sales/orders/orders.dto.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -228,6 +230,42 @@ class DealerQuotesService {
     })
 
     logger.info('Dealer quote creada', { id: created.id, quoteNumber, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.quote.created',
+          module: 'dealer',
+          title: `Cotización ${created.quoteNumber} creada`,
+          message: `Se creó la cotización ${created.quoteNumber} en concesionario.`,
+          type: 'info',
+          entityType: 'DEALER_QUOTE',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/concesionario/quotes`,
+          source: 'dealer.quotes',
+          dedupKey: `dealer.quote.created:${created.id}`,
+          metadata: {
+            quoteId: created.id,
+            quoteNumber: created.quoteNumber,
+            status: created.status,
+            dealerUnitId: created.dealerUnitId,
+            customerId: created.customerId,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.quote.created', {
+        quoteId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerQuote
   }
 
@@ -347,6 +385,54 @@ class DealerQuotesService {
       include: QUOTE_INCLUDE,
     })
     logger.info('Dealer quote actualizada', { id, empresaId, userId, status: newStatus })
+
+    if (current.status !== newStatus) {
+      const isApproved = newStatus === DealerQuoteStatus.APPROVED
+      const isRejected = newStatus === DealerQuoteStatus.REJECTED
+
+      if (isApproved || isRejected) {
+        const eventCode = isApproved ? 'dealer.quote.approved' : 'dealer.quote.rejected'
+        const severity = isApproved ? 'SUCCESS' : 'WARNING'
+        const priority = isApproved ? 'MEDIUM' : 'HIGH'
+        const type = isApproved ? 'success' : 'warning'
+        const actionText = isApproved ? 'aprobada' : 'rechazada'
+
+        try {
+          await domainEventBus.publish(
+            toDomainEvent({
+              empresaId,
+              eventCode,
+              module: 'dealer',
+              title: `Cotización ${updated.quoteNumber} ${actionText}`,
+              message: `La cotización ${updated.quoteNumber} cambió de ${current.status} a ${newStatus}.`,
+              type,
+              entityType: 'DEALER_QUOTE',
+              entityId: updated.id,
+              priority,
+              severity,
+              link: `/empresa/concesionario/quotes`,
+              source: 'dealer.quotes',
+              dedupKey: `${eventCode}:${updated.id}:${newStatus}`,
+              metadata: {
+                quoteId: updated.id,
+                quoteNumber: updated.quoteNumber,
+                previousStatus: current.status,
+                status: newStatus,
+              },
+              createdById: userId,
+              createdByName: 'Sistema',
+            })
+          )
+        } catch (publishError) {
+          logger.error(`Error publicando evento ${eventCode}`, {
+            quoteId: updated.id,
+            empresaId,
+            error: publishError,
+          })
+        }
+      }
+    }
+
     return updated as unknown as IDealerQuote
   }
 
@@ -399,6 +485,43 @@ class DealerQuotesService {
           },
           include: QUOTE_INCLUDE,
         })
+
+        try {
+          await domainEventBus.publish(
+            toDomainEvent({
+              empresaId,
+              eventCode: 'dealer.quote.converted',
+              module: 'dealer',
+              title: `Cotización ${synced.quoteNumber} convertida`,
+              message: `La cotización ${synced.quoteNumber} fue convertida y fiscalizada.`,
+              type: 'success',
+              entityType: 'DEALER_QUOTE',
+              entityId: synced.id,
+              priority: 'HIGH',
+              severity: 'SUCCESS',
+              link: `/empresa/concesionario/quotes`,
+              source: 'dealer.quotes',
+              dedupKey: `dealer.quote.converted:${synced.id}`,
+              metadata: {
+                quoteId: synced.id,
+                quoteNumber: synced.quoteNumber,
+                status: synced.status,
+                salesOrderId: existingOrder.id,
+                preInvoiceId: existingPreInvoice.id,
+                invoiceId: existingPreInvoice.invoice?.id ?? null,
+              },
+              createdById: userId,
+              createdByName: 'Sistema',
+            })
+          )
+        } catch (publishError) {
+          logger.error('Error publicando evento dealer.quote.converted', {
+            quoteId: synced.id,
+            empresaId,
+            error: publishError,
+          })
+        }
+
         return synced as unknown as IDealerQuote
       }
     }
@@ -490,6 +613,42 @@ class DealerQuotesService {
         empresaId,
         userId,
       })
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.quote.converted',
+            module: 'dealer',
+            title: `Cotización ${updated.quoteNumber} convertida`,
+            message: `La cotización ${updated.quoteNumber} fue convertida y fiscalizada.`,
+            type: 'success',
+            entityType: 'DEALER_QUOTE',
+            entityId: updated.id,
+            priority: 'HIGH',
+            severity: 'SUCCESS',
+            link: `/empresa/concesionario/quotes`,
+            source: 'dealer.quotes',
+            dedupKey: `dealer.quote.converted:${updated.id}`,
+            metadata: {
+              quoteId: updated.id,
+              quoteNumber: updated.quoteNumber,
+              status: updated.status,
+              salesOrderId: approvedOrder.id,
+              preInvoiceId: preInvoice?.id ?? null,
+              invoiceId: preInvoice?.invoice?.id ?? null,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.quote.converted', {
+          quoteId: updated.id,
+          empresaId,
+          error: publishError,
+        })
+      }
 
       return updated as unknown as IDealerQuote
     } catch (error: any) {

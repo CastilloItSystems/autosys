@@ -5,6 +5,9 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
   IAppointmentFilters,
   ICreateAppointmentInput,
@@ -171,7 +174,7 @@ export async function createAppointment(
   }
 
   const folio = await generateFolio(db, empresaId)
-  return (db as PrismaClient).serviceAppointment.create({
+  const created = await (db as PrismaClient).serviceAppointment.create({
     data: {
       folio,
       empresaId,
@@ -193,6 +196,41 @@ export async function createAppointment(
     },
     include: INCLUDE,
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.appointment.created',
+        module: 'workshop',
+        title: `Cita ${created.folio} creada`,
+        message: `Se creó la cita ${created.folio}.`,
+        type: 'info',
+        entityType: 'APPOINTMENT',
+        entityId: created.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/citas/${created.id}`,
+        source: 'workshop.appointments',
+        dedupKey: `workshop.appointment.created:${created.id}`,
+        metadata: {
+          appointmentId: created.id,
+          folio: created.folio,
+          status: created.status,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.appointment.created', {
+      appointmentId: created.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
+  return created
 }
 
 export async function updateAppointment(
@@ -255,11 +293,60 @@ export async function updateAppointmentStatus(
       `No se puede pasar de ${existing.status} a ${newStatus}`
     )
   }
-  return (db as PrismaClient).serviceAppointment.update({
+  const updated = await (db as PrismaClient).serviceAppointment.update({
     where: { id },
     data: { status: newStatus },
     include: INCLUDE,
   })
+
+  const eventCodeByStatus: Partial<Record<AppointmentStatus, string>> = {
+    RESCHEDULED: 'workshop.appointment.rescheduled',
+    CANCELLED: 'workshop.appointment.cancelled',
+    NO_SHOW: 'workshop.appointment.no_show',
+  }
+
+  const eventCode = eventCodeByStatus[newStatus]
+  if (eventCode) {
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode,
+          module: 'workshop',
+          title: `Cita ${updated.folio} actualizada`,
+          message: `La cita ${updated.folio} cambió a ${newStatus}.`,
+          type: newStatus === 'CANCELLED' || newStatus === 'NO_SHOW' ? 'warning' : 'info',
+          entityType: 'APPOINTMENT',
+          entityId: updated.id,
+          priority: newStatus === 'CANCELLED' ? 'HIGH' : 'MEDIUM',
+          severity:
+            newStatus === 'CANCELLED' || newStatus === 'NO_SHOW'
+              ? 'WARNING'
+              : 'INFO',
+          link: `/empresa/taller/citas/${updated.id}`,
+          source: 'workshop.appointments',
+          dedupKey: `${eventCode}:${updated.id}`,
+          metadata: {
+            appointmentId: updated.id,
+            folio: updated.folio,
+            previousStatus: existing.status,
+            status: newStatus,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento de estado de cita', {
+        appointmentId: updated.id,
+        empresaId,
+        status: newStatus,
+        error: publishError,
+      })
+    }
+  }
+
+  return updated
 }
 
 export async function deleteAppointment(db: Db, id: string, empresaId: string) {

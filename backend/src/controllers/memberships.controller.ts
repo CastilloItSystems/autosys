@@ -1,5 +1,6 @@
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
+import { invalidateMembershipsCache } from '../features/notifications/memberships-permissions.cache.js'
 
 export const getMembershipsByEmpresa = async (req: Request, res: Response) => {
   try {
@@ -178,6 +179,7 @@ export const createMembership = async (req: Request, res: Response) => {
       },
     })
 
+    invalidateMembershipsCache(String(empresaId))
     return res.status(201).json(membership)
   } catch (error) {
     console.error('Error creando membership:', error)
@@ -251,6 +253,7 @@ export const updateMembership = async (req: Request, res: Response) => {
       },
     })
 
+    invalidateMembershipsCache(existingMembership.empresaId)
     return res.json(membership)
   } catch (error) {
     console.error('Error actualizando membership:', error)
@@ -279,6 +282,7 @@ export const deleteMembership = async (req: Request, res: Response) => {
       where: { id: String(id) },
     })
 
+    invalidateMembershipsCache(existingMembership.empresaId)
     return res.status(204).send()
   } catch (error) {
     console.error('Error eliminando membership:', error)
@@ -418,6 +422,7 @@ export const setMembershipPermissions = async (req: Request, res: Response) => {
       }
     })
 
+    invalidateMembershipsCache(membership.empresaId)
     return res.json({ message: 'Permisos actualizados exitosamente.' })
   } catch (error) {
     console.error('Error actualizando permisos de membership:', error)

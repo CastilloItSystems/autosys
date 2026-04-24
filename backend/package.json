@@ -8,6 +8,7 @@
     "prisma:migrate": "npm run prisma:merge && prisma migrate dev",
     "prisma:generate": "npm run prisma:merge && prisma generate",
     "seed": "prisma db seed",
+    "seed:sync-roles": "tsx prisma/seeds/patch-sync-roles.ts",
     "seed:diagnostic-templates": "tsx prisma/seeds/workshop-diagnostic-templates.seed.ts",
     "dev": "tsx watch src/index.ts",
     "build": "tsc",

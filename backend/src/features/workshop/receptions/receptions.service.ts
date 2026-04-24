@@ -5,6 +5,9 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
   IReceptionFilters,
   ICreateReceptionInput,
@@ -163,11 +166,46 @@ export async function createReception(
 
   const folio = await generateFolio(db, empresaId)
 
-  // Usar transacción si se provee appointmentId para garantizar consistencia
-  if (data.appointmentId) {
-    return (db as PrismaClient).$transaction(async (tx) => {
-      // Crear la recepción
-      const reception = await tx.vehicleReception.create({
+  const reception = data.appointmentId
+    ? await (db as PrismaClient).$transaction(async (tx) => {
+        // Crear la recepción
+        const created = await tx.vehicleReception.create({
+          data: {
+            folio,
+            empresaId,
+            customerId: data.customerId,
+            customerVehicleId: data.customerVehicleId ?? null,
+            vehiclePlate: vehiclePlate ?? null,
+            vehicleDesc: vehicleDesc ?? null,
+            mileageIn: data.mileageIn ?? null,
+            fuelLevel: data.fuelLevel ?? null,
+            ingressMotiveId: data.ingressMotiveId ?? null,
+            accessories: data.accessories ?? [],
+            hasPreExistingDamage: data.hasPreExistingDamage ?? false,
+            damageNotes: data.damageNotes ?? null,
+            clientDescription: data.clientDescription ?? null,
+            authorizationName: data.authorizationName ?? null,
+            authorizationPhone: data.authorizationPhone ?? null,
+            clientSignature: data.clientSignature ?? null,
+            diagnosticAuthorized: data.diagnosticAuthorized ?? false,
+            estimatedDelivery: data.estimatedDelivery ?? null,
+            advisorId: data.advisorId ?? null,
+            appointmentId: data.appointmentId ?? null,
+            createdBy: userId,
+          },
+        })
+        // Actualizar el estado de la cita a ARRIVED
+        await tx.serviceAppointment.update({
+          where: { id: data.appointmentId! },
+          data: { status: 'ARRIVED' },
+        })
+        // Retornar la recepción creada con los includes
+        return tx.vehicleReception.findUniqueOrThrow({
+          where: { id: created.id },
+          include: INCLUDE,
+        })
+      })
+    : await (db as PrismaClient).vehicleReception.create({
         data: {
           folio,
           empresaId,
@@ -191,47 +229,45 @@ export async function createReception(
           appointmentId: data.appointmentId ?? null,
           createdBy: userId,
         },
-      })
-      // Actualizar el estado de la cita a ARRIVED
-      await tx.serviceAppointment.update({
-        where: { id: data.appointmentId! },
-        data: { status: 'ARRIVED' },
-      })
-      // Retornar la recepción creada con los includes
-      return tx.vehicleReception.findUniqueOrThrow({
-        where: { id: reception.id },
         include: INCLUDE,
       })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.reception.created',
+        module: 'workshop',
+        title: `Recepción ${reception.folio} creada`,
+        message: `Se creó la recepción ${reception.folio}.`,
+        type: 'info',
+        entityType: 'RECEPTION',
+        entityId: reception.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/recepciones/${reception.id}`,
+        source: 'workshop.receptions',
+        dedupKey: `workshop.reception.created:${reception.id}`,
+        metadata: {
+          receptionId: reception.id,
+          folio: reception.folio,
+          status: reception.status,
+          customerId: reception.customerId,
+          appointmentId: reception.appointmentId,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.reception.created', {
+      receptionId: reception.id,
+      empresaId,
+      error: publishError,
     })
   }
 
-  // Sin transacción si no hay appointmentId
-  return (db as PrismaClient).vehicleReception.create({
-    data: {
-      folio,
-      empresaId,
-      customerId: data.customerId,
-      customerVehicleId: data.customerVehicleId ?? null,
-      vehiclePlate: vehiclePlate ?? null,
-      vehicleDesc: vehicleDesc ?? null,
-      mileageIn: data.mileageIn ?? null,
-      fuelLevel: data.fuelLevel ?? null,
-      ingressMotiveId: data.ingressMotiveId ?? null,
-      accessories: data.accessories ?? [],
-      hasPreExistingDamage: data.hasPreExistingDamage ?? false,
-      damageNotes: data.damageNotes ?? null,
-      clientDescription: data.clientDescription ?? null,
-      authorizationName: data.authorizationName ?? null,
-      authorizationPhone: data.authorizationPhone ?? null,
-      clientSignature: data.clientSignature ?? null,
-      diagnosticAuthorized: data.diagnosticAuthorized ?? false,
-      estimatedDelivery: data.estimatedDelivery ?? null,
-      advisorId: data.advisorId ?? null,
-      appointmentId: data.appointmentId ?? null,
-      createdBy: userId,
-    },
-    include: INCLUDE,
-  })
+  return reception
 }
 
 export async function updateReception(
@@ -273,11 +309,48 @@ export async function changeReceptionStatus(
     )
   }
 
-  return (db as PrismaClient).vehicleReception.update({
+  const updated = await (db as PrismaClient).vehicleReception.update({
     where: { id },
     data: { status: input.status },
     include: INCLUDE,
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.reception.status_changed',
+        module: 'workshop',
+        title: `Recepción ${updated.folio} actualizada`,
+        message: `La recepción ${updated.folio} cambió de ${currentStatus} a ${input.status}.`,
+        type: input.status === 'CANCELLED' ? 'warning' : 'info',
+        entityType: 'RECEPTION',
+        entityId: updated.id,
+        priority: input.status === 'CANCELLED' ? 'HIGH' : 'MEDIUM',
+        severity: input.status === 'CANCELLED' ? 'WARNING' : 'INFO',
+        link: `/empresa/taller/recepciones/${updated.id}`,
+        source: 'workshop.receptions',
+        dedupKey: `workshop.reception.status_changed:${updated.id}:${input.status}`,
+        metadata: {
+          receptionId: updated.id,
+          folio: updated.folio,
+          previousStatus: currentStatus,
+          status: input.status,
+        },
+        createdById: 'SYSTEM',
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.reception.status_changed', {
+      receptionId: updated.id,
+      empresaId,
+      status: input.status,
+      error: publishError,
+    })
+  }
+
+  return updated
 }
 
 export async function deleteReception(db: Db, id: string, empresaId: string) {

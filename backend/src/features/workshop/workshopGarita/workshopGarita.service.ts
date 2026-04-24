@@ -1,8 +1,11 @@
 // backend/src/features/workshop/workshopGarita/workshopGarita.service.ts
 import type { PrismaClient } from '../../../generated/prisma/client.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
 import type { ICreateGaritaEvent, IUpdateGaritaEvent, IGaritaFilters, GaritaEventStatus, GaritaEventType } from './workshopGarita.interface.js'
 import { GARITA_VALID_TRANSITIONS } from './workshopGarita.validation.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type Db = PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
 
@@ -66,7 +69,7 @@ export async function createGaritaEvent(db: Db, empresaId: string, userId: strin
     if (!tot) throw new NotFoundError('T.O.T. no encontrado')
   }
 
-  return (db as PrismaClient).workshopGarita.create({
+  const created = await (db as PrismaClient).workshopGarita.create({
     data: {
       type: data.type as any,
       serviceOrderId: data.serviceOrderId || null,
@@ -87,6 +90,44 @@ export async function createGaritaEvent(db: Db, empresaId: string, userId: strin
     },
     include: INCLUDE,
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.garita.created',
+        module: 'workshop',
+        title: 'Registro de garita creado',
+        message: `Se registró un evento de garita tipo ${created.type}.`,
+        type: 'info',
+        entityType: 'GARITA_EVENT',
+        entityId: created.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/garita`,
+        source: 'workshop.garita',
+        dedupKey: `workshop.garita.created:${created.id}`,
+        metadata: {
+          garitaEventId: created.id,
+          type: created.type,
+          status: created.status,
+          serviceOrderId: created.serviceOrderId ?? null,
+          totId: created.totId ?? null,
+          plateNumber: created.plateNumber ?? null,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.garita.created', {
+      garitaEventId: created.id,
+      empresaId,
+      error: publishError,
+    })
+  }
+
+  return created
 }
 
 export async function updateGaritaEvent(db: Db, id: string, empresaId: string, data: IUpdateGaritaEvent) {
@@ -123,6 +164,7 @@ export async function updateGaritaStatus(
   newStatus: GaritaEventStatus, extra?: { kmOut?: number; exitPassRef?: string; irregularityNotes?: string; notes?: string }
 ) {
   const item = await findGaritaEventById(db, id, empresaId)
+  const previousStatus = item.status
   const allowed = GARITA_VALID_TRANSITIONS[item.status] ?? []
   if (!allowed.includes(newStatus)) {
     throw new BadRequestError(`No se puede pasar de ${item.status} a ${newStatus}`)
@@ -150,11 +192,51 @@ export async function updateGaritaStatus(
   }
   if (extra?.notes) extraData.notes = extra.notes
 
-  return (db as PrismaClient).workshopGarita.update({
+  const updated = await (db as PrismaClient).workshopGarita.update({
     where: { id },
     data: { status: newStatus, ...extraData },
     include: INCLUDE,
   })
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId,
+        eventCode: 'workshop.garita.status_changed',
+        module: 'workshop',
+        title: 'Estado de garita actualizado',
+        message: `El registro de garita cambió de ${previousStatus} a ${newStatus}.`,
+        type: newStatus === 'FLAGGED' || newStatus === 'CANCELLED' ? 'warning' : 'info',
+        entityType: 'GARITA_EVENT',
+        entityId: updated.id,
+        priority: newStatus === 'FLAGGED' || newStatus === 'CANCELLED' ? 'HIGH' : 'MEDIUM',
+        severity: newStatus === 'FLAGGED' || newStatus === 'CANCELLED' ? 'WARNING' : 'INFO',
+        link: `/empresa/taller/garita`,
+        source: 'workshop.garita',
+        dedupKey: `workshop.garita.status_changed:${updated.id}:${newStatus}`,
+        metadata: {
+          garitaEventId: updated.id,
+          type: updated.type,
+          previousStatus,
+          status: newStatus,
+          serviceOrderId: updated.serviceOrderId ?? null,
+          totId: updated.totId ?? null,
+          plateNumber: updated.plateNumber ?? null,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (publishError) {
+    logger.error('Error publicando evento workshop.garita.status_changed', {
+      garitaEventId: updated.id,
+      empresaId,
+      status: newStatus,
+      error: publishError,
+    })
+  }
+
+  return updated
 }
 
 export async function removeGaritaEvent(db: Db, id: string, empresaId: string) {

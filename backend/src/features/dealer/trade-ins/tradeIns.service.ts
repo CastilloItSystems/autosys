@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerTradeInDTO, UpdateDealerTradeInDTO } from './tradeIns.dto.js'
 import { IDealerTradeIn, IDealerTradeInFilters } from './tradeIns.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -107,6 +109,45 @@ class DealerTradeInsService {
       include: TRADE_IN_INCLUDE,
     })
     logger.info('Dealer trade-in creada', { id: created.id, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.trade_in.created',
+          module: 'dealer',
+          title: `Retoma ${created.tradeInNumber} creada`,
+          message: `Se creó la retoma ${created.tradeInNumber}.`,
+          type: 'info',
+          entityType: 'DEALER_TRADE_IN',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: '/empresa/concesionario/trade-ins',
+          source: 'dealer.trade_ins',
+          dedupKey: `dealer.trade_in.created:${created.id}`,
+          metadata: {
+            tradeInId: created.id,
+            tradeInNumber: created.tradeInNumber,
+            status: created.status,
+            customerId: created.customerId,
+            targetDealerUnitId: created.targetDealerUnitId ?? null,
+            vehicleBrand: created.vehicleBrand,
+            vehicleModel: created.vehicleModel ?? null,
+            vehicleYear: created.vehicleYear ?? null,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.trade_in.created', {
+        tradeInId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerTradeIn
   }
 
@@ -230,6 +271,63 @@ class DealerTradeInsService {
       include: TRADE_IN_INCLUDE,
     })
     logger.info('Dealer trade-in actualizada', { id, empresaId, userId })
+
+    if (data.status && current.status !== data.status) {
+      const status = data.status as DealerTradeInStatus
+      const isWarningStatus = status === DealerTradeInStatus.REJECTED
+      const isSuccessStatus =
+        status === DealerTradeInStatus.APPROVED ||
+        status === DealerTradeInStatus.APPLIED
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.trade_in.status_changed',
+            module: 'dealer',
+            title: `Retoma ${updated.tradeInNumber} actualizada`,
+            message: `La retoma cambió de ${current.status} a ${status}.`,
+            type: isWarningStatus
+              ? 'warning'
+              : isSuccessStatus
+                ? 'success'
+                : 'info',
+            entityType: 'DEALER_TRADE_IN',
+            entityId: updated.id,
+            priority: isWarningStatus || isSuccessStatus ? 'HIGH' : 'MEDIUM',
+            severity: isWarningStatus
+              ? 'WARNING'
+              : isSuccessStatus
+                ? 'SUCCESS'
+                : 'INFO',
+            link: '/empresa/concesionario/trade-ins',
+            source: 'dealer.trade_ins',
+            dedupKey: `dealer.trade_in.status_changed:${updated.id}:${status}`,
+            metadata: {
+              tradeInId: updated.id,
+              tradeInNumber: updated.tradeInNumber,
+              previousStatus: current.status,
+              status,
+              customerId: updated.customerId,
+              targetDealerUnitId: updated.targetDealerUnitId ?? null,
+              requestedValue: updated.requestedValue ?? null,
+              appraisedValue: updated.appraisedValue ?? null,
+              approvedValue: updated.approvedValue ?? null,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.trade_in.status_changed', {
+          tradeInId: updated.id,
+          empresaId,
+          status,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as IDealerTradeIn
   }
 

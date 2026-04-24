@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerFinancingDTO, UpdateDealerFinancingDTO } from './financing.dto.js'
 import { IDealerFinancing, IDealerFinancingFilters } from './financing.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -111,6 +113,44 @@ class DealerFinancingService {
       include: FINANCING_INCLUDE,
     })
     logger.info('Dealer financing creada', { id: created.id, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.financing.created',
+          module: 'dealer',
+          title: `Solicitud de financiamiento ${created.financingNumber} creada`,
+          message: `Se creó la solicitud de financiamiento ${created.financingNumber}.`,
+          type: 'info',
+          entityType: 'DEALER_FINANCING',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: '/empresa/concesionario/financing',
+          source: 'dealer.financing',
+          dedupKey: `dealer.financing.created:${created.id}`,
+          metadata: {
+            financingId: created.id,
+            financingNumber: created.financingNumber,
+            status: created.status,
+            dealerUnitId: created.dealerUnitId ?? null,
+            customerId: created.customerId,
+            requestedAmount: created.requestedAmount ?? null,
+            approvedAmount: created.approvedAmount ?? null,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.financing.created', {
+        financingId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerFinancing
   }
 
@@ -221,6 +261,52 @@ class DealerFinancingService {
       include: FINANCING_INCLUDE,
     })
     logger.info('Dealer financing actualizada', { id, empresaId, userId })
+
+    if (status && current.status !== status) {
+      const isWarningStatus =
+        status === DealerFinancingStatus.REJECTED ||
+        status === DealerFinancingStatus.CANCELLED
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.financing.status_changed',
+            module: 'dealer',
+            title: `Financiamiento ${updated.financingNumber} actualizado`,
+            message: `El financiamiento cambió de ${current.status} a ${status}.`,
+            type: isWarningStatus ? 'warning' : 'info',
+            entityType: 'DEALER_FINANCING',
+            entityId: updated.id,
+            priority: isWarningStatus ? 'HIGH' : 'MEDIUM',
+            severity: isWarningStatus ? 'WARNING' : 'INFO',
+            link: '/empresa/concesionario/financing',
+            source: 'dealer.financing',
+            dedupKey: `dealer.financing.status_changed:${updated.id}:${status}`,
+            metadata: {
+              financingId: updated.id,
+              financingNumber: updated.financingNumber,
+              previousStatus: current.status,
+              status,
+              dealerUnitId: updated.dealerUnitId ?? null,
+              customerId: updated.customerId,
+              requestedAmount: updated.requestedAmount ?? null,
+              approvedAmount: updated.approvedAmount ?? null,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.financing.status_changed', {
+          financingId: updated.id,
+          empresaId,
+          status,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as IDealerFinancing
   }
 

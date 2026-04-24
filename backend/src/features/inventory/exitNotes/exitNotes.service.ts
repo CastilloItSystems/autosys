@@ -21,6 +21,7 @@ import {
   IExitNoteSummary,
 } from './exitNotes.interface.js'
 import { dispatchMaterialFromExitNote } from '../../workshop/serviceOrderMaterials/internal/dispatchMaterial.js'
+import inventoryNotificationTriggerService from '../shared/notifications/inventory-notification-trigger.service.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -436,6 +437,45 @@ class ExitNotesService {
       empresaId,
       userId,
     })
+
+    try {
+      const exitItems = Array.isArray(exitNote.items)
+        ? (exitNote.items as Array<{ itemId: string }>)
+        : []
+
+      await inventoryNotificationTriggerService.notifyExitNoteCreated({
+        empresaId,
+        exitNoteId: exitNote.id,
+        exitNoteNumber: exitNote.exitNoteNumber,
+        exitNoteType: exitNote.type,
+        warehouseId: exitNote.warehouseId,
+        totalItems: exitItems.length,
+        actorUserId: userId,
+      })
+
+      if (
+        this.shouldManageStockForType(exitNote.type as ExitNoteType) &&
+        exitItems.length > 0
+      ) {
+        await inventoryNotificationTriggerService.notifyLowStockAfterExitNoteReserve(
+          {
+            empresaId,
+            exitNoteId: exitNote.id,
+            exitNoteNumber: exitNote.exitNoteNumber,
+            warehouseId: exitNote.warehouseId,
+            itemIds: exitItems.map((item) => item.itemId),
+            actorUserId: userId,
+          }
+        )
+      }
+    } catch (error) {
+      logger.error('Error enviando notificaciones de nota de salida creada', {
+        exitNoteId: exitNote.id,
+        empresaId,
+        userId,
+        error,
+      })
+    }
 
     return exitNote as unknown as IExitNote
   }

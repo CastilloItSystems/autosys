@@ -7,6 +7,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import {
   IPreInvoice,
   PreInvoiceStatus,
@@ -637,6 +639,39 @@ class PreInvoicesService {
     })
 
     logger.info(`Pre-factura cancelada: ${id}`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.pre_invoice.cancelled',
+          module: 'sales',
+          title: `Pre-factura ${updated.preInvoiceNumber} cancelada`,
+          message: `La pre-factura ${updated.preInvoiceNumber} fue cancelada.`,
+          type: 'warning',
+          entityType: 'PRE_INVOICE',
+          entityId: updated.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: `/empresa/ventas/prefacturas/${updated.id}`,
+          source: 'sales.pre_invoices',
+          dedupKey: `sales.pre_invoice.cancelled:${updated.id}`,
+          metadata: {
+            preInvoiceId: updated.id,
+            preInvoiceNumber: updated.preInvoiceNumber,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento sales.pre_invoice.cancelled', {
+        preInvoiceId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IPreInvoice
   }
 }

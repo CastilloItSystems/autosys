@@ -8,6 +8,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import {
   IReservationWithRelations,
   ICreateReservationInput,
@@ -49,6 +51,73 @@ const RESERVATION_INCLUDE = {
 // ---------------------------------------------------------------------------
 
 class ReservationService {
+  private async publishReservationEvent(input: {
+    empresaId: string
+    eventCode:
+      | 'inventory.reservation.created'
+      | 'inventory.reservation.pending_pickup'
+      | 'inventory.reservation.consumed'
+      | 'inventory.reservation.released'
+      | 'inventory.reservation.deleted'
+    reservation: {
+      id: string
+      reservationNumber: string
+      status?: string
+      itemId: string
+      warehouseId: string
+      quantity: number
+      workOrderId?: string | null
+      saleOrderId?: string | null
+    }
+    userId?: string
+    title: string
+    message: string
+    type: 'info' | 'success' | 'warning'
+    priority: 'MEDIUM' | 'HIGH'
+    severity: 'INFO' | 'SUCCESS' | 'WARNING'
+    dedupSuffix?: string
+    extraMetadata?: Record<string, unknown>
+  }): Promise<void> {
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId: input.empresaId,
+          eventCode: input.eventCode,
+          module: 'inventory',
+          title: input.title,
+          message: input.message,
+          type: input.type,
+          entityType: 'RESERVATION',
+          entityId: input.reservation.id,
+          priority: input.priority,
+          severity: input.severity,
+          link: '/empresa/inventario',
+          source: 'inventory.reservations',
+          dedupKey: `${input.eventCode}:${input.reservation.id}${input.dedupSuffix ? `:${input.dedupSuffix}` : ''}`,
+          metadata: {
+            reservationId: input.reservation.id,
+            reservationNumber: input.reservation.reservationNumber,
+            status: input.reservation.status,
+            itemId: input.reservation.itemId,
+            warehouseId: input.reservation.warehouseId,
+            quantity: input.reservation.quantity,
+            workOrderId: input.reservation.workOrderId ?? null,
+            saleOrderId: input.reservation.saleOrderId ?? null,
+            ...(input.extraMetadata ?? {}),
+          },
+          createdById: input.userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error(`Error publicando evento ${input.eventCode}`, {
+        reservationId: input.reservation.id,
+        empresaId: input.empresaId,
+        error: publishError,
+      })
+    }
+  }
+
   // -------------------------------------------------------------------------
   // CREATE
   // -------------------------------------------------------------------------
@@ -134,6 +203,18 @@ class ReservationService {
         quantity: reservation.quantity,
         empresaId,
         userId,
+      })
+
+      await this.publishReservationEvent({
+        empresaId,
+        eventCode: 'inventory.reservation.created',
+        reservation,
+        userId,
+        title: `Reserva ${reservation.reservationNumber} creada`,
+        message: `Se creó la reserva ${reservation.reservationNumber}.`,
+        type: 'info',
+        priority: 'MEDIUM',
+        severity: 'INFO',
       })
 
       return reservation as unknown as IReservationWithRelations
@@ -560,6 +641,21 @@ class ReservationService {
         userId,
       })
 
+      await this.publishReservationEvent({
+        empresaId,
+        eventCode: 'inventory.reservation.consumed',
+        reservation: updated,
+        userId,
+        title: `Reserva ${updated.reservationNumber} consumida`,
+        message: `La reserva ${updated.reservationNumber} fue consumida.`,
+        type: 'success',
+        priority: 'HIGH',
+        severity: 'SUCCESS',
+        extraMetadata: {
+          consumedQuantity: updated.quantity,
+        },
+      })
+
       return updated as unknown as IReservationWithRelations
     } catch (error) {
       logger.error('Error al consumir reserva', {
@@ -648,6 +744,22 @@ class ReservationService {
         userId,
       })
 
+      await this.publishReservationEvent({
+        empresaId,
+        eventCode: 'inventory.reservation.released',
+        reservation: updated,
+        userId,
+        title: `Reserva ${updated.reservationNumber} liberada`,
+        message: `La reserva ${updated.reservationNumber} fue liberada.`,
+        type: 'warning',
+        priority: 'HIGH',
+        severity: 'WARNING',
+        dedupSuffix: reason ?? 'NO_REASON',
+        extraMetadata: {
+          releaseReason: reason ?? null,
+        },
+      })
+
       return updated as unknown as IReservationWithRelations
     } catch (error) {
       logger.error('Error al liberar reserva', {
@@ -698,6 +810,18 @@ class ReservationService {
         empresaId,
       })
 
+      await this.publishReservationEvent({
+        empresaId,
+        eventCode: 'inventory.reservation.pending_pickup',
+        reservation: updated,
+        userId,
+        title: `Reserva ${updated.reservationNumber} pendiente por retiro`,
+        message: `La reserva ${updated.reservationNumber} pasó a pendiente por retiro.`,
+        type: 'info',
+        priority: 'MEDIUM',
+        severity: 'INFO',
+      })
+
       return updated as unknown as IReservationWithRelations
     } catch (error) {
       logger.error('Error al marcar reserva como pendiente', {
@@ -724,6 +848,17 @@ class ReservationService {
     db: PrismaClientType = prisma
   ): Promise<{ success: boolean; id: string }> {
     try {
+      let deletedReservation: {
+        id: string
+        reservationNumber: string
+        status?: string
+        itemId: string
+        warehouseId: string
+        quantity: number
+        workOrderId?: string | null
+        saleOrderId?: string | null
+      } | null = null
+
       await (db as PrismaClient).$transaction(async (tx) => {
         // TENANT-SAFE: verify reservation belongs to this company via item
         const reservation = await tx.reservation.findFirst({
@@ -766,10 +901,39 @@ class ReservationService {
           },
         })
 
+        deletedReservation = {
+          id: reservation.id,
+          reservationNumber: reservation.reservationNumber,
+          status: reservation.status,
+          itemId: reservation.itemId,
+          warehouseId: reservation.warehouseId,
+          quantity: reservation.quantity,
+          workOrderId: reservation.workOrderId,
+          saleOrderId: reservation.saleOrderId,
+        }
+
         await tx.reservation.delete({ where: { id } })
       })
 
       logger.info(`Reserva eliminada: ${id}`, { userId, empresaId })
+
+      if (deletedReservation) {
+        await this.publishReservationEvent({
+          empresaId,
+          eventCode: 'inventory.reservation.deleted',
+          reservation: deletedReservation,
+          userId,
+          title: `Reserva ${deletedReservation.reservationNumber} eliminada`,
+          message: `La reserva ${deletedReservation.reservationNumber} fue eliminada.`,
+          type: 'warning',
+          priority: 'HIGH',
+          severity: 'WARNING',
+          dedupSuffix: deletedReservation.status,
+          extraMetadata: {
+            previousStatus: deletedReservation.status ?? null,
+          },
+        })
+      }
 
       return { success: true, id }
     } catch (error) {

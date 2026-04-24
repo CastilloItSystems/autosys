@@ -141,16 +141,27 @@ export interface Producto {
 }
 
 export interface Notification {
-  _id: string;
-  userId: UserReference;
+  id?: string;
+  _id?: string;
+  userId: UserReference | string;
+  empresaId?: string;
+  module?: string;
+  channel?: string;
   title: string;
   message: string;
-  type: "in-app" | "email" | "sms"; // Tipos de notificación posibles
+  type: "in-app" | "email" | "sms" | "info" | "warning" | "error" | "success" | string; // Tipos de notificación posibles
+  entityType?: string;
+  entityId?: string;
+  eventCode?: string;
+  priority?: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL" | string;
+  severity?: "INFO" | "WARNING" | "ERROR" | "SUCCESS" | string;
+  isMandatory?: boolean;
   read: boolean;
   link?: string; // Enlace opcional asociado a la notificación
   eliminado: boolean;
-  createdBy: UserReference;
-  historial: HistorialCambio[];
+  metadata?: Record<string, any>;
+  createdBy: UserReference | { id?: string; nombre?: string };
+  historial?: HistorialCambio[];
   createdAt: string;
   updatedAt: string;
 }

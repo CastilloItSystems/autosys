@@ -31,6 +31,8 @@ model Empresa {
 
   memberships     Membership[]
   companyRoles    CompanyRole[]
+  notificationPolicies NotificationCompanyPolicy[]
+  notifications        Notification[]
 
   warehouses      Warehouse[]
   items           Item[]

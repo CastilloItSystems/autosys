@@ -12,6 +12,9 @@ import {
 import { MovementNumberGenerator } from '../../inventory/shared/utils/movementNumberGenerator.js'
 import stockService from '../../inventory/stock/stock.service.js'
 import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
+import { logger } from '../../../shared/utils/logger.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
   ICreateServiceOrderMaterial,
   IUpdateServiceOrderMaterial,
@@ -26,6 +29,182 @@ const BASE_INCLUDE = {
   item: { select: { id: true, code: true, name: true, sku: true } },
   warehouse: { select: { id: true, code: true, name: true } },
 } as const
+
+const resolveMaterialStatusEventMeta = (
+  status: string
+): {
+  severity: 'INFO' | 'WARNING' | 'SUCCESS'
+  priority: 'MEDIUM' | 'HIGH'
+  type: 'info' | 'warning' | 'success'
+} => {
+  if (status === 'CANCELLED' || status === 'RETURNED') {
+    return {
+      severity: 'WARNING',
+      priority: 'HIGH',
+      type: 'warning',
+    }
+  }
+
+  if (status === 'CONSUMED') {
+    return {
+      severity: 'SUCCESS',
+      priority: 'HIGH',
+      type: 'success',
+    }
+  }
+
+  return {
+    severity: 'INFO',
+    priority: 'MEDIUM',
+    type: 'info',
+  }
+}
+
+const publishMaterialCreated = async (
+  material: IServiceOrderMaterialWithRelations,
+  userId: string
+): Promise<void> => {
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId: material.empresaId,
+        eventCode: 'workshop.service_order_material.created',
+        module: 'workshop',
+        title: `Material agregado a OT ${material.serviceOrder?.folio ?? material.serviceOrderId}`,
+        message: `Se agregó un material en estado ${material.status} a la orden ${material.serviceOrder?.folio ?? material.serviceOrderId}.`,
+        type: 'info',
+        entityType: 'SERVICE_ORDER_MATERIAL',
+        entityId: material.id,
+        priority: 'MEDIUM',
+        severity: 'INFO',
+        link: `/empresa/taller/ordenes-servicio/${material.serviceOrderId}`,
+        source: 'workshop.service_order_materials',
+        dedupKey: `workshop.service_order_material.created:${material.id}`,
+        metadata: {
+          materialId: material.id,
+          serviceOrderId: material.serviceOrderId,
+          serviceOrderFolio: material.serviceOrder?.folio ?? null,
+          itemId: material.itemId ?? null,
+          warehouseId: material.warehouseId ?? null,
+          status: material.status,
+          quantityRequested: Number(material.quantityRequested),
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (error) {
+    logger.error(
+      'Error publicando evento workshop.service_order_material.created',
+      {
+        materialId: material.id,
+        empresaId: material.empresaId,
+        error,
+      }
+    )
+  }
+}
+
+const publishMaterialStatusChanged = async (input: {
+  material: IServiceOrderMaterialWithRelations
+  previousStatus: string
+  newStatus: string
+  userId: string
+}): Promise<void> => {
+  const { material, previousStatus, newStatus, userId } = input
+  const meta = resolveMaterialStatusEventMeta(newStatus)
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId: material.empresaId,
+        eventCode: 'workshop.service_order_material.status_changed',
+        module: 'workshop',
+        title: `Material de OT ${material.serviceOrder?.folio ?? material.serviceOrderId} actualizado`,
+        message: `El material cambió de ${previousStatus} a ${newStatus}.`,
+        type: meta.type,
+        entityType: 'SERVICE_ORDER_MATERIAL',
+        entityId: material.id,
+        priority: meta.priority,
+        severity: meta.severity,
+        link: `/empresa/taller/ordenes-servicio/${material.serviceOrderId}`,
+        source: 'workshop.service_order_materials',
+        dedupKey: `workshop.service_order_material.status_changed:${material.id}:${newStatus}`,
+        metadata: {
+          materialId: material.id,
+          serviceOrderId: material.serviceOrderId,
+          serviceOrderFolio: material.serviceOrder?.folio ?? null,
+          previousStatus,
+          status: newStatus,
+          itemId: material.itemId ?? null,
+          warehouseId: material.warehouseId ?? null,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (error) {
+    logger.error(
+      'Error publicando evento workshop.service_order_material.status_changed',
+      {
+        materialId: material.id,
+        empresaId: material.empresaId,
+        status: newStatus,
+        error,
+      }
+    )
+  }
+}
+
+const publishMaterialApprovalUpdated = async (input: {
+  material: IServiceOrderMaterialWithRelations
+  userId: string
+}): Promise<void> => {
+  const { material, userId } = input
+  const approved = material.clientApproved === true
+
+  try {
+    await domainEventBus.publish(
+      toDomainEvent({
+        empresaId: material.empresaId,
+        eventCode: 'workshop.service_order_material.client_approval_updated',
+        module: 'workshop',
+        title: `Aprobación de material actualizada en OT ${material.serviceOrder?.folio ?? material.serviceOrderId}`,
+        message: approved
+          ? 'El cliente aprobó el material.'
+          : 'El cliente rechazó el material.',
+        type: approved ? 'success' : 'warning',
+        entityType: 'SERVICE_ORDER_MATERIAL',
+        entityId: material.id,
+        priority: approved ? 'MEDIUM' : 'HIGH',
+        severity: approved ? 'SUCCESS' : 'WARNING',
+        link: `/empresa/taller/ordenes-servicio/${material.serviceOrderId}`,
+        source: 'workshop.service_order_materials',
+        dedupKey: `workshop.service_order_material.client_approval_updated:${material.id}:${approved ? 'approved' : 'rejected'}`,
+        metadata: {
+          materialId: material.id,
+          serviceOrderId: material.serviceOrderId,
+          serviceOrderFolio: material.serviceOrder?.folio ?? null,
+          clientApproved: approved,
+          clientApprovalAt: material.clientApprovalAt ?? null,
+          clientApprovalBy: material.clientApprovedBy ?? null,
+        },
+        createdById: userId,
+        createdByName: 'Sistema',
+      })
+    )
+  } catch (error) {
+    logger.error(
+      'Error publicando evento workshop.service_order_material.client_approval_updated',
+      {
+        materialId: material.id,
+        empresaId: material.empresaId,
+        clientApproved: approved,
+        error,
+      }
+    )
+  }
+}
 
 async function assertWarehouseBelongsToEmpresa(
   db: DbType,
@@ -236,7 +415,13 @@ export async function create(
     include: BASE_INCLUDE,
   })
 
-  return findById(db, material.id)
+  const enriched = await findById(db, material.id)
+
+  if (db instanceof PrismaClient) {
+    await publishMaterialCreated(enriched, userId)
+  }
+
+  return enriched
 }
 
 export async function update(
@@ -725,6 +910,8 @@ export async function changeStatus(
     userId?: string
   }
 ): Promise<IServiceOrderMaterialWithRelations> {
+  const current = await findById(db, id)
+
   if (db instanceof PrismaClient) {
     const updated = await db.$transaction(async (tx) =>
       changeStatusInternal(tx as unknown as DbType, id, status, context)
@@ -741,7 +928,15 @@ export async function changeStatus(
       }
     }
 
-    return findById(db, updated.id)
+    const enriched = await findById(db, updated.id)
+    await publishMaterialStatusChanged({
+      material: enriched,
+      previousStatus: current.status,
+      newStatus: status,
+      userId: context?.userId ?? 'SYSTEM',
+    })
+
+    return enriched
   }
 
   const updated = await changeStatusInternal(db, id, status, context)
@@ -770,5 +965,14 @@ export async function setClientApproval(
     include: BASE_INCLUDE,
   })
 
-  return findById(db, updated.id)
+  const enriched = await findById(db, updated.id)
+
+  if (db instanceof PrismaClient) {
+    await publishMaterialApprovalUpdated({
+      material: enriched,
+      userId: userId ?? 'SYSTEM',
+    })
+  }
+
+  return enriched
 }

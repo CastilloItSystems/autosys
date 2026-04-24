@@ -7,6 +7,8 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { SALES_MESSAGES } from '../shared/constants/messages.js'
 import { CreateOrderDTO, UpdateOrderDTO } from './orders.dto.js'
 import {
@@ -1398,6 +1400,39 @@ class OrdersService {
       userId,
     })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.order.created',
+          module: 'sales',
+          title: `Orden ${order.orderNumber} creada`,
+          message: `Se creó la orden de venta ${order.orderNumber}.`,
+          type: 'info',
+          entityType: 'ORDER',
+          entityId: order.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/ventas/ordenes/${order.id}`,
+          source: 'sales.orders',
+          dedupKey: `sales.order.created:${order.id}`,
+          metadata: {
+            orderId: order.id,
+            orderNumber: order.orderNumber,
+            customerId: order.customerId,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento sales.order.created', {
+        orderId: order.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return order as unknown as IOrder
   }
 
@@ -1763,6 +1798,68 @@ class OrdersService {
       empresaId,
     })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.order.approved',
+          module: 'sales',
+          title: `Orden ${updated.orderNumber} aprobada`,
+          message: `La orden ${updated.orderNumber} fue aprobada.`,
+          type: 'success',
+          entityType: 'ORDER',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'SUCCESS',
+          link: `/empresa/ventas/ordenes/${updated.id}`,
+          source: 'sales.orders',
+          dedupKey: `sales.order.approved:${updated.id}`,
+          metadata: {
+            orderId: updated.id,
+            orderNumber: updated.orderNumber,
+            preInvoiceNumber,
+          },
+          createdById: approvedBy,
+          createdByName: 'Sistema',
+        })
+      )
+
+      const preInvoiceId = (updated as any).preInvoice?.id
+      if (typeof preInvoiceId === 'string' && preInvoiceId) {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'sales.pre_invoice.created',
+            module: 'sales',
+            title: `Pre-factura ${preInvoiceNumber} creada`,
+            message: `Se generó la pre-factura ${preInvoiceNumber}.`,
+            type: 'info',
+            entityType: 'PRE_INVOICE',
+            entityId: preInvoiceId,
+            priority: 'MEDIUM',
+            severity: 'INFO',
+            link: `/empresa/ventas/prefacturas/${preInvoiceId}`,
+            source: 'sales.orders',
+            dedupKey: `sales.pre_invoice.created:${preInvoiceId}`,
+            metadata: {
+              preInvoiceId,
+              preInvoiceNumber,
+              orderId: updated.id,
+              orderNumber: updated.orderNumber,
+            },
+            createdById: approvedBy,
+            createdByName: 'Sistema',
+          })
+        )
+      }
+    } catch (publishError) {
+      logger.error('Error publicando eventos de aprobación de orden', {
+        orderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IOrder
   }
 
@@ -1791,6 +1888,39 @@ class OrdersService {
     })
 
     logger.info(`Orden cancelada: ${id}`, { empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'sales.order.cancelled',
+          module: 'sales',
+          title: `Orden ${updated.orderNumber} cancelada`,
+          message: `La orden ${updated.orderNumber} fue cancelada.`,
+          type: 'warning',
+          entityType: 'ORDER',
+          entityId: updated.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: `/empresa/ventas/ordenes/${updated.id}`,
+          source: 'sales.orders',
+          dedupKey: `sales.order.cancelled:${updated.id}`,
+          metadata: {
+            orderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento sales.order.cancelled', {
+        orderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return updated as unknown as IOrder
   }
 

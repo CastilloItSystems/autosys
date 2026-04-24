@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerTestDriveDTO, UpdateDealerTestDriveDTO } from './testDrives.dto.js'
 import { IDealerTestDrive, IDealerTestDriveFilters } from './testDrives.interface.js'
+import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
+import { toDomainEvent } from '../../../shared/events/domain-events.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -124,6 +126,43 @@ class DealerTestDrivesService {
     })
 
     logger.info('Dealer test drive creado', { id: created.id, testDriveNumber, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.test_drive.created',
+          module: 'dealer',
+          title: `Prueba de manejo ${created.testDriveNumber} creada`,
+          message: `Se creó la prueba de manejo ${created.testDriveNumber}.`,
+          type: 'info',
+          entityType: 'DEALER_TEST_DRIVE',
+          entityId: created.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: '/empresa/concesionario/test-drives',
+          source: 'dealer.test_drives',
+          dedupKey: `dealer.test_drive.created:${created.id}`,
+          metadata: {
+            testDriveId: created.id,
+            testDriveNumber: created.testDriveNumber,
+            status: created.status,
+            dealerUnitId: created.dealerUnitId,
+            customerId: created.customerId,
+            scheduledAt: created.scheduledAt,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.test_drive.created', {
+        testDriveId: created.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return created as unknown as IDealerTestDrive
   }
 
@@ -230,11 +269,56 @@ class DealerTestDrivesService {
     })
 
     logger.info('Dealer test drive actualizado', { id, empresaId, userId, status: newStatus })
+
+    if (current.status !== newStatus) {
+      const isWarningStatus =
+        newStatus === DealerTestDriveStatus.NO_SHOW ||
+        newStatus === DealerTestDriveStatus.CANCELLED
+
+      try {
+        await domainEventBus.publish(
+          toDomainEvent({
+            empresaId,
+            eventCode: 'dealer.test_drive.status_changed',
+            module: 'dealer',
+            title: `Prueba de manejo ${updated.testDriveNumber} actualizada`,
+            message: `La prueba de manejo cambió de ${current.status} a ${newStatus}.`,
+            type: isWarningStatus ? 'warning' : 'info',
+            entityType: 'DEALER_TEST_DRIVE',
+            entityId: updated.id,
+            priority: isWarningStatus ? 'HIGH' : 'MEDIUM',
+            severity: isWarningStatus ? 'WARNING' : 'INFO',
+            link: '/empresa/concesionario/test-drives',
+            source: 'dealer.test_drives',
+            dedupKey: `dealer.test_drive.status_changed:${updated.id}:${newStatus}`,
+            metadata: {
+              testDriveId: updated.id,
+              testDriveNumber: updated.testDriveNumber,
+              previousStatus: current.status,
+              status: newStatus,
+              dealerUnitId: updated.dealerUnitId,
+              customerId: updated.customerId,
+              scheduledAt: updated.scheduledAt,
+            },
+            createdById: userId,
+            createdByName: 'Sistema',
+          })
+        )
+      } catch (publishError) {
+        logger.error('Error publicando evento dealer.test_drive.status_changed', {
+          testDriveId: updated.id,
+          empresaId,
+          status: newStatus,
+          error: publishError,
+        })
+      }
+    }
+
     return updated as unknown as IDealerTestDrive
   }
 
   async delete(id: string, empresaId: string, userId: string, db: PrismaClientType): Promise<{ success: boolean; id: string }> {
-    await this.findById(id, empresaId, db)
+    const current = await this.findById(id, empresaId, db)
     await (db as PrismaClient).dealerTestDrive.update({
       where: { id },
       data: {
@@ -245,6 +329,44 @@ class DealerTestDrivesService {
     })
 
     logger.info('Dealer test drive desactivado', { id, empresaId, userId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'dealer.test_drive.status_changed',
+          module: 'dealer',
+          title: `Prueba de manejo ${current.testDriveNumber} cancelada`,
+          message: `La prueba de manejo cambió de ${current.status} a CANCELLED.`,
+          type: 'warning',
+          entityType: 'DEALER_TEST_DRIVE',
+          entityId: current.id,
+          priority: 'HIGH',
+          severity: 'WARNING',
+          link: '/empresa/concesionario/test-drives',
+          source: 'dealer.test_drives',
+          dedupKey: `dealer.test_drive.status_changed:${current.id}:CANCELLED`,
+          metadata: {
+            testDriveId: current.id,
+            testDriveNumber: current.testDriveNumber,
+            previousStatus: current.status,
+            status: DealerTestDriveStatus.CANCELLED,
+            dealerUnitId: current.dealerUnitId,
+            customerId: current.customerId,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento dealer.test_drive.status_changed', {
+        testDriveId: current.id,
+        empresaId,
+        status: DealerTestDriveStatus.CANCELLED,
+        error: publishError,
+      })
+    }
+
     return { success: true, id }
   }
 }
