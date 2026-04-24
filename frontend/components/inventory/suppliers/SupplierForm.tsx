@@ -94,7 +94,7 @@ export default function SupplierForm({
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload = {
-        code: data.code || "",
+        code: data.code || undefined,
         name: data.name,
         type: data.type,
         taxId: data.taxId || undefined,

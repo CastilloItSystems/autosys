@@ -310,7 +310,9 @@ export default function SupplierList() {
             field="code"
             header="Código"
             sortable
-            body={(r: Supplier) => <span className="font-bold text-primary">{r.code}</span>}
+            body={(r: Supplier) => (
+              <span className="font-bold text-primary">{r.code}</span>
+            )}
             style={{ minWidth: "100px" }}
           />
           <Column
@@ -356,8 +358,8 @@ export default function SupplierList() {
 
       <Dialog
         visible={formDialog}
-        style={{ width: "800px" }}
-        breakpoints={{ "960px": "80vw", "640px": "95vw" }}
+        style={{ width: "80vw" }}
+        breakpoints={{ "1400px": "85vw", "900px": "90vw", "600px": "95vw" }}
         maximizable
         header={
           <div className="mb-2 text-center md:text-left">

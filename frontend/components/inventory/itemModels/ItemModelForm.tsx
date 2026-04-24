@@ -22,7 +22,7 @@ import modelsService, {
   MODEL_TYPE_LABELS,
   type Model,
 } from "@/app/api/inventory/modelService";
-import brandsService, { type Brand } from "@/app/api/inventory/brandService";
+import BrandSelector from "@/components/common/BrandSelector";
 import { handleFormError } from "@/utils/errorHandlers";
 
 // Schema de validación
@@ -79,7 +79,6 @@ export default function ItemModelForm({
   toast,
 }: ItemModelFormProps) {
   const [isLoading, setIsLoading] = useState(true);
-  const [brands, setBrands] = useState<Brand[]>([]);
 
   const {
     control,
@@ -98,21 +97,6 @@ export default function ItemModelForm({
       description: "",
     },
   });
-
-  // Cargar marcas activas
-  useEffect(() => {
-    const loadBrands = async () => {
-      try {
-        const response = await brandsService.getActive();
-        const brandsData = response.data || [];
-        setBrands(Array.isArray(brandsData) ? brandsData : []);
-      } catch (error) {
-        console.error("Error loading brands:", error);
-      }
-    };
-
-    loadBrands();
-  }, []);
 
   // Simular loading inicial para consistencia visual
   useEffect(() => {
@@ -172,11 +156,6 @@ export default function ItemModelForm({
     }
   };
 
-  const brandOptions = brands.map((brand) => ({
-    label: brand.name,
-    value: brand.id,
-  }));
-
   const BasicDataForm = () => (
     <div className="grid">
       {/* Código */}
@@ -235,15 +214,11 @@ export default function ItemModelForm({
           name="brandId"
           control={control}
           render={({ field }) => (
-            <Dropdown
-              {...field}
-              id="brandId"
-              options={brandOptions}
-              optionLabel="label"
-              optionValue="value"
+            <BrandSelector
+              value={field.value}
+              onChange={field.onChange}
+              invalid={!!errors.brandId}
               placeholder="Seleccionar marca"
-              className={errors.brandId ? "p-invalid" : ""}
-              filter
             />
           )}
         />
@@ -287,9 +262,10 @@ export default function ItemModelForm({
           control={control}
           render={({ field }) => (
             <InputNumber
-              {...field}
+              value={field.value ?? null}
+              onValueChange={(e) => field.onChange(e.value)}
               id="year"
-              placeholder="Ej: 2024"
+              placeholder="Ej: 2026"
               min={1900}
               max={new Date().getFullYear() + 1}
               className={errors.year ? "p-invalid" : ""}

@@ -39,7 +39,7 @@ export interface GetSuppliersParams {
 }
 
 export interface CreateSupplierRequest {
-  code: string;
+  code?: string;
   name: string;
   contactName?: string;
   email?: string;
