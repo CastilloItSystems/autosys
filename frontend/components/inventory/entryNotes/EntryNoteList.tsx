@@ -1,15 +1,15 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
-import { FilterMatchMode } from "primereact/api";
+import React, { useEffect, useRef, useState, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { Column } from "primereact/column";
 import { DataTable, DataTableFilterMeta } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
+import { Calendar } from "primereact/calendar";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
@@ -18,8 +18,6 @@ import entryNoteService from "@/app/api/inventory/entryNoteService";
 import type {
   EntryNote,
   EntryNoteItem,
-  EntryNoteStatus,
-  EntryType,
 } from "@/libs/interfaces/inventory/entryNote.interface";
 import {
   ENTRY_NOTE_STATUS_CONFIG,
@@ -31,6 +29,7 @@ import warehouseService, {
 } from "@/app/api/inventory/warehouseService";
 import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
 import EntryNoteForm from "./EntryNoteForm";
+import CompleteEntryNoteDialog from "./CompleteEntryNoteDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 import EntryNoteStepper from "./EntryNoteStepper";
 import CreateButton from "@/components/common/CreateButton";
@@ -40,13 +39,17 @@ import {
 } from "@/components/common/ConfirmAction";
 
 const EntryNoteList = () => {
+  const searchParams = useSearchParams();
+  const contextualSearchFilter = searchParams.get("search") || "";
   const [entryNotes, setEntryNotes] = useState<EntryNote[]>([]);
   const [selectedEntryNote, setSelectedEntryNote] = useState<EntryNote | null>(
     null,
   );
   const [filters, setFilters] = useState<DataTableFilterMeta>({});
   const [loading, setLoading] = useState(true);
-  const [globalFilterValue, setGlobalFilterValue] = useState("");
+  const [globalFilterValue, setGlobalFilterValue] = useState(
+    contextualSearchFilter,
+  );
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
   const [totalRecords, setTotalRecords] = useState<number>(0);
@@ -65,24 +68,10 @@ const EntryNoteList = () => {
     null,
   );
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [refreshKey, setRefreshKey] = useState(0);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
-
-  useEffect(() => {
-    const handler = setTimeout(() => {
-      setDebouncedSearch(globalFilterValue);
-    }, 500);
-    return () => clearTimeout(handler);
-  }, [globalFilterValue]);
-
-  useEffect(() => {
-    loadEntryNotes();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  useEffect(() => {
-    loadFormData();
-  }, []);
 
   const loadFormData = async () => {
     try {
@@ -99,7 +88,7 @@ const EntryNoteList = () => {
     }
   };
 
-  const loadEntryNotes = async () => {
+  const loadEntryNotes = useCallback(async () => {
     try {
       setLoading(true);
       const res = await entryNoteService.getAll({
@@ -122,7 +111,27 @@ const EntryNoteList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, sortField, sortOrder, debouncedSearch]);
+
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(globalFilterValue);
+    }, 500);
+    return () => clearTimeout(handler);
+  }, [globalFilterValue]);
+
+  useEffect(() => {
+    setGlobalFilterValue(contextualSearchFilter);
+    setPage(0);
+  }, [contextualSearchFilter]);
+
+  useEffect(() => {
+    loadEntryNotes();
+  }, [loadEntryNotes, refreshKey]);
+
+  useEffect(() => {
+    loadFormData();
+  }, []);
 
   const onPageChange = (event: any) => {
     const newPage =
@@ -151,7 +160,9 @@ const EntryNoteList = () => {
     try {
       if (selectedEntryNote?.id) {
         await entryNoteService.delete(selectedEntryNote.id);
-        await loadEntryNotes();
+        setExpandedRows(null);
+        setPage(0);
+        setRefreshKey((k) => k + 1);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -169,7 +180,9 @@ const EntryNoteList = () => {
   const handleStart = async (note: EntryNote) => {
     try {
       await entryNoteService.start(note.id);
-      await loadEntryNotes();
+      setExpandedRows(null);
+      setPage(0);
+      setRefreshKey((k) => k + 1);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -181,25 +194,17 @@ const EntryNoteList = () => {
     }
   };
 
-  const handleComplete = async (note: EntryNote) => {
-    try {
-      await entryNoteService.complete(note.id);
-      await loadEntryNotes();
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: `Nota ${note.entryNoteNumber} completada — Stock actualizado`,
-        life: 4000,
-      });
-    } catch (error) {
-      handleFormError(error, toast);
-    }
+  const openCompleteDialog = (note: EntryNote) => {
+    setSelectedEntryNote(note);
+    setCompleteDialog(true);
   };
 
   const handleCancel = async (note: EntryNote) => {
     try {
       await entryNoteService.cancel(note.id);
-      await loadEntryNotes();
+      setExpandedRows(null);
+      setPage(0);
+      setRefreshKey((k) => k + 1);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -218,11 +223,34 @@ const EntryNoteList = () => {
   };
 
   /* ── Helpers ── */
-  const formatCurrency = (value: number | string) =>
-    `$${Number(value || 0).toLocaleString("es-VE", {
+  const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+
+  const formatAmount = (value: number | string, currency = "USD") => {
+    const sym = CURRENCY_SYMBOLS[currency] ?? currency;
+    return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  };
+
+  const formatCrossRef = (
+    total: number,
+    currency: string,
+    exchangeRate?: number | null,
+  ): string | null => {
+    const n = Number(total || 0);
+    const rate = Number(exchangeRate);
+    if (currency === "VES") {
+      // Tasa real Bs/USD siempre >> 1. Si es 0 ó 1 (default sin tasa real), no mostrar.
+      if (rate <= 1) return null;
+      return `≈ $ ${(n / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+    }
+    if (!rate || rate <= 0) return null;
+    return `≈ Bs. ${(n * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  };
+
+  const formatCurrency = (value: number | string) =>
+    formatAmount(value, "USD");
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
@@ -295,10 +323,7 @@ const EntryNoteList = () => {
               className="p-button-rounded p-button-success p-button-sm"
               tooltip="Completar"
               tooltipOptions={{ position: "top" }}
-              onClick={() => {
-                setSelectedEntryNote(rowData);
-                setCompleteDialog(true);
-              }}
+              onClick={() => openCompleteDialog(rowData)}
             />
             <Button
               icon="pi pi-times"
@@ -422,17 +447,26 @@ const EntryNoteList = () => {
     rowData.receivedByName || rowData.receivedBy || "—";
 
   const totalBodyTemplate = (rowData: EntryNote) => {
+    const cur = rowData.purchaseOrder?.currency ?? "USD";
+    const exRate = rowData.purchaseOrder?.exchangeRate;
     const total = (rowData.items || []).reduce(
       (sum, it) => sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
       0,
     );
-    return <span className="font-semibold">{formatCurrency(total)}</span>;
+    const crossRef = formatCrossRef(total, cur, exRate);
+    return (
+      <div className="text-right">
+        <span className="font-semibold">{formatAmount(total, cur)}</span>
+        {crossRef && <div className="text-xs text-500 mt-1">{crossRef}</div>}
+      </div>
+    );
   };
 
   /* ── Row expansion with stepper ── */
   const rowExpansionTemplate = (data: EntryNote) => {
+    const cur = data.purchaseOrder?.currency ?? "USD";
+    const exRate = data.purchaseOrder?.exchangeRate;
     const items = data.items || [];
-    console.log(items);
     const total = items.reduce(
       (sum, it) => sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
       0,
@@ -471,12 +505,12 @@ const EntryNoteList = () => {
                       {line.quantityReceived}
                     </td>
                     <td className="text-right py-2">
-                      {formatCurrency(line.unitCost)}
+                      {formatAmount(line.unitCost, cur)}
                     </td>
                     <td className="text-right py-2">
-                      {formatCurrency(
-                        Number(line.unitCost || 0) *
-                          (line.quantityReceived || 0),
+                      {formatAmount(
+                        Number(line.unitCost || 0) * (line.quantityReceived || 0),
+                        cur,
                       )}
                     </td>
                     <td className="text-center py-2">
@@ -494,7 +528,10 @@ const EntryNoteList = () => {
                     Total:
                   </td>
                   <td className="text-right py-2 font-bold text-primary">
-                    {formatCurrency(total)}
+                    {formatAmount(total, cur)}
+                    {formatCrossRef(total, cur, exRate) && (
+                      <div className="text-xs text-500 font-normal mt-1">{formatCrossRef(total, cur, exRate)}</div>
+                    )}
                   </td>
                   <td colSpan={2}></td>
                 </tr>
@@ -912,165 +949,20 @@ const EntryNoteList = () => {
         </DataTable>
 
         {/* Complete confirmation dialog */}
-        <Dialog
+        <CompleteEntryNoteDialog
           visible={completeDialog}
-          style={{ width: "680px" }}
-          header={
-            <div className="mb-2 text-center md:text-left">
-              <div className="border-bottom-2 border-primary pb-2">
-                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                  <i className="pi pi-check-circle mr-3 text-green-500 text-3xl"></i>
-                  Confirmar Recepción
-                </h2>
-              </div>
-            </div>
-          }
-          modal
-          maximizable
+          note={selectedEntryNote}
           onHide={() => {
             setCompleteDialog(false);
             setSelectedEntryNote(null);
           }}
-          footer={
-            <div className="flex w-full gap-2 mb-4">
-              <Button
-                label="Cancelar"
-                icon="pi pi-times"
-                severity="secondary"
-                type="button"
-                className="flex-1"
-                onClick={() => {
-                  setCompleteDialog(false);
-                  setSelectedEntryNote(null);
-                }}
-              />
-              <Button
-                label="Completar Recepción"
-                icon="pi pi-check"
-                severity="success"
-                type="button"
-                className="flex-1"
-                onClick={async () => {
-                  if (selectedEntryNote) {
-                    setCompleteDialog(false);
-                    await handleComplete(selectedEntryNote);
-                    setSelectedEntryNote(null);
-                  }
-                }}
-              />
-            </div>
-          }
-        >
-          {selectedEntryNote &&
-            (() => {
-              const noteItems = selectedEntryNote.items || [];
-              const total = noteItems.reduce(
-                (sum, it) =>
-                  sum + Number(it.unitCost || 0) * (it.quantityReceived || 0),
-                0,
-              );
-              return (
-                <div className="flex flex-column gap-3">
-                  <div className="flex align-items-center gap-3 p-2 surface-100 border-round">
-                    <i className="pi pi-exclamation-triangle text-orange-500 text-2xl" />
-                    <div>
-                      <div className="font-semibold text-900">
-                        Nota <b>{selectedEntryNote.entryNoteNumber}</b> —{" "}
-                        {ENTRY_TYPE_LABELS[selectedEntryNote.type]}
-                      </div>
-                      <div className="text-500 text-sm mt-1">
-                        Al completar, se actualizará el stock en{" "}
-                        <b>
-                          {selectedEntryNote.warehouse?.name || "el almacén"}
-                        </b>
-                        .
-                      </div>
-                    </div>
-                  </div>
-
-                  <DataTable
-                    value={noteItems}
-                    size="small"
-                    stripedRows
-                    showGridlines={false}
-                    emptyMessage="Sin artículos"
-                    dataKey="id"
-                  >
-                    <Column
-                      header="Artículo"
-                      body={(item: EntryNoteItem) => (
-                        <div className="flex flex-column">
-                          <span className="font-semibold">
-                            {item.item?.name || item.itemId}
-                          </span>
-                          {item.item?.sku && (
-                            <span className="text-500 text-xs">
-                              SKU: {item.item.sku}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    />
-                    <Column
-                      header="Cantidad"
-                      className="text-center"
-                      style={{ width: "7rem" }}
-                      body={(item: EntryNoteItem) => (
-                        <Tag
-                          value={item.quantityReceived.toString()}
-                          severity="success"
-                        />
-                      )}
-                    />
-                    <Column
-                      header="Costo Unit."
-                      className="text-right"
-                      style={{ width: "8rem" }}
-                      body={(item: EntryNoteItem) =>
-                        formatCurrency(item.unitCost)
-                      }
-                    />
-                    <Column
-                      header="Subtotal"
-                      className="text-right font-semibold"
-                      style={{ width: "8rem" }}
-                      body={(item: EntryNoteItem) =>
-                        formatCurrency(
-                          Number(item.unitCost || 0) *
-                            (item.quantityReceived || 0),
-                        )
-                      }
-                    />
-                    <Column
-                      header="Ubicación"
-                      className="text-center"
-                      style={{ width: "7rem" }}
-                      body={(item: EntryNoteItem) =>
-                        item.storedToLocation ? (
-                          <Tag
-                            value={item.storedToLocation}
-                            severity="info"
-                            className="text-xs"
-                          />
-                        ) : (
-                          <span className="text-400">—</span>
-                        )
-                      }
-                    />
-                  </DataTable>
-
-                  <div className="flex justify-content-end">
-                    <div className="surface-100 border-round px-4 py-2">
-                      <span className="text-500 mr-3">Total:</span>
-                      <span className="font-bold text-primary text-lg">
-                        {formatCurrency(total)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })()}
-        </Dialog>
+          onSuccess={() => {
+            setExpandedRows(null);
+            setPage(0);
+            setRefreshKey((k) => k + 1);
+          }}
+          toast={toast}
+        />
 
         {/* Delete confirmation */}
         <Dialog
@@ -1157,7 +1049,9 @@ const EntryNoteList = () => {
             entryNote={selectedEntryNote}
             formId="entry-note-form"
             onSave={async () => {
-              await loadEntryNotes();
+              setExpandedRows(null);
+              setPage(0);
+              setRefreshKey((k) => k + 1);
               toast.current?.show({
                 severity: "success",
                 summary: "Éxito",

@@ -57,9 +57,12 @@ export const MOVEMENT_TYPE_LABELS: Record<MovementType, string> = {
 
 export const PURCHASE_ORDER_STATUS = {
   DRAFT: 'DRAFT',
+  PENDING_APPROVAL: 'PENDING_APPROVAL',
+  APPROVED: 'APPROVED',
   SENT: 'SENT',
   PARTIAL: 'PARTIAL',
   COMPLETED: 'COMPLETED',
+  REJECTED: 'REJECTED',
   CANCELLED: 'CANCELLED',
 } as const
 
@@ -69,9 +72,12 @@ export type PurchaseOrderStatus =
 export const PURCHASE_ORDER_STATUS_LABELS: Record<PurchaseOrderStatus, string> =
   {
     DRAFT: 'Borrador',
+    PENDING_APPROVAL: 'Pendiente Aprobación',
+    APPROVED: 'Aprobada',
     SENT: 'Enviada',
     PARTIAL: 'Parcial',
     COMPLETED: 'Completada',
+    REJECTED: 'Rechazada',
     CANCELLED: 'Cancelada',
   }
 

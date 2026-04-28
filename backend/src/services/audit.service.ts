@@ -11,6 +11,7 @@ export interface AuditLogInput {
   entity: string // e.g., "Report", "User", "Inventory"
   entityId: string // ID of the affected record
   action: string // e.g., "EXPORT", "CREATE", "UPDATE", "DELETE"
+  empresaId?: string // Tenant/company where the action happened
   userId?: string // User performing action
   changes?: Record<string, unknown> // { format: 'excel', filters: {...} }
   metadata?: Record<string, unknown> // { ip, userAgent, duration }
@@ -19,13 +20,17 @@ export interface AuditLogInput {
 /**
  * Create audit log entry
  */
-export async function createAuditLog(input: AuditLogInput): Promise<void> {
+export async function createAuditLog(
+  input: AuditLogInput,
+  db: any = prisma
+): Promise<void> {
   try {
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         entity: input.entity,
         entityId: input.entityId,
         action: input.action,
+        ...(input.empresaId ? { empresaId: input.empresaId } : {}),
         changes: (input.changes ?? {}) as any,
         ...(input.metadata !== undefined
           ? { metadata: input.metadata as any }
@@ -60,6 +65,7 @@ export async function logReportExport(
       entity: 'Report',
       entityId: reportType,
       action: 'EXPORT',
+      empresaId: req.empresaId,
       userId,
       changes: { format, filters: filters || {} },
       metadata: {

@@ -9,50 +9,68 @@ import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { DataTable } from "primereact/datatable";
-import { Column } from "primereact/column";
-import { classNames } from "primereact/utils";
-import adjustmentService, {
-  ADJUSTMENT_TYPE_LABELS,
-} from "@/app/api/inventory/adjustmentService";
+import adjustmentService from "@/app/api/inventory/adjustmentService";
 import { createAdjustmentSchema } from "@/libs/zods";
 import stockService, { Stock } from "@/app/api/inventory/stockService";
 import warehouseService, {
   Warehouse,
 } from "@/app/api/inventory/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
+import ItemsTable, {
+  ColumnDef,
+  ItemsTableRenderRowProps,
+} from "@/components/inventory/common/ItemsTable";
 import { z } from "zod";
 
 type FormData = z.infer<typeof createAdjustmentSchema>;
 
+const DEFAULT_ITEM: Record<string, unknown> = {
+  itemId: "",
+  quantityChange: 1,
+  notes: "",
+};
+
+const COLUMNS: ColumnDef[] = [
+  { label: "", style: { width: "32px", flexShrink: 0 } },
+  { label: "Artículo", style: { flex: 1, minWidth: "200px" } },
+  {
+    label: "Cant. Cambio",
+    style: { width: "150px", flexShrink: 0 },
+    headerAlign: "center",
+  },
+  { label: "Notas", style: { flex: 1, minWidth: "140px" } },
+  { label: "", style: { width: "40px", flexShrink: 0 } },
+];
+
 interface AdjustmentFormProps {
   warehouseId?: string;
-  onSave: () => void;
-  onCancel: () => void;
+  formId?: string;
+  onSave: () => void | Promise<void>;
+  onSubmittingChange?: (isSubmitting: boolean) => void;
   toast: React.RefObject<Toast> | null;
 }
 
 export default function AdjustmentForm({
   warehouseId,
+  formId,
   onSave,
-  onCancel,
+  onSubmittingChange,
   toast,
 }: AdjustmentFormProps) {
-  // State
   const [warehouseStocks, setWarehouseStocks] = useState<Stock[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [loadingStocks, setLoadingStocks] = useState(false);
 
-  // Form
   const {
     control,
     handleSubmit,
-    formState: { errors, isSubmitting },
+    formState: { errors },
     reset,
     watch,
   } = useForm<FormData>({
     resolver: zodResolver(createAdjustmentSchema),
+    mode: "onBlur",
     defaultValues: {
       warehouseId: warehouseId || "",
       reason: "",
@@ -63,165 +81,186 @@ export default function AdjustmentForm({
 
   const selectedWarehouseId = watch("warehouseId");
 
-  // Field array for items
-  const { fields, append, remove, replace } = useFieldArray({
+  const { fields, append, remove, move, replace } = useFieldArray({
     control,
     name: "items",
   });
 
-  // Load data on mount
   useEffect(() => {
+    const loadWarehouses = async () => {
+      try {
+        setIsLoading(true);
+        const res = await warehouseService.getActive();
+        setWarehouses(res.data);
+      } catch (error) {
+        console.error("Error loading warehouses:", error);
+        toast?.current?.show({
+          severity: "error",
+          summary: "Error",
+          detail: "No se pudieron cargar los almacenes",
+          life: 3000,
+        });
+      } finally {
+        setIsLoading(false);
+      }
+    };
     loadWarehouses();
   }, []);
 
-  const loadWarehouses = async () => {
-    try {
-      setIsLoading(true);
-      const warehousesResponse = await warehouseService.getActive();
-      setWarehouses(warehousesResponse.data);
-    } catch (error) {
-      console.error("Error loading warehouses:", error);
-      toast?.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar los almacenes",
-        life: 3000,
-      });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Cargar stocks del almacén seleccionado
   useEffect(() => {
     if (!selectedWarehouseId) {
       setWarehouseStocks([]);
       return;
     }
-
+    let cancelled = false;
     const loadStocks = async () => {
       try {
         setLoadingStocks(true);
-        const response = await stockService.getByWarehouse(
+        const res = await stockService.getByWarehouse(
           selectedWarehouseId,
           1,
           1000,
         );
-        setWarehouseStocks(response.data || []);
+        if (!cancelled) setWarehouseStocks(res.data || []);
       } catch (error) {
         console.error("Error loading stocks:", error);
-        toast?.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "Error al cargar stock del almacén",
-          life: 3000,
-        });
+        if (!cancelled)
+          toast?.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: "Error al cargar stock del almacén",
+            life: 3000,
+          });
       } finally {
-        setLoadingStocks(false);
+        if (!cancelled) setLoadingStocks(false);
       }
     };
-
     loadStocks();
-    // Reset items to default when warehouse changes
     replace([{ itemId: "", quantityChange: 1, notes: "" }]);
+    return () => { cancelled = true; };
   }, [selectedWarehouseId, replace]);
 
   const onSubmit = async (data: FormData) => {
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       await adjustmentService.create(data);
-      toast?.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Ajuste de inventario creado exitosamente",
-        life: 3000,
-      });
       reset();
-      onSave();
+      await onSave();
     } catch (error) {
       handleFormError(error, toast);
+    } finally {
+      if (onSubmittingChange) onSubmittingChange(false);
     }
   };
 
   const itemOptions = warehouseStocks.map((stock) => ({
     label: stock.item
-      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${
-          stock.quantityAvailable
-        })`
+      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${stock.quantityAvailable})`
       : stock.itemId,
     value: stock.itemId,
   }));
 
-  const warehouseOptions = warehouses.map((warehouse) => ({
-    label: warehouse.name,
-    value: warehouse.id,
+  const warehouseOptions = warehouses.map((w) => ({
+    label: w.name,
+    value: w.id,
   }));
 
-  const removeItemTemplate = (rowData: any, options: any) => (
-    <Button
-      icon="pi pi-trash"
-      severity="danger"
-      text
-      rounded
-      onClick={() => remove(options.rowIndex)}
-      disabled={fields.length === 1}
-      tooltip="Eliminar artículo"
-      tooltipOptions={{ position: "left" }}
-    />
-  );
+  const renderRow = ({ index, dragHandleProps, isDragging }: ItemsTableRenderRowProps) => (
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: "6px",
+        padding: "4px 8px",
+        backgroundColor: isDragging
+          ? "var(--surface-100)"
+          : "var(--surface-card)",
+        borderBottom: "1px solid var(--surface-200)",
+        opacity: isDragging ? 0.85 : 1,
+      }}
+    >
+      {/* Drag handle */}
+      <div
+        style={{ ...COLUMNS[0].style, cursor: "grab", color: "var(--text-color-secondary)", display: "flex", alignItems: "center" }}
+        {...dragHandleProps}
+      >
+        <i className="pi pi-bars text-xs" />
+      </div>
 
-  const itemSelectionTemplate = (rowData: any, options: any) => (
-    <Controller
-      name={`items.${options.rowIndex}.itemId`}
-      control={control}
-      render={({ field }) => (
-        <Dropdown
-          value={field.value}
-          onChange={(e) => field.onChange(e.value)}
-          options={itemOptions}
-          optionLabel="label"
-          optionValue="value"
-          placeholder={loadingStocks ? "Cargando..." : "Seleccionar"}
-          filter
-          showClear
-          disabled={loadingStocks || !selectedWarehouseId}
-          className={
-            errors.items?.[options.rowIndex]?.itemId ? "p-invalid" : ""
-          }
+      {/* Artículo */}
+      <div style={COLUMNS[1].style}>
+        <Controller
+          name={`items.${index}.itemId`}
+          control={control}
+          render={({ field }) => (
+            <Dropdown
+              value={field.value}
+              onChange={(e) => field.onChange(e.value)}
+              options={itemOptions}
+              optionLabel="label"
+              optionValue="value"
+              placeholder={loadingStocks ? "Cargando..." : "Seleccionar artículo"}
+              filter
+              showClear
+              disabled={loadingStocks || !selectedWarehouseId}
+              className={errors.items?.[index]?.itemId ? "p-invalid w-full" : "w-full"}
+              style={{ fontSize: "0.85rem" }}
+            />
+          )}
         />
-      )}
-    />
-  );
+      </div>
 
-  const quantityTemplate = (rowData: any, options: any) => (
-    <Controller
-      name={`items.${options.rowIndex}.quantityChange`}
-      control={control}
-      render={({ field }) => (
-        <InputNumber
-          value={field.value}
-          onValueChange={(e) => field.onChange(e.value)}
-          placeholder="Cantidad"
-          className={
-            errors.items?.[options.rowIndex]?.quantityChange ? "p-invalid" : ""
-          }
+      {/* Cantidad cambio */}
+      <div style={COLUMNS[2].style}>
+        <Controller
+          name={`items.${index}.quantityChange`}
+          control={control}
+          render={({ field }) => (
+            <InputNumber
+              value={field.value}
+              onValueChange={(e) => field.onChange(e.value)}
+              placeholder="Cant."
+              showButtons
+              className={errors.items?.[index]?.quantityChange ? "p-invalid w-full" : "w-full"}
+              inputStyle={{ textAlign: "center", fontSize: "0.85rem" }}
+            />
+          )}
         />
-      )}
-    />
-  );
+      </div>
 
-  const notesTemplate = (rowData: any, options: any) => (
-    <Controller
-      name={`items.${options.rowIndex}.notes`}
-      control={control}
-      render={({ field }) => (
-        <InputText
-          {...field}
-          value={field.value || ""}
-          placeholder="Notas"
-          className={errors.items?.[options.rowIndex]?.notes ? "p-invalid" : ""}
+      {/* Notas */}
+      <div style={COLUMNS[3].style}>
+        <Controller
+          name={`items.${index}.notes`}
+          control={control}
+          render={({ field }) => (
+            <InputText
+              {...field}
+              value={field.value || ""}
+              placeholder="Notas"
+              className={errors.items?.[index]?.notes ? "p-invalid w-full" : "w-full"}
+              style={{ fontSize: "0.85rem" }}
+            />
+          )}
         />
-      )}
-    />
+      </div>
+
+      {/* Eliminar */}
+      <div style={COLUMNS[4].style}>
+        <Button
+          icon="pi pi-trash"
+          severity="danger"
+          text
+          rounded
+          type="button"
+          onClick={() => remove(index)}
+          disabled={fields.length === 1}
+          tooltip="Eliminar"
+          tooltipOptions={{ position: "left" }}
+          style={{ width: "2rem", height: "2rem" }}
+        />
+      </div>
+    </div>
   );
 
   if (isLoading) {
@@ -239,14 +278,15 @@ export default function AdjustmentForm({
   }
 
   return (
-    <form onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "adjustment-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
-        {/* Warehouse */}
+        {/* Almacén */}
         <div className="col-12 md:col-6">
-          <label
-            htmlFor="warehouseId"
-            className="block text-900 font-medium mb-2"
-          >
+          <label htmlFor="warehouseId" className="block text-900 font-medium mb-2">
             Almacén <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -273,7 +313,7 @@ export default function AdjustmentForm({
           )}
         </div>
 
-        {/* Reason */}
+        {/* Razón */}
         <div className="col-12 md:col-6">
           <label htmlFor="reason" className="block text-900 font-medium mb-2">
             Razón del Ajuste <span className="text-red-500">*</span>
@@ -292,13 +332,11 @@ export default function AdjustmentForm({
             )}
           />
           {errors.reason && (
-            <small className="p-error block mt-1">
-              {errors.reason.message}
-            </small>
+            <small className="p-error block mt-1">{errors.reason.message}</small>
           )}
         </div>
 
-        {/* Notes */}
+        {/* Observaciones */}
         <div className="col-12">
           <label htmlFor="notes" className="block text-900 font-medium mb-2">
             Observaciones Generales
@@ -318,77 +356,24 @@ export default function AdjustmentForm({
           />
         </div>
 
-        {/* Items Table */}
-        <div className="col-12">
-          <div className="flex justify-content-between align-items-center mb-3">
-            <label className="block text-900 font-medium">
-              Artículos a Ajustar <span className="text-red-500">*</span>
-            </label>
-            <Button
-              type="button"
-              icon="pi pi-plus"
-              label="Agregar Artículo"
-              size="small"
-              onClick={() =>
-                append({ itemId: "", quantityChange: 1, notes: "" })
-              }
-              className="p-button-success"
-            />
+        {/* Artículos */}
+        <ItemsTable
+          fields={fields}
+          append={append}
+          remove={remove}
+          move={move}
+          defaultItem={DEFAULT_ITEM}
+          columns={COLUMNS}
+          renderRow={renderRow}
+          title="Artículos a Ajustar"
+          minWidth={700}
+        />
+
+        {errors.items?.message && (
+          <div className="col-12">
+            <small className="p-error">{errors.items.message}</small>
           </div>
-
-          <DataTable
-            value={fields}
-            responsiveLayout="scroll"
-            size="small"
-            className={errors.items ? "p-invalid" : ""}
-          >
-            <Column
-              field="itemId"
-              header="Artículo"
-              style={{ width: "35%" }}
-              body={itemSelectionTemplate}
-            />
-            <Column
-              field="quantityChange"
-              header="Cantidad de Cambio"
-              style={{ width: "25%" }}
-              body={quantityTemplate}
-            />
-            <Column
-              field="notes"
-              header="Notas"
-              style={{ width: "30%" }}
-              body={notesTemplate}
-            />
-            <Column
-              style={{ width: "10%" }}
-              body={removeItemTemplate}
-              exportable={false}
-            />
-          </DataTable>
-
-          {errors.items?.message && (
-            <small className="p-error block mt-2">{errors.items.message}</small>
-          )}
-        </div>
-      </div>
-
-      {/* Action Buttons */}
-      <div className="flex justify-content-end gap-2 mt-4">
-        <Button
-          label="Cancelar"
-          icon="pi pi-times"
-          severity="secondary"
-          onClick={onCancel}
-          type="button"
-          disabled={isSubmitting}
-        />
-        <Button
-          label="Crear Ajuste"
-          icon={isSubmitting ? "pi pi-spin pi-spinner" : "pi pi-check"}
-          type="submit"
-          loading={isSubmitting}
-        />
+        )}
       </div>
     </form>
   );

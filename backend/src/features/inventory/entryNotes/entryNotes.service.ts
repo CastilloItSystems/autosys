@@ -12,6 +12,8 @@ import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import { createAuditLog } from '../../../services/audit.service.js'
+import SupplierBillService from '../../finance/supplierBills/supplierBills.service.js'
 import {
   IEntryNoteWithRelations,
   IEntryNoteItem,
@@ -32,6 +34,7 @@ type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 const ENTRY_NOTE_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
+  supplierBill: true,
   warehouse: true,
   catalogSupplier: true,
   items: {
@@ -45,6 +48,7 @@ const ENTRY_NOTE_INCLUDE = {
 
 const ENTRY_NOTE_LIST_INCLUDE = {
   purchaseOrder: { include: { supplier: true } },
+  supplierBill: true,
   warehouse: true,
   catalogSupplier: true,
   items: {
@@ -74,6 +78,11 @@ const VALID_STATUS_TRANSITIONS: Record<EntryNoteStatus, EntryNoteStatus[]> = {
   CANCELLED: [],
 }
 
+const ACTIVE_PURCHASE_ENTRY_NOTE_STATUSES: EntryNoteStatus[] = [
+  'PENDING',
+  'IN_PROGRESS',
+]
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -87,6 +96,14 @@ function generateEntryNoteNumber(): string {
   const ts = Date.now().toString(36).toUpperCase()
   const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
   return `EN-${year}-${ts}${rnd}`
+}
+
+function toNumber(value: unknown): number {
+  return typeof value === 'number' ? value : parseFloat(String(value ?? 0))
+}
+
+function roundCurrency(value: number): number {
+  return Number(value.toFixed(2))
 }
 
 function validateStatusTransition(
@@ -124,6 +141,22 @@ function mapEntryNoteItem(item: Record<string, unknown>): IEntryNoteItem {
     item: (item.item as IEntryNoteItem['item']) ?? null,
     batch: (item.batch as IEntryNoteItem['batch']) ?? null,
     serialNumber: (item.serialNumber as IEntryNoteItem['serialNumber']) ?? null,
+  }
+}
+
+function snapshotEntryNote(entryNote: Record<string, unknown> | null) {
+  if (!entryNote) return null
+  return {
+    id: entryNote.id,
+    entryNoteNumber: entryNote.entryNoteNumber,
+    type: entryNote.type,
+    status: entryNote.status,
+    purchaseOrderId: entryNote.purchaseOrderId ?? null,
+    supplierBillId: entryNote.supplierBillId ?? null,
+    warehouseId: entryNote.warehouseId,
+    itemCount: Array.isArray(entryNote.items)
+      ? entryNote.items.length
+      : undefined,
   }
 }
 
@@ -240,6 +273,132 @@ export class EntryNoteService {
         error: publishError,
       })
     }
+
+    return entryNote as unknown as IEntryNoteWithRelations
+  }
+
+  /**
+   * Crear o devolver la nota activa de recepción para una OC enviada.
+   * Una OC puede tener múltiples notas completadas, pero solo una PENDING/IN_PROGRESS.
+   */
+  async ensurePurchaseEntryNoteFromOrder(
+    purchaseOrderId: string,
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
+  ): Promise<IEntryNoteWithRelations> {
+    const po = await db.purchaseOrder.findFirst({
+      where: { id: purchaseOrderId, warehouse: { empresaId } },
+      include: {
+        supplier: true,
+        warehouse: true,
+        items: {
+          include: {
+            item: {
+              select: { id: true, sku: true, name: true, location: true },
+            },
+          },
+        },
+      },
+    })
+
+    if (!po) {
+      throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+    }
+
+    if (!['SENT', 'PARTIAL'].includes(po.status)) {
+      throw new BadRequestError(
+        `No se puede crear nota de entrada para una OC con estado ${po.status}. La OC debe estar en SENT o PARTIAL.`
+      )
+    }
+
+    const active = await db.entryNote.findFirst({
+      where: {
+        type: 'PURCHASE',
+        purchaseOrderId,
+        status: { in: ACTIVE_PURCHASE_ENTRY_NOTE_STATUSES },
+        warehouse: { empresaId },
+      },
+      include: ENTRY_NOTE_INCLUDE,
+      orderBy: { createdAt: 'desc' },
+    })
+
+    if (active) return active as unknown as IEntryNoteWithRelations
+
+    const pendingItems = po.items.filter((item) => {
+      const pending =
+        item.quantityPending ??
+        Math.max(0, item.quantityOrdered - item.quantityReceived)
+      return pending > 0
+    })
+
+    if (pendingItems.length === 0) {
+      throw new BadRequestError(
+        'La orden de compra no tiene cantidades pendientes por recibir'
+      )
+    }
+
+    const entryNote = await db.entryNote.create({
+      data: {
+        entryNoteNumber: generateEntryNoteNumber(),
+        type: 'PURCHASE',
+        status: 'PENDING',
+        purchaseOrderId,
+        warehouseId: po.warehouseId,
+        catalogSupplierId: po.supplierId,
+        supplierName: po.supplier?.name ?? null,
+        supplierId: po.supplier?.taxId ?? null,
+        supplierPhone: po.supplier?.phone ?? null,
+        reference: po.orderNumber,
+        notes: `Recepción pendiente para OC ${po.orderNumber}`,
+        receivedBy: userId ?? null,
+        items: {
+          create: pendingItems.map((poItem) => {
+            const pending =
+              poItem.quantityPending ??
+              Math.max(0, poItem.quantityOrdered - poItem.quantityReceived)
+            return {
+              itemId: poItem.itemId,
+              itemName: poItem.itemName ?? poItem.item?.name ?? null,
+              quantityReceived: pending,
+              unitCost: poItem.unitCost,
+              storedToLocation: poItem.item?.location ?? null,
+              notes: `Saldo pendiente de OC ${po.orderNumber}`,
+            }
+          }),
+        },
+      },
+      include: ENTRY_NOTE_INCLUDE,
+    })
+
+    await createAuditLog(
+      {
+        entity: 'EntryNote',
+        entityId: entryNote.id,
+        action: 'ENTRY_NOTE_CREATED_FROM_PO',
+        empresaId,
+        userId,
+        changes: {
+          before: null,
+          after: snapshotEntryNote(entryNote as unknown as Record<string, unknown>),
+        },
+        metadata: {
+          purchaseOrderId,
+          orderNumber: po.orderNumber,
+          entryNoteNumber: entryNote.entryNoteNumber,
+          pendingItems: pendingItems.length,
+        },
+      },
+      db
+    )
+
+    logger.info('Nota de entrada creada desde orden de compra', {
+      entryNoteId: entryNote.id,
+      purchaseOrderId,
+      entryNoteNumber: entryNote.entryNoteNumber,
+      empresaId,
+      userId,
+    })
 
     return entryNote as unknown as IEntryNoteWithRelations
   }
@@ -416,6 +575,39 @@ export class EntryNoteService {
       }
       const itemNameMap = new Map(existingItems.map((i) => [i.id, i.name]))
 
+      if (entryNote.purchaseOrderId) {
+        const poItems = await db.purchaseOrderItem.findMany({
+          where: { purchaseOrderId: entryNote.purchaseOrderId },
+        })
+        const poItemsByItemId = new Map(poItems.map((item) => [item.itemId, item]))
+        const receivedByItemId = new Map<string, number>()
+
+        for (const item of data.items!) {
+          const poItem = poItemsByItemId.get(item.itemId)
+          if (!poItem) {
+            throw new BadRequestError(
+              `El ítem "${itemNameMap.get(item.itemId) ?? item.itemId}" no pertenece a la orden de compra vinculada.`
+            )
+          }
+          receivedByItemId.set(
+            item.itemId,
+            (receivedByItemId.get(item.itemId) ?? 0) + item.quantityReceived
+          )
+        }
+
+        for (const [itemId, quantityReceived] of receivedByItemId) {
+          const poItem = poItemsByItemId.get(itemId)!
+          const pending =
+            poItem.quantityPending ??
+            Math.max(0, poItem.quantityOrdered - poItem.quantityReceived)
+          if (quantityReceived > pending) {
+            throw new BadRequestError(
+              `Cantidad recibida (${quantityReceived}) excede la cantidad pendiente (${pending}) para "${itemNameMap.get(itemId) ?? itemId}".`
+            )
+          }
+        }
+      }
+
       // Transaction: delete old items, create new ones, update header
       const updated = await (db as PrismaClient).$transaction(async (tx) => {
         // Delete all existing items
@@ -446,7 +638,7 @@ export class EntryNoteService {
           data: updateData,
           include: ENTRY_NOTE_INCLUDE,
         })
-      })
+      }, { timeout: 15000, maxWait: 5000 })
 
       logger.info('Nota de entrada actualizada con items', {
         entryNoteId: id,
@@ -734,10 +926,68 @@ export class EntryNoteService {
       }
     }
 
+    let purchaseOrder: any = null
+    const purchaseOrderItemsByItemId = new Map<string, any>()
+    const purchaseQuantitiesByItemId = new Map<string, number>()
+
+    if (entryNote.type === 'PURCHASE') {
+      if (!entryNote.purchaseOrderId) {
+        throw new BadRequestError(
+          'La nota de entrada de compra debe estar vinculada a una orden de compra'
+        )
+      }
+
+      purchaseOrder = await db.purchaseOrder.findFirst({
+        where: { id: entryNote.purchaseOrderId, warehouse: { empresaId } },
+        include: { supplier: true, items: true },
+      })
+
+      if (!purchaseOrder) {
+        throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+      }
+
+      if (!['SENT', 'PARTIAL'].includes(purchaseOrder.status)) {
+        throw new BadRequestError(
+          `No se puede completar recepción para una OC con estado ${purchaseOrder.status}. Debe estar en SENT o PARTIAL.`
+        )
+      }
+
+      for (const poItem of purchaseOrder.items) {
+        purchaseOrderItemsByItemId.set(poItem.itemId, poItem)
+      }
+
+      for (const noteItem of entryNote.items) {
+        const poItem = purchaseOrderItemsByItemId.get(noteItem.itemId)
+        if (!poItem) {
+          throw new BadRequestError(
+            `El artículo ${noteItem.itemId} no pertenece a la orden de compra vinculada`
+          )
+        }
+        purchaseQuantitiesByItemId.set(
+          noteItem.itemId,
+          (purchaseQuantitiesByItemId.get(noteItem.itemId) ?? 0) +
+            noteItem.quantityReceived
+        )
+      }
+
+      for (const [itemId, quantityReceived] of purchaseQuantitiesByItemId) {
+        const poItem = purchaseOrderItemsByItemId.get(itemId)!
+        const pending =
+          poItem.quantityPending ??
+          Math.max(0, poItem.quantityOrdered - poItem.quantityReceived)
+        if (quantityReceived > pending) {
+          throw new BadRequestError(
+            `La cantidad a recibir (${quantityReceived}) excede la pendiente (${pending}) para el artículo ${poItem.itemName ?? itemId}`
+          )
+        }
+      }
+    }
+
     const movementType =
       MOVEMENT_TYPE_MAP[entryNote.type as EntryType] ?? 'ADJUSTMENT_IN'
 
     // Atomic transaction: update status + upsert stock + create movements
+    // Timeout: 30s — touches stock × N items, movements × N items, PO items, SupplierBill sync
     const result = await (db as PrismaClient).$transaction(async (tx) => {
       await tx.entryNote.update({
         where: { id },
@@ -829,13 +1079,171 @@ export class EntryNoteService {
             createdBy: userId ?? null,
           },
         })
+
+        if (purchaseOrder) {
+          await tx.itemSupplier.upsert({
+            where: {
+              itemId_supplierId_empresaId: {
+                itemId: noteItem.itemId,
+                supplierId: purchaseOrder.supplierId,
+                empresaId,
+              },
+            },
+            create: {
+              itemId: noteItem.itemId,
+              supplierId: purchaseOrder.supplierId,
+              empresaId,
+              lastPurchasedAt: new Date(),
+              lastUnitCost: unitCost,
+              purchaseCount: 1,
+            },
+            update: {
+              lastPurchasedAt: new Date(),
+              lastUnitCost: unitCost,
+              purchaseCount: { increment: 1 },
+            },
+          })
+
+          await tx.item.update({
+            where: { id: noteItem.itemId },
+            data: { lastSupplierId: purchaseOrder.supplierId },
+          })
+        }
       }
+
+      if (purchaseOrder && entryNote.purchaseOrderId) {
+        for (const [itemId, quantityReceived] of purchaseQuantitiesByItemId) {
+          const poItem = purchaseOrderItemsByItemId.get(itemId)!
+          const newQuantityReceived =
+            poItem.quantityReceived + quantityReceived
+          const newQuantityPending = Math.max(
+            0,
+            poItem.quantityOrdered - newQuantityReceived
+          )
+
+          await tx.purchaseOrderItem.update({
+            where: { id: poItem.id },
+            data: {
+              quantityReceived: newQuantityReceived,
+              quantityPending: newQuantityPending,
+            },
+          })
+        }
+
+        const updatedItems = await tx.purchaseOrderItem.findMany({
+          where: { purchaseOrderId: entryNote.purchaseOrderId },
+        })
+        const allReceived = updatedItems.every(
+          (item) =>
+            (item.quantityPending ??
+              Math.max(0, item.quantityOrdered - item.quantityReceived)) <= 0
+        )
+        const someReceived = updatedItems.some(
+          (item) => item.quantityReceived > 0
+        )
+        const newStatus = allReceived
+          ? 'COMPLETED'
+          : someReceived
+            ? 'PARTIAL'
+            : purchaseOrder.status
+
+        const updatedPurchaseOrder = await tx.purchaseOrder.update({
+          where: { id: entryNote.purchaseOrderId },
+          data: { status: newStatus as never },
+        })
+
+        await createAuditLog(
+          {
+            entity: 'PurchaseOrder',
+            entityId: entryNote.purchaseOrderId,
+            action: 'PURCHASE_ORDER_RECEIVED',
+            empresaId,
+            userId,
+            changes: {
+              before: {
+                id: purchaseOrder.id,
+                status: purchaseOrder.status,
+                items: purchaseOrder.items.map((item: any) => ({
+                  id: item.id,
+                  itemId: item.itemId,
+                  quantityReceived: item.quantityReceived,
+                  quantityPending: item.quantityPending,
+                })),
+              },
+              after: {
+                id: updatedPurchaseOrder.id,
+                status: updatedPurchaseOrder.status,
+                items: updatedItems.map((item) => ({
+                  id: item.id,
+                  itemId: item.itemId,
+                  quantityReceived: item.quantityReceived,
+                  quantityPending: item.quantityPending,
+                })),
+              },
+            },
+            metadata: {
+              orderNumber: purchaseOrder.orderNumber,
+              entryNoteId: entryNote.id,
+              entryNoteNumber: entryNote.entryNoteNumber,
+              itemsReceived: entryNote.items.length,
+              status: newStatus,
+            },
+          },
+          tx
+        )
+
+        const billService = new SupplierBillService(tx)
+        const supplierBill = await billService.syncFromPurchaseOrderReceipt(
+          empresaId,
+          entryNote.purchaseOrderId,
+          userId
+        )
+
+        if (supplierBill) {
+          await tx.entryNote.update({
+            where: { id },
+            data: { supplierBillId: supplierBill.id },
+          })
+        }
+
+        if (newStatus === 'PARTIAL') {
+          await this.ensurePurchaseEntryNoteFromOrder(
+            entryNote.purchaseOrderId,
+            empresaId,
+            userId,
+            tx
+          )
+        }
+      }
+
+      await createAuditLog(
+        {
+          entity: 'EntryNote',
+          entityId: entryNote.id,
+          action: 'ENTRY_NOTE_COMPLETED',
+          empresaId,
+          userId,
+          changes: {
+            before: snapshotEntryNote(entryNote as unknown as Record<string, unknown>),
+            after: {
+              ...snapshotEntryNote(entryNote as unknown as Record<string, unknown>),
+              status: 'COMPLETED',
+            },
+          },
+          metadata: {
+            entryNoteNumber: entryNote.entryNoteNumber,
+            purchaseOrderId: entryNote.purchaseOrderId,
+            itemCount: entryNote.items.length,
+          },
+        },
+        tx
+      )
 
       return tx.entryNote.findUnique({
         where: { id },
         include: ENTRY_NOTE_INCLUDE,
       })
-    })
+    }, { timeout: 30000, maxWait: 10000 })
 
     if (!result) throw new Error('Error al completar la nota de entrada')
 
@@ -847,7 +1255,106 @@ export class EntryNoteService {
       userId,
     })
 
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'inventory.entry_note.completed',
+          module: 'inventory',
+          title: `Recepción ${entryNote.entryNoteNumber} completada`,
+          message: `Se completó la recepción de ${entryNote.items.length} artículo(s). Stock actualizado en bodega.`,
+          type: 'success',
+          entityType: 'ENTRY_NOTE',
+          entityId: entryNote.id,
+          priority: 'HIGH',
+          severity: 'INFO',
+          link: `/empresa/inventario`,
+          source: 'inventory.entry_notes',
+          dedupKey: `inventory.entry_note.completed:${entryNote.id}`,
+          metadata: {
+            entryNoteId: entryNote.id,
+            entryNoteNumber: entryNote.entryNoteNumber,
+            purchaseOrderId: entryNote.purchaseOrderId ?? null,
+            itemCount: entryNote.items.length,
+            warehouseId: entryNote.warehouseId,
+          },
+          createdById: userId ?? 'SYSTEM',
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento inventory.entry_note.completed', {
+        entryNoteId: entryNote.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
     return result as unknown as IEntryNoteWithRelations
+  }
+
+  /**
+   * Wrapper temporal para el endpoint legado de recepción de OC.
+   * Convierte el payload viejo en una nota de entrada PURCHASE y completa la nota.
+   */
+  async receivePurchaseOrder(
+    purchaseOrderId: string,
+    data: {
+      notes?: string
+      receivedBy?: string
+      items: Array<{
+        itemId: string
+        quantityReceived: number
+        unitCost: number
+        location?: string | null
+        batchNumber?: string | null
+        expiryDate?: Date | null
+      }>
+    },
+    empresaId: string,
+    userId?: string,
+    db: PrismaClientType = prisma
+  ): Promise<IEntryNoteWithRelations> {
+    const itemsToReceive = data.items
+      .filter((item) => item.quantityReceived > 0)
+      .map((item) => ({
+        itemId: item.itemId,
+        quantityReceived: item.quantityReceived,
+        unitCost: item.unitCost,
+        storedToLocation: item.location ?? null,
+        batchNumber: item.batchNumber ?? null,
+        expiryDate: item.expiryDate ?? null,
+      }))
+
+    if (itemsToReceive.length === 0) {
+      throw new BadRequestError('Debe recibir al menos un artículo')
+    }
+
+    const note = await this.ensurePurchaseEntryNoteFromOrder(
+      purchaseOrderId,
+      empresaId,
+      userId,
+      db
+    )
+
+    await this.updateEntryNote(
+      note.id,
+      {
+        notes: data.notes ?? note.notes ?? null,
+        receivedBy: data.receivedBy ?? userId ?? note.receivedBy ?? null,
+        items: itemsToReceive,
+      },
+      empresaId,
+      db
+    )
+
+    const refreshed = await this.getEntryNoteById(note.id, empresaId, true, db)
+
+    if (refreshed.status === 'PENDING') {
+      await this.startEntryNote(note.id, empresaId, userId, db)
+    }
+
+    return this.completeEntryNote(note.id, empresaId, userId, db)
   }
 
   /**

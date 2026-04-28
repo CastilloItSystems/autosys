@@ -3,6 +3,7 @@ import prisma from '../../services/prisma.service.js'
 import { ApiResponse } from '../utils/apiResponse.js'
 import { createTenantPrisma } from '../../services/prisma-tenant.service.js'
 import { logger } from '../utils/logger.js'
+import { setAuditContext } from '../audit/auditContext.js'
 
 export const extractEmpresa = async (
   req: Request,
@@ -52,6 +53,7 @@ export const extractEmpresa = async (
     req.empresaId = empresaId
     req.prisma = createTenantPrisma(empresaId)
     req.membership = membership
+    setAuditContext({ empresaId })
 
     return next()
   } catch (error: unknown) {
@@ -117,6 +119,7 @@ export const extractEmpresaFromParam = async (
     req.empresaId = empresaId
     req.prisma = createTenantPrisma(empresaId)
     req.membership = membership
+    setAuditContext({ empresaId })
 
     return next()
   } catch (error: unknown) {

@@ -1,0 +1,36 @@
+// backend/prisma/models/finance/bankAccount.prisma
+
+enum BankAccountType {
+  CHECKING // Corriente
+  SAVINGS  // Ahorro
+  CASH     // Caja chica/efectivo
+  CRYPTO   // Cripto (futuro)
+}
+
+model BankAccount {
+  id             String          @id @default(cuid())
+  name           String          // "BNC Corriente USD", "Caja Principal"
+  type           BankAccountType
+  bankName       String?
+  accountNumber  String?
+  currency       PurchaseOrderCurrency
+  initialBalance Decimal         @default(0) @db.Decimal(14, 2)
+  currentBalance Decimal         @default(0) @db.Decimal(14, 2)
+  isActive       Boolean         @default(true)
+  notes          String?         @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  transactions     CashTransaction[]
+  supplierPayments SupplierPayment[]
+  expenses         Expense[]
+  salesPayments    Payment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, name])
+  @@map("bank_accounts")
+  @@index([empresaId, isActive])
+}

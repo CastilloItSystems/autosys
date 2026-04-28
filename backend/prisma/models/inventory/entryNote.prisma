@@ -28,6 +28,10 @@ model EntryNote {
   // Relación OPCIONAL con Orden de Compra
   purchaseOrderId  String?
   purchaseOrder    PurchaseOrder?  @relation(fields: [purchaseOrderId], references: [id], onDelete: Restrict)
+
+  // Provisión/factura de proveedor generada por recepción de compra
+  supplierBillId   String?
+  supplierBill     SupplierBill?   @relation(fields: [supplierBillId], references: [id], onDelete: SetNull)
   
   warehouseId      String
   warehouse        Warehouse       @relation(fields: [warehouseId], references: [id], onDelete: Restrict)
@@ -69,5 +73,6 @@ model EntryNote {
   @@index([type])
   @@index([status])
   @@index([purchaseOrderId])
+  @@index([supplierBillId])
   @@index([warehouseId])
 }

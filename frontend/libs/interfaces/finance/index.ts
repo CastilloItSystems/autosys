@@ -1,1 +1,6 @@
 export * from './exchangeRate.interface'
+export * from './bankAccount'
+export * from './supplierBill'
+export * from './supplierPayment'
+export * from './expense'
+export * from './cashTransaction'

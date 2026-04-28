@@ -5,7 +5,7 @@ import purchaseOrderService from './purchaseOrders.service.js'
 import {
   CreatePurchaseOrderDTO,
   UpdatePurchaseOrderDTO,
-  ApprovePurchaseOrderDTO,
+  RejectPurchaseOrderDTO,
   CreatePurchaseOrderItemDTO,
   PurchaseOrderResponseDTO,
   PurchaseOrderItemResponseDTO,
@@ -26,6 +26,10 @@ import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 function getEmpresaId(req: Request): string {
   if (!req.empresaId) throw new Error('empresaId not set by middleware')
   return req.empresaId
+}
+
+function getUserId(req: Request): string {
+  return req.user?.userId ?? 'system'
 }
 
 const VALID_SORT_FIELDS = new Set([
@@ -200,18 +204,81 @@ class PurchaseOrderController {
   })
 
   /**
+   * PATCH /api/inventory/purchase-orders/:id/submit
+   */
+  submit = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+
+    const result = await purchaseOrderService.submitForApproval(
+      id,
+      empresaId,
+      getUserId(req),
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.submitted
+    )
+  })
+
+  /**
    * PATCH /api/inventory/purchase-orders/:id/approve
    */
   approve = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
-    const userId = req.user?.userId
     const { id } = req.params as { id: string }
-    const dto = new ApprovePurchaseOrderDTO(req.body)
 
     const result = await purchaseOrderService.approve(
       id,
       empresaId,
-      dto.approvedBy ?? userId ?? '',
+      getUserId(req),
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.approved
+    )
+  })
+
+  /**
+   * PATCH /api/inventory/purchase-orders/:id/reject
+   */
+  reject = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const dto = new RejectPurchaseOrderDTO(req.body)
+
+    const result = await purchaseOrderService.reject(
+      id,
+      empresaId,
+      getUserId(req),
+      dto.rejectionReason,
+      req.prisma
+    )
+
+    return ApiResponse.success(
+      res,
+      new PurchaseOrderResponseDTO(result),
+      INVENTORY_MESSAGES.purchaseOrder.rejected
+    )
+  })
+
+  /**
+   * PATCH /api/inventory/purchase-orders/:id/send
+   */
+  send = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+
+    const result = await purchaseOrderService.sendToSupplier(
+      id,
+      empresaId,
+      getUserId(req),
       req.prisma
     )
 
@@ -229,7 +296,12 @@ class PurchaseOrderController {
     const empresaId = getEmpresaId(req)
     const { id } = req.params as { id: string }
 
-    const result = await purchaseOrderService.cancel(id, empresaId, req.prisma)
+    const result = await purchaseOrderService.cancel(
+      id,
+      empresaId,
+      getUserId(req),
+      req.prisma
+    )
 
     return ApiResponse.success(
       res,

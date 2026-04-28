@@ -102,6 +102,15 @@ const entryNoteService = {
     return res.data;
   },
 
+  async createFromPurchaseOrder(
+    purchaseOrderId: string,
+  ): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post(
+      `/inventory/entry-notes/from-purchase-order/${purchaseOrderId}`,
+    );
+    return res.data;
+  },
+
   async update(
     id: string,
     data: UpdateEntryNotePayload,

@@ -325,7 +325,7 @@ const AppMenuAutoSys = () => {
             },
             {
               label: "cotizaciones",
-              icon: "pi pi-fw pi-file-text",
+              icon: "pi pi-fw pi-file",
               to: "/autosys/concesionario/quotes",
             },
             {

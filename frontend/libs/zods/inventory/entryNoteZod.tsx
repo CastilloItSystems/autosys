@@ -62,6 +62,18 @@ export const createEntryNoteSchema = z
         path: ["items"],
       });
     }
+    data.items?.forEach((item, index) => {
+      if (
+        item._maxQuantity != null &&
+        item.quantityReceived > item._maxQuantity
+      ) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: `Máximo pendiente: ${item._maxQuantity}`,
+          path: ["items", index, "quantityReceived"],
+        });
+      }
+    });
   });
 
 export const updateEntryNoteSchema = z.object({

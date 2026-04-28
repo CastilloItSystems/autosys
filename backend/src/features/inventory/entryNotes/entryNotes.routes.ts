@@ -13,6 +13,7 @@ import {
   updateEntryNoteSchema,
   addEntryNoteItemSchema,
   entryNoteIdSchema,
+  purchaseOrderIdParamSchema,
   getEntryNotesQuerySchema,
 } from './entryNotes.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
@@ -39,6 +40,14 @@ router.post(
   authorize(PERMISSIONS.INVENTORY_CREATE),
   validateBody(createEntryNoteSchema),
   entryNoteController.create
+)
+
+// POST /api/inventory/entry-notes/from-purchase-order/:purchaseOrderId
+router.post(
+  '/from-purchase-order/:purchaseOrderId',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateParams(purchaseOrderIdParamSchema),
+  entryNoteController.createFromPurchaseOrder
 )
 
 /**

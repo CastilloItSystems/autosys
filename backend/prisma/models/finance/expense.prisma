@@ -1,0 +1,68 @@
+// backend/prisma/models/finance/expense.prisma
+
+enum ExpenseCategory {
+  UTILITIES    // Internet, luz, agua, teléfono
+  RENT         // Alquiler
+  PAYROLL      // Nómina/honorarios
+  SERVICES     // Servicios profesionales (contador, abogado)
+  MAINTENANCE  // Mantenimiento local
+  SUPPLIES     // Insumos no inventariables (papelería, café)
+  MARKETING
+  TAXES        // Impuestos no IVA (patente, ISLR)
+  BANK_FEES    // Comisiones bancarias
+  TRANSPORT
+  OTHER
+}
+
+enum ExpenseStatus {
+  DRAFT
+  PENDING   // Registrado, sin pagar
+  PARTIAL   // Pago parcial
+  PAID
+  CANCELLED
+}
+
+model Expense {
+  id            String        @id @default(cuid())
+  expenseNumber String        @unique
+  category      ExpenseCategory
+  status        ExpenseStatus @default(PENDING)
+  description   String
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id])
+
+  bankAccountId String?
+  bankAccount   BankAccount? @relation(fields: [bankAccountId], references: [id])
+
+  currency     PurchaseOrderCurrency @default(USD)
+  exchangeRate Decimal?              @db.Decimal(14, 4)
+  amount       Decimal               @db.Decimal(12, 2)
+  taxAmount    Decimal               @default(0) @db.Decimal(12, 2)
+  total        Decimal               @db.Decimal(12, 2)
+
+  paidAmount    Decimal @default(0) @db.Decimal(12, 2)
+  pendingAmount Decimal @default(0) @db.Decimal(12, 2)
+
+  expenseDate   DateTime
+  attachmentUrl String?  @db.Text // factura/recibo en R2
+
+  isRecurring     Boolean              @default(false)
+  recurringRuleId String?
+  recurringRule   ExpenseRecurringRule? @relation(fields: [recurringRuleId], references: [id])
+
+  notes    String? @db.Text
+  payments SupplierPayment[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("expenses")
+  @@index([empresaId, status])
+  @@index([category, expenseDate])
+  @@index([supplierId])
+  @@index([recurringRuleId])
+}

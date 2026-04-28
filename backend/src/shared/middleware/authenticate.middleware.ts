@@ -4,6 +4,7 @@ import { UnauthorizedError } from '../utils/apiError.js'
 import { asyncHandler } from './asyncHandler.middleware.js'
 import { verifyToken } from '../../services/jwt.service.js'
 import prisma from '../../services/prisma.service.js'
+import { setAuditContext } from '../audit/auditContext.js'
 
 export const authenticate = asyncHandler(
   async (req: Request, _res: Response, next: NextFunction) => {
@@ -50,6 +51,7 @@ export const authenticate = asyncHandler(
       correo: user.correo,
       acceso: user.acceso,
     }
+    setAuditContext({ userId: user.id })
 
     next()
   }
@@ -92,6 +94,7 @@ export const optionalAuthenticate = asyncHandler(
         correo: user.correo,
         acceso: user.acceso,
       }
+      setAuditContext({ userId: user.id })
     }
 
     next()

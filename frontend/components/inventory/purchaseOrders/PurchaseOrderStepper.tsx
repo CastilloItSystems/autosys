@@ -12,14 +12,16 @@ interface PurchaseOrderStepperProps {
 
 const PurchaseOrderStepper = ({ currentStatus }: PurchaseOrderStepperProps) => {
   const isCancelled = currentStatus === "CANCELLED";
+  const isRejected = currentStatus === "REJECTED";
   const currentIdx = PO_STATUS_STEPS.indexOf(currentStatus);
 
-  if (isCancelled) {
+  if (isCancelled || isRejected) {
+    const config = PO_STATUS_CONFIG[currentStatus];
     return (
       <div className="flex align-items-center justify-content-center py-2">
         <div className="flex align-items-center gap-2 px-3 py-2 border-round bg-red-50 border-1 border-red-200">
-          <i className="pi pi-times-circle text-red-500 text-xl"></i>
-          <span className="text-red-700 font-semibold">Orden Cancelada</span>
+          <i className={`${config.icon} text-red-500 text-xl`}></i>
+          <span className="text-red-700 font-semibold">{config.label}</span>
         </div>
       </div>
     );

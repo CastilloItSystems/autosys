@@ -99,6 +99,9 @@ export const PERMISSIONS = {
   REPORTS_EXPORT: 'reports.export',
   REPORTS_APPROVE: 'reports.approve',
 
+  // ── Auditoría ────────────────────────────────────────────────────────────
+  AUDIT_VIEW: 'audit.view',
+
   // ── Notificaciones ───────────────────────────────────────────────────────
   NOTIFICATIONS_VIEW: 'notifications.view',
   NOTIFICATIONS_MANAGE_POLICY: 'notifications.manage_policy',
@@ -193,6 +196,20 @@ export const PERMISSIONS = {
   EXCHANGE_RATES_CREATE: 'exchange_rates.create',
   EXCHANGE_RATES_UPDATE: 'exchange_rates.update',
   EXCHANGE_RATES_DELETE: 'exchange_rates.delete',
+
+  // ── Finanzas ─────────────────────────────────────────────────────────────
+  FINANCE_VIEW: 'finance.view',
+  FINANCE_BANK_ACCOUNT_VIEW: 'finance.bank_accounts.view',
+  FINANCE_BANK_ACCOUNT_MANAGE: 'finance.bank_accounts.manage',
+  FINANCE_SUPPLIER_BILL_VIEW: 'finance.supplier_bills.view',
+  FINANCE_SUPPLIER_BILL_MANAGE: 'finance.supplier_bills.manage',
+  FINANCE_SUPPLIER_PAYMENT_VIEW: 'finance.supplier_payments.view',
+  FINANCE_SUPPLIER_PAYMENT_CREATE: 'finance.supplier_payments.create',
+  FINANCE_SUPPLIER_PAYMENT_CANCEL: 'finance.supplier_payments.cancel',
+  FINANCE_EXPENSE_VIEW: 'finance.expenses.view',
+  FINANCE_EXPENSE_MANAGE: 'finance.expenses.manage',
+  FINANCE_RECURRING_RULE_MANAGE: 'finance.recurring_rules.manage',
+  FINANCE_CASH_FLOW_VIEW: 'finance.cash_flow.view',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

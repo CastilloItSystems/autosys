@@ -15,6 +15,7 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "Cotizaciones", icon: "pi pi-file-edit", prefix: "quotes" },
   { label: "Pagos", icon: "pi pi-credit-card", prefix: "payments" },
   { label: "Reportes", icon: "pi pi-chart-line", prefix: "reports" },
+  { label: "Auditoría", icon: "pi pi-history", prefix: "audit" },
   { label: "Notificaciones", icon: "pi pi-bell", prefix: "notifications" },
   {
     label: "Notif: Inventario",
@@ -66,6 +67,14 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "Concesionario", icon: "pi pi-car", prefix: "dealer" },
   // Tasas de Cambio
   { label: "Tasas de Cambio", icon: "pi pi-sync", prefix: "exchange_rates" },
+  // Finanzas
+  { label: "Finanzas", icon: "pi pi-wallet", prefix: "finance" },
+  { label: "Finanzas: Cuentas Bancarias", icon: "pi pi-building-columns", prefix: "finance.bank_accounts" },
+  { label: "Finanzas: Facturas Proveedor", icon: "pi pi-file-edit", prefix: "finance.supplier_bills" },
+  { label: "Finanzas: Pagos Proveedor", icon: "pi pi-dollar", prefix: "finance.supplier_payments" },
+  { label: "Finanzas: Gastos", icon: "pi pi-receipt", prefix: "finance.expenses" },
+  { label: "Finanzas: Gastos Recurrentes", icon: "pi pi-sync", prefix: "finance.recurring_rules" },
+  { label: "Finanzas: Flujo de Caja", icon: "pi pi-chart-line", prefix: "finance.cash_flow" },
 ]
 
 export const PERMISSION_LABELS: Record<string, string> = {
@@ -150,6 +159,8 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "reports.view": "Ver",
   "reports.export": "Exportar",
   "reports.approve": "Aprobar",
+  // Auditoría
+  "audit.view": "Ver",
   // Notificaciones
   "notifications.view": "Ver",
   "notifications.manage_policy": "Gestionar políticas",
@@ -230,6 +241,25 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "exchange_rates.create": "Crear",
   "exchange_rates.update": "Editar",
   "exchange_rates.delete": "Eliminar",
+  // Finanzas
+  "finance.view": "Ver",
+  // Cuentas Bancarias
+  "finance.bank_accounts.view": "Ver",
+  "finance.bank_accounts.manage": "Gestionar",
+  // Facturas Proveedor
+  "finance.supplier_bills.view": "Ver",
+  "finance.supplier_bills.manage": "Gestionar",
+  // Pagos Proveedor
+  "finance.supplier_payments.view": "Ver",
+  "finance.supplier_payments.create": "Crear",
+  "finance.supplier_payments.cancel": "Cancelar",
+  // Gastos
+  "finance.expenses.view": "Ver",
+  "finance.expenses.manage": "Gestionar",
+  // Gastos Recurrentes
+  "finance.recurring_rules.manage": "Gestionar",
+  // Flujo de Caja
+  "finance.cash_flow.view": "Ver",
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)

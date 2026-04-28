@@ -2,9 +2,12 @@
 
 export enum PurchaseOrderStatus {
   DRAFT = 'DRAFT',
+  PENDING_APPROVAL = 'PENDING_APPROVAL',
+  APPROVED = 'APPROVED',
   SENT = 'SENT',
   PARTIAL = 'PARTIAL',
   COMPLETED = 'COMPLETED',
+  REJECTED = 'REJECTED',
   CANCELLED = 'CANCELLED',
 }
 
@@ -45,8 +48,15 @@ export interface IPurchaseOrder {
   orderDate: Date
   expectedDate?: Date | null
   createdBy?: string | null
+  submittedBy?: string | null
+  submittedAt?: Date | null
   approvedBy?: string | null
   approvedAt?: Date | null
+  rejectedBy?: string | null
+  rejectedAt?: Date | null
+  rejectionReason?: string | null
+  sentBy?: string | null
+  sentAt?: Date | null
   createdAt: Date
   updatedAt: Date
 }
@@ -83,7 +93,6 @@ export interface ICreatePurchaseOrderInput {
 }
 
 export interface IUpdatePurchaseOrderInput {
-  status?: PurchaseOrderStatus | undefined
   currency?: PurchaseOrderCurrency | undefined
   exchangeRate?: number | null | undefined
   paymentTerms?: string | null | undefined
@@ -98,6 +107,10 @@ export interface IUpdatePurchaseOrderInput {
 
 export interface IApprovePurchaseOrderInput {
   approvedBy: string
+}
+
+export interface IRejectPurchaseOrderInput {
+  rejectionReason: string
 }
 
 export interface IPurchaseOrderFilters {

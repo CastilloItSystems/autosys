@@ -10,8 +10,9 @@ import {
 } from '../../../shared/utils/apiError.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import { createAuditLog } from '../../../services/audit.service.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
-import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import entryNoteService from '../entryNotes/entryNotes.service.js'
 import {
   IPurchaseOrderWithRelations,
   IPurchaseOrderItem,
@@ -53,17 +54,6 @@ function generateOrderNumber(): string {
   return `PO-${year}-${ts}${rnd}`
 }
 
-/**
- * Generate an entry note number for receiveOrder.
- * Uses timestamp + random suffix instead of count().
- */
-function generateEntryNoteNumber(): string {
-  const year = new Date().getFullYear()
-  const ts = Date.now().toString(36).toUpperCase()
-  const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
-  return `EN-${year}-${ts}${rnd}`
-}
-
 /** Add quantityPending to PO items (computed field not in DB). */
 function enrichWithQuantityPending(
   po: Record<string, unknown>
@@ -78,6 +68,63 @@ function enrichWithQuantityPending(
     }))
   }
   return po
+}
+
+const EDITABLE_STATUSES = new Set<PurchaseOrderStatus>([
+  PurchaseOrderStatus.DRAFT,
+  PurchaseOrderStatus.REJECTED,
+])
+
+function purchaseOrderSnapshot(po: any) {
+  if (!po) return null
+  return {
+    id: po.id,
+    orderNumber: po.orderNumber,
+    supplierId: po.supplierId,
+    warehouseId: po.warehouseId,
+    status: po.status,
+    total: po.total != null ? Number(po.total) : null,
+    itemCount: Array.isArray(po.items) ? po.items.length : undefined,
+    submittedBy: po.submittedBy ?? null,
+    submittedAt: po.submittedAt ?? null,
+    approvedBy: po.approvedBy ?? null,
+    approvedAt: po.approvedAt ?? null,
+    rejectedBy: po.rejectedBy ?? null,
+    rejectedAt: po.rejectedAt ?? null,
+    rejectionReason: po.rejectionReason ?? null,
+    sentBy: po.sentBy ?? null,
+    sentAt: po.sentAt ?? null,
+    updatedAt: po.updatedAt ?? null,
+  }
+}
+
+async function auditPurchaseOrderAction(
+  db: PrismaClientType,
+  input: {
+    action: string
+    empresaId: string
+    userId?: string
+    before?: unknown
+    after?: unknown
+    entityId: string
+    metadata?: Record<string, unknown>
+  }
+) {
+  await createAuditLog(
+    {
+      entity: 'PurchaseOrder',
+      entityId: input.entityId,
+      action: input.action,
+      empresaId: input.empresaId,
+      userId: input.userId,
+      changes: {
+        before: purchaseOrderSnapshot(input.before),
+        after: purchaseOrderSnapshot(input.after),
+      },
+      metadata: input.metadata,
+    },
+    db
+  )
 }
 
 // ---------------------------------------------------------------------------
@@ -464,15 +511,13 @@ class PurchaseOrderService {
     })
     if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
-    if (
-      data.status === PurchaseOrderStatus.CANCELLED &&
-      po.status === PurchaseOrderStatus.COMPLETED
-    ) {
-      throw new BadRequestError('No se puede cancelar una orden completada')
+    if (!EDITABLE_STATUSES.has(po.status as PurchaseOrderStatus)) {
+      throw new BadRequestError(
+        'Solo se pueden actualizar órdenes en estado DRAFT o REJECTED'
+      )
     }
 
     const updateData: Record<string, unknown> = {}
-    if (data.status !== undefined) updateData.status = data.status
     if (data.currency !== undefined) updateData.currency = data.currency
     if (data.exchangeRate !== undefined)
       updateData.exchangeRate = data.exchangeRate
@@ -485,16 +530,14 @@ class PurchaseOrderService {
     if (data.expectedDate !== undefined)
       updateData.expectedDate = data.expectedDate ?? null
 
-    // If financial fields change while in DRAFT, we must recalculate totals
-    const isDraft =
-      po.status === PurchaseOrderStatus.DRAFT ||
-      (data.status && data.status === PurchaseOrderStatus.DRAFT)
+    // If financial fields change while editable, we must recalculate totals
+    const isEditable = EDITABLE_STATUSES.has(po.status as PurchaseOrderStatus)
     const financialFieldsChanged =
       data.discountAmount !== undefined || data.igtfApplies !== undefined
     const itemsChanged = Array.isArray(data.items) && data.items.length > 0
 
-    // If items are provided and order is in DRAFT, replace all items
-    if (isDraft && itemsChanged) {
+    // If items are provided and order is editable, replace all items
+    if (isEditable && itemsChanged) {
       const newDiscountAmount = data.discountAmount ?? Number(po.discountAmount)
       const newIgtfApplies = data.igtfApplies ?? po.igtfApplies
 
@@ -584,7 +627,7 @@ class PurchaseOrderService {
     }
 
     // No items changed — only recalculate if financial header fields changed
-    if (isDraft && financialFieldsChanged) {
+    if (isEditable && financialFieldsChanged) {
       const newDiscountAmount = data.discountAmount ?? Number(po.discountAmount)
       const newIgtfApplies = data.igtfApplies ?? po.igtfApplies
 
@@ -631,7 +674,104 @@ class PurchaseOrderService {
   // -------------------------------------------------------------------------
 
   /**
-   * Aprobar orden (DRAFT → SENT).
+   * Enviar orden para aprobación (DRAFT|REJECTED → PENDING_APPROVAL).
+   * @param empresaId - REQUIRED: tenant safety
+   */
+  async submitForApproval(
+    id: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType = prisma
+  ): Promise<IPurchaseOrderWithRelations> {
+    const po = await db.purchaseOrder.findFirst({
+      where: { id, warehouse: { empresaId } },
+      include: { items: true },
+    })
+    if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+
+    if (!EDITABLE_STATUSES.has(po.status as PurchaseOrderStatus)) {
+      throw new BadRequestError(
+        `No se puede enviar para aprobación una orden con estado ${po.status}`
+      )
+    }
+
+    if (po.items.length === 0) {
+      throw new BadRequestError(
+        'La orden de compra debe tener al menos un item'
+      )
+    }
+
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const row = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          status: PurchaseOrderStatus.PENDING_APPROVAL,
+          submittedBy: userId,
+          submittedAt: new Date(),
+          rejectedBy: null,
+          rejectedAt: null,
+          rejectionReason: null,
+        },
+        include: PO_INCLUDE,
+      })
+
+      await auditPurchaseOrderAction(tx, {
+        action: 'SUBMIT',
+        empresaId,
+        userId,
+        entityId: id,
+        before: po,
+        after: row,
+        metadata: { orderNumber: row.orderNumber },
+      })
+
+      return row
+    })
+
+    logger.info(`Orden de compra enviada para aprobación: ${id}`, {
+      empresaId,
+      userId,
+    })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.submitted',
+          module: 'purchases',
+          title: `Orden de compra ${updated.orderNumber} enviada para aprobación`,
+          message: `La orden de compra ${updated.orderNumber} fue enviada para aprobación.`,
+          type: 'info',
+          entityType: 'PURCHASE_ORDER',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'INFO',
+          link: `/empresa/inventario/ordenes-compra/${updated.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.submitted:${updated.id}`,
+          metadata: {
+            purchaseOrderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: userId,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.submitted', {
+        purchaseOrderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
+    return enrichWithQuantityPending(
+      updated as unknown as Record<string, unknown>
+    ) as unknown as IPurchaseOrderWithRelations
+  }
+
+  /**
+   * Aprobar orden (PENDING_APPROVAL → APPROVED).
    * @param empresaId - REQUIRED: tenant safety
    */
   async approve(
@@ -643,32 +783,44 @@ class PurchaseOrderService {
     // TENANT-SAFE: verify via warehouse
     const po = await db.purchaseOrder.findFirst({
       where: { id, warehouse: { empresaId } },
+      include: { items: true },
     })
     if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
-    if (po.status !== PurchaseOrderStatus.DRAFT) {
+    if (po.status !== PurchaseOrderStatus.PENDING_APPROVAL) {
       throw new BadRequestError(
         `No se puede aprobar una orden con estado ${po.status}`
       )
     }
 
-    const itemCount = await db.purchaseOrderItem.count({
-      where: { purchaseOrderId: id },
-    })
-    if (itemCount === 0) {
+    if (po.items.length === 0) {
       throw new BadRequestError(
         'La orden de compra debe tener al menos un item'
       )
     }
 
-    const updated = await db.purchaseOrder.update({
-      where: { id },
-      data: {
-        status: PurchaseOrderStatus.SENT,
-        approvedBy,
-        approvedAt: new Date(),
-      },
-      include: PO_INCLUDE,
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const row = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          status: PurchaseOrderStatus.APPROVED,
+          approvedBy,
+          approvedAt: new Date(),
+        },
+        include: PO_INCLUDE,
+      })
+
+      await auditPurchaseOrderAction(tx, {
+        action: 'APPROVE',
+        empresaId,
+        userId: approvedBy,
+        entityId: id,
+        before: po,
+        after: row,
+        metadata: { orderNumber: row.orderNumber },
+      })
+
+      return row
     })
 
     logger.info(`Orden de compra aprobada: ${id}`, { approvedBy, empresaId })
@@ -711,12 +863,227 @@ class PurchaseOrderService {
   }
 
   /**
+   * Rechazar orden (PENDING_APPROVAL → REJECTED).
+   * @param empresaId - REQUIRED: tenant safety
+   */
+  async reject(
+    id: string,
+    empresaId: string,
+    rejectedBy: string,
+    rejectionReason: string,
+    db: PrismaClientType = prisma
+  ): Promise<IPurchaseOrderWithRelations> {
+    const po = await db.purchaseOrder.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+
+    if (po.status !== PurchaseOrderStatus.PENDING_APPROVAL) {
+      throw new BadRequestError(
+        `No se puede rechazar una orden con estado ${po.status}`
+      )
+    }
+
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const row = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          status: PurchaseOrderStatus.REJECTED,
+          rejectedBy,
+          rejectedAt: new Date(),
+          rejectionReason,
+        },
+        include: PO_INCLUDE,
+      })
+
+      await auditPurchaseOrderAction(tx, {
+        action: 'REJECT',
+        empresaId,
+        userId: rejectedBy,
+        entityId: id,
+        before: po,
+        after: row,
+        metadata: { orderNumber: row.orderNumber, rejectionReason },
+      })
+
+      return row
+    })
+
+    logger.info(`Orden de compra rechazada: ${id}`, { rejectedBy, empresaId })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.rejected',
+          module: 'purchases',
+          title: `Orden de compra ${updated.orderNumber} rechazada`,
+          message: `La orden de compra ${updated.orderNumber} fue rechazada.`,
+          type: 'warning',
+          entityType: 'PURCHASE_ORDER',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'WARNING',
+          link: `/empresa/inventario/ordenes-compra/${updated.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.rejected:${updated.id}`,
+          metadata: {
+            purchaseOrderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: rejectedBy,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.rejected', {
+        purchaseOrderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
+    return enrichWithQuantityPending(
+      updated as unknown as Record<string, unknown>
+    ) as unknown as IPurchaseOrderWithRelations
+  }
+
+  /**
+   * Enviar orden aprobada al proveedor (APPROVED → SENT).
+   * @param empresaId - REQUIRED: tenant safety
+   */
+  async sendToSupplier(
+    id: string,
+    empresaId: string,
+    sentBy: string,
+    db: PrismaClientType = prisma
+  ): Promise<IPurchaseOrderWithRelations> {
+    const po = await db.purchaseOrder.findFirst({
+      where: { id, warehouse: { empresaId } },
+    })
+    if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+
+    if (
+      [PurchaseOrderStatus.SENT, PurchaseOrderStatus.PARTIAL].includes(
+        po.status as PurchaseOrderStatus
+      )
+    ) {
+      await entryNoteService.ensurePurchaseEntryNoteFromOrder(
+        id,
+        empresaId,
+        sentBy,
+        db
+      )
+
+      const row = await db.purchaseOrder.findUnique({
+        where: { id },
+        include: {
+          ...PO_INCLUDE,
+          entryNotes: { include: { items: true } },
+        },
+      })
+      if (!row) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
+
+      return enrichWithQuantityPending(
+        row as unknown as Record<string, unknown>
+      ) as unknown as IPurchaseOrderWithRelations
+    }
+
+    if (po.status !== PurchaseOrderStatus.APPROVED) {
+      throw new BadRequestError(
+        `No se puede enviar al proveedor una orden con estado ${po.status}`
+      )
+    }
+
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const row = await tx.purchaseOrder.update({
+        where: { id },
+        data: {
+          status: PurchaseOrderStatus.SENT,
+          sentBy,
+          sentAt: new Date(),
+        },
+        include: PO_INCLUDE,
+      })
+
+      await auditPurchaseOrderAction(tx, {
+        action: 'SEND',
+        empresaId,
+        userId: sentBy,
+        entityId: id,
+        before: po,
+        after: row,
+        metadata: { orderNumber: row.orderNumber },
+      })
+
+      await entryNoteService.ensurePurchaseEntryNoteFromOrder(
+        id,
+        empresaId,
+        sentBy,
+        tx
+      )
+
+      return tx.purchaseOrder.findUnique({
+        where: { id },
+        include: {
+          ...PO_INCLUDE,
+          entryNotes: { include: { items: true } },
+        },
+      })
+    })
+
+    if (!updated) throw new Error('Error al enviar la orden al proveedor')
+
+    logger.info(`Orden de compra enviada al proveedor: ${id}`, {
+      sentBy,
+      empresaId,
+    })
+
+    try {
+      await domainEventBus.publish(
+        toDomainEvent({
+          empresaId,
+          eventCode: 'purchases.purchase_order.sent',
+          module: 'purchases',
+          title: `Orden de compra ${updated.orderNumber} enviada al proveedor`,
+          message: `La orden de compra ${updated.orderNumber} fue enviada al proveedor.`,
+          type: 'success',
+          entityType: 'PURCHASE_ORDER',
+          entityId: updated.id,
+          priority: 'MEDIUM',
+          severity: 'SUCCESS',
+          link: `/empresa/inventario/ordenes-compra/${updated.id}`,
+          source: 'purchases.purchase_orders',
+          dedupKey: `purchases.purchase_order.sent:${updated.id}`,
+          metadata: {
+            purchaseOrderId: updated.id,
+            orderNumber: updated.orderNumber,
+          },
+          createdById: sentBy,
+          createdByName: 'Sistema',
+        })
+      )
+    } catch (publishError) {
+      logger.error('Error publicando evento purchases.purchase_order.sent', {
+        purchaseOrderId: updated.id,
+        empresaId,
+        error: publishError,
+      })
+    }
+
+    return enrichWithQuantityPending(
+      updated as unknown as Record<string, unknown>
+    ) as unknown as IPurchaseOrderWithRelations
+  }
+
+  /**
    * Cancelar orden de compra.
    * @param empresaId - REQUIRED: tenant safety
    */
   async cancel(
     id: string,
     empresaId: string,
+    userId?: string,
     db: PrismaClientType = prisma
   ): Promise<IPurchaseOrderWithRelations> {
     // TENANT-SAFE: verify via warehouse
@@ -732,10 +1099,24 @@ class PurchaseOrderService {
       throw new BadRequestError('La orden ya está cancelada')
     }
 
-    const updated = await db.purchaseOrder.update({
-      where: { id },
-      data: { status: PurchaseOrderStatus.CANCELLED },
-      include: PO_INCLUDE,
+    const updated = await (db as PrismaClient).$transaction(async (tx) => {
+      const row = await tx.purchaseOrder.update({
+        where: { id },
+        data: { status: PurchaseOrderStatus.CANCELLED },
+        include: PO_INCLUDE,
+      })
+
+      await auditPurchaseOrderAction(tx, {
+        action: 'CANCEL',
+        empresaId,
+        userId,
+        entityId: id,
+        before: po,
+        after: row,
+        metadata: { orderNumber: row.orderNumber },
+      })
+
+      return row
     })
 
     logger.info(`Orden de compra cancelada: ${id}`, { empresaId })
@@ -760,7 +1141,7 @@ class PurchaseOrderService {
             purchaseOrderId: updated.id,
             orderNumber: updated.orderNumber,
           },
-          createdById: 'SYSTEM',
+          createdById: userId ?? 'SYSTEM',
           createdByName: 'Sistema',
         })
       )
@@ -799,9 +1180,9 @@ class PurchaseOrderService {
       if (!po)
         throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
-      if (po.status !== PurchaseOrderStatus.DRAFT) {
+      if (!EDITABLE_STATUSES.has(po.status as PurchaseOrderStatus)) {
         throw new BadRequestError(
-          'Solo se pueden agregar items a órdenes en estado DRAFT'
+          'Solo se pueden agregar items a órdenes en estado DRAFT o REJECTED'
         )
       }
 
@@ -946,9 +1327,9 @@ class PurchaseOrderService {
     })
     if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
-    if (po.status !== PurchaseOrderStatus.DRAFT) {
+    if (!EDITABLE_STATUSES.has(po.status as PurchaseOrderStatus)) {
       throw new BadRequestError(
-        'Solo se pueden eliminar órdenes en estado DRAFT'
+        'Solo se pueden eliminar órdenes en estado DRAFT o REJECTED'
       )
     }
 
@@ -965,9 +1346,7 @@ class PurchaseOrderService {
   // -------------------------------------------------------------------------
 
   /**
-   * Recepcionar mercancía de una OC.
-   * Crea EntryNote + items, actualiza PO quantities, upsert Stock, crea Movements.
-   * Todo en una transacción atómica.
+   * Compatibilidad temporal: la recepción real vive en EntryNotes.
    * @param empresaId - REQUIRED: tenant safety
    */
   async receiveOrder(
@@ -977,240 +1356,26 @@ class PurchaseOrderService {
     userId?: string,
     db: PrismaClientType = prisma
   ): Promise<IPurchaseOrderWithRelations> {
-    // TENANT-SAFE: verify PO via warehouse before entering transaction
-    const po = await db.purchaseOrder.findFirst({
+    await entryNoteService.receivePurchaseOrder(
+      poId,
+      data,
+      empresaId,
+      userId,
+      db
+    )
+
+    const result = await db.purchaseOrder.findFirst({
       where: { id: poId, warehouse: { empresaId } },
-      include: { items: true, warehouse: true },
-    })
-    if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
-
-    if (
-      [
-        PurchaseOrderStatus.COMPLETED,
-        PurchaseOrderStatus.CANCELLED,
-        PurchaseOrderStatus.DRAFT,
-      ].includes(po.status as PurchaseOrderStatus)
-    ) {
-      throw new BadRequestError(
-        `No se puede recepcionar una orden con estado ${po.status}. Debe estar en SENT o PARTIAL.`
-      )
-    }
-
-    const warehouseId = data.warehouseId ?? po.warehouseId
-
-    // TENANT-SAFE: validate target warehouse belongs to this company
-    const warehouse = await db.warehouse.findFirst({
-      where: { id: warehouseId, empresaId },
-    })
-    if (!warehouse)
-      throw new NotFoundError(INVENTORY_MESSAGES.warehouse.notFound)
-
-    // Validate quantities vs pending
-    for (const receiveItem of data.items) {
-      const poItem = po.items.find((i) => i.itemId === receiveItem.itemId)
-      if (!poItem) {
-        throw new BadRequestError(
-          `El artículo ${receiveItem.itemId} no pertenece a esta orden de compra`
-        )
-      }
-      if (receiveItem.quantityReceived > poItem.quantityPending) {
-        throw new BadRequestError(
-          `La cantidad a recibir (${receiveItem.quantityReceived}) excede la pendiente (${poItem.quantityPending}) para el artículo ${receiveItem.itemId}`
-        )
-      }
-    }
-
-    const entryNoteNumber = generateEntryNoteNumber()
-
-    const result = await (db as PrismaClient).$transaction(async (tx) => {
-      // 1. Create EntryNote (PURCHASE, COMPLETED)
-      const entryNote = await tx.entryNote.create({
-        data: {
-          entryNoteNumber,
-          type: 'PURCHASE',
-          status: 'COMPLETED',
-          purchaseOrderId: poId,
-          warehouseId,
-          notes: data.notes ?? null,
-          receivedBy: data.receivedBy ?? userId ?? null,
-          receivedAt: new Date(),
-          verifiedAt: new Date(),
-        },
-      })
-
-      // 2. For each received item
-      for (const receiveItem of data.items) {
-        const poItem = po.items.find((i) => i.itemId === receiveItem.itemId)!
-
-        // 2a. Create EntryNoteItem
-        await tx.entryNoteItem.create({
-          data: {
-            entryNoteId: entryNote.id,
-            itemId: receiveItem.itemId,
-            quantityReceived: receiveItem.quantityReceived,
-            unitCost: receiveItem.unitCost,
-            batchNumber: receiveItem.batchNumber ?? null,
-            expiryDate: receiveItem.expiryDate ?? null,
-          },
-        })
-
-        // 2b. Update PurchaseOrderItem quantities
-        const newQuantityReceived =
-          poItem.quantityReceived + receiveItem.quantityReceived
-        const newQuantityPending = Math.max(
-          0,
-          poItem.quantityOrdered - newQuantityReceived
-        )
-
-        await tx.purchaseOrderItem.update({
-          where: { id: poItem.id },
-          data: {
-            quantityReceived: newQuantityReceived,
-            quantityPending: newQuantityPending,
-          },
-        })
-
-        // 2c. Upsert Stock with weighted average cost
-        const existingStock = await tx.stock.findUnique({
-          where: {
-            itemId_warehouseId: { itemId: receiveItem.itemId, warehouseId },
-          },
-        })
-
-        if (existingStock) {
-          const newReal =
-            existingStock.quantityReal + receiveItem.quantityReceived
-          const newAvailable =
-            existingStock.quantityAvailable + receiveItem.quantityReceived
-          const existingTotal =
-            existingStock.quantityReal *
-            parseFloat(String(existingStock.averageCost))
-          const newAverageCost =
-            newReal > 0
-              ? (existingTotal +
-                  receiveItem.quantityReceived * receiveItem.unitCost) /
-                newReal
-              : receiveItem.unitCost
-
-          const updateData: any = {
-            quantityReal: newReal,
-            quantityAvailable: newAvailable,
-            averageCost: newAverageCost,
-            lastMovementAt: new Date(),
-          }
-          if (receiveItem.location) {
-            updateData.location = receiveItem.location
-          }
-
-          await tx.stock.update({
-            where: { id: existingStock.id },
-            data: updateData,
-          })
-        } else {
-          let itemLocation = receiveItem.location || null
-          if (!itemLocation) {
-            const item = await tx.item.findUnique({
-              where: { id: receiveItem.itemId },
-              select: { location: true },
-            })
-            itemLocation = item?.location || null
-          }
-
-          await tx.stock.create({
-            data: {
-              itemId: receiveItem.itemId,
-              warehouseId,
-              quantityReal: receiveItem.quantityReceived,
-              quantityReserved: 0,
-              quantityAvailable: receiveItem.quantityReceived,
-              averageCost: receiveItem.unitCost,
-              location: itemLocation,
-              lastMovementAt: new Date(),
-            },
-          })
-        }
-
-        // 2d. Create Movement
-        const movementNumber = MovementNumberGenerator.generateMovementNumber()
-
-        await tx.movement.create({
-          data: {
-            movementNumber,
-            type: 'PURCHASE' as never,
-            itemId: receiveItem.itemId,
-            warehouseToId: warehouseId,
-            quantity: receiveItem.quantityReceived,
-            unitCost: receiveItem.unitCost,
-            totalCost: receiveItem.quantityReceived * receiveItem.unitCost,
-            reference: entryNoteNumber,
-            purchaseOrderId: poId,
-            entryNoteId: entryNote.id,
-            notes: `Recepción ${entryNoteNumber} — OC ${po.orderNumber}`,
-            createdBy: data.receivedBy ?? userId ?? null,
-          },
-        })
-
-        // 2e. Update supplier memory for the item based on effective purchase
-        await tx.itemSupplier.upsert({
-          where: {
-            itemId_supplierId_empresaId: {
-              itemId: receiveItem.itemId,
-              supplierId: po.supplierId,
-              empresaId,
-            },
-          },
-          create: {
-            itemId: receiveItem.itemId,
-            supplierId: po.supplierId,
-            empresaId,
-            lastPurchasedAt: new Date(),
-            lastUnitCost: receiveItem.unitCost,
-            purchaseCount: 1,
-          },
-          update: {
-            lastPurchasedAt: new Date(),
-            lastUnitCost: receiveItem.unitCost,
-            purchaseCount: { increment: 1 },
-          },
-        })
-
-        await tx.item.update({
-          where: { id: receiveItem.itemId },
-          data: { lastSupplierId: po.supplierId },
-        })
-      }
-
-      // 3. Determine new PO status
-      const updatedItems = await tx.purchaseOrderItem.findMany({
-        where: { purchaseOrderId: poId },
-      })
-      const allReceived = updatedItems.every((i) => i.quantityPending <= 0)
-      const someReceived = updatedItems.some((i) => i.quantityReceived > 0)
-      const newStatus = allReceived
-        ? PurchaseOrderStatus.COMPLETED
-        : someReceived
-          ? PurchaseOrderStatus.PARTIAL
-          : po.status
-
-      await tx.purchaseOrder.update({
-        where: { id: poId },
-        data: { status: newStatus },
-      })
-
-      // 4. Return updated PO
-      return tx.purchaseOrder.findUnique({
-        where: { id: poId },
-        include: {
-          ...PO_INCLUDE,
-          entryNotes: { include: { items: true } },
-        },
-      })
+      include: {
+        ...PO_INCLUDE,
+        entryNotes: { include: { items: true } },
+        supplierBills: true,
+      },
     })
 
     if (!result) throw new Error('Error al procesar la recepción')
 
     logger.info(`Recepción completada para orden ${poId}`, {
-      entryNoteNumber,
       itemsReceived: data.items.length,
       newStatus: result.status,
       empresaId,

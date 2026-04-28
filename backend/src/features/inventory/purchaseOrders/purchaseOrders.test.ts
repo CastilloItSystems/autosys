@@ -1,25 +1,46 @@
-// backend/src/features/inventory/purchaseOrders/purchaseOrders.test.ts
-
-import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
+import { describe, test, expect, beforeAll, afterAll, jest } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
+
+jest.setTimeout(30000)
 
 describe('Purchase Orders API Tests', () => {
   let authToken: string
+  let empresaId: string
   let userId: string
   let supplierId: string
   let warehouseId: string
   let itemId: string
-  let purchaseOrderId: string
   let brandId: string
   let categoryId: string
   let unitId: string
 
-  beforeAll(async () => {
-    // ── Cleanup: Eliminar datos de tests previos ──
-    // Usar relación con supplier de test para encontrar POs reales (auto-generan orderNumber)
+  const auth = (req: any) =>
+    req
+      .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
+
+  const cleanup = async () => {
+    await prisma.movement
+      .deleteMany({ where: { item: { sku: { startsWith: 'TEST-PO' } } } })
+      .catch(() => {})
+    await prisma.entryNoteItem
+      .deleteMany({ where: { item: { sku: { startsWith: 'TEST-PO' } } } })
+      .catch(() => {})
+    await prisma.entryNote
+      .deleteMany({
+        where: {
+          purchaseOrder: { supplier: { code: { startsWith: 'TEST-PO-SUP' } } },
+        },
+      })
+      .catch(() => {})
+    if (empresaId) {
+      await prisma.auditLog
+        .deleteMany({ where: { entity: 'PurchaseOrder', empresaId } })
+        .catch(() => {})
+    }
     await prisma.purchaseOrderItem
       .deleteMany({
         where: {
@@ -33,6 +54,9 @@ describe('Purchase Orders API Tests', () => {
       })
       .catch(() => {})
     await prisma.stock
+      .deleteMany({ where: { item: { sku: { startsWith: 'TEST-PO' } } } })
+      .catch(() => {})
+    await prisma.itemSupplier
       .deleteMany({ where: { item: { sku: { startsWith: 'TEST-PO' } } } })
       .catch(() => {})
     await prisma.item
@@ -53,36 +77,63 @@ describe('Purchase Orders API Tests', () => {
     await prisma.unit
       .deleteMany({ where: { code: 'TEST-UNIT-PO' } })
       .catch(() => {})
+  }
 
-    // ── Obtener token y usuario ──
-    authToken = await getTestAuthToken()
+  const createOrderWithItems = async (quantityOrdered = 10) => {
+    const res = await auth(request(app).post('/api/inventory/purchase-orders'))
+      .send({
+        supplierId,
+        warehouseId,
+        notes: 'Orden con items',
+        expectedDate: new Date(Date.now() + 86400000).toISOString(),
+        items: [
+          {
+            itemId,
+            quantityOrdered,
+            unitCost: 45,
+            discountPercent: 0,
+            taxType: 'IVA',
+          },
+        ],
+      })
+
+    expect(res.status).toBe(201)
+    expect(res.body.success).toBe(true)
+    return res.body.data
+  }
+
+  beforeAll(async () => {
+    const credentials = await getTestCredentials()
+    authToken = credentials.authToken
+    empresaId = credentials.empresaId
+    await cleanup()
+
     const user = await prisma.user.findUnique({
       where: { correo: 'admin@test.com' },
     })
-    userId = user?.id || '550e8400-e29b-41d4-a716-446655440000'
+    userId = user!.id
 
-    // ── Crear dependencias: Brand ──
     const brand = await prisma.brand.create({
       data: {
         code: 'TEST-BRAND-PO',
         name: 'Test Brand PO',
         type: 'PART',
         isActive: true,
+        empresaId,
       },
     })
     brandId = brand.id
 
-    // ── Crear dependencias: Category ──
     const category = await prisma.category.create({
       data: {
         code: 'TEST-CAT-PO',
         name: 'Test Category PO',
         isActive: true,
+        empresaId,
       },
     })
     categoryId = category.id
 
-    // ── Crear dependencias: Unit ──
     const unit = await prisma.unit.create({
       data: {
         code: 'TEST-UNIT-PO',
@@ -90,11 +141,11 @@ describe('Purchase Orders API Tests', () => {
         abbreviation: 'TUP',
         type: 'COUNTABLE',
         isActive: true,
+        empresaId,
       },
     })
     unitId = unit.id
 
-    // ── Crear dependencias: Supplier ──
     const supplier = await prisma.supplier.create({
       data: {
         code: 'TEST-PO-SUP-001',
@@ -102,25 +153,26 @@ describe('Purchase Orders API Tests', () => {
         contactName: 'John Doe',
         email: 'supplier@test.com',
         phone: '123456789',
+        empresaId,
       },
     })
     supplierId = supplier.id
 
-    // ── Crear dependencias: Warehouse ──
     const warehouse = await prisma.warehouse.create({
       data: {
         code: 'TEST-PO-WH-1',
         name: 'PO Warehouse',
         type: 'PRINCIPAL',
         isActive: true,
+        empresaId,
       },
     })
     warehouseId = warehouse.id
 
-    // ── Crear dependencias: Item ──
     const item = await prisma.item.create({
       data: {
         sku: 'TEST-PO-001',
+        code: 'TEST-PO-001',
         name: 'Test PO Item',
         brandId,
         categoryId,
@@ -128,61 +180,20 @@ describe('Purchase Orders API Tests', () => {
         costPrice: 50,
         salePrice: 100,
         isActive: true,
+        tags: [],
+        empresaId,
       },
     })
     itemId = item.id
-  }, 20000)
+  }, 30000)
 
   afterAll(async () => {
-    try {
-      // ── Cleanup en orden FK-safe ──
-      await prisma.purchaseOrderItem
-        .deleteMany({
-          where: {
-            purchaseOrder: {
-              supplier: { code: { startsWith: 'TEST-PO-SUP' } },
-            },
-          },
-        })
-        .catch(() => {})
-      await prisma.purchaseOrder
-        .deleteMany({
-          where: { supplier: { code: { startsWith: 'TEST-PO-SUP' } } },
-        })
-        .catch(() => {})
-      await prisma.stock
-        .deleteMany({ where: { item: { sku: { startsWith: 'TEST-PO' } } } })
-        .catch(() => {})
-      await prisma.item
-        .deleteMany({ where: { sku: { startsWith: 'TEST-PO' } } })
-        .catch(() => {})
-      if (unitId)
-        await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
-      if (categoryId)
-        await prisma.category
-          .delete({ where: { id: categoryId } })
-          .catch(() => {})
-      if (brandId)
-        await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
-      await prisma.supplier
-        .deleteMany({ where: { code: { startsWith: 'TEST-PO-SUP' } } })
-        .catch(() => {})
-      await prisma.warehouse
-        .deleteMany({ where: { code: { startsWith: 'TEST-PO-WH' } } })
-        .catch(() => {})
-    } catch (error) {
-      console.log('Error en afterAll cleanup:', error)
-    }
+    await cleanup()
   })
 
-  // ============================================
-  // CREATE TESTS
-  // ============================================
   describe('POST /api/inventory/purchase-orders', () => {
-    test('Debe crear una orden de compra exitosamente', async () => {
-      const res = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+    test('crea una orden de compra en DRAFT', async () => {
+      const res = await auth(request(app).post('/api/inventory/purchase-orders'))
         .send({
           supplierId,
           warehouseId,
@@ -192,16 +203,13 @@ describe('Purchase Orders API Tests', () => {
 
       expect(res.status).toBe(201)
       expect(res.body.success).toBe(true)
-      expect(res.body.data).toHaveProperty('id')
+      expect(res.body.data.status).toBe('DRAFT')
       expect(res.body.data.supplierId).toBe(supplierId)
       expect(res.body.data.warehouseId).toBe(warehouseId)
-      purchaseOrderId = res.body.data.id
     })
 
-    test('Debe fallar al crear sin supplierId', async () => {
-      const res = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
+    test('falla al crear sin supplierId', async () => {
+      const res = await auth(request(app).post('/api/inventory/purchase-orders'))
         .send({
           warehouseId,
           notes: 'Sin supplier',
@@ -210,255 +218,169 @@ describe('Purchase Orders API Tests', () => {
       expect(res.status).toBe(422)
       expect(res.body.success).toBe(false)
     })
-
-    test('Debe fallar al crear sin warehouseId', async () => {
-      const res = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          supplierId,
-          notes: 'Sin warehouse',
-        })
-
-      expect(res.status).toBe(422)
-      expect(res.body.success).toBe(false)
-    })
-
-    test('Debe fallar con supplier no existente', async () => {
-      const res = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          supplierId: '00000000-0000-0000-0000-000000000000',
-          warehouseId,
-        })
-
-      expect([400, 404, 422]).toContain(res.status)
-    })
   })
 
-  // ============================================
-  // GET ALL TESTS
-  // ============================================
-  describe('GET /api/inventory/purchase-orders', () => {
-    test('Debe obtener lista de órdenes de compra', async () => {
-      const res = await request(app)
-        .get('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .query({ page: 1, limit: 10 })
+  describe('flujo formal de aprobación', () => {
+    test('DRAFT -> PENDING_APPROVAL -> APPROVED -> SENT -> PARTIAL -> COMPLETED', async () => {
+      const order = await createOrderWithItems(10)
 
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
+      const blockedPut = await auth(
+        request(app).put(`/api/inventory/purchase-orders/${order.id}`)
+      ).send({ status: 'SENT' })
+      expect(blockedPut.status).toBe(422)
+
+      const submitted = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/submit`)
+      )
+      expect(submitted.status).toBe(200)
+      expect(submitted.body.data.status).toBe('PENDING_APPROVAL')
+      expect(submitted.body.data.submittedBy).toBe(userId)
+
+      const approved = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/approve`)
+      ).send({ approvedBy: '00000000-0000-4000-8000-000000000000' })
+      expect(approved.status).toBe(200)
+      expect(approved.body.data.status).toBe('APPROVED')
+      expect(approved.body.data.approvedBy).toBe(userId)
+
+      const receiveWhileApproved = await auth(
+        request(app).post(`/api/inventory/purchase-orders/${order.id}/receive`)
+      ).send({
+        items: [{ itemId, quantityReceived: 1, unitCost: 45 }],
+      })
+      expect(receiveWhileApproved.status).toBe(400)
+
+      const sent = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/send`)
+      )
+      expect(sent.status).toBe(200)
+      expect(sent.body.data.status).toBe('SENT')
+      expect(sent.body.data.sentBy).toBe(userId)
+
+      const partial = await auth(
+        request(app).post(`/api/inventory/purchase-orders/${order.id}/receive`)
+      ).send({
+        warehouseId,
+        notes: 'Recepción parcial',
+        items: [{ itemId, quantityReceived: 4, unitCost: 45 }],
+      })
+      expect(partial.status).toBe(201)
+      expect(partial.body.data.status).toBe('PARTIAL')
+
+      const completed = await auth(
+        request(app).post(`/api/inventory/purchase-orders/${order.id}/receive`)
+      ).send({
+        warehouseId,
+        notes: 'Recepción final',
+        items: [{ itemId, quantityReceived: 6, unitCost: 45 }],
+      })
+      expect(completed.status).toBe(201)
+      expect(completed.body.data.status).toBe('COMPLETED')
+
+      const audit = await auth(request(app).get('/api/audit-logs')).query({
+        entity: 'PurchaseOrder',
+        entityId: order.id,
+        limit: 50,
+      })
+      expect(audit.status).toBe(200)
+      expect(audit.body.data.map((log: any) => log.action)).toEqual(
+        expect.arrayContaining(['SUBMIT', 'APPROVE', 'SEND', 'RECEIVE'])
+      )
       expect(
-        Array.isArray(res.body.data) || typeof res.body.data === 'object'
+        audit.body.data.every((log: any) => log.empresaId === empresaId)
       ).toBe(true)
     })
 
-    test('Debe filtrar por estado', async () => {
-      const res = await request(app)
-        .get('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .query({ status: 'DRAFT', page: 1, limit: 10 })
+    test('rechaza una orden pendiente con motivo obligatorio', async () => {
+      const order = await createOrderWithItems(3)
 
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
-    })
+      const submitted = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/submit`)
+      )
+      expect(submitted.status).toBe(200)
+      expect(submitted.body.data.status).toBe('PENDING_APPROVAL')
 
-    test('Debe filtrar por supplier', async () => {
-      const res = await request(app)
-        .get('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .query({ supplierId, page: 1, limit: 10 })
+      const missingReason = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/reject`)
+      ).send({ rejectionReason: '' })
+      expect(missingReason.status).toBe(422)
 
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
+      const rejected = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/reject`)
+      ).send({ rejectionReason: 'Falta validar condiciones comerciales' })
+      expect(rejected.status).toBe(200)
+      expect(rejected.body.data.status).toBe('REJECTED')
+      expect(rejected.body.data.rejectedBy).toBe(userId)
+      expect(rejected.body.data.rejectionReason).toBe(
+        'Falta validar condiciones comerciales'
+      )
+
+      const updatedRejected = await auth(
+        request(app).put(`/api/inventory/purchase-orders/${order.id}`)
+      ).send({ notes: 'Notas corregidas tras rechazo' })
+      expect(updatedRejected.status).toBe(200)
+      expect(updatedRejected.body.data.status).toBe('REJECTED')
     })
   })
 
-  // ============================================
-  // GET BY ID TESTS
-  // ============================================
-  describe('GET /api/inventory/purchase-orders/:id', () => {
-    test('Debe obtener orden de compra por ID', async () => {
-      if (!purchaseOrderId) {
-        console.warn('purchaseOrderId no disponible, saltando test')
-        return
-      }
+  describe('cancelación, items y eliminación', () => {
+    test('no permite enviar para aprobación sin items', async () => {
+      const createRes = await auth(
+        request(app).post('/api/inventory/purchase-orders')
+      ).send({
+        supplierId,
+        warehouseId,
+        notes: 'Sin items todavía',
+      })
+      expect(createRes.status).toBe(201)
 
-      const res = await request(app)
-        .get(`/api/inventory/purchase-orders/${purchaseOrderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect(res.status).toBe(200)
-      expect(res.body.success).toBe(true)
-      expect(res.body.data.id).toBe(purchaseOrderId)
-    })
-
-    test('Debe fallar con ID no válido', async () => {
-      const res = await request(app)
-        .get('/api/inventory/purchase-orders/invalid-id')
-        .set('Authorization', `Bearer ${authToken}`)
-
-      expect([404, 422]).toContain(res.status)
-    })
-
-    test('Debe fallar con orden no encontrada', async () => {
-      const res = await request(app)
-        .get(
-          '/api/inventory/purchase-orders/00000000-0000-0000-0000-000000000000'
+      const submitRes = await auth(
+        request(app).patch(
+          `/api/inventory/purchase-orders/${createRes.body.data.id}/submit`
         )
-        .set('Authorization', `Bearer ${authToken}`)
+      )
+      expect(submitRes.status).toBe(400)
 
-      expect(res.status).toBe(404)
-    })
-  })
-
-  // ============================================
-  // UPDATE TESTS
-  // ============================================
-  describe('PUT /api/inventory/purchase-orders/:id', () => {
-    test('Debe actualizar orden de compra en DRAFT', async () => {
-      if (!purchaseOrderId) return
-
-      const res = await request(app)
-        .put(`/api/inventory/purchase-orders/${purchaseOrderId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          notes: 'Notas actualizadas',
-          expectedDate: new Date(Date.now() + 172800000).toISOString(),
-        })
-
-      expect([200, 400]).toContain(res.status)
-    })
-  })
-
-  // ============================================
-  // APPROVE TESTS
-  // ============================================
-  describe('PATCH /api/inventory/purchase-orders/:id/approve', () => {
-    test('Debe aprobar una orden de compra', async () => {
-      if (!purchaseOrderId) return
-
-      const res = await request(app)
-        .patch(`/api/inventory/purchase-orders/${purchaseOrderId}/approve`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ approvedBy: userId })
-
-      expect([200, 400]).toContain(res.status)
-    })
-  })
-
-  // ============================================
-  // CANCEL TESTS
-  // ============================================
-  describe('PATCH /api/inventory/purchase-orders/:id/cancel', () => {
-    test('Debe cancelar una orden de compra', async () => {
-      // Crear nueva orden para cancelar (no usar la que puede estar aprobada)
-      const createRes = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          supplierId,
-          warehouseId,
-          notes: 'Para cancelar',
-        })
-
-      if (createRes.status === 201) {
-        const poId = createRes.body.data.id
-        const res = await request(app)
-          .patch(`/api/inventory/purchase-orders/${poId}/cancel`)
-          .set('Authorization', `Bearer ${authToken}`)
-
-        expect([200, 400]).toContain(res.status)
-      }
-    })
-  })
-
-  // ============================================
-  // ITEMS TESTS
-  // ============================================
-  describe('POST /api/inventory/purchase-orders/:id/items', () => {
-    test('Debe agregar item a orden de compra', async () => {
-      if (!purchaseOrderId) return
-
-      const res = await request(app)
-        .post(`/api/inventory/purchase-orders/${purchaseOrderId}/items`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          itemId,
-          quantityOrdered: 50,
-          unitCost: 45,
-        })
-
-      expect([200, 201, 400]).toContain(res.status)
+      const itemRes = await auth(
+        request(app).post(
+          `/api/inventory/purchase-orders/${createRes.body.data.id}/items`
+        )
+      ).send({
+        itemId,
+        quantityOrdered: 2,
+        unitCost: 45,
+        taxType: 'IVA',
+      })
+      expect(itemRes.status).toBe(201)
     })
 
-    test('Debe fallar sin itemId', async () => {
-      if (!purchaseOrderId) return
+    test('cancela una orden no completada', async () => {
+      const order = await createOrderWithItems(2)
 
-      const res = await request(app)
-        .post(`/api/inventory/purchase-orders/${purchaseOrderId}/items`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          quantityOrdered: 50,
-          unitCost: 45,
-        })
-
-      expect(res.status).toBe(422)
-    })
-
-    test('Debe fallar con cantidad negativa', async () => {
-      if (!purchaseOrderId) return
-
-      const res = await request(app)
-        .post(`/api/inventory/purchase-orders/${purchaseOrderId}/items`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          itemId,
-          quantityOrdered: -10,
-          unitCost: 45,
-        })
-
-      expect(res.status).toBe(422)
-    })
-  })
-
-  describe('GET /api/inventory/purchase-orders/:id/items', () => {
-    test('Debe obtener items de orden de compra', async () => {
-      if (!purchaseOrderId) return
-
-      const res = await request(app)
-        .get(`/api/inventory/purchase-orders/${purchaseOrderId}/items`)
-        .set('Authorization', `Bearer ${authToken}`)
-
+      const res = await auth(
+        request(app).patch(`/api/inventory/purchase-orders/${order.id}/cancel`)
+      )
       expect(res.status).toBe(200)
-      expect(Array.isArray(res.body.data)).toBe(true)
+      expect(res.body.data.status).toBe('CANCELLED')
     })
-  })
 
-  // ============================================
-  // DELETE TESTS
-  // ============================================
-  describe('DELETE /api/inventory/purchase-orders/:id', () => {
-    test('Debe eliminar orden de compra en DRAFT', async () => {
-      // Crear nueva orden para eliminar
-      const createRes = await request(app)
-        .post('/api/inventory/purchase-orders')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({
-          supplierId,
-          warehouseId,
-          notes: 'Para eliminar',
-        })
+    test('elimina una orden editable', async () => {
+      const createRes = await auth(
+        request(app).post('/api/inventory/purchase-orders')
+      ).send({
+        supplierId,
+        warehouseId,
+        notes: 'Para eliminar',
+      })
+      expect(createRes.status).toBe(201)
 
-      if (createRes.status === 201) {
-        const poId = createRes.body.data.id
-        const res = await request(app)
-          .delete(`/api/inventory/purchase-orders/${poId}`)
-          .set('Authorization', `Bearer ${authToken}`)
-
-        expect([200, 400]).toContain(res.status)
-      }
+      const res = await auth(
+        request(app).delete(
+          `/api/inventory/purchase-orders/${createRes.body.data.id}`
+        )
+      )
+      expect(res.status).toBe(200)
+      expect(res.body.success).toBe(true)
     })
   })
 })

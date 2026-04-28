@@ -41,7 +41,7 @@ const AppMenuEmpresa = () => {
         },
         {
           label: "Pre-facturas",
-          icon: "pi pi-fw pi-file-text",
+          icon: "pi pi-fw pi-file",
           to: "/empresa/inventario/pre-invoice",
         },
         {
@@ -208,22 +208,22 @@ const AppMenuEmpresa = () => {
             },
           ],
         },
-        {
-          label: "Trazabilidad",
-          icon: "pi pi-fw pi-map",
-          items: [
-            {
-              label: "Lotes",
-              icon: "pi pi-fw pi-inbox",
-              to: "/empresa/inventario/trazabilidad/lotes",
-            },
-            {
-              label: "Números de Serie",
-              icon: "pi pi-fw pi-barcode",
-              to: "/empresa/inventario/trazabilidad/seriales",
-            },
-          ],
-        },
+        // {
+        //   label: "Trazabilidad",
+        //   icon: "pi pi-fw pi-map",
+        //   items: [
+        //     {
+        //       label: "Lotes",
+        //       icon: "pi pi-fw pi-inbox",
+        //       to: "/empresa/inventario/trazabilidad/lotes",
+        //     },
+        //     {
+        //       label: "Números de Serie",
+        //       icon: "pi pi-fw pi-barcode",
+        //       to: "/empresa/inventario/trazabilidad/seriales",
+        //     },
+        //   ],
+        // },
         {
           label: "Reportes",
           icon: "pi pi-fw pi-chart-line",
@@ -330,7 +330,7 @@ const AppMenuEmpresa = () => {
         },
         {
           label: "Cotizaciones",
-          icon: "pi pi-fw pi-file-text",
+          icon: "pi pi-fw pi-file",
           to: "/empresa/crm/cotizaciones",
         },
         {
@@ -565,7 +565,7 @@ const AppMenuEmpresa = () => {
           items: [
             {
               label: "Cotizaciones",
-              icon: "pi pi-fw pi-file-text",
+              icon: "pi pi-fw pi-file",
               to: "/empresa/concesionario/quotes",
             },
             {
@@ -620,24 +620,54 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-dollar",
       items: [
         {
-          label: "Dashboard Financiero",
-          icon: "pi pi-fw pi-chart-line",
-          to: "/empresa/finance",
+          label: "Dashboard",
+          icon: "pi pi-fw pi-chart-pie",
+          to: "/empresa/finanzas/dashboard",
+        },
+        {
+          label: "Cuentas Bancarias",
+          icon: "pi pi-fw pi-building-columns",
+          to: "/empresa/finanzas/cuentas-bancarias",
         },
         {
           label: "Cuentas por Cobrar",
           icon: "pi pi-fw pi-arrow-up",
-          to: "/empresa/finance/cuentas-cobrar",
+          to: "/empresa/finanzas/cuentas-por-cobrar",
         },
         {
           label: "Cuentas por Pagar",
           icon: "pi pi-fw pi-arrow-down",
-          to: "/empresa/finance/cuentas-pagar",
+          to: "/empresa/finanzas/cuentas-por-pagar",
+        },
+        {
+          label: "Facturas Proveedor",
+          icon: "pi pi-fw pi-file-import",
+          to: "/empresa/finanzas/facturas-proveedor",
+        },
+        {
+          label: "Pagos a Proveedor",
+          icon: "pi pi-fw pi-send",
+          to: "/empresa/finanzas/pagos-proveedor",
+        },
+        {
+          label: "Gastos Operativos",
+          icon: "pi pi-fw pi-receipt",
+          to: "/empresa/finanzas/gastos",
+        },
+        {
+          label: "Gastos Recurrentes",
+          icon: "pi pi-fw pi-refresh",
+          to: "/empresa/finanzas/gastos-recurrentes",
+        },
+        {
+          label: "Flujo de Caja",
+          icon: "pi pi-fw pi-chart-bar",
+          to: "/empresa/finanzas/flujo-caja",
         },
         {
           label: "Tipos de Cambio",
           icon: "pi pi-fw pi-sync",
-          to: "/empresa/finance/tipos-cambio",
+          to: "/empresa/finanzas/tipos-cambio",
         },
       ],
     },
@@ -656,6 +686,11 @@ const AppMenuEmpresa = () => {
           label: "Usuarios y Permisos",
           icon: "pi pi-fw pi-users",
           to: "/empresa/configuracion/usuarios",
+        },
+        {
+          label: "Auditoría",
+          icon: "pi pi-fw pi-history",
+          to: "/empresa/configuracion/auditoria",
         },
         {
           label: "Integraciones",

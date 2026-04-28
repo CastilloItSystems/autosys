@@ -115,23 +115,19 @@ const getMenuItems = (item: Item | null): MenuItem[] => {
 **Template de acciones en la columna**:
 
 ```tsx
-const actionBodyTemplate = (rowData: Item) => {
-  return (
-    <Button
-      icon="pi pi-cog"
-      rounded
-      text
-      onClick={(e) => {
-        setActionItem(rowData);
-        menuRef.current?.toggle(e);
-      }}
-      aria-controls="item-menu"
-      aria-haspopup
-      tooltip="Opciones"
-      tooltipOptions={{ position: "left" }}
-    />
-  );
-};
+const actionsBody = (rowData: Item) => (
+  <Button
+    icon="pi pi-cog"
+    rounded
+    text
+    onClick={(e) => {
+      setActionItem(rowData);
+      menuRef.current?.toggle(e);
+    }}
+    aria-controls="item-menu"   // ← debe coincidir con id del Menu
+    aria-haspopup
+  />
+);
 ```
 
 **Columna en DataTable**:
@@ -139,7 +135,7 @@ const actionBodyTemplate = (rowData: Item) => {
 ```tsx
 <Column
   header="Acciones"
-  body={actionBodyTemplate}
+  body={actionsBody}
   exportable={false}
   frozen={true}
   alignFrozen="right"
@@ -148,7 +144,7 @@ const actionBodyTemplate = (rowData: Item) => {
 />
 ```
 
-**Menu component al final del JSX** (antes del cierre de `motion.div` o componente raíz):
+**Menu component — FUERA del `card`, ANTES de él**:
 
 ```tsx
 <Menu model={getMenuItems(actionItem)} popup ref={menuRef} id="item-menu" />
@@ -156,11 +152,12 @@ const actionBodyTemplate = (rowData: Item) => {
 
 **Notas importantes**:
 
-- El `id` del Menu debe coincidir con `aria-controls` del Button
-- `popup` habilita el comportamiento de menú flotante context
+- El `id` del Menu **debe** coincidir con `aria-controls` del Button (`"item-menu"` en ambos)
+- `popup` habilita el comportamiento de menú flotante
 - `menuRef.current?.toggle(e)` abre/cierra el menú (no usar `hide()`)
 - El Menu se renderiza **una sola vez** al final, no en cada fila
 - `actionItem` almacena el item sobre el cual se abrió el menú
+- Convención de naming: `"module-menu"` (ej: `"brand-menu"`, `"expense-menu"`)
 
 ### Botón de Crear
 
@@ -169,66 +166,75 @@ const actionBodyTemplate = (rowData: Item) => {
 ### Header estándar de `DataTable` (obligatorio para listas)
 
 - Todas las pantallas `*List` deben definir un `const header = (...)` y pasarlo en `DataTable` con `header={header}`.
-- El header debe incluir estos 3 bloques:
-  - Título + contador total de registros.
-  - Filtros/búsqueda (`Dropdown`, `InputText` con icono de búsqueda).
-  - Acción principal con `CreateButton`.
-- Al cambiar filtros/búsqueda se debe reiniciar página (`setPage(0)` o equivalente).
+- El header tiene **dos bloques**:
+  - **Izquierda**: `<h4 className="m-0">Título del módulo</h4>` + contador `({total} total)`.
+  - **Derecha**: filtros opcionales (`Dropdown`, botón toggle activos) + búsqueda opcional (`<span className="p-input-icon-left">`) + `<CreateButton>`.
+- **NO usar título `h2` externo al DataTable**. El título vive dentro del `const header` como `h4`.
+- Al cambiar filtros/búsqueda se debe reiniciar página (`setPage(1)` o `setPage(0)` según indexación).
+- El DataTable debe ir envuelto en `<div className="card">`.
+- `Toast`, `ConfirmDialog` y `Menu` van FUERA del `card`, antes de él.
 
-**Implementación base recomendada**:
+**Implementación base (referencia: `BrandList.tsx`)**:
 
 ```tsx
+// Estados necesarios
+const [searchQuery, setSearchQuery] = useState("");
+const [statusFilter, setStatusFilter] = useState("");
+
+// El header
 const header = (
   <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
     <div className="flex align-items-center gap-2">
       <h4 className="m-0">Módulo</h4>
-      <span className="text-600 text-sm">({totalRecords} total)</span>
+      <span className="text-600 text-sm">({total} total)</span>
     </div>
-    <div className="flex flex-wrap gap-2">
+    <div className="flex gap-2">
+      {/* Filtro de estado (opcional) */}
       <Dropdown
         value={statusFilter}
         options={STATUS_OPTIONS}
-        onChange={(e) => {
-          setStatusFilter(e.value);
-          setPage(0);
-        }}
+        onChange={(e) => { setStatusFilter(e.value); setPage(1); }}
         placeholder="Estado"
         style={{ minWidth: "160px" }}
       />
+      {/* Búsqueda (solo si el servicio soporta parámetro `search`) */}
       <span className="p-input-icon-left">
         <i className="pi pi-search" />
         <InputText
           type="search"
           placeholder="Buscar..."
           value={searchQuery}
-          onChange={(e) => {
-            setSearchQuery(e.target.value);
-            setPage(0);
-          }}
+          onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
         />
       </span>
-      <CreateButton
-        label="Nuevo registro"
-        onClick={openNew}
-        tooltip="Crear registro"
-      />
+      <CreateButton label="Nuevo registro" onClick={openNew} />
     </div>
   </div>
 );
-```
 
-**En DataTable**:
+// JSX — el DataTable va dentro de un card
+return (
+  <>
+    <Toast ref={toast} />
+    <ConfirmDialog />
+    <Menu model={getMenuItems(actionItem)} popup ref={menuRef} id="module-menu" />
 
-```tsx
-<DataTable
-  value={items}
-  header={header}
-  paginator
-  lazy
-  scrollable
-  sortMode="multiple"
-  ...
-/>
+    <div className="card">
+      <DataTable
+        value={items}
+        header={header}
+        paginator
+        lazy
+        scrollable
+        sortMode="multiple"
+        rowsPerPageOptions={[5, 10, 25, 50]}
+        ...
+      />
+    </div>
+
+    <Dialog ... />
+  </>
+);
 ```
 
 ### Diálogo de Eliminación (`DeleteConfirmDialog`)
@@ -406,10 +412,11 @@ try {
 
 ### Header del Dialog (`header` prop)
 
-- El Dialog **no usa `header` como string simple**. Siempre se pasa un JSX con título, ícono y separador visual.
+- El Dialog **no usa `header` como string simple**. Siempre se pasa JSX con título, ícono y separador visual.
 - Usar `maximizable` y `breakpoints` responsivos en todos los dialogs de formulario.
+- El título es `h2 text-2xl` con ícono `text-3xl`, con alineación responsiva (`text-center md:text-left`).
 
-**Implementación correcta**:
+**Implementación correcta (referencia: `BrandList.tsx`)**:
 
 ```tsx
 <Dialog
@@ -417,28 +424,42 @@ try {
   onHide={() => setFormDialog(false)}
   modal
   maximizable
-  style={{ width: "75vw" }}
-  breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
+  style={{ width: "450px" }}
+  breakpoints={{ "1400px": "450px", "900px": "60vw", "600px": "90vw" }}
   header={
     <div className="mb-2 text-center md:text-left">
       <div className="border-bottom-2 border-primary pb-2">
         <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-          <i className="pi pi-ICON mr-3 text-primary text-3xl"></i>
-          {selectedModel ? "Editar Modelo" : "Nuevo Modelo"}
+          <i className="pi pi-ICON mr-3 text-primary text-3xl" />
+          {selected ? "Editar Modelo" : "Nuevo Modelo"}
         </h2>
       </div>
     </div>
   }
-  footer={<FormActionButtons ... />}
+  footer={
+    <FormActionButtons
+      formId="model-form"
+      isUpdate={!!selected?.id}
+      onCancel={() => setFormDialog(false)}
+      isSubmitting={isSubmitting}
+    />
+  }
 >
-  <MyForm ... />
+  <MyForm
+    model={selected}
+    formId="model-form"
+    onSave={handleSave}
+    onSubmittingChange={setIsSubmitting}
+    toast={toast}
+  />
 </Dialog>
 ```
 
-#### ✗ INCORRECTO: Header como string
+#### ✗ INCORRECTO: Header como string o sin formato responsivo
 
 ```tsx
 <Dialog header="Nuevo Modelo" style={{ width: "90vw", maxWidth: "850px" }}>
+<Dialog header={<div><h2>Nuevo Modelo</h2></div>}>  {/* sin text-center md:text-left */}
 ```
 
 ---

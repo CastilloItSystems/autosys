@@ -3,6 +3,9 @@ model AuditLog {
   entity    String   // Nombre de la tabla (Ej: "User", "Empresa")
   entityId  String   // ID del registro afectado
   action    String   // "CREATE", "UPDATE", "DELETE", etc.
+
+  empresaId String?  // Empresa afectada cuando la acción ocurre dentro de un tenant
+  empresa   Empresa? @relation(fields: [empresaId], references: [id_empresa], onDelete: SetNull)
   
   userId    String?  // Usuario que realizó la acción
   user      User?    @relation(fields: [userId], references: [id])
@@ -13,5 +16,7 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@index([entity, entityId]) // Búsqueda rápida por registro
+  @@index([empresaId, createdAt])
+  @@index([entity, action, createdAt])
   @@index([userId])           // Búsqueda rápida por usuario
 }

@@ -67,9 +67,7 @@ export const updateEntryNoteSchema = Joi.object({
   items: Joi.array()
     .items(
       Joi.object({
-        itemId: Joi.string()
-          .uuid({ version: 'uuidv4', separator: '-' })
-          .required(),
+        itemId: Joi.string().required(),
         itemName: Joi.string().max(255).optional().allow(null, ''),
         quantityReceived: Joi.number().integer().positive().required(),
         unitCost: Joi.number().positive().required(),
@@ -84,13 +82,9 @@ export const updateEntryNoteSchema = Joi.object({
 }).min(1)
 
 export const addEntryNoteItemSchema = Joi.object({
-  itemId: Joi.string()
-    .uuid({ version: 'uuidv4', separator: '-' })
-    .required()
-    .messages({
-      'string.guid': 'itemId debe ser un UUID válido',
-      'any.required': 'itemId es requerido',
-    }),
+  itemId: Joi.string().required().messages({
+    'any.required': 'itemId es requerido',
+  }),
   quantityReceived: Joi.number().integer().positive().required().messages({
     'number.positive': 'quantityReceived debe ser mayor a 0',
     'number.integer': 'quantityReceived debe ser un número entero',
@@ -121,6 +115,16 @@ export const entryNoteIdSchema = Joi.object({
     .messages({
       'string.guid': 'id debe ser un UUID válido',
       'any.required': 'id es requerido',
+    }),
+})
+
+export const purchaseOrderIdParamSchema = Joi.object({
+  purchaseOrderId: Joi.string()
+    .uuid({ version: 'uuidv4', separator: '-' })
+    .required()
+    .messages({
+      'string.guid': 'purchaseOrderId debe ser un UUID válido',
+      'any.required': 'purchaseOrderId es requerido',
     }),
 })
 

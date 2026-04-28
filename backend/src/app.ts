@@ -15,6 +15,7 @@ import {
 } from './shared/middleware/errorHandler.middleware.js'
 import { requestLogger } from './shared/middleware/requestLogger.middleware.js'
 import { generalLimiter } from './shared/middleware/rateLimiter.middleware.js'
+import { auditContextMiddleware } from './shared/audit/auditContext.js'
 // Utils
 import { logger } from './shared/utils/logger.js'
 // Routes - All centralized
@@ -55,6 +56,8 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // Body Parser
 app.use(express.json({ limit: '10mb' }))
 app.use(express.urlencoded({ extended: true, limit: '10mb' }))
+// Request scoped context used by audit logging
+app.use(auditContextMiddleware)
 // Request Logger (Morgan + Winston)
 app.use(requestLogger)
 // Rate Limiting

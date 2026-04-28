@@ -1,16 +1,18 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import purchaseOrderService from "@/app/api/inventory/purchaseOrderService";
+import entryNoteService from "@/app/api/inventory/entryNoteService";
+import { AuditTrailDialog } from "@/components/audit/AuditTrail";
 import PurchaseOrderForm from "./PurchaseOrderForm";
 import PurchaseOrderStepper from "./PurchaseOrderStepper";
-import ReceiveOrderDialog from "./ReceiveOrderDialog";
 import { PurchaseOrder, PO_STATUS_CONFIG } from "@/libs/interfaces/inventory";
 import itemService, { type Item } from "@/app/api/inventory/itemService";
 import supplierService, {
@@ -34,6 +36,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/components/common/FormActionButtons";
 
 const PurchaseOrderList = () => {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const contextualSearchFilter = searchParams.get("search") || "";
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
@@ -54,14 +57,16 @@ const PurchaseOrderList = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
-  const [receiveDialog, setReceiveDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedOrderToReceive, setSelectedOrderToReceive] =
+  const [selectedOrderToReject, setSelectedOrderToReject] =
     useState<PurchaseOrder | null>(null);
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [actionPurchaseOrder, setActionPurchaseOrder] =
     useState<PurchaseOrder | null>(null);
+  const [rejectDialog, setRejectDialog] = useState(false);
+  const [rejectionReason, setRejectionReason] = useState("");
+  const [auditDialog, setAuditDialog] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
@@ -152,11 +157,14 @@ const PurchaseOrderList = () => {
   };
 
   /* ── Helpers ── */
-  const formatCurrency = (value: number | string) =>
-    `$${Number(value || 0).toLocaleString("es-VE", {
+  const formatCurrency = (value: number | string, currency = "USD") => {
+    const symbol =
+      currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
+    return `${symbol}${Number(value || 0).toLocaleString("es-VE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     })}`;
+  };
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
@@ -169,6 +177,9 @@ const PurchaseOrderList = () => {
     });
   };
 
+  const isEditableOrder = (po: PurchaseOrder | null) =>
+    !po || po.status === "DRAFT" || po.status === "REJECTED";
+
   const openFormDialog = () => {
     setPurchaseOrder(null);
     setFormDialog(true);
@@ -180,19 +191,20 @@ const PurchaseOrderList = () => {
     setFormDialog(false);
   };
 
-  const openReceiveDialog = (order: PurchaseOrder) => {
-    setSelectedOrderToReceive(order);
-    setReceiveDialog(true);
-  };
+  const mergePurchaseOrder = (updatedOrder?: PurchaseOrder | null) => {
+    if (!updatedOrder?.id) return;
 
-  const hideReceiveDialog = () => {
-    setSelectedOrderToReceive(null);
-    setReceiveDialog(false);
-  };
-
-  const handleReceiveSuccess = (updatedOrder: any) => {
-    loadPurchaseOrders();
-    hideReceiveDialog();
+    setPurchaseOrders((prev) =>
+      prev.map((po) =>
+        po.id === updatedOrder.id ? { ...po, ...updatedOrder } : po,
+      ),
+    );
+    setPurchaseOrder((prev) =>
+      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
+    );
+    setActionPurchaseOrder((prev) =>
+      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
+    );
   };
 
   const handleSave = async () => {
@@ -210,10 +222,14 @@ const PurchaseOrderList = () => {
 
   const handleDelete = async () => {
     if (!purchaseOrder?.id) return;
+    const deletedId = purchaseOrder.id;
+    const remainingRows = purchaseOrders.length - 1;
     setIsDeleting(true);
     try {
-      await purchaseOrderService.delete(purchaseOrder.id);
-      await loadPurchaseOrders();
+      await purchaseOrderService.delete(deletedId);
+      setPurchaseOrders((prev) => prev.filter((po) => po.id !== deletedId));
+      setTotalRecords((prev) => Math.max(0, prev - 1));
+      if (remainingRows <= 0 && page > 0) setPage((prev) => prev - 1);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -229,14 +245,14 @@ const PurchaseOrderList = () => {
     }
   };
 
-  const handleApprove = async (po: PurchaseOrder) => {
+  const handleSubmitForApproval = async (po: PurchaseOrder) => {
     try {
-      await purchaseOrderService.approve(po.id);
-      await loadPurchaseOrders();
+      const response = await purchaseOrderService.submit(po.id);
+      mergePurchaseOrder(response.data);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Orden ${po.orderNumber} enviada`,
+        detail: `Orden ${po.orderNumber} enviada para aprobación`,
         life: 3000,
       });
     } catch (error) {
@@ -244,10 +260,90 @@ const PurchaseOrderList = () => {
     }
   };
 
+  const handleApprove = async (po: PurchaseOrder) => {
+    try {
+      const response = await purchaseOrderService.approve(po.id);
+      mergePurchaseOrder(response.data);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Orden ${po.orderNumber} aprobada`,
+        life: 3000,
+      });
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
+  const openRejectDialog = (po: PurchaseOrder) => {
+    setSelectedOrderToReject(po);
+    setRejectionReason("");
+    setRejectDialog(true);
+  };
+
+  const hideRejectDialog = () => {
+    setSelectedOrderToReject(null);
+    setRejectionReason("");
+    setRejectDialog(false);
+  };
+
+  const handleReject = async () => {
+    if (!selectedOrderToReject || !rejectionReason.trim()) return;
+    try {
+      const response = await purchaseOrderService.reject(
+        selectedOrderToReject.id,
+        rejectionReason.trim(),
+      );
+      mergePurchaseOrder(response.data);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Orden ${selectedOrderToReject.orderNumber} rechazada`,
+        life: 3000,
+      });
+      hideRejectDialog();
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
+  const handleSend = async (po: PurchaseOrder) => {
+    try {
+      const response = await purchaseOrderService.send(po.id);
+      mergePurchaseOrder(response.data);
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: `Orden ${po.orderNumber} enviada al proveedor`,
+        life: 3000,
+      });
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
+  const handleReceiveInEntryNote = async (po: PurchaseOrder) => {
+    try {
+      const response = await entryNoteService.createFromPurchaseOrder(po.id);
+      const entryNote = response.data;
+      toast.current?.show({
+        severity: "success",
+        summary: "Nota de entrada",
+        detail: `Abriendo recepción ${entryNote.entryNoteNumber}`,
+        life: 3000,
+      });
+      router.push(
+        `/empresa/inventario/notas-entrada?search=${encodeURIComponent(entryNote.entryNoteNumber)}`,
+      );
+    } catch (error) {
+      handleFormError(error, toast);
+    }
+  };
+
   const handleCancel = async (po: PurchaseOrder) => {
     try {
-      await purchaseOrderService.cancel(po.id);
-      await loadPurchaseOrders();
+      const response = await purchaseOrderService.cancel(po.id);
+      mergePurchaseOrder(response.data);
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -257,6 +353,16 @@ const PurchaseOrderList = () => {
     } catch (error) {
       handleFormError(error, toast);
     }
+  };
+
+  const hideAuditDialog = () => {
+    setAuditDialog(false);
+    setActionPurchaseOrder(null);
+  };
+
+  const openAuditDialog = (po: PurchaseOrder) => {
+    setActionPurchaseOrder(po);
+    setAuditDialog(true);
   };
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -297,12 +403,12 @@ const PurchaseOrderList = () => {
 
     return (
       <div className="flex gap-1 flex-nowrap">
-        {/* DRAFT → Enviar */}
-        {status === "DRAFT" && (
+        {/* DRAFT / REJECTED → Enviar para aprobación */}
+        {(status === "DRAFT" || status === "REJECTED") && (
           <Button
             icon="pi pi-send"
             className="p-button-rounded p-button-info p-button-sm"
-            tooltip="Enviar para Aprobación"
+            tooltip="Enviar para aprobación"
             tooltipOptions={{ position: "top" }}
             onClick={(e) =>
               confirmAction({
@@ -312,10 +418,97 @@ const PurchaseOrderList = () => {
                 iconClass: "text-blue-500",
                 acceptLabel: "Enviar",
                 acceptSeverity: "info",
-                onAccept: () => handleApprove(rowData),
+                onAccept: () => handleSubmitForApproval(rowData),
               })
             }
           />
+        )}
+
+        {/* PENDING_APPROVAL → Aprobar / Rechazar / Cancelar */}
+        {status === "PENDING_APPROVAL" && (
+          <>
+            <Button
+              icon="pi pi-check"
+              className="p-button-rounded p-button-success p-button-sm"
+              tooltip="Aprobar"
+              tooltipOptions={{ position: "top" }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Aprobar la orden ${rowData.orderNumber}?`,
+                  icon: "pi pi-check",
+                  iconClass: "text-green-500",
+                  acceptLabel: "Aprobar",
+                  acceptSeverity: "success",
+                  onAccept: () => handleApprove(rowData),
+                })
+              }
+            />
+            <Button
+              icon="pi pi-ban"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Rechazar"
+              tooltipOptions={{ position: "top" }}
+              onClick={() => openRejectDialog(rowData)}
+            />
+            <Button
+              icon="pi pi-times"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Cancelar Orden"
+              tooltipOptions={{ position: "top" }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
+            />
+          </>
+        )}
+
+        {/* APPROVED → Enviar al proveedor / Cancelar */}
+        {status === "APPROVED" && (
+          <>
+            <Button
+              icon="pi pi-truck"
+              className="p-button-rounded p-button-warning p-button-sm"
+              tooltip="Enviar al proveedor"
+              tooltipOptions={{ position: "top" }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Enviar la orden ${rowData.orderNumber} al proveedor?`,
+                  icon: "pi pi-truck",
+                  iconClass: "text-orange-500",
+                  acceptLabel: "Enviar",
+                  acceptSeverity: "warning",
+                  onAccept: () => handleSend(rowData),
+                })
+              }
+            />
+            <Button
+              icon="pi pi-times"
+              className="p-button-rounded p-button-danger p-button-sm"
+              tooltip="Cancelar Orden"
+              tooltipOptions={{ position: "top" }}
+              onClick={(e) =>
+                confirmAction({
+                  target: e.currentTarget as EventTarget & HTMLElement,
+                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                  icon: "pi pi-ban",
+                  iconClass: "text-red-500",
+                  acceptLabel: "Sí, Cancelar",
+                  acceptSeverity: "danger",
+                  onAccept: () => handleCancel(rowData),
+                })
+              }
+            />
+          </>
         )}
 
         {/* SENT / PARTIAL → Recepcionar / Cancelar */}
@@ -324,9 +517,9 @@ const PurchaseOrderList = () => {
             <Button
               icon="pi pi-inbox"
               className="p-button-rounded p-button-success p-button-sm"
-              tooltip="Recepcionar Artículos"
+              tooltip="Recepcionar en Nota de Entrada"
               tooltipOptions={{ position: "top" }}
-              onClick={() => openReceiveDialog(rowData)}
+              onClick={() => handleReceiveInEntryNote(rowData)}
             />
             <Button
               icon="pi pi-times"
@@ -365,18 +558,30 @@ const PurchaseOrderList = () => {
     );
   };
 
-  /* CRUD actions (Edit / Delete) — cog menu, solo disponible cuando DRAFT */
+  /* CRUD actions (View / Audit / Edit / Delete) */
   const getMenuItems = (po: PurchaseOrder | null): MenuItem[] => {
-    if (!po || po.status !== "DRAFT") return [];
-    return [
+    if (!po) return [];
+
+    const editable = isEditableOrder(po);
+    const items: MenuItem[] = [
       {
-        label: "Editar",
-        icon: "pi pi-pencil",
+        label: editable ? "Editar" : "Ver detalle",
+        icon: editable ? "pi pi-pencil" : "pi pi-eye",
         command: () => {
           setPurchaseOrder(po);
           setFormDialog(true);
         },
       },
+      {
+        label: "Auditoría",
+        icon: "pi pi-history",
+        command: () => openAuditDialog(po),
+      },
+    ];
+
+    if (!editable) return items;
+
+    items.push(
       { separator: true },
       {
         label: "Eliminar",
@@ -387,11 +592,12 @@ const PurchaseOrderList = () => {
           setDeleteDialog(true);
         },
       },
-    ];
+    );
+
+    return items;
   };
 
   const crudBodyTemplate = (rowData: PurchaseOrder) => {
-    if (rowData.status !== "DRAFT") return null;
     return (
       <Button
         icon="pi pi-cog"
@@ -428,7 +634,7 @@ const PurchaseOrderList = () => {
   const totalBodyTemplate = (rowData: PurchaseOrder) => {
     return (
       <span className="font-semibold text-primary">
-        {formatCurrency(rowData.total)}
+        {formatCurrency(rowData.total, rowData.currency)}
       </span>
     );
   };
@@ -616,7 +822,7 @@ const PurchaseOrderList = () => {
                       flexShrink: 0,
                     }}
                   >
-                    {formatCurrency(Number(line.unitCost || 0))}
+                    {formatCurrency(Number(line.unitCost || 0), data.currency)}
                   </div>
 
                   {/* Desc % */}
@@ -678,6 +884,7 @@ const PurchaseOrderList = () => {
                   >
                     {formatCurrency(
                       Number(line.totalLine || line.subtotal || 0),
+                      data.currency,
                     )}
                   </div>
                 </div>
@@ -690,7 +897,7 @@ const PurchaseOrderList = () => {
                 <div className="surface-100 border-round px-4 py-2">
                   <span className="text-500 mr-3">Total:</span>
                   <span className="font-bold text-primary text-lg">
-                    {formatCurrency(orderTotal)}
+                    {formatCurrency(orderTotal, data.currency)}
                   </span>
                 </div>
               </div>
@@ -701,7 +908,7 @@ const PurchaseOrderList = () => {
     );
   };
 
-  if (loading) {
+  if (loading && purchaseOrders.length === 0) {
     return (
       <div className="flex justify-content-center align-items-center h-screen">
         <ProgressSpinner />
@@ -833,7 +1040,9 @@ const PurchaseOrderList = () => {
                 <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                   <i className="pi pi-shopping-cart mr-3 text-primary text-3xl"></i>
                   {purchaseOrder
-                    ? "Editar Orden de Compra"
+                    ? isEditableOrder(purchaseOrder)
+                      ? "Editar Orden de Compra"
+                      : "Detalle de Orden de Compra"
                     : "Nueva Orden de Compra"}
                 </h2>
               </div>
@@ -842,12 +1051,23 @@ const PurchaseOrderList = () => {
           modal
           onHide={hideFormDialog}
           footer={
-            <FormActionButtons
-              formId="purchase-order-form"
-              isUpdate={!!purchaseOrder?.id}
-              onCancel={hideFormDialog}
-              isSubmitting={isSubmitting}
-            />
+            isEditableOrder(purchaseOrder) ? (
+              <FormActionButtons
+                formId="purchase-order-form"
+                isUpdate={!!purchaseOrder?.id}
+                onCancel={hideFormDialog}
+                isSubmitting={isSubmitting}
+              />
+            ) : (
+              <div className="flex justify-content-end mb-4">
+                <Button
+                  label="Cerrar"
+                  icon="pi pi-times"
+                  severity="secondary"
+                  onClick={hideFormDialog}
+                />
+              </div>
+            )
           }
         >
           <PurchaseOrderForm
@@ -862,12 +1082,60 @@ const PurchaseOrderList = () => {
           />
         </Dialog>
 
-        {/* Receive dialog */}
-        <ReceiveOrderDialog
-          visible={receiveDialog}
-          order={selectedOrderToReceive}
-          onHide={hideReceiveDialog}
-          onSuccess={handleReceiveSuccess}
+        {/* Reject dialog */}
+        <Dialog
+          visible={rejectDialog}
+          style={{ width: "34rem" }}
+          breakpoints={{ "600px": "95vw" }}
+          header="Rechazar Orden"
+          modal
+          onHide={hideRejectDialog}
+          footer={
+            <div className="flex justify-content-end gap-2">
+              <Button
+                label="Cancelar"
+                icon="pi pi-times"
+                severity="secondary"
+                text
+                onClick={hideRejectDialog}
+              />
+              <Button
+                label="Rechazar"
+                icon="pi pi-ban"
+                severity="danger"
+                disabled={rejectionReason.trim().length < 3}
+                onClick={handleReject}
+              />
+            </div>
+          }
+        >
+          <div className="flex flex-column gap-2">
+            <label htmlFor="rejectionReason" className="font-medium text-900">
+              Motivo
+            </label>
+            <InputTextarea
+              id="rejectionReason"
+              value={rejectionReason}
+              onChange={(e) => setRejectionReason(e.target.value)}
+              rows={5}
+              autoResize
+              autoFocus
+              placeholder="Indique el motivo del rechazo"
+              className="w-full"
+            />
+            <small className="text-600">
+              Mínimo 3 caracteres. Este motivo quedará en la auditoría.
+            </small>
+          </div>
+        </Dialog>
+
+        <AuditTrailDialog
+          visible={auditDialog}
+          onHide={hideAuditDialog}
+          entity="PurchaseOrder"
+          entityId={actionPurchaseOrder?.id}
+          title="Historial de orden de compra"
+          subtitle={actionPurchaseOrder?.orderNumber}
           toast={toast}
         />
 

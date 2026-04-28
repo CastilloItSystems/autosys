@@ -35,6 +35,7 @@ export const createPaymentSchema = Joi.object({
   }),
   reference: Joi.string().max(100).optional().allow(null, ''),
   notes: Joi.string().max(500).optional().allow(null, ''),
+  bankAccountId: Joi.string().optional().allow(null, ''),
 })
 
 export const paymentFiltersSchema = Joi.object({

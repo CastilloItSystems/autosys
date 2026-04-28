@@ -156,6 +156,7 @@ export class EntryNoteResponseDTO {
   type: EntryType
   status: EntryNoteStatus
   purchaseOrderId: string | null
+  supplierBillId: string | null
   warehouseId: string
   catalogSupplierId: string | null
   supplierName: string | null
@@ -172,6 +173,7 @@ export class EntryNoteResponseDTO {
   createdAt: Date
   updatedAt: Date
   purchaseOrder?: unknown
+  supplierBill?: unknown
   warehouse?: unknown
   catalogSupplier?: unknown
   items?: EntryNoteItemResponseDTO[]
@@ -182,6 +184,7 @@ export class EntryNoteResponseDTO {
     this.type = data.type
     this.status = data.status
     this.purchaseOrderId = data.purchaseOrderId ?? null
+    this.supplierBillId = data.supplierBillId ?? null
     this.warehouseId = data.warehouseId
     this.catalogSupplierId = data.catalogSupplierId ?? null
     this.supplierName = data.supplierName ?? null
@@ -200,6 +203,8 @@ export class EntryNoteResponseDTO {
 
     if (data.purchaseOrder !== undefined)
       this.purchaseOrder = data.purchaseOrder
+    if (data.supplierBill !== undefined)
+      this.supplierBill = data.supplierBill
     if (data.warehouse !== undefined) this.warehouse = data.warehouse
     if (data.catalogSupplier !== undefined)
       this.catalogSupplier = data.catalogSupplier

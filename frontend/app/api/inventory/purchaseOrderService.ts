@@ -18,15 +18,36 @@ export interface PurchaseOrderParams {
 export interface CreatePurchaseOrderData {
   supplierId: string;
   warehouseId: string;
+  currency?: "USD" | "VES" | "EUR";
+  exchangeRate?: number | null;
+  paymentTerms?: string | null;
+  creditDays?: number | null;
+  deliveryTerms?: string | null;
+  discountAmount?: number;
+  igtfApplies?: boolean;
   notes?: string;
   expectedDate?: string;
-  items?: { itemId: string; quantityOrdered: number; unitCost: number }[];
+  items?: {
+    itemId: string;
+    itemName?: string;
+    quantityOrdered: number;
+    unitCost: number;
+    discountPercent?: number;
+    taxType?: "IVA" | "EXEMPT" | "REDUCED";
+  }[];
 }
 
 export interface UpdatePurchaseOrderData {
-  status?: PurchaseOrderStatus;
+  currency?: "USD" | "VES" | "EUR";
+  exchangeRate?: number | null;
+  paymentTerms?: string | null;
+  creditDays?: number | null;
+  deliveryTerms?: string | null;
+  discountAmount?: number;
+  igtfApplies?: boolean;
   notes?: string | null;
   expectedDate?: string | null;
+  items?: CreatePurchaseOrderData["items"];
 }
 
 export interface AddPurchaseOrderItemData {
@@ -43,6 +64,7 @@ export interface ReceivePurchaseOrderData {
     itemId: string;
     quantityReceived: number;
     unitCost: number;
+    location?: string | null;
     batchNumber?: string | null;
     expiryDate?: string | null;
   }[];
@@ -84,10 +106,36 @@ const purchaseOrderService = {
     return response.data;
   },
 
-  async approve(id: string, approvedBy?: string): Promise<ApiResponse<any>> {
+  async submit(id: string): Promise<ApiResponse<any>> {
+    const response = await apiClient.patch(
+      `/inventory/purchase-orders/${id}/submit`,
+    );
+    return response.data;
+  },
+
+  async approve(id: string): Promise<ApiResponse<any>> {
     const response = await apiClient.patch(
       `/inventory/purchase-orders/${id}/approve`,
-      { approvedBy },
+      {},
+    );
+    return response.data;
+  },
+
+  async reject(
+    id: string,
+    rejectionReason: string,
+  ): Promise<ApiResponse<any>> {
+    const response = await apiClient.patch(
+      `/inventory/purchase-orders/${id}/reject`,
+      { rejectionReason },
+    );
+    return response.data;
+  },
+
+  async send(id: string): Promise<ApiResponse<any>> {
+    const response = await apiClient.patch(
+      `/inventory/purchase-orders/${id}/send`,
+      {},
     );
     return response.data;
   },
@@ -117,6 +165,10 @@ const purchaseOrderService = {
     return response.data;
   },
 
+  /**
+   * @deprecated La recepción de OC se gestiona desde Notas de Entrada.
+   * Usar entryNoteService.createFromPurchaseOrder().
+   */
   async receive(
     poId: string,
     data: ReceivePurchaseOrderData,

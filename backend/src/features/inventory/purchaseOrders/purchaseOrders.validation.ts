@@ -50,12 +50,10 @@ export const createPurchaseOrderSchema = Joi.object({
 })
 
 export const updatePurchaseOrderSchema = Joi.object({
-  status: Joi.string()
-    .valid(...Object.values(PurchaseOrderStatus))
-    .optional()
-    .messages({
-      'any.only': `status debe ser uno de: ${Object.values(PurchaseOrderStatus).join(', ')}`,
-    }),
+  status: Joi.any().forbidden().messages({
+    'any.unknown':
+      'status no puede actualizarse directamente; use las rutas de transición',
+  }),
   currency: Joi.string()
     .valid(...Object.values(PurchaseOrderCurrency))
     .optional(),
@@ -85,8 +83,14 @@ export const updatePurchaseOrderSchema = Joi.object({
 }).min(1)
 
 export const approvePurchaseOrderSchema = Joi.object({
-  approvedBy: Joi.string().optional().allow(null, '').messages({
-    'string.empty': 'approvedBy no puede estar vacío',
+  approvedBy: Joi.any().strip(),
+})
+
+export const rejectPurchaseOrderSchema = Joi.object({
+  rejectionReason: Joi.string().trim().min(3).max(2000).required().messages({
+    'string.min': 'rejectionReason debe tener al menos 3 caracteres',
+    'string.max': 'rejectionReason no puede exceder 2000 caracteres',
+    'any.required': 'rejectionReason es requerido',
   }),
 })
 

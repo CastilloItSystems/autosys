@@ -31,6 +31,7 @@ model Empresa {
 
   memberships     Membership[]
   companyRoles    CompanyRole[]
+  auditLogs       AuditLog[]
   notificationPolicies NotificationCompanyPolicy[]
   notifications        Notification[]
 
@@ -127,6 +128,14 @@ model Empresa {
   // Configuración de moneda
   defaultCurrency             CurrencyCode?  @default(USD)
   exchangeRates               ExchangeRate[]
+
+  // Finance
+  bankAccounts                BankAccount[]
+  supplierBills               SupplierBill[]
+  supplierPayments            SupplierPayment[]
+  expenses                    Expense[]
+  expenseRules                ExpenseRecurringRule[]
+  cashTransactions            CashTransaction[]
 
   createdAt       DateTime     @default(now())
   updatedAt       DateTime     @updatedAt

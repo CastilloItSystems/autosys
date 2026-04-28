@@ -7,6 +7,7 @@ import {
   PurchaseOrderStatus,
   PurchaseOrderCurrency,
   TaxType,
+  IRejectPurchaseOrderInput,
 } from './purchaseOrders.interface.js'
 
 export class CreatePurchaseOrderDTO {
@@ -70,7 +71,6 @@ export class CreatePurchaseOrderDTO {
 }
 
 export class UpdatePurchaseOrderDTO {
-  status?: PurchaseOrderStatus
   currency?: PurchaseOrderCurrency
   exchangeRate?: number | null
   paymentTerms?: string | null
@@ -90,8 +90,6 @@ export class UpdatePurchaseOrderDTO {
   }[]
 
   constructor(data: Record<string, unknown>) {
-    if (data.status !== undefined)
-      this.status = data.status as PurchaseOrderStatus
     if (data.currency !== undefined)
       this.currency = data.currency as PurchaseOrderCurrency
     if (data.exchangeRate !== undefined)
@@ -135,6 +133,14 @@ export class ApprovePurchaseOrderDTO {
   approvedBy?: string | null
   constructor(data: Record<string, unknown>) {
     this.approvedBy = data.approvedBy ? String(data.approvedBy) : null
+  }
+}
+
+export class RejectPurchaseOrderDTO implements IRejectPurchaseOrderInput {
+  rejectionReason: string
+
+  constructor(data: Record<string, unknown>) {
+    this.rejectionReason = String(data.rejectionReason)
   }
 }
 
@@ -217,8 +223,15 @@ export class PurchaseOrderResponseDTO {
   orderDate: Date
   expectedDate: Date | null
   createdBy: string | null
+  submittedBy: string | null
+  submittedAt: Date | null
   approvedBy: string | null
   approvedAt: Date | null
+  rejectedBy: string | null
+  rejectedAt: Date | null
+  rejectionReason: string | null
+  sentBy: string | null
+  sentAt: Date | null
   createdAt: Date
   updatedAt: Date
   supplier?: unknown
@@ -250,8 +263,15 @@ export class PurchaseOrderResponseDTO {
     this.orderDate = po.orderDate
     this.expectedDate = po.expectedDate ?? null
     this.createdBy = po.createdBy ?? null
+    this.submittedBy = po.submittedBy ?? null
+    this.submittedAt = po.submittedAt ?? null
     this.approvedBy = po.approvedBy ?? null
     this.approvedAt = po.approvedAt ?? null
+    this.rejectedBy = po.rejectedBy ?? null
+    this.rejectedAt = po.rejectedAt ?? null
+    this.rejectionReason = po.rejectionReason ?? null
+    this.sentBy = po.sentBy ?? null
+    this.sentAt = po.sentAt ?? null
     this.createdAt = po.createdAt
     this.updatedAt = po.updatedAt
     const r = po as IPurchaseOrderWithRelations

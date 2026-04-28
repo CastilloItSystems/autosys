@@ -41,6 +41,12 @@ model Supplier {
   workshopTOTs      WorkshopTOT[]
   lastSuppliedItems Item[]          @relation("ItemLastSupplier")
   itemSuppliers     ItemSupplier[]
+
+  // Finance
+  supplierBills    SupplierBill[]
+  supplierPayments SupplierPayment[]
+  expenses         Expense[]
+  expenseRules     ExpenseRecurringRule[]
   
   // Auditoría
   createdAt         DateTime        @default(now())

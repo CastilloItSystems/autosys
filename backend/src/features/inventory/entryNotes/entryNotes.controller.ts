@@ -138,6 +138,28 @@ export class EntryNoteController {
   })
 
   /**
+   * POST /api/inventory/entry-notes/from-purchase-order/:purchaseOrderId
+   */
+  createFromPurchaseOrder = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const userId = req.user?.userId
+    const { purchaseOrderId } = req.params as { purchaseOrderId: string }
+
+    const result = await entryNoteService.ensurePurchaseEntryNoteFromOrder(
+      purchaseOrderId,
+      empresaId,
+      userId,
+      req.prisma
+    )
+
+    return ApiResponse.created(
+      res,
+      new EntryNoteResponseDTO(result),
+      INVENTORY_MESSAGES.entryNote.created
+    )
+  })
+
+  /**
    * PUT /api/inventory/entry-notes/:id
    */
   update = asyncHandler(async (req: Request, res: Response) => {

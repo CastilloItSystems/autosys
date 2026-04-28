@@ -101,6 +101,7 @@ export interface GetAdjustmentsParams {
   createdBy?: string;
   dateFrom?: string;
   dateTo?: string;
+  search?: string;
 }
 
 export interface CreateAdjustmentRequest {

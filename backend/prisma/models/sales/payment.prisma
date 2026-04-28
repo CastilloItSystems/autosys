@@ -49,6 +49,10 @@ model Payment {
   // ── Para pagos mixtos ──
   details           Json?         // [{ method: "CASH", amount: 100, reference: "..." }, ...]
 
+  // ── Cuenta bancaria de destino ──
+  bankAccountId     String?
+  bankAccount       BankAccount?  @relation(fields: [bankAccountId], references: [id])
+
   reference         String?       // Número de referencia
   notes             String?       @db.Text
 

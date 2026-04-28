@@ -1,0 +1,41 @@
+// backend/prisma/models/finance/cashTransaction.prisma
+
+enum CashTransactionType {
+  INCOME       // Entrada (cobro venta)
+  OUTCOME      // Salida (pago proveedor, gasto)
+  TRANSFER_IN  // Transferencia recibida
+  TRANSFER_OUT // Transferencia enviada
+  ADJUSTMENT
+}
+
+enum CashTransactionSource {
+  SALES_PAYMENT
+  SUPPLIER_PAYMENT
+  EXPENSE
+  MANUAL
+  TRANSFER
+}
+
+model CashTransaction {
+  id            String               @id @default(cuid())
+  bankAccountId String
+  bankAccount   BankAccount          @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
+  type            CashTransactionType
+  source          CashTransactionSource
+  sourceId        String?               // id de Payment/SupplierPayment/Expense
+  amount          Decimal               @db.Decimal(14, 2) // positivo = entrada, negativo = salida
+  currency        PurchaseOrderCurrency
+  exchangeRate    Decimal?              @db.Decimal(14, 4)
+  description     String
+  transactionDate DateTime             @default(now())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+
+  @@map("cash_transactions")
+  @@index([empresaId, bankAccountId, transactionDate])
+  @@index([source, sourceId])
+}

@@ -9,6 +9,7 @@ import {
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Button } from "primereact/button";
+import { Calendar } from "primereact/calendar";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -40,6 +41,7 @@ export interface ItemRowColWidths {
   totalLine?: React.CSSProperties;
   location?: React.CSSProperties;
   batch?: React.CSSProperties;
+  expiryDate?: React.CSSProperties;
   remove: React.CSSProperties;
 }
 
@@ -53,6 +55,7 @@ export interface ItemRowFieldPaths {
   totalLine?: string; // Solo lectura
   location?: string;
   batch?: string;
+  expiryDate?: string;
 }
 
 export interface ItemRowProps {
@@ -79,12 +82,16 @@ export interface ItemRowProps {
 
   // Optional overrides
   quantityMin?: number;
+  quantityMax?: number;
   locationPlaceholder?: string;
   batchPlaceholder?: string;
   onItemChange?: (itemId: string) => void;
   selectedItemsMap?: Record<string, any>;
   autoFocus?: boolean;
   currency?: string;
+  disabled?: boolean;
+  identityLocked?: boolean;
+  costLocked?: boolean;
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -107,6 +114,7 @@ export default function ItemRow({
   dragHandleProps,
   isDragging = false,
   quantityMin = 1,
+  quantityMax,
   locationPlaceholder = "Ubicación",
   batchPlaceholder = "Lote",
   onItemChange,
@@ -117,6 +125,9 @@ export default function ItemRow({
   selectedItemsMap = {},
   autoFocus = false,
   currency = "USD",
+  disabled = false,
+  identityLocked = false,
+  costLocked = false,
 }: ItemRowProps) {
   const currencyPrefix = currency === "VES" ? "Bs. " : currency === "EUR" ? "€ " : "$ ";
   const [mounted, setMounted] = useState(false);
@@ -222,9 +233,11 @@ export default function ItemRow({
           display: "flex",
           alignItems: "center",
           justifyContent: "center",
-          cursor: "grab",
+          cursor: disabled ? "default" : "grab",
         }}
-        {...(dragHandleProps as React.HTMLAttributes<HTMLDivElement>)}
+        {...(!disabled
+          ? (dragHandleProps as React.HTMLAttributes<HTMLDivElement>)
+          : {})}
       >
         <i
           className="pi pi-bars"
@@ -251,6 +264,7 @@ export default function ItemRow({
                 return item.sku || item.code || item.name || "";
               }}
               placeholder="SKU o Nombre..."
+              disabled={disabled || identityLocked}
               itemTemplate={itemTemplate}
               className={`w-full ${itemError ? "p-invalid" : ""}`}
               inputClassName="w-full text-xs"
@@ -291,6 +305,8 @@ export default function ItemRow({
           <InputText
             {...register(fieldPaths.itemName)}
             placeholder="Nombre..."
+            disabled={disabled}
+            readOnly={identityLocked}
             className={`w-full ${itemNameError ? "p-invalid" : ""}`}
             style={{
               fontSize: "0.8rem",
@@ -319,6 +335,8 @@ export default function ItemRow({
               value={f.value}
               onValueChange={(e) => f.onChange(e.value ?? 0)}
               min={quantityMin}
+              max={quantityMax}
+              disabled={disabled}
               className="w-full"
               inputClassName={`w-full text-center ${
                 qtyError ? "p-invalid" : ""
@@ -340,6 +358,14 @@ export default function ItemRow({
             {qtyError}
           </small>
         )}
+        {quantityMax != null && !qtyError && (
+          <small
+            className="text-500"
+            style={{ fontSize: "0.62rem", lineHeight: 1.2 }}
+          >
+            Máx. {quantityMax}
+          </small>
+        )}
       </div>
 
       {/* ── Costo Unitario (optional) ── */}
@@ -357,6 +383,8 @@ export default function ItemRow({
                 maxFractionDigits={2}
                 mode="decimal"
                 prefix={currencyPrefix}
+                disabled={disabled}
+                readOnly={costLocked}
                 className="w-full"
                 inputClassName={`w-full text-right ${
                   costError ? "p-invalid" : ""
@@ -394,6 +422,7 @@ export default function ItemRow({
                 min={0}
                 max={100}
                 suffix=" %"
+                disabled={disabled}
                 className="w-full"
                 inputClassName={`w-full text-center ${
                   discountError ? "p-invalid" : ""
@@ -433,6 +462,7 @@ export default function ItemRow({
                   { label: "Exento", value: "EXEMPT" },
                   { label: "Reducido", value: "REDUCED" },
                 ]}
+                disabled={disabled}
                 className="w-full"
                 style={{
                   height: "30px",
@@ -480,6 +510,7 @@ export default function ItemRow({
           <InputText
             {...register(fieldPaths.location)}
             placeholder={locationPlaceholder}
+            disabled={disabled}
             className="w-full"
             style={{
               padding: "0.25rem 0.5rem",
@@ -496,6 +527,7 @@ export default function ItemRow({
           <InputText
             {...register(fieldPaths.batch)}
             placeholder={batchPlaceholder}
+            disabled={disabled}
             className="w-full"
             style={{
               padding: "0.25rem 0.5rem",
@@ -505,9 +537,36 @@ export default function ItemRow({
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                onAddRow();
+                if (!disabled) onAddRow();
               }
             }}
+          />
+        </div>
+      )}
+
+      {/* ── Fecha de Vencimiento (optional) ── */}
+      {fieldPaths.expiryDate && colWidths.expiryDate && (
+        <div style={colWidths.expiryDate}>
+          <Controller
+            name={fieldPaths.expiryDate}
+            control={control}
+            render={({ field: f }) => (
+              <Calendar
+                value={f.value ? new Date(f.value) : null}
+                onChange={(e) => f.onChange(e.value ?? null)}
+                dateFormat="dd/mm/yy"
+                showIcon
+                disabled={disabled}
+                className="w-full"
+                placeholder="Venc."
+                inputStyle={{
+                  padding: "0.25rem 0.4rem",
+                  height: "30px",
+                  fontSize: "0.75rem",
+                }}
+                style={{ height: "30px" }}
+              />
+            )}
           />
         </div>
       )}
@@ -527,7 +586,7 @@ export default function ItemRow({
           className="p-button-rounded p-button-danger p-button-text"
           style={{ width: "1.5rem", height: "1.5rem" }}
           onClick={onRemove}
-          disabled={!canRemove}
+          disabled={disabled || !canRemove}
           tooltip="Eliminar fila"
           tooltipOptions={{ position: "top" }}
         />

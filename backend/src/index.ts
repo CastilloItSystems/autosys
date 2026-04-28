@@ -9,6 +9,7 @@ import {
   ensurePermissionCatalog,
   seedDefaultRolesForEmpresa,
   seedDefaultNotificationPoliciesForEmpresa,
+  seedDefaultBankAccountForEmpresa,
 } from './services/empresa-setup.service.js'
 import SocketService from './features/inventory/shared/events/socket.service.js'
 import { registerInventoryRealtimeBridge } from './features/inventory/shared/events/realtime.bridge.js'
@@ -16,6 +17,7 @@ import { registerNotificationsBridge } from './features/notifications/notificati
 import { startCrmAutomationScheduler } from './features/crm/automations/crm-automations.service.js'
 import { initBcvFetchJob } from './features/exchangeRates/bcv/bcvFetch.job.js'
 import { initNotificationsCleanupJob } from './features/notifications/notifications.cleanup.job.js'
+import { initRecurringExpensesJob } from './features/finance/expenses/recurringExpenses.job.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -67,8 +69,9 @@ export const startServer = async (): Promise<void> => {
     for (const empresa of empresas) {
       await seedDefaultRolesForEmpresa(empresa.id_empresa)
       await seedDefaultNotificationPoliciesForEmpresa(empresa.id_empresa)
+      await seedDefaultBankAccountForEmpresa(empresa.id_empresa)
     }
-    logger.info(`✅ Roles y políticas sincronizados para ${empresas.length} empresa(s)`)
+    logger.info(`✅ Roles, políticas y cuentas bancarias sincronizados para ${empresas.length} empresa(s)`)
 
     // Iniciar servidor HTTP
     await listenServer(port)
@@ -87,6 +90,10 @@ export const startServer = async (): Promise<void> => {
     // BCV fetch automático (L-V 17:15 UTC + retry 18:00 UTC)
     initBcvFetchJob(prisma)
     logger.info('📈 BCV fetch job inicializado')
+
+    // Gastos recurrentes (diario 02:00 UTC)
+    initRecurringExpensesJob(prisma)
+    logger.info('💰 Recurring expenses job inicializado')
 
     initNotificationsCleanupJob()
     logger.info('📦 Módulos disponibles:')

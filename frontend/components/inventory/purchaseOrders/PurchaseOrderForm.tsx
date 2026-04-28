@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { classNames } from "primereact/utils";
@@ -32,6 +32,76 @@ import type { PurchaseOrder } from "@/libs/interfaces/inventory";
 import type { Item } from "@/app/api/inventory/itemService";
 import type { Supplier } from "@/app/api/inventory/supplierService";
 import type { Warehouse } from "@/app/api/inventory/warehouseService";
+
+const CURRENCY_OPTIONS = [
+  { label: "Dólares (USD)", value: "USD" },
+  { label: "Bolívares (VES)", value: "VES" },
+  { label: "Euros (EUR)", value: "EUR" },
+];
+
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  VES: "Bs.",
+};
+
+type PurchaseOrderFormCurrency = "USD" | "VES" | "EUR";
+
+function getCurrencyVesRate(
+  currency: string,
+  usdVesRate: number | null,
+  eurVesRate: number | null,
+): number | null {
+  if (currency === "VES") return 1;
+  if (currency === "USD") return usdVesRate && usdVesRate > 0 ? usdVesRate : null;
+  if (currency === "EUR") return eurVesRate && eurVesRate > 0 ? eurVesRate : null;
+  return null;
+}
+
+function convertAmountBetweenCurrencies(
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string,
+  usdVesRate: number | null,
+  eurVesRate: number | null,
+): number | null {
+  if (!amount) return 0;
+
+  const fromRate = getCurrencyVesRate(fromCurrency, usdVesRate, eurVesRate);
+  const toRate = getCurrencyVesRate(toCurrency, usdVesRate, eurVesRate);
+  if (!fromRate || !toRate) return null;
+
+  return Math.round(((amount * fromRate) / toRate) * 100) / 100;
+}
+
+function convertCostFromUsd(
+  costUsd: number,
+  currency: string,
+  usdVesRate: number | null,
+  eurVesRate: number | null,
+): number {
+  return (
+    convertAmountBetweenCurrencies(
+      costUsd,
+      "USD",
+      currency,
+      usdVesRate,
+      eurVesRate,
+    ) ?? costUsd
+  );
+}
+
+function getItemCostUsd(item: any): number {
+  return Number(item?.costPrice ?? item?.pricing?.costPrice ?? 0);
+}
+
+function formatBaseCostUsd(item: any): string {
+  const cost = getItemCostUsd(item);
+  return `$${cost.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+}
 
 const COLS: ItemRowColWidths = {
   handle: { width: "1.75rem", flexShrink: 0 },
@@ -68,7 +138,10 @@ const PurchaseOrderForm = ({
   warehouses,
 }: PurchaseOrderFormProps) => {
   const isEditing = !!purchaseOrder;
-  const isDraft = !purchaseOrder || purchaseOrder.status === "DRAFT";
+  const isEditable =
+    !purchaseOrder ||
+    purchaseOrder.status === "DRAFT" ||
+    purchaseOrder.status === "REJECTED";
   const [localSuppliers, setLocalSuppliers] = useState<Supplier[]>(suppliers);
   const [supplierDialog, setSupplierDialog] = useState(false);
   const [isSupplierSubmitting, setIsSupplierSubmitting] = useState(false);
@@ -146,28 +219,102 @@ const PurchaseOrderForm = ({
   });
 
   const watchItems = watch("items");
-  const watchCurrency = watch("currency");
+  const watchCurrency = (watch("currency") || "USD") as PurchaseOrderFormCurrency;
   const watchExchangeRate = watch("exchangeRate");
   const watchDiscountAmount = watch("discountAmount");
   const watchIgtfApplies = watch("igtfApplies");
 
   const { rate: bcvRate, loading: loadingBcv } = useBcvRate(
-    watchCurrency as "USD" | "EUR" | "VES",
+    watchCurrency,
   );
+  const { rate: referenceUsdRate } = useBcvRate("USD");
+  const { rate: referenceEurRate } = useBcvRate("EUR");
+  const prevCurrencyRef = useRef<string | undefined>(undefined);
+  const pendingCurrencyConversionRef = useRef<{
+    from: PurchaseOrderFormCurrency;
+    to: PurchaseOrderFormCurrency;
+  } | null>(null);
 
   useEffect(() => {
+    const previousCurrency = prevCurrencyRef.current as
+      | PurchaseOrderFormCurrency
+      | undefined;
+    const currencyChanged =
+      previousCurrency !== undefined && previousCurrency !== watchCurrency;
+    prevCurrencyRef.current = watchCurrency;
+
+    if (currencyChanged && isEditable && previousCurrency) {
+      pendingCurrencyConversionRef.current = {
+        from: previousCurrency,
+        to: watchCurrency,
+      };
+    }
+
+    // Para VES usamos la tasa BCV referencial (Bs./USD) — no 1 — para poder
+    // mostrar equivalencias USD en reportes y notas de entrada.
+    const currentRate =
+      watchCurrency === "VES"
+        ? (referenceUsdRate && referenceUsdRate > 1 ? referenceUsdRate : null)
+        : (getCurrencyVesRate(watchCurrency, referenceUsdRate, referenceEurRate) ?? bcvRate);
+
     if (
       !isEditing &&
-      bcvRate &&
-      watchCurrency === "VES" &&
-      !watchExchangeRate
+      currentRate &&
+      currentRate > 0 &&
+      (currencyChanged || !watchExchangeRate)
     ) {
-      setValue("exchangeRate", bcvRate, {
+      setValue("exchangeRate", currentRate, {
         shouldValidate: true,
         shouldDirty: true,
       });
     }
-  }, [bcvRate, watchCurrency, watchExchangeRate, isEditing, setValue]);
+
+    const pending = pendingCurrencyConversionRef.current;
+    if (!pending || pending.to !== watchCurrency || !isEditable) return;
+
+    const fromRate = getCurrencyVesRate(
+      pending.from,
+      referenceUsdRate,
+      referenceEurRate,
+    );
+    const toRate = getCurrencyVesRate(
+      pending.to,
+      referenceUsdRate,
+      referenceEurRate,
+    );
+    if (!fromRate || !toRate) return;
+
+    const currentItems = (watch("items") || []) as any[];
+    currentItems.forEach((item, idx) => {
+      const currentCost = Number(item.unitCost || 0);
+      if (!currentCost) return;
+
+      const converted = convertAmountBetweenCurrencies(
+        currentCost,
+        pending.from,
+        pending.to,
+        referenceUsdRate,
+        referenceEurRate,
+      );
+      if (converted == null) return;
+
+      setValue(`items.${idx}.unitCost`, converted, {
+        shouldDirty: true,
+        shouldValidate: true,
+      });
+    });
+    pendingCurrencyConversionRef.current = null;
+  }, [
+    bcvRate,
+    isEditing,
+    isEditable,
+    referenceEurRate,
+    referenceUsdRate,
+    setValue,
+    watch,
+    watchCurrency,
+    watchExchangeRate,
+  ]);
 
   // Serialize watched items to detect deep changes (watch returns same reference)
   const watchItemsSerialized = JSON.stringify(watchItems);
@@ -230,7 +377,7 @@ const PurchaseOrderForm = ({
           </span>
         </div>
         <span className="font-semibold text-primary text-sm">
-          ${item.salePrice}
+          {formatBaseCostUsd(item)}
         </span>
       </div>
     ),
@@ -239,6 +386,8 @@ const PurchaseOrderForm = ({
 
   /* Submit */
   const onSubmit = async (data: PurchaseOrderFormData) => {
+    if (!isEditable) return;
+
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       const payload = {
@@ -344,11 +493,12 @@ const PurchaseOrderForm = ({
     <>
       <form id={formId} onSubmit={handleSubmit(onSubmit)}>
         {/* Header descriptivo opcional */}
-        {!isDraft && isEditing && (
+        {!isEditable && isEditing && (
           <div className="mb-3 p-3 bg-orange-100 border-round">
             <p className="text-orange-700 text-sm m-0">
               <i className="pi pi-exclamation-triangle mr-2 font-bold"></i>
-              Solo se pueden editar órdenes en estado <strong>Borrador</strong>
+              Solo se pueden editar órdenes en estado <strong>Borrador</strong>{" "}
+              o <strong>Rechazada</strong>
             </p>
           </div>
         )}
@@ -374,9 +524,9 @@ const PurchaseOrderForm = ({
                   options={supplierOptions}
                   placeholder="Seleccione un proveedor"
                   filter
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   loading={loadingSuppliers}
-                  panelFooterTemplate={isDraft ? supplierFooter : undefined}
+                  panelFooterTemplate={isEditable ? supplierFooter : undefined}
                   className={classNames("w-full", {
                     "p-invalid": errors.supplierId,
                   })}
@@ -407,7 +557,7 @@ const PurchaseOrderForm = ({
                   options={warehouseOptions}
                   placeholder="Seleccione un almacén"
                   filter
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   className={classNames("w-full", {
                     "p-invalid": errors.warehouseId,
                   })}
@@ -444,6 +594,7 @@ const PurchaseOrderForm = ({
                   dateFormat="dd/mm/yy"
                   showIcon
                   minDate={new Date()}
+                  disabled={!isEditable}
                   className={classNames("w-full", {
                     "p-invalid": errors.expectedDate,
                   })}
@@ -467,13 +618,33 @@ const PurchaseOrderForm = ({
                 <Dropdown
                   id="currency"
                   value={field.value}
-                  onChange={(e) => field.onChange(e.value)}
-                  options={[
-                    { label: "USD", value: "USD" },
-                    { label: "VES", value: "VES" },
-                    { label: "EUR", value: "EUR" },
-                  ]}
-                  disabled={!isDraft}
+                  onChange={(e) => {
+                    field.onChange(e.value);
+                    if (e.value === "VES") {
+                      // Para VES guardamos la tasa BCV referencial (Bs./USD) para
+                      // poder mostrar equivalencias USD en notas de entrada y reportes.
+                      // La conversión interna de ítems usa getCurrencyVesRate (siempre 1).
+                      const vesRef = referenceUsdRate && referenceUsdRate > 1 ? referenceUsdRate : undefined;
+                      setValue("exchangeRate", vesRef ?? null, {
+                        shouldValidate: true,
+                        shouldDirty: true,
+                      });
+                    } else {
+                      const nextRate = getCurrencyVesRate(
+                        e.value,
+                        referenceUsdRate,
+                        referenceEurRate,
+                      );
+                      if (nextRate) {
+                        setValue("exchangeRate", nextRate, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    }
+                  }}
+                  options={CURRENCY_OPTIONS}
+                  disabled={!isEditable}
                   className={classNames("w-full", {
                     "p-invalid": errors.currency,
                   })}
@@ -488,7 +659,7 @@ const PurchaseOrderForm = ({
               htmlFor="exchangeRate"
               className="block text-900 font-medium mb-2"
             >
-              Tasa de Cambio{" "}
+              {watchCurrency === "VES" ? "Tasa ref. Bs/USD" : "Tasa de Cambio"}{" "}
               {loadingBcv && (
                 <i className="pi pi-spin pi-spinner text-sm ml-2" />
               )}
@@ -504,7 +675,8 @@ const PurchaseOrderForm = ({
                   mode="decimal"
                   minFractionDigits={2}
                   maxFractionDigits={4}
-                  disabled={!isDraft}
+                  disabled={!isEditable}
+                  placeholder={loadingBcv ? "Cargando..." : watchCurrency === "VES" ? "Bs. por 1 USD" : "Tasa"}
                   className={classNames("w-full", {
                     "p-invalid": errors.exchangeRate,
                   })}
@@ -529,7 +701,7 @@ const PurchaseOrderForm = ({
                   id="paymentTerms"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   className="w-full"
                   placeholder="Ej. Contado, 15 días"
                 />
@@ -554,7 +726,7 @@ const PurchaseOrderForm = ({
                   value={field.value ?? undefined}
                   onValueChange={(e) => field.onChange(e.value)}
                   min={0}
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   className="w-full"
                 />
               )}
@@ -577,7 +749,7 @@ const PurchaseOrderForm = ({
                   id="deliveryTerms"
                   value={field.value || ""}
                   onChange={(e) => field.onChange(e.target.value)}
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   className="w-full"
                   placeholder="Ej. EXW, FOB"
                 />
@@ -591,7 +763,8 @@ const PurchaseOrderForm = ({
               htmlFor="discountAmount"
               className="block text-900 font-medium mb-2"
             >
-              Descuento General ($)
+              Descuento General (
+              {CURRENCY_SYMBOLS[watchCurrency || "USD"] ?? "$"})
             </label>
             <Controller
               name="discountAmount"
@@ -601,10 +774,12 @@ const PurchaseOrderForm = ({
                   id="discountAmount"
                   value={field.value ?? undefined}
                   onValueChange={(e) => field.onChange(e.value)}
-                  mode="currency"
-                  currency="USD"
+                  mode="decimal"
+                  prefix={`${CURRENCY_SYMBOLS[watchCurrency || "USD"] ?? "$"} `}
+                  minFractionDigits={2}
+                  maxFractionDigits={2}
                   min={0}
-                  disabled={!isDraft}
+                  disabled={!isEditable}
                   className="w-full"
                 />
               )}
@@ -622,7 +797,7 @@ const PurchaseOrderForm = ({
                     inputId="igtfApplies"
                     checked={field.value || false}
                     onChange={(e) => field.onChange(e.checked)}
-                    disabled={!isDraft}
+                    disabled={!isEditable}
                   />
                   <label
                     htmlFor="igtfApplies"
@@ -631,28 +806,6 @@ const PurchaseOrderForm = ({
                     Aplica IGTF (3%)
                   </label>
                 </div>
-              )}
-            />
-          </div>
-
-          {/* Notas */}
-          <div className="field col-12">
-            <label htmlFor="notes" className="block text-900 font-medium mb-2">
-              Notas / Observaciones
-            </label>
-            <Controller
-              name="notes"
-              control={control}
-              render={({ field }) => (
-                <InputTextarea
-                  id="notes"
-                  value={field.value || ""}
-                  onChange={(e) => field.onChange(e.target.value)}
-                  rows={2}
-                  autoResize
-                  className="w-full"
-                  placeholder="Observaciones para la orden..."
-                />
               )}
             />
           </div>
@@ -672,7 +825,7 @@ const PurchaseOrderForm = ({
               taxType: "IVA",
             }}
             title="Artículos"
-            disabled={!isDraft}
+            disabled={!isEditable}
             columns={[
               { label: "", style: COLS.handle },
               { label: "Producto (SKU)", style: COLS.product },
@@ -694,6 +847,7 @@ const PurchaseOrderForm = ({
                   label: opt.label,
                   value: opt.value,
                 }))}
+                currency={watchCurrency || "USD"}
                 fieldPaths={{
                   itemId: `items.${index}.itemId`,
                   itemName: `items.${index}.itemName`,
@@ -707,8 +861,9 @@ const PurchaseOrderForm = ({
                 onRemove={() => remove(index)}
                 canRemove={fields.length > 1}
                 onAddRow={onAddRow}
-                dragHandleProps={dragHandleProps}
+                dragHandleProps={isEditable ? dragHandleProps : {}}
                 isDragging={isDragging}
+                disabled={!isEditable}
                 suggestions={itemSuggestions}
                 onSearch={onSearchItems}
                 itemTemplate={itemSuggestionTemplate}
@@ -724,6 +879,19 @@ const PurchaseOrderForm = ({
                       [itemId]: item,
                     }));
                     setValue(`items.${index}.itemName`, item.name);
+                    const costUsd = getItemCostUsd(item);
+                    if (costUsd) {
+                      const converted = convertCostFromUsd(
+                        costUsd,
+                        watchCurrency,
+                        referenceUsdRate,
+                        referenceEurRate,
+                      );
+                      setValue(`items.${index}.unitCost`, converted, {
+                        shouldDirty: true,
+                        shouldValidate: true,
+                      });
+                    }
                   }
                 }}
               />
@@ -741,6 +909,31 @@ const PurchaseOrderForm = ({
             <OrderFinancialSummary
               totals={calcResult}
               currency={watchCurrency}
+              exchangeRate={watchExchangeRate}
+              referenceUsdRate={referenceUsdRate}
+            />
+          </div>
+
+          {/* Notas */}
+          <div className="field col-12 mt-2">
+            <label htmlFor="notes" className="block text-900 font-medium mb-2">
+              Notas / Observaciones
+            </label>
+            <Controller
+              name="notes"
+              control={control}
+              render={({ field }) => (
+                <InputTextarea
+                  id="notes"
+                  value={field.value || ""}
+                  onChange={(e) => field.onChange(e.target.value)}
+                  rows={3}
+                  autoResize
+                  disabled={!isEditable}
+                  className="w-full"
+                  placeholder="Observaciones para la orden..."
+                />
+              )}
             />
           </div>
         </div>

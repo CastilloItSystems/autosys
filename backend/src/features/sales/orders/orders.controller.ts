@@ -258,8 +258,9 @@ class OrdersController {
   cancel = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
     const { id } = req.params as { id: string }
+    const userId = req.user?.userId
 
-    const order = await ordersService.cancel(id, empresaId, req.prisma)
+    const order = await ordersService.cancel(id, empresaId, userId, req.prisma)
 
     return ApiResponse.success(
       res,

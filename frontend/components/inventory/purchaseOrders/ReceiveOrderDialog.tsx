@@ -69,8 +69,11 @@ const COLUMNS = [
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-const formatCurrency = (value: number) =>
-  `$${value.toLocaleString("es-VE", {
+const getCurrencySymbol = (currency = "USD") =>
+  currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
+
+const formatCurrency = (value: number, currency = "USD") =>
+  `${getCurrencySymbol(currency)}${value.toLocaleString("es-VE", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
@@ -87,6 +90,7 @@ const ReceiveOrderDialog = ({
   const [lines, setLines] = useState<LineToReceive[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [notes, setNotes] = useState("");
+  const currency = order?.currency || "USD";
 
   const initializeLines = useCallback(() => {
     if (!order?.items) return;
@@ -114,8 +118,17 @@ const ReceiveOrderDialog = ({
     if (visible && order) {
       initializeLines();
       setNotes("");
+      const allReceived = order.items?.every((i) => (i.quantityPending ?? 0) <= 0);
+      if (allReceived) {
+        toast?.current?.show({
+          severity: "info",
+          summary: "Orden Completa",
+          detail: "Todos los items de esta orden ya fueron recibidos.",
+          life: 4000,
+        });
+      }
     }
-  }, [visible, order, initializeLines]);
+  }, [visible, order, initializeLines, toast]);
 
   // ── Field update ──
 
@@ -241,6 +254,7 @@ const ReceiveOrderDialog = ({
       <Button
         label={`Recepcionar (${totalUnits} uds — ${formatCurrency(
           totalAmount,
+          currency,
         )})`}
         icon="pi pi-check"
         onClick={handleSubmit}
@@ -287,7 +301,7 @@ const ReceiveOrderDialog = ({
             <div className="col-12 md:col-3">
               <span className="text-500 text-sm">Total Orden</span>
               <div className="font-medium text-900">
-                {formatCurrency(Number(order.total || 0))}
+                {formatCurrency(Number(order.total || 0), currency)}
               </div>
             </div>
             <div className="col-12 md:col-3">
@@ -485,9 +499,8 @@ const ReceiveOrderDialog = ({
                     onValueChange={(e) =>
                       updateField(index, "unitCost", e.value ?? 0)
                     }
-                    mode="currency"
-                    currency="USD"
-                    locale="es-VE"
+                    mode="decimal"
+                    prefix={`${getCurrencySymbol(currency)} `}
                     minFractionDigits={2}
                     maxFractionDigits={2}
                     className="w-full"
@@ -564,7 +577,7 @@ const ReceiveOrderDialog = ({
                     fontWeight: 600,
                   }}
                 >
-                  {formatCurrency(line.qtyToReceive * line.unitCost)}
+                  {formatCurrency(line.qtyToReceive * line.unitCost, currency)}
                 </div>
               </div>
             ))
@@ -586,7 +599,7 @@ const ReceiveOrderDialog = ({
               <div className="flex justify-content-between align-items-center font-bold text-lg">
                 <span className="text-900">Total Recepción</span>
                 <span className="text-primary">
-                  {formatCurrency(totalAmount)}
+                  {formatCurrency(totalAmount, currency)}
                 </span>
               </div>
             </div>

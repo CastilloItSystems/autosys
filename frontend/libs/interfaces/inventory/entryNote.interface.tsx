@@ -6,6 +6,7 @@ export type EntryNoteStatus =
   | "COMPLETED"
   | "CANCELLED";
 export type EntryType =
+  | "PURCHASE"
   | "RETURN"
   | "TRANSFER"
   | "WARRANTY_RETURN"
@@ -44,6 +45,7 @@ export const ENTRY_NOTE_STATUS_CONFIG: Record<
 };
 
 export const ENTRY_TYPE_LABELS: Record<EntryType, string> = {
+  PURCHASE: "Compra",
   RETURN: "Devolución",
   TRANSFER: "Transferencia",
   WARRANTY_RETURN: "Devolución Garantía",
@@ -99,6 +101,7 @@ export interface EntryNote {
   type: EntryType;
   status: EntryNoteStatus;
   purchaseOrderId?: string | null;
+  supplierBillId?: string | null;
   warehouseId: string;
   catalogSupplierId?: string | null;
   catalogSupplier?: { id: string; name: string };
@@ -120,7 +123,17 @@ export interface EntryNote {
     id: string;
     orderNumber: string;
     supplierId: string;
+    status?: string;
+    total?: number;
+    currency?: string;
+    exchangeRate?: number | null;
     supplier?: { id: string; name: string };
+  };
+  supplierBill?: {
+    id: string;
+    internalNumber: string;
+    billNumber?: string | null;
+    status: string;
   };
   warehouse?: {
     id: string;

@@ -31,6 +31,7 @@ import transfersService from '../../inventory/transfers/transfers.service.js'
 import purchaseOrdersService from '../../inventory/purchaseOrders/purchaseOrders.service.js'
 import { OrderNumberGenerator } from '../shared/utils/orderNumberGenerator.js'
 import { TaxType as POTaxType } from '../../inventory/purchaseOrders/purchaseOrders.interface.js'
+import { createAuditLog } from '../../../services/audit.service.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -75,6 +76,22 @@ function generatePreInvoiceNumber(): string {
 
 function orderReplenishmentToken(orderId: string): string {
   return `[ORDER:${orderId}]`
+}
+
+function salesOrderAuditMetadata(order: {
+  orderNumber?: string | null
+  customerId?: string | null
+  warehouseId?: string | null
+  total?: unknown
+  currency?: unknown
+}) {
+  return {
+    orderNumber: order.orderNumber ?? null,
+    customerId: order.customerId ?? null,
+    warehouseId: order.warehouseId ?? null,
+    total: Number(order.total ?? 0),
+    currency: order.currency ? String(order.currency) : null,
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -520,6 +537,29 @@ class OrdersService {
       transferCount: createdTransfers.length,
     })
 
+    await createAuditLog(
+      {
+        entity: 'Order',
+        entityId: id,
+        action: 'SUGGEST_TRANSFERS',
+        empresaId,
+        userId,
+        changes: {
+          before: { status: order.status },
+          after: {
+            status: order.status,
+            createdTransfersCount: createdTransfers.length,
+          },
+        },
+        metadata: {
+          ...salesOrderAuditMetadata(order),
+          salesWarehouseId: diagnosis.salesWarehouse.id,
+          transferNumbers: createdTransfers.map((row) => row.transferNumber),
+        },
+      },
+      db
+    )
+
     return {
       orderId: id,
       orderNumber: order.orderNumber,
@@ -791,6 +831,33 @@ class OrdersService {
       created: result.created.length,
       reused: result.reused.length,
     })
+
+    await createAuditLog(
+      {
+        entity: 'Order',
+        entityId: id,
+        action: 'SUGGEST_PURCHASE_ORDERS',
+        empresaId,
+        userId,
+        changes: {
+          before: { status: order.status },
+          after: {
+            status: order.status,
+            createdPurchaseOrdersCount: result.created.length,
+            reusedPurchaseOrdersCount: result.reused.length,
+          },
+        },
+        metadata: {
+          ...salesOrderAuditMetadata(order),
+          salesWarehouseId: diagnosis.salesWarehouse.id,
+          purchaseOrderNumbers: [
+            ...result.created.map((row) => row.orderNumber),
+            ...result.reused.map((row) => row.orderNumber),
+          ],
+        },
+      },
+      db
+    )
 
     return {
       orderId: id,
@@ -1250,7 +1317,7 @@ class OrdersService {
       }
     })
 
-    return {
+    const response = {
       orderId: order.id,
       orderNumber: order.orderNumber,
       salesWarehouse: diagnosis.salesWarehouse,
@@ -1279,6 +1346,36 @@ class OrdersService {
         ).length,
       },
     }
+
+    await createAuditLog(
+      {
+        entity: 'Order',
+        entityId: order.id,
+        action: 'SUGGEST_REPLENISHMENT',
+        empresaId,
+        userId,
+        changes: {
+          before: { status: order.status },
+          after: {
+            status: order.status,
+            createdTransfersCount: response.createdTransfers.length,
+            reusedTransfersCount: response.reusedTransfers.length,
+            createdPurchaseOrdersCount: response.createdPOs.length,
+            reusedPurchaseOrdersCount: response.reusedPOs.length,
+          },
+        },
+        metadata: {
+          ...salesOrderAuditMetadata(order),
+          salesWarehouseId: diagnosis.salesWarehouse.id,
+          lineActions,
+          linkedTransfers: response.executionState.linkedTransfers,
+          linkedPOs: response.executionState.linkedPOs,
+        },
+      },
+      db
+    )
+
+    return response
   }
 
   // -------------------------------------------------------------------------
@@ -1780,6 +1877,33 @@ class OrdersService {
         })
       }
 
+      await createAuditLog(
+        {
+          entity: 'Order',
+          entityId: id,
+          action: 'APPROVE',
+          empresaId,
+          userId: approvedBy,
+          changes: {
+            before: { status: order.status },
+            after: {
+              status: OrderStatus.APPROVED,
+              approvedBy,
+              approvedAt: approvedOrder.approvedAt?.toISOString() ?? null,
+              preInvoiceId: preInvoice.id,
+              preInvoiceNumber,
+            },
+          },
+          metadata: {
+            ...salesOrderAuditMetadata(order),
+            preInvoiceId: preInvoice.id,
+            preInvoiceNumber,
+            salesWarehouseId: salesStockDiagnosis.salesWarehouse.id,
+          },
+        },
+        tx
+      )
+
       // 4. Return updated order with relations
       return tx.order.findUnique({
         where: { id },
@@ -1870,6 +1994,7 @@ class OrdersService {
   async cancel(
     id: string,
     empresaId: string,
+    userId: string | undefined,
     db: PrismaClientType
   ): Promise<IOrder> {
     const order = await (db as PrismaClient).order.findFirst({
@@ -1886,6 +2011,22 @@ class OrdersService {
       data: { status: OrderStatus.CANCELLED },
       include: ORDER_INCLUDE,
     })
+
+    await createAuditLog(
+      {
+        entity: 'Order',
+        entityId: id,
+        action: 'CANCEL',
+        empresaId,
+        userId,
+        changes: {
+          before: { status: order.status },
+          after: { status: OrderStatus.CANCELLED },
+        },
+        metadata: salesOrderAuditMetadata(order),
+      },
+      db
+    )
 
     logger.info(`Orden cancelada: ${id}`, { empresaId })
 
@@ -1909,7 +2050,7 @@ class OrdersService {
             orderId: updated.id,
             orderNumber: updated.orderNumber,
           },
-          createdById: 'SYSTEM',
+          createdById: userId ?? 'SYSTEM',
           createdByName: 'Sistema',
         })
       )

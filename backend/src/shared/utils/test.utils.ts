@@ -78,22 +78,35 @@ export async function getTestCredentials(): Promise<{
     getTestEmpresaId(),
   ])
 
+  const { ensurePermissionCatalog, seedDefaultRolesForEmpresa } = await import(
+    '../../services/empresa-setup.service.js'
+  )
+  await ensurePermissionCatalog()
+  await seedDefaultRolesForEmpresa(empresaId)
+
   // Ensure the test user has a Membership for this empresa so the
   // empresa middleware (which validates membership) doesn't return 403.
   const user = await prisma.user.findUnique({ where: { correo: 'admin@test.com' } })
   if (user) {
+    const ownerRole = await prisma.companyRole.findUnique({
+      where: { name_empresaId: { name: 'OWNER', empresaId } },
+    })
     const existing = await prisma.membership.findUnique({
       where: { userId_empresaId: { userId: user.id, empresaId } },
     })
     if (!existing) {
-      let role = await prisma.companyRole.findFirst({ where: { empresaId } })
-      if (!role) {
-        role = await prisma.companyRole.create({
-          data: { name: 'Admin', empresaId, isSystem: true },
-        })
-      }
       await prisma.membership.create({
-        data: { userId: user.id, empresaId, roleId: role.id, status: 'active' },
+        data: {
+          userId: user.id,
+          empresaId,
+          roleId: ownerRole!.id,
+          status: 'active',
+        },
+      })
+    } else if (ownerRole && existing.roleId !== ownerRole.id) {
+      await prisma.membership.update({
+        where: { id: existing.id },
+        data: { roleId: ownerRole.id, status: 'active' },
       })
     }
   }

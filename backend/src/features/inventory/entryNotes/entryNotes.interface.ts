@@ -41,6 +41,7 @@ export interface IEntryNote {
   type: EntryType
   status: EntryNoteStatus
   purchaseOrderId?: string | null
+  supplierBillId?: string | null
   warehouseId: string
   catalogSupplierId?: string | null
   supplierName?: string | null
@@ -60,6 +61,7 @@ export interface IEntryNote {
 
 export interface IEntryNoteWithRelations extends IEntryNote {
   purchaseOrder?: any
+  supplierBill?: any
   warehouse?: any
   catalogSupplier?: any
   items?: IEntryNoteItem[]

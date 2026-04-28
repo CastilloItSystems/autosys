@@ -1,11 +1,16 @@
 // backend/prisma/models/inventory/purchaseOrder.prisma
 
 enum PurchaseOrderStatus {
-  DRAFT       // Borrador
-  SENT        // Enviada al proveedor
-  PARTIAL     // Recepción parcial
-  COMPLETED   // Completada
-  CANCELLED   // Cancelada
+  DRAFT              // Borrador
+  PENDING_APPROVAL   // Enviada para aprobación
+  APPROVED           // Aprobada internamente
+  SENT               // Enviada al proveedor
+  PARTIAL            // Recepción parcial
+  COMPLETED          // Completada (mercancía recibida)
+  PARTIALLY_PAID     // Pagada parcialmente
+  PAID               // Pagada totalmente
+  REJECTED           // Rechazada
+  CANCELLED          // Cancelada
 }
 
 enum PurchaseOrderCurrency {
@@ -60,6 +65,7 @@ model PurchaseOrder {
   // ── Relaciones ──
   items           PurchaseOrderItem[]
   entryNotes      EntryNote[]
+  supplierBills   SupplierBill[]
 
   // ── Fechas ──
   orderDate       DateTime              @default(now())
@@ -67,8 +73,15 @@ model PurchaseOrder {
 
   // ── Auditoría ──
   createdBy       String?
+  submittedBy     String?
+  submittedAt     DateTime?
   approvedBy      String?
   approvedAt      DateTime?
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?               @db.Text
+  sentBy          String?
+  sentAt          DateTime?
 
   createdAt       DateTime              @default(now())
   updatedAt       DateTime              @updatedAt

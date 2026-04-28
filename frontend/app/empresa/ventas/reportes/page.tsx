@@ -22,7 +22,7 @@ const SALES_ACTIONS: QuickAction[] = [
   },
   {
     label: "Pre-facturas",
-    icon: "pi pi-file-text",
+    icon: "pi pi-file",
     to: "/empresa/inventario/pre-invoice",
     color: "orange",
     description: "Prefacturas pendientes",

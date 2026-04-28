@@ -109,6 +109,9 @@ export const PERMISSION_CATALOG = [
   { code: 'reports.export', description: 'Exportar reportes' },
   { code: 'reports.approve', description: 'Aprobar publicación de reportes' },
 
+  // Auditoría
+  { code: 'audit.view', description: 'Ver auditoría global por empresa' },
+
   // Notificaciones
   { code: 'notifications.view', description: 'Ver centro de notificaciones' },
   {
@@ -230,6 +233,20 @@ export const PERMISSION_CATALOG = [
   { code: 'exchange_rates.create', description: 'Crear tasas de cambio manuales' },
   { code: 'exchange_rates.update', description: 'Actualizar tasas de cambio' },
   { code: 'exchange_rates.delete', description: 'Eliminar tasas de cambio' },
+
+  // Finanzas
+  { code: 'finance.view', description: 'Ver módulo de finanzas' },
+  { code: 'finance.bank_accounts.view', description: 'Ver cuentas bancarias' },
+  { code: 'finance.bank_accounts.manage', description: 'Gestionar cuentas bancarias' },
+  { code: 'finance.supplier_bills.view', description: 'Ver facturas de proveedores' },
+  { code: 'finance.supplier_bills.manage', description: 'Gestionar facturas de proveedores' },
+  { code: 'finance.supplier_payments.view', description: 'Ver pagos a proveedores' },
+  { code: 'finance.supplier_payments.create', description: 'Registrar pagos a proveedores' },
+  { code: 'finance.supplier_payments.cancel', description: 'Cancelar pagos a proveedores' },
+  { code: 'finance.expenses.view', description: 'Ver gastos operativos' },
+  { code: 'finance.expenses.manage', description: 'Gestionar gastos operativos' },
+  { code: 'finance.recurring_rules.manage', description: 'Gestionar reglas de gastos recurrentes' },
+  { code: 'finance.cash_flow.view', description: 'Ver flujo de caja' },
 ]
 
 // ── Default system roles per empresa ──────────────────────────────────────
@@ -324,6 +341,29 @@ const ALL_EXCHANGE_RATES = [
   'exchange_rates.create',
   'exchange_rates.update',
   'exchange_rates.delete',
+]
+
+const ALL_FINANCE = [
+  'finance.view',
+  'finance.bank_accounts.view',
+  'finance.bank_accounts.manage',
+  'finance.supplier_bills.view',
+  'finance.supplier_bills.manage',
+  'finance.supplier_payments.view',
+  'finance.supplier_payments.create',
+  'finance.supplier_payments.cancel',
+  'finance.expenses.view',
+  'finance.expenses.manage',
+  'finance.recurring_rules.manage',
+  'finance.cash_flow.view',
+]
+
+const VIEW_FINANCE = [
+  'finance.view',
+  'finance.supplier_bills.view',
+  'finance.supplier_payments.view',
+  'finance.expenses.view',
+  'finance.cash_flow.view',
 ]
 
 const NOTIFICATIONS_VIEW = ['notifications.view']
@@ -431,12 +471,14 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    'audit.view',
     ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
     ...ALL_EXCHANGE_RATES,
+    ...ALL_FINANCE,
   ],
   ADMIN: [
     'users.view',
@@ -505,12 +547,14 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    'audit.view',
     ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
     ...ALL_EXCHANGE_RATES,
+    ...ALL_FINANCE,
   ],
   GERENTE: [
     'users.view',
@@ -575,12 +619,14 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'reports.view',
     'reports.export',
     'reports.approve',
+    'audit.view',
     ...NOTIFICATIONS_MANAGE,
     ...ALL_CRM,
     'crm.automations.run',
     ...ALL_WORKSHOP,
     ...ALL_DEALER,
     ...ALL_EXCHANGE_RATES,
+    ...ALL_FINANCE,
   ],
   ALMACENISTA: [
     'inventory.view',
@@ -677,6 +723,7 @@ const DEFAULT_ROLE_PERMISSIONS: Record<string, string[]> = {
     'exchange_rates.view',
     ...NOTIFICATIONS_VIEW,
     ...NOTIFICATIONS_MODULES_NO_SYSTEM,
+    ...VIEW_FINANCE,
   ],
 }
 
@@ -731,6 +778,24 @@ export async function seedDefaultNotificationPoliciesForEmpresa(
   await prisma.notificationCompanyPolicy.createMany({
     data,
     skipDuplicates: true,
+  })
+}
+
+export async function seedDefaultBankAccountForEmpresa(
+  empresaId: string
+): Promise<void> {
+  await prisma.bankAccount.upsert({
+    where: { empresaId_name: { empresaId, name: 'Caja Principal' } },
+    update: {},
+    create: {
+      name: 'Caja Principal',
+      type: 'CASH',
+      currency: 'USD',
+      initialBalance: 0,
+      currentBalance: 0,
+      isActive: true,
+      empresaId,
+    },
   })
 }
 

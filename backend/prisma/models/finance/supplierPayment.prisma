@@ -1,0 +1,49 @@
+// backend/prisma/models/finance/supplierPayment.prisma
+// Reutiliza PaymentMethod y PaymentStatus definidos en sales/payment.prisma
+
+model SupplierPayment {
+  id            String        @id @default(cuid())
+  paymentNumber String        @unique
+  status        PaymentStatus @default(PENDING)
+
+  supplierId String?
+  supplier   Supplier? @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  supplierBillId String?
+  supplierBill   SupplierBill? @relation(fields: [supplierBillId], references: [id])
+
+  expenseId String?
+  expense   Expense? @relation(fields: [expenseId], references: [id])
+
+  bankAccountId String
+  bankAccount   BankAccount @relation(fields: [bankAccountId], references: [id], onDelete: Restrict)
+
+  method      PaymentMethod
+  amount      Decimal               @db.Decimal(12, 2)
+  currency    PurchaseOrderCurrency @default(USD)
+  exchangeRate Decimal?             @db.Decimal(14, 4)
+
+  igtfApplies   Boolean @default(false)
+  igtfAmount    Decimal @default(0) @db.Decimal(12, 2)
+  totalWithIgtf Decimal @default(0) @db.Decimal(12, 2)
+
+  details   Json?   // pagos mixtos [{ method, amount, reference }]
+  reference String? // nro transferencia/cheque
+  notes     String? @db.Text
+
+  processedBy String?
+  processedAt DateTime @default(now())
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("supplier_payments")
+  @@index([empresaId, status])
+  @@index([supplierId])
+  @@index([supplierBillId])
+  @@index([expenseId])
+  @@index([processedAt])
+}

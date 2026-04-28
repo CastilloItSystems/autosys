@@ -86,6 +86,7 @@ interface ItemsTableProps {
   title?: string;
   totals?: TotalsLine[];
   currency?: string;
+  exchangeRate?: number | null;
   disabled?: boolean;
   /** Minimum width in px before horizontal scroll kicks in. Default: 600 */
   minWidth?: number;
@@ -102,6 +103,7 @@ export default function ItemsTable({
   title = "Artículos",
   totals,
   currency = "USD",
+  exchangeRate,
   disabled = false,
   minWidth = 600,
 }: ItemsTableProps) {
@@ -243,7 +245,7 @@ export default function ItemsTable({
 
       {/* ── Optional totals footer (outside the table border) ── */}
       {totals && totals.length > 0 && (
-        <TotalsFooter lines={totals} currency={currency} />
+        <TotalsFooter lines={totals} currency={currency} exchangeRate={exchangeRate} />
       )}
     </div>
   );

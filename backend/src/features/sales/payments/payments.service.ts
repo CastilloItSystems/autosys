@@ -10,6 +10,7 @@ import {
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreatePaymentDTO } from './payments.dto.js'
+import { recalculateBankBalance } from '../../finance/shared/recalculateBankBalance.js'
 import preInvoicesService from '../preInvoices/preInvoices.service.js'
 import {
   IPayment,
@@ -189,6 +190,17 @@ class PaymentsService {
       preInvoiceId: string
     } | null = null
 
+    // Validate bank account before transaction if provided
+    let bankAccountCurrency: string | null = null
+    if (data.bankAccountId) {
+      const bankAccount = await (db as PrismaClient).bankAccount.findFirst({
+        where: { id: data.bankAccountId, empresaId },
+        select: { id: true, currency: true },
+      })
+      if (!bankAccount) throw new BadRequestError('Cuenta bancaria no encontrada')
+      bankAccountCurrency = bankAccount.currency
+    }
+
     const payment = await (db as PrismaClient).$transaction(async (tx) => {
       // 1. Create Payment
       const created = await tx.payment.create({
@@ -210,11 +222,57 @@ class PaymentsService {
             : null,
           reference: data.reference ?? null,
           notes: data.notes ?? null,
+          bankAccountId: data.bankAccountId ?? null,
           processedBy: userId ?? null,
           processedAt: new Date(),
         },
         include: PAYMENT_INCLUDE,
       })
+
+      // 1b. Register cash inflow in bank account if provided
+      if (data.bankAccountId && bankAccountCurrency) {
+        const paymentCurrency = (data.currency ?? 'USD') as string
+        let creditInAccountCurrency = totalWithIgtf
+        if (bankAccountCurrency !== paymentCurrency) {
+          const rate = Number(data.exchangeRate ?? 0)
+          if (!rate || rate <= 0) {
+            throw new BadRequestError(
+              `Se requiere tasa de cambio para registrar cobro en ${paymentCurrency} en cuenta ${bankAccountCurrency}`
+            )
+          }
+          const isSameSide =
+            (bankAccountCurrency === 'USD' && paymentCurrency === 'VES') ||
+            (bankAccountCurrency === 'EUR' && paymentCurrency === 'VES')
+          const isInverse =
+            (bankAccountCurrency === 'VES' && paymentCurrency === 'USD') ||
+            (bankAccountCurrency === 'VES' && paymentCurrency === 'EUR')
+          if (isSameSide) {
+            creditInAccountCurrency = Number((totalWithIgtf / rate).toFixed(2))
+          } else if (isInverse) {
+            creditInAccountCurrency = Number((totalWithIgtf * rate).toFixed(2))
+          } else {
+            throw new BadRequestError(
+              `Conversión directa de ${paymentCurrency} a ${bankAccountCurrency} no soportada.`
+            )
+          }
+        }
+
+        await (tx as any).cashTransaction.create({
+          data: {
+            bankAccountId: data.bankAccountId,
+            type: 'INCOME',
+            source: 'SALES_PAYMENT',
+            sourceId: created.id,
+            amount: creditInAccountCurrency,
+            currency: bankAccountCurrency as any,
+            exchangeRate: data.exchangeRate ?? null,
+            description: `Cobro venta ${paymentNumber}`,
+            empresaId,
+          },
+        })
+
+        await recalculateBankBalance(tx, data.bankAccountId, empresaId)
+      }
 
       // 2. Check if PreInvoice is now fully paid
       const newTotalPaid = round2(totalPaidSoFar + data.amount)
@@ -606,6 +664,29 @@ class PaymentsService {
         data: { status: PaymentStatus.CANCELLED },
         include: PAYMENT_INCLUDE,
       })
+
+      // Reverse bank account movement if payment was linked to a bank account
+      if (payment.bankAccountId) {
+        const cashTx = await (tx as any).cashTransaction.findFirst({
+          where: { source: 'SALES_PAYMENT', sourceId: id },
+        })
+        if (cashTx) {
+          await (tx as any).cashTransaction.create({
+            data: {
+              bankAccountId: payment.bankAccountId,
+              type: 'ADJUSTMENT',
+              source: 'MANUAL',
+              sourceId: id,
+              amount: -Number(cashTx.amount),
+              currency: cashTx.currency,
+              exchangeRate: cashTx.exchangeRate,
+              description: `Anulación cobro ${(payment as any).paymentNumber}`,
+              empresaId,
+            },
+          })
+          await recalculateBankBalance(tx, payment.bankAccountId, empresaId)
+        }
+      }
 
       // Check remaining completed payments for this PreInvoice
       const remainingPayments = await tx.payment.findMany({

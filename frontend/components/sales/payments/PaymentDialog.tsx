@@ -14,6 +14,7 @@ import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 
 import preInvoiceService from "@/app/api/sales/preInvoiceService";
+import bankAccountService from "@/app/api/finance/bankAccountService";
 import {
   PreInvoice,
   PreInvoiceSalesStockDiagnosis,
@@ -101,6 +102,8 @@ const PaymentDialog = ({
     useState<PreInvoiceSalesStockDiagnosis | null>(null);
   const [creatingSuggestedTransfers, setCreatingSuggestedTransfers] =
     useState(false);
+  const [bankAccountId, setBankAccountId] = useState<string | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<{ id: string; name: string; currency: string; currentBalance: number }[]>([]);
 
   // Mixed payment details
   const [mixedDetails, setMixedDetails] = useState<PaymentDetail[]>([
@@ -127,6 +130,7 @@ const PaymentDialog = ({
       setAmount(remainingAmount);
       setReference("");
       setNotes("");
+      setBankAccountId(null);
       setIgtfApplies(preInvoice.igtfApplies || false);
       setShortageDialogVisible(false);
       setShortagePayload(null);
@@ -136,6 +140,14 @@ const PaymentDialog = ({
       ]);
     }
   }, [visible, preInvoice?.id]);
+
+  useEffect(() => {
+    if (visible) {
+      bankAccountService.getAll({ isActive: "true" }).then((res) => {
+        setBankAccounts(res.data ?? []);
+      }).catch(() => {});
+    }
+  }, [visible]);
 
   // Sync mixed details sum with amount
   useEffect(() => {
@@ -239,6 +251,7 @@ const PaymentDialog = ({
         igtfApplies,
         reference: reference || undefined,
         notes: notes || undefined,
+        bankAccountId: bankAccountId || undefined,
       };
 
       if (method === PaymentMethod.MIXED) {
@@ -409,6 +422,23 @@ const PaymentDialog = ({
             optionValue="value"
             className="w-full"
           />
+        </div>
+
+        {/* ── Cuenta bancaria destino ── */}
+        <div className="field">
+          <label className="font-semibold">Cuenta Bancaria Destino</label>
+          <Dropdown
+            value={bankAccountId}
+            onChange={(e) => setBankAccountId(e.value)}
+            options={bankAccounts.map((a) => ({
+              label: `${a.name} (${a.currency} — ${a.currency === "VES" ? "Bs." : a.currency === "EUR" ? "€" : "$"} ${Number(a.currentBalance).toLocaleString("es-VE", { minimumFractionDigits: 2 })})`,
+              value: a.id,
+            }))}
+            placeholder="Sin asociar cuenta (opcional)"
+            showClear
+            className="w-full"
+          />
+          <small className="text-500">Al seleccionar, el cobro incrementa el saldo de la cuenta.</small>
         </div>
 
         {/* ── Mixed details ── */}

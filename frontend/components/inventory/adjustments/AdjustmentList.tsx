@@ -5,11 +5,17 @@ import { Column } from "primereact/column";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
+import {
+  ConfirmDialog,
+  confirmDialog,
+} from "primereact/confirmdialog";
 import { Dropdown, DropdownChangeEvent } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
+import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
+import { Menu } from "primereact/menu";
+import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import adjustmentService, {
   ADJUSTMENT_STATUS_LABELS,
@@ -22,6 +28,8 @@ import warehouseService, {
 } from "@/app/api/inventory/warehouseService";
 import AdjustmentForm from "@/components/inventory/adjustments/AdjustmentForm";
 import AdjustmentDetail from "@/components/inventory/adjustments/AdjustmentDetail";
+import CreateButton from "@/components/common/CreateButton";
+import FormActionButtons from "@/components/common/FormActionButtons";
 
 const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   [
@@ -36,17 +44,17 @@ const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
 const AdjustmentList = () => {
   // State
   const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
-  console.log(adjustments);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] =
     useState<Adjustment | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Pagination
+  // Pagination (backend espera page 1-based)
   const [page, setPage] = useState(1);
-  const [limit, setLimit] = useState(20);
+  const [limit, setLimit] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
 
   // Filters
@@ -56,10 +64,14 @@ const AdjustmentList = () => {
   const [filterWarehouse, setFilterWarehouse] = useState<string | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
   const [filterDateTo, setFilterDateTo] = useState<Date | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>("");
+
+  // Action menu
+  const menuRef = useRef<Menu>(null);
+  const [actionItem, setActionItem] = useState<Adjustment | null>(null);
 
   const toast = useRef<Toast | null>(null);
 
-  // Fetch data on mount and when filters/pagination change
   useEffect(() => {
     fetchAdjustments();
   }, [
@@ -69,7 +81,12 @@ const AdjustmentList = () => {
     filterWarehouse,
     filterDateFrom,
     filterDateTo,
+    searchQuery,
   ]);
+
+  useEffect(() => {
+    fetchWarehouses();
+  }, []);
 
   const fetchAdjustments = async () => {
     try {
@@ -79,6 +96,7 @@ const AdjustmentList = () => {
         limit,
         status: filterStatus || undefined,
         warehouseId: filterWarehouse || undefined,
+        search: searchQuery || undefined,
         dateFrom: filterDateFrom
           ? filterDateFrom.toISOString().split("T")[0]
           : undefined,
@@ -86,7 +104,6 @@ const AdjustmentList = () => {
           ? filterDateTo.toISOString().split("T")[0]
           : undefined,
       });
-      console.log(response);
       setAdjustments(response.data);
       setTotalRecords(response.meta.total);
     } catch (error) {
@@ -102,11 +119,6 @@ const AdjustmentList = () => {
     }
   };
 
-  // Fetch warehouses on mount
-  useEffect(() => {
-    fetchWarehouses();
-  }, []);
-
   const fetchWarehouses = async () => {
     try {
       const response = await warehouseService.getActive();
@@ -118,124 +130,42 @@ const AdjustmentList = () => {
 
   // Handlers
   const handlePageChange = (event: DataTablePageEvent) => {
-    setPage((event.first ?? 0) / (event.rows ?? 20) + 1);
-    setLimit(event.rows ?? 20);
+    setPage((event.first ?? 0) / (event.rows ?? 10) + 1);
+    setLimit(event.rows ?? 10);
+  };
+
+  const openNew = () => {
+    setFormDialog(true);
   };
 
   const hideFormDialog = () => setFormDialog(false);
 
-  const onFormSuccess = () => {
-    hideFormDialog();
-    setPage(1);
-    fetchAdjustments();
+  const handleSave = () => {
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
-      detail: "Ajuste creado exitosamente",
+      detail: "Ajuste creado correctamente",
       life: 3000,
     });
+    setFormDialog(false);
+    setPage(1);
+    fetchAdjustments();
   };
 
-  // Template functions
-  const statusBodyTemplate = (rowData: Adjustment) => {
-    const severity = ADJUSTMENT_STATUS_SEVERITY[rowData.status];
-    const label = ADJUSTMENT_STATUS_LABELS[rowData.status];
-    return <Tag value={label} severity={severity} />;
-  };
-
-  const warehouseBodyTemplate = (rowData: Adjustment) => {
-    if (!rowData.warehouse) return <span className="text-500">-</span>;
-    return (
-      <div className="flex flex-column">
-        <span className="font-semibold">{rowData.warehouse.name}</span>
-        <span className="text-sm text-gray-500">{rowData.warehouse.code}</span>
-      </div>
-    );
-  };
-
-  const reasonBodyTemplate = (rowData: Adjustment) => (
-    <span className="text-truncate" title={rowData.reason}>
-      {rowData.reason}
-    </span>
-  );
-
-  const dateBodyTemplate = (rowData: Adjustment) => {
-    if (!rowData.createdAt) return "-";
-    return new Date(rowData.createdAt).toLocaleDateString("es-CL", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  };
-
-  const actionBodyTemplate = (rowData: Adjustment) => {
-    const isApproved = rowData.status === "APPROVED";
-    const isDraft = rowData.status === "DRAFT";
-
-    return (
-      <div className="flex gap-2">
-        <Button
-          icon="pi pi-eye"
-          rounded
-          size="small"
-          tooltip="Ver detalles"
-          onClick={async () => {
-            try {
-              const resp = await adjustmentService.getById(rowData.id);
-              setSelectedAdjustment(resp.data);
-              setDetailDialog(true);
-            } catch (error) {
-              console.error("Error fetching adjustment details", error);
-              toast.current?.show({
-                severity: "error",
-                summary: "Error",
-                detail: "No se pudo cargar detalle",
-              });
-            }
-          }}
-        />
-        {isDraft && (
-          <Button
-            icon="pi pi-check"
-            rounded
-            severity="success"
-            size="small"
-            tooltip="Aprobar"
-            onClick={() => handleApprove(rowData)}
-          />
-        )}
-        {isApproved && (
-          <Button
-            icon="pi pi-arrow-right"
-            rounded
-            severity="info"
-            size="small"
-            tooltip="Aplicar"
-            onClick={() => handleApply(rowData)}
-          />
-        )}
-        {(isDraft || isApproved) && (
-          <Button
-            icon="pi pi-times"
-            rounded
-            severity="danger"
-            size="small"
-            tooltip="Rechazar"
-            onClick={() => handleReject(rowData)}
-          />
-        )}
-        {(isDraft || isApproved) && (
-          <Button
-            icon="pi pi-ban"
-            rounded
-            severity="warning"
-            size="small"
-            tooltip="Cancelar"
-            onClick={() => handleCancel(rowData)}
-          />
-        )}
-      </div>
-    );
+  const viewDetails = async (adjustment: Adjustment) => {
+    try {
+      const resp = await adjustmentService.getById(adjustment.id);
+      setSelectedAdjustment(resp.data);
+      setDetailDialog(true);
+    } catch (error) {
+      console.error("Error fetching adjustment details", error);
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo cargar detalle",
+        life: 3000,
+      });
+    }
   };
 
   const hideDetailDialog = () => {
@@ -351,75 +281,173 @@ const AdjustmentList = () => {
     });
   };
 
-  const renderFilters = () => (
-    <div className="grid gap-3 mb-4">
-      <div className="flex flex-wrap gap-3 align-items-end">
-        <div className="flex-grow-1" style={{ minWidth: "200px" }}>
-          <label className="block text-sm font-semibold mb-2">Estado</label>
-          <Dropdown
-            value={filterStatus}
-            onChange={(e: DropdownChangeEvent) => {
-              setFilterStatus(e.value);
-              setPage(1);
-            }}
-            options={ADJUSTMENT_STATUSES}
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Seleccionar estado"
-            className="w-full"
-          />
-        </div>
+  // Menu items según el estado del ajuste
+  const getMenuItems = (item: Adjustment | null): MenuItem[] => {
+    if (!item) return [];
+    const isDraft = item.status === "DRAFT";
+    const isApproved = item.status === "APPROVED";
 
-        <div className="flex-grow-1" style={{ minWidth: "200px" }}>
-          <label className="block text-sm font-semibold mb-2">Almacén</label>
-          <Dropdown
-            value={filterWarehouse}
-            onChange={(e: DropdownChangeEvent) => {
-              setFilterWarehouse(e.value);
-              setPage(1);
-            }}
-            options={warehouses}
-            optionLabel="name"
-            optionValue="id"
-            placeholder="Seleccionar almacén"
-            className="w-full"
-            showClear
-          />
-        </div>
+    const items: MenuItem[] = [
+      {
+        label: "Ver detalles",
+        icon: "pi pi-eye",
+        command: () => viewDetails(item),
+      },
+    ];
 
-        <div className="flex-grow-1" style={{ minWidth: "180px" }}>
-          <label className="block text-sm font-semibold mb-2">Desde</label>
-          <Calendar
-            value={filterDateFrom}
+    if (isDraft) {
+      items.push({
+        label: "Aprobar",
+        icon: "pi pi-check",
+        command: () => handleApprove(item),
+      });
+    }
+
+    if (isApproved) {
+      items.push({
+        label: "Aplicar",
+        icon: "pi pi-arrow-right",
+        command: () => handleApply(item),
+      });
+    }
+
+    if (isDraft || isApproved) {
+      items.push({ separator: true });
+      items.push({
+        label: "Rechazar",
+        icon: "pi pi-times",
+        className: "p-menuitem-danger",
+        command: () => handleReject(item),
+      });
+      items.push({
+        label: "Cancelar",
+        icon: "pi pi-ban",
+        className: "p-menuitem-danger",
+        command: () => handleCancel(item),
+      });
+    }
+
+    return items;
+  };
+
+  // Template functions
+  const statusBodyTemplate = (rowData: Adjustment) => {
+    const severity = ADJUSTMENT_STATUS_SEVERITY[rowData.status];
+    const label = ADJUSTMENT_STATUS_LABELS[rowData.status];
+    return <Tag value={label} severity={severity} />;
+  };
+
+  const warehouseBodyTemplate = (rowData: Adjustment) => {
+    if (!rowData.warehouse) return <span className="text-500">-</span>;
+    return (
+      <div className="flex flex-column">
+        <span className="font-semibold">{rowData.warehouse.name}</span>
+        <span className="text-sm text-gray-500">{rowData.warehouse.code}</span>
+      </div>
+    );
+  };
+
+  const reasonBodyTemplate = (rowData: Adjustment) => (
+    <span className="text-truncate" title={rowData.reason}>
+      {rowData.reason}
+    </span>
+  );
+
+  const dateBodyTemplate = (rowData: Adjustment) => {
+    if (!rowData.createdAt) return "-";
+    return new Date(rowData.createdAt).toLocaleDateString("es-VE", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  };
+
+  const actionBodyTemplate = (rowData: Adjustment) => (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="adjustment-menu"
+      aria-haspopup
+      tooltip="Opciones"
+      tooltipOptions={{ position: "left" }}
+    />
+  );
+
+  const header = (
+    <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
+      <div className="flex align-items-center gap-2">
+        <h4 className="m-0">Ajustes de Inventario</h4>
+        <span className="text-600 text-sm">({totalRecords} total)</span>
+      </div>
+      <div className="flex flex-wrap gap-2 align-items-center">
+        <Dropdown
+          value={filterStatus}
+          options={ADJUSTMENT_STATUSES}
+          onChange={(e: DropdownChangeEvent) => {
+            setFilterStatus(e.value);
+            setPage(1);
+          }}
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Estado"
+          style={{ minWidth: "150px" }}
+        />
+        <Dropdown
+          value={filterWarehouse}
+          options={warehouses}
+          onChange={(e: DropdownChangeEvent) => {
+            setFilterWarehouse(e.value);
+            setPage(1);
+          }}
+          optionLabel="name"
+          optionValue="id"
+          placeholder="Almacén"
+          style={{ minWidth: "160px" }}
+          showClear
+        />
+        <Calendar
+          value={filterDateFrom}
+          onChange={(e) => {
+            setFilterDateFrom(e.value || null);
+            setPage(1);
+          }}
+          dateFormat="dd/mm/yy"
+          placeholder="Desde"
+          showIcon
+          style={{ maxWidth: "160px" }}
+        />
+        <Calendar
+          value={filterDateTo}
+          onChange={(e) => {
+            setFilterDateTo(e.value || null);
+            setPage(1);
+          }}
+          dateFormat="dd/mm/yy"
+          placeholder="Hasta"
+          showIcon
+          style={{ maxWidth: "160px" }}
+        />
+        <span className="p-input-icon-left">
+          <i className="pi pi-search" />
+          <InputText
+            type="search"
+            placeholder="Buscar..."
+            value={searchQuery}
             onChange={(e) => {
-              setFilterDateFrom(e.value || null);
+              setSearchQuery(e.target.value);
               setPage(1);
             }}
-            dateFormat="dd/mm/yy"
-            showIcon
-            className="w-full"
           />
-        </div>
-
-        <div className="flex-grow-1" style={{ minWidth: "180px" }}>
-          <label className="block text-sm font-semibold mb-2">Hasta</label>
-          <Calendar
-            value={filterDateTo}
-            onChange={(e) => {
-              setFilterDateTo(e.value || null);
-              setPage(1);
-            }}
-            dateFormat="dd/mm/yy"
-            showIcon
-            className="w-full"
-          />
-        </div>
-
-        <Button
-          label="Crear Ajuste"
-          icon="pi pi-plus"
-          onClick={() => setFormDialog(true)}
-          className="p-button-success"
+        </span>
+        <CreateButton
+          label="Nuevo ajuste"
+          onClick={openNew}
+          tooltip="Crear ajuste de inventario"
         />
       </div>
     </div>
@@ -440,88 +468,102 @@ const AdjustmentList = () => {
     <>
       <Toast ref={toast} />
       <motion.div
-        initial={{
-          opacity: 0,
-          scale: 0.95,
-          y: 40,
-          filter: "blur(8px)",
-        }}
+        initial={{ opacity: 0, scale: 0.95, y: 40, filter: "blur(8px)" }}
         animate={{ opacity: 1, scale: 1, y: 0, filter: "blur(0px)" }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="card"
       >
-        {renderFilters()}
-
         <DataTable
           value={adjustments}
           paginator
           lazy
+          scrollable
+          sortMode="multiple"
           first={(page - 1) * limit}
           rows={limit}
           totalRecords={totalRecords}
+          rowsPerPageOptions={[5, 10, 25, 50]}
           onPage={handlePageChange}
+          dataKey="id"
           loading={loading}
-          responsiveLayout="scroll"
+          header={header}
+          emptyMessage="No se encontraron ajustes"
           currentPageReportTemplate="Mostrando {first} a {last} de {totalRecords} ajustes"
-          rowsPerPageOptions={[10, 20, 50]}
-          emptyMessage="No hay ajustes disponibles"
           size="small"
         >
           <Column
             field="adjustmentNumber"
             header="# Ajuste"
             sortable
-            style={{ width: "100px" }}
+            style={{ minWidth: "120px" }}
           />
           <Column
             header="Estado"
             body={statusBodyTemplate}
-            style={{ width: "100px" }}
+            style={{ minWidth: "120px" }}
           />
           <Column
             header="Almacén"
             body={warehouseBodyTemplate}
-            style={{ width: "150px" }}
+            style={{ minWidth: "160px" }}
           />
           <Column
             header="Motivo"
             body={reasonBodyTemplate}
-            style={{ width: "200px" }}
+            style={{ minWidth: "220px" }}
           />
           <Column
             field="createdBy"
             header="Solicitante"
-            style={{ width: "120px" }}
+            style={{ minWidth: "140px" }}
           />
           <Column
             field="createdAt"
             header="Fecha"
             body={dateBodyTemplate}
             sortable
-            style={{ width: "100px" }}
+            style={{ minWidth: "120px" }}
           />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
-            style={{ width: "150px" }}
+            exportable={false}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
           />
         </DataTable>
 
         <ConfirmDialog />
 
+        <Menu
+          model={getMenuItems(actionItem)}
+          popup
+          ref={menuRef}
+          id="adjustment-menu"
+        />
+
         <Dialog
           visible={detailDialog}
-          style={{ width: "900px" }}
-          header="Detalle de Ajuste"
+          style={{ width: "75vw" }}
+          breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
           modal
+          maximizable
           onHide={hideDetailDialog}
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-file-o mr-3 text-primary text-3xl"></i>
+                  Detalle de Ajuste
+                </h2>
+              </div>
+            </div>
+          }
         >
           {selectedAdjustment ? (
-            // Lazy load component
-            <>
-              {/* Dynamic import avoided; component is small and local */}
-              <AdjustmentDetail adjustment={selectedAdjustment} />
-            </>
+            <AdjustmentDetail adjustment={selectedAdjustment} />
           ) : (
             <div className="flex justify-content-center">
               <ProgressSpinner />
@@ -531,14 +573,35 @@ const AdjustmentList = () => {
 
         <Dialog
           visible={formDialog}
-          style={{ width: "850px" }}
-          header="Crear Ajuste de Inventario"
+          style={{ width: "75vw" }}
+          breakpoints={{ "1400px": "75vw", "900px": "85vw", "600px": "95vw" }}
           modal
+          maximizable
           onHide={hideFormDialog}
+          header={
+            <div className="mb-2 text-center md:text-left">
+              <div className="border-bottom-2 border-primary pb-2">
+                <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                  <i className="pi pi-sliders-h mr-3 text-primary text-3xl"></i>
+                  Nuevo Ajuste de Inventario
+                </h2>
+              </div>
+            </div>
+          }
+          footer={
+            <FormActionButtons
+              formId="adjustment-form"
+              isUpdate={false}
+              onCancel={hideFormDialog}
+              isSubmitting={isSubmitting}
+              submitLabel="Crear Ajuste"
+            />
+          }
         >
           <AdjustmentForm
-            onSave={onFormSuccess}
-            onCancel={hideFormDialog}
+            formId="adjustment-form"
+            onSave={handleSave}
+            onSubmittingChange={setIsSubmitting}
             toast={toast}
           />
         </Dialog>

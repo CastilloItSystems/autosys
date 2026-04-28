@@ -83,6 +83,7 @@ model Item {
   purchaseOrderItems PurchaseOrderItem[]
   orderItems     OrderItem[]
   preInvoiceItems PreInvoiceItem[]
+  supplierBillItems SupplierBillItem[]
   exitNoteItems  ExitNoteItem[]
   entryNoteItems EntryNoteItem[]
   invoiceItems   InvoiceItem[]

@@ -91,6 +91,9 @@ export const INVENTORY_MESSAGES = {
   purchaseOrder: {
     created: 'Orden de compra creada exitosamente',
     updated: 'Orden de compra actualizada exitosamente',
+    submitted: 'Orden de compra enviada para aprobación',
+    approved: 'Orden de compra aprobada',
+    rejected: 'Orden de compra rechazada',
     sent: 'Orden de compra enviada al proveedor',
     received: 'Recepción registrada exitosamente',
     completed: 'Orden de compra completada',

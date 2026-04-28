@@ -2,9 +2,12 @@ import { Supplier } from "./supplier.interface";
 
 export type PurchaseOrderStatus =
   | "DRAFT"
+  | "PENDING_APPROVAL"
+  | "APPROVED"
   | "SENT"
   | "PARTIAL"
   | "COMPLETED"
+  | "REJECTED"
   | "CANCELLED";
 
 export type PurchaseOrderCurrency = "USD" | "VES" | "EUR";
@@ -64,8 +67,15 @@ export interface PurchaseOrder {
   orderDate?: string;
   expectedDate?: string | null;
   createdBy?: string | null;
+  submittedBy?: string | null;
+  submittedAt?: string | null;
   approvedBy?: string | null;
   approvedAt?: string | null;
+  rejectedBy?: string | null;
+  rejectedAt?: string | null;
+  rejectionReason?: string | null;
+  sentBy?: string | null;
+  sentAt?: string | null;
   supplier?: Supplier;
   warehouse?: {
     id: string;
@@ -74,6 +84,8 @@ export interface PurchaseOrder {
     type?: string;
   };
   items?: PurchaseOrderItem[];
+  entryNotes?: unknown[];
+  supplierBills?: unknown[];
   createdAt?: string;
   updatedAt?: string;
 }
@@ -88,15 +100,24 @@ export const PO_STATUS_CONFIG: Record<
   }
 > = {
   DRAFT: { label: "Borrador", severity: "secondary", icon: "pi pi-pencil" },
+  PENDING_APPROVAL: {
+    label: "Pendiente Aprobación",
+    severity: "warning",
+    icon: "pi pi-clock",
+  },
+  APPROVED: { label: "Aprobada", severity: "success", icon: "pi pi-check" },
   SENT: { label: "Enviada", severity: "info", icon: "pi pi-send" },
   PARTIAL: { label: "Parcial", severity: "warning", icon: "pi pi-clock" },
   COMPLETED: { label: "Completada", severity: "success", icon: "pi pi-check" },
+  REJECTED: { label: "Rechazada", severity: "danger", icon: "pi pi-ban" },
   CANCELLED: { label: "Cancelada", severity: "danger", icon: "pi pi-times" },
 };
 
 // Steps ordenados para el stepper
 export const PO_STATUS_STEPS: PurchaseOrderStatus[] = [
   "DRAFT",
+  "PENDING_APPROVAL",
+  "APPROVED",
   "SENT",
   "PARTIAL",
   "COMPLETED",

@@ -41,6 +41,7 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import OrderStepper from "./OrderStepper";
+import { AuditTrailDialog } from "@/components/audit/AuditTrail";
 
 const formatCurrency = (value: number | string) =>
   `$${Number(value || 0).toLocaleString("es-VE", {
@@ -104,6 +105,7 @@ const OrderList = () => {
   const [purchaseOverrides, setPurchaseOverrides] = useState<
     Record<string, { purchaseQuantity: number; supplierId?: string }>
   >({});
+  const [auditDialog, setAuditDialog] = useState(false);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -194,6 +196,21 @@ const OrderList = () => {
     setFormDialog(true);
   };
 
+  const mergeOrder = (updatedOrder?: Order | null) => {
+    if (!updatedOrder?.id) return;
+    setOrders((prev) =>
+      prev.map((order) =>
+        order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order,
+      ),
+    );
+    setSelectedOrder((prev) =>
+      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
+    );
+    setActionOrder((prev) =>
+      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
+    );
+  };
+
   const handleSave = async () => {
     toast.current?.show({
       severity: "success",
@@ -209,8 +226,12 @@ const OrderList = () => {
   const handleDelete = async () => {
     try {
       if (selectedOrder?.id) {
-        await orderService.delete(selectedOrder.id);
-        await loadOrders();
+        const deletedId = selectedOrder.id;
+        const remainingRows = orders.length - 1;
+        await orderService.delete(deletedId);
+        setOrders((prev) => prev.filter((order) => order.id !== deletedId));
+        setTotalRecords((prev) => Math.max(0, prev - 1));
+        if (remainingRows <= 0 && page > 0) setPage((prev) => prev - 1);
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -228,8 +249,8 @@ const OrderList = () => {
 
   const handleApprove = async (order: Order) => {
     try {
-      await orderService.approve(order.id);
-      await loadOrders();
+      const response = await orderService.approve(order.id);
+      mergeOrder(response.data);
       toast.current?.show({
         severity: "success",
         summary: "Aprobada",
@@ -302,7 +323,6 @@ const OrderList = () => {
         life: 4500,
       });
 
-      await loadOrders();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -312,8 +332,8 @@ const OrderList = () => {
 
   const handleCancel = async (order: Order) => {
     try {
-      await orderService.cancel(order.id);
-      await loadOrders();
+      const response = await orderService.cancel(order.id);
+      mergeOrder(response.data);
       toast.current?.show({
         severity: "success",
         summary: "Cancelada",
@@ -323,6 +343,16 @@ const OrderList = () => {
     } catch (error) {
       handleFormError(error, toast);
     }
+  };
+
+  const hideAuditDialog = () => {
+    setAuditDialog(false);
+    setActionOrder(null);
+  };
+
+  const openAuditDialog = (order: Order) => {
+    setActionOrder(order);
+    setAuditDialog(true);
   };
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -406,7 +436,18 @@ const OrderList = () => {
 
   /* ── Column: CRUD (cog menu) ── */
   const getMenuItems = (order: Order | null): MenuItem[] => {
-    if (!order || order.status !== OrderStatus.DRAFT) return [];
+    if (!order) return [];
+
+    const items: MenuItem[] = [
+      {
+        label: "Auditoría",
+        icon: "pi pi-history",
+        command: () => openAuditDialog(order),
+      },
+    ];
+
+    if (order.status !== OrderStatus.DRAFT) return items;
+
     return [
       {
         label: "Editar",
@@ -416,6 +457,7 @@ const OrderList = () => {
           setFormDialog(true);
         },
       },
+      ...items,
       { separator: true },
       {
         label: "Eliminar",
@@ -430,7 +472,6 @@ const OrderList = () => {
   };
 
   const crudBodyTemplate = (rowData: Order) => {
-    if (rowData.status !== OrderStatus.DRAFT) return null;
     return (
       <Button
         icon="pi pi-cog"
@@ -862,6 +903,16 @@ const OrderList = () => {
           popup
           ref={menuRef}
           id="order-menu"
+        />
+
+        <AuditTrailDialog
+          visible={auditDialog}
+          onHide={hideAuditDialog}
+          entity="Order"
+          entityId={actionOrder?.id}
+          title="Historial de orden de venta"
+          subtitle={actionOrder?.orderNumber}
+          toast={toast}
         />
 
         <Dialog

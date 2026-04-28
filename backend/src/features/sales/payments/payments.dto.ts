@@ -10,6 +10,7 @@ export class CreatePaymentDTO {
   details?: any[]
   reference?: string
   notes?: string
+  bankAccountId?: string
 
   constructor(data: Record<string, unknown>) {
     this.preInvoiceId = String(data.preInvoiceId)
@@ -23,6 +24,8 @@ export class CreatePaymentDTO {
       this.reference = String(data.reference).trim()
     if (data.notes != null && String(data.notes).trim() !== '')
       this.notes = String(data.notes).trim()
+    if (data.bankAccountId != null && String(data.bankAccountId).trim() !== '')
+      this.bankAccountId = String(data.bankAccountId).trim()
   }
 }
 

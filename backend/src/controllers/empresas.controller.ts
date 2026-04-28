@@ -5,6 +5,7 @@ import {
   ensurePermissionCatalog,
   seedDefaultRolesForEmpresa,
   seedDefaultNotificationPoliciesForEmpresa,
+  seedDefaultBankAccountForEmpresa,
 } from '../services/empresa-setup.service.js'
 
 export const uploadLogo = async (req: Request, res: Response) => {
@@ -109,6 +110,7 @@ export const createEmpresa = async (req: Request, res: Response) => {
     await ensurePermissionCatalog()
     await seedDefaultRolesForEmpresa(newEmpresa.id_empresa)
     await seedDefaultNotificationPoliciesForEmpresa(newEmpresa.id_empresa)
+    await seedDefaultBankAccountForEmpresa(newEmpresa.id_empresa)
 
     return res.status(201).json(newEmpresa)
   } catch (error) {
@@ -249,6 +251,7 @@ export const seedDefaultsForEmpresa = async (req: Request, res: Response) => {
     await ensurePermissionCatalog()
     await seedDefaultRolesForEmpresa(String(id))
     await seedDefaultNotificationPoliciesForEmpresa(String(id))
+    await seedDefaultBankAccountForEmpresa(String(id))
 
     return res.json({
       ok: true,

@@ -8,6 +8,7 @@ import {
   createPurchaseOrderSchema,
   updatePurchaseOrderSchema,
   approvePurchaseOrderSchema,
+  rejectPurchaseOrderSchema,
   addPurchaseOrderItemSchema,
   receiveOrderSchema,
 } from './purchaseOrders.validation.js'
@@ -32,10 +33,31 @@ router.post(
 
 // PATCH /api/inventory/purchase-orders/:id/approve
 router.patch(
-  '/:id/approve',
+  '/:id/submit',
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  purchaseOrderController.submit
+)
+
+router.patch(
+  '/:id/approve',
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(approvePurchaseOrderSchema),
   purchaseOrderController.approve
+)
+
+// PATCH /api/inventory/purchase-orders/:id/reject
+router.patch(
+  '/:id/reject',
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
+  validateBody(rejectPurchaseOrderSchema),
+  purchaseOrderController.reject
+)
+
+// PATCH /api/inventory/purchase-orders/:id/send
+router.patch(
+  '/:id/send',
+  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  purchaseOrderController.send
 )
 
 // PATCH /api/inventory/purchase-orders/:id/cancel

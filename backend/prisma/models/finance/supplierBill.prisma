@@ -1,0 +1,55 @@
+// backend/prisma/models/finance/supplierBill.prisma
+
+enum SupplierBillStatus {
+  PENDING_INVOICE // Provisión generada por recepción, pendiente de factura real
+  PENDING   // Recibida, no pagada
+  PARTIAL   // Pagada parcialmente
+  PAID      // Pagada totalmente
+  CANCELLED
+}
+
+model SupplierBill {
+  id             String             @id @default(cuid())
+  billNumber     String?            // Número de control del proveedor
+  internalNumber String             @unique // Correlativo interno
+  status         SupplierBillStatus @default(PENDING_INVOICE)
+
+  supplierId String
+  supplier   Supplier @relation(fields: [supplierId], references: [id], onDelete: Restrict)
+
+  purchaseOrderId String?
+  purchaseOrder   PurchaseOrder? @relation(fields: [purchaseOrderId], references: [id])
+
+  currency     PurchaseOrderCurrency @default(USD)
+  exchangeRate Decimal?              @db.Decimal(14, 4)
+  subtotal     Decimal               @default(0) @db.Decimal(12, 2)
+  taxAmount    Decimal               @default(0) @db.Decimal(12, 2)
+  total        Decimal               @default(0) @db.Decimal(12, 2)
+
+  paidAmount    Decimal   @default(0) @db.Decimal(12, 2)
+  pendingAmount Decimal   @default(0) @db.Decimal(12, 2) // total - paidAmount
+  paidAt        DateTime? // timestamp when status transitions to PAID
+
+  issueDate     DateTime?
+  dueDate       DateTime? // calculado de creditDays del supplier
+
+  attachmentUrl String?  @db.Text // PDF en R2
+  notes         String?  @db.Text
+
+  items    SupplierBillItem[]
+  payments SupplierPayment[]
+  entryNotes EntryNote[]
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([empresaId, supplierId, billNumber])
+  @@map("supplier_bills")
+  @@index([empresaId, status])
+  @@index([supplierId, status])
+  @@index([purchaseOrderId, status])
+  @@index([dueDate])
+}

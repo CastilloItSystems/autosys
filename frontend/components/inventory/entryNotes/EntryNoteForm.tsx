@@ -19,6 +19,7 @@ const COLS: ItemRowColWidths = {
   unitCost: { width: "8rem", flexShrink: 0 },
   location: { width: "6rem", flexShrink: 0 },
   batch: { width: "5.5rem", flexShrink: 0 },
+  expiryDate: { width: "8rem", flexShrink: 0 },
   remove: { width: "1.75rem", flexShrink: 0 },
 };
 
@@ -122,9 +123,12 @@ export default function EntryNoteForm({
                 itemId: i.itemId,
                 itemName: i.itemName || "",
                 quantityReceived: i.quantityReceived,
+                _maxQuantity:
+                  entryNote.type === "PURCHASE" ? i.quantityReceived : undefined,
                 unitCost: Number(i.unitCost),
                 storedToLocation: i.storedToLocation || undefined,
                 batchNumber: i.batchNumber || undefined,
+                expiryDate: i.expiryDate ? new Date(i.expiryDate) : undefined,
                 notes: i.notes || undefined,
               }))
             : [{ itemId: "", itemName: "", quantityReceived: 1, unitCost: 0 }],
@@ -145,6 +149,7 @@ export default function EntryNoteForm({
   const selectedType = watch("type");
   const selectedPOId = watch("purchaseOrderId");
   const selectedSupplierId = watch("catalogSupplierId");
+  const isPurchaseFromPO = selectedType === "PURCHASE" && !!selectedPOId;
 
   // Load POs on mount
   useEffect(() => {
@@ -375,6 +380,7 @@ export default function EntryNoteForm({
             unitCost: item.unitCost,
             storedToLocation: item.storedToLocation || null,
             batchNumber: item.batchNumber || null,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate as any).toISOString() : null,
             notes: item.notes || null,
           })),
         } as any);
@@ -408,7 +414,7 @@ export default function EntryNoteForm({
             unitCost: item.unitCost,
             storedToLocation: item.storedToLocation || null,
             batchNumber: item.batchNumber || null,
-            expiryDate: null,
+            expiryDate: item.expiryDate ? new Date(item.expiryDate as any).toISOString() : null,
             notes: item.notes || null,
           });
         }
@@ -447,7 +453,7 @@ export default function EntryNoteForm({
                 optionLabel="label"
                 optionValue="value"
                 className={errors.type ? "p-invalid" : ""}
-                disabled={isEditing}
+                disabled={isEditing || isPurchaseFromPO}
               />
             )}
           />
@@ -476,6 +482,7 @@ export default function EntryNoteForm({
                 optionValue="value"
                 placeholder="Seleccione almacén"
                 className={errors.warehouseId ? "p-invalid" : ""}
+                disabled={isPurchaseFromPO}
               />
             )}
           />
@@ -495,6 +502,7 @@ export default function EntryNoteForm({
             id="reference"
             {...register("reference")}
             placeholder="Nro. factura, guía, OC, etc."
+            disabled={isPurchaseFromPO}
           />
         </div>
 
@@ -554,7 +562,7 @@ export default function EntryNoteForm({
                   }
                   filter
                   showClear
-                  disabled={isEditing}
+                  disabled={isEditing || isPurchaseFromPO}
                 />
               )}
             />
@@ -612,7 +620,7 @@ export default function EntryNoteForm({
                 filter
                 showClear
                 className={errors.catalogSupplierId ? "p-invalid" : ""}
-                disabled={!!selectedPOId}
+                disabled={!!selectedPOId || isPurchaseFromPO}
               />
             )}
           />
@@ -645,10 +653,11 @@ export default function EntryNoteForm({
             { label: "Costo Unit.", style: COLS.unitCost! },
             { label: "Ubicación", style: COLS.location! },
             { label: "Lote", style: COLS.batch! },
+            { label: "Vencimiento", style: COLS.expiryDate! },
             { label: "", style: COLS.remove },
           ]}
           renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
-            <ItemRow
+              <ItemRow
               control={control}
               register={register}
               autoFocus={autoFocus}
@@ -661,6 +670,7 @@ export default function EntryNoteForm({
                 unitCost: `items.${index}.unitCost`,
                 location: `items.${index}.storedToLocation`,
                 batch: `items.${index}.batchNumber`,
+                expiryDate: `items.${index}.expiryDate`,
               }}
               colWidths={COLS}
               onRemove={() => remove(index)}
@@ -669,11 +679,14 @@ export default function EntryNoteForm({
               dragHandleProps={dragHandleProps}
               isDragging={isDragging}
               locationPlaceholder="Ej: A-12"
+              quantityMax={(watchedItems?.[index] as any)?._maxQuantity}
               suggestions={itemSuggestions}
               onSearch={onSearchItems}
               itemTemplate={itemSuggestionTemplate}
               items={items}
               selectedItemsMap={selectedItemsMap}
+              identityLocked={isPurchaseFromPO}
+              costLocked={isPurchaseFromPO}
               onItemChange={(itemId) => {
                 const item =
                   itemSuggestions.find((i) => i.id === itemId) ||

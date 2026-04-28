@@ -90,12 +90,22 @@ function handlePrismaError(
       // Record not found
       return ApiResponse.notFound(res, 'Registro no encontrado')
 
-    case 'P2003':
-      // Foreign key constraint violation
+    case 'P2003': {
+      // Foreign key constraint violation (insert/update/delete)
+      logger.error('Prisma P2003 FK constraint', {
+        meta: JSON.stringify(err.meta),
+        prismaMessage: err.message,
+        cause: (err as any).cause?.message,
+      })
+      const field = (err.meta as any)?.field_name
+        ?? (err as any).cause?.message
+        ?? err.message.split('\n').pop()?.trim()
+        ?? 'desconocido'
       return ApiResponse.badRequest(
         res,
-        'No se puede eliminar porque tiene registros relacionados'
+        `Violación de restricción de integridad referencial (campo: ${field})`
       )
+    }
 
     case 'P2014':
       // Required relation violation
@@ -105,8 +115,14 @@ function handlePrismaError(
       logger.error('Prisma error no mapeado', {
         code: err.code,
         meta: err.meta,
+        message: err.message,
       })
-      return ApiResponse.serverError(res, 'Error en la base de datos')
+      return ApiResponse.serverError(
+        res,
+        isProduction
+          ? 'Error en la base de datos'
+          : `Error en la base de datos [${err.code}]: ${err.message?.slice(0, 200)}`
+      )
   }
 }
 
