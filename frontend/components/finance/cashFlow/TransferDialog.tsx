@@ -7,8 +7,8 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
-import type { BankAccount } from "@/libs/interfaces/finance";
-import cashFlowService from "@/app/api/finance/cashFlowService";
+import type { BankAccount } from "@/modules/finance/bankAccounts/interfaces/bankAccount";
+import cashFlowService from "@/modules/finance/cashFlow/services/cashFlowService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
@@ -23,11 +23,19 @@ interface Props {
 const fmt = (v: number, cur = "USD") =>
   `${cur} ${v.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`;
 
-export default function TransferDialog({ visible, onHide, bankAccounts, onSuccess, toast }: Props) {
+export default function TransferDialog({
+  visible,
+  onHide,
+  bankAccounts,
+  onSuccess,
+  toast,
+}: Props) {
   const [fromAccountId, setFromAccountId] = useState("");
   const [toAccountId, setToAccountId] = useState("");
   const [amount, setAmount] = useState<number>(0);
-  const [exchangeRate, setExchangeRate] = useState<number | undefined>(undefined);
+  const [exchangeRate, setExchangeRate] = useState<number | undefined>(
+    undefined,
+  );
   const [description, setDescription] = useState("");
   const [loading, setLoading] = useState(false);
 
@@ -35,7 +43,8 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
 
   const fromAccount = bankAccounts.find((a) => a.id === fromAccountId);
   const toAccount = bankAccounts.find((a) => a.id === toAccountId);
-  const needsRate = fromAccount && toAccount && fromAccount.currency !== toAccount.currency;
+  const needsRate =
+    fromAccount && toAccount && fromAccount.currency !== toAccount.currency;
 
   useEffect(() => {
     if (!visible) return;
@@ -51,23 +60,38 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
   }, [needsRate, bcvRate]);
 
   const toAmount = (() => {
-    if (!needsRate || !exchangeRate || !fromAccount || !toAccount) return amount;
-    if (fromAccount.currency === "USD" && toAccount.currency === "VES") return amount * exchangeRate;
-    if (fromAccount.currency === "VES" && toAccount.currency === "USD") return amount / exchangeRate;
+    if (!needsRate || !exchangeRate || !fromAccount || !toAccount)
+      return amount;
+    if (fromAccount.currency === "USD" && toAccount.currency === "VES")
+      return amount * exchangeRate;
+    if (fromAccount.currency === "VES" && toAccount.currency === "USD")
+      return amount / exchangeRate;
     return amount;
   })();
 
   const handleSubmit = async () => {
     if (!fromAccountId || !toAccountId) {
-      toast.current?.show({ severity: "warn", summary: "Atención", detail: "Seleccione ambas cuentas" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Atención",
+        detail: "Seleccione ambas cuentas",
+      });
       return;
     }
     if (amount <= 0) {
-      toast.current?.show({ severity: "warn", summary: "Atención", detail: "El monto debe ser mayor a 0" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Atención",
+        detail: "El monto debe ser mayor a 0",
+      });
       return;
     }
     if (needsRate && (!exchangeRate || exchangeRate <= 0)) {
-      toast.current?.show({ severity: "warn", summary: "Atención", detail: "Ingrese la tasa de cambio" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Atención",
+        detail: "Ingrese la tasa de cambio",
+      });
       return;
     }
     setLoading(true);
@@ -89,7 +113,10 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
   };
 
   const accountOptions = bankAccounts.map((a) => ({
-    label: `${a.name} (${a.currency}) — Saldo: ${fmt(Number(a.currentBalance), a.currency)}`,
+    label: `${a.name} (${a.currency}) — Saldo: ${fmt(
+      Number(a.currentBalance),
+      a.currency,
+    )}`,
     value: a.id,
     currency: a.currency,
   }));
@@ -114,14 +141,30 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
       draggable={false}
       footer={
         <div className="flex w-full gap-2 mb-2">
-          <Button label="Cancelar" icon="pi pi-times" severity="secondary" onClick={onHide} disabled={loading} className="flex-1" />
-          <Button label="Transferir" icon="pi pi-check" severity="success" onClick={handleSubmit} loading={loading} className="flex-1" />
+          <Button
+            label="Cancelar"
+            icon="pi pi-times"
+            severity="secondary"
+            onClick={onHide}
+            disabled={loading}
+            className="flex-1"
+          />
+          <Button
+            label="Transferir"
+            icon="pi pi-check"
+            severity="success"
+            onClick={handleSubmit}
+            loading={loading}
+            className="flex-1"
+          />
         </div>
       }
     >
       <div className="flex flex-column gap-3 pt-2">
         <div className="field">
-          <label className="font-semibold">Cuenta Origen <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Cuenta Origen <span className="text-red-500">*</span>
+          </label>
           <Dropdown
             value={fromAccountId}
             options={accountOptions}
@@ -136,7 +179,9 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
         </div>
 
         <div className="field">
-          <label className="font-semibold">Cuenta Destino <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Cuenta Destino <span className="text-red-500">*</span>
+          </label>
           <Dropdown
             value={toAccountId}
             options={accountOptions.filter((a) => a.value !== fromAccountId)}
@@ -147,7 +192,9 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
         </div>
 
         <div className="field">
-          <label className="font-semibold">Monto <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Monto <span className="text-red-500">*</span>
+          </label>
           <InputNumber
             value={amount}
             onValueChange={(e) => setAmount(e.value ?? 0)}
@@ -165,7 +212,12 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
             <label className="font-semibold">
               Tasa {fromAccount?.currency}/{toAccount?.currency}
               {bcvRate && bcvRate > 1 && (
-                <span className="text-xs text-green-600 font-normal ml-2">BCV: {bcvRate.toLocaleString("es-VE", { minimumFractionDigits: 2 })}</span>
+                <span className="text-xs text-green-600 font-normal ml-2">
+                  BCV:{" "}
+                  {bcvRate.toLocaleString("es-VE", {
+                    minimumFractionDigits: 2,
+                  })}
+                </span>
               )}
             </label>
             <InputNumber
@@ -182,7 +234,9 @@ export default function TransferDialog({ visible, onHide, bankAccounts, onSucces
         {needsRate && toAccount && (
           <div className="surface-100 border-round p-3 text-sm">
             <span className="text-500">Recibirá en {toAccount.currency}: </span>
-            <span className="font-bold">{fmt(toAmount, toAccount.currency)}</span>
+            <span className="font-bold">
+              {fmt(toAmount, toAccount.currency)}
+            </span>
           </div>
         )}
 

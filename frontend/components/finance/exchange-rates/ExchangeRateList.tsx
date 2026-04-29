@@ -18,13 +18,13 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import { handleFormError } from "@/utils/errorHandlers";
-import { exchangeRateService } from "@/app/api/finance";
+import exchangeRateService from "@/modules/finance/exchangeRates/services/exchangeRateService";
 import type {
   ExchangeRate,
   ExchangeRateSource,
   CurrencyCode,
-} from "@/libs/interfaces/finance";
-import ExchangeRateForm from "./ExchangeRateForm";
+} from "@/modules/finance/exchangeRates/interfaces/exchangeRate.interface";
+import ExchangeRateForm from "@/modules/finance/exchangeRates/components/ExchangeRateForm";
 
 const SOURCE_OPTIONS = [
   { label: "Todas las fuentes", value: "" },

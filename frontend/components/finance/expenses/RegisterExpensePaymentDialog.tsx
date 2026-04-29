@@ -11,9 +11,10 @@ import { InputSwitch } from "primereact/inputswitch";
 import { Divider } from "primereact/divider";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
-import type { Expense, PaymentMethod } from "@/libs/interfaces/finance";
-import supplierPaymentService from "@/app/api/finance/supplierPaymentService";
-import bankAccountService from "@/app/api/finance/bankAccountService";
+import type { Expense } from "@/modules/finance/expenses/interfaces/expense";
+import type { PaymentMethod } from "@/modules/finance/supplierPayments/interfaces/supplierPayment";
+import supplierPaymentService from "@/modules/finance/supplierPayments/services/supplierPaymentService";
+import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
@@ -33,13 +34,21 @@ const METHOD_OPTIONS: { label: string; value: PaymentMethod }[] = [
 ];
 
 const METHOD_LABELS: Record<string, string> = {
-  CASH: "Efectivo", TRANSFER: "Transferencia", CARD: "Tarjeta",
-  MOBILE_PAYMENT: "Pago Móvil", CHECK: "Cheque", MIXED: "Mixto",
+  CASH: "Efectivo",
+  TRANSFER: "Transferencia",
+  CARD: "Tarjeta",
+  MOBILE_PAYMENT: "Pago Móvil",
+  CHECK: "Cheque",
+  MIXED: "Mixto",
 };
 
 const MIXED_OPTIONS = METHOD_OPTIONS.filter((o) => o.value !== "MIXED");
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  VES: "Bs.",
+};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 
@@ -51,14 +60,24 @@ interface Props {
   toast: React.RefObject<Toast | null>;
 }
 
-export default function RegisterExpensePaymentDialog({ visible, onHide, expense, onSuccess, toast }: Props) {
-  const [bankAccounts, setBankAccounts] = useState<{ label: string; value: string; currency: string }[]>([]);
+export default function RegisterExpensePaymentDialog({
+  visible,
+  onHide,
+  expense,
+  onSuccess,
+  toast,
+}: Props) {
+  const [bankAccounts, setBankAccounts] = useState<
+    { label: string; value: string; currency: string }[]
+  >([]);
   const [existingPayments, setExistingPayments] = useState<any[]>([]);
 
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [bankAccountId, setBankAccountId] = useState("");
   const [amount, setAmount] = useState(0);
-  const [exchangeRate, setExchangeRate] = useState<number | undefined>(undefined);
+  const [exchangeRate, setExchangeRate] = useState<number | undefined>(
+    undefined,
+  );
   const [igtfApplies, setIgtfApplies] = useState(false);
   const [reference, setReference] = useState("");
   const [notes, setNotes] = useState("");
@@ -74,11 +93,17 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
 
   const currency = expense?.currency ?? "USD";
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";
-  const fmt = (v: number) => `${sym} ${v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fmt = (v: number) =>
+    `${sym} ${v.toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   const bcvAutoRate = currency === "EUR" ? bcvEurRate : bcvUsdRate;
 
   const totalPaid = round2(
-    existingPayments.filter((p) => p.status === "COMPLETED").reduce((s, p) => s + Number(p.amount), 0)
+    existingPayments
+      .filter((p) => p.status === "COMPLETED")
+      .reduce((s, p) => s + Number(p.amount), 0),
   );
   const remaining = expense ? round2(Number(expense.total) - totalPaid) : 0;
 
@@ -86,9 +111,11 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
   const igtfBase = (() => {
     if (!igtfApplies) return 0;
     if (method === "MIXED") {
-      return round2(mixedDetails
-        .filter((d) => currency !== "VES")
-        .reduce((s, d) => s + (d.amount || 0), 0));
+      return round2(
+        mixedDetails
+          .filter((d) => currency !== "VES")
+          .reduce((s, d) => s + (d.amount || 0), 0),
+      );
     }
     return currency !== "VES" ? amount : 0;
   })();
@@ -106,11 +133,13 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
 
   useEffect(() => {
     bankAccountService.getAll({ isActive: "true", limit: 100 }).then((res) => {
-      setBankAccounts((res.data ?? []).map((a: any) => ({
-        label: `${a.name} (${a.currency})`,
-        value: a.id,
-        currency: a.currency,
-      })));
+      setBankAccounts(
+        (res.data ?? []).map((a: any) => ({
+          label: `${a.name} (${a.currency})`,
+          value: a.id,
+          currency: a.currency,
+        })),
+      );
     });
   }, []);
 
@@ -120,7 +149,9 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
     setBankAccountId(expense.bankAccountId ?? "");
     setAmount(round2(Number(expense.pendingAmount)));
     setExchangeRate(
-      currency !== "USD" && bcvAutoRate && bcvAutoRate > 0 ? bcvAutoRate : undefined
+      currency !== "USD" && bcvAutoRate && bcvAutoRate > 0
+        ? bcvAutoRate
+        : undefined,
     );
     setIgtfApplies(false);
     setReference("");
@@ -129,7 +160,8 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
       { method: "CASH", amount: 0 },
       { method: "TRANSFER", amount: 0 },
     ]);
-    supplierPaymentService.getAll({ expenseId: expense.id, limit: 50 })
+    supplierPaymentService
+      .getAll({ expenseId: expense.id, limit: 50 })
       .then((res) => setExistingPayments(res.data ?? []))
       .catch(() => setExistingPayments([]));
   }, [visible, expense?.id]);
@@ -137,17 +169,29 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
   const handleSubmit = async () => {
     if (!expense) return;
     if (amount <= 0) {
-      toast.current?.show({ severity: "warn", summary: "Atención", detail: "El monto debe ser mayor a 0" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Atención",
+        detail: "El monto debe ser mayor a 0",
+      });
       return;
     }
     if (!bankAccountId) {
-      toast.current?.show({ severity: "warn", summary: "Atención", detail: "Seleccione una cuenta" });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Atención",
+        detail: "Seleccione una cuenta",
+      });
       return;
     }
     if (method === "MIXED") {
       const sum = round2(mixedDetails.reduce((s, d) => s + (d.amount || 0), 0));
       if (sum !== round2(amount)) {
-        toast.current?.show({ severity: "warn", summary: "Atención", detail: "La suma de los métodos no coincide con el monto total" });
+        toast.current?.show({
+          severity: "warn",
+          summary: "Atención",
+          detail: "La suma de los métodos no coincide con el monto total",
+        });
         return;
       }
     }
@@ -174,7 +218,11 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
         }));
       }
       await supplierPaymentService.create(payload as any);
-      toast.current?.show({ severity: "success", summary: "Pago Procesado", detail: `Pago de ${fmt(amount)} registrado exitosamente` });
+      toast.current?.show({
+        severity: "success",
+        summary: "Pago Procesado",
+        detail: `Pago de ${fmt(amount)} registrado exitosamente`,
+      });
       onSuccess();
       onHide();
     } catch (err) {
@@ -186,7 +234,9 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
 
   if (!expense) return null;
 
-  const completedPayments = existingPayments.filter((p) => p.status === "COMPLETED");
+  const completedPayments = existingPayments.filter(
+    (p) => p.status === "COMPLETED",
+  );
 
   return (
     <Dialog
@@ -230,7 +280,6 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
       }
     >
       <div className="flex flex-column gap-3">
-
         {/* Resumen gasto */}
         <div className="surface-100 border-round p-3">
           <div className="grid">
@@ -241,7 +290,9 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
             </div>
             <div className="col-6 text-right">
               <span className="text-500 text-sm">Total</span>
-              <div className="font-bold text-primary text-xl">{fmt(Number(expense.total))}</div>
+              <div className="font-bold text-primary text-xl">
+                {fmt(Number(expense.total))}
+              </div>
             </div>
           </div>
         </div>
@@ -254,9 +305,16 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
               <span className="font-semibold text-sm">Pagos anteriores</span>
             </div>
             {completedPayments.map((p) => (
-              <div key={p.id} className="flex justify-content-between align-items-center py-1">
-                <span className="text-sm">{p.paymentNumber} — {METHOD_LABELS[p.method] ?? p.method}</span>
-                <span className="font-semibold text-sm">{fmt(Number(p.amount))}</span>
+              <div
+                key={p.id}
+                className="flex justify-content-between align-items-center py-1"
+              >
+                <span className="text-sm">
+                  {p.paymentNumber} — {METHOD_LABELS[p.method] ?? p.method}
+                </span>
+                <span className="font-semibold text-sm">
+                  {fmt(Number(p.amount))}
+                </span>
               </div>
             ))}
             <Divider className="my-2" />
@@ -265,34 +323,47 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
               <span className="font-bold">{fmt(totalPaid)}</span>
             </div>
             <div className="flex justify-content-between">
-              <span className="text-sm font-semibold text-orange-500">Saldo pendiente</span>
-              <span className="font-bold text-orange-500">{fmt(remaining)}</span>
+              <span className="text-sm font-semibold text-orange-500">
+                Saldo pendiente
+              </span>
+              <span className="font-bold text-orange-500">
+                {fmt(remaining)}
+              </span>
             </div>
           </div>
         )}
 
         {/* Cuenta */}
         <div className="field">
-          <label className="font-semibold">Cuenta / Caja <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Cuenta / Caja <span className="text-red-500">*</span>
+          </label>
           <Dropdown
             value={bankAccountId}
             options={matchingAccounts}
             onChange={(e) => setBankAccountId(e.value)}
-            placeholder={matchingAccounts.length === 0 ? `Sin cuentas en ${currency}` : "Seleccionar cuenta..."}
+            placeholder={
+              matchingAccounts.length === 0
+                ? `Sin cuentas en ${currency}`
+                : "Seleccionar cuenta..."
+            }
             className="w-full"
             emptyMessage={`No hay cuentas activas en ${currency}`}
           />
           {matchingAccounts.length === 0 && (
             <small className="text-orange-500 flex align-items-center gap-1 mt-1">
               <i className="pi pi-exclamation-triangle" />
-              No tienes cuentas activas en {currency}. Crea una en Cuentas Bancarias.
+              No tienes cuentas activas en {currency}. Crea una en Cuentas
+              Bancarias.
             </small>
           )}
         </div>
 
         {/* Método */}
         <div className="field">
-          <label className="font-semibold">Método de Pago <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Método de Pago <span className="text-red-500">*</span>
+          </label>
           <Dropdown
             value={method}
             options={METHOD_OPTIONS}
@@ -312,7 +383,12 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
               <Button
                 icon="pi pi-plus"
                 className="p-button-rounded p-button-text p-button-sm"
-                onClick={() => setMixedDetails((prev) => [...prev, { method: "CASH", amount: 0 }])}
+                onClick={() =>
+                  setMixedDetails((prev) => [
+                    ...prev,
+                    { method: "CASH", amount: 0 },
+                  ])
+                }
                 tooltip="Agregar método"
               />
             </div>
@@ -321,13 +397,25 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
                 <Dropdown
                   value={detail.method}
                   options={MIXED_OPTIONS}
-                  onChange={(e) => setMixedDetails((prev) => prev.map((d, i) => i === idx ? { ...d, method: e.value } : d))}
+                  onChange={(e) =>
+                    setMixedDetails((prev) =>
+                      prev.map((d, i) =>
+                        i === idx ? { ...d, method: e.value } : d,
+                      ),
+                    )
+                  }
                   className="flex-1"
                   placeholder="Método"
                 />
                 <InputNumber
                   value={detail.amount}
-                  onValueChange={(e) => setMixedDetails((prev) => prev.map((d, i) => i === idx ? { ...d, amount: e.value || 0 } : d))}
+                  onValueChange={(e) =>
+                    setMixedDetails((prev) =>
+                      prev.map((d, i) =>
+                        i === idx ? { ...d, amount: e.value || 0 } : d,
+                      ),
+                    )
+                  }
                   mode="decimal"
                   prefix={`${sym} `}
                   minFractionDigits={2}
@@ -338,7 +426,13 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
                 />
                 <InputText
                   value={detail.reference || ""}
-                  onChange={(e) => setMixedDetails((prev) => prev.map((d, i) => i === idx ? { ...d, reference: e.target.value } : d))}
+                  onChange={(e) =>
+                    setMixedDetails((prev) =>
+                      prev.map((d, i) =>
+                        i === idx ? { ...d, reference: e.target.value } : d,
+                      ),
+                    )
+                  }
                   placeholder="Ref."
                   className="w-8rem"
                 />
@@ -346,14 +440,25 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
                   <Button
                     icon="pi pi-trash"
                     className="p-button-rounded p-button-danger p-button-text p-button-sm"
-                    onClick={() => setMixedDetails((prev) => prev.filter((_, i) => i !== idx))}
+                    onClick={() =>
+                      setMixedDetails((prev) =>
+                        prev.filter((_, i) => i !== idx),
+                      )
+                    }
                   />
                 )}
               </div>
             ))}
             <div className="text-right mt-1">
               <span className="text-sm text-600">
-                Suma: <b>{fmt(round2(mixedDetails.reduce((s, d) => s + (d.amount || 0), 0)))}</b>
+                Suma:{" "}
+                <b>
+                  {fmt(
+                    round2(
+                      mixedDetails.reduce((s, d) => s + (d.amount || 0), 0),
+                    ),
+                  )}
+                </b>
               </span>
             </div>
           </div>
@@ -362,7 +467,9 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
         {/* Monto (no mixto) */}
         {method !== "MIXED" && (
           <div className="field">
-            <label className="font-semibold">Monto <span className="text-red-500">*</span></label>
+            <label className="font-semibold">
+              Monto <span className="text-red-500">*</span>
+            </label>
             <InputNumber
               value={amount}
               onValueChange={(e) => setAmount(e.value ?? 0)}
@@ -376,7 +483,8 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
             />
             {amount < remaining && amount > 0 && (
               <small className="text-orange-500">
-                Pago parcial — quedarán {fmt(round2(remaining - amount))} pendientes
+                Pago parcial — quedarán {fmt(round2(remaining - amount))}{" "}
+                pendientes
               </small>
             )}
           </div>
@@ -400,10 +508,16 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
           <div className="field">
             <label className="font-semibold flex align-items-center gap-2">
               {currency === "EUR" ? "Tasa Bs./EUR" : "Tasa ref. Bs./USD"}
-              {bcvLoading && <i className="pi pi-spin pi-spinner text-xs text-500" />}
+              {bcvLoading && (
+                <i className="pi pi-spin pi-spinner text-xs text-500" />
+              )}
               {!bcvLoading && bcvAutoRate && bcvAutoRate > 1 && (
                 <span className="text-xs text-green-600 font-normal">
-                  BCV: {bcvAutoRate.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                  BCV:{" "}
+                  {bcvAutoRate.toLocaleString("es-VE", {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 4,
+                  })}
                 </span>
               )}
             </label>
@@ -414,7 +528,11 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
               minFractionDigits={2}
               maxFractionDigits={4}
               className="w-full"
-              placeholder={bcvLoading ? "Cargando BCV..." : `Bs. por 1 ${currency === "VES" ? "USD" : currency}`}
+              placeholder={
+                bcvLoading
+                  ? "Cargando BCV..."
+                  : `Bs. por 1 ${currency === "VES" ? "USD" : currency}`
+              }
             />
           </div>
         )}
@@ -427,11 +545,19 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
               onChange={(e) => setIgtfApplies(e.value ?? false)}
             />
             <div>
-              <span className="font-semibold text-sm">Pago en Divisas (IGTF 3%)</span>
-              <div className="text-xs text-500">Impuesto a Grandes Transacciones Financieras</div>
+              <span className="font-semibold text-sm">
+                Pago en Divisas (IGTF 3%)
+              </span>
+              <div className="text-xs text-500">
+                Impuesto a Grandes Transacciones Financieras
+              </div>
             </div>
             {igtfApplies && igtfAmount > 0 && (
-              <Tag value={`+${fmt(igtfAmount)}`} severity="warning" className="ml-auto" />
+              <Tag
+                value={`+${fmt(igtfAmount)}`}
+                severity="warning"
+                className="ml-auto"
+              />
             )}
           </div>
         )}
@@ -467,7 +593,6 @@ export default function RegisterExpensePaymentDialog({ visible, onHide, expense,
             <span className="text-green-600">{fmt(totalWithIgtf)}</span>
           </div>
         </div>
-
       </div>
     </Dialog>
   );

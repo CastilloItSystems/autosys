@@ -10,7 +10,10 @@ import { Toast } from "primereact/toast";
 import { ProgressBar } from "primereact/progressbar";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import receivablesService, { type ReceivableItem, type ReceivablesData } from "@/app/api/finance/receivablesService";
+import receivablesService, {
+  type ReceivableItem,
+  type ReceivablesData,
+} from "@/modules/finance/receivables/services/receivablesService";
 import { handleFormError } from "@/utils/errorHandlers";
 import preInvoiceService from "@/app/api/sales/preInvoiceService";
 import paymentService from "@/app/api/sales/paymentService";
@@ -19,7 +22,10 @@ import type { PreInvoice } from "@/libs/interfaces/sales/preInvoice.interface";
 import type { Payment } from "@/libs/interfaces/sales/payment.interface";
 
 const fmt = (v: number) =>
-  v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  v.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 const AGING_LABELS: Record<string, string> = {
   "0-30": "Corriente",
@@ -29,7 +35,10 @@ const AGING_LABELS: Record<string, string> = {
   "sin-vencimiento": "Sin vencimiento",
 };
 
-const AGING_SEVERITY: Record<string, "success" | "warning" | "danger" | "info"> = {
+const AGING_SEVERITY: Record<
+  string,
+  "success" | "warning" | "danger" | "info"
+> = {
   "0-30": "success",
   "31-60": "warning",
   "61-90": "danger",
@@ -45,31 +54,47 @@ export default function AccountsReceivableList() {
 
   // Payment dialog state
   const [paymentDialogVisible, setPaymentDialogVisible] = useState(false);
-  const [selectedPreInvoice, setSelectedPreInvoice] = useState<PreInvoice | null>(null);
+  const [selectedPreInvoice, setSelectedPreInvoice] =
+    useState<PreInvoice | null>(null);
   const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
   const [loadingCobro, setLoadingCobro] = useState<string | null>(null);
 
   const exportCsv = () => {
     if (!data || data.items.length === 0) return;
-    const headers = ["Pre-Factura", "Cliente", "RIF", "Total", "Pagado", "Pendiente", "Moneda", "Vencimiento", "Días Vencida", "Antigüedad"];
-    const rows = (data.items as ReceivableItem[]).map((r) => [
-      r.preInvoiceNumber,
-      r.customer?.name ?? "",
-      r.customer?.taxId ?? "",
-      Number(r.total).toFixed(2),
-      Number(r.paidAmount).toFixed(2),
-      Number(r.pendingAmount).toFixed(2),
-      r.currency,
-      r.dueDate ? new Date(r.dueDate).toLocaleDateString("es-VE") : "",
-      r.daysOverdue != null && r.daysOverdue > 0 ? r.daysOverdue : "",
-      AGING_LABELS[r.agingBucket] ?? r.agingBucket,
-    ].join(","));
+    const headers = [
+      "Pre-Factura",
+      "Cliente",
+      "RIF",
+      "Total",
+      "Pagado",
+      "Pendiente",
+      "Moneda",
+      "Vencimiento",
+      "Días Vencida",
+      "Antigüedad",
+    ];
+    const rows = (data.items as ReceivableItem[]).map((r) =>
+      [
+        r.preInvoiceNumber,
+        r.customer?.name ?? "",
+        r.customer?.taxId ?? "",
+        Number(r.total).toFixed(2),
+        Number(r.paidAmount).toFixed(2),
+        Number(r.pendingAmount).toFixed(2),
+        r.currency,
+        r.dueDate ? new Date(r.dueDate).toLocaleDateString("es-VE") : "",
+        r.daysOverdue != null && r.daysOverdue > 0 ? r.daysOverdue : "",
+        AGING_LABELS[r.agingBucket] ?? r.agingBucket,
+      ].join(","),
+    );
     const csv = [headers.join(","), ...rows].join("\n");
     const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `cuentas-por-cobrar-${new Date().toISOString().split("T")[0]}.csv`;
+    a.download = `cuentas-por-cobrar-${
+      new Date().toISOString().split("T")[0]
+    }.csv`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -86,7 +111,9 @@ export default function AccountsReceivableList() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const openCobro = async (row: ReceivableItem) => {
     setLoadingCobro(row.id);
@@ -110,7 +137,12 @@ export default function AccountsReceivableList() {
     setSelectedPreInvoice(null);
     setExistingPayments([]);
     await load();
-    toast.current?.show({ severity: "success", summary: "Cobro registrado", detail: "El pago fue procesado exitosamente", life: 4000 });
+    toast.current?.show({
+      severity: "success",
+      summary: "Cobro registrado",
+      detail: "El pago fue procesado exitosamente",
+      life: 4000,
+    });
   };
 
   if (loading && !data) {
@@ -120,7 +152,9 @@ export default function AccountsReceivableList() {
         <div className="grid mb-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="col-12 md:col-3">
-              <div className="card"><Skeleton height="80px" /></div>
+              <div className="card">
+                <Skeleton height="80px" />
+              </div>
             </div>
           ))}
         </div>
@@ -149,7 +183,9 @@ export default function AccountsReceivableList() {
             <i className="pi pi-arrow-up mr-2 text-primary" />
             Cuentas por Cobrar
           </h2>
-          <span className="text-500 text-sm">Pre-facturas pendientes de pago</span>
+          <span className="text-500 text-sm">
+            Pre-facturas pendientes de pago
+          </span>
         </div>
         <div className="flex gap-2">
           <Button
@@ -176,25 +212,47 @@ export default function AccountsReceivableList() {
       {/* KPI Cards */}
       <div className="grid mb-4">
         <div className="col-12 md:col-3">
-          <div className="card mb-0" style={{ borderLeft: "4px solid var(--blue-500)" }}>
-            <span className="block text-500 font-medium mb-1 text-sm">Total por Cobrar</span>
-            <div className="text-900 font-bold text-xl">{fmt(data?.total ?? 0)}</div>
-            <span className="text-xs text-500">{data?.count ?? 0} pre-factura(s)</span>
+          <div
+            className="card mb-0"
+            style={{ borderLeft: "4px solid var(--blue-500)" }}
+          >
+            <span className="block text-500 font-medium mb-1 text-sm">
+              Total por Cobrar
+            </span>
+            <div className="text-900 font-bold text-xl">
+              {fmt(data?.total ?? 0)}
+            </div>
+            <span className="text-xs text-500">
+              {data?.count ?? 0} pre-factura(s)
+            </span>
           </div>
         </div>
         <div className="col-12 md:col-3">
           <div
             className="card mb-0"
-            style={{ borderLeft: `4px solid var(--${(data?.overdueCount ?? 0) > 0 ? "red" : "green"}-500)` }}
+            style={{
+              borderLeft: `4px solid var(--${
+                (data?.overdueCount ?? 0) > 0 ? "red" : "green"
+              }-500)`,
+            }}
           >
-            <span className="block text-500 font-medium mb-1 text-sm">Vencidas</span>
-            <div className="text-900 font-bold text-xl">{data?.overdueCount ?? 0}</div>
+            <span className="block text-500 font-medium mb-1 text-sm">
+              Vencidas
+            </span>
+            <div className="text-900 font-bold text-xl">
+              {data?.overdueCount ?? 0}
+            </div>
             <span className="text-xs text-500">Requieren seguimiento</span>
           </div>
         </div>
         <div className="col-12 md:col-3">
-          <div className="card mb-0" style={{ borderLeft: "4px solid var(--orange-500)" }}>
-            <span className="block text-500 font-medium mb-1 text-sm">31–90 días</span>
+          <div
+            className="card mb-0"
+            style={{ borderLeft: "4px solid var(--orange-500)" }}
+          >
+            <span className="block text-500 font-medium mb-1 text-sm">
+              31–90 días
+            </span>
             <div className="text-900 font-bold text-xl">
               {fmt((data?.aging["31-60"] ?? 0) + (data?.aging["61-90"] ?? 0))}
             </div>
@@ -202,9 +260,16 @@ export default function AccountsReceivableList() {
           </div>
         </div>
         <div className="col-12 md:col-3">
-          <div className="card mb-0" style={{ borderLeft: "4px solid var(--red-500)" }}>
-            <span className="block text-500 font-medium mb-1 text-sm">+90 días</span>
-            <div className="text-900 font-bold text-xl">{fmt(data?.aging["+90"] ?? 0)}</div>
+          <div
+            className="card mb-0"
+            style={{ borderLeft: "4px solid var(--red-500)" }}
+          >
+            <span className="block text-500 font-medium mb-1 text-sm">
+              +90 días
+            </span>
+            <div className="text-900 font-bold text-xl">
+              {fmt(data?.aging["+90"] ?? 0)}
+            </div>
             <span className="text-xs text-500">Mora crítica</span>
           </div>
         </div>
@@ -215,7 +280,9 @@ export default function AccountsReceivableList() {
         <div className="card mb-4">
           <div className="font-semibold mb-3">Distribución de Antigüedad</div>
           <div className="flex flex-column gap-2">
-            {(["0-30", "31-60", "61-90", "+90", "sin-vencimiento"] as const).map((bucket) => {
+            {(
+              ["0-30", "31-60", "61-90", "+90", "sin-vencimiento"] as const
+            ).map((bucket) => {
               const val = data.aging[bucket];
               if (!val) return null;
               const pct = Math.round((val / agingTotal) * 100);
@@ -223,9 +290,15 @@ export default function AccountsReceivableList() {
                 <div key={bucket}>
                   <div className="flex justify-content-between text-sm mb-1">
                     <span className="text-700">{AGING_LABELS[bucket]}</span>
-                    <span className="font-semibold">{fmt(val)} ({pct}%)</span>
+                    <span className="font-semibold">
+                      {fmt(val)} ({pct}%)
+                    </span>
                   </div>
-                  <ProgressBar value={pct} showValue={false} style={{ height: "6px" }} />
+                  <ProgressBar
+                    value={pct}
+                    showValue={false}
+                    style={{ height: "6px" }}
+                  />
                 </div>
               );
             })}
@@ -255,7 +328,11 @@ export default function AccountsReceivableList() {
               body={(r: ReceivableItem) => (
                 <span
                   className="font-mono text-sm text-primary cursor-pointer hover:underline"
-                  onClick={() => router.push(`/empresa/ventas/pre-facturas?search=${r.preInvoiceNumber}`)}
+                  onClick={() =>
+                    router.push(
+                      `/empresa/ventas/pre-facturas?search=${r.preInvoiceNumber}`,
+                    )
+                  }
                 >
                   {r.preInvoiceNumber}
                 </span>
@@ -266,15 +343,21 @@ export default function AccountsReceivableList() {
               header="Cliente"
               body={(r: ReceivableItem) => (
                 <div>
-                  <div className="font-medium text-sm">{r.customer?.name ?? "—"}</div>
-                  {r.customer?.taxId && <div className="text-xs text-500">{r.customer.taxId}</div>}
+                  <div className="font-medium text-sm">
+                    {r.customer?.name ?? "—"}
+                  </div>
+                  {r.customer?.taxId && (
+                    <div className="text-xs text-500">{r.customer.taxId}</div>
+                  )}
                 </div>
               )}
             />
             <Column
               header="Total"
               body={(r: ReceivableItem) => (
-                <span className="text-sm">{r.currency} {fmt(r.total)}</span>
+                <span className="text-sm">
+                  {r.currency} {fmt(r.total)}
+                </span>
               )}
               style={{ width: "130px" }}
             />
@@ -294,9 +377,15 @@ export default function AccountsReceivableList() {
                 if (!r.dueDate) return <span className="text-500">—</span>;
                 const d = new Date(r.dueDate);
                 return (
-                  <span className={r.isOverdue ? "text-red-600 font-semibold" : "text-700"}>
+                  <span
+                    className={
+                      r.isOverdue ? "text-red-600 font-semibold" : "text-700"
+                    }
+                  >
                     {d.toLocaleDateString("es-VE")}
-                    {r.isOverdue && <i className="pi pi-exclamation-circle ml-1 text-red-500" />}
+                    {r.isOverdue && (
+                      <i className="pi pi-exclamation-circle ml-1 text-red-500" />
+                    )}
                   </span>
                 );
               }}
@@ -307,7 +396,9 @@ export default function AccountsReceivableList() {
               field="daysOverdue"
               body={(r: ReceivableItem) =>
                 r.daysOverdue !== null && r.daysOverdue > 0 ? (
-                  <span className="font-semibold text-red-600">+{r.daysOverdue}d</span>
+                  <span className="font-semibold text-red-600">
+                    +{r.daysOverdue}d
+                  </span>
                 ) : (
                   <span className="text-500">—</span>
                 )
@@ -348,7 +439,11 @@ export default function AccountsReceivableList() {
       {/* Payment dialog reused from sales */}
       <PaymentDialog
         visible={paymentDialogVisible}
-        onHide={() => { setPaymentDialogVisible(false); setSelectedPreInvoice(null); setExistingPayments([]); }}
+        onHide={() => {
+          setPaymentDialogVisible(false);
+          setSelectedPreInvoice(null);
+          setExistingPayments([]);
+        }}
         preInvoice={selectedPreInvoice}
         existingPayments={existingPayments}
         onSuccess={onPaymentSuccess}

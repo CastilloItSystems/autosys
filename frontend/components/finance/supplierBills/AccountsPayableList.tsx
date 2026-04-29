@@ -8,39 +8,58 @@ import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { InputText } from "primereact/inputtext";
 import { Badge } from "primereact/badge";
-import type { AccountsPayableEntry, SupplierBill } from "@/libs/interfaces/finance";
-import supplierBillService from "@/app/api/finance/supplierBillService";
-import RegisterPaymentDialog from "./RegisterPaymentDialog";
+import type {
+  AccountsPayableEntry,
+  SupplierBill,
+} from "@/modules/finance/supplierBills/interfaces/supplierBill";
+import supplierBillService from "@/modules/finance/supplierBills/services/supplierBillService";
+import RegisterPaymentDialog from "@/modules/finance/supplierBills/components/RegisterPaymentDialog";
 
 // ── Constants ─────────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  VES: "Bs.",
+};
 
-const STATUS_SEVERITY: Record<string, "success" | "warning" | "danger" | "secondary" | "info"> = {
+const STATUS_SEVERITY: Record<
+  string,
+  "success" | "warning" | "danger" | "secondary" | "info"
+> = {
   PENDING_INVOICE: "info",
-  PENDING:         "warning",
-  PARTIAL:         "warning",
-  PAID:            "success",
-  CANCELLED:       "secondary",
+  PENDING: "warning",
+  PARTIAL: "warning",
+  PAID: "success",
+  CANCELLED: "secondary",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING_INVOICE: "Sin Factura",
-  PENDING:         "Pendiente",
-  PARTIAL:         "Parcial",
-  PAID:            "Pagada",
-  CANCELLED:       "Cancelada",
+  PENDING: "Pendiente",
+  PARTIAL: "Parcial",
+  PAID: "Pagada",
+  CANCELLED: "Cancelada",
 };
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 const fmtAmt = (value: number, currency = "USD") => {
   const sym = CURRENCY_SYMBOLS[currency] ?? currency;
-  return `${sym} ${Number(value).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${sym} ${Number(value).toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
 const fmtDate = (d: string | null | undefined) =>
-  d ? new Date(d).toLocaleDateString("es-VE", { day: "2-digit", month: "short", year: "numeric" }) : "—";
+  d
+    ? new Date(d).toLocaleDateString("es-VE", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    : "—";
 
 // ── Component ─────────────────────────────────────────────────────────────
 
@@ -59,13 +78,19 @@ export default function AccountsPayableList() {
       const res = await supplierBillService.getAccountsPayable();
       setEntries(res.data ?? []);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudo cargar cuentas por pagar" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudo cargar cuentas por pagar",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   // ── Search filter ──────────────────────────────────────────────────────
 
@@ -75,7 +100,7 @@ export default function AccountsPayableList() {
     return entries.filter(
       (e) =>
         e.supplier.name.toLowerCase().includes(q) ||
-        (e.supplier.taxId ?? "").toLowerCase().includes(q)
+        (e.supplier.taxId ?? "").toLowerCase().includes(q),
     );
   }, [entries, search]);
 
@@ -113,7 +138,9 @@ export default function AccountsPayableList() {
           header="# Factura"
           style={{ width: "9rem" }}
           body={(r: SupplierBill) =>
-            r.billNumber ?? <span className="text-400 text-xs italic">Sin registrar</span>
+            r.billNumber ?? (
+              <span className="text-400 text-xs italic">Sin registrar</span>
+            )
           }
         />
         <Column
@@ -138,7 +165,9 @@ export default function AccountsPayableList() {
           body={(r: SupplierBill & { isOverdue?: boolean }) => (
             <span className={r.isOverdue ? "text-red-500 font-semibold" : ""}>
               {fmtDate(r.dueDate)}
-              {r.isOverdue && <i className="pi pi-exclamation-triangle ml-1 text-xs" />}
+              {r.isOverdue && (
+                <i className="pi pi-exclamation-triangle ml-1 text-xs" />
+              )}
             </span>
           )}
         />
@@ -182,10 +211,15 @@ export default function AccountsPayableList() {
                 label="Registrar Pago"
                 icon="pi pi-dollar"
                 className="p-button-success p-button-sm"
-                onClick={() => { setSelectedBill(r); setShowPayDialog(true); }}
+                onClick={() => {
+                  setSelectedBill(r);
+                  setShowPayDialog(true);
+                }}
               />
             ) : r.status === "PENDING_INVOICE" ? (
-              <span className="text-xs text-400 italic">Registrar factura primero</span>
+              <span className="text-xs text-400 italic">
+                Registrar factura primero
+              </span>
             ) : null
           }
         />
@@ -230,14 +264,20 @@ export default function AccountsPayableList() {
 
   const billCountBody = (entry: AccountsPayableEntry) => {
     const active = entry.bills.filter(
-      (b) => b.status !== "PAID" && b.status !== "CANCELLED"
+      (b) => b.status !== "PAID" && b.status !== "CANCELLED",
     );
-    const provisional = active.filter((b) => b.status === "PENDING_INVOICE").length;
+    const provisional = active.filter(
+      (b) => b.status === "PENDING_INVOICE",
+    ).length;
     return (
       <div className="flex flex-column gap-1">
-        <span className="text-sm">{active.length} pendiente{active.length !== 1 ? "s" : ""}</span>
+        <span className="text-sm">
+          {active.length} pendiente{active.length !== 1 ? "s" : ""}
+        </span>
         {provisional > 0 && (
-          <span className="text-xs text-blue-500">{provisional} sin factura</span>
+          <span className="text-xs text-blue-500">
+            {provisional} sin factura
+          </span>
         )}
       </div>
     );
@@ -249,10 +289,14 @@ export default function AccountsPayableList() {
     <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
       <div className="flex align-items-center gap-3">
         <h4 className="m-0 font-bold text-900">Cuentas por Pagar</h4>
-        <span className="text-600 text-sm">({filtered.length} proveedores)</span>
+        <span className="text-600 text-sm">
+          ({filtered.length} proveedores)
+        </span>
         {summary.overdueTotal > 0 && (
           <Tag
-            value={`${summary.overdueTotal} vencida${summary.overdueTotal !== 1 ? "s" : ""}`}
+            value={`${summary.overdueTotal} vencida${
+              summary.overdueTotal !== 1 ? "s" : ""
+            }`}
             severity="danger"
           />
         )}
@@ -331,9 +375,16 @@ export default function AccountsPayableList() {
 
       <RegisterPaymentDialog
         visible={showPayDialog}
-        onHide={() => { setShowPayDialog(false); setSelectedBill(null); }}
+        onHide={() => {
+          setShowPayDialog(false);
+          setSelectedBill(null);
+        }}
         bill={selectedBill}
-        onSuccess={async () => { setShowPayDialog(false); setSelectedBill(null); await load(); }}
+        onSuccess={async () => {
+          setShowPayDialog(false);
+          setSelectedBill(null);
+          await load();
+        }}
         toast={toast}
       />
     </>

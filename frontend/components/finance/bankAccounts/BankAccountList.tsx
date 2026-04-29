@@ -11,9 +11,9 @@ import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { InputText } from "primereact/inputtext";
 import { MenuItem } from "primereact/menuitem";
-import type { BankAccount } from "@/libs/interfaces/finance";
-import bankAccountService from "@/app/api/finance/bankAccountService";
-import BankAccountForm from "./BankAccountForm";
+import type { BankAccount } from "@/modules/finance/bankAccounts/interfaces/bankAccount";
+import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
+import BankAccountForm from "@/modules/finance/bankAccounts/components/BankAccountForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 

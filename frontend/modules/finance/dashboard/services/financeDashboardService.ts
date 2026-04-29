@@ -1,4 +1,4 @@
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 
 export interface MonthlyCashFlowPoint {
   month: string;
@@ -16,7 +16,13 @@ export interface TopDebtor {
 }
 
 export interface FinanceDashboardData {
-  bankAccounts: { id: string; name: string; type: string; currency: string; currentBalance: number }[];
+  bankAccounts: {
+    id: string;
+    name: string;
+    type: string;
+    currency: string;
+    currentBalance: number;
+  }[];
   balancesByCurrency: Record<string, number>;
   topDebtors: TopDebtor[];
   monthlyCashFlow: MonthlyCashFlowPoint[];

@@ -1,5 +1,5 @@
-import apiClient from "../apiClient";
-import type { CreateSupplierPaymentData } from "@/libs/interfaces/finance";
+import apiClient from "@/app/api/apiClient";
+import type { CreateSupplierPaymentData } from "../interfaces/supplierPayment";
 
 const supplierPaymentService = {
   async getAll(params?: {
@@ -12,7 +12,9 @@ const supplierPaymentService = {
     page?: number;
     limit?: number;
   }) {
-    const response = await apiClient.get("/finance/supplier-payments", { params });
+    const response = await apiClient.get("/finance/supplier-payments", {
+      params,
+    });
     return response.data;
   },
 
@@ -27,7 +29,9 @@ const supplierPaymentService = {
   },
 
   async cancel(id: string) {
-    const response = await apiClient.post(`/finance/supplier-payments/${id}/cancel`);
+    const response = await apiClient.post(
+      `/finance/supplier-payments/${id}/cancel`,
+    );
     return response.data;
   },
 };

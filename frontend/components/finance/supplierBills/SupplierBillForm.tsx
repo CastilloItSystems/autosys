@@ -1,6 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Divider } from "primereact/divider";
@@ -12,37 +18,39 @@ import { Toast } from "primereact/toast";
 import itemService, { Item } from "@/app/api/inventory/itemService";
 import searchService from "@/app/api/inventory/searchService";
 import supplierService from "@/app/api/inventory/supplierService";
-import supplierBillService from "@/app/api/finance/supplierBillService";
+import supplierBillService from "@/modules/finance/supplierBills/services/supplierBillService";
 import ItemsTable from "@/components/inventory/common/ItemsTable";
-import ItemRow, { ItemRowColWidths } from "@/components/inventory/common/ItemRow";
+import ItemRow, {
+  ItemRowColWidths,
+} from "@/components/inventory/common/ItemRow";
 import type {
   CreateSupplierBillData,
   SupplierBill,
   SupplierBillItemInput,
-} from "@/libs/interfaces/finance";
+} from "@/modules/finance/supplierBills/interfaces/supplierBill";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
 // ── Currency options ───────────────────────────────────────────────────────
 
 const CURRENCY_OPTIONS = [
-  { label: "USD - Dólar",  value: "USD" },
+  { label: "USD - Dólar", value: "USD" },
   { label: "VES - Bolívar", value: "VES" },
-  { label: "EUR - Euro",   value: "EUR" },
+  { label: "EUR - Euro", value: "EUR" },
 ];
 
 // ── Column widths ──────────────────────────────────────────────────────────
 
 const COLS: ItemRowColWidths = {
-  handle:          { width: "1.75rem", flexShrink: 0 },
-  product:         { width: "10rem",   flexShrink: 0 },
-  itemName:        { flex: "1 1 0",    minWidth: "9rem" },
-  quantity:        { width: "5.5rem",  flexShrink: 0 },
-  unitCost:        { width: "8rem",    flexShrink: 0 },
-  discountPercent: { width: "5rem",    flexShrink: 0 },
-  taxType:         { width: "7rem",    flexShrink: 0 },
-  totalLine:       { width: "8rem",    flexShrink: 0 },
-  remove:          { width: "1.75rem", flexShrink: 0 },
+  handle: { width: "1.75rem", flexShrink: 0 },
+  product: { width: "10rem", flexShrink: 0 },
+  itemName: { flex: "1 1 0", minWidth: "9rem" },
+  quantity: { width: "5.5rem", flexShrink: 0 },
+  unitCost: { width: "8rem", flexShrink: 0 },
+  discountPercent: { width: "5rem", flexShrink: 0 },
+  taxType: { width: "7rem", flexShrink: 0 },
+  totalLine: { width: "8rem", flexShrink: 0 },
+  remove: { width: "1.75rem", flexShrink: 0 },
 };
 
 // ── Price conversion (same logic as OrderForm) ─────────────────────────────
@@ -51,15 +59,20 @@ const COLS: ItemRowColWidths = {
 function convertCostFromUsd(
   costUsd: number,
   currency: string,
-  usdVesRate: number | null,   // Bs per 1 USD
+  usdVesRate: number | null, // Bs per 1 USD
   currencyVesRate: number | null | undefined, // Bs per 1 EUR (only for EUR)
 ): number {
   if (!costUsd) return 0;
   if (currency === "VES" && usdVesRate && usdVesRate > 0) {
     return Math.round(costUsd * usdVesRate * 100) / 100;
   }
-  if (currency === "EUR" && usdVesRate && currencyVesRate && currencyVesRate > 0) {
-    return Math.round((costUsd * usdVesRate / currencyVesRate) * 100) / 100;
+  if (
+    currency === "EUR" &&
+    usdVesRate &&
+    currencyVesRate &&
+    currencyVesRate > 0
+  ) {
+    return Math.round(((costUsd * usdVesRate) / currencyVesRate) * 100) / 100;
   }
   return costUsd; // USD — no conversion needed
 }
@@ -80,16 +93,16 @@ function taxRateFor(type?: string, currentRate?: number) {
 }
 
 function calculateLine(item: SupplierBillFormItem) {
-  const quantity        = Number(item.quantity || 0);
-  const unitCost        = Number(item.unitCost || 0);
+  const quantity = Number(item.quantity || 0);
+  const unitCost = Number(item.unitCost || 0);
   const discountPercent = Number(item.discountPercent || 0);
-  const taxType         = item.taxType ?? "IVA";
-  const taxRate         = taxRateFor(taxType, item.taxRate);
-  const gross           = quantity * unitCost;
-  const discountAmount  = Number((gross * (discountPercent / 100)).toFixed(2));
-  const subtotal        = Number((gross - discountAmount).toFixed(2));
-  const taxAmount       = Number((subtotal * (taxRate / 100)).toFixed(2));
-  const totalLine       = Number((subtotal + taxAmount).toFixed(2));
+  const taxType = item.taxType ?? "IVA";
+  const taxRate = taxRateFor(taxType, item.taxRate);
+  const gross = quantity * unitCost;
+  const discountAmount = Number((gross * (discountPercent / 100)).toFixed(2));
+  const subtotal = Number((gross - discountAmount).toFixed(2));
+  const taxAmount = Number((subtotal * (taxRate / 100)).toFixed(2));
+  const totalLine = Number((subtotal + taxAmount).toFixed(2));
   return { subtotal, discountAmount, taxAmount, totalLine, taxRate };
 }
 
@@ -120,15 +133,21 @@ export default function SupplierBillForm({
   onSubmittingChange,
   toast,
 }: Props) {
-  const [suppliers, setSuppliers]             = useState<{ label: string; value: string }[]>([]);
-  const [items, setItems]                     = useState<Item[]>([]);
+  const [suppliers, setSuppliers] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [items, setItems] = useState<Item[]>([]);
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
-  const [availablePOs, setAvailablePOs]       = useState<any[]>([]);
-  const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(() => {
-    const map: Record<string, any> = {};
-    bill?.items?.forEach((line) => { if (line.item) map[line.item.id] = line.item; });
-    return map;
-  });
+  const [availablePOs, setAvailablePOs] = useState<any[]>([]);
+  const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
+    () => {
+      const map: Record<string, any> = {};
+      bill?.items?.forEach((line) => {
+        if (line.item) map[line.item.id] = line.item;
+      });
+      return map;
+    },
+  );
 
   const isEditing = !!bill;
 
@@ -136,52 +155,62 @@ export default function SupplierBillForm({
     useForm<SupplierBillFormValues>({
       mode: "onBlur",
       defaultValues: {
-        billNumber:      bill?.billNumber ?? "",
-        supplierId:      bill?.supplierId ?? supplierId ?? "",
+        billNumber: bill?.billNumber ?? "",
+        supplierId: bill?.supplierId ?? supplierId ?? "",
         purchaseOrderId: bill?.purchaseOrderId ?? purchaseOrderId ?? undefined,
-        currency:        bill?.currency ?? "USD",
-        exchangeRate:    bill?.exchangeRate ?? undefined,
-        subtotal:        bill ? Number(bill.subtotal) : 0,
-        taxAmount:       bill ? Number(bill.taxAmount) : 0,
-        total:           bill ? Number(bill.total) : 0,
-        issueDate:       bill?.issueDate
+        currency: bill?.currency ?? "USD",
+        exchangeRate: bill?.exchangeRate ?? undefined,
+        subtotal: bill ? Number(bill.subtotal) : 0,
+        taxAmount: bill ? Number(bill.taxAmount) : 0,
+        total: bill ? Number(bill.total) : 0,
+        issueDate: bill?.issueDate
           ? bill.issueDate.split("T")[0]
           : new Date().toISOString().split("T")[0],
         dueDate: bill?.dueDate ? bill.dueDate.split("T")[0] : undefined,
-        notes:   bill?.notes ?? "",
-        items:
-          bill?.items?.map((line) => ({
-            itemId:          line.itemId ?? undefined,
-            itemName:        line.itemName ?? line.item?.name ?? "",
-            quantity:        Number(line.quantity || 1),
-            unitCost:        Number(line.unitCost || 0),
-            discountPercent: Number(line.discountPercent || 0),
-            taxType:         line.taxType ?? "IVA",
-            taxRate:         Number(line.taxRate || 16),
-            subtotal:        Number(line.subtotal || 0),
-            taxAmount:       Number(line.taxAmount || 0),
-            totalLine:       Number(line.totalLine || 0),
-            notes:           line.notes ?? "",
-          })) ?? [{
-            itemId: "", itemName: "", quantity: 1, unitCost: 0,
-            discountPercent: 0, taxType: "IVA", taxRate: 16, totalLine: 0,
-          }],
+        notes: bill?.notes ?? "",
+        items: bill?.items?.map((line) => ({
+          itemId: line.itemId ?? undefined,
+          itemName: line.itemName ?? line.item?.name ?? "",
+          quantity: Number(line.quantity || 1),
+          unitCost: Number(line.unitCost || 0),
+          discountPercent: Number(line.discountPercent || 0),
+          taxType: line.taxType ?? "IVA",
+          taxRate: Number(line.taxRate || 16),
+          subtotal: Number(line.subtotal || 0),
+          taxAmount: Number(line.taxAmount || 0),
+          totalLine: Number(line.totalLine || 0),
+          notes: line.notes ?? "",
+        })) ?? [
+          {
+            itemId: "",
+            itemName: "",
+            quantity: 1,
+            unitCost: 0,
+            discountPercent: 0,
+            taxType: "IVA",
+            taxRate: 16,
+            totalLine: 0,
+          },
+        ],
       },
     });
 
-  const { fields, append, remove, move, replace } = useFieldArray({ control, name: "items" });
+  const { fields, append, remove, move, replace } = useFieldArray({
+    control,
+    name: "items",
+  });
 
-  const watchedItems    = useWatch({ control, name: "items" }) ?? [];
-  const selectedPOId    = watch("purchaseOrderId");
-  const currency        = (watch("currency") || "USD") as "USD" | "EUR" | "VES";
+  const watchedItems = useWatch({ control, name: "items" }) ?? [];
+  const selectedPOId = watch("purchaseOrderId");
+  const currency = (watch("currency") || "USD") as "USD" | "EUR" | "VES";
   const watchExchangeRate = watch("exchangeRate");
 
   // ── BCV rates (same pattern as OrderForm) ─────────────────────────────────
   const { rate: bcvRate, loading: bcvLoading } = useBcvRate(currency);
-  const { rate: referenceUsdRate }             = useBcvRate("USD");  // always Bs/USD
-  const { rate: referenceEurRate }             = useBcvRate("EUR");  // always Bs/EUR
+  const { rate: referenceUsdRate } = useBcvRate("USD"); // always Bs/USD
+  const { rate: referenceEurRate } = useBcvRate("EUR"); // always Bs/EUR
   const prevCurrencyRef = useRef<string | undefined>(undefined);
-  const prevRateRef     = useRef<number | undefined>(undefined);
+  const prevRateRef = useRef<number | undefined>(undefined);
 
   // Auto-fill exchangeRate + reconvert item prices when currency changes
   useEffect(() => {
@@ -192,13 +221,20 @@ export default function SupplierBillForm({
 
     const autoRate =
       currency === "VES"
-        ? (referenceUsdRate && referenceUsdRate > 1 ? referenceUsdRate : bcvRate)
+        ? referenceUsdRate && referenceUsdRate > 1
+          ? referenceUsdRate
+          : bcvRate
         : currency === "EUR"
-          ? (referenceEurRate && referenceEurRate > 0 ? referenceEurRate : bcvRate)
-          : bcvRate;
+        ? referenceEurRate && referenceEurRate > 0
+          ? referenceEurRate
+          : bcvRate
+        : bcvRate;
 
     if (autoRate && autoRate > 0 && (currencyChanged || !watchExchangeRate)) {
-      setValue("exchangeRate", autoRate, { shouldValidate: true, shouldDirty: true });
+      setValue("exchangeRate", autoRate, {
+        shouldValidate: true,
+        shouldDirty: true,
+      });
     }
 
     if (currencyChanged) {
@@ -213,7 +249,13 @@ export default function SupplierBillForm({
           usdCost = currentCost;
         } else if (prev === "VES" && oldRate && oldRate > 0) {
           usdCost = currentCost / oldRate;
-        } else if (prev === "EUR" && oldRate && oldRate > 0 && referenceUsdRate && referenceUsdRate > 0) {
+        } else if (
+          prev === "EUR" &&
+          oldRate &&
+          oldRate > 0 &&
+          referenceUsdRate &&
+          referenceUsdRate > 0
+        ) {
           usdCost = (currentCost * oldRate) / referenceUsdRate;
         } else {
           usdCost = currentCost;
@@ -222,8 +264,8 @@ export default function SupplierBillForm({
         const newCost = convertCostFromUsd(
           usdCost,
           currency,
-          currency === "VES" ? (autoRate ?? referenceUsdRate) : referenceUsdRate,
-          currency === "EUR" ? (autoRate ?? referenceEurRate) : referenceEurRate,
+          currency === "VES" ? autoRate ?? referenceUsdRate : referenceUsdRate,
+          currency === "EUR" ? autoRate ?? referenceEurRate : referenceEurRate,
         );
         if (Math.abs(newCost - currentCost) > 0.001) {
           setValue(`items.${idx}.unitCost`, newCost);
@@ -248,7 +290,12 @@ export default function SupplierBillForm({
       supplierBillService.getAvailablePurchaseOrders(),
     ])
       .then(([suppliersRes, itemsRes, poRes]) => {
-        setSuppliers((suppliersRes.data ?? []).map((s: any) => ({ label: s.name, value: s.id })));
+        setSuppliers(
+          (suppliersRes.data ?? []).map((s: any) => ({
+            label: s.name,
+            value: s.id,
+          })),
+        );
         setItems(itemsRes.data ?? []);
         setAvailablePOs(poRes.data ?? []);
       })
@@ -270,23 +317,24 @@ export default function SupplierBillForm({
     const itemMap: Record<string, any> = {};
     const lines = (po.items ?? []).map((line: any) => {
       if (line.item) itemMap[line.itemId] = line.item;
-      const quantity = Number(line.quantityReceived || 0) > 0
-        ? Number(line.quantityReceived)
-        : Number(line.quantityOrdered || 1);
+      const quantity =
+        Number(line.quantityReceived || 0) > 0
+          ? Number(line.quantityReceived)
+          : Number(line.quantityOrdered || 1);
       const calculated = calculateLine({
         quantity,
-        unitCost:        Number(line.unitCost || 0),
+        unitCost: Number(line.unitCost || 0),
         discountPercent: Number(line.discountPercent || 0),
-        taxType:         line.taxType ?? "IVA",
-        taxRate:         Number(line.taxRate || 16),
+        taxType: line.taxType ?? "IVA",
+        taxRate: Number(line.taxRate || 16),
       });
       return {
-        itemId:          line.itemId,
-        itemName:        line.itemName || line.item?.name || "",
+        itemId: line.itemId,
+        itemName: line.itemName || line.item?.name || "",
         quantity,
-        unitCost:        Number(line.unitCost || 0),
+        unitCost: Number(line.unitCost || 0),
         discountPercent: Number(line.discountPercent || 0),
-        taxType:         line.taxType ?? "IVA",
+        taxType: line.taxType ?? "IVA",
         ...calculated,
       };
     });
@@ -298,87 +346,123 @@ export default function SupplierBillForm({
   // ── Recalculate totals on item change ──────────────────────────────────────
 
   useEffect(() => {
-    let subtotal = 0, taxAmount = 0, total = 0;
+    let subtotal = 0,
+      taxAmount = 0,
+      total = 0;
     watchedItems.forEach((line, index) => {
       const calculated = calculateLine(line);
-      subtotal  += calculated.subtotal;
+      subtotal += calculated.subtotal;
       taxAmount += calculated.taxAmount;
-      total     += calculated.totalLine;
+      total += calculated.totalLine;
       if (line.taxRate !== calculated.taxRate)
-        setValue(`items.${index}.taxRate`, calculated.taxRate, { shouldDirty: true });
+        setValue(`items.${index}.taxRate`, calculated.taxRate, {
+          shouldDirty: true,
+        });
       if (line.totalLine !== calculated.totalLine)
-        setValue(`items.${index}.totalLine`, calculated.totalLine, { shouldDirty: true });
+        setValue(`items.${index}.totalLine`, calculated.totalLine, {
+          shouldDirty: true,
+        });
     });
-    setValue("subtotal",  Number(subtotal.toFixed(2)));
+    setValue("subtotal", Number(subtotal.toFixed(2)));
     setValue("taxAmount", Number(taxAmount.toFixed(2)));
-    setValue("total",     Number(total.toFixed(2)));
+    setValue("total", Number(total.toFixed(2)));
   }, [setValue, watchedItems]);
 
   // ── Options ────────────────────────────────────────────────────────────────
 
   const poOptions = useMemo(
-    () => availablePOs.map((po) => ({
-      label: `${po.orderNumber} - ${po.supplier?.name || "Sin proveedor"}`,
-      value: po.id,
-    })),
+    () =>
+      availablePOs.map((po) => ({
+        label: `${po.orderNumber} - ${po.supplier?.name || "Sin proveedor"}`,
+        value: po.id,
+      })),
     [availablePOs],
   );
 
   const itemOptions = useMemo(
-    () => items.map((item) => ({
-      label: item.sku || item.code ? `${item.sku || item.code} - ${item.name}` : item.name,
-      value: item.id,
-    })),
+    () =>
+      items.map((item) => ({
+        label:
+          item.sku || item.code
+            ? `${item.sku || item.code} - ${item.name}`
+            : item.name,
+        value: item.id,
+      })),
     [items],
   );
 
   const onSearchItems = async (event: AutoCompleteCompleteEvent) => {
     try {
-      const res = await searchService.search({ query: event.query, page: 1, limit: 15, filters: { isActive: true } });
+      const res = await searchService.search({
+        query: event.query,
+        page: 1,
+        limit: 15,
+        filters: { isActive: true },
+      });
       setItemSuggestions(res.data || []);
-    } catch { setItemSuggestions([]); }
+    } catch {
+      setItemSuggestions([]);
+    }
   };
 
-  const itemSuggestionTemplate = useCallback((item: any) => {
-    const sym = currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
-    const costUsd = Number(item.costPrice || 0);
-    const displayCost = convertCostFromUsd(
-      costUsd, currency,
-      currency === "VES" ? (watchExchangeRate ?? referenceUsdRate) : referenceUsdRate,
-      currency === "EUR" ? (watchExchangeRate ?? referenceEurRate) : referenceEurRate,
-    );
-    return (
-      <div className="flex align-items-center justify-content-between gap-2">
-        <div className="flex flex-column">
-          <span className="font-bold text-sm">{item.name}</span>
-          <span className="text-xs text-600">{item.sku || item.code || ""}</span>
+  const itemSuggestionTemplate = useCallback(
+    (item: any) => {
+      const sym = currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
+      const costUsd = Number(item.costPrice || 0);
+      const displayCost = convertCostFromUsd(
+        costUsd,
+        currency,
+        currency === "VES"
+          ? watchExchangeRate ?? referenceUsdRate
+          : referenceUsdRate,
+        currency === "EUR"
+          ? watchExchangeRate ?? referenceEurRate
+          : referenceEurRate,
+      );
+      return (
+        <div className="flex align-items-center justify-content-between gap-2">
+          <div className="flex flex-column">
+            <span className="font-bold text-sm">{item.name}</span>
+            <span className="text-xs text-600">
+              {item.sku || item.code || ""}
+            </span>
+          </div>
+          <div className="flex flex-column align-items-end">
+            <span className="font-semibold text-primary text-sm">
+              {sym}{" "}
+              {displayCost.toLocaleString("es-VE", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
+            </span>
+            {currency !== "USD" && costUsd > 0 && (
+              <span className="text-xs text-400">
+                $ {costUsd.toFixed(2)} USD
+              </span>
+            )}
+          </div>
         </div>
-        <div className="flex flex-column align-items-end">
-          <span className="font-semibold text-primary text-sm">
-            {sym} {displayCost.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-          {currency !== "USD" && costUsd > 0 && (
-            <span className="text-xs text-400">$ {costUsd.toFixed(2)} USD</span>
-          )}
-        </div>
-      </div>
-    );
-  }, [currency, watchExchangeRate, referenceUsdRate, referenceEurRate]);
+      );
+    },
+    [currency, watchExchangeRate, referenceUsdRate, referenceEurRate],
+  );
 
   // ── Totals ─────────────────────────────────────────────────────────────────
 
   const totals = [
     { label: "Subtotal", value: watch("subtotal") || 0 },
-    { label: "IVA",      value: watch("taxAmount") || 0 },
-    { label: "Total",    value: watch("total") || 0, highlight: true },
+    { label: "IVA", value: watch("taxAmount") || 0 },
+    { label: "Total", value: watch("total") || 0, highlight: true },
   ];
 
   // ── Exchange rate label ────────────────────────────────────────────────────
 
   const rateLabel =
-    currency === "VES" ? "Tasa ref. Bs./USD" :
-    currency === "EUR" ? "Tasa Bs./EUR" :
-    "Tasa Bs./USD";
+    currency === "VES"
+      ? "Tasa ref. Bs./USD"
+      : currency === "EUR"
+      ? "Tasa Bs./EUR"
+      : "Tasa Bs./USD";
 
   // ── Submit ─────────────────────────────────────────────────────────────────
 
@@ -388,14 +472,14 @@ export default function SupplierBillForm({
       const payload = {
         ...data,
         items: data.items.map((line) => ({
-          itemId:          line.itemId || null,
-          itemName:        line.itemName || null,
-          quantity:        Number(line.quantity || 0),
-          unitCost:        Number(line.unitCost || 0),
+          itemId: line.itemId || null,
+          itemName: line.itemName || null,
+          quantity: Number(line.quantity || 0),
+          unitCost: Number(line.unitCost || 0),
           discountPercent: Number(line.discountPercent || 0),
-          taxType:         line.taxType || "IVA",
-          taxRate:         Number(line.taxRate || 0),
-          notes:           line.notes || null,
+          taxType: line.taxType || "IVA",
+          taxRate: Number(line.taxRate || 0),
+          notes: line.notes || null,
         })),
       };
       if (bill) {
@@ -414,9 +498,12 @@ export default function SupplierBillForm({
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <form id={formId || "supplier-bill-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "supplier-bill-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
-
         {/* ══ Datos de la factura ══════════════════════════════════════ */}
         <div className="col-12 md:col-4 field">
           <label className="block mb-1 font-medium">Orden de compra</label>
@@ -456,13 +543,19 @@ export default function SupplierBillForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label className="block mb-1 font-medium"># Factura proveedor *</label>
+          <label className="block mb-1 font-medium">
+            # Factura proveedor *
+          </label>
           <Controller
             name="billNumber"
             control={control}
             rules={{ required: "Requerido" }}
             render={({ field }) => (
-              <InputText {...field} value={field.value ?? ""} placeholder="Nro. de control" />
+              <InputText
+                {...field}
+                value={field.value ?? ""}
+                placeholder="Nro. de control"
+              />
             )}
           />
         </div>
@@ -482,7 +575,9 @@ export default function SupplierBillForm({
           <Controller
             name="dueDate"
             control={control}
-            render={({ field }) => <InputText {...field} value={field.value ?? ""} type="date" />}
+            render={({ field }) => (
+              <InputText {...field} value={field.value ?? ""} type="date" />
+            )}
           />
         </div>
 
@@ -503,11 +598,16 @@ export default function SupplierBillForm({
                   // Immediate rate fill on dropdown change
                   const newCur = e.value as "USD" | "EUR" | "VES";
                   const rate =
-                    newCur === "VES" ? (referenceUsdRate ?? bcvRate) :
-                    newCur === "EUR" ? (referenceEurRate ?? bcvRate) :
-                    bcvRate;
+                    newCur === "VES"
+                      ? referenceUsdRate ?? bcvRate
+                      : newCur === "EUR"
+                      ? referenceEurRate ?? bcvRate
+                      : bcvRate;
                   if (rate && rate > 0) {
-                    setValue("exchangeRate", rate, { shouldValidate: true, shouldDirty: true });
+                    setValue("exchangeRate", rate, {
+                      shouldValidate: true,
+                      shouldDirty: true,
+                    });
                   }
                 }}
               />
@@ -518,10 +618,16 @@ export default function SupplierBillForm({
         <div className="col-12 md:col-3 field">
           <label className="block mb-1 font-medium flex align-items-center gap-2">
             {rateLabel}
-            {bcvLoading && <i className="pi pi-spin pi-spinner text-xs text-500" />}
+            {bcvLoading && (
+              <i className="pi pi-spin pi-spinner text-xs text-500" />
+            )}
             {!bcvLoading && bcvRate && bcvRate > 1 && (
               <span className="text-xs text-green-600 font-normal">
-                BCV: {bcvRate.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 })}
+                BCV:{" "}
+                {bcvRate.toLocaleString("es-VE", {
+                  minimumFractionDigits: 2,
+                  maximumFractionDigits: 4,
+                })}
               </span>
             )}
           </label>
@@ -535,7 +641,11 @@ export default function SupplierBillForm({
                 mode="decimal"
                 minFractionDigits={2}
                 maxFractionDigits={4}
-                placeholder={bcvLoading ? "Cargando BCV..." : `Bs. por 1 ${currency === "VES" ? "USD" : currency}`}
+                placeholder={
+                  bcvLoading
+                    ? "Cargando BCV..."
+                    : `Bs. por 1 ${currency === "VES" ? "USD" : currency}`
+                }
               />
             )}
           />
@@ -554,38 +664,50 @@ export default function SupplierBillForm({
           remove={remove}
           move={move}
           defaultItem={{
-            itemId: "", itemName: "", quantity: 1, unitCost: 0,
-            discountPercent: 0, taxType: "IVA", taxRate: 16, totalLine: 0,
+            itemId: "",
+            itemName: "",
+            quantity: 1,
+            unitCost: 0,
+            discountPercent: 0,
+            taxType: "IVA",
+            taxRate: 16,
+            totalLine: 0,
           }}
           title="Items de la factura"
           totals={totals}
           currency={currency}
           exchangeRate={watchExchangeRate}
           columns={[
-            { label: "",           style: COLS.handle },
-            { label: "Producto",   style: COLS.product },
-            { label: "Nombre",     style: COLS.itemName! },
-            { label: "Cant.",      style: COLS.quantity },
-            { label: "Costo",      style: COLS.unitCost! },
-            { label: "Desc.",      style: COLS.discountPercent! },
-            { label: "Impuesto",   style: COLS.taxType! },
-            { label: "Total",      style: COLS.totalLine! },
-            { label: "",           style: COLS.remove },
+            { label: "", style: COLS.handle },
+            { label: "Producto", style: COLS.product },
+            { label: "Nombre", style: COLS.itemName! },
+            { label: "Cant.", style: COLS.quantity },
+            { label: "Costo", style: COLS.unitCost! },
+            { label: "Desc.", style: COLS.discountPercent! },
+            { label: "Impuesto", style: COLS.taxType! },
+            { label: "Total", style: COLS.totalLine! },
+            { label: "", style: COLS.remove },
           ]}
-          renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
+          renderRow={({
+            index,
+            onAddRow,
+            dragHandleProps,
+            isDragging,
+            autoFocus,
+          }) => (
             <ItemRow
               control={control}
               register={register}
               autoFocus={autoFocus}
               itemOptions={itemOptions}
               fieldPaths={{
-                itemId:          `items.${index}.itemId`,
-                itemName:        `items.${index}.itemName`,
-                quantity:        `items.${index}.quantity`,
-                unitCost:        `items.${index}.unitCost`,
+                itemId: `items.${index}.itemId`,
+                itemName: `items.${index}.itemName`,
+                quantity: `items.${index}.quantity`,
+                unitCost: `items.${index}.unitCost`,
                 discountPercent: `items.${index}.discountPercent`,
-                taxType:         `items.${index}.taxType`,
-                totalLine:       `items.${index}.totalLine`,
+                taxType: `items.${index}.taxType`,
+                totalLine: `items.${index}.totalLine`,
               }}
               colWidths={COLS}
               onRemove={() => remove(index)}
@@ -615,10 +737,10 @@ export default function SupplierBillForm({
                     costUsd,
                     currency,
                     currency === "VES"
-                      ? (watchExchangeRate ?? referenceUsdRate)
+                      ? watchExchangeRate ?? referenceUsdRate
                       : referenceUsdRate,
                     currency === "EUR"
-                      ? (watchExchangeRate ?? referenceEurRate)
+                      ? watchExchangeRate ?? referenceEurRate
                       : referenceEurRate,
                   );
                   setValue(`items.${index}.unitCost`, converted);
@@ -635,11 +757,15 @@ export default function SupplierBillForm({
             name="notes"
             control={control}
             render={({ field }) => (
-              <InputTextarea {...field} value={field.value ?? ""} rows={3} autoResize />
+              <InputTextarea
+                {...field}
+                value={field.value ?? ""}
+                rows={3}
+                autoResize
+              />
             )}
           />
         </div>
-
       </div>
     </form>
   );

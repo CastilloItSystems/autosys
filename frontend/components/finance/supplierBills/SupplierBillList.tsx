@@ -14,10 +14,10 @@ import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { MenuItem } from "primereact/menuitem";
-import type { SupplierBill } from "@/libs/interfaces/finance";
-import supplierBillService from "@/app/api/finance/supplierBillService";
-import SupplierBillForm from "./SupplierBillForm";
-import RegisterPaymentDialog from "./RegisterPaymentDialog";
+import type { SupplierBill } from "@/modules/finance/supplierBills/interfaces/supplierBill";
+import supplierBillService from "@/modules/finance/supplierBills/services/supplierBillService";
+import SupplierBillForm from "@/modules/finance/supplierBills/components/SupplierBillForm";
+import RegisterPaymentDialog from "@/modules/finance/supplierBills/components/RegisterPaymentDialog";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import {

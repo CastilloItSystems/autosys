@@ -1,6 +1,6 @@
 "use client";
 
-import AccountsPayableList from "@/components/finance/supplierBills/AccountsPayableList";
+import AccountsPayableList from "@/modules/finance/supplierBills/components/AccountsPayableList";
 
 export default function CuentasPorPagarPage() {
   return <AccountsPayableList />;

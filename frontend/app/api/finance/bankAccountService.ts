@@ -1,8 +1,20 @@
 import apiClient from "../apiClient";
-import type { BankAccount, BankAccountBalance, CreateBankAccountData, UpdateBankAccountData } from "@/libs/interfaces/finance";
+import type {
+  BankAccount,
+  BankAccountBalance,
+  CreateBankAccountData,
+  UpdateBankAccountData,
+} from "@/modules/finance/bankAccounts/interfaces/bankAccount";
 
 const bankAccountService = {
-  async getAll(params?: { isActive?: string; currency?: string; type?: string; search?: string; page?: number; limit?: number }) {
+  async getAll(params?: {
+    isActive?: string;
+    currency?: string;
+    type?: string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
     const response = await apiClient.get("/finance/bank-accounts", { params });
     return response.data;
   },
@@ -13,7 +25,9 @@ const bankAccountService = {
   },
 
   async getBalance(id: string): Promise<{ data: BankAccountBalance }> {
-    const response = await apiClient.get(`/finance/bank-accounts/${id}/balance`);
+    const response = await apiClient.get(
+      `/finance/bank-accounts/${id}/balance`,
+    );
     return response.data;
   },
 
@@ -23,12 +37,17 @@ const bankAccountService = {
   },
 
   async update(id: string, data: UpdateBankAccountData) {
-    const response = await apiClient.patch(`/finance/bank-accounts/${id}`, data);
+    const response = await apiClient.patch(
+      `/finance/bank-accounts/${id}`,
+      data,
+    );
     return response.data;
   },
 
   async syncBalances() {
-    const response = await apiClient.post("/finance/bank-accounts/sync-balances");
+    const response = await apiClient.post(
+      "/finance/bank-accounts/sync-balances",
+    );
     return response.data;
   },
 };

@@ -7,8 +7,11 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
-import type { BankAccount, CreateBankAccountData } from "@/libs/interfaces/finance";
-import bankAccountService from "@/app/api/finance/bankAccountService";
+import type {
+  BankAccount,
+  CreateBankAccountData,
+} from "@/modules/finance/bankAccounts/interfaces/bankAccount";
+import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const TYPE_OPTIONS = [
@@ -32,8 +35,18 @@ interface Props {
   toast: React.RefObject<Toast>;
 }
 
-export default function BankAccountForm({ account, onSave, formId, onSubmittingChange, toast }: Props) {
-  const { control, handleSubmit, formState: { errors } } = useForm<CreateBankAccountData>({
+export default function BankAccountForm({
+  account,
+  onSave,
+  formId,
+  onSubmittingChange,
+  toast,
+}: Props) {
+  const {
+    control,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<CreateBankAccountData>({
     mode: "onBlur",
     defaultValues: {
       name: account?.name ?? "",
@@ -63,16 +76,28 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
   };
 
   return (
-    <form id={formId || "bank-account-form"} onSubmit={handleSubmit(onSubmit)} className="flex flex-column gap-3 pt-2">
+    <form
+      id={formId || "bank-account-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-column gap-3 pt-2"
+    >
       <div className="field">
         <label className="block mb-1 font-medium">Nombre *</label>
         <Controller
           name="name"
           control={control}
           rules={{ required: "El nombre es obligatorio" }}
-          render={({ field }) => <InputText {...field} className="w-full" placeholder="BNC Corriente USD" />}
+          render={({ field }) => (
+            <InputText
+              {...field}
+              className="w-full"
+              placeholder="BNC Corriente USD"
+            />
+          )}
         />
-        {errors.name && <small className="p-error">{errors.name.message}</small>}
+        {errors.name && (
+          <small className="p-error">{errors.name.message}</small>
+        )}
       </div>
 
       <div className="grid">
@@ -82,7 +107,9 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
             name="type"
             control={control}
             rules={{ required: true }}
-            render={({ field }) => <Dropdown {...field} options={TYPE_OPTIONS} className="w-full" />}
+            render={({ field }) => (
+              <Dropdown {...field} options={TYPE_OPTIONS} className="w-full" />
+            )}
           />
         </div>
         <div className="col-6 field">
@@ -91,7 +118,13 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
             name="currency"
             control={control}
             rules={{ required: true }}
-            render={({ field }) => <Dropdown {...field} options={CURRENCY_OPTIONS} className="w-full" />}
+            render={({ field }) => (
+              <Dropdown
+                {...field}
+                options={CURRENCY_OPTIONS}
+                className="w-full"
+              />
+            )}
           />
         </div>
       </div>
@@ -101,7 +134,13 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
         <Controller
           name="bankName"
           control={control}
-          render={({ field }) => <InputText {...field} className="w-full" placeholder="BNC, Banesco, etc." />}
+          render={({ field }) => (
+            <InputText
+              {...field}
+              className="w-full"
+              placeholder="BNC, Banesco, etc."
+            />
+          )}
         />
       </div>
 
@@ -110,7 +149,9 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
         <Controller
           name="accountNumber"
           control={control}
-          render={({ field }) => <InputText {...field} className="w-full" placeholder="0108-..." />}
+          render={({ field }) => (
+            <InputText {...field} className="w-full" placeholder="0108-..." />
+          )}
         />
       </div>
 
@@ -139,7 +180,9 @@ export default function BankAccountForm({ account, onSave, formId, onSubmittingC
         <Controller
           name="notes"
           control={control}
-          render={({ field }) => <InputTextarea {...field} rows={3} className="w-full" />}
+          render={({ field }) => (
+            <InputTextarea {...field} rows={3} className="w-full" />
+          )}
         />
       </div>
     </form>

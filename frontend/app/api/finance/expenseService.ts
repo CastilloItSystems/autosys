@@ -1,5 +1,8 @@
 import apiClient from "../apiClient";
-import type { CreateExpenseData, CreateRecurringRuleData } from "@/libs/interfaces/finance";
+import type {
+  CreateExpenseData,
+  CreateRecurringRuleData,
+} from "@/modules/finance/expenses/interfaces/expense";
 
 const expenseService = {
   async getAll(params?: {
@@ -39,22 +42,35 @@ const expenseService = {
 
   // Reglas recurrentes
   async getAllRules(params?: { page?: number; limit?: number }) {
-    const response = await apiClient.get("/finance/expenses/recurring-rules", { params });
+    const response = await apiClient.get("/finance/expenses/recurring-rules", {
+      params,
+    });
     return response.data;
   },
 
   async createRule(data: CreateRecurringRuleData) {
-    const response = await apiClient.post("/finance/expenses/recurring-rules", data);
+    const response = await apiClient.post(
+      "/finance/expenses/recurring-rules",
+      data,
+    );
     return response.data;
   },
 
-  async updateRule(id: string, data: Partial<CreateRecurringRuleData> & { isActive?: boolean }) {
-    const response = await apiClient.patch(`/finance/expenses/recurring-rules/${id}`, data);
+  async updateRule(
+    id: string,
+    data: Partial<CreateRecurringRuleData> & { isActive?: boolean },
+  ) {
+    const response = await apiClient.patch(
+      `/finance/expenses/recurring-rules/${id}`,
+      data,
+    );
     return response.data;
   },
 
   async runRecurring() {
-    const response = await apiClient.post("/finance/expenses/recurring-rules/run");
+    const response = await apiClient.post(
+      "/finance/expenses/recurring-rules/run",
+    );
     return response.data;
   },
 };

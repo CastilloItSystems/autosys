@@ -1,4 +1,4 @@
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 
 const cashFlowService = {
   async getAll(params?: {
@@ -14,8 +14,15 @@ const cashFlowService = {
     return response.data;
   },
 
-  async getSummary(params?: { bankAccountId?: string; from?: string; to?: string; convertTo?: string }) {
-    const response = await apiClient.get("/finance/cash-flow/summary", { params });
+  async getSummary(params?: {
+    bankAccountId?: string;
+    from?: string;
+    to?: string;
+    convertTo?: string;
+  }) {
+    const response = await apiClient.get("/finance/cash-flow/summary", {
+      params,
+    });
     return response.data;
   },
 
@@ -37,7 +44,10 @@ const cashFlowService = {
     description: string;
     exchangeRate?: number;
   }) {
-    const response = await apiClient.post("/finance/cash-flow/adjustment", data);
+    const response = await apiClient.post(
+      "/finance/cash-flow/adjustment",
+      data,
+    );
     return response.data;
   },
 };

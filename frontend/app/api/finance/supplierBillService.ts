@@ -3,7 +3,7 @@ import type {
   CreateSupplierBillData,
   RegisterSupplierInvoiceData,
   UpdateSupplierBillData,
-} from "@/libs/interfaces/finance";
+} from "@/modules/finance/supplierBills/interfaces/supplierBill";
 
 const supplierBillService = {
   async getAll(params?: {
@@ -26,7 +26,9 @@ const supplierBillService = {
   },
 
   async getAccountsPayable() {
-    const response = await apiClient.get("/finance/supplier-bills/accounts-payable");
+    const response = await apiClient.get(
+      "/finance/supplier-bills/accounts-payable",
+    );
     return response.data;
   },
 
@@ -43,7 +45,10 @@ const supplierBillService = {
   },
 
   async update(id: string, data: UpdateSupplierBillData) {
-    const response = await apiClient.patch(`/finance/supplier-bills/${id}`, data);
+    const response = await apiClient.patch(
+      `/finance/supplier-bills/${id}`,
+      data,
+    );
     return response.data;
   },
 
@@ -56,7 +61,9 @@ const supplierBillService = {
   },
 
   async cancel(id: string) {
-    const response = await apiClient.post(`/finance/supplier-bills/${id}/cancel`);
+    const response = await apiClient.post(
+      `/finance/supplier-bills/${id}/cancel`,
+    );
     return response.data;
   },
 };

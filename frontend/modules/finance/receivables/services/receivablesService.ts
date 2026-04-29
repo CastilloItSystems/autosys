@@ -1,9 +1,14 @@
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 
 export interface ReceivableItem {
   id: string;
   preInvoiceNumber: string;
-  customer: { id: string; name: string; code: string; taxId: string | null } | null;
+  customer: {
+    id: string;
+    name: string;
+    code: string;
+    taxId: string | null;
+  } | null;
   total: number;
   paidAmount: number;
   pendingAmount: number;

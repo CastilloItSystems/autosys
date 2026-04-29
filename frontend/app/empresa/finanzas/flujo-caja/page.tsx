@@ -1,4 +1,4 @@
-import CashFlowReport from "@/components/finance/cashFlow/CashFlowReport";
+import CashFlowReport from "@/modules/finance/cashFlow/components/CashFlowReport";
 
 export default function FlujoCajaPage() {
   return <CashFlowReport />;

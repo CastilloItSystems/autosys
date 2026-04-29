@@ -1,4 +1,4 @@
-import AccountsReceivableList from "@/components/finance/receivables/AccountsReceivableList";
+import AccountsReceivableList from "@/modules/finance/receivables/components/AccountsReceivableList";
 
 export default function CuentasPorCobrarPage() {
   return <AccountsReceivableList />;

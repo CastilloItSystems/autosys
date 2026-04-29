@@ -9,12 +9,12 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
-import { exchangeRateService } from "@/app/api/finance";
-import type { ExchangeRate } from "@/libs/interfaces/finance";
+import exchangeRateService from "@/modules/finance/exchangeRates/services/exchangeRateService";
+import type { ExchangeRate } from "@/modules/finance/exchangeRates/interfaces/exchangeRate.interface";
 import {
   createExchangeRateSchema,
   type CreateExchangeRateFormValues,
-} from "@/libs/zods/finance";
+} from "@/modules/finance/exchangeRates/schemas/exchangeRateZod";
 
 const CURRENCY_OPTIONS = [
   { label: "USD — Dólar Americano", value: "USD" },

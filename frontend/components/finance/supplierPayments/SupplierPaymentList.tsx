@@ -10,10 +10,13 @@ import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Dropdown } from "primereact/dropdown";
 import { MenuItem } from "primereact/menuitem";
-import type { SupplierPayment } from "@/libs/interfaces/finance";
-import supplierPaymentService from "@/app/api/finance/supplierPaymentService";
+import type { SupplierPayment } from "@/modules/finance/supplierPayments/interfaces/supplierPayment";
+import supplierPaymentService from "@/modules/finance/supplierPayments/services/supplierPaymentService";
 
-const STATUS_SEVERITY: Record<string, "success" | "warning" | "danger" | "secondary"> = {
+const STATUS_SEVERITY: Record<
+  string,
+  "success" | "warning" | "danger" | "secondary"
+> = {
   PENDING: "warning",
   COMPLETED: "success",
   CANCELLED: "secondary",
@@ -65,13 +68,19 @@ export default function SupplierPaymentList() {
       setPayments(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron cargar los pagos" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los pagos",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [page, statusFilter]);
+  useEffect(() => {
+    load();
+  }, [page, statusFilter]);
 
   const cancelPayment = async (payment: SupplierPayment) => {
     confirmDialog({
@@ -83,9 +92,17 @@ export default function SupplierPaymentList() {
         try {
           await supplierPaymentService.cancel(payment.id);
           await load();
-          toast.current?.show({ severity: "success", summary: "Éxito", detail: "Pago cancelado" });
+          toast.current?.show({
+            severity: "success",
+            summary: "Éxito",
+            detail: "Pago cancelado",
+          });
         } catch {
-          toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudo cancelar el pago" });
+          toast.current?.show({
+            severity: "error",
+            summary: "Error",
+            detail: "No se pudo cancelar el pago",
+          });
         }
       },
     });
@@ -104,28 +121,36 @@ export default function SupplierPaymentList() {
   const amountBody = (row: SupplierPayment) => (
     <div>
       <div className="font-semibold">
-        {row.currency} {Number(row.amount).toLocaleString("es-VE", { minimumFractionDigits: 2 })}
+        {row.currency}{" "}
+        {Number(row.amount).toLocaleString("es-VE", {
+          minimumFractionDigits: 2,
+        })}
       </div>
       {row.igtfApplies && (
         <div className="text-sm text-color-secondary">
-          +IGTF {Number(row.igtfAmount).toLocaleString("es-VE", { minimumFractionDigits: 2 })}
+          +IGTF{" "}
+          {Number(row.igtfAmount).toLocaleString("es-VE", {
+            minimumFractionDigits: 2,
+          })}
         </div>
       )}
     </div>
   );
 
-  const actionsBody = (row: SupplierPayment) => (
+  const actionsBody = (row: SupplierPayment) =>
     row.status === "COMPLETED" ? (
       <Button
         icon="pi pi-cog"
         rounded
         text
-        onClick={(e) => { setMenuTarget(row); menuRef.current?.toggle(e); }}
+        onClick={(e) => {
+          setMenuTarget(row);
+          menuRef.current?.toggle(e);
+        }}
         aria-controls="supplier-payment-menu"
         aria-haspopup
       />
-    ) : null
-  );
+    ) : null;
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -137,7 +162,10 @@ export default function SupplierPaymentList() {
         <Dropdown
           value={statusFilter}
           options={STATUS_OPTIONS}
-          onChange={(e) => { setStatusFilter(e.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(1);
+          }}
           placeholder="Filtrar estado"
           className="w-10rem"
         />
@@ -149,49 +177,73 @@ export default function SupplierPaymentList() {
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Menu model={getMenuItems(menuTarget)} popup ref={menuRef} id="supplier-payment-menu" />
+      <Menu
+        model={getMenuItems(menuTarget)}
+        popup
+        ref={menuRef}
+        id="supplier-payment-menu"
+      />
 
       <div className="card">
-      <DataTable
-        value={payments}
-        loading={loading}
-        lazy
-        paginator
-        rows={20}
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        totalRecords={total}
-        onPage={(e) => setPage((e.page ?? 0) + 1)}
-        emptyMessage="Sin pagos registrados"
-        stripedRows
-        scrollable
-        sortMode="multiple"
-        header={header}
-      >
-        <Column field="paymentNumber" header="# Pago" sortable />
-        <Column field="supplier.name" header="Proveedor" />
-        <Column
-          header="Referencia"
-          body={(r: SupplierPayment) => r.supplierBill?.internalNumber ?? r.expense?.expenseNumber ?? "-"}
-        />
-        <Column field="bankAccount.name" header="Cuenta" body={(r: SupplierPayment) => r.bankAccount?.name ?? "-"} />
-        <Column header="Método" body={(r: SupplierPayment) => METHOD_LABELS[r.method] ?? r.method} />
-        <Column header="Monto" body={amountBody} />
-        <Column header="Estado" body={(r: SupplierPayment) => <Tag value={STATUS_LABELS[r.status]} severity={STATUS_SEVERITY[r.status]} />} />
-        <Column
-          field="processedAt"
-          header="Fecha"
-          body={(r: SupplierPayment) => new Date(r.processedAt).toLocaleDateString("es-VE")}
-          sortable
-        />
-        <Column
-          header="Acciones"
-          body={actionsBody}
-          frozen={true}
-          alignFrozen="right"
-          style={{ width: "6rem", textAlign: "center" }}
-          headerStyle={{ textAlign: "center" }}
-        />
-      </DataTable>
+        <DataTable
+          value={payments}
+          loading={loading}
+          lazy
+          paginator
+          rows={20}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          totalRecords={total}
+          onPage={(e) => setPage((e.page ?? 0) + 1)}
+          emptyMessage="Sin pagos registrados"
+          stripedRows
+          scrollable
+          sortMode="multiple"
+          header={header}
+        >
+          <Column field="paymentNumber" header="# Pago" sortable />
+          <Column field="supplier.name" header="Proveedor" />
+          <Column
+            header="Referencia"
+            body={(r: SupplierPayment) =>
+              r.supplierBill?.internalNumber ?? r.expense?.expenseNumber ?? "-"
+            }
+          />
+          <Column
+            field="bankAccount.name"
+            header="Cuenta"
+            body={(r: SupplierPayment) => r.bankAccount?.name ?? "-"}
+          />
+          <Column
+            header="Método"
+            body={(r: SupplierPayment) => METHOD_LABELS[r.method] ?? r.method}
+          />
+          <Column header="Monto" body={amountBody} />
+          <Column
+            header="Estado"
+            body={(r: SupplierPayment) => (
+              <Tag
+                value={STATUS_LABELS[r.status]}
+                severity={STATUS_SEVERITY[r.status]}
+              />
+            )}
+          />
+          <Column
+            field="processedAt"
+            header="Fecha"
+            body={(r: SupplierPayment) =>
+              new Date(r.processedAt).toLocaleDateString("es-VE")
+            }
+            sortable
+          />
+          <Column
+            header="Acciones"
+            body={actionsBody}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+        </DataTable>
       </div>
     </>
   );

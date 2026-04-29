@@ -12,11 +12,18 @@ import { ProgressBar } from "primereact/progressbar";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
 } from "recharts";
 import financeDashboardService, {
   type FinanceDashboardData,
-} from "@/app/api/finance/financeDashboardService";
+} from "@/modules/finance/dashboard/services/financeDashboardService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const CURRENCY_COLORS: Record<string, string> = {
@@ -55,7 +62,10 @@ const BILL_STATUS_SEVERITY: Record<string, "warning" | "info" | "danger"> = {
 };
 
 const fmt = (v: number) =>
-  v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  v.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
 
 export default function FinanceDashboard() {
   const toast = useRef<Toast>(null);
@@ -77,7 +87,9 @@ export default function FinanceDashboard() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const totalPendingAP = useMemo(() => {
     if (!data) return 0;
@@ -93,7 +105,9 @@ export default function FinanceDashboard() {
         value: `${currency} ${fmt(balance)}`,
         icon: "pi pi-wallet",
         color: CURRENCY_COLORS[currency] ?? "teal",
-        subtitle: `${data.bankAccounts.filter((a) => a.currency === currency).length} cuenta(s)`,
+        subtitle: `${
+          data.bankAccounts.filter((a) => a.currency === currency).length
+        } cuenta(s)`,
         onClick: () => router.push("/empresa/finanzas/cuentas-bancarias"),
       })),
       {
@@ -101,7 +115,9 @@ export default function FinanceDashboard() {
         value: `${fmt(data.ar?.totalPending ?? 0)}`,
         icon: "pi pi-arrow-up",
         color: (data.ar?.overdueCount ?? 0) > 0 ? "red" : "blue",
-        subtitle: `${data.ar?.countPending ?? 0} pre-facturas · ${data.ar?.overdueCount ?? 0} vencidas`,
+        subtitle: `${data.ar?.countPending ?? 0} pre-facturas · ${
+          data.ar?.overdueCount ?? 0
+        } vencidas`,
         onClick: () => router.push("/empresa/finanzas/cuentas-por-cobrar"),
       },
       {
@@ -109,7 +125,9 @@ export default function FinanceDashboard() {
         value: `${fmt(totalPendingAP)}`,
         icon: "pi pi-file-import",
         color: data.ap.overdueCount > 0 ? "red" : "orange",
-        subtitle: `${data.ap.countPending + data.ap.countPartial} facturas · ${data.ap.overdueCount} vencidas`,
+        subtitle: `${data.ap.countPending + data.ap.countPartial} facturas · ${
+          data.ap.overdueCount
+        } vencidas`,
         onClick: () => router.push("/empresa/finanzas/cuentas-por-pagar"),
       },
       {
@@ -211,12 +229,18 @@ export default function FinanceDashboard() {
             >
               <div className="flex justify-content-between align-items-center mb-2">
                 <div>
-                  <span className="block text-500 font-medium mb-1 text-sm">{kpi.label}</span>
+                  <span className="block text-500 font-medium mb-1 text-sm">
+                    {kpi.label}
+                  </span>
                   <div className="text-900 font-bold text-xl">{kpi.value}</div>
                 </div>
                 <div
                   className="flex align-items-center justify-content-center border-round"
-                  style={{ width: "2.5rem", height: "2.5rem", backgroundColor: `var(--${kpi.color}-100)` }}
+                  style={{
+                    width: "2.5rem",
+                    height: "2.5rem",
+                    backgroundColor: `var(--${kpi.color}-100)`,
+                  }}
                 >
                   <i className={`${kpi.icon} text-${kpi.color}-500 text-xl`} />
                 </div>
@@ -233,14 +257,18 @@ export default function FinanceDashboard() {
           <div className="col-12 md:col-6">
             <div
               className="flex align-items-center gap-3 p-3 border-round border-1 border-blue-300 bg-blue-50 cursor-pointer"
-              onClick={() => router.push("/empresa/finanzas/cuentas-por-cobrar")}
+              onClick={() =>
+                router.push("/empresa/finanzas/cuentas-por-cobrar")
+              }
             >
               <i className="pi pi-exclamation-triangle text-blue-500 text-2xl" />
               <div>
                 <div className="font-semibold text-blue-700">
                   {data.ar.overdueCount} pre-factura(s) vencida(s) por cobrar
                 </div>
-                <div className="text-sm text-blue-600">Revisar cuentas por cobrar</div>
+                <div className="text-sm text-blue-600">
+                  Revisar cuentas por cobrar
+                </div>
               </div>
             </div>
           </div>
@@ -254,14 +282,18 @@ export default function FinanceDashboard() {
             <div className="col-12 md:col-6">
               <div
                 className="flex align-items-center gap-3 p-3 border-round border-1 border-red-300 bg-red-50 cursor-pointer"
-                onClick={() => router.push("/empresa/finanzas/cuentas-por-pagar")}
+                onClick={() =>
+                  router.push("/empresa/finanzas/cuentas-por-pagar")
+                }
               >
                 <i className="pi pi-exclamation-triangle text-red-500 text-2xl" />
                 <div>
                   <div className="font-semibold text-red-700">
                     {data.ap.overdueCount} factura(s) vencida(s)
                   </div>
-                  <div className="text-sm text-red-600">Requieren pago inmediato</div>
+                  <div className="text-sm text-red-600">
+                    Requieren pago inmediato
+                  </div>
                 </div>
               </div>
             </div>
@@ -270,14 +302,18 @@ export default function FinanceDashboard() {
             <div className="col-12 md:col-6">
               <div
                 className="flex align-items-center gap-3 p-3 border-round border-1 border-orange-300 bg-orange-50 cursor-pointer"
-                onClick={() => router.push("/empresa/finanzas/cuentas-por-pagar")}
+                onClick={() =>
+                  router.push("/empresa/finanzas/cuentas-por-pagar")
+                }
               >
                 <i className="pi pi-clock text-orange-500 text-2xl" />
                 <div>
                   <div className="font-semibold text-orange-700">
                     {data.ap.dueSoonCount} factura(s) vencen en 7 días
                   </div>
-                  <div className="text-sm text-orange-600">Revisar para evitar mora</div>
+                  <div className="text-sm text-orange-600">
+                    Revisar para evitar mora
+                  </div>
                 </div>
               </div>
             </div>
@@ -298,7 +334,9 @@ export default function FinanceDashboard() {
                   text
                   icon="pi pi-arrow-right"
                   iconPos="right"
-                  onClick={() => router.push("/empresa/finanzas/cuentas-por-pagar")}
+                  onClick={() =>
+                    router.push("/empresa/finanzas/cuentas-por-pagar")
+                  }
                 />
               </div>
             }
@@ -309,13 +347,21 @@ export default function FinanceDashboard() {
                 Sin facturas pendientes
               </div>
             ) : (
-              <DataTable value={data?.recentBills ?? []} size="small" stripedRows>
+              <DataTable
+                value={data?.recentBills ?? []}
+                size="small"
+                stripedRows
+              >
                 <Column
                   header="Proveedor"
                   body={(r) => (
                     <div>
-                      <div className="font-medium text-sm">{r.supplierName}</div>
-                      <div className="text-xs text-500">{r.billNumber ?? r.internalNumber}</div>
+                      <div className="font-medium text-sm">
+                        {r.supplierName}
+                      </div>
+                      <div className="text-xs text-500">
+                        {r.billNumber ?? r.internalNumber}
+                      </div>
                     </div>
                   )}
                 />
@@ -335,9 +381,15 @@ export default function FinanceDashboard() {
                     const due = new Date(r.dueDate);
                     const isOverdue = due < new Date();
                     return (
-                      <span className={isOverdue ? "text-red-600 font-semibold" : "text-700"}>
+                      <span
+                        className={
+                          isOverdue ? "text-red-600 font-semibold" : "text-700"
+                        }
+                      >
                         {due.toLocaleDateString("es-VE")}
-                        {isOverdue && <i className="pi pi-exclamation-circle ml-1 text-red-500" />}
+                        {isOverdue && (
+                          <i className="pi pi-exclamation-circle ml-1 text-red-500" />
+                        )}
                       </span>
                     );
                   }}
@@ -371,16 +423,26 @@ export default function FinanceDashboard() {
                 {[...data.expenses.byCategory]
                   .sort((a, b) => b.total - a.total)
                   .map((cat) => {
-                    const pct = data.expenses.total > 0
-                      ? Math.round((cat.total / data.expenses.total) * 100)
-                      : 0;
+                    const pct =
+                      data.expenses.total > 0
+                        ? Math.round((cat.total / data.expenses.total) * 100)
+                        : 0;
                     return (
                       <div key={cat.category}>
                         <div className="flex justify-content-between text-sm mb-1">
-                          <span className="text-700">{EXPENSE_CATEGORY_LABELS[cat.category] ?? cat.category}</span>
-                          <span className="font-semibold">{fmt(cat.total)} ({pct}%)</span>
+                          <span className="text-700">
+                            {EXPENSE_CATEGORY_LABELS[cat.category] ??
+                              cat.category}
+                          </span>
+                          <span className="font-semibold">
+                            {fmt(cat.total)} ({pct}%)
+                          </span>
                         </div>
-                        <ProgressBar value={pct} showValue={false} style={{ height: "6px" }} />
+                        <ProgressBar
+                          value={pct}
+                          showValue={false}
+                          style={{ height: "6px" }}
+                        />
                       </div>
                     );
                   })}
@@ -407,35 +469,97 @@ export default function FinanceDashboard() {
                 ) : (
                   <div className="flex flex-column gap-3">
                     {/* USD chart */}
-                    {data.monthlyCashFlow.some(m => m.USD_income > 0 || m.USD_outcome > 0) && (
+                    {data.monthlyCashFlow.some(
+                      (m) => m.USD_income > 0 || m.USD_outcome > 0,
+                    ) && (
                       <div>
-                        <span className="text-xs font-semibold text-500 uppercase mb-2 block">USD</span>
+                        <span className="text-xs font-semibold text-500 uppercase mb-2 block">
+                          USD
+                        </span>
                         <ResponsiveContainer width="100%" height={180}>
-                          <BarChart data={data.monthlyCashFlow} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-200)" />
+                          <BarChart
+                            data={data.monthlyCashFlow}
+                            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="var(--surface-200)"
+                            />
                             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />
-                            <Tooltip formatter={(v: number) => `$ ${v.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`} />
+                            <YAxis
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(v) =>
+                                `$${(v / 1000).toFixed(0)}k`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(v: number) =>
+                                `$ ${v.toLocaleString("es-VE", {
+                                  minimumFractionDigits: 2,
+                                })}`
+                              }
+                            />
                             <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Bar dataKey="USD_income" name="Entradas USD" fill="var(--green-400)" radius={[3,3,0,0]} />
-                            <Bar dataKey="USD_outcome" name="Salidas USD" fill="var(--red-400)" radius={[3,3,0,0]} />
+                            <Bar
+                              dataKey="USD_income"
+                              name="Entradas USD"
+                              fill="var(--green-400)"
+                              radius={[3, 3, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="USD_outcome"
+                              name="Salidas USD"
+                              fill="var(--red-400)"
+                              radius={[3, 3, 0, 0]}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     )}
                     {/* VES chart */}
-                    {data.monthlyCashFlow.some(m => m.VES_income > 0 || m.VES_outcome > 0) && (
+                    {data.monthlyCashFlow.some(
+                      (m) => m.VES_income > 0 || m.VES_outcome > 0,
+                    ) && (
                       <div>
-                        <span className="text-xs font-semibold text-500 uppercase mb-2 block">VES</span>
+                        <span className="text-xs font-semibold text-500 uppercase mb-2 block">
+                          VES
+                        </span>
                         <ResponsiveContainer width="100%" height={180}>
-                          <BarChart data={data.monthlyCashFlow} margin={{ top: 4, right: 8, left: 0, bottom: 0 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--surface-200)" />
+                          <BarChart
+                            data={data.monthlyCashFlow}
+                            margin={{ top: 4, right: 8, left: 0, bottom: 0 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="var(--surface-200)"
+                            />
                             <XAxis dataKey="month" tick={{ fontSize: 11 }} />
-                            <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `Bs.${(v/1000).toFixed(0)}k`} />
-                            <Tooltip formatter={(v: number) => `Bs. ${v.toLocaleString("es-VE", { minimumFractionDigits: 2 })}`} />
+                            <YAxis
+                              tick={{ fontSize: 11 }}
+                              tickFormatter={(v) =>
+                                `Bs.${(v / 1000).toFixed(0)}k`
+                              }
+                            />
+                            <Tooltip
+                              formatter={(v: number) =>
+                                `Bs. ${v.toLocaleString("es-VE", {
+                                  minimumFractionDigits: 2,
+                                })}`
+                              }
+                            />
                             <Legend wrapperStyle={{ fontSize: 11 }} />
-                            <Bar dataKey="VES_income" name="Entradas VES" fill="var(--blue-400)" radius={[3,3,0,0]} />
-                            <Bar dataKey="VES_outcome" name="Salidas VES" fill="var(--orange-400)" radius={[3,3,0,0]} />
+                            <Bar
+                              dataKey="VES_income"
+                              name="Entradas VES"
+                              fill="var(--blue-400)"
+                              radius={[3, 3, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="VES_outcome"
+                              name="Salidas VES"
+                              fill="var(--orange-400)"
+                              radius={[3, 3, 0, 0]}
+                            />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
@@ -451,8 +575,16 @@ export default function FinanceDashboard() {
                 title={
                   <div className="flex align-items-center justify-content-between">
                     <span>Top Deudores</span>
-                    <Button label="Ver CxC" size="small" text icon="pi pi-arrow-right" iconPos="right"
-                      onClick={() => router.push("/empresa/finanzas/cuentas-por-cobrar")} />
+                    <Button
+                      label="Ver CxC"
+                      size="small"
+                      text
+                      icon="pi pi-arrow-right"
+                      iconPos="right"
+                      onClick={() =>
+                        router.push("/empresa/finanzas/cuentas-por-cobrar")
+                      }
+                    />
                   </div>
                 }
               >
@@ -464,20 +596,38 @@ export default function FinanceDashboard() {
                 ) : (
                   <div className="flex flex-column gap-2">
                     {data.topDebtors.map((d, idx) => (
-                      <div key={d.customerId} className="flex justify-content-between align-items-center py-2 border-bottom-1 surface-border">
+                      <div
+                        key={d.customerId}
+                        className="flex justify-content-between align-items-center py-2 border-bottom-1 surface-border"
+                      >
                         <div className="flex align-items-center gap-2">
                           <span
                             className="flex align-items-center justify-content-center border-round font-bold text-sm"
-                            style={{ width: "1.6rem", height: "1.6rem", backgroundColor: `var(--${["red","orange","yellow","blue","teal"][idx]}-100)`, color: `var(--${["red","orange","yellow","blue","teal"][idx]}-600)` }}
+                            style={{
+                              width: "1.6rem",
+                              height: "1.6rem",
+                              backgroundColor: `var(--${
+                                ["red", "orange", "yellow", "blue", "teal"][idx]
+                              }-100)`,
+                              color: `var(--${
+                                ["red", "orange", "yellow", "blue", "teal"][idx]
+                              }-600)`,
+                            }}
                           >
                             {idx + 1}
                           </span>
                           <div>
-                            <div className="text-sm font-medium text-900">{d.customerName}</div>
-                            <div className="text-xs text-500">{d.count} pre-factura(s)</div>
+                            <div className="text-sm font-medium text-900">
+                              {d.customerName}
+                            </div>
+                            <div className="text-xs text-500">
+                              {d.count} pre-factura(s)
+                            </div>
                           </div>
                         </div>
-                        <span className="font-bold text-orange-600 text-sm">{fmt(d.pendingAmount)}</span>
+                        <span className="font-bold text-orange-600 text-sm">
+                          {fmt(d.pendingAmount)}
+                        </span>
                       </div>
                     ))}
                   </div>
@@ -499,33 +649,48 @@ export default function FinanceDashboard() {
                   text
                   icon="pi pi-arrow-right"
                   iconPos="right"
-                  onClick={() => router.push("/empresa/finanzas/pagos-proveedor")}
+                  onClick={() =>
+                    router.push("/empresa/finanzas/pagos-proveedor")
+                  }
                 />
               </div>
             }
           >
             {!data || data.recentPayments.length === 0 ? (
-              <div className="text-center text-500 py-4">Sin pagos registrados</div>
+              <div className="text-center text-500 py-4">
+                Sin pagos registrados
+              </div>
             ) : (
               <DataTable value={data.recentPayments} size="small" stripedRows>
                 <Column
                   header="N° Pago"
                   field="paymentNumber"
                   style={{ width: "140px" }}
-                  body={(r) => <span className="font-mono text-sm">{r.paymentNumber}</span>}
+                  body={(r) => (
+                    <span className="font-mono text-sm">{r.paymentNumber}</span>
+                  )}
                 />
                 <Column
                   header="Destino"
                   body={(r) => (
                     <div>
-                      <div className="text-sm font-medium">{r.supplierName ?? (r.isExpense ? "Gasto" : "—")}</div>
-                      {r.reference && <div className="text-xs text-500">{r.reference}</div>}
+                      <div className="text-sm font-medium">
+                        {r.supplierName ?? (r.isExpense ? "Gasto" : "—")}
+                      </div>
+                      {r.reference && (
+                        <div className="text-xs text-500">{r.reference}</div>
+                      )}
                     </div>
                   )}
                 />
                 <Column
                   header="Método"
-                  body={(r) => <Tag value={PAYMENT_METHOD_LABELS[r.method] ?? r.method} severity="info" />}
+                  body={(r) => (
+                    <Tag
+                      value={PAYMENT_METHOD_LABELS[r.method] ?? r.method}
+                      severity="info"
+                    />
+                  )}
                   style={{ width: "120px" }}
                 />
                 <Column
@@ -539,7 +704,9 @@ export default function FinanceDashboard() {
                 />
                 <Column
                   header="Fecha"
-                  body={(r) => new Date(r.processedAt).toLocaleDateString("es-VE")}
+                  body={(r) =>
+                    new Date(r.processedAt).toLocaleDateString("es-VE")
+                  }
                   style={{ width: "100px" }}
                 />
               </DataTable>
