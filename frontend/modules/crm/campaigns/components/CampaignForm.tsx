@@ -1,37 +1,48 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { InputText } from 'primereact/inputtext'
-import { InputTextarea } from 'primereact/inputtextarea'
-import { Dropdown } from 'primereact/dropdown'
-import { Toast } from 'primereact/toast'
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
+import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
+import { Dropdown } from "primereact/dropdown";
+import { Toast } from "primereact/toast";
 
-import campaignService from '../services/campaignService'
-import { CAMPAIGN_CHANNEL_OPTIONS, CAMPAIGN_STATUS_OPTIONS } from '../interfaces/campaign.interface'
-import { handleFormError } from '@/utils/errorHandlers'
+import campaignService from "../services/campaignService";
+import {
+  CAMPAIGN_CHANNEL_OPTIONS,
+  CAMPAIGN_STATUS_OPTIONS,
+} from "../interfaces/campaign.interface";
+import { handleFormError } from "@/utils/errorHandlers";
 
-import { CampaignFormValues, CampaignFormProps } from '../interfaces/campaignForm.interface'
+import {
+  CampaignFormValues,
+  CampaignFormProps,
+} from "../interfaces/campaignForm.interface";
 
-export default function CampaignForm({ formId, onSave, onSubmittingChange, toast }: CampaignFormProps) {
+export default function CampaignForm({
+  formId,
+  onSave,
+  onSubmittingChange,
+  toast,
+}: CampaignFormProps) {
   const {
     register,
     control,
     handleSubmit,
     formState: { errors },
   } = useForm<CampaignFormValues>({
-    mode: 'onBlur',
+    mode: "onBlur",
     defaultValues: {
-      name: '',
-      description: '',
-      status: 'DRAFT',
-      channel: 'OTHER',
+      name: "",
+      description: "",
+      status: "DRAFT",
+      channel: "OTHER",
       budget: undefined,
     },
-  })
+  });
 
   const onSubmit = async (data: CampaignFormValues) => {
-    if (onSubmittingChange) onSubmittingChange(true)
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       await campaignService.create({
         name: data.name.trim(),
@@ -39,25 +50,31 @@ export default function CampaignForm({ formId, onSave, onSubmittingChange, toast
         status: data.status,
         channel: data.channel,
         budget: data.budget,
-      })
-      await onSave()
+      });
+      await onSave();
     } catch (error) {
-      handleFormError(error, toast)
+      handleFormError(error, toast);
     } finally {
-      if (onSubmittingChange) onSubmittingChange(false)
+      if (onSubmittingChange) onSubmittingChange(false);
     }
-  }
+  };
 
   return (
-    <form id={formId || 'campaign-form'} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "campaign-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid">
         <div className="col-12 field">
           <label className="font-semibold">Nombre *</label>
           <InputText
-            {...register('name', { required: 'Nombre requerido' })}
-            className={errors.name ? 'p-invalid' : ''}
+            {...register("name", { required: "Nombre requerido" })}
+            className={errors.name ? "p-invalid" : ""}
           />
-          {errors.name && <small className="p-error">{errors.name.message}</small>}
+          {errors.name && (
+            <small className="p-error">{errors.name.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -97,8 +114,9 @@ export default function CampaignForm({ formId, onSave, onSubmittingChange, toast
         <div className="col-12 field">
           <label className="font-semibold">Presupuesto</label>
           <InputText
-            {...register('budget', {
-              setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+            {...register("budget", {
+              setValueAs: (v) =>
+                v === "" || v == null ? undefined : Number(v),
             })}
             placeholder="0.00"
           />
@@ -106,9 +124,9 @@ export default function CampaignForm({ formId, onSave, onSubmittingChange, toast
 
         <div className="col-12 field mb-0">
           <label className="font-semibold">Descripción</label>
-          <InputTextarea {...register('description')} rows={3} />
+          <InputTextarea {...register("description")} rows={3} />
         </div>
       </div>
     </form>
-  )
+  );
 }

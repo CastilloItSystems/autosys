@@ -1,18 +1,29 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { Dropdown } from 'primereact/dropdown'
-import { InputText } from 'primereact/inputtext'
-import { InputTextarea } from 'primereact/inputtextarea'
-import { Toast } from 'primereact/toast'
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
+import { Dropdown } from "primereact/dropdown";
+import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
+import { Toast } from "primereact/toast";
 
-import loyaltyService from '../services/loyaltyService';
-import { handleFormError } from '@/utils/errorHandlers';
-import { LoyaltyFormValues, LoyaltyFormProps } from '../interfaces/loyaltyForm.interface';
-import { LOYALTY_TYPE_OPTIONS as typeOptions, LOYALTY_EVENT_TYPE_OPTIONS as eventTypeOptions } from '../utils/loyalty.utils';
+import loyaltyService from "../services/loyaltyService";
+import { handleFormError } from "@/utils/errorHandlers";
+import {
+  LoyaltyFormValues,
+  LoyaltyFormProps,
+} from "../interfaces/loyaltyForm.interface";
+import {
+  LOYALTY_TYPE_OPTIONS as typeOptions,
+  LOYALTY_EVENT_TYPE_OPTIONS as eventTypeOptions,
+} from "../utils/loyalty.utils";
 
-export default function LoyaltyForm({ formId, onSave, onSubmittingChange, toast }: LoyaltyFormProps) {
+export default function LoyaltyForm({
+  formId,
+  onSave,
+  onSubmittingChange,
+  toast,
+}: LoyaltyFormProps) {
   const {
     register,
     control,
@@ -20,53 +31,57 @@ export default function LoyaltyForm({ formId, onSave, onSubmittingChange, toast 
     handleSubmit,
     formState: { errors },
   } = useForm<LoyaltyFormValues>({
-    mode: 'onBlur',
+    mode: "onBlur",
     defaultValues: {
-      type: 'EVENT',
-      customerId: '',
-      eventType: 'FOLLOW_UP',
-      title: '',
-      description: '',
-      suggestedAction: '',
+      type: "EVENT",
+      customerId: "",
+      eventType: "FOLLOW_UP",
+      title: "",
+      description: "",
+      suggestedAction: "",
       score: undefined,
-      feedback: '',
+      feedback: "",
     },
-  })
+  });
 
-  const type = watch('type')
+  const type = watch("type");
 
   const onSubmit = async (data: LoyaltyFormValues) => {
-    if (onSubmittingChange) onSubmittingChange(true)
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
-      if (data.type === 'EVENT') {
+      if (data.type === "EVENT") {
         await loyaltyService.create({
-          type: 'EVENT',
+          type: "EVENT",
           customerId: data.customerId,
           eventType: data.eventType,
-          title: data.title || 'Evento de fidelización',
+          title: data.title || "Evento de fidelización",
           description: data.description || undefined,
           suggestedAction: data.suggestedAction || undefined,
-        })
+        });
       } else {
         await loyaltyService.create({
-          type: 'SURVEY',
+          type: "SURVEY",
           customerId: data.customerId,
-          source: 'NPS',
+          source: "NPS",
           score: data.score,
           feedback: data.feedback || undefined,
-        })
+        });
       }
 
-      await onSave()
+      await onSave();
     } catch (error) {
-      handleFormError(error, toast)
+      handleFormError(error, toast);
     } finally {
-      if (onSubmittingChange) onSubmittingChange(false)
+      if (onSubmittingChange) onSubmittingChange(false);
     }
-  }
+  };
 
   return (
-    <form id={formId || 'loyalty-form'} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "loyalty-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid">
         <div className="col-12 md:col-6 field">
           <label className="font-semibold">Tipo *</label>
@@ -88,13 +103,15 @@ export default function LoyaltyForm({ formId, onSave, onSubmittingChange, toast 
         <div className="col-12 md:col-6 field">
           <label className="font-semibold">Customer ID *</label>
           <InputText
-            {...register('customerId', { required: 'customerId requerido' })}
-            className={errors.customerId ? 'p-invalid' : ''}
+            {...register("customerId", { required: "customerId requerido" })}
+            className={errors.customerId ? "p-invalid" : ""}
           />
-          {errors.customerId && <small className="p-error">{errors.customerId.message}</small>}
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
+          )}
         </div>
 
-        {type === 'EVENT' ? (
+        {type === "EVENT" ? (
           <>
             <div className="col-12 md:col-6 field">
               <label className="font-semibold">Tipo de evento</label>
@@ -114,15 +131,15 @@ export default function LoyaltyForm({ formId, onSave, onSubmittingChange, toast 
             </div>
             <div className="col-12 md:col-6 field">
               <label className="font-semibold">Título</label>
-              <InputText {...register('title')} />
+              <InputText {...register("title")} />
             </div>
             <div className="col-12 field">
               <label className="font-semibold">Descripción</label>
-              <InputTextarea {...register('description')} rows={3} />
+              <InputTextarea {...register("description")} rows={3} />
             </div>
             <div className="col-12 field mb-0">
               <label className="font-semibold">Acción sugerida</label>
-              <InputText {...register('suggestedAction')} />
+              <InputText {...register("suggestedAction")} />
             </div>
           </>
         ) : (
@@ -130,18 +147,19 @@ export default function LoyaltyForm({ formId, onSave, onSubmittingChange, toast 
             <div className="col-12 md:col-4 field">
               <label className="font-semibold">Puntaje NPS</label>
               <InputText
-                {...register('score', {
-                  setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+                {...register("score", {
+                  setValueAs: (v) =>
+                    v === "" || v == null ? undefined : Number(v),
                 })}
               />
             </div>
             <div className="col-12 field mb-0">
               <label className="font-semibold">Feedback</label>
-              <InputTextarea {...register('feedback')} rows={3} />
+              <InputTextarea {...register("feedback")} rows={3} />
             </div>
           </>
         )}
       </div>
     </form>
-  )
+  );
 }

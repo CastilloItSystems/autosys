@@ -19,7 +19,10 @@ import {
 } from "@/modules/crm/quotes/interfaces/quote.interface";
 import quoteService from "@/modules/crm/quotes/services/quoteService";
 import { handleFormError } from "@/utils/errorHandlers";
-import { QUOTE_STATUS_TRANSITIONS as STATUS_TRANSITIONS, getQuoteNextStatusOptions as getNextStatusOptions } from "../utils/quote.utils";
+import {
+  QUOTE_STATUS_TRANSITIONS as STATUS_TRANSITIONS,
+  getQuoteNextStatusOptions as getNextStatusOptions,
+} from "../utils/quote.utils";
 
 interface Props {
   quote: Quote | null;
@@ -29,7 +32,13 @@ interface Props {
   toast: React.RefObject<Toast> | null;
 }
 
-export default function QuoteStatusDialog({ quote, visible, onHide, onSaved, toast }: Props) {
+export default function QuoteStatusDialog({
+  quote,
+  visible,
+  onHide,
+  onSaved,
+  toast,
+}: Props) {
   const [submitting, setSubmitting] = useState(false);
   const nextOptions = getNextStatusOptions(quote?.status ?? "");
   const isTerminal = nextOptions.length === 0;
@@ -59,7 +68,10 @@ export default function QuoteStatusDialog({ quote, visible, onHide, onSaved, toa
         status: data.status,
         notes: data.notes || undefined,
       });
-      toast?.current?.show({ severity: "success", summary: "Estado actualizado" });
+      toast?.current?.show({
+        severity: "success",
+        summary: "Estado actualizado",
+      });
       onSaved();
       onHide();
     } catch (err) {
@@ -107,11 +119,17 @@ export default function QuoteStatusDialog({ quote, visible, onHide, onSaved, toa
       modal
       draggable={false}
     >
-      <form id="quote-status-form" onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      <form
+        id="quote-status-form"
+        onSubmit={handleSubmit(onSubmit)}
+        className="p-fluid"
+      >
         {/* Current status */}
         {currentCfg && (
           <div className="mb-3">
-            <label className="font-semibold text-sm block mb-1">Estado actual</label>
+            <label className="font-semibold text-sm block mb-1">
+              Estado actual
+            </label>
             <Tag
               value={currentCfg.label}
               severity={currentCfg.severity}
@@ -122,7 +140,8 @@ export default function QuoteStatusDialog({ quote, visible, onHide, onSaved, toa
 
         {isTerminal ? (
           <div className="p-3 bg-gray-100 border-round text-600 text-sm">
-            Esta cotización se encuentra en un estado terminal y no puede ser modificada.
+            Esta cotización se encuentra en un estado terminal y no puede ser
+            modificada.
           </div>
         ) : (
           <>

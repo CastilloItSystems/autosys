@@ -47,7 +47,10 @@ function KanbanColumn({ status, leads, channel, onAction }: ColumnProps) {
   const { setNodeRef, isOver } = useDroppable({ id: status });
   const cfg = LEAD_STATUS_CONFIG[status];
   const label = getStageLabel(status, channel || null);
-  const totalValue = leads.reduce((acc, l) => acc + Number(l.estimatedValue ?? 0), 0);
+  const totalValue = leads.reduce(
+    (acc, l) => acc + Number(l.estimatedValue ?? 0),
+    0,
+  );
 
   return (
     <div
@@ -141,7 +144,7 @@ function KanbanCard({ lead, onAction, isOverlay = false }: CardProps) {
   const channelCfg =
     LEAD_CHANNEL_CONFIG[lead.channel as keyof typeof LEAD_CHANNEL_CONFIG];
   const daysOld = Math.floor(
-    (Date.now() - new Date(lead.createdAt).getTime()) / 86_400_000
+    (Date.now() - new Date(lead.createdAt).getTime()) / 86_400_000,
   );
 
   return (
@@ -227,10 +230,7 @@ function KanbanCard({ lead, onAction, isOverlay = false }: CardProps) {
           {daysOld === 0 ? "Hoy" : `${daysOld}d`}
         </span>
         {/* Stop propagation so button clicks don't trigger drag */}
-        <div
-          className="flex gap-1"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
+        <div className="flex gap-1" onPointerDown={(e) => e.stopPropagation()}>
           <Button
             icon="pi pi-pencil"
             text
@@ -280,7 +280,7 @@ export default function LeadKanban() {
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
 
   const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
   );
 
   // Debounce search
@@ -302,7 +302,10 @@ export default function LeadKanban() {
       const raw = (res as any)?.data ?? res;
       setLeads(raw.data ?? raw);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error al cargar leads" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al cargar leads",
+      });
     } finally {
       setLoading(false);
     }
@@ -318,7 +321,7 @@ export default function LeadKanban() {
       acc[status] = leads.filter((l) => l.status === status);
       return acc;
     },
-    {}
+    {},
   );
 
   // ── DnD handlers ──────────────────────────────────────────────────────────
@@ -344,7 +347,7 @@ export default function LeadKanban() {
 
     // Optimistic update
     setLeads((prev) =>
-      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l))
+      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l)),
     );
 
     try {
@@ -352,7 +355,7 @@ export default function LeadKanban() {
     } catch {
       // Revert
       setLeads((prev) =>
-        prev.map((l) => (l.id === lead.id ? { ...l, status: lead.status } : l))
+        prev.map((l) => (l.id === lead.id ? { ...l, status: lead.status } : l)),
       );
       toast.current?.show({
         severity: "error",
@@ -404,7 +407,9 @@ export default function LeadKanban() {
         <div className="flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
           <div>
             <h4 className="mb-1 text-900">Pipeline de Leads</h4>
-            <span className="text-500 text-sm">{leads.length} leads en total</span>
+            <span className="text-500 text-sm">
+              {leads.length} leads en total
+            </span>
           </div>
           <Button
             label="Nuevo Lead"

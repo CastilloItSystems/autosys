@@ -18,14 +18,16 @@ interface InteractionParams {
 }
 
 const interactionService = {
-  async getAll(params?: InteractionParams): Promise<PaginatedResponse<Interaction>> {
+  async getAll(
+    params?: InteractionParams,
+  ): Promise<PaginatedResponse<Interaction>> {
     const res = await apiClient.get("/crm/interactions", { params });
     return res.data;
   },
 
   async getByCustomer(
     customerId: string,
-    params?: Omit<InteractionParams, "customerId">
+    params?: Omit<InteractionParams, "customerId">,
   ): Promise<PaginatedResponse<Interaction>> {
     const res = await apiClient.get("/crm/interactions", {
       params: { ...params, customerId },
@@ -43,12 +45,17 @@ const interactionService = {
     return res.data;
   },
 
-  async update(id: string, data: Partial<Interaction>): Promise<ApiResponse<Interaction>> {
+  async update(
+    id: string,
+    data: Partial<Interaction>,
+  ): Promise<ApiResponse<Interaction>> {
     const res = await apiClient.put(`/crm/interactions/${id}`, data);
     return res.data;
   },
 
-  async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
+  async delete(
+    id: string,
+  ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/interactions/${id}`);
     return res.data;
   },

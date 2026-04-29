@@ -19,7 +19,12 @@ interface LoyaltyOverview {
     npsAverage: number | null;
     pendingEvents: number;
   };
-  suggestedTasks: { id: string; label: string; dueAt?: string | null; customerId: string }[];
+  suggestedTasks: {
+    id: string;
+    label: string;
+    dueAt?: string | null;
+    customerId: string;
+  }[];
   meta: {
     page: number;
     limit: number;
@@ -34,7 +39,9 @@ const loyaltyService = {
     return res.data;
   },
 
-  async create(data: Record<string, unknown>): Promise<ApiResponse<{ kind: "event" | "survey"; data: unknown }>> {
+  async create(
+    data: Record<string, unknown>,
+  ): Promise<ApiResponse<{ kind: "event" | "survey"; data: unknown }>> {
     const res = await apiClient.post("/crm/loyalty", data);
     return res.data;
   },

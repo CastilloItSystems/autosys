@@ -19,7 +19,9 @@ interface OpportunityParams {
 }
 
 const opportunityService = {
-  async getAll(params?: OpportunityParams): Promise<PaginatedResponse<Opportunity>> {
+  async getAll(
+    params?: OpportunityParams,
+  ): Promise<PaginatedResponse<Opportunity>> {
     const res = await apiClient.get("/crm/opportunities", { params });
     return res.data;
   },
@@ -34,19 +36,34 @@ const opportunityService = {
     return res.data;
   },
 
-  async update(id: string, data: Partial<Opportunity>): Promise<ApiResponse<Opportunity>> {
+  async update(
+    id: string,
+    data: Partial<Opportunity>,
+  ): Promise<ApiResponse<Opportunity>> {
     const res = await apiClient.put(`/crm/opportunities/${id}`, data);
     return res.data;
   },
 
-  async updateStage(id: string, stageCode: string, notes?: string): Promise<ApiResponse<Opportunity>> {
-    const res = await apiClient.patch(`/crm/opportunities/${id}/stage`, { stageCode, notes });
+  async updateStage(
+    id: string,
+    stageCode: string,
+    notes?: string,
+  ): Promise<ApiResponse<Opportunity>> {
+    const res = await apiClient.patch(`/crm/opportunities/${id}/stage`, {
+      stageCode,
+      notes,
+    });
     return res.data;
   },
 
   async close(
     id: string,
-    payload: { result: "WON" | "LOST"; lostReasonId?: string; lostReasonText?: string; notes?: string }
+    payload: {
+      result: "WON" | "LOST";
+      lostReasonId?: string;
+      lostReasonText?: string;
+      notes?: string;
+    },
   ): Promise<ApiResponse<Opportunity>> {
     const res = await apiClient.post(`/crm/opportunities/${id}/close`, payload);
     return res.data;

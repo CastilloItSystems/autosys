@@ -10,7 +10,10 @@ import { Dropdown } from "primereact/dropdown";
 import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 
-import { createQuoteSchema, CreateQuoteInput } from "@/modules/crm/quotes/schemas/quoteZod";
+import {
+  createQuoteSchema,
+  CreateQuoteInput,
+} from "@/modules/crm/quotes/schemas/quoteZod";
 import {
   Quote,
   QUOTE_TYPE_OPTIONS,
@@ -19,7 +22,10 @@ import quoteService from "@/modules/crm/quotes/services/quoteService";
 import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import leadService from "@/modules/crm/leads/services/leadService";
 import { handleFormError } from "@/utils/errorHandlers";
-import { QUOTE_CURRENCY_OPTIONS as currencyOptions, calcQuoteItemTotal as calcItemTotal } from "../utils/quote.utils";
+import {
+  QUOTE_CURRENCY_OPTIONS as currencyOptions,
+  calcQuoteItemTotal as calcItemTotal,
+} from "../utils/quote.utils";
 
 interface Props {
   quote?: Quote | null;
@@ -29,9 +35,17 @@ interface Props {
   toast: React.RefObject<Toast> | null;
 }
 
-export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, toast }: Props) {
+export default function QuoteForm({
+  quote,
+  formId,
+  onSave,
+  onSubmittingChange,
+  toast,
+}: Props) {
   const isEditing = !!quote;
-  const [customers, setCustomers] = useState<{ label: string; value: string }[]>([]);
+  const [customers, setCustomers] = useState<
+    { label: string; value: string }[]
+  >([]);
   const [leads, setLeads] = useState<{ label: string; value: string }[]>([]);
 
   const {
@@ -91,7 +105,10 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
       .then((res) => {
         const list = (res as any)?.data ?? res ?? [];
         setCustomers(
-          list.map((c: any) => ({ label: `${c.name} (${c.code})`, value: c.id }))
+          list.map((c: any) => ({
+            label: `${c.name} (${c.code})`,
+            value: c.id,
+          })),
         );
       })
       .catch(() => {});
@@ -111,7 +128,7 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
           list.map((l: any) => ({
             label: `${l.title} [${l.channel}]`,
             value: l.id,
-          }))
+          })),
         );
       })
       .catch(() => setLeads([]));
@@ -128,7 +145,9 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
         currency: quote.currency ?? "USD",
         discountPct: Number(quote.discountPct) ?? 0,
         taxPct: Number(quote.taxPct) ?? 0,
-        validUntil: quote.validUntil ? quote.validUntil.slice(0, 10) : undefined,
+        validUntil: quote.validUntil
+          ? quote.validUntil.slice(0, 10)
+          : undefined,
         paymentTerms: quote.paymentTerms ?? undefined,
         deliveryTerms: quote.deliveryTerms ?? undefined,
         notes: quote.notes ?? undefined,
@@ -158,8 +177,8 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
       Number(it.quantity) || 0,
       Number(it.unitPrice) || 0,
       Number(it.discountPct) || 0,
-      Number(it.taxPct) || 0
-    )
+      Number(it.taxPct) || 0,
+    ),
   );
   const subtotal = itemTotals.reduce((a, b) => a + b, 0);
   const globalDiscPct = Number(watch("discountPct")) || 0;
@@ -196,9 +215,12 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
   };
 
   return (
-    <form id={formId || "quote-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "quote-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid row-gap-3">
-
         <div className="col-12 field">
           <label className="font-semibold">
             Título <span className="text-red-500">*</span>
@@ -208,7 +230,9 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
             placeholder="Ej: Cotización de repuestos Motor 2.4L"
             className={errors.title ? "p-invalid" : ""}
           />
-          {errors.title && <small className="p-error">{errors.title.message}</small>}
+          {errors.title && (
+            <small className="p-error">{errors.title.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -230,7 +254,9 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
               />
             )}
           />
-          {errors.type && <small className="p-error">{errors.type.message}</small>}
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -343,10 +369,7 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
 
         <div className="col-12 md:col-4 field">
           <label>Válida hasta</label>
-          <InputText
-            {...register("validUntil")}
-            type="date"
-          />
+          <InputText {...register("validUntil")} type="date" />
         </div>
 
         <div className="col-12 field">
@@ -420,7 +443,7 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
               Number(it?.quantity) || 0,
               Number(it?.unitPrice) || 0,
               Number(it?.discountPct) || 0,
-              Number(it?.taxPct) || 0
+              Number(it?.taxPct) || 0,
             );
             return (
               <div
@@ -554,8 +577,12 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
               </div>
               {globalDiscPct > 0 && (
                 <div className="flex justify-content-between w-16rem text-sm">
-                  <span className="text-600">Descuento ({globalDiscPct}%):</span>
-                  <span className="text-red-500">-{discountAmt.toFixed(2)}</span>
+                  <span className="text-600">
+                    Descuento ({globalDiscPct}%):
+                  </span>
+                  <span className="text-red-500">
+                    -{discountAmt.toFixed(2)}
+                  </span>
                 </div>
               )}
               {globalTaxPct > 0 && (
@@ -567,7 +594,9 @@ export default function QuoteForm({ quote, formId, onSave, onSubmittingChange, t
               <Divider className="my-1 w-16rem" />
               <div className="flex justify-content-between w-16rem">
                 <span className="font-bold text-900">TOTAL:</span>
-                <span className="font-bold text-primary text-lg">{total.toFixed(2)}</span>
+                <span className="font-bold text-primary text-lg">
+                  {total.toFixed(2)}
+                </span>
               </div>
             </div>
           )}

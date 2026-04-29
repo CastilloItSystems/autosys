@@ -1,6 +1,9 @@
 // modules/crm/quotes/utils/quote.utils.ts
 
-import { QUOTE_TYPE_OPTIONS, QUOTE_STATUS_OPTIONS } from "../interfaces/quote.interface";
+import {
+  QUOTE_TYPE_OPTIONS,
+  QUOTE_STATUS_OPTIONS,
+} from "../interfaces/quote.interface";
 
 export const QUOTE_TYPE_FILTER_OPTIONS = [
   { label: "Todos los tipos", value: "" },
@@ -40,7 +43,7 @@ export function calcQuoteItemTotal(
   qty: number,
   price: number,
   discPct: number,
-  taxPct: number
+  taxPct: number,
 ): number {
   return qty * price * (1 - discPct / 100) * (1 + taxPct / 100);
 }

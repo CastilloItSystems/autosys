@@ -15,9 +15,7 @@ import {
   createCustomerCrmSchema,
   CreateCustomerCrmInput,
 } from "../schemas/customerCrmZod";
-import {
-  CustomerCrm,
-} from "../interfaces/customer.crm.interface";
+import { CustomerCrm } from "../interfaces/customer.crm.interface";
 import customerCrmService from "../services/customerCrmService";
 import { handleFormError } from "@/utils/errorHandlers";
 import PhoneInput from "@/shared/components/PhoneInput";

@@ -27,5 +27,7 @@ export const OPPORTUNITY_STAGE_FLOW: Record<string, string[]> = {
 };
 
 export function getOpportunityFlow(channel: string): string[] {
-  return OPPORTUNITY_STAGE_FLOW[channel] ?? ["DISCOVERY", "QUALIFIED", "NEGOTIATION"];
+  return (
+    OPPORTUNITY_STAGE_FLOW[channel] ?? ["DISCOVERY", "QUALIFIED", "NEGOTIATION"]
+  );
 }

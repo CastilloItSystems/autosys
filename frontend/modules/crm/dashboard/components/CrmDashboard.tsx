@@ -7,7 +7,9 @@ import { Skeleton } from "primereact/skeleton";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import crmDashboardService, { CrmDashboardData } from "../services/crmDashboardService";
+import crmDashboardService, {
+  CrmDashboardData,
+} from "../services/crmDashboardService";
 import {
   LEAD_STATUS_CONFIG,
   LEAD_CHANNEL_CONFIG,
@@ -82,7 +84,16 @@ export default function CrmDashboard() {
 
   if (!data) return null;
 
-  const { leads, quotes, cases, customers, activities, serviceOrders, opportunities, alerts } = data as any;
+  const {
+    leads,
+    quotes,
+    cases,
+    customers,
+    activities,
+    serviceOrders,
+    opportunities,
+    alerts,
+  } = data as any;
 
   // ── KPI Cards ─────────────────────────────────────────────────────────────
 
@@ -109,7 +120,8 @@ export default function CrmDashboard() {
       icon: "pi pi-folder-open",
       color: "orange",
       subtitle: `${cases.overdue} vencidos`,
-      subtitleColor: cases.overdue > 0 ? "text-red-500 font-semibold" : "text-500",
+      subtitleColor:
+        cases.overdue > 0 ? "text-red-500 font-semibold" : "text-500",
     },
     {
       label: "Clientes activos",
@@ -126,7 +138,9 @@ export default function CrmDashboard() {
             value: opportunities.open,
             icon: "pi pi-sitemap",
             color: "teal",
-            subtitle: `Win rate: ${Number(opportunities.winRate ?? 0).toFixed(1)}%`,
+            subtitle: `Win rate: ${Number(opportunities.winRate ?? 0).toFixed(
+              1,
+            )}%`,
             subtitleColor: "text-500",
           },
         ]
@@ -139,7 +153,8 @@ export default function CrmDashboard() {
             icon: "pi pi-bell",
             color: "orange",
             subtitle: "Automatizaciones v1",
-            subtitleColor: alerts.open > 0 ? "text-red-500 font-semibold" : "text-500",
+            subtitleColor:
+              alerts.open > 0 ? "text-red-500 font-semibold" : "text-500",
           },
         ]
       : []),
@@ -149,7 +164,7 @@ export default function CrmDashboard() {
 
   const renderBars = (
     items: { label: string; value: number; color: string }[],
-    total: number
+    total: number,
   ) => (
     <div className="flex flex-column gap-3">
       {items.map((item) => {
@@ -166,7 +181,11 @@ export default function CrmDashboard() {
             >
               <div
                 className={`bg-${item.color}-500`}
-                style={{ width: `${pct}%`, height: "100%", borderRadius: "inherit" }}
+                style={{
+                  width: `${pct}%`,
+                  height: "100%",
+                  borderRadius: "inherit",
+                }}
               />
             </div>
           </div>
@@ -178,16 +197,28 @@ export default function CrmDashboard() {
   // ── Channel totals ────────────────────────────────────────────────────────
 
   const channelBars = [
-    { label: "Repuestos", value: leads.byChannel["REPUESTOS"] ?? 0, color: "blue" },
+    {
+      label: "Repuestos",
+      value: leads.byChannel["REPUESTOS"] ?? 0,
+      color: "blue",
+    },
     { label: "Taller", value: leads.byChannel["TALLER"] ?? 0, color: "orange" },
-    { label: "Vehículos", value: leads.byChannel["VEHICULOS"] ?? 0, color: "green" },
+    {
+      label: "Vehículos",
+      value: leads.byChannel["VEHICULOS"] ?? 0,
+      color: "green",
+    },
   ];
   const channelTotal = channelBars.reduce((acc, b) => acc + b.value, 0);
 
   // ── Priority totals ────────────────────────────────────────────────────────
 
   const priorityBars = [
-    { label: "Crítica", value: cases.byPriority["CRITICAL"] ?? 0, color: "red" },
+    {
+      label: "Crítica",
+      value: cases.byPriority["CRITICAL"] ?? 0,
+      color: "red",
+    },
     { label: "Alta", value: cases.byPriority["HIGH"] ?? 0, color: "orange" },
     { label: "Media", value: cases.byPriority["MEDIUM"] ?? 0, color: "blue" },
     { label: "Baja", value: cases.byPriority["LOW"] ?? 0, color: "gray" },
@@ -228,7 +259,9 @@ export default function CrmDashboard() {
                   <i className={`${kpi.icon} text-${kpi.color}-500 text-xl`} />
                 </div>
               </div>
-              <span className={`text-xs ${kpi.subtitleColor}`}>{kpi.subtitle}</span>
+              <span className={`text-xs ${kpi.subtitleColor}`}>
+                {kpi.subtitle}
+              </span>
             </div>
           </div>
         ))}
@@ -279,12 +312,19 @@ export default function CrmDashboard() {
               size="small"
               emptyMessage="Sin leads recientes"
             >
-              <Column field="title" header="Título" style={{ minWidth: "120px" }} />
+              <Column
+                field="title"
+                header="Título"
+                style={{ minWidth: "120px" }}
+              />
               <Column
                 field="channel"
                 header="Canal"
                 body={(row) => {
-                  const cfg = LEAD_CHANNEL_CONFIG[row.channel as keyof typeof LEAD_CHANNEL_CONFIG];
+                  const cfg =
+                    LEAD_CHANNEL_CONFIG[
+                      row.channel as keyof typeof LEAD_CHANNEL_CONFIG
+                    ];
                   return cfg ? (
                     <Tag value={cfg.label} severity={cfg.severity} />
                   ) : (
@@ -297,7 +337,10 @@ export default function CrmDashboard() {
                 field="status"
                 header="Estado"
                 body={(row) => {
-                  const cfg = LEAD_STATUS_CONFIG[row.status as keyof typeof LEAD_STATUS_CONFIG];
+                  const cfg =
+                    LEAD_STATUS_CONFIG[
+                      row.status as keyof typeof LEAD_STATUS_CONFIG
+                    ];
                   return cfg ? (
                     <Tag value={cfg.label} severity={cfg.severity} />
                   ) : (
@@ -320,7 +363,9 @@ export default function CrmDashboard() {
                 field="createdAt"
                 header="Fecha"
                 body={(row) => (
-                  <span className="text-500 text-xs">{formatDate(row.createdAt)}</span>
+                  <span className="text-500 text-xs">
+                    {formatDate(row.createdAt)}
+                  </span>
                 )}
                 style={{ width: "80px" }}
               />
@@ -353,10 +398,16 @@ export default function CrmDashboard() {
                 header="N°"
                 style={{ width: "80px" }}
                 body={(row) => (
-                  <span className="text-500 text-xs font-mono">{row.quoteNumber}</span>
+                  <span className="text-500 text-xs font-mono">
+                    {row.quoteNumber}
+                  </span>
                 )}
               />
-              <Column field="title" header="Título" style={{ minWidth: "100px" }} />
+              <Column
+                field="title"
+                header="Título"
+                style={{ minWidth: "100px" }}
+              />
               <Column
                 field="status"
                 header="Estado"
@@ -374,7 +425,9 @@ export default function CrmDashboard() {
                 field="total"
                 header="Total"
                 body={(row) => (
-                  <span className="font-semibold text-sm">{formatCurrency(row.total)}</span>
+                  <span className="font-semibold text-sm">
+                    {formatCurrency(row.total)}
+                  </span>
                 )}
                 style={{ width: "100px" }}
               />
@@ -392,7 +445,9 @@ export default function CrmDashboard() {
                 field="createdAt"
                 header="Fecha"
                 body={(row) => (
-                  <span className="text-500 text-xs">{formatDate(row.createdAt)}</span>
+                  <span className="text-500 text-xs">
+                    {formatDate(row.createdAt)}
+                  </span>
                 )}
                 style={{ width: "80px" }}
               />
@@ -421,7 +476,9 @@ export default function CrmDashboard() {
             {activities.recentOverdue.length === 0 ? (
               <div className="flex align-items-center gap-2 text-green-600 p-3">
                 <i className="pi pi-check-circle text-xl" />
-                <span className="text-sm font-medium">Sin actividades vencidas</span>
+                <span className="text-sm font-medium">
+                  Sin actividades vencidas
+                </span>
               </div>
             ) : (
               <div className="flex flex-column gap-2">
@@ -433,7 +490,9 @@ export default function CrmDashboard() {
                     <div>
                       <div className="font-semibold text-sm">{act.title}</div>
                       <div className="text-xs text-500 mt-1">
-                        <span className="surface-100 border-round px-1 mr-1">{act.type}</span>
+                        <span className="surface-100 border-round px-1 mr-1">
+                          {act.type}
+                        </span>
                         {act.assignedTo && (
                           <span className="text-400">{act.assignedTo}</span>
                         )}
@@ -475,10 +534,16 @@ export default function CrmDashboard() {
                 header="N° Caso"
                 style={{ width: "80px" }}
                 body={(row) => (
-                  <span className="text-500 text-xs font-mono">{row.caseNumber}</span>
+                  <span className="text-500 text-xs font-mono">
+                    {row.caseNumber}
+                  </span>
                 )}
               />
-              <Column field="title" header="Título" style={{ minWidth: "100px" }} />
+              <Column
+                field="title"
+                header="Título"
+                style={{ minWidth: "100px" }}
+              />
               <Column
                 field="priority"
                 header="Prioridad"
@@ -561,7 +626,9 @@ export default function CrmDashboard() {
                 />
               </div>
               <div>
-                <div className="text-500 text-xs mb-1">Actividades pendientes</div>
+                <div className="text-500 text-xs mb-1">
+                  Actividades pendientes
+                </div>
                 <div
                   className={`font-bold text-xl ${
                     activities.pending > 0 ? "text-yellow-700" : "text-900"
@@ -579,14 +646,19 @@ export default function CrmDashboard() {
             <div className="flex align-items-center gap-3">
               <div
                 className="flex align-items-center justify-content-center border-round"
-                style={{ width: "2.5rem", height: "2.5rem", backgroundColor: "var(--blue-100)" }}
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  backgroundColor: "var(--blue-100)",
+                }}
               >
                 <i className="pi pi-wrench text-blue-500 text-xl" />
               </div>
               <div>
                 <div className="text-500 text-xs mb-1">Taller activo</div>
                 <div className="font-bold text-xl text-900">
-                  {serviceOrders.active} <span className="text-sm font-normal text-500">órdenes</span>
+                  {serviceOrders.active}{" "}
+                  <span className="text-sm font-normal text-500">órdenes</span>
                 </div>
               </div>
             </div>
@@ -598,12 +670,18 @@ export default function CrmDashboard() {
             <div className="flex align-items-center gap-3">
               <div
                 className="flex align-items-center justify-content-center border-round"
-                style={{ width: "2.5rem", height: "2.5rem", backgroundColor: "var(--green-100)" }}
+                style={{
+                  width: "2.5rem",
+                  height: "2.5rem",
+                  backgroundColor: "var(--green-100)",
+                }}
               >
                 <i className="pi pi-dollar text-green-500 text-xl" />
               </div>
               <div>
-                <div className="text-500 text-xs mb-1">Ingresos taller este mes</div>
+                <div className="text-500 text-xs mb-1">
+                  Ingresos taller este mes
+                </div>
                 <div className="font-bold text-xl text-green-700">
                   {formatCurrency(serviceOrders.totalRevenueThisMonth)}
                 </div>

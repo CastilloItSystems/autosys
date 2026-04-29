@@ -30,7 +30,7 @@ const activityService = {
 
   async getByCustomer(
     customerId: string,
-    params?: Omit<ActivityParams, "customerId">
+    params?: Omit<ActivityParams, "customerId">,
   ): Promise<PaginatedResponse<Activity>> {
     const res = await apiClient.get("/crm/activities", {
       params: { ...params, customerId },
@@ -57,7 +57,7 @@ const activityService = {
 
   async update(
     id: string,
-    data: Partial<Activity>
+    data: Partial<Activity>,
   ): Promise<ApiResponse<Activity>> {
     const res = await apiClient.put(`/crm/activities/${id}`, data);
     return res.data;
@@ -65,14 +65,17 @@ const activityService = {
 
   async complete(
     id: string,
-    payload: CompleteActivityPayload
+    payload: CompleteActivityPayload,
   ): Promise<ApiResponse<Activity>> {
-    const res = await apiClient.patch(`/crm/activities/${id}/complete`, payload);
+    const res = await apiClient.patch(
+      `/crm/activities/${id}/complete`,
+      payload,
+    );
     return res.data;
   },
 
   async delete(
-    id: string
+    id: string,
   ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/activities/${id}`);
     return res.data;

@@ -22,7 +22,7 @@ interface CustomerCrmParams {
 
 const customerCrmService = {
   async getAll(
-    params?: CustomerCrmParams
+    params?: CustomerCrmParams,
   ): Promise<PaginatedResponse<CustomerCrm>> {
     const res = await apiClient.get("/crm/customers", { params });
     return res.data;
@@ -52,13 +52,15 @@ const customerCrmService = {
 
   async update(
     id: string,
-    data: Partial<CustomerCrm>
+    data: Partial<CustomerCrm>,
   ): Promise<ApiResponse<CustomerCrm>> {
     const res = await apiClient.put(`/crm/customers/${id}`, data);
     return res.data;
   },
 
-  async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
+  async delete(
+    id: string,
+  ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/customers/${id}`);
     return res.data;
   },

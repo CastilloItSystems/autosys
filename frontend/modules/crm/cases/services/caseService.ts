@@ -53,7 +53,7 @@ const caseService = {
 
   async updateStatus(
     id: string,
-    data: UpdateCaseStatusPayload
+    data: UpdateCaseStatusPayload,
   ): Promise<ApiResponse<Case>> {
     const res = await apiClient.patch(`/crm/cases/${id}/status`, data);
     return res.data;
@@ -61,13 +61,15 @@ const caseService = {
 
   async addComment(
     id: string,
-    data: AddCommentPayload
+    data: AddCommentPayload,
   ): Promise<ApiResponse<CaseComment>> {
     const res = await apiClient.post(`/crm/cases/${id}/comments`, data);
     return res.data;
   },
 
-  async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
+  async delete(
+    id: string,
+  ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/cases/${id}`);
     return res.data;
   },

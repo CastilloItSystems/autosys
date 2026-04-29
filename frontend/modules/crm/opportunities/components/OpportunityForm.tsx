@@ -1,17 +1,20 @@
-'use client'
+"use client";
 
-import React from 'react'
-import { Controller, useForm } from 'react-hook-form'
-import { InputText } from 'primereact/inputtext'
-import { InputTextarea } from 'primereact/inputtextarea'
-import { Calendar } from 'primereact/calendar'
-import { Dropdown } from 'primereact/dropdown'
-import { Toast } from 'primereact/toast'
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
+import { InputText } from "primereact/inputtext";
+import { InputTextarea } from "primereact/inputtextarea";
+import { Calendar } from "primereact/calendar";
+import { Dropdown } from "primereact/dropdown";
+import { Toast } from "primereact/toast";
 
-import opportunityService from '../services/opportunityService';
-import { handleFormError } from '@/utils/errorHandlers';
-import { OpportunityFormValues, OpportunityFormProps } from '../interfaces/opportunityForm.interface';
-import { OPPORTUNITY_CHANNEL_OPTIONS as channelOptions } from '../utils/opportunity.utils';
+import opportunityService from "../services/opportunityService";
+import { handleFormError } from "@/utils/errorHandlers";
+import {
+  OpportunityFormValues,
+  OpportunityFormProps,
+} from "../interfaces/opportunityForm.interface";
+import { OPPORTUNITY_CHANNEL_OPTIONS as channelOptions } from "../utils/opportunity.utils";
 
 export default function OpportunityForm({
   formId,
@@ -25,23 +28,23 @@ export default function OpportunityForm({
     handleSubmit,
     formState: { errors },
   } = useForm<OpportunityFormValues>({
-    mode: 'onBlur',
+    mode: "onBlur",
     defaultValues: {
-      title: '',
-      channel: 'REPUESTOS',
+      title: "",
+      channel: "REPUESTOS",
       amount: undefined,
-      description: '',
+      description: "",
       nextActivityAt: null,
       expectedCloseAt: null,
-      ownerId: '',
+      ownerId: "",
     },
-  })
+  });
 
   const onSubmit = async (data: OpportunityFormValues) => {
-    if (onSubmittingChange) onSubmittingChange(true)
+    if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (!data.nextActivityAt) {
-        throw new Error('La próxima actividad es obligatoria')
+        throw new Error("La próxima actividad es obligatoria");
       }
 
       await opportunityService.create({
@@ -50,29 +53,37 @@ export default function OpportunityForm({
         amount: data.amount,
         description: data.description || undefined,
         nextActivityAt: data.nextActivityAt.toISOString(),
-        expectedCloseAt: data.expectedCloseAt ? data.expectedCloseAt.toISOString() : undefined,
+        expectedCloseAt: data.expectedCloseAt
+          ? data.expectedCloseAt.toISOString()
+          : undefined,
         ownerId: data.ownerId || undefined,
-      })
+      });
 
-      await onSave()
+      await onSave();
     } catch (error) {
-      handleFormError(error, toast)
+      handleFormError(error, toast);
     } finally {
-      if (onSubmittingChange) onSubmittingChange(false)
+      if (onSubmittingChange) onSubmittingChange(false);
     }
-  }
+  };
 
   return (
-    <form id={formId || 'opportunity-form'} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "opportunity-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid">
         <div className="col-12 field">
           <label className="font-semibold">Título *</label>
           <InputText
-            {...register('title', { required: 'Título requerido' })}
-            className={errors.title ? 'p-invalid' : ''}
+            {...register("title", { required: "Título requerido" })}
+            className={errors.title ? "p-invalid" : ""}
             placeholder="Ej: Oportunidad de mantenimiento preventivo"
           />
-          {errors.title && <small className="p-error">{errors.title.message}</small>}
+          {errors.title && (
+            <small className="p-error">{errors.title.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -95,8 +106,9 @@ export default function OpportunityForm({
         <div className="col-12 md:col-6 field">
           <label className="font-semibold">Monto</label>
           <InputText
-            {...register('amount', {
-              setValueAs: (v) => (v === '' || v == null ? undefined : Number(v)),
+            {...register("amount", {
+              setValueAs: (v) =>
+                v === "" || v == null ? undefined : Number(v),
             })}
             placeholder="0.00"
           />
@@ -107,7 +119,7 @@ export default function OpportunityForm({
           <Controller
             name="nextActivityAt"
             control={control}
-            rules={{ required: 'Próxima actividad requerida' }}
+            rules={{ required: "Próxima actividad requerida" }}
             render={({ field }) => (
               <Calendar
                 value={field.value}
@@ -115,11 +127,15 @@ export default function OpportunityForm({
                 showIcon
                 showTime
                 hourFormat="24"
-                className={errors.nextActivityAt ? 'p-invalid w-full' : 'w-full'}
+                className={
+                  errors.nextActivityAt ? "p-invalid w-full" : "w-full"
+                }
               />
             )}
           />
-          {errors.nextActivityAt && <small className="p-error">{errors.nextActivityAt.message}</small>}
+          {errors.nextActivityAt && (
+            <small className="p-error">{errors.nextActivityAt.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -140,14 +156,17 @@ export default function OpportunityForm({
 
         <div className="col-12 field">
           <label className="font-semibold">Owner ID (opcional)</label>
-          <InputText {...register('ownerId')} placeholder="UUID del responsable" />
+          <InputText
+            {...register("ownerId")}
+            placeholder="UUID del responsable"
+          />
         </div>
 
         <div className="col-12 field mb-0">
           <label className="font-semibold">Descripción</label>
-          <InputTextarea {...register('description')} rows={3} />
+          <InputTextarea {...register("description")} rows={3} />
         </div>
       </div>
     </form>
-  )
+  );
 }

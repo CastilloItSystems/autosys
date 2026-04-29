@@ -19,7 +19,14 @@ export interface ServiceHistoryItem {
   estimatedDelivery?: string | null;
   deliveredAt?: string | null;
   assignedTechnicianId?: string | null;
-  items: { id: string; type: string; description: string; quantity: number; unitPrice: number; total: number }[];
+  items: {
+    id: string;
+    type: string;
+    description: string;
+    quantity: number;
+    unitPrice: number;
+    total: number;
+  }[];
 }
 
 interface CustomerVehicleParams {
@@ -35,32 +42,31 @@ interface CustomerVehicleParams {
 const customerVehicleService = {
   async getAllByCustomer(
     customerId: string,
-    params?: CustomerVehicleParams
+    params?: CustomerVehicleParams,
   ): Promise<PaginatedResponse<CustomerVehicle>> {
-    const res = await apiClient.get(
-      `/crm/customers/${customerId}/vehicles`,
-      { params }
-    );
+    const res = await apiClient.get(`/crm/customers/${customerId}/vehicles`, {
+      params,
+    });
     return res.data;
   },
 
   async getById(
     customerId: string,
-    vehicleId: string
+    vehicleId: string,
   ): Promise<ApiResponse<CustomerVehicle>> {
     const res = await apiClient.get(
-      `/crm/customers/${customerId}/vehicles/${vehicleId}`
+      `/crm/customers/${customerId}/vehicles/${vehicleId}`,
     );
     return res.data;
   },
 
   async create(
     customerId: string,
-    data: Partial<CustomerVehicle>
+    data: Partial<CustomerVehicle>,
   ): Promise<ApiResponse<CustomerVehicle>> {
     const res = await apiClient.post(
       `/crm/customers/${customerId}/vehicles`,
-      data
+      data,
     );
     return res.data;
   },
@@ -68,31 +74,36 @@ const customerVehicleService = {
   async update(
     customerId: string,
     vehicleId: string,
-    data: Partial<CustomerVehicle>
+    data: Partial<CustomerVehicle>,
   ): Promise<ApiResponse<CustomerVehicle>> {
     const res = await apiClient.put(
       `/crm/customers/${customerId}/vehicles/${vehicleId}`,
-      data
+      data,
     );
     return res.data;
   },
 
   async delete(
     customerId: string,
-    vehicleId: string
+    vehicleId: string,
   ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(
-      `/crm/customers/${customerId}/vehicles/${vehicleId}`
+      `/crm/customers/${customerId}/vehicles/${vehicleId}`,
     );
     return res.data;
   },
 
   async getServiceHistory(
     customerId: string,
-    vehicleId: string
-  ): Promise<ApiResponse<{ vehicle: CustomerVehicle; serviceOrders: ServiceHistoryItem[] }>> {
+    vehicleId: string,
+  ): Promise<
+    ApiResponse<{
+      vehicle: CustomerVehicle;
+      serviceOrders: ServiceHistoryItem[];
+    }>
+  > {
     const res = await apiClient.get(
-      `/crm/customers/${customerId}/vehicles/${vehicleId}/service-history`
+      `/crm/customers/${customerId}/vehicles/${vehicleId}/service-history`,
     );
     return res.data;
   },

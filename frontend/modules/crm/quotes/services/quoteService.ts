@@ -45,7 +45,10 @@ const quoteService = {
     return res.data;
   },
 
-  async updateStatus(id: string, data: UpdateQuoteStatusPayload): Promise<ApiResponse<Quote>> {
+  async updateStatus(
+    id: string,
+    data: UpdateQuoteStatusPayload,
+  ): Promise<ApiResponse<Quote>> {
     const res = await apiClient.patch(`/crm/quotes/${id}/status`, data);
     return res.data;
   },
@@ -55,7 +58,9 @@ const quoteService = {
     return res.data;
   },
 
-  async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
+  async delete(
+    id: string,
+  ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/quotes/${id}`);
     return res.data;
   },

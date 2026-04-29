@@ -55,20 +55,27 @@ const leadService = {
     return res.data;
   },
 
-  async updateStatus(id: string, payload: UpdateLeadStatusPayload): Promise<ApiResponse<Lead>> {
+  async updateStatus(
+    id: string,
+    payload: UpdateLeadStatusPayload,
+  ): Promise<ApiResponse<Lead>> {
     const res = await apiClient.patch(`/crm/leads/${id}/status`, payload);
     return res.data;
   },
 
-  async delete(id: string): Promise<ApiResponse<{ success: boolean; id: string }>> {
+  async delete(
+    id: string,
+  ): Promise<ApiResponse<{ success: boolean; id: string }>> {
     const res = await apiClient.delete(`/crm/leads/${id}`);
     return res.data;
   },
 
   async convertToOpportunity(
     id: string,
-    payload: ConvertLeadPayload
-  ): Promise<ApiResponse<{ leadId: string; opportunityId: string; status: string }>> {
+    payload: ConvertLeadPayload,
+  ): Promise<
+    ApiResponse<{ leadId: string; opportunityId: string; status: string }>
+  > {
     const res = await apiClient.post(`/crm/leads/${id}/convert`, payload);
     return res.data;
   },

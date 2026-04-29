@@ -11,7 +11,14 @@ export interface CrmDashboardData {
     wonThisMonth: number;
     lostThisMonth: number;
     conversionRate: number;
-    recentLeads: { id: string; title: string; channel: string; status: string; customer: { name: string } | null; createdAt: string }[];
+    recentLeads: {
+      id: string;
+      title: string;
+      channel: string;
+      status: string;
+      customer: { name: string } | null;
+      createdAt: string;
+    }[];
   };
   opportunities?: {
     total: number;
@@ -42,7 +49,15 @@ export interface CrmDashboardData {
     pipelineValue: number;
     byStatus: Record<string, number>;
     approvedThisMonth: number;
-    recentQuotes: { id: string; quoteNumber: string; title: string; status: string; total: number; customer: { name: string } | null; createdAt: string }[];
+    recentQuotes: {
+      id: string;
+      quoteNumber: string;
+      title: string;
+      status: string;
+      total: number;
+      customer: { name: string } | null;
+      createdAt: string;
+    }[];
   };
   cases: {
     total: number;
@@ -51,7 +66,16 @@ export interface CrmDashboardData {
     byPriority: Record<string, number>;
     byStatus: Record<string, number>;
     resolvedThisMonth: number;
-    recentCases: { id: string; caseNumber: string; title: string; priority: string; status: string; slaDeadline: string | null; customer: { name: string } | null; createdAt: string }[];
+    recentCases: {
+      id: string;
+      caseNumber: string;
+      title: string;
+      priority: string;
+      status: string;
+      slaDeadline: string | null;
+      customer: { name: string } | null;
+      createdAt: string;
+    }[];
   };
   customers: {
     total: number;
@@ -63,7 +87,13 @@ export interface CrmDashboardData {
     pending: number;
     overdue: number;
     completedThisMonth: number;
-    recentOverdue: { id: string; title: string; type: string; dueAt: string; assignedTo: string | null }[];
+    recentOverdue: {
+      id: string;
+      title: string;
+      type: string;
+      dueAt: string;
+      assignedTo: string | null;
+    }[];
   };
   alerts?: {
     open: number;

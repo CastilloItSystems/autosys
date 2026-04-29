@@ -49,7 +49,10 @@ export default function ActivityCompleteDialog({
         outcome: data.outcome || undefined,
         completedAt: new Date().toISOString(),
       });
-      toast?.current?.show({ severity: "success", summary: "Actividad completada" });
+      toast?.current?.show({
+        severity: "success",
+        summary: "Actividad completada",
+      });
       onSaved();
       onHide();
     } catch (err) {
@@ -61,7 +64,13 @@ export default function ActivityCompleteDialog({
 
   const footer = (
     <div className="flex justify-content-end gap-2">
-      <Button label="Cancelar" outlined severity="secondary" onClick={onHide} disabled={submitting} />
+      <Button
+        label="Cancelar"
+        outlined
+        severity="secondary"
+        onClick={onHide}
+        disabled={submitting}
+      />
       <Button
         label="Marcar como Completada"
         icon="pi pi-check-circle"
@@ -83,7 +92,11 @@ export default function ActivityCompleteDialog({
       modal
       draggable={false}
     >
-      <form id="complete-activity-form" onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+      <form
+        id="complete-activity-form"
+        onSubmit={handleSubmit(onSubmit)}
+        className="p-fluid"
+      >
         <div className="field">
           <label>Resultado / Observaciones</label>
           <InputTextarea

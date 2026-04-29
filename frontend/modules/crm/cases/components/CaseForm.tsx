@@ -28,10 +28,20 @@ interface Props {
 
 import { CASE_REF_DOC_TYPE_OPTIONS as REF_DOC_TYPE_OPTIONS } from "../utils/case.utils";
 
-export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChange, toast }: Props) {
+export default function CaseForm({
+  caseRecord,
+  formId,
+  onSave,
+  onSubmittingChange,
+  toast,
+}: Props) {
   const isEditing = !!caseRecord;
-  const [customers, setCustomers] = useState<{ label: string; value: string }[]>([]);
-  const [vehicles, setVehicles] = useState<{ label: string; value: string }[]>([]);
+  const [customers, setCustomers] = useState<
+    { label: string; value: string }[]
+  >([]);
+  const [vehicles, setVehicles] = useState<{ label: string; value: string }[]>(
+    [],
+  );
 
   const {
     control,
@@ -71,7 +81,10 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
       .then((res) => {
         const list = (res as any)?.data ?? res ?? [];
         setCustomers(
-          list.map((c: any) => ({ label: `${c.name} (${c.code})`, value: c.id }))
+          list.map((c: any) => ({
+            label: `${c.name} (${c.code})`,
+            value: c.id,
+          })),
         );
       })
       .catch(() => {});
@@ -96,7 +109,7 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
               label: detail ? `${v.plate} — ${detail}` : v.plate,
               value: v.id,
             };
-          })
+          }),
         );
       })
       .catch(() => setVehicles([]));
@@ -146,7 +159,11 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
   };
 
   return (
-    <form id={formId || "case-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "case-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid row-gap-3">
         <div className="col-12 field">
           <label className="font-semibold">
@@ -157,7 +174,9 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
             placeholder="Ej: Reclamo por falla en frenos"
             className={errors.title ? "p-invalid" : ""}
           />
-          {errors.title && <small className="p-error">{errors.title.message}</small>}
+          {errors.title && (
+            <small className="p-error">{errors.title.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -179,7 +198,9 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
               />
             )}
           />
-          {errors.type && <small className="p-error">{errors.type.message}</small>}
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -221,7 +242,9 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
               />
             )}
           />
-          {errors.customerId && <small className="p-error">{errors.customerId.message}</small>}
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -261,7 +284,9 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
             placeholder="Describe el caso detalladamente..."
             className={errors.description ? "p-invalid" : ""}
           />
-          {errors.description && <small className="p-error">{errors.description.message}</small>}
+          {errors.description && (
+            <small className="p-error">{errors.description.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -286,7 +311,10 @@ export default function CaseForm({ caseRecord, formId, onSave, onSubmittingChang
         {watchedRefDocType && (
           <div className="col-12 md:col-6 field">
             <label>Número de documento</label>
-            <InputText {...register("refDocNumber")} placeholder="Ej: FAC-0001" />
+            <InputText
+              {...register("refDocNumber")}
+              placeholder="Ej: FAC-0001"
+            />
           </div>
         )}
 

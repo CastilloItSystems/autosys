@@ -44,13 +44,23 @@ export default function InteractionForm({
   toast,
 }: Props) {
   const isEditing = !!interaction;
-  const [customers, setCustomers] = React.useState<{ label: string; value: string }[]>([]);
+  const [customers, setCustomers] = React.useState<
+    { label: string; value: string }[]
+  >([]);
 
   React.useEffect(() => {
-    customerCrmService.getActive().then((res) => {
-      const list = (res as any)?.data ?? res ?? [];
-      setCustomers(list.map((c: any) => ({ label: `${c.name} (${c.code})`, value: c.id })));
-    }).catch(() => {});
+    customerCrmService
+      .getActive()
+      .then((res) => {
+        const list = (res as any)?.data ?? res ?? [];
+        setCustomers(
+          list.map((c: any) => ({
+            label: `${c.name} (${c.code})`,
+            value: c.id,
+          })),
+        );
+      })
+      .catch(() => {});
   }, []);
 
   const {
@@ -65,8 +75,8 @@ export default function InteractionForm({
       ? {
           customerId: interaction.customerId,
           type: interaction.type as any,
-          channel: interaction.channel as any ?? "GENERAL",
-          direction: interaction.direction as any ?? "OUTBOUND",
+          channel: (interaction.channel as any) ?? "GENERAL",
+          direction: (interaction.direction as any) ?? "OUTBOUND",
           leadId: interaction.leadId ?? undefined,
           subject: interaction.subject ?? undefined,
           notes: interaction.notes,
@@ -108,13 +118,18 @@ export default function InteractionForm({
   };
 
   return (
-    <form id={formId || "interaction-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "interaction-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid row-gap-2">
-
         {/* Cliente */}
         {!defaultCustomerId && (
           <div className="col-12 field">
-            <label className="font-semibold">Cliente <span className="text-red-500">*</span></label>
+            <label className="font-semibold">
+              Cliente <span className="text-red-500">*</span>
+            </label>
             <Controller
               name="customerId"
               control={control}
@@ -131,13 +146,17 @@ export default function InteractionForm({
                 />
               )}
             />
-            {errors.customerId && <small className="p-error">{errors.customerId.message}</small>}
+            {errors.customerId && (
+              <small className="p-error">{errors.customerId.message}</small>
+            )}
           </div>
         )}
 
         {/* Tipo + Dirección */}
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Tipo <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Tipo <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="type"
             control={control}
@@ -153,7 +172,9 @@ export default function InteractionForm({
               />
             )}
           />
-          {errors.type && <small className="p-error">{errors.type.message}</small>}
+          {errors.type && (
+            <small className="p-error">{errors.type.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -199,22 +220,31 @@ export default function InteractionForm({
 
         {/* Notas */}
         <div className="col-12 field">
-          <label className="font-semibold">Notas <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Notas <span className="text-red-500">*</span>
+          </label>
           <InputTextarea
             {...register("notes")}
             rows={4}
             placeholder="Detalle de la interacción..."
             className={errors.notes ? "p-invalid" : ""}
           />
-          {errors.notes && <small className="p-error">{errors.notes.message}</small>}
+          {errors.notes && (
+            <small className="p-error">{errors.notes.message}</small>
+          )}
         </div>
 
-        <div className="col-12"><Divider className="my-1" /></div>
+        <div className="col-12">
+          <Divider className="my-1" />
+        </div>
 
         {/* Resultado */}
         <div className="col-12 field">
           <label>Resultado / Conclusión</label>
-          <InputText {...register("outcome")} placeholder="¿Cuál fue el resultado?" />
+          <InputText
+            {...register("outcome")}
+            placeholder="¿Cuál fue el resultado?"
+          />
         </div>
 
         {/* Próxima acción */}
@@ -240,7 +270,6 @@ export default function InteractionForm({
             )}
           />
         </div>
-
       </div>
     </form>
   );
