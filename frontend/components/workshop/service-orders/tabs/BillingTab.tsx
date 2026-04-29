@@ -9,7 +9,7 @@ import { Dialog } from "primereact/dialog";
 import { Checkbox } from "primereact/checkbox";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { useRouter } from "next/navigation";
-import PreInvoiceStepper from "@/components/sales/preInvoice/PreInvoiceStepper";
+import PreInvoiceStepper from "@/modules/sales/preInvoice/components/PreInvoiceStepper";
 import billingBridgeService from "@/app/api/workshop/billingBridgeService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type { ServiceOrder } from "@/libs/interfaces/workshop";
@@ -26,7 +26,10 @@ interface BillingTabProps {
   onRefresh: () => void;
 }
 
-export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps) {
+export default function BillingTab({
+  serviceOrder,
+  onRefresh,
+}: BillingTabProps) {
   const toast = useRef<Toast>(null);
   const router = useRouter();
   const [generating, setGenerating] = useState(false);
@@ -41,7 +44,10 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
     serviceOrder.preInvoice ?? serviceOrder.consolidatedPreInvoice ?? null;
   const invoice = serviceOrder.invoice ?? null;
   const isBillable = BILLABLE_STATUSES.includes(serviceOrder.status);
-  const canGenerateNew = isBillable && !preInvoice && !["INVOICED", "CLOSED"].includes(serviceOrder.status);
+  const canGenerateNew =
+    isBillable &&
+    !preInvoice &&
+    !["INVOICED", "CLOSED"].includes(serviceOrder.status);
 
   const [variance, setVariance] = useState<any>(null);
   const [loadingVariance, setLoadingVariance] = useState(false);
@@ -63,7 +69,9 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
     if (!serviceOrder.customerId) return;
     setLoadingPending(true);
     try {
-      const res = await billingBridgeService.getPendingBillingByCustomer(serviceOrder.customerId);
+      const res = await billingBridgeService.getPendingBillingByCustomer(
+        serviceOrder.customerId,
+      );
       setPendingOrders(res.data?.pendingOrders ?? []);
     } catch {
       setPendingOrders([]);
@@ -76,7 +84,12 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
     setGenerating(true);
     try {
       await billingBridgeService.generatePreInvoice(serviceOrder.id);
-      toast.current?.show({ severity: "success", summary: "Pre-factura generada", detail: "Gestiona desde Facturación", life: 4000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Pre-factura generada",
+        detail: "Gestiona desde Facturación",
+        life: 4000,
+      });
       onRefresh();
     } catch (err) {
       handleFormError(err, toast.current!);
@@ -92,7 +105,8 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
       const synced = res.data?.synced ?? 0;
       toast.current?.show({
         severity: synced > 0 ? "success" : "info",
-        summary: synced > 0 ? `${synced} material(es) sincronizados` : "Sin cambios",
+        summary:
+          synced > 0 ? `${synced} material(es) sincronizados` : "Sin cambios",
         detail: res.data?.message ?? "",
         life: 3000,
       });
@@ -112,13 +126,21 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
 
   const handleGenerateConsolidated = async () => {
     if (selectedIds.length < 2) {
-      toast.current?.show({ severity: "warn", summary: "Selecciona al menos 2 órdenes", life: 3000 });
+      toast.current?.show({
+        severity: "warn",
+        summary: "Selecciona al menos 2 órdenes",
+        life: 3000,
+      });
       return;
     }
     setConsolidating(true);
     try {
       await billingBridgeService.generateConsolidatedPreInvoice(selectedIds);
-      toast.current?.show({ severity: "success", summary: "Pre-factura consolidada generada", life: 4000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Pre-factura consolidada generada",
+        life: 4000,
+      });
       setShowConsolidated(false);
       onRefresh();
     } catch (err) {
@@ -129,7 +151,9 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
   };
 
   const toggleOrder = (id: string) => {
-    setSelectedIds((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
   };
 
   return (
@@ -144,7 +168,11 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
         onHide={() => setShowConsolidated(false)}
         footer={
           <div className="flex justify-content-end gap-2">
-            <Button label="Cancelar" outlined onClick={() => setShowConsolidated(false)} />
+            <Button
+              label="Cancelar"
+              outlined
+              onClick={() => setShowConsolidated(false)}
+            />
             <Button
               label={`Generar pre-factura consolidada (${selectedIds.length} OTs)`}
               icon="pi pi-receipt"
@@ -156,14 +184,21 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
         }
       >
         <p className="text-600 mb-3">
-          Selecciona las órdenes a incluir en una sola pre-factura. Deben ser del mismo cliente.
+          Selecciona las órdenes a incluir en una sola pre-factura. Deben ser
+          del mismo cliente.
         </p>
         {loadingPending ? (
           <p className="text-500">Cargando órdenes pendientes...</p>
         ) : (
           <div className="flex flex-column gap-2">
-            {[serviceOrder, ...pendingOrders.filter((o) => o.id !== serviceOrder.id)].map((o) => (
-              <div key={o.id} className="flex align-items-center gap-3 p-2 surface-100 border-round">
+            {[
+              serviceOrder,
+              ...pendingOrders.filter((o) => o.id !== serviceOrder.id),
+            ].map((o) => (
+              <div
+                key={o.id}
+                className="flex align-items-center gap-3 p-2 surface-100 border-round"
+              >
                 <Checkbox
                   checked={selectedIds.includes(o.id)}
                   onChange={() => toggleOrder(o.id)}
@@ -171,13 +206,18 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
                 />
                 <div className="flex flex-column flex-1">
                   <span className="font-semibold">{o.folio}</span>
-                  <span className="text-500 text-sm">{o.vehiclePlate ?? o.vehicleDesc ?? "—"} · {o.status}</span>
+                  <span className="text-500 text-sm">
+                    {o.vehiclePlate ?? o.vehicleDesc ?? "—"} · {o.status}
+                  </span>
                 </div>
                 <span className="font-bold">{fmt(o.total)}</span>
               </div>
             ))}
-            {pendingOrders.filter((o) => o.id !== serviceOrder.id).length === 0 && (
-              <p className="text-500 text-sm mt-1">No hay otras OTs pendientes de facturar para este cliente.</p>
+            {pendingOrders.filter((o) => o.id !== serviceOrder.id).length ===
+              0 && (
+              <p className="text-500 text-sm mt-1">
+                No hay otras OTs pendientes de facturar para este cliente.
+              </p>
             )}
           </div>
         )}
@@ -185,9 +225,11 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
           <div className="mt-3 p-2 surface-200 border-round flex justify-content-between">
             <span className="font-semibold text-sm">Total consolidado</span>
             <span className="font-bold">
-              {fmt([serviceOrder, ...pendingOrders]
-                .filter((o) => selectedIds.includes(o.id))
-                .reduce((s, o) => s + Number(o.total ?? 0), 0))}
+              {fmt(
+                [serviceOrder, ...pendingOrders]
+                  .filter((o) => selectedIds.includes(o.id))
+                  .reduce((s, o) => s + Number(o.total ?? 0), 0),
+              )}
             </span>
           </div>
         )}
@@ -246,7 +288,9 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
                 <div className="flex flex-column gap-2">
                   <div className="flex justify-content-between">
                     <span className="text-600">Número</span>
-                    <span className="font-semibold">{preInvoice.preInvoiceNumber}</span>
+                    <span className="font-semibold">
+                      {preInvoice.preInvoiceNumber}
+                    </span>
                   </div>
                   <div className="flex justify-content-between">
                     <span className="text-600">Estado</span>
@@ -263,7 +307,9 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
                   </div>
                   <div className="flex justify-content-between">
                     <span className="text-600">Total</span>
-                    <span className="font-bold text-lg">{fmt(preInvoice.total)}</span>
+                    <span className="font-bold text-lg">
+                      {fmt(preInvoice.total)}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -275,12 +321,16 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
                     <span>{fmt(preInvoice.baseImponible)}</span>
                   </div>
                   <div className="flex justify-content-between">
-                    <span className="text-600">IVA ({preInvoice.taxRate}%)</span>
+                    <span className="text-600">
+                      IVA ({preInvoice.taxRate}%)
+                    </span>
                     <span>{fmt(preInvoice.taxAmount)}</span>
                   </div>
                   {preInvoice.igtfApplies && (
                     <div className="flex justify-content-between">
-                      <span className="text-600">IGTF ({preInvoice.igtfRate}%)</span>
+                      <span className="text-600">
+                        IGTF ({preInvoice.igtfRate}%)
+                      </span>
                       <span>{fmt(preInvoice.igtfAmount)}</span>
                     </div>
                   )}
@@ -305,7 +355,10 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
 
       {/* Invoice info */}
       {invoice && (
-        <Card className="mt-3" style={{ borderLeft: "4px solid var(--green-500)" }}>
+        <Card
+          className="mt-3"
+          style={{ borderLeft: "4px solid var(--green-500)" }}
+        >
           <div className="flex align-items-center gap-2 mb-2">
             <i className="pi pi-check-circle text-green-500 text-xl" />
             <span className="font-bold text-green-700">Factura generada</span>
@@ -350,17 +403,18 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
             />
           </div>
 
-          {showVariance && (
-            loadingVariance ? (
+          {showVariance &&
+            (loadingVariance ? (
               <div className="flex justify-content-center py-3">
                 <ProgressSpinner style={{ width: 32, height: 32 }} />
               </div>
             ) : variance ? (
               <ReconciliationPanel data={variance} fmt={fmt} />
             ) : (
-              <p className="text-500 text-sm">No se pudo cargar la conciliación.</p>
-            )
-          )}
+              <p className="text-500 text-sm">
+                No se pudo cargar la conciliación.
+              </p>
+            ))}
         </div>
       )}
     </>
@@ -369,28 +423,77 @@ export default function BillingTab({ serviceOrder, onRefresh }: BillingTabProps)
 
 // ── Subcomponente de conciliación ─────────────────────────────────────────────
 
-const STATUS_CONFIG: Record<string, { label: string; severity: any; icon: string; color: string }> = {
-  IN_BUDGET:     { label: "Dentro del presupuesto", severity: "success", icon: "pi-check-circle",   color: "var(--green-600)" },
-  OVER_BUDGET:   { label: "Sobre presupuesto",       severity: "danger",  icon: "pi-exclamation-circle", color: "var(--red-600)" },
-  UNDER_BUDGET:  { label: "Bajo presupuesto",        severity: "info",    icon: "pi-info-circle",   color: "var(--blue-600)" },
-  NO_QUOTATION:  { label: "Sin cotización",          severity: "warning", icon: "pi-file-o",        color: "var(--orange-600)" },
-  NO_BILLING:    { label: "Sin facturación",         severity: "warning", icon: "pi-clock",         color: "var(--orange-600)" },
+const STATUS_CONFIG: Record<
+  string,
+  { label: string; severity: any; icon: string; color: string }
+> = {
+  IN_BUDGET: {
+    label: "Dentro del presupuesto",
+    severity: "success",
+    icon: "pi-check-circle",
+    color: "var(--green-600)",
+  },
+  OVER_BUDGET: {
+    label: "Sobre presupuesto",
+    severity: "danger",
+    icon: "pi-exclamation-circle",
+    color: "var(--red-600)",
+  },
+  UNDER_BUDGET: {
+    label: "Bajo presupuesto",
+    severity: "info",
+    icon: "pi-info-circle",
+    color: "var(--blue-600)",
+  },
+  NO_QUOTATION: {
+    label: "Sin cotización",
+    severity: "warning",
+    icon: "pi-file-o",
+    color: "var(--orange-600)",
+  },
+  NO_BILLING: {
+    label: "Sin facturación",
+    severity: "warning",
+    icon: "pi-clock",
+    color: "var(--orange-600)",
+  },
 };
 
-function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string }) {
+function ReconciliationPanel({
+  data,
+  fmt,
+}: {
+  data: any;
+  fmt: (v: any) => string;
+}) {
   const { quotation, billing, reconciliation } = data;
-  const cfg = STATUS_CONFIG[reconciliation.status] ?? STATUS_CONFIG.NO_QUOTATION;
+  const cfg =
+    STATUS_CONFIG[reconciliation.status] ?? STATUS_CONFIG.NO_QUOTATION;
 
-  const VarianceRow = ({ label, quoted, billed }: { label: string; quoted: number; billed: number }) => {
+  const VarianceRow = ({
+    label,
+    quoted,
+    billed,
+  }: {
+    label: string;
+    quoted: number;
+    billed: number;
+  }) => {
     const diff = billed - quoted;
-    const color = diff > 0.01 ? "var(--red-600)" : diff < -0.01 ? "var(--blue-600)" : "var(--green-600)";
+    const color =
+      diff > 0.01
+        ? "var(--red-600)"
+        : diff < -0.01
+        ? "var(--blue-600)"
+        : "var(--green-600)";
     return (
       <div className="grid text-sm py-1 border-bottom-1 surface-border">
         <div className="col-4 text-600">{label}</div>
         <div className="col-3 text-right">{fmt(quoted)}</div>
         <div className="col-3 text-right">{fmt(billed)}</div>
         <div className="col-2 text-right font-semibold" style={{ color }}>
-          {diff > 0.01 ? "+" : ""}{fmt(diff)}
+          {diff > 0.01 ? "+" : ""}
+          {fmt(diff)}
         </div>
       </div>
     );
@@ -401,10 +504,14 @@ function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string
       {/* Status badge */}
       <div className="flex align-items-center gap-2 mb-3">
         <i className={`pi ${cfg.icon} text-xl`} style={{ color: cfg.color }} />
-        <span className="font-semibold" style={{ color: cfg.color }}>{cfg.label}</span>
+        <span className="font-semibold" style={{ color: cfg.color }}>
+          {cfg.label}
+        </span>
         {reconciliation.variancePct != null && (
           <Tag
-            value={`${reconciliation.variance >= 0 ? "+" : ""}${reconciliation.variancePct.toFixed(1)}%`}
+            value={`${
+              reconciliation.variance >= 0 ? "+" : ""
+            }${reconciliation.variancePct.toFixed(1)}%`}
             severity={cfg.severity}
             className="ml-auto"
           />
@@ -420,7 +527,9 @@ function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string
               {quotation ? fmt(quotation.approvedTotal) : "—"}
             </div>
             {quotation && (
-              <div className="text-xs text-400 mt-1">{quotation.quotationNumber} · v{quotation.version}</div>
+              <div className="text-xs text-400 mt-1">
+                {quotation.quotationNumber} · v{quotation.version}
+              </div>
             )}
           </div>
         </div>
@@ -442,9 +551,17 @@ function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string
             <div className="text-500 text-xs mb-1">DIFERENCIA</div>
             <div
               className="text-xl font-bold"
-              style={{ color: reconciliation.variance > 0.01 ? "var(--red-600)" : reconciliation.variance < -0.01 ? "var(--blue-600)" : "var(--green-600)" }}
+              style={{
+                color:
+                  reconciliation.variance > 0.01
+                    ? "var(--red-600)"
+                    : reconciliation.variance < -0.01
+                    ? "var(--blue-600)"
+                    : "var(--green-600)",
+              }}
             >
-              {reconciliation.variance >= 0 ? "+" : ""}{fmt(reconciliation.variance)}
+              {reconciliation.variance >= 0 ? "+" : ""}
+              {fmt(reconciliation.variance)}
             </div>
           </div>
         </div>
@@ -459,9 +576,21 @@ function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string
             <div className="col-3 text-right">Facturado</div>
             <div className="col-2 text-right">Diferencia</div>
           </div>
-          <VarianceRow label="Mano de obra"   quoted={reconciliation.breakdown.labor.quoted}  billed={reconciliation.breakdown.labor.billed} />
-          <VarianceRow label="Refacciones"    quoted={reconciliation.breakdown.parts.quoted}  billed={reconciliation.breakdown.parts.billed} />
-          <VarianceRow label="Otros"          quoted={reconciliation.breakdown.other.quoted}  billed={reconciliation.breakdown.other.billed} />
+          <VarianceRow
+            label="Mano de obra"
+            quoted={reconciliation.breakdown.labor.quoted}
+            billed={reconciliation.breakdown.labor.billed}
+          />
+          <VarianceRow
+            label="Refacciones"
+            quoted={reconciliation.breakdown.parts.quoted}
+            billed={reconciliation.breakdown.parts.billed}
+          />
+          <VarianceRow
+            label="Otros"
+            quoted={reconciliation.breakdown.other.quoted}
+            billed={reconciliation.breakdown.other.billed}
+          />
         </>
       )}
 
@@ -469,16 +598,22 @@ function ReconciliationPanel({ data, fmt }: { data: any; fmt: (v: any) => string
       {quotation?.approvalType && (
         <div className="text-xs text-500 mt-2">
           <i className="pi pi-check mr-1" />
-          Aprobada {quotation.approvalType === "TOTAL" ? "en su totalidad" : "parcialmente"}
-          {quotation.approvalChannel && ` · vía ${quotation.approvalChannel.toLowerCase()}`}
-          {quotation.approvedAt && ` · ${new Date(quotation.approvedAt).toLocaleDateString("es-MX")}`}
+          Aprobada{" "}
+          {quotation.approvalType === "TOTAL"
+            ? "en su totalidad"
+            : "parcialmente"}
+          {quotation.approvalChannel &&
+            ` · vía ${quotation.approvalChannel.toLowerCase()}`}
+          {quotation.approvedAt &&
+            ` · ${new Date(quotation.approvedAt).toLocaleDateString("es-MX")}`}
         </div>
       )}
 
       {!quotation && (
         <p className="text-500 text-sm m-0">
           <i className="pi pi-info-circle mr-1" />
-          Esta OT no tiene cotización taller aprobada. Ve a la pestaña <strong>Cotización</strong> para generar una.
+          Esta OT no tiene cotización taller aprobada. Ve a la pestaña{" "}
+          <strong>Cotización</strong> para generar una.
         </p>
       )}
     </div>

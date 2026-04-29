@@ -10,26 +10,36 @@ import { motion } from "framer-motion";
 import { Card } from "primereact/card";
 import apiClient from "@/app/api/apiClient";
 import { handleFormError } from "@/utils/errorHandlers";
-import PreInvoiceStepper from "@/components/sales/preInvoice/PreInvoiceStepper";
-import type { PreInvoiceStatus } from "@/libs/interfaces/sales/preInvoice.interface";
+import PreInvoiceStepper from "@/modules/sales/preInvoice/components/PreInvoiceStepper";
+import type { PreInvoiceStatus } from "@/modules/sales/preInvoice/interfaces/preInvoice.interface";
 
-const STATUS_CONFIG: Record<string, { label: string; severity: "success" | "info" | "warning" | "danger" | "secondary" }> = {
-  PENDING_PREPARATION: { label: "Pendiente",        severity: "secondary" },
-  IN_PREPARATION:      { label: "En preparación",   severity: "info" },
-  READY_FOR_PAYMENT:   { label: "Lista para pago",  severity: "warning" },
-  PAID:                { label: "Pagada",            severity: "success" },
-  CANCELLED:           { label: "Cancelada",         severity: "danger" },
+const STATUS_CONFIG: Record<
+  string,
+  {
+    label: string;
+    severity: "success" | "info" | "warning" | "danger" | "secondary";
+  }
+> = {
+  PENDING_PREPARATION: { label: "Pendiente", severity: "secondary" },
+  IN_PREPARATION: { label: "En preparación", severity: "info" },
+  READY_FOR_PAYMENT: { label: "Lista para pago", severity: "warning" },
+  PAID: { label: "Pagada", severity: "success" },
+  CANCELLED: { label: "Cancelada", severity: "danger" },
 };
 
 const fmt = (v?: number | null) =>
-  v != null ? v.toLocaleString("es-MX", { style: "currency", currency: "MXN" }) : "—";
+  v != null
+    ? v.toLocaleString("es-MX", { style: "currency", currency: "MXN" })
+    : "—";
 
 export default function WorkshopBillingPage() {
   const toast = useRef<Toast>(null);
   const router = useRouter();
   const [preInvoices, setPreInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [expandedRows, setExpandedRows] = useState<DataTableExpandedRows | any[]>([]);
+  const [expandedRows, setExpandedRows] = useState<
+    DataTableExpandedRows | any[]
+  >([]);
 
   const load = async () => {
     setLoading(true);
@@ -45,7 +55,9 @@ export default function WorkshopBillingPage() {
     }
   };
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+  }, []);
 
   const rowExpansionTemplate = (pi: any) => {
     const items = pi.items ?? [];
@@ -55,9 +67,17 @@ export default function WorkshopBillingPage() {
         <DataTable value={items} size="small" className="mt-3">
           <Column field="itemName" header="Descripción" />
           <Column field="quantity" header="Cant." style={{ width: "80px" }} />
-          <Column header="P. Unitario" body={(r) => fmt(r.unitPrice)} style={{ width: "120px" }} />
+          <Column
+            header="P. Unitario"
+            body={(r) => fmt(r.unitPrice)}
+            style={{ width: "120px" }}
+          />
           <Column field="taxType" header="Impuesto" style={{ width: "90px" }} />
-          <Column header="Total" body={(r) => fmt(r.totalLine)} style={{ width: "120px" }} />
+          <Column
+            header="Total"
+            body={(r) => fmt(r.totalLine)}
+            style={{ width: "120px" }}
+          />
         </DataTable>
       </div>
     );
@@ -74,7 +94,9 @@ export default function WorkshopBillingPage() {
 
       <div className="flex align-items-center gap-2 mb-4">
         <i className="pi pi-dollar text-primary text-2xl" />
-        <h2 className="text-2xl font-bold text-900 m-0">Facturación de Taller</h2>
+        <h2 className="text-2xl font-bold text-900 m-0">
+          Facturación de Taller
+        </h2>
       </div>
 
       <Card>
@@ -90,7 +112,13 @@ export default function WorkshopBillingPage() {
               size="small"
               onClick={() => router.push("/empresa/inventario/pre-invoice")}
             />
-            <Button icon="pi pi-refresh" text rounded onClick={load} loading={loading} />
+            <Button
+              icon="pi pi-refresh"
+              text
+              rounded
+              onClick={load}
+              loading={loading}
+            />
           </div>
         </div>
 
@@ -108,33 +136,39 @@ export default function WorkshopBillingPage() {
         >
           <Column expander style={{ width: "3rem" }} />
           <Column field="preInvoiceNumber" header="N° Pre-Factura" sortable />
-            <Column
-              header="OT"
-              body={(row) =>
-                row.serviceOrder?.folio ? (
-                  <Button
+          <Column
+            header="OT"
+            body={(row) =>
+              row.serviceOrder?.folio ? (
+                <Button
                   label={row.serviceOrder.folio}
                   link
                   size="small"
                   onClick={() =>
-                    router.push(`/empresa/workshop/service-orders/${row.serviceOrderId}`)
+                    router.push(
+                      `/empresa/workshop/service-orders/${row.serviceOrderId}`,
+                    )
                   }
-                    />
-                ) : (row.consolidatedServiceOrders?.length ?? 0) > 0 ? (
-                  <span>{`Consolidada (${row.consolidatedServiceOrders.length} OTs)`}</span>
-                ) : "—"
-              }
-            />
-          <Column
-            header="Cliente"
-            body={(row) => row.customer?.name ?? "—"}
+                />
+              ) : (row.consolidatedServiceOrders?.length ?? 0) > 0 ? (
+                <span>{`Consolidada (${row.consolidatedServiceOrders.length} OTs)`}</span>
+              ) : (
+                "—"
+              )
+            }
           />
+          <Column header="Cliente" body={(row) => row.customer?.name ?? "—"} />
           <Column
             field="status"
             header="Estado"
             body={(row) => {
               const cfg = STATUS_CONFIG[row.status];
-              return <Tag value={cfg?.label ?? row.status} severity={cfg?.severity ?? "info"} />;
+              return (
+                <Tag
+                  value={cfg?.label ?? row.status}
+                  severity={cfg?.severity ?? "info"}
+                />
+              );
             }}
           />
           <Column
@@ -146,7 +180,9 @@ export default function WorkshopBillingPage() {
           <Column
             header="Generada"
             body={(row) =>
-              row.createdAt ? new Date(row.createdAt).toLocaleDateString("es-MX") : "—"
+              row.createdAt
+                ? new Date(row.createdAt).toLocaleDateString("es-MX")
+                : "—"
             }
           />
         </DataTable>

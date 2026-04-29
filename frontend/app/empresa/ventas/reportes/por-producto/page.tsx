@@ -7,7 +7,7 @@ import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
 import salesReportService, {
   SalesByProductItem,
-} from "@/app/api/sales/reportService";
+} from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/app/api/inventory/reportService";
 
 const SalesByProductPage = () => {

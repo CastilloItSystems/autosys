@@ -3,7 +3,7 @@
 import QuickActions, {
   type QuickAction,
 } from "@/components/common/QuickActions";
-import SalesDashboard from "@/components/sales/dashboard/SalesDashboard";
+import SalesDashboard from "@/modules/sales/dashboard/components/SalesDashboard";
 
 const SALES_ACTIONS: QuickAction[] = [
   {

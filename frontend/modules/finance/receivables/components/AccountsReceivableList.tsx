@@ -15,11 +15,11 @@ import receivablesService, {
   type ReceivablesData,
 } from "../services/receivablesService";
 import { handleFormError } from "@/utils/errorHandlers";
-import preInvoiceService from "@/app/api/sales/preInvoiceService";
-import paymentService from "@/app/api/sales/paymentService";
-import PaymentDialog from "@/components/sales/payments/PaymentDialog";
-import type { PreInvoice } from "@/libs/interfaces/sales/preInvoice.interface";
-import type { Payment } from "@/libs/interfaces/sales/payment.interface";
+import preInvoiceService from "@/modules/sales/preInvoice/services/preInvoiceService";
+import paymentService from "@/modules/sales/payments/services/paymentService";
+import PaymentDialog from "@/modules/sales/payments/components/PaymentDialog";
+import type { PreInvoice } from "@/modules/sales/preInvoice/interfaces/preInvoice.interface";
+import type { Payment } from "@/modules/sales/payments/interfaces/payment.interface";
 
 const fmt = (v: number) =>
   v.toLocaleString("es-VE", {

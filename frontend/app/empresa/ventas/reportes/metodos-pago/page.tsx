@@ -9,7 +9,9 @@ import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Calendar } from "primereact/calendar";
 import { motion } from "framer-motion";
-import salesReportService, { PaymentMethodsReport } from "@/app/api/sales/reportService";
+import salesReportService, {
+  PaymentMethodsReport,
+} from "@/modules/sales/dashboard/services/reportService";
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: "Efectivo",
@@ -64,12 +66,34 @@ const PaymentMethodsPage = () => {
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
 
   const summaryCards = [
-    { label: "Total Pagos", value: data?.summary.totalPayments ?? 0, icon: "pi pi-check-circle", color: "#3B82F6", bg: "#EFF6FF", isCount: true },
-    { label: "Monto Total", value: data?.summary.totalAmount ?? 0, icon: "pi pi-dollar", color: "#22C55E", bg: "#F0FDF4" },
-    { label: "Total IGTF", value: data?.summary.totalIgtf ?? 0, icon: "pi pi-percentage", color: "#F97316", bg: "#FFF7ED" },
+    {
+      label: "Total Pagos",
+      value: data?.summary.totalPayments ?? 0,
+      icon: "pi pi-check-circle",
+      color: "#3B82F6",
+      bg: "#EFF6FF",
+      isCount: true,
+    },
+    {
+      label: "Monto Total",
+      value: data?.summary.totalAmount ?? 0,
+      icon: "pi pi-dollar",
+      color: "#22C55E",
+      bg: "#F0FDF4",
+    },
+    {
+      label: "Total IGTF",
+      value: data?.summary.totalIgtf ?? 0,
+      icon: "pi pi-percentage",
+      color: "#F97316",
+      bg: "#FFF7ED",
+    },
   ];
 
   return (
@@ -90,15 +114,23 @@ const PaymentMethodsPage = () => {
                     className="flex align-items-center justify-content-center border-round"
                     style={{ width: 48, height: 48, background: card.bg }}
                   >
-                    <i className={card.icon} style={{ fontSize: "1.4rem", color: card.color }} />
+                    <i
+                      className={card.icon}
+                      style={{ fontSize: "1.4rem", color: card.color }}
+                    />
                   </div>
                   <div>
                     <p className="text-500 text-sm m-0">{card.label}</p>
                     {loading ? (
                       <Skeleton width="4rem" height="1.5rem" />
                     ) : (
-                      <p className="font-bold text-2xl m-0" style={{ color: card.color }}>
-                        {card.isCount ? card.value : `$${formatCurrency(card.value as number)}`}
+                      <p
+                        className="font-bold text-2xl m-0"
+                        style={{ color: card.color }}
+                      >
+                        {card.isCount
+                          ? card.value
+                          : `$${formatCurrency(card.value as number)}`}
                       </p>
                     )}
                   </div>
@@ -115,8 +147,22 @@ const PaymentMethodsPage = () => {
             title="Por Método de Pago"
             subTitle={
               <div className="flex gap-2 mt-2">
-                <Calendar value={dateFrom} onChange={(e) => setDateFrom(e.value as Date | null)} placeholder="Desde" showIcon className="p-inputtext-sm" dateFormat="dd/mm/yy" />
-                <Calendar value={dateTo} onChange={(e) => setDateTo(e.value as Date | null)} placeholder="Hasta" showIcon className="p-inputtext-sm" dateFormat="dd/mm/yy" />
+                <Calendar
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.value as Date | null)}
+                  placeholder="Desde"
+                  showIcon
+                  className="p-inputtext-sm"
+                  dateFormat="dd/mm/yy"
+                />
+                <Calendar
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.value as Date | null)}
+                  placeholder="Hasta"
+                  showIcon
+                  className="p-inputtext-sm"
+                  dateFormat="dd/mm/yy"
+                />
               </div>
             }
           >
@@ -129,25 +175,57 @@ const PaymentMethodsPage = () => {
                   header="Método"
                   body={(row) => (
                     <div className="flex align-items-center gap-2">
-                      <i className={`pi ${METHOD_ICONS[row.method] ?? "pi-wallet"}`} />
+                      <i
+                        className={`pi ${
+                          METHOD_ICONS[row.method] ?? "pi-wallet"
+                        }`}
+                      />
                       <span>{METHOD_LABELS[row.method] ?? row.method}</span>
                     </div>
                   )}
                 />
-                <Column field="count" header="Cantidad" body={(row) => <span className="font-semibold">{row.count}</span>} />
-                <Column field="totalAmount" header="Monto Total" body={(row) => <span className="font-bold">{formatCurrency(row.totalAmount)}</span>} />
+                <Column
+                  field="count"
+                  header="Cantidad"
+                  body={(row) => (
+                    <span className="font-semibold">{row.count}</span>
+                  )}
+                />
+                <Column
+                  field="totalAmount"
+                  header="Monto Total"
+                  body={(row) => (
+                    <span className="font-bold">
+                      {formatCurrency(row.totalAmount)}
+                    </span>
+                  )}
+                />
                 <Column
                   field="percentage"
                   header="% del Total"
                   body={(row) => (
                     <Tag
                       value={`${row.percentage.toFixed(1)}%`}
-                      severity={row.percentage > 50 ? "success" : row.percentage > 20 ? "warning" : "info"}
+                      severity={
+                        row.percentage > 50
+                          ? "success"
+                          : row.percentage > 20
+                          ? "warning"
+                          : "info"
+                      }
                     />
                   )}
                 />
-                <Column field="igtfAmount" header="IGTF" body={(row) => formatCurrency(row.igtfAmount)} />
-                <Column field="avgAmount" header="Prom. por Pago" body={(row) => formatCurrency(row.avgAmount)} />
+                <Column
+                  field="igtfAmount"
+                  header="IGTF"
+                  body={(row) => formatCurrency(row.igtfAmount)}
+                />
+                <Column
+                  field="avgAmount"
+                  header="Prom. por Pago"
+                  body={(row) => formatCurrency(row.avgAmount)}
+                />
               </DataTable>
             )}
           </Card>
@@ -159,9 +237,17 @@ const PaymentMethodsPage = () => {
               <Skeleton height="150px" />
             ) : (
               <DataTable value={data?.byCurrency ?? []} size="small">
-                <Column field="currency" header="Moneda" body={(row) => <Tag value={row.currency} />} />
+                <Column
+                  field="currency"
+                  header="Moneda"
+                  body={(row) => <Tag value={row.currency} />}
+                />
                 <Column field="count" header="Pagos" />
-                <Column field="totalAmount" header="Monto" body={(row) => formatCurrency(row.totalAmount)} />
+                <Column
+                  field="totalAmount"
+                  header="Monto"
+                  body={(row) => formatCurrency(row.totalAmount)}
+                />
               </DataTable>
             )}
           </Card>

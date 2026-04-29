@@ -4,17 +4,11 @@ import type {
   ServiceOrderItem,
   ServiceOrderStatus,
 } from "./serviceOrder.interface";
-import type {
-  ServiceType,
-  ServiceTypeFilters,
-} from "./serviceType.interface";
-import type {
-  WorkshopBay,
-  WorkshopBayFilters,
-} from "./workshopBay.interface";
+import type { ServiceType, ServiceTypeFilters } from "./serviceType.interface";
+import type { WorkshopBay, WorkshopBayFilters } from "./workshopBay.interface";
 import type { WorkshopPagedResponse } from "./shared.interface";
-import type { Invoice as SalesInvoice } from "../sales/invoice.interface";
-import type { Payment as SalesPayment } from "../sales/payment.interface";
+import type { Invoice as SalesInvoice } from "@/modules/sales/invoice/interfaces/invoice.interface";
+import type { Payment as SalesPayment } from "@/modules/sales/payments/interfaces/payment.interface";
 
 export type Service = ServiceType & {
   _id?: string;

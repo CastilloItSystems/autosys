@@ -8,7 +8,7 @@ import { Button } from "primereact/button";
 import { classNames } from "primereact/utils";
 import { salesOrderSchema } from "@/libs/zods/inventory/salesOrderZod";
 import salesOrderService from "@/app/api/inventory/salesOrderService";
-import customerService from "@/app/api/sales/customerService";
+import customerService from "@/modules/sales/customer/services/customerService";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
@@ -18,7 +18,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
 import { LayoutContext } from "@/layout/context/layoutcontext";
 import { Item } from "@/libs/interfaces/inventory";
-import CustomerForm from "@/components/sales/customer/CustomerForm";
+import CustomerForm from "@/modules/sales/customer/components/CustomerForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
 type FormData = z.infer<typeof salesOrderSchema>;

@@ -1,5 +1,5 @@
 "use client";
-import PaymentList from "@/components/sales/payments/PaymentList";
+import PaymentList from "@/modules/sales/payments/components/PaymentList";
 
 export default function PaymentPage() {
   return (

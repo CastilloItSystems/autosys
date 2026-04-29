@@ -1,6 +1,6 @@
 "use client";
 
-import CustomerList from "@/components/sales/customer/CustomerList";
+import CustomerList from "@/modules/sales/customer/components/CustomerList";
 
 function Clientes() {
   return (

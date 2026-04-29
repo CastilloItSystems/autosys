@@ -1,5 +1,5 @@
 "use client";
-import PreInvoiceList from "@/components/sales/preInvoice/PreInvoiceList";
+import PreInvoiceList from "@/modules/sales/preInvoice/components/PreInvoiceList";
 
 export default function PreInvoicePage() {
   return (

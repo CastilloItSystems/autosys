@@ -8,7 +8,9 @@ import { Skeleton } from "primereact/skeleton";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { motion } from "framer-motion";
-import salesReportService, { OrderPipelineReport } from "@/app/api/sales/reportService";
+import salesReportService, {
+  OrderPipelineReport,
+} from "@/modules/sales/dashboard/services/reportService";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
@@ -17,7 +19,10 @@ const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Cancelada",
 };
 
-const STATUS_SEVERITY: Record<string, "info" | "warning" | "success" | "danger"> = {
+const STATUS_SEVERITY: Record<
+  string,
+  "info" | "warning" | "success" | "danger"
+> = {
   DRAFT: "info",
   PENDING_APPROVAL: "warning",
   APPROVED: "success",
@@ -51,13 +56,43 @@ const OrderPipelinePage = () => {
   };
 
   const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(value);
+    new Intl.NumberFormat("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
 
   const summaryCards = [
-    { label: "Total Órdenes", value: data?.summary.totalOrders ?? 0, icon: "pi pi-list", color: "#3B82F6", bg: "#EFF6FF", isCount: true },
-    { label: "Valor Total", value: data?.summary.totalValue ?? 0, icon: "pi pi-dollar", color: "#22C55E", bg: "#F0FDF4" },
-    { label: "Tasa de Aprobación", value: data?.summary.approvedRate ?? 0, icon: "pi pi-check-circle", color: "#8B5CF6", bg: "#F5F3FF", isPercent: true },
-    { label: "Tiempo Prom. Aprob.", value: data?.avgApprovalHours ?? 0, icon: "pi pi-clock", color: "#F97316", bg: "#FFF7ED", isHours: true },
+    {
+      label: "Total Órdenes",
+      value: data?.summary.totalOrders ?? 0,
+      icon: "pi pi-list",
+      color: "#3B82F6",
+      bg: "#EFF6FF",
+      isCount: true,
+    },
+    {
+      label: "Valor Total",
+      value: data?.summary.totalValue ?? 0,
+      icon: "pi pi-dollar",
+      color: "#22C55E",
+      bg: "#F0FDF4",
+    },
+    {
+      label: "Tasa de Aprobación",
+      value: data?.summary.approvedRate ?? 0,
+      icon: "pi pi-check-circle",
+      color: "#8B5CF6",
+      bg: "#F5F3FF",
+      isPercent: true,
+    },
+    {
+      label: "Tiempo Prom. Aprob.",
+      value: data?.avgApprovalHours ?? 0,
+      icon: "pi pi-clock",
+      color: "#F97316",
+      bg: "#FFF7ED",
+      isHours: true,
+    },
   ];
 
   return (
@@ -78,14 +113,20 @@ const OrderPipelinePage = () => {
                     className="flex align-items-center justify-content-center border-round"
                     style={{ width: 48, height: 48, background: card.bg }}
                   >
-                    <i className={card.icon} style={{ fontSize: "1.4rem", color: card.color }} />
+                    <i
+                      className={card.icon}
+                      style={{ fontSize: "1.4rem", color: card.color }}
+                    />
                   </div>
                   <div>
                     <p className="text-500 text-sm m-0">{card.label}</p>
                     {loading ? (
                       <Skeleton width="4rem" height="1.5rem" />
                     ) : (
-                      <p className="font-bold text-2xl m-0" style={{ color: card.color }}>
+                      <p
+                        className="font-bold text-2xl m-0"
+                        style={{ color: card.color }}
+                      >
                         {card.isCount
                           ? card.value
                           : card.isPercent
@@ -118,11 +159,19 @@ const OrderPipelinePage = () => {
                 />
               )}
             />
-            <Column field="count" header="Cantidad" body={(row) => <span className="font-semibold">{row.count}</span>} />
+            <Column
+              field="count"
+              header="Cantidad"
+              body={(row) => <span className="font-semibold">{row.count}</span>}
+            />
             <Column
               field="totalValue"
               header="Valor Total"
-              body={(row) => <span className="font-bold">{formatCurrency(row.totalValue)}</span>}
+              body={(row) => (
+                <span className="font-bold">
+                  {formatCurrency(row.totalValue)}
+                </span>
+              )}
             />
             <Column
               field="avgValue"

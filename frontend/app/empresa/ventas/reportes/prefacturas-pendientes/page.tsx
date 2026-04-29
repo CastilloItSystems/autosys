@@ -9,7 +9,7 @@ import { motion } from "framer-motion";
 import ReportsTable from "@/components/inventory/reports/ReportsTable";
 import salesReportService, {
   PendingInvoiceItem,
-} from "@/app/api/sales/reportService";
+} from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/app/api/inventory/reportService";
 
 const STATUS_LABELS: Record<string, string> = {

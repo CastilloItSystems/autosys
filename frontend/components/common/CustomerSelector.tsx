@@ -5,7 +5,7 @@ import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
-import CustomerForm from "@/components/sales/customer/CustomerForm";
+import CustomerForm from "@/modules/sales/customer/components/CustomerForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import type { CustomerCrm } from "@/modules/crm/customer/interfaces/customer.crm.interface";
 

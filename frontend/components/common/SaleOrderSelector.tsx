@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
-import orderService from "@/app/api/sales/orderService";
+import orderService from "@/modules/sales/order/services/orderService";
 
 interface Order {
   id: string;

@@ -1,5 +1,5 @@
 "use client";
-import OrderList from "@/components/sales/order/OrderList";
+import OrderList from "@/modules/sales/order/components/OrderList";
 
 export default function SalesOrdersPage() {
   return (

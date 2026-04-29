@@ -10,7 +10,7 @@ import ReportsTable from "@/components/inventory/reports/ReportsTable";
 import salesReportService, {
   SalesByPeriodItem,
   SalesByPeriodSummary,
-} from "@/app/api/sales/reportService";
+} from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/app/api/inventory/reportService";
 
 const GRANULARITY_OPTIONS = [
