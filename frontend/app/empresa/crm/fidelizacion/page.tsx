@@ -1,6 +1,6 @@
 'use client'
 
-import LoyaltyList from '@/components/crm/loyalty/LoyaltyList'
+import LoyaltyList from '@/modules/crm/loyalty/components/LoyaltyList'
 
 export default function FidelizacionPage() {
   return <LoyaltyList />

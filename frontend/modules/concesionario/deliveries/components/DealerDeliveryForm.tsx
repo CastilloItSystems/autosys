@@ -6,7 +6,7 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/app/api/crm/customerCrmService";
+import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import dealerDeliveryService from "../services/dealerDeliveryService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type {

@@ -8,19 +8,19 @@ import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { Toast } from "primereact/toast";
-import customerVehicleService from "@/app/api/crm/customerVehicleService";
+import customerVehicleService from "@/modules/crm/customer/services/customerVehicleService";
 import brandsService, { type Brand } from "@/app/api/inventory/brandService";
 import modelsService, { type Model } from "@/app/api/inventory/modelService";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   createCustomerVehicleSchema,
   type CreateCustomerVehicleInput,
-} from "@/libs/zods/crm/customerVehicleZod";
+} from "@/modules/crm/customer/schemas/customerVehicleZod";
 import {
   FUEL_TYPE_OPTIONS,
   TRANSMISSION_TYPE_OPTIONS,
   type CustomerVehicle,
-} from "@/libs/interfaces/crm/customerVehicle.interface";
+} from "@/modules/crm/customer/interfaces/customerVehicle.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 
 export interface VehicleSelectedData {

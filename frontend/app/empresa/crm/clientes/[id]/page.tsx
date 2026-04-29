@@ -7,14 +7,14 @@ import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
-import customerCrmService from "@/app/api/crm/customerCrmService";
+import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import {
   CustomerCrm,
   CUSTOMER_TYPE_CONFIG,
   CUSTOMER_SEGMENT_CONFIG,
-} from "@/libs/interfaces/crm/customer.crm.interface";
-import CustomerTimeline from "@/components/crm/customer/CustomerTimeline";
-import CustomerVehiclePanel from "@/components/crm/customer/CustomerVehiclePanel";
+} from "@/modules/crm/customer/interfaces/customer.crm.interface";
+import CustomerTimeline from "@/modules/crm/customer/components/CustomerTimeline";
+import CustomerVehiclePanel from "@/modules/crm/customer/components/CustomerVehiclePanel";
 
 export default function CustomerDetailPage() {
   const params = useParams();

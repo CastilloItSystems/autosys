@@ -4,10 +4,10 @@ import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
-import customerCrmService from "@/app/api/crm/customerCrmService";
+import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import CustomerForm from "@/components/sales/customer/CustomerForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
-import type { CustomerCrm } from "@/libs/interfaces/crm/customer.crm.interface";
+import type { CustomerCrm } from "@/modules/crm/customer/interfaces/customer.crm.interface";
 
 interface CustomerSelectorProps {
   value: string | null | undefined;

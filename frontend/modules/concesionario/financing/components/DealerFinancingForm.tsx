@@ -6,7 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/app/api/crm/customerCrmService";
+import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import dealerFinancingService from "../services/dealerFinancingService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";

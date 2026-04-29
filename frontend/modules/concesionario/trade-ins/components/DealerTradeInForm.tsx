@@ -7,7 +7,7 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/app/api/crm/customerCrmService";
+import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import dealerTradeInService from "../services/dealerTradeInService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type {
