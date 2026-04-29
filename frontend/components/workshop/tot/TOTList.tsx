@@ -11,7 +11,7 @@ import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { motion } from "framer-motion";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import {
   confirmAction,

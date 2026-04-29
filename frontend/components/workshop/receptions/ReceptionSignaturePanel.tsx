@@ -7,7 +7,7 @@ import { Tag } from "primereact/tag";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import { Controller } from "react-hook-form";
-import PhoneInput from "@/components/common/PhoneInput";
+import PhoneInput from "@/shared/components/PhoneInput";
 import { receptionService } from "@/app/api/workshop";
 import type { Control, FieldErrors } from "react-hook-form";
 import type { CreateReceptionForm } from "@/libs/zods/workshop/receptionZod";

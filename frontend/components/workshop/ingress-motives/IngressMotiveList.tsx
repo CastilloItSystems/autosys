@@ -10,7 +10,7 @@ import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { ingressMotiveService } from "@/app/api/workshop";

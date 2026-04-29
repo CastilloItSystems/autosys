@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useForm, Controller } from "react-hook-form";
+import { useForm, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
@@ -22,8 +22,8 @@ import customerService from "@/app/api/sales/customerService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 // Componentes comunes
-import PhoneInput from "@/components/common/PhoneInput";
-import RifInput from "@/components/common/RifInput";
+import PhoneInput from "@/shared/components/PhoneInput";
+import RifInput from "@/shared/components/RifInput";
 import MetadataInput from "@/components/common/MetadataInput";
 
 interface CustomerFormProps {
@@ -85,12 +85,24 @@ export default function CustomerForm({
         },
   });
 
+  const currentType = useWatch({
+    control,
+    name: "type",
+  });
+
   const typeOptions = Object.entries(CUSTOMER_TYPE_CONFIG).map(
     ([value, config]) => ({
       label: config.label,
       value,
     }),
   );
+
+  const priceListOptions = [
+    { label: "Lista 1 (Detal)", value: 1 },
+    { label: "Lista 2 (Mayor)", value: 2 },
+    { label: "Lista 3 (VIP)", value: 3 },
+    { label: "Lista 4 (Especial)", value: 4 },
+  ];
 
   const onSubmit = async (data: CreateCustomerInput) => {
     if (onSubmittingChange) onSubmittingChange(true);
@@ -99,7 +111,7 @@ export default function CustomerForm({
       const payload = {
         code: data.code,
         name: data.name,
-        taxId: data.taxId || undefined,
+        taxId: data.taxId,
         email: data.email || undefined,
         phone: data.phone || undefined,
         mobile: data.mobile || undefined,
@@ -171,11 +183,7 @@ export default function CustomerForm({
         {isEditing && (
           <div className="col-12 md:col-6 field">
             <label className="font-semibold">Código</label>
-            <InputText
-              {...register("code")}
-              disabled
-              className="p-disabled"
-            />
+            <InputText {...register("code")} disabled className="p-disabled" />
           </div>
         )}
 
@@ -194,7 +202,9 @@ export default function CustomerForm({
         </div>
 
         <div className="col-12 md:col-4 field">
-          <label className="font-semibold">RIF / Cédula</label>
+          <label className="font-semibold">
+            RIF / Cédula <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="taxId"
             control={control}
@@ -205,6 +215,7 @@ export default function CustomerForm({
                 onChange={field.onChange}
                 error={errors.taxId}
                 className={errors.taxId ? "p-invalid" : ""}
+                customerType={currentType}
               />
             )}
           />
@@ -251,6 +262,7 @@ export default function CustomerForm({
                 value={field.value || ""}
                 onChange={field.onChange}
                 error={errors.phone}
+                type="landline"
               />
             )}
           />
@@ -266,6 +278,7 @@ export default function CustomerForm({
                 value={field.value || ""}
                 onChange={field.onChange}
                 error={errors.mobile}
+                type="mobile"
               />
             )}
           />
@@ -275,7 +288,8 @@ export default function CustomerForm({
           <label>Dirección Fiscal</label>
           <InputTextarea
             {...register("address")}
-            rows={2}
+            rows={1}
+            autoResize
             placeholder="Dirección principal"
           />
         </div>
@@ -284,7 +298,8 @@ export default function CustomerForm({
           <label>Dirección de Envío</label>
           <InputTextarea
             {...register("shippingAddress")}
-            rows={2}
+            rows={1}
+            autoResize
             placeholder="Opcional. Si es diferente a la dirección fiscal."
           />
         </div>
@@ -297,23 +312,26 @@ export default function CustomerForm({
           <Divider className="mt-2 mb-3" />
         </div>
 
-        <div className="col-12 md:col-4 field">
+        <div className="col-12 md:col-3 field">
           <label className="font-semibold">Lista de Precio</label>
           <Controller
             name="priceList"
             control={control}
             render={({ field }) => (
-              <InputNumber
+              <Dropdown
                 id={field.name}
                 value={field.value}
-                onValueChange={(e) => field.onChange(e.value)}
-                min={1}
+                onChange={(e) => field.onChange(e.value)}
+                options={priceListOptions}
+                optionLabel="label"
+                optionValue="value"
+                placeholder="Seleccione"
               />
             )}
           />
         </div>
 
-        <div className="col-12 md:col-4 field">
+        <div className="col-12 md:col-3 field">
           <label className="font-semibold">Límite de Crédito</label>
           <Controller
             name="creditLimit"
@@ -326,12 +344,13 @@ export default function CustomerForm({
                 min={0}
                 mode="decimal"
                 minFractionDigits={2}
+                prefix="$ "
               />
             )}
           />
         </div>
 
-        <div className="col-12 md:col-4 field">
+        <div className="col-12 md:col-3 field">
           <label className="font-semibold">Días de Crédito</label>
           <Controller
             name="creditDays"
@@ -348,7 +367,7 @@ export default function CustomerForm({
           />
         </div>
 
-        <div className="col-12 md:col-4 field">
+        <div className="col-12 md:col-3 field">
           <label className="font-semibold">Descuento por Defecto</label>
           <Controller
             name="defaultDiscount"
@@ -366,7 +385,7 @@ export default function CustomerForm({
           />
         </div>
 
-        <div className="col-12 md:col-4 field flex flex-column justify-content-center">
+        <div className="col-12 md:col-3 field flex flex-column justify-content-center">
           <label className="font-semibold mb-2">Contribuyente Especial</label>
           <div className="flex align-items-center gap-3">
             <Controller
@@ -379,14 +398,12 @@ export default function CustomerForm({
                 />
               )}
             />
-            <span className="text-sm">
-              Agente de Retención (IGTF/IVA)
-            </span>
+            <span className="text-sm">Agente de Retención (IGTF/IVA)</span>
           </div>
         </div>
 
         {isEditing && (
-          <div className="col-12 md:col-4 field flex flex-column justify-content-center">
+          <div className="col-12 md:col-3 field flex flex-column justify-content-center">
             <label className="font-semibold mb-2">Estado</label>
             <div className="flex align-items-center gap-3">
               <Controller
@@ -416,7 +433,8 @@ export default function CustomerForm({
           <label>Notas Internas</label>
           <InputTextarea
             {...register("notes")}
-            rows={3}
+            rows={1}
+            autoResize
             placeholder="Notas o comentarios sobre el cliente"
           />
         </div>

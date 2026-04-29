@@ -30,7 +30,7 @@ import BrandForm from "../brands/BrandForm";
 import CategoryForm from "../categories/CategoryForm";
 import UnitForm from "../units/UnitForm";
 import ItemModelForm from "../itemModels/ItemModelForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 // ============================================
 // SCHEMA VALIDATION

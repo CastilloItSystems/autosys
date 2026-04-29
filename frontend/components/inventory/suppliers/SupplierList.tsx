@@ -13,7 +13,7 @@ import supplierService, {
   type Supplier,
 } from "@/app/api/inventory/supplierService";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 import SupplierForm from "./SupplierForm";
 import SupplierDetailDialog from "./SupplierDetailDialog";

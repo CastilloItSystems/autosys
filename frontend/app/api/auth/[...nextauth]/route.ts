@@ -1,6 +1,7 @@
 import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { getUser, googleSingIn, loginUser } from "../../userService";
+import { googleSingIn, loginUser } from "@/modules/auth/services/auth.service";
+
 import { Usuario } from "@/libs/interfaces";
 import GoogleProvider from "next-auth/providers/google";
 declare module "next-auth" {
@@ -27,11 +28,14 @@ const handler = NextAuth({
       authorize: async (credentials) => {
         if (!credentials) return null;
         try {
-          const correo = (credentials as any).email ?? (credentials as any).correo
-          const password = (credentials as any).password
+          const correo =
+            (credentials as any).email ?? (credentials as any).correo;
+          const password = (credentials as any).password;
           if (!correo || !password) {
-            console.warn('Credentials missing email/correo or password', { credentials })
-            return null
+            console.warn("Credentials missing email/correo or password", {
+              credentials,
+            });
+            return null;
           }
           const response = await loginUser({
             correo,

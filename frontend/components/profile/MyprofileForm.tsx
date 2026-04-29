@@ -14,7 +14,7 @@ import { Usuario } from "@/libs/interfaces";
 import { handleFormError } from "@/utils/errorHandlers";
 import { updateUser, uploadUserProfilePicture } from "@/app/api/userService";
 import { useSession } from "next-auth/react";
-import PhoneInput from "@/components/common/PhoneInput";
+import PhoneInput from "@/shared/components/PhoneInput";
 
 type FormData = z.infer<typeof profileSchema>;
 

@@ -17,7 +17,7 @@ import { SelectButton } from "primereact/selectbutton";
 import { Skeleton } from "primereact/skeleton";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { motion } from "framer-motion";
 import { ProgressSpinner } from "primereact/progressspinner";
 import stockService, {
@@ -217,7 +217,8 @@ export default function StockList() {
         for (const stock of response.data || []) {
           const itemName = stock.item?.name || "Sin nombre";
           const sku = stock.item?.sku || "";
-          const warehouse = stock.warehouse?.name || stock.warehouse?.code || "";
+          const warehouse =
+            stock.warehouse?.name || stock.warehouse?.code || "";
           const location = stock.location || "";
           const queryValue =
             sku || itemName || warehouse || location || stock.itemId;
@@ -626,7 +627,9 @@ export default function StockList() {
 
   const stockSuggestionTemplate = (suggestion: StockSuggestion) => (
     <div className="flex flex-column gap-1">
-      <span className="font-semibold text-sm">{suggestion.stock.item?.name}</span>
+      <span className="font-semibold text-sm">
+        {suggestion.stock.item?.name}
+      </span>
       <span className="text-xs text-600">
         {(suggestion.stock.item?.sku || "SIN-SKU") +
           " • " +

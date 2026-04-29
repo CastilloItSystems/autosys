@@ -1,4 +1,4 @@
-import DealerTestDriveList from "@/components/concesionario/test-drives/DealerTestDriveList";
+import DealerTestDriveList from "@/modules/concesionario/test-drives/components/DealerTestDriveList";
 
 export default function ConcesionarioTestDrivesPage() {
   return <DealerTestDriveList />;

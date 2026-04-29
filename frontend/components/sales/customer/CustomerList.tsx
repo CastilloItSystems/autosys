@@ -21,7 +21,7 @@ import {
 import CustomerForm from "./CustomerForm";
 import CustomerDetailDialog from "./CustomerDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   confirmAction,
   ConfirmActionPopup,

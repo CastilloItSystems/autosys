@@ -1,4 +1,4 @@
-import DealerQuoteList from "@/components/concesionario/quotes/DealerQuoteList";
+import DealerQuoteList from "@/modules/concesionario/quotes/components/DealerQuoteList";
 
 export default function ConcesionarioQuotesPage() {
   return <DealerQuoteList />;

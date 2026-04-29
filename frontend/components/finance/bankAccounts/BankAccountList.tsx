@@ -15,7 +15,7 @@ import type { BankAccount } from "@/libs/interfaces/finance";
 import bankAccountService from "@/app/api/finance/bankAccountService";
 import BankAccountForm from "./BankAccountForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const TYPE_LABELS: Record<string, string> = {
   CHECKING: "Corriente",
@@ -44,9 +44,18 @@ export default function BankAccountList() {
     try {
       await bankAccountService.syncBalances();
       await load();
-      toast.current?.show({ severity: "success", summary: "Saldos sincronizados", detail: "Los saldos se recalcularon desde el flujo de caja", life: 4000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Saldos sincronizados",
+        detail: "Los saldos se recalcularon desde el flujo de caja",
+        life: 4000,
+      });
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron sincronizar los saldos" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron sincronizar los saldos",
+      });
     } finally {
       setSyncing(false);
     }
@@ -55,23 +64,38 @@ export default function BankAccountList() {
   const load = async () => {
     setLoading(true);
     try {
-      const res = await bankAccountService.getAll({ page, limit: 20, isActive: "true", search: searchQuery || undefined });
+      const res = await bankAccountService.getAll({
+        page,
+        limit: 20,
+        isActive: "true",
+        search: searchQuery || undefined,
+      });
       setAccounts(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron cargar las cuentas" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar las cuentas",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [page, searchQuery]);
+  useEffect(() => {
+    load();
+  }, [page, searchQuery]);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
     await load();
-    toast.current?.show({ severity: "success", summary: "Éxito", detail: "Cuenta guardada" });
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Cuenta guardada",
+    });
   };
 
   const getMenuItems = (target: BankAccount | null): MenuItem[] => [
@@ -83,16 +107,25 @@ export default function BankAccountList() {
     {
       label: target?.isActive ? "Desactivar" : "Activar",
       icon: target?.isActive ? "pi pi-ban" : "pi pi-check",
-      command: () => confirmDialog({
-        message: `¿${target?.isActive ? "Desactivar" : "Activar"} esta cuenta?`,
-        header: "Confirmar",
-        icon: "pi pi-question-circle",
-        accept: async () => {
-          await bankAccountService.update(target!.id, { isActive: !target!.isActive });
-          await load();
-          toast.current?.show({ severity: "success", summary: "Éxito", detail: "Cuenta actualizada" });
-        },
-      }),
+      command: () =>
+        confirmDialog({
+          message: `¿${
+            target?.isActive ? "Desactivar" : "Activar"
+          } esta cuenta?`,
+          header: "Confirmar",
+          icon: "pi pi-question-circle",
+          accept: async () => {
+            await bankAccountService.update(target!.id, {
+              isActive: !target!.isActive,
+            });
+            await load();
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Cuenta actualizada",
+            });
+          },
+        }),
     },
   ];
 
@@ -101,19 +134,29 @@ export default function BankAccountList() {
       icon="pi pi-cog"
       rounded
       text
-      onClick={(e) => { setMenuTarget(row); setSelected(row); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setMenuTarget(row);
+        setSelected(row);
+        menuRef.current?.toggle(e);
+      }}
       aria-controls="bank-account-menu"
       aria-haspopup
     />
   );
 
   const statusBody = (row: BankAccount) => (
-    <Tag value={row.isActive ? "Activa" : "Inactiva"} severity={row.isActive ? "success" : "danger"} />
+    <Tag
+      value={row.isActive ? "Activa" : "Inactiva"}
+      severity={row.isActive ? "success" : "danger"}
+    />
   );
 
   const balanceBody = (row: BankAccount) => (
     <span className="font-semibold">
-      {row.currency} {Number(row.currentBalance).toLocaleString("es-VE", { minimumFractionDigits: 2 })}
+      {row.currency}{" "}
+      {Number(row.currentBalance).toLocaleString("es-VE", {
+        minimumFractionDigits: 2,
+      })}
     </span>
   );
 
@@ -130,7 +173,10 @@ export default function BankAccountList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
           />
         </span>
         <Button
@@ -146,7 +192,10 @@ export default function BankAccountList() {
         />
         <CreateButton
           label="Nueva Cuenta"
-          onClick={() => { setSelected(null); setShowForm(true); }}
+          onClick={() => {
+            setSelected(null);
+            setShowForm(true);
+          }}
         />
       </div>
     </div>
@@ -156,40 +205,49 @@ export default function BankAccountList() {
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Menu model={getMenuItems(menuTarget)} popup ref={menuRef} id="bank-account-menu" />
+      <Menu
+        model={getMenuItems(menuTarget)}
+        popup
+        ref={menuRef}
+        id="bank-account-menu"
+      />
 
       <div className="card">
-      <DataTable
-        value={accounts}
-        loading={loading}
-        lazy
-        paginator
-        rows={20}
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        totalRecords={total}
-        onPage={(e) => setPage((e.page ?? 0) + 1)}
-        emptyMessage="Sin cuentas registradas"
-        stripedRows
-        scrollable
-        sortMode="multiple"
-        header={header}
-      >
-        <Column field="name" header="Nombre" sortable />
-        <Column field="type" header="Tipo" body={(r) => TYPE_LABELS[r.type] ?? r.type} />
-        <Column field="bankName" header="Banco" />
-        <Column field="accountNumber" header="Número" />
-        <Column field="currency" header="Moneda" />
-        <Column header="Saldo Actual" body={balanceBody} />
-        <Column header="Estado" body={statusBody} />
-        <Column
-          header="Acciones"
-          body={actionsBody}
-          frozen={true}
-          alignFrozen="right"
-          style={{ width: "6rem", textAlign: "center" }}
-          headerStyle={{ textAlign: "center" }}
-        />
-      </DataTable>
+        <DataTable
+          value={accounts}
+          loading={loading}
+          lazy
+          paginator
+          rows={20}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          totalRecords={total}
+          onPage={(e) => setPage((e.page ?? 0) + 1)}
+          emptyMessage="Sin cuentas registradas"
+          stripedRows
+          scrollable
+          sortMode="multiple"
+          header={header}
+        >
+          <Column field="name" header="Nombre" sortable />
+          <Column
+            field="type"
+            header="Tipo"
+            body={(r) => TYPE_LABELS[r.type] ?? r.type}
+          />
+          <Column field="bankName" header="Banco" />
+          <Column field="accountNumber" header="Número" />
+          <Column field="currency" header="Moneda" />
+          <Column header="Saldo Actual" body={balanceBody} />
+          <Column header="Estado" body={statusBody} />
+          <Column
+            header="Acciones"
+            body={actionsBody}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+        </DataTable>
       </div>
 
       <Dialog

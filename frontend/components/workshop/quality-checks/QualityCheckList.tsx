@@ -9,7 +9,7 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { ProgressBar } from "primereact/progressbar";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { qualityCheckService } from "@/app/api/workshop";

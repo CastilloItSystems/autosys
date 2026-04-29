@@ -13,7 +13,7 @@ import { SelectButton } from "primereact/selectbutton";
 import { motion } from "framer-motion";
 import AppointmentCalendar from "./AppointmentCalendar";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { appointmentService } from "@/app/api/workshop";

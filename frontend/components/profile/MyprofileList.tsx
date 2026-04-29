@@ -7,10 +7,10 @@ import { Avatar } from "primereact/avatar";
 import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Dialog } from "primereact/dialog";
-import UsuarioChangePasswordForm from "../usuarioComponents/UsuarioChangePasswordForm";
+import UsuarioChangePasswordForm from "../../modules/users/components/UsuarioChangePasswordForm";
 import { Tooltip } from "primereact/tooltip";
 import MyprofileForm from "./MyprofileForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { uploadUserProfilePicture } from "@/app/api/userService";
 
 const MyProfileList: React.FC = () => {

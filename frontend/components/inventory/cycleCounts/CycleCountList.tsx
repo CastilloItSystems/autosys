@@ -26,7 +26,7 @@ import {
 } from "../../../libs/interfaces/inventory/cycleCount.interface";
 import CycleCountForm from "./CycleCountForm";
 import CycleCountDetail from "./CycleCountDetail";
-import FormActionButtons from "../../common/FormActionButtons";
+import FormActionButtons from "../../../shared/components/FormActionButtons";
 import { useSession } from "next-auth/react";
 
 export default function CycleCountList() {

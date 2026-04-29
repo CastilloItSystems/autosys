@@ -10,7 +10,7 @@ import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import {
   confirmAction,
@@ -33,21 +33,38 @@ import QuotationForm from "./QuotationForm";
 import QuotationApprovalDialog from "./QuotationApprovalDialog";
 import QuotationStepper from "./QuotationStepper";
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  VES: "Bs.",
+};
 
 const formatAmount = (value: number | null | undefined, currency = "USD") => {
   if (value == null) return "—";
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";
-  return `${sym} ${Number(value).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `${sym} ${Number(value).toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
-const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+const formatCrossRef = (
+  total: number,
+  currency: string,
+  exchangeRate?: number | null,
+) => {
   const rate = Number(exchangeRate);
   if (!rate || rate <= 0) return null;
   if (currency === "VES") {
-    return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+    return `≈ $ ${(total / rate).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })} USD`;
   }
-  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  return `≈ Bs. ${(total * rate).toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
 };
 
 // Estados que permiten editar la cotización
@@ -385,9 +402,17 @@ export default function QuotationList() {
                       </td>
                       <td className="p-2">{item.description}</td>
                       <td className="p-2 text-center">{item.quantity}</td>
-                      <td className="p-2 text-right">{formatAmount(item.unitPrice, (data as any).currency || "USD")}</td>
+                      <td className="p-2 text-right">
+                        {formatAmount(
+                          item.unitPrice,
+                          (data as any).currency || "USD",
+                        )}
+                      </td>
                       <td className="p-2 text-right font-semibold">
-                        {formatAmount(item.total, (data as any).currency || "USD")}
+                        {formatAmount(
+                          item.total,
+                          (data as any).currency || "USD",
+                        )}
                       </td>
                       <td className="p-2 text-center">
                         {item.approved ? (
@@ -407,12 +432,27 @@ export default function QuotationList() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-gray-50 font-bold">
-                    <td colSpan={4} className="p-2 text-right">TOTAL</td>
+                    <td colSpan={4} className="p-2 text-right">
+                      TOTAL
+                    </td>
                     <td className="p-2 text-right text-primary">
-                      <div>{formatAmount(data.total, (data as any).currency || "USD")}</div>
-                      {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate) && (
+                      <div>
+                        {formatAmount(
+                          data.total,
+                          (data as any).currency || "USD",
+                        )}
+                      </div>
+                      {formatCrossRef(
+                        data.total,
+                        (data as any).currency || "USD",
+                        (data as any).exchangeRate,
+                      ) && (
                         <div className="text-xs text-500 font-normal">
-                          {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate)}
+                          {formatCrossRef(
+                            data.total,
+                            (data as any).currency || "USD",
+                            (data as any).exchangeRate,
+                          )}
                         </div>
                       )}
                     </td>

@@ -10,7 +10,7 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { reworkService } from "@/app/api/workshop";
@@ -100,7 +100,12 @@ export default function ReworkList() {
       accept: async () => {
         try {
           await reworkService.delete(item.id);
-          toast.current?.show({ severity: "success", summary: "Eliminado", detail: "Retrabajo eliminado", life: 3000 });
+          toast.current?.show({
+            severity: "success",
+            summary: "Eliminado",
+            detail: "Retrabajo eliminado",
+            life: 3000,
+          });
           await loadItems();
         } catch (error) {
           handleFormError(error, toast);
@@ -109,7 +114,10 @@ export default function ReworkList() {
     });
   };
 
-  const handleStatusChange = async (item: WorkshopRework, newStatus: ReworkStatus) => {
+  const handleStatusChange = async (
+    item: WorkshopRework,
+    newStatus: ReworkStatus,
+  ) => {
     try {
       await reworkService.updateStatus(item.id, newStatus);
       toast.current?.show({
@@ -134,16 +142,22 @@ export default function ReworkList() {
 
   const originalOrderTemplate = (row: WorkshopRework) =>
     row.originalOrder ? (
-      <span className="font-semibold text-primary">{row.originalOrder.folio}</span>
+      <span className="font-semibold text-primary">
+        {row.originalOrder.folio}
+      </span>
     ) : (
       <span className="text-500">—</span>
     );
 
-  const statusTemplate = (row: WorkshopRework) => <ReworkStatusBadge status={row.status} />;
+  const statusTemplate = (row: WorkshopRework) => (
+    <ReworkStatusBadge status={row.status} />
+  );
 
   const technicianTemplate = (row: WorkshopRework) =>
     row.technicianId ? (
-      <span className="font-mono text-sm">{row.technicianId.slice(0, 12) + "..."}</span>
+      <span className="font-mono text-sm">
+        {row.technicianId.slice(0, 12) + "..."}
+      </span>
     ) : (
       <span className="text-500">—</span>
     );
@@ -219,7 +233,10 @@ export default function ReworkList() {
         </span>
         <Dropdown
           value={statusFilter}
-          options={[{ label: "Todos los estados", value: "" }, ...REWORK_STATUS_OPTIONS]}
+          options={[
+            { label: "Todos los estados", value: "" },
+            ...REWORK_STATUS_OPTIONS,
+          ]}
           onChange={(e) => {
             setStatusFilter(e.value);
             setPage(0);

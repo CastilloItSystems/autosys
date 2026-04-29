@@ -11,11 +11,14 @@ import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { checklistService } from "@/app/api/workshop";
-import type { ChecklistTemplate, ChecklistCategory } from "@/libs/interfaces/workshop";
+import type {
+  ChecklistTemplate,
+  ChecklistCategory,
+} from "@/libs/interfaces/workshop";
 import ChecklistTemplateForm from "./ChecklistTemplateForm";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -47,7 +50,8 @@ export default function ChecklistTemplateList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
-  const [categoryFilter, setCategoryFilter] = useState<ChecklistCategory | null>(null);
+  const [categoryFilter, setCategoryFilter] =
+    useState<ChecklistCategory | null>(null);
 
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
@@ -58,7 +62,9 @@ export default function ChecklistTemplateList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, showActive, categoryFilter]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, showActive, categoryFilter]);
 
   const loadItems = async () => {
     try {
@@ -71,7 +77,7 @@ export default function ChecklistTemplateList() {
         category: categoryFilter ?? undefined,
       });
       setItems(res.data);
-      
+
       setTotalRecords(res.meta.total);
     } catch (error) {
       handleFormError(error, toast);
@@ -81,16 +87,30 @@ export default function ChecklistTemplateList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: ChecklistTemplate) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: ChecklistTemplate) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: ChecklistTemplate) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: ChecklistTemplate) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await checklistService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Plantilla eliminada", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Plantilla eliminada",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -136,14 +156,21 @@ export default function ChecklistTemplateList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const statusBodyTemplate = (rowData: ChecklistTemplate) => (
-    <Tag value={rowData.isActive ? "Activo" : "Inactivo"} severity={rowData.isActive ? "success" : "secondary"} rounded />
+    <Tag
+      value={rowData.isActive ? "Activo" : "Inactivo"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
   );
 
   const codeBodyTemplate = (rowData: ChecklistTemplate) => (
@@ -172,7 +199,10 @@ export default function ChecklistTemplateList() {
         <Dropdown
           value={categoryFilter}
           options={CATEGORY_FILTER_OPTIONS}
-          onChange={(e) => { setCategoryFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setCategoryFilter(e.value);
+            setPage(0);
+          }}
           optionLabel="label"
           optionValue="value"
           placeholder="Categoría"
@@ -183,7 +213,10 @@ export default function ChecklistTemplateList() {
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
-          onClick={() => { setShowActive(!showActive); setPage(0); }}
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
         />
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -191,16 +224,27 @@ export default function ChecklistTemplateList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
           />
         </span>
-        <CreateButton label="Nueva plantilla" onClick={openNew} tooltip="Crear plantilla de checklist" />
+        <CreateButton
+          label="Nueva plantilla"
+          onClick={openNew}
+          tooltip="Crear plantilla de checklist"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -211,7 +255,10 @@ export default function ChecklistTemplateList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -219,11 +266,39 @@ export default function ChecklistTemplateList() {
           sortMode="multiple"
           scrollable
         >
-          <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="name" header="Nombre" sortable style={{ minWidth: "200px" }} />
-          <Column field="category" header="Categoría" body={categoryBodyTemplate} sortable style={{ minWidth: "160px" }} />
-          <Column field="items" header="Ítems" body={itemsCountBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
+          <Column
+            field="code"
+            header="Código"
+            sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            field="category"
+            header="Categoría"
+            body={categoryBodyTemplate}
+            sortable
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            field="items"
+            header="Ítems"
+            body={itemsCountBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -246,7 +321,9 @@ export default function ChecklistTemplateList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-list-check mr-3 text-primary text-3xl" />
-                {selected?.id ? "Modificar Plantilla de Checklist" : "Crear Plantilla de Checklist"}
+                {selected?.id
+                  ? "Modificar Plantilla de Checklist"
+                  : "Crear Plantilla de Checklist"}
               </h2>
             </div>
           </div>
@@ -274,7 +351,10 @@ export default function ChecklistTemplateList() {
 
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.name}
         isDeleting={isDeleting}
@@ -284,7 +364,11 @@ export default function ChecklistTemplateList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
                 {
                   label: actionItem.isActive ? "Desactivar" : "Activar",
                   icon: actionItem.isActive ? "pi pi-pause" : "pi pi-play",

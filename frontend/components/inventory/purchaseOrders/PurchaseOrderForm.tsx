@@ -1,5 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { classNames } from "primereact/utils";
@@ -27,7 +33,7 @@ import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import SupplierForm from "../suppliers/SupplierForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import type { PurchaseOrder } from "@/libs/interfaces/inventory";
 import type { Item } from "@/app/api/inventory/itemService";
 import type { Supplier } from "@/app/api/inventory/supplierService";
@@ -53,8 +59,10 @@ function getCurrencyVesRate(
   eurVesRate: number | null,
 ): number | null {
   if (currency === "VES") return 1;
-  if (currency === "USD") return usdVesRate && usdVesRate > 0 ? usdVesRate : null;
-  if (currency === "EUR") return eurVesRate && eurVesRate > 0 ? eurVesRate : null;
+  if (currency === "USD")
+    return usdVesRate && usdVesRate > 0 ? usdVesRate : null;
+  if (currency === "EUR")
+    return eurVesRate && eurVesRate > 0 ? eurVesRate : null;
   return null;
 }
 
@@ -219,14 +227,13 @@ const PurchaseOrderForm = ({
   });
 
   const watchItems = watch("items");
-  const watchCurrency = (watch("currency") || "USD") as PurchaseOrderFormCurrency;
+  const watchCurrency = (watch("currency") ||
+    "USD") as PurchaseOrderFormCurrency;
   const watchExchangeRate = watch("exchangeRate");
   const watchDiscountAmount = watch("discountAmount");
   const watchIgtfApplies = watch("igtfApplies");
 
-  const { rate: bcvRate, loading: loadingBcv } = useBcvRate(
-    watchCurrency,
-  );
+  const { rate: bcvRate, loading: loadingBcv } = useBcvRate(watchCurrency);
   const { rate: referenceUsdRate } = useBcvRate("USD");
   const { rate: referenceEurRate } = useBcvRate("EUR");
   const prevCurrencyRef = useRef<string | undefined>(undefined);
@@ -254,8 +261,14 @@ const PurchaseOrderForm = ({
     // mostrar equivalencias USD en reportes y notas de entrada.
     const currentRate =
       watchCurrency === "VES"
-        ? (referenceUsdRate && referenceUsdRate > 1 ? referenceUsdRate : null)
-        : (getCurrencyVesRate(watchCurrency, referenceUsdRate, referenceEurRate) ?? bcvRate);
+        ? referenceUsdRate && referenceUsdRate > 1
+          ? referenceUsdRate
+          : null
+        : getCurrencyVesRate(
+            watchCurrency,
+            referenceUsdRate,
+            referenceEurRate,
+          ) ?? bcvRate;
 
     if (
       !isEditing &&
@@ -497,7 +510,9 @@ const PurchaseOrderForm = ({
           <div className="mb-3 p-3 bg-orange-100 border-round">
             <p className="text-orange-700 text-sm m-0">
               <i className="pi pi-exclamation-triangle mr-2 font-bold"></i>
-              Solo se pueden editar órdenes en estado <strong>Borrador</strong>{" "}
+              Solo se pueden editar órdenes en estado <strong>
+                Borrador
+              </strong>{" "}
               o <strong>Rechazada</strong>
             </p>
           </div>
@@ -624,7 +639,10 @@ const PurchaseOrderForm = ({
                       // Para VES guardamos la tasa BCV referencial (Bs./USD) para
                       // poder mostrar equivalencias USD en notas de entrada y reportes.
                       // La conversión interna de ítems usa getCurrencyVesRate (siempre 1).
-                      const vesRef = referenceUsdRate && referenceUsdRate > 1 ? referenceUsdRate : undefined;
+                      const vesRef =
+                        referenceUsdRate && referenceUsdRate > 1
+                          ? referenceUsdRate
+                          : undefined;
                       setValue("exchangeRate", vesRef ?? null, {
                         shouldValidate: true,
                         shouldDirty: true,
@@ -676,7 +694,13 @@ const PurchaseOrderForm = ({
                   minFractionDigits={2}
                   maxFractionDigits={4}
                   disabled={!isEditable}
-                  placeholder={loadingBcv ? "Cargando..." : watchCurrency === "VES" ? "Bs. por 1 USD" : "Tasa"}
+                  placeholder={
+                    loadingBcv
+                      ? "Cargando..."
+                      : watchCurrency === "VES"
+                      ? "Bs. por 1 USD"
+                      : "Tasa"
+                  }
                   className={classNames("w-full", {
                     "p-invalid": errors.exchangeRate,
                   })}
@@ -837,7 +861,13 @@ const PurchaseOrderForm = ({
               { label: "Total", style: COLS.totalLine! },
               { label: "", style: COLS.remove },
             ]}
-            renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
+            renderRow={({
+              index,
+              onAddRow,
+              dragHandleProps,
+              isDragging,
+              autoFocus,
+            }) => (
               <ItemRow
                 control={control}
                 register={register}

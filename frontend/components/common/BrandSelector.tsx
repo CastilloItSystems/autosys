@@ -4,9 +4,12 @@ import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
-import brandsService, { type Brand, type BrandType } from "@/app/api/inventory/brandService";
+import brandsService, {
+  type Brand,
+  type BrandType,
+} from "@/app/api/inventory/brandService";
 import BrandForm from "@/components/inventory/brands/BrandForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 interface BrandSelectorProps {
   value: string | null | undefined;
@@ -47,7 +50,9 @@ export default function BrandSelector({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [type]);
 
   const options = useMemo(
@@ -56,7 +61,7 @@ export default function BrandSelector({
         label: b.name,
         value: b.id,
       })),
-    [brands]
+    [brands],
   );
 
   const handleCreated = async (created?: any) => {

@@ -24,7 +24,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import QuoteForm from "./QuoteForm";
 import QuoteStatusDialog from "./QuoteStatusDialog";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const typeFilterOptions = [
@@ -60,7 +60,9 @@ export default function QuoteList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [statusDialogQuote, setStatusDialogQuote] = useState<Quote | null>(null);
+  const [statusDialogQuote, setStatusDialogQuote] = useState<Quote | null>(
+    null,
+  );
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
 
   const limit = 20;
@@ -141,7 +143,10 @@ export default function QuoteList() {
     setIsDeleting(true);
     try {
       await quoteService.delete(editQuote.id);
-      toast.current?.show({ severity: "success", summary: "Cotización eliminada" });
+      toast.current?.show({
+        severity: "success",
+        summary: "Cotización eliminada",
+      });
       setDeleteDialog(false);
       setEditQuote(null);
       await load();
@@ -155,7 +160,10 @@ export default function QuoteList() {
   const handleRevise = async (quote: Quote) => {
     try {
       await quoteService.revise(quote.id);
-      toast.current?.show({ severity: "success", summary: "Nueva versión creada" });
+      toast.current?.show({
+        severity: "success",
+        summary: "Nueva versión creada",
+      });
       load();
     } catch (e: any) {
       toast.current?.show({
@@ -228,7 +236,12 @@ export default function QuoteList() {
     const cfg = QUOTE_STATUS_CONFIG[q.status];
     if (!cfg) return <span className="text-xs">{q.status}</span>;
     return (
-      <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" />
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
     );
   };
 
@@ -373,21 +386,13 @@ export default function QuoteList() {
             body={customerBody}
             style={{ minWidth: "160px" }}
           />
-          <Column
-            header="Tipo"
-            body={typeBody}
-            style={{ width: "110px" }}
-          />
+          <Column header="Tipo" body={typeBody} style={{ width: "110px" }} />
           <Column
             header="Estado"
             body={statusBody}
             style={{ width: "130px" }}
           />
-          <Column
-            header="Total"
-            body={totalBody}
-            style={{ width: "140px" }}
-          />
+          <Column header="Total" body={totalBody} style={{ width: "140px" }} />
           <Column
             header="Válida hasta"
             body={validUntilBody}

@@ -9,7 +9,7 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { workshopShiftService } from "@/app/api/workshop";
@@ -36,7 +36,9 @@ export default function WorkshopShiftList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, showActive]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, showActive]);
 
   const loadItems = async () => {
     try {
@@ -57,8 +59,14 @@ export default function WorkshopShiftList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: WorkshopShift) => { setSelected({ ...item }); setFormDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: WorkshopShift) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
 
   const handleToggle = async (item: WorkshopShift) => {
     try {
@@ -95,14 +103,21 @@ export default function WorkshopShiftList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const statusBodyTemplate = (rowData: WorkshopShift) => (
-    <Tag value={rowData.isActive ? "Activo" : "Inactivo"} severity={rowData.isActive ? "success" : "secondary"} rounded />
+    <Tag
+      value={rowData.isActive ? "Activo" : "Inactivo"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
   );
 
   const codeBodyTemplate = (rowData: WorkshopShift) => (
@@ -115,7 +130,9 @@ export default function WorkshopShiftList() {
         <span
           key={day}
           className={`text-xs border-circle w-1rem h-1rem flex align-items-center justify-content-center ${
-            rowData.workDays.includes(day) ? "bg-primary text-white" : "bg-surface-200 text-500"
+            rowData.workDays.includes(day)
+              ? "bg-primary text-white"
+              : "bg-surface-200 text-500"
           }`}
         >
           {DAY_LABELS[day]}
@@ -136,7 +153,10 @@ export default function WorkshopShiftList() {
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
-          onClick={() => { setShowActive(!showActive); setPage(0); }}
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
         />
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -144,16 +164,27 @@ export default function WorkshopShiftList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
           />
         </span>
-        <CreateButton label="Nuevo turno" onClick={openNew} tooltip="Crear turno" />
+        <CreateButton
+          label="Nuevo turno"
+          onClick={openNew}
+          tooltip="Crear turno"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -164,7 +195,10 @@ export default function WorkshopShiftList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -172,12 +206,44 @@ export default function WorkshopShiftList() {
           sortMode="multiple"
           scrollable
         >
-          <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="name" header="Nombre" sortable style={{ minWidth: "180px" }} />
-          <Column field="startTime" header="Inicio" sortable style={{ minWidth: "100px" }} />
-          <Column field="endTime" header="Fin" sortable style={{ minWidth: "100px" }} />
-          <Column field="workDays" header="Días de trabajo" body={workDaysBodyTemplate} style={{ minWidth: "160px" }} />
-          <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
+          <Column
+            field="code"
+            header="Código"
+            sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            field="startTime"
+            header="Inicio"
+            sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="endTime"
+            header="Fin"
+            sortable
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="workDays"
+            header="Días de trabajo"
+            body={workDaysBodyTemplate}
+            style={{ minWidth: "160px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -230,7 +296,11 @@ export default function WorkshopShiftList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
                 {
                   label: actionItem.isActive ? "Desactivar" : "Activar",
                   icon: actionItem.isActive ? "pi pi-pause" : "pi pi-play",

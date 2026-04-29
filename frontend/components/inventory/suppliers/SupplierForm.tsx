@@ -23,8 +23,8 @@ import {
 import { handleFormError } from "@/utils/errorHandlers";
 
 // Componentes comunes
-import PhoneInput from "@/components/common/PhoneInput";
-import RifInput from "@/components/common/RifInput";
+import PhoneInput from "@/shared/components/PhoneInput";
+import RifInput from "@/shared/components/RifInput";
 import MetadataInput from "@/components/common/MetadataInput";
 
 interface SupplierFormProps {
@@ -168,11 +168,7 @@ export default function SupplierForm({
         {isEditing && (
           <div className="col-12 md:col-6 field">
             <label className="font-semibold">Código</label>
-            <InputText
-              {...register("code")}
-              disabled
-              className="p-disabled"
-            />
+            <InputText {...register("code")} disabled className="p-disabled" />
           </div>
         )}
 

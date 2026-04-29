@@ -35,7 +35,7 @@ import customerService, { Customer } from "@/app/api/sales/customerService";
 import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
 import OrderForm from "./OrderForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   confirmAction,
   ConfirmActionPopup,
@@ -301,11 +301,13 @@ const OrderList = () => {
       const result = await orderService.createSuggestedReplenishmentPlan(
         shortagePayload.orderId,
         {
-          overrides: Object.entries(purchaseOverrides).map(([itemId, value]) => ({
-            itemId,
-            purchaseQuantity: Number(value.purchaseQuantity || 0),
-            supplierId: value.supplierId,
-          })),
+          overrides: Object.entries(purchaseOverrides).map(
+            ([itemId, value]) => ({
+              itemId,
+              purchaseQuantity: Number(value.purchaseQuantity || 0),
+              supplierId: value.supplierId,
+            }),
+          ),
         },
       );
       setReplenishmentResult(result.data);
@@ -322,7 +324,6 @@ const OrderList = () => {
         detail: `Transferencias: ${transferCount} | OCs: ${poCount}`,
         life: 4500,
       });
-
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -971,30 +972,35 @@ const OrderList = () => {
               <div className="flex flex-column gap-2">
                 {(shortagePayload?.shortages || []).map((row) => {
                   const defaults = purchaseOverrides[row.itemId] || {
-                    purchaseQuantity: row.purchaseSuggestion?.suggestedQuantity || 0,
+                    purchaseQuantity:
+                      row.purchaseSuggestion?.suggestedQuantity || 0,
                     supplierId: row.purchaseSuggestion?.supplierId,
                   };
                   const transferCovered = (row.suggestions || []).reduce(
                     (sum, s) => sum + Number(s.suggestedQuantity || 0),
                     0,
                   );
-                  const purchaseCovered = Number(defaults.purchaseQuantity || 0);
+                  const purchaseCovered = Number(
+                    defaults.purchaseQuantity || 0,
+                  );
                   const remaining = Math.max(
                     0,
-                    Number(row.shortage || 0) - transferCovered - purchaseCovered,
+                    Number(row.shortage || 0) -
+                      transferCovered -
+                      purchaseCovered,
                   );
                   const statusLabel =
                     remaining === 0
                       ? "Cubierto"
                       : transferCovered + purchaseCovered > 0
-                        ? "Parcial"
-                        : "Sin solución";
+                      ? "Parcial"
+                      : "Sin solución";
                   const statusSeverity =
                     remaining === 0
                       ? "success"
                       : transferCovered + purchaseCovered > 0
-                        ? "warning"
-                        : "danger";
+                      ? "warning"
+                      : "danger";
                   return (
                     <div
                       key={row.itemId}
@@ -1004,17 +1010,17 @@ const OrderList = () => {
                         <span>
                           {row.itemSku} ({row.itemName})
                         </span>
-                        <Tag value={statusLabel} severity={statusSeverity as any} />
+                        <Tag
+                          value={statusLabel}
+                          severity={statusSeverity as any}
+                        />
                       </div>
                       <div className="text-sm text-700 mt-1">
                         Requerido: <b>{row.required}</b> | Disponible:{" "}
                         <b>{row.available}</b> | Faltante: <b>{row.shortage}</b>
                       </div>
                       <div className="text-sm text-600 mt-2">
-                        Transferir sugerido:{" "}
-                        <b>
-                          {transferCovered}
-                        </b>
+                        Transferir sugerido: <b>{transferCovered}</b>
                         {(row.suggestions || []).length > 0
                           ? ` (${row.suggestions
                               .map(
@@ -1059,8 +1065,8 @@ const OrderList = () => {
                         </div>
                       </div>
                       <div className="text-sm text-700 mt-2">
-                        Cobertura estimada: transferir <b>{transferCovered}</b> +
-                        comprar <b>{purchaseCovered}</b> ={" "}
+                        Cobertura estimada: transferir <b>{transferCovered}</b>{" "}
+                        + comprar <b>{purchaseCovered}</b> ={" "}
                         <b>{transferCovered + purchaseCovered}</b> | Pendiente:{" "}
                         <b>{remaining}</b>
                       </div>
@@ -1086,7 +1092,9 @@ const OrderList = () => {
                     <b>{replenishmentResult.createdTransfers.length}</b>,
                     reusadas <b>{replenishmentResult.reusedTransfers.length}</b>
                     , pendientes de recibir{" "}
-                    <b>{replenishmentResult.executionState.pendingTransfersCount}</b>
+                    <b>
+                      {replenishmentResult.executionState.pendingTransfersCount}
+                    </b>
                   </div>
                   <div className="mt-1">
                     Órdenes de compra: creadas{" "}
@@ -1102,7 +1110,9 @@ const OrderList = () => {
                       label="Ver transferencias vinculadas"
                       onClick={() =>
                         router.push(
-                          `/empresa/inventario/transferencias?search=${encodeURIComponent(replenishmentResult.orderNumber)}`,
+                          `/empresa/inventario/transferencias?search=${encodeURIComponent(
+                            replenishmentResult.orderNumber,
+                          )}`,
                         )
                       }
                     />
@@ -1112,7 +1122,9 @@ const OrderList = () => {
                       label="Ver compras vinculadas"
                       onClick={() =>
                         router.push(
-                          `/empresa/inventario/ordenes-compra?search=${encodeURIComponent(replenishmentResult.orderNumber)}`,
+                          `/empresa/inventario/ordenes-compra?search=${encodeURIComponent(
+                            replenishmentResult.orderNumber,
+                          )}`,
                         )
                       }
                     />

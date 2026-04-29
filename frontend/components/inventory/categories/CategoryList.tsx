@@ -16,7 +16,7 @@ import categoriesService, {
 import CategoryForm from "./CategoryForm";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 export default function CategoryList() {
   // Datos

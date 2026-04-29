@@ -15,7 +15,7 @@ import { EXPENSE_CATEGORY_LABELS } from "@/libs/interfaces/finance";
 import expenseService from "@/app/api/finance/expenseService";
 import RecurringRuleForm from "./RecurringRuleForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const FREQUENCY_LABELS: Record<string, string> = {
   WEEKLY: "Semanal",
@@ -34,7 +34,9 @@ export default function RecurringRuleList() {
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<ExpenseRecurringRule | null>(null);
-  const [menuTarget, setMenuTarget] = useState<ExpenseRecurringRule | null>(null);
+  const [menuTarget, setMenuTarget] = useState<ExpenseRecurringRule | null>(
+    null,
+  );
   const [running, setRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -45,19 +47,29 @@ export default function RecurringRuleList() {
       setRules(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron cargar las reglas" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar las reglas",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [page]);
+  useEffect(() => {
+    load();
+  }, [page]);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
     await load();
-    toast.current?.show({ severity: "success", summary: "Éxito", detail: "Regla guardada" });
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Regla guardada",
+    });
   };
 
   const runNow = async () => {
@@ -71,7 +83,11 @@ export default function RecurringRuleList() {
         detail: `${res.data?.generated ?? 0} gasto(s) generado(s)`,
       });
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "Error al ejecutar reglas" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al ejecutar reglas",
+      });
     } finally {
       setRunning(false);
     }
@@ -86,16 +102,25 @@ export default function RecurringRuleList() {
     {
       label: target?.isActive ? "Desactivar" : "Activar",
       icon: target?.isActive ? "pi pi-ban" : "pi pi-check",
-      command: () => confirmDialog({
-        message: `¿${target?.isActive ? "Desactivar" : "Activar"} esta regla?`,
-        header: "Confirmar",
-        icon: "pi pi-question-circle",
-        accept: async () => {
-          await expenseService.updateRule(target!.id, { isActive: !target!.isActive });
-          await load();
-          toast.current?.show({ severity: "success", summary: "Éxito", detail: "Regla actualizada" });
-        },
-      }),
+      command: () =>
+        confirmDialog({
+          message: `¿${
+            target?.isActive ? "Desactivar" : "Activar"
+          } esta regla?`,
+          header: "Confirmar",
+          icon: "pi pi-question-circle",
+          accept: async () => {
+            await expenseService.updateRule(target!.id, {
+              isActive: !target!.isActive,
+            });
+            await load();
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Regla actualizada",
+            });
+          },
+        }),
     },
   ];
 
@@ -104,7 +129,11 @@ export default function RecurringRuleList() {
       icon="pi pi-cog"
       rounded
       text
-      onClick={(e) => { setMenuTarget(row); setSelected(row); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setMenuTarget(row);
+        setSelected(row);
+        menuRef.current?.toggle(e);
+      }}
       aria-controls="recurring-rule-menu"
       aria-haspopup
     />
@@ -129,7 +158,10 @@ export default function RecurringRuleList() {
         />
         <CreateButton
           label="Nueva Regla"
-          onClick={() => { setSelected(null); setShowForm(true); }}
+          onClick={() => {
+            setSelected(null);
+            setShowForm(true);
+          }}
         />
       </div>
     </div>
@@ -139,66 +171,80 @@ export default function RecurringRuleList() {
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Menu model={getMenuItems(menuTarget)} popup ref={menuRef} id="recurring-rule-menu" />
+      <Menu
+        model={getMenuItems(menuTarget)}
+        popup
+        ref={menuRef}
+        id="recurring-rule-menu"
+      />
 
       <div className="card">
-      <DataTable
-        value={rules}
-        loading={loading}
-        lazy
-        paginator
-        rows={20}
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        totalRecords={total}
-        onPage={(e) => setPage((e.page ?? 0) + 1)}
-        emptyMessage="Sin reglas recurrentes configuradas"
-        stripedRows
-        scrollable
-        sortMode="multiple"
-        header={header}
-      >
-        <Column field="name" header="Nombre" sortable />
-        <Column
-          header="Categoría"
-          body={(r: ExpenseRecurringRule) => EXPENSE_CATEGORY_LABELS[r.category] ?? r.category}
-        />
-        <Column field="description" header="Descripción" />
-        <Column
-          header="Frecuencia"
-          body={(r: ExpenseRecurringRule) => FREQUENCY_LABELS[r.frequency] ?? r.frequency}
-        />
-        <Column
-          header="Monto"
-          body={(r: ExpenseRecurringRule) => (
-            <span className="font-semibold">
-              {r.currency} {Number(r.amount).toLocaleString("es-VE", { minimumFractionDigits: 2 })}
-            </span>
-          )}
-        />
-        <Column
-          header="Próxima"
-          body={(r: ExpenseRecurringRule) => new Date(r.nextRunDate).toLocaleDateString("es-VE")}
-          sortable
-          sortField="nextRunDate"
-        />
-        <Column
-          header="Estado"
-          body={(r: ExpenseRecurringRule) => (
-            <Tag
-              value={r.isActive ? "Activa" : "Inactiva"}
-              severity={r.isActive ? "success" : "secondary"}
-            />
-          )}
-        />
-        <Column
-          header="Acciones"
-          body={actionsBody}
-          frozen={true}
-          alignFrozen="right"
-          style={{ width: "6rem", textAlign: "center" }}
-          headerStyle={{ textAlign: "center" }}
-        />
-      </DataTable>
+        <DataTable
+          value={rules}
+          loading={loading}
+          lazy
+          paginator
+          rows={20}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          totalRecords={total}
+          onPage={(e) => setPage((e.page ?? 0) + 1)}
+          emptyMessage="Sin reglas recurrentes configuradas"
+          stripedRows
+          scrollable
+          sortMode="multiple"
+          header={header}
+        >
+          <Column field="name" header="Nombre" sortable />
+          <Column
+            header="Categoría"
+            body={(r: ExpenseRecurringRule) =>
+              EXPENSE_CATEGORY_LABELS[r.category] ?? r.category
+            }
+          />
+          <Column field="description" header="Descripción" />
+          <Column
+            header="Frecuencia"
+            body={(r: ExpenseRecurringRule) =>
+              FREQUENCY_LABELS[r.frequency] ?? r.frequency
+            }
+          />
+          <Column
+            header="Monto"
+            body={(r: ExpenseRecurringRule) => (
+              <span className="font-semibold">
+                {r.currency}{" "}
+                {Number(r.amount).toLocaleString("es-VE", {
+                  minimumFractionDigits: 2,
+                })}
+              </span>
+            )}
+          />
+          <Column
+            header="Próxima"
+            body={(r: ExpenseRecurringRule) =>
+              new Date(r.nextRunDate).toLocaleDateString("es-VE")
+            }
+            sortable
+            sortField="nextRunDate"
+          />
+          <Column
+            header="Estado"
+            body={(r: ExpenseRecurringRule) => (
+              <Tag
+                value={r.isActive ? "Activa" : "Inactiva"}
+                severity={r.isActive ? "success" : "secondary"}
+              />
+            )}
+          />
+          <Column
+            header="Acciones"
+            body={actionsBody}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+        </DataTable>
       </div>
 
       <Dialog
@@ -209,7 +255,9 @@ export default function RecurringRuleList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-sync mr-3 text-primary text-3xl" />
-                {selected ? "Editar Regla Recurrente" : "Nueva Regla Recurrente"}
+                {selected
+                  ? "Editar Regla Recurrente"
+                  : "Nueva Regla Recurrente"}
               </h2>
             </div>
           </div>

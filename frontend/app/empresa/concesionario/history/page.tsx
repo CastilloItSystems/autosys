@@ -1,4 +1,4 @@
-import DealerHistoryView from "@/components/concesionario/history/DealerHistoryView";
+import DealerHistoryView from "@/modules/concesionario/history/components/DealerHistoryView";
 
 export default function ConcesionarioHistoryPage() {
   return <DealerHistoryView />;

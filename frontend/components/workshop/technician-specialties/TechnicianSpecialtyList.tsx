@@ -10,7 +10,7 @@ import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { technicianSpecialtyService } from "@/app/api/workshop";
@@ -21,7 +21,9 @@ export default function TechnicianSpecialtyList() {
   const [items, setItems] = useState<TechnicianSpecialty[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<TechnicianSpecialty | null>(null);
-  const [actionItem, setActionItem] = useState<TechnicianSpecialty | null>(null);
+  const [actionItem, setActionItem] = useState<TechnicianSpecialty | null>(
+    null,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -37,7 +39,9 @@ export default function TechnicianSpecialtyList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, showActive]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, showActive]);
 
   const loadItems = async () => {
     try {
@@ -58,16 +62,30 @@ export default function TechnicianSpecialtyList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: TechnicianSpecialty) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: TechnicianSpecialty) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: TechnicianSpecialty) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: TechnicianSpecialty) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await technicianSpecialtyService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Especialidad técnica eliminada", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Especialidad técnica eliminada",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -80,11 +98,15 @@ export default function TechnicianSpecialtyList() {
 
   const handleToggle = async (item: TechnicianSpecialty) => {
     try {
-      await technicianSpecialtyService.update(item.id, { isActive: !item.isActive });
+      await technicianSpecialtyService.update(item.id, {
+        isActive: !item.isActive,
+      });
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Especialidad técnica ${item.isActive ? "desactivada" : "activada"}`,
+        detail: `Especialidad técnica ${
+          item.isActive ? "desactivada" : "activada"
+        }`,
         life: 3000,
       });
       await loadItems();
@@ -98,7 +120,9 @@ export default function TechnicianSpecialtyList() {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: selected?.id ? "Especialidad técnica actualizada" : "Especialidad técnica creada",
+        detail: selected?.id
+          ? "Especialidad técnica actualizada"
+          : "Especialidad técnica creada",
         life: 3000,
       });
       await loadItems();
@@ -113,14 +137,21 @@ export default function TechnicianSpecialtyList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const statusBodyTemplate = (rowData: TechnicianSpecialty) => (
-    <Tag value={rowData.isActive ? "Activo" : "Inactivo"} severity={rowData.isActive ? "success" : "secondary"} rounded />
+    <Tag
+      value={rowData.isActive ? "Activo" : "Inactivo"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
   );
 
   const codeBodyTemplate = (rowData: TechnicianSpecialty) => (
@@ -139,7 +170,10 @@ export default function TechnicianSpecialtyList() {
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
-          onClick={() => { setShowActive(!showActive); setPage(0); }}
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
         />
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -147,16 +181,27 @@ export default function TechnicianSpecialtyList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
           />
         </span>
-        <CreateButton label="Nueva especialidad" onClick={openNew} tooltip="Crear especialidad técnica" />
+        <CreateButton
+          label="Nueva especialidad"
+          onClick={openNew}
+          tooltip="Crear especialidad técnica"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -167,7 +212,10 @@ export default function TechnicianSpecialtyList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -175,10 +223,31 @@ export default function TechnicianSpecialtyList() {
           sortMode="multiple"
           scrollable
         >
-          <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="name" header="Nombre" sortable style={{ minWidth: "180px" }} />
-          <Column field="description" header="Descripción" style={{ minWidth: "220px" }} />
-          <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
+          <Column
+            field="code"
+            header="Código"
+            sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            field="description"
+            header="Descripción"
+            style={{ minWidth: "220px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -201,7 +270,9 @@ export default function TechnicianSpecialtyList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-star mr-3 text-primary text-3xl" />
-                {selected?.id ? "Modificar Especialidad Técnica" : "Crear Especialidad Técnica"}
+                {selected?.id
+                  ? "Modificar Especialidad Técnica"
+                  : "Crear Especialidad Técnica"}
               </h2>
             </div>
           </div>
@@ -229,7 +300,10 @@ export default function TechnicianSpecialtyList() {
 
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.name}
         isDeleting={isDeleting}
@@ -239,7 +313,11 @@ export default function TechnicianSpecialtyList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
                 {
                   label: actionItem.isActive ? "Desactivar" : "Activar",
                   icon: actionItem.isActive ? "pi pi-pause" : "pi pi-play",

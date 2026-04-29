@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import brandsService from "@/app/api/inventory/brandService";
 import BrandForm from "./BrandForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import type { Brand } from "@/app/api/inventory/brandService";
 

@@ -24,7 +24,7 @@ import {
 import LeadForm from "./LeadForm";
 import LeadStatusDialog from "./LeadStatusDialog";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const channelOptions = [
@@ -89,7 +89,10 @@ export default function LeadList() {
       setLeads(raw.data ?? raw);
       setTotal(raw.meta?.total ?? raw.length ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error al cargar leads" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al cargar leads",
+      });
     } finally {
       setLoading(false);
     }
@@ -152,7 +155,9 @@ export default function LeadList() {
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
-      detail: editLead ? "Lead actualizado correctamente" : "Lead creado correctamente",
+      detail: editLead
+        ? "Lead actualizado correctamente"
+        : "Lead creado correctamente",
       life: 3000,
     });
     setFormVisible(false);
@@ -193,11 +198,18 @@ export default function LeadList() {
         } catch (e: any) {
           toast.current?.show({
             severity: "error",
-            summary: e?.response?.data?.message ?? "No se pudo convertir el lead",
+            summary:
+              e?.response?.data?.message ?? "No se pudo convertir el lead",
           });
         }
       },
-      disabled: !["NEW", "CONTACTED", "QUALIFIED", "PROPOSAL", "NEGOTIATION"].includes(lead.status as string),
+      disabled: ![
+        "NEW",
+        "CONTACTED",
+        "QUALIFIED",
+        "PROPOSAL",
+        "NEGOTIATION",
+      ].includes(lead.status as string),
     },
     { separator: true },
     {
@@ -212,24 +224,40 @@ export default function LeadList() {
   const titleBody = (lead: Lead) => (
     <div>
       <div className="font-semibold text-sm">{lead.title}</div>
-      {lead.customer && <div className="text-xs text-500">{lead.customer.name}</div>}
+      {lead.customer && (
+        <div className="text-xs text-500">{lead.customer.name}</div>
+      )}
     </div>
   );
 
   const channelBody = (lead: Lead) => {
-    const cfg = LEAD_CHANNEL_CONFIG[lead.channel as keyof typeof LEAD_CHANNEL_CONFIG];
-    return cfg ? <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" /> : null;
+    const cfg =
+      LEAD_CHANNEL_CONFIG[lead.channel as keyof typeof LEAD_CHANNEL_CONFIG];
+    return cfg ? (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    ) : null;
   };
 
   const statusBody = (lead: Lead) => {
-    const cfg = LEAD_STATUS_CONFIG[lead.status as keyof typeof LEAD_STATUS_CONFIG];
+    const cfg =
+      LEAD_STATUS_CONFIG[lead.status as keyof typeof LEAD_STATUS_CONFIG];
     const label = getStageLabel(lead.status, lead.channel);
-    return cfg ? <Tag value={label} severity={cfg.severity} className="text-xs" /> : null;
+    return cfg ? (
+      <Tag value={label} severity={cfg.severity} className="text-xs" />
+    ) : null;
   };
 
   const sourceBody = (lead: Lead) => {
-    const cfg = LEAD_SOURCE_CONFIG[lead.source as keyof typeof LEAD_SOURCE_CONFIG];
-    return <span className="text-sm text-600">{cfg?.label ?? lead.source}</span>;
+    const cfg =
+      LEAD_SOURCE_CONFIG[lead.source as keyof typeof LEAD_SOURCE_CONFIG];
+    return (
+      <span className="text-sm text-600">{cfg?.label ?? lead.source}</span>
+    );
   };
 
   const valueBody = (lead: Lead) =>
@@ -241,7 +269,8 @@ export default function LeadList() {
       <span className="text-400">—</span>
     );
 
-  const dateBody = (lead: Lead) => new Date(lead.createdAt).toLocaleDateString("es-VE");
+  const dateBody = (lead: Lead) =>
+    new Date(lead.createdAt).toLocaleDateString("es-VE");
 
   const actionBodyTemplate = (rowData: Lead) => (
     <Button
@@ -263,9 +292,18 @@ export default function LeadList() {
     <>
       <Toast ref={toast} />
       <ConfirmDialog />
-      <Menu model={menuItems(actionLead as Lead)} popup ref={menuRef} id="lead-menu" />
+      <Menu
+        model={menuItems(actionLead as Lead)}
+        popup
+        ref={menuRef}
+        id="lead-menu"
+      />
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <div className="flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
           <div>
             <h4 className="mb-1 text-900">Leads / Oportunidades</h4>
@@ -321,10 +359,26 @@ export default function LeadList() {
           scrollable
           tableStyle={{ minWidth: "70rem" }}
         >
-          <Column header="Lead" body={titleBody} style={{ minWidth: "200px" }} />
-          <Column header="Canal" body={channelBody} style={{ width: "120px" }} />
-          <Column header="Fuente" body={sourceBody} style={{ width: "140px" }} />
-          <Column header="Estado" body={statusBody} style={{ width: "130px" }} />
+          <Column
+            header="Lead"
+            body={titleBody}
+            style={{ minWidth: "200px" }}
+          />
+          <Column
+            header="Canal"
+            body={channelBody}
+            style={{ width: "120px" }}
+          />
+          <Column
+            header="Fuente"
+            body={sourceBody}
+            style={{ width: "140px" }}
+          />
+          <Column
+            header="Estado"
+            body={statusBody}
+            style={{ width: "130px" }}
+          />
           <Column header="Valor" body={valueBody} style={{ width: "130px" }} />
           <Column header="Fecha" body={dateBody} style={{ width: "110px" }} />
           <Column

@@ -30,7 +30,7 @@ import warehouseService, {
 import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
 import EntryNoteForm from "./EntryNoteForm";
 import CompleteEntryNoteDialog from "./CompleteEntryNoteDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import EntryNoteStepper from "./EntryNoteStepper";
 import CreateButton from "@/components/common/CreateButton";
 import {
@@ -223,7 +223,11 @@ const EntryNoteList = () => {
   };
 
   /* ── Helpers ── */
-  const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    VES: "Bs.",
+  };
 
   const formatAmount = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? currency;
@@ -243,14 +247,19 @@ const EntryNoteList = () => {
     if (currency === "VES") {
       // Tasa real Bs/USD siempre >> 1. Si es 0 ó 1 (default sin tasa real), no mostrar.
       if (rate <= 1) return null;
-      return `≈ $ ${(n / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+      return `≈ $ ${(n / rate).toLocaleString("es-VE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} USD`;
     }
     if (!rate || rate <= 0) return null;
-    return `≈ Bs. ${(n * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `≈ Bs. ${(n * rate).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
-  const formatCurrency = (value: number | string) =>
-    formatAmount(value, "USD");
+  const formatCurrency = (value: number | string) => formatAmount(value, "USD");
 
   const formatDate = (dateStr?: string | null) => {
     if (!dateStr) return "—";
@@ -509,7 +518,8 @@ const EntryNoteList = () => {
                     </td>
                     <td className="text-right py-2">
                       {formatAmount(
-                        Number(line.unitCost || 0) * (line.quantityReceived || 0),
+                        Number(line.unitCost || 0) *
+                          (line.quantityReceived || 0),
                         cur,
                       )}
                     </td>
@@ -530,7 +540,9 @@ const EntryNoteList = () => {
                   <td className="text-right py-2 font-bold text-primary">
                     {formatAmount(total, cur)}
                     {formatCrossRef(total, cur, exRate) && (
-                      <div className="text-xs text-500 font-normal mt-1">{formatCrossRef(total, cur, exRate)}</div>
+                      <div className="text-xs text-500 font-normal mt-1">
+                        {formatCrossRef(total, cur, exRate)}
+                      </div>
                     )}
                   </td>
                   <td colSpan={2}></td>

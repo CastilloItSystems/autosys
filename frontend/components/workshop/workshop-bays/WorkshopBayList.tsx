@@ -10,7 +10,7 @@ import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { workshopBayService } from "@/app/api/workshop";
@@ -37,7 +37,9 @@ export default function WorkshopBayList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, showActive]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, showActive]);
 
   const loadItems = async () => {
     try {
@@ -58,16 +60,30 @@ export default function WorkshopBayList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: WorkshopBay) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: WorkshopBay) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: WorkshopBay) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: WorkshopBay) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await workshopBayService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Bahía eliminada", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Bahía eliminada",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -113,14 +129,21 @@ export default function WorkshopBayList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const statusBodyTemplate = (rowData: WorkshopBay) => (
-    <Tag value={rowData.isActive ? "Activa" : "Inactiva"} severity={rowData.isActive ? "success" : "secondary"} rounded />
+    <Tag
+      value={rowData.isActive ? "Activa" : "Inactiva"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
   );
 
   const codeBodyTemplate = (rowData: WorkshopBay) => (
@@ -139,7 +162,10 @@ export default function WorkshopBayList() {
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
-          onClick={() => { setShowActive(!showActive); setPage(0); }}
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
         />
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -147,16 +173,27 @@ export default function WorkshopBayList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
           />
         </span>
-        <CreateButton label="Nueva bahía" onClick={openNew} tooltip="Crear bahía de taller" />
+        <CreateButton
+          label="Nueva bahía"
+          onClick={openNew}
+          tooltip="Crear bahía de taller"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -167,7 +204,10 @@ export default function WorkshopBayList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -175,10 +215,31 @@ export default function WorkshopBayList() {
           sortMode="multiple"
           scrollable
         >
-          <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="name" header="Nombre" sortable style={{ minWidth: "180px" }} />
-          <Column field="description" header="Descripción" style={{ minWidth: "260px" }} />
-          <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
+          <Column
+            field="code"
+            header="Código"
+            sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            field="description"
+            header="Descripción"
+            style={{ minWidth: "260px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -229,7 +290,10 @@ export default function WorkshopBayList() {
 
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.name}
         isDeleting={isDeleting}
@@ -239,7 +303,11 @@ export default function WorkshopBayList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
                 {
                   label: actionItem.isActive ? "Desactivar" : "Activar",
                   icon: actionItem.isActive ? "pi pi-pause" : "pi pi-play",

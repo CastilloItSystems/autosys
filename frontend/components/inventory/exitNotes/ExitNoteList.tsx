@@ -30,7 +30,7 @@ import ExitNoteForm from "./ExitNoteForm";
 import ExitNoteDetailDialog from "./ExitNoteDetailDialog";
 import ExitNoteStepper from "./ExitNoteStepper";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   confirmAction,
   ConfirmActionPopup,
@@ -276,9 +276,9 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     <div className="flex flex-wrap gap-3 align-items-center justify-content-between">
       <div className="flex align-items-center gap-2">
         <h4 className="m-0 font-bold text-900">
-          {fixedType === 'WORKSHOP_SUPPLY'
-            ? 'Solicitudes de Taller'
-            : 'Notas de Salida'}
+          {fixedType === "WORKSHOP_SUPPLY"
+            ? "Solicitudes de Taller"
+            : "Notas de Salida"}
         </h4>
         <span className="text-600 text-sm">({totalRecords} total)</span>
       </div>

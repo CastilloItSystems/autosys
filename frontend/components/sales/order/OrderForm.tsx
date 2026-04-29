@@ -1,5 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
@@ -39,7 +45,7 @@ import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import customerService from "@/app/api/sales/customerService";
 import CustomerForm from "@/components/sales/customer/CustomerForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 /**
  * Convert a USD base price to the target currency.
@@ -57,8 +63,13 @@ function convertPriceFromUsd(
   if (currency === "VES" && usdVesRate && usdVesRate > 0) {
     return Math.round(priceUsd * usdVesRate * 100) / 100;
   }
-  if (currency === "EUR" && usdVesRate && currencyVesRate && currencyVesRate > 0) {
-    return Math.round((priceUsd * usdVesRate / currencyVesRate) * 100) / 100;
+  if (
+    currency === "EUR" &&
+    usdVesRate &&
+    currencyVesRate &&
+    currencyVesRate > 0
+  ) {
+    return Math.round(((priceUsd * usdVesRate) / currencyVesRate) * 100) / 100;
   }
   return priceUsd; // USD or no rate available
 }
@@ -188,7 +199,7 @@ export default function OrderForm({
 
   /* ── BCV Rate ── */
   const { rate: bcvRate, loading: bcvLoading } = useBcvRate(
-    (watchCurrency || "USD") as "USD" | "EUR" | "VES"
+    (watchCurrency || "USD") as "USD" | "EUR" | "VES",
   );
   // Always fetch USD/VES for cross-reference display when primary currency is VES
   const { rate: referenceUsdRate } = useBcvRate("USD");
@@ -629,7 +640,15 @@ export default function OrderForm({
 
           {/* ══ 4. DESCUENTO GENERAL + IGTF ══════════════════════════════════ */}
           <div className="col-12 md:col-6 field">
-            <label>Descuento General ({watchCurrency === "VES" ? "Bs." : watchCurrency === "EUR" ? "€" : "$"})</label>
+            <label>
+              Descuento General (
+              {watchCurrency === "VES"
+                ? "Bs."
+                : watchCurrency === "EUR"
+                ? "€"
+                : "$"}
+              )
+            </label>
             <Controller
               name="discountAmount"
               control={control}

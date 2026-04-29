@@ -11,7 +11,7 @@ import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { Card } from "primereact/card";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import {
   confirmAction,
@@ -40,14 +40,20 @@ const CURRENCY_OPTIONS = [
   { label: "EUR", value: "EUR" },
 ];
 
-const SOURCE_SEVERITY: Record<ExchangeRateSource, "success" | "info" | "warning"> = {
+const SOURCE_SEVERITY: Record<
+  ExchangeRateSource,
+  "success" | "info" | "warning"
+> = {
   BCV: "success",
   MANUAL: "info",
   PARALLEL: "warning",
 };
 
 const fmtRate = (v: number) =>
-  v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
+  v.toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
+  });
 
 const fmtDate = (s: string) =>
   new Date(s + "T12:00:00").toLocaleDateString("es-VE", {
@@ -205,10 +211,10 @@ export default function ExchangeRateList() {
 
   // Active rate cards
   const usdVes = activeRates.find(
-    (r) => r.fromCurrency === "USD" && r.toCurrency === "VES"
+    (r) => r.fromCurrency === "USD" && r.toCurrency === "VES",
   );
   const eurVes = activeRates.find(
-    (r) => r.fromCurrency === "EUR" && r.toCurrency === "VES"
+    (r) => r.fromCurrency === "EUR" && r.toCurrency === "VES",
   );
 
   const formDialogHeader = (
@@ -282,7 +288,10 @@ export default function ExchangeRateList() {
         <Dropdown
           value={sourceFilter}
           options={SOURCE_OPTIONS}
-          onChange={(e) => { setSourceFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setSourceFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Fuente"
           className="p-inputtext-sm"
           style={{ width: 160 }}
@@ -290,7 +299,10 @@ export default function ExchangeRateList() {
         <Dropdown
           value={fromFilter}
           options={CURRENCY_OPTIONS}
-          onChange={(e) => { setFromFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setFromFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Moneda"
           className="p-inputtext-sm"
           style={{ width: 130 }}

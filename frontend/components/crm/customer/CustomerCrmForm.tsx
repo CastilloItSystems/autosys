@@ -23,8 +23,8 @@ import {
 } from "@/libs/interfaces/crm/customer.crm.interface";
 import customerCrmService from "@/app/api/crm/customerCrmService";
 import { handleFormError } from "@/utils/errorHandlers";
-import PhoneInput from "@/components/common/PhoneInput";
-import RifInput from "@/components/common/RifInput";
+import PhoneInput from "@/shared/components/PhoneInput";
+import RifInput from "@/shared/components/RifInput";
 import MetadataInput from "@/components/common/MetadataInput";
 
 interface CustomerCrmFormProps {
@@ -36,20 +36,26 @@ interface CustomerCrmFormProps {
   toast: React.RefObject<Toast> | null;
 }
 
-const typeOptions = Object.entries(CUSTOMER_TYPE_CONFIG).map(([value, cfg]) => ({
-  label: cfg.label,
-  value,
-}));
+const typeOptions = Object.entries(CUSTOMER_TYPE_CONFIG).map(
+  ([value, cfg]) => ({
+    label: cfg.label,
+    value,
+  }),
+);
 
-const segmentOptions = Object.entries(CUSTOMER_SEGMENT_CONFIG).map(([value, cfg]) => ({
-  label: cfg.label,
-  value,
-}));
+const segmentOptions = Object.entries(CUSTOMER_SEGMENT_CONFIG).map(
+  ([value, cfg]) => ({
+    label: cfg.label,
+    value,
+  }),
+);
 
-const channelOptions = Object.entries(CUSTOMER_CHANNEL_CONFIG).map(([value, cfg]) => ({
-  label: cfg.label,
-  value,
-}));
+const channelOptions = Object.entries(CUSTOMER_CHANNEL_CONFIG).map(
+  ([value, cfg]) => ({
+    label: cfg.label,
+    value,
+  }),
+);
 
 export default function CustomerCrmForm({
   customer,
@@ -158,9 +164,12 @@ export default function CustomerCrmForm({
   };
 
   return (
-    <form id={formId || "customer-crm-form"} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id={formId || "customer-crm-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid formgrid row-gap-2">
-
         {/* ── INFORMACIÓN BÁSICA ── */}
         <div className="col-12 mt-2">
           <h5 className="mb-0 text-primary">Información Básica</h5>
@@ -168,7 +177,9 @@ export default function CustomerCrmForm({
         </div>
 
         <div className="col-12 md:col-6 field">
-          <label className="font-semibold">Tipo de Cliente <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Tipo de Cliente <span className="text-red-500">*</span>
+          </label>
           <Controller
             name="type"
             control={control}
@@ -188,22 +199,22 @@ export default function CustomerCrmForm({
         {isEditing && (
           <div className="col-12 md:col-6 field">
             <label className="font-semibold">Código</label>
-            <InputText
-              {...register("code")}
-              disabled
-              className="p-disabled"
-            />
+            <InputText {...register("code")} disabled className="p-disabled" />
           </div>
         )}
 
         <div className="col-12 md:col-8 field">
-          <label className="font-semibold">Nombre / Razón Social <span className="text-red-500">*</span></label>
+          <label className="font-semibold">
+            Nombre / Razón Social <span className="text-red-500">*</span>
+          </label>
           <InputText
             {...register("name")}
             placeholder="Nombre completo o razón social"
             className={errors.name ? "p-invalid" : ""}
           />
-          {errors.name && <small className="p-error">{errors.name.message}</small>}
+          {errors.name && (
+            <small className="p-error">{errors.name.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-4 field">
@@ -221,7 +232,9 @@ export default function CustomerCrmForm({
               />
             )}
           />
-          {errors.taxId && <small className="p-error block mt-1">{errors.taxId.message}</small>}
+          {errors.taxId && (
+            <small className="p-error block mt-1">{errors.taxId.message}</small>
+          )}
         </div>
 
         {/* ── CONTACTO ── */}
@@ -237,12 +250,17 @@ export default function CustomerCrmForm({
             placeholder="correo@ejemplo.com"
             className={errors.email ? "p-invalid" : ""}
           />
-          {errors.email && <small className="p-error">{errors.email.message}</small>}
+          {errors.email && (
+            <small className="p-error">{errors.email.message}</small>
+          )}
         </div>
 
         <div className="col-12 md:col-6 field">
           <label>Persona de Contacto</label>
-          <InputText {...register("contactPerson")} placeholder="Nombre del encargado" />
+          <InputText
+            {...register("contactPerson")}
+            placeholder="Nombre del encargado"
+          />
         </div>
 
         <div className="col-12 md:col-6 field">
@@ -251,7 +269,11 @@ export default function CustomerCrmForm({
             name="phone"
             control={control}
             render={({ field }) => (
-              <PhoneInput value={field.value || ""} onChange={field.onChange} error={errors.phone} />
+              <PhoneInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                error={errors.phone}
+              />
             )}
           />
         </div>
@@ -262,19 +284,31 @@ export default function CustomerCrmForm({
             name="mobile"
             control={control}
             render={({ field }) => (
-              <PhoneInput value={field.value || ""} onChange={field.onChange} error={errors.mobile} />
+              <PhoneInput
+                value={field.value || ""}
+                onChange={field.onChange}
+                error={errors.mobile}
+              />
             )}
           />
         </div>
 
         <div className="col-12 field">
           <label>Dirección Fiscal</label>
-          <InputTextarea {...register("address")} rows={2} placeholder="Dirección principal" />
+          <InputTextarea
+            {...register("address")}
+            rows={2}
+            placeholder="Dirección principal"
+          />
         </div>
 
         <div className="col-12 field">
           <label>Dirección de Envío</label>
-          <InputTextarea {...register("shippingAddress")} rows={2} placeholder="Si difiere de la dirección fiscal" />
+          <InputTextarea
+            {...register("shippingAddress")}
+            rows={2}
+            placeholder="Si difiere de la dirección fiscal"
+          />
         </div>
 
         {/* ── CONFIGURACIÓN COMERCIAL ── */}
@@ -289,7 +323,11 @@ export default function CustomerCrmForm({
             name="priceList"
             control={control}
             render={({ field }) => (
-              <InputNumber value={field.value} onValueChange={(e) => field.onChange(e.value)} min={1} />
+              <InputNumber
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={1}
+              />
             )}
           />
         </div>
@@ -300,7 +338,12 @@ export default function CustomerCrmForm({
             name="creditDays"
             control={control}
             render={({ field }) => (
-              <InputNumber value={field.value} onValueChange={(e) => field.onChange(e.value)} min={0} suffix=" días" />
+              <InputNumber
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={0}
+                suffix=" días"
+              />
             )}
           />
         </div>
@@ -311,7 +354,13 @@ export default function CustomerCrmForm({
             name="defaultDiscount"
             control={control}
             render={({ field }) => (
-              <InputNumber value={field.value} onValueChange={(e) => field.onChange(e.value)} min={0} max={100} suffix="%" />
+              <InputNumber
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={0}
+                max={100}
+                suffix="%"
+              />
             )}
           />
         </div>
@@ -322,7 +371,13 @@ export default function CustomerCrmForm({
             name="creditLimit"
             control={control}
             render={({ field }) => (
-              <InputNumber value={field.value} onValueChange={(e) => field.onChange(e.value)} min={0} mode="decimal" minFractionDigits={2} />
+              <InputNumber
+                value={field.value}
+                onValueChange={(e) => field.onChange(e.value)}
+                min={0}
+                mode="decimal"
+                minFractionDigits={2}
+              />
             )}
           />
         </div>
@@ -334,7 +389,10 @@ export default function CustomerCrmForm({
               name="isSpecialTaxpayer"
               control={control}
               render={({ field }) => (
-                <InputSwitch checked={field.value ?? false} onChange={(e) => field.onChange(e.value)} />
+                <InputSwitch
+                  checked={field.value ?? false}
+                  onChange={(e) => field.onChange(e.value)}
+                />
               )}
             />
             <span className="text-sm">Agente de Retención</span>
@@ -349,7 +407,10 @@ export default function CustomerCrmForm({
                 name="isActive"
                 control={control}
                 render={({ field }) => (
-                  <InputSwitch checked={field.value ?? true} onChange={(e) => field.onChange(e.value)} />
+                  <InputSwitch
+                    checked={field.value ?? true}
+                    onChange={(e) => field.onChange(e.value)}
+                  />
                 )}
               />
               <span className="text-sm">Activo</span>
@@ -440,7 +501,9 @@ export default function CustomerCrmForm({
 
         <div className="col-12 field">
           <label>Campos Adicionales</label>
-          <small className="block text-500 mb-2">Información extra personalizada</small>
+          <small className="block text-500 mb-2">
+            Información extra personalizada
+          </small>
           <Controller
             name="metadata"
             control={control}
@@ -449,7 +512,6 @@ export default function CustomerCrmForm({
             )}
           />
         </div>
-
       </div>
     </form>
   );

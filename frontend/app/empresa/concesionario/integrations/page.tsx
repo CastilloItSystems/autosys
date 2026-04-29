@@ -1,4 +1,4 @@
-import DealerIntegrationsView from "@/components/concesionario/integrations/DealerIntegrationsView";
+import DealerIntegrationsView from "@/modules/concesionario/integrations/components/DealerIntegrationsView";
 
 export default function ConcesionarioIntegrationsPage() {
   return <DealerIntegrationsView />;

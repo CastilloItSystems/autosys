@@ -1,5 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -22,7 +28,7 @@ import {
 import ActivityForm from "./ActivityForm";
 import ActivityCompleteDialog from "./ActivityCompleteDialog";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const typeFilterOptions = [
@@ -65,7 +71,9 @@ export default function ActivityList({ customerId }: Props) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteItem, setDeleteItem] = useState<Activity | null>(null);
 
-  const [completeActivity, setCompleteActivity] = useState<Activity | null>(null);
+  const [completeActivity, setCompleteActivity] = useState<Activity | null>(
+    null,
+  );
   const [completeDialogVisible, setCompleteDialogVisible] = useState(false);
 
   const limit = 20;
@@ -85,7 +93,10 @@ export default function ActivityList({ customerId }: Props) {
       setActivities(raw.data ?? raw);
       setTotal(raw.meta?.total ?? raw.length ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error al cargar actividades" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al cargar actividades",
+      });
     } finally {
       setLoading(false);
     }
@@ -104,9 +115,15 @@ export default function ActivityList({ customerId }: Props) {
     const q = searchQuery.toLowerCase();
     return activities.filter((a) => {
       return (
-        String(a.title || "").toLowerCase().includes(q) ||
-        String(a.customer?.name || "").toLowerCase().includes(q) ||
-        String(a.outcome || "").toLowerCase().includes(q)
+        String(a.title || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(a.customer?.name || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(a.outcome || "")
+          .toLowerCase()
+          .includes(q)
       );
     });
   }, [activities, searchQuery]);
@@ -137,7 +154,10 @@ export default function ActivityList({ customerId }: Props) {
     setIsDeleting(true);
     try {
       await activityService.delete(deleteItem.id);
-      toast.current?.show({ severity: "success", summary: "Actividad eliminada" });
+      toast.current?.show({
+        severity: "success",
+        summary: "Actividad eliminada",
+      });
       setDeleteDialog(false);
       setDeleteItem(null);
       await load();
@@ -191,24 +211,41 @@ export default function ActivityList({ customerId }: Props) {
   const titleBody = (a: Activity) => (
     <div>
       <div className="font-semibold text-sm">{a.title}</div>
-      {!customerId && a.customer && <div className="text-xs text-500">{a.customer.name}</div>}
+      {!customerId && a.customer && (
+        <div className="text-xs text-500">{a.customer.name}</div>
+      )}
     </div>
   );
 
   const typeBody = (a: Activity) => {
-    const cfg = ACTIVITY_TYPE_CONFIG[a.type as keyof typeof ACTIVITY_TYPE_CONFIG];
-    return cfg ? <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" /> : null;
+    const cfg =
+      ACTIVITY_TYPE_CONFIG[a.type as keyof typeof ACTIVITY_TYPE_CONFIG];
+    return cfg ? (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    ) : null;
   };
 
   const statusBody = (a: Activity) => {
-    const cfg = ACTIVITY_STATUS_CONFIG[a.status as keyof typeof ACTIVITY_STATUS_CONFIG];
-    return cfg ? <Tag value={cfg.label} severity={cfg.severity} className="text-xs" /> : null;
+    const cfg =
+      ACTIVITY_STATUS_CONFIG[a.status as keyof typeof ACTIVITY_STATUS_CONFIG];
+    return cfg ? (
+      <Tag value={cfg.label} severity={cfg.severity} className="text-xs" />
+    ) : null;
   };
 
   const dueBody = (a: Activity) => {
     const isPast = a.status === "PENDING" && new Date(a.dueAt) < new Date();
     return (
-      <span className={`text-sm ${isPast ? "text-red-500 font-semibold" : "text-600"}`}>
+      <span
+        className={`text-sm ${
+          isPast ? "text-red-500 font-semibold" : "text-600"
+        }`}
+      >
         {new Date(a.dueAt).toLocaleDateString("es-VE")}
         {isPast && " ·Vencida"}
       </span>
@@ -274,7 +311,11 @@ export default function ActivityList({ customerId }: Props) {
             }}
           />
         </span>
-        <CreateButton label="Nueva actividad" onClick={openNew} tooltip="Crear actividad" />
+        <CreateButton
+          label="Nueva actividad"
+          onClick={openNew}
+          tooltip="Crear actividad"
+        />
       </div>
     </div>
   );
@@ -282,9 +323,18 @@ export default function ActivityList({ customerId }: Props) {
   return (
     <>
       <Toast ref={toast} />
-      <Menu ref={menuRef} popup model={actionItems(actionItem)} id="crm-activity-menu" />
+      <Menu
+        ref={menuRef}
+        popup
+        model={actionItems(actionItem)}
+        id="crm-activity-menu"
+      />
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <DataTable
           value={filteredActivities}
           header={header}
@@ -302,11 +352,23 @@ export default function ActivityList({ customerId }: Props) {
           scrollable
           sortMode="multiple"
         >
-          <Column header="Actividad" body={titleBody} style={{ minWidth: "180px" }} />
+          <Column
+            header="Actividad"
+            body={titleBody}
+            style={{ minWidth: "180px" }}
+          />
           <Column header="Tipo" body={typeBody} style={{ width: "120px" }} />
-          <Column header="Estado" body={statusBody} style={{ width: "130px" }} />
+          <Column
+            header="Estado"
+            body={statusBody}
+            style={{ width: "130px" }}
+          />
           <Column header="Vence" body={dueBody} style={{ width: "130px" }} />
-          <Column header="Resultado" body={(a) => a.outcome || "—"} style={{ width: "180px" }} />
+          <Column
+            header="Resultado"
+            body={(a) => a.outcome || "—"}
+            style={{ width: "180px" }}
+          />
           <Column
             header="Acciones"
             body={actionsBody}

@@ -14,7 +14,7 @@ import unitsService, { Unit } from "@/app/api/inventory/unitService";
 import UnitForm from "./UnitForm";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const UNIT_TYPES_LABELS: Record<string, string> = {
   COUNTABLE: "Contable",

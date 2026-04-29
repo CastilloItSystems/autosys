@@ -12,7 +12,7 @@ import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { materialService } from "@/app/api/workshop";
@@ -224,7 +224,9 @@ export default function MaterialList({
     try {
       const [warehouseRes, stockRes] = await Promise.all([
         warehouseService.getActive(),
-        item.itemId ? stockService.getByItem(item.itemId) : Promise.resolve(null),
+        item.itemId
+          ? stockService.getByItem(item.itemId)
+          : Promise.resolve(null),
       ]);
 
       const warehouseRows = Array.isArray((warehouseRes as any)?.data)
@@ -667,7 +669,8 @@ export default function MaterialList({
           <div className="flex flex-column gap-3">
             <p className="m-0 text-700">
               Selecciona el almacén para reservar el material
-              <span className="font-semibold"> {reserveItem?.description}</span>.
+              <span className="font-semibold"> {reserveItem?.description}</span>
+              .
             </p>
 
             <Dropdown
@@ -675,7 +678,11 @@ export default function MaterialList({
               onChange={(e) => setSelectedWarehouseId(e.value)}
               options={warehouses.map((warehouse) => ({
                 value: warehouse.id,
-                label: `${warehouse.code} - ${warehouse.name}${reserveItem?.itemId ? ` (Disp: ${stockByWarehouse[warehouse.id] ?? 0})` : ""}`,
+                label: `${warehouse.code} - ${warehouse.name}${
+                  reserveItem?.itemId
+                    ? ` (Disp: ${stockByWarehouse[warehouse.id] ?? 0})`
+                    : ""
+                }`,
               }))}
               placeholder="Selecciona almacén"
               className="w-full"
@@ -684,14 +691,15 @@ export default function MaterialList({
 
             {reserveItem?.itemId && selectedWarehouseId && (
               <small className="text-600">
-                Disponible en almacén: {stockByWarehouse[selectedWarehouseId] ?? 0}
+                Disponible en almacén:{" "}
+                {stockByWarehouse[selectedWarehouseId] ?? 0}
               </small>
             )}
 
             {!reserveItem?.itemId && (
               <small className="text-600">
-                Este material no está vinculado a un ítem de inventario; no aplica
-                reserva de stock.
+                Este material no está vinculado a un ítem de inventario; no
+                aplica reserva de stock.
               </small>
             )}
           </div>

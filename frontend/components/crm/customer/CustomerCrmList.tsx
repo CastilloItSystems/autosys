@@ -24,15 +24,19 @@ import CustomerCrmForm from "./CustomerCrmForm";
 import CustomerTimeline from "./CustomerTimeline";
 import CustomerVehiclePanel from "./CustomerVehiclePanel";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { ConfirmActionPopup } from "@/components/common/ConfirmAction";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const CustomerCrmList = () => {
   const router = useRouter();
   const [customers, setCustomers] = useState<CustomerCrm[]>([]);
-  const [selectedCustomer, setSelectedCustomer] = useState<CustomerCrm | null>(null);
-  const [actionCustomer, setActionCustomer] = useState<CustomerCrm | null>(null);
+  const [selectedCustomer, setSelectedCustomer] = useState<CustomerCrm | null>(
+    null,
+  );
+  const [actionCustomer, setActionCustomer] = useState<CustomerCrm | null>(
+    null,
+  );
   const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -58,13 +62,25 @@ const CustomerCrmList = () => {
 
   // ── Debounced search ──
   useEffect(() => {
-    const handler = setTimeout(() => setDebouncedSearch(globalFilterValue), 500);
+    const handler = setTimeout(
+      () => setDebouncedSearch(globalFilterValue),
+      500,
+    );
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
 
   useEffect(() => {
     loadCustomers();
-  }, [page, rows, sortField, sortOrder, debouncedSearch, segmentFilter, channelFilter, typeFilter]);
+  }, [
+    page,
+    rows,
+    sortField,
+    sortOrder,
+    debouncedSearch,
+    segmentFilter,
+    channelFilter,
+    typeFilter,
+  ]);
 
   const loadCustomers = async () => {
     try {
@@ -89,7 +105,11 @@ const CustomerCrmList = () => {
   };
 
   const onPageChange = (event: any) => {
-    setPage(event.page !== undefined ? event.page : Math.floor(event.first / event.rows));
+    setPage(
+      event.page !== undefined
+        ? event.page
+        : Math.floor(event.first / event.rows),
+    );
     setRows(event.rows);
   };
 
@@ -143,7 +163,9 @@ const CustomerCrmList = () => {
 
   const handleToggleActive = async (customer: CustomerCrm) => {
     try {
-      await customerCrmService.update(customer.id, { isActive: !customer.isActive } as any);
+      await customerCrmService.update(customer.id, {
+        isActive: !customer.isActive,
+      } as any);
       await loadCustomers();
       toast.current?.show({
         severity: "success",
@@ -203,7 +225,10 @@ const CustomerCrmList = () => {
         <Dropdown
           value={segmentFilter}
           options={segmentOptions}
-          onChange={(e) => { setSegmentFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setSegmentFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Segmento"
           className="w-full sm:w-auto"
           style={{ minWidth: "160px" }}
@@ -211,7 +236,10 @@ const CustomerCrmList = () => {
         <Dropdown
           value={channelFilter}
           options={channelOptions}
-          onChange={(e) => { setChannelFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setChannelFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Canal"
           className="w-full sm:w-auto"
           style={{ minWidth: "140px" }}
@@ -219,7 +247,10 @@ const CustomerCrmList = () => {
         <Dropdown
           value={typeFilter}
           options={typeOptions}
-          onChange={(e) => { setTypeFilter(e.value); setPage(0); }}
+          onChange={(e) => {
+            setTypeFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Tipo"
           className="w-full sm:w-auto"
           style={{ minWidth: "140px" }}
@@ -294,39 +325,79 @@ const CustomerCrmList = () => {
         <span className="font-semibold text-900">{rowData.name}</span>
         {rowData.isSpecialTaxpayer && (
           <span title="Contribuyente Especial">
-            <Tag value="CT" severity="warning" className="text-xs" style={{ fontSize: "0.65rem", padding: "1px 4px" }} />
+            <Tag
+              value="CT"
+              severity="warning"
+              className="text-xs"
+              style={{ fontSize: "0.65rem", padding: "1px 4px" }}
+            />
           </span>
         )}
       </div>
       <span className="text-xs text-500">{rowData.code}</span>
-      {rowData.taxId && <span className="text-xs text-400">{rowData.taxId}</span>}
+      {rowData.taxId && (
+        <span className="text-xs text-400">{rowData.taxId}</span>
+      )}
     </div>
   );
 
   const segmentBodyTemplate = (rowData: CustomerCrm) => {
-    const cfg = CUSTOMER_SEGMENT_CONFIG[rowData.segment as keyof typeof CUSTOMER_SEGMENT_CONFIG];
-    if (!cfg) return <span className="text-400 text-xs">{rowData.segment}</span>;
-    return <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" />;
+    const cfg =
+      CUSTOMER_SEGMENT_CONFIG[
+        rowData.segment as keyof typeof CUSTOMER_SEGMENT_CONFIG
+      ];
+    if (!cfg)
+      return <span className="text-400 text-xs">{rowData.segment}</span>;
+    return (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    );
   };
 
   const channelBodyTemplate = (rowData: CustomerCrm) => {
-    const cfg = CUSTOMER_CHANNEL_CONFIG[rowData.preferredChannel as keyof typeof CUSTOMER_CHANNEL_CONFIG];
-    if (!cfg) return <span className="text-400 text-xs">{rowData.preferredChannel}</span>;
-    return <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" />;
+    const cfg =
+      CUSTOMER_CHANNEL_CONFIG[
+        rowData.preferredChannel as keyof typeof CUSTOMER_CHANNEL_CONFIG
+      ];
+    if (!cfg)
+      return (
+        <span className="text-400 text-xs">{rowData.preferredChannel}</span>
+      );
+    return (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    );
   };
 
   const typeBodyTemplate = (rowData: CustomerCrm) => {
-    const cfg = CUSTOMER_TYPE_CONFIG[rowData.type as keyof typeof CUSTOMER_TYPE_CONFIG];
+    const cfg =
+      CUSTOMER_TYPE_CONFIG[rowData.type as keyof typeof CUSTOMER_TYPE_CONFIG];
     if (!cfg) return null;
     return (
       <div className="flex flex-column gap-1">
-        <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" />
-        {rowData.type === "COMPANY" && rowData.creditLimit != null && rowData.creditLimit > 0 && (
-          <span className="text-xs text-500">
-            <i className="pi pi-credit-card mr-1" />
-            ${Number(rowData.creditLimit).toLocaleString()} · {rowData.creditDays ?? 0}d
-          </span>
-        )}
+        <Tag
+          value={cfg.label}
+          severity={cfg.severity}
+          icon={cfg.icon}
+          className="text-xs"
+        />
+        {rowData.type === "COMPANY" &&
+          rowData.creditLimit != null &&
+          rowData.creditLimit > 0 && (
+            <span className="text-xs text-500">
+              <i className="pi pi-credit-card mr-1" />$
+              {Number(rowData.creditLimit).toLocaleString()} ·{" "}
+              {rowData.creditDays ?? 0}d
+            </span>
+          )}
       </div>
     );
   };
@@ -334,13 +405,22 @@ const CustomerCrmList = () => {
   const contactBodyTemplate = (rowData: CustomerCrm) => (
     <div className="flex flex-column">
       {rowData.email && (
-        <span className="text-xs"><i className="pi pi-envelope text-500 mr-1" />{rowData.email}</span>
+        <span className="text-xs">
+          <i className="pi pi-envelope text-500 mr-1" />
+          {rowData.email}
+        </span>
       )}
       {rowData.phone && (
-        <span className="text-xs"><i className="pi pi-phone text-500 mr-1" />{rowData.phone}</span>
+        <span className="text-xs">
+          <i className="pi pi-phone text-500 mr-1" />
+          {rowData.phone}
+        </span>
       )}
       {rowData.mobile && (
-        <span className="text-xs"><i className="pi pi-comments text-500 mr-1" />{rowData.mobile}</span>
+        <span className="text-xs">
+          <i className="pi pi-comments text-500 mr-1" />
+          {rowData.mobile}
+        </span>
       )}
       {!rowData.email && !rowData.phone && !rowData.mobile && (
         <span className="text-400 text-xs">Sin contacto</span>
@@ -352,17 +432,20 @@ const CustomerCrmList = () => {
     <div className="flex gap-2 flex-wrap">
       {rowData._count?.orders !== undefined && (
         <span className="text-xs bg-blue-50 text-blue-700 border-round px-2 py-1">
-          <i className="pi pi-shopping-cart mr-1" />{rowData._count.orders}
+          <i className="pi pi-shopping-cart mr-1" />
+          {rowData._count.orders}
         </span>
       )}
       {rowData._count?.leads !== undefined && (
         <span className="text-xs bg-orange-50 text-orange-700 border-round px-2 py-1">
-          <i className="pi pi-chart-line mr-1" />{rowData._count.leads}
+          <i className="pi pi-chart-line mr-1" />
+          {rowData._count.leads}
         </span>
       )}
       {rowData._count?.interactions !== undefined && (
         <span className="text-xs bg-green-50 text-green-700 border-round px-2 py-1">
-          <i className="pi pi-comments mr-1" />{rowData._count.interactions}
+          <i className="pi pi-comments mr-1" />
+          {rowData._count.interactions}
         </span>
       )}
     </div>
@@ -424,20 +507,52 @@ const CustomerCrmList = () => {
           scrollable
           tableStyle={{ minWidth: "70rem" }}
         >
-          <Column header="Cliente" body={nameBodyTemplate} sortable sortField="name" style={{ minWidth: "14rem" }} />
-          <Column header="Segmento" body={segmentBodyTemplate} style={{ width: "10rem" }} />
-          <Column header="Canal" body={channelBodyTemplate} style={{ width: "10rem" }} />
-          <Column header="Tipo" body={typeBodyTemplate} style={{ width: "9rem" }} />
-          <Column header="Contacto" body={contactBodyTemplate} style={{ minWidth: "12rem" }} />
-          <Column header="Actividad" body={statsBodyTemplate} style={{ minWidth: "10rem" }} />
-          <Column header="Estado" body={statusBodyTemplate} style={{ width: "7rem" }} />
+          <Column
+            header="Cliente"
+            body={nameBodyTemplate}
+            sortable
+            sortField="name"
+            style={{ minWidth: "14rem" }}
+          />
+          <Column
+            header="Segmento"
+            body={segmentBodyTemplate}
+            style={{ width: "10rem" }}
+          />
+          <Column
+            header="Canal"
+            body={channelBodyTemplate}
+            style={{ width: "10rem" }}
+          />
+          <Column
+            header="Tipo"
+            body={typeBodyTemplate}
+            style={{ width: "9rem" }}
+          />
+          <Column
+            header="Contacto"
+            body={contactBodyTemplate}
+            style={{ minWidth: "12rem" }}
+          />
+          <Column
+            header="Actividad"
+            body={statsBodyTemplate}
+            style={{ minWidth: "10rem" }}
+          />
+          <Column
+            header="Estado"
+            body={statusBodyTemplate}
+            style={{ width: "7rem" }}
+          />
           <Column
             field="createdAt"
             header="Creado"
             sortable
             body={(row) =>
               new Date(row.createdAt).toLocaleDateString("es-VE", {
-                year: "numeric", month: "short", day: "numeric",
+                year: "numeric",
+                month: "short",
+                day: "numeric",
               })
             }
             style={{ width: "9rem" }}
@@ -461,7 +576,11 @@ const CustomerCrmList = () => {
           setDeleteDialog(false);
         }}
         onConfirm={handleDelete}
-        itemName={selectedCustomer ? `${selectedCustomer.name} (${selectedCustomer.code})` : "cliente"}
+        itemName={
+          selectedCustomer
+            ? `${selectedCustomer.name} (${selectedCustomer.code})`
+            : "cliente"
+        }
         isDeleting={isDeleting}
       />
 
@@ -480,12 +599,18 @@ const CustomerCrmList = () => {
           </div>
         }
         modal
-        onHide={() => { setFormDialog(false); setSelectedCustomer(null); }}
+        onHide={() => {
+          setFormDialog(false);
+          setSelectedCustomer(null);
+        }}
         footer={
           <FormActionButtons
             formId="customer-crm-form"
             isUpdate={!!selectedCustomer?.id}
-            onCancel={() => { setFormDialog(false); setSelectedCustomer(null); }}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelectedCustomer(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -514,7 +639,10 @@ const CustomerCrmList = () => {
           </div>
         }
         modal
-        onHide={() => { setTimelineDialog(false); setSelectedCustomer(null); }}
+        onHide={() => {
+          setTimelineDialog(false);
+          setSelectedCustomer(null);
+        }}
       >
         {selectedCustomer && (
           <CustomerTimeline customerId={selectedCustomer.id} />
@@ -527,14 +655,22 @@ const CustomerCrmList = () => {
         style={{ width: "900px" }}
         header={`Vehículos — ${selectedCustomer?.name}`}
         modal
-        onHide={() => { setVehiclesDialog(false); setSelectedCustomer(null); }}
+        onHide={() => {
+          setVehiclesDialog(false);
+          setSelectedCustomer(null);
+        }}
       >
         {selectedCustomer && (
           <CustomerVehiclePanel customerId={selectedCustomer.id} />
         )}
       </Dialog>
 
-      <Menu model={getMenuItems(actionCustomer)} popup ref={menuRef} id="crm-customer-menu" />
+      <Menu
+        model={getMenuItems(actionCustomer)}
+        popup
+        ref={menuRef}
+        id="crm-customer-menu"
+      />
     </>
   );
 };

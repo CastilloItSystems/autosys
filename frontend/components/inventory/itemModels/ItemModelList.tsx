@@ -13,7 +13,7 @@ import { motion } from "framer-motion";
 import modelsService, { type Model } from "@/app/api/inventory/modelService";
 import ItemModelForm from "./ItemModelForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 export default function ItemModelList() {

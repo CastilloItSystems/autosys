@@ -33,7 +33,7 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const PurchaseOrderList = () => {
   const router = useRouter();
@@ -158,8 +158,7 @@ const PurchaseOrderList = () => {
 
   /* ── Helpers ── */
   const formatCurrency = (value: number | string, currency = "USD") => {
-    const symbol =
-      currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
+    const symbol = currency === "VES" ? "Bs." : currency === "EUR" ? "€" : "$";
     return `${symbol}${Number(value || 0).toLocaleString("es-VE", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
@@ -333,7 +332,9 @@ const PurchaseOrderList = () => {
         life: 3000,
       });
       router.push(
-        `/empresa/inventario/notas-entrada?search=${encodeURIComponent(entryNote.entryNoteNumber)}`,
+        `/empresa/inventario/notas-entrada?search=${encodeURIComponent(
+          entryNote.entryNoteNumber,
+        )}`,
       );
     } catch (error) {
       handleFormError(error, toast);

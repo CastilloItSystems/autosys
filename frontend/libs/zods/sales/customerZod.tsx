@@ -4,7 +4,7 @@ import { z } from "zod";
 
 export const createCustomerSchema = z.object({
   code: z.string().max(50, "Máximo 50 caracteres").optional(),
-  taxId: z.string().max(20).optional().or(z.literal("")),
+  taxId: z.string().min(1, "El RIF / Cédula es requerido").max(20),
   name: z
     .string()
     .min(1, "El nombre es requerido")

@@ -1,4 +1,4 @@
-import DealerUnitList from "@/components/concesionario/vehicles/DealerUnitList";
+import DealerUnitList from "@/modules/concesionario/vehicles/components/DealerUnitList";
 
 export default function ConcesionarioVehiclesPage() {
   return <DealerUnitList />;

@@ -32,7 +32,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import PlanningKanbanCard from "./PlanningKanbanCard";
 import ServiceOrderForm from "@/components/workshop/service-orders/ServiceOrderForm";
 import ServiceOrderDetail from "@/components/workshop/service-orders/ServiceOrderDetail";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 // ── Status config ─────────────────────────────────────────────────────────────
 // NOTE: Keep `NEXT_STATUSES` in sync with backend VALID_TRANSITIONS

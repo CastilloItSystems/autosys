@@ -10,11 +10,14 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { warrantyService } from "@/app/api/workshop";
-import type { WorkshopWarranty, WarrantyStatus } from "@/libs/interfaces/workshop";
+import type {
+  WorkshopWarranty,
+  WarrantyStatus,
+} from "@/libs/interfaces/workshop";
 import {
   WarrantyStatusBadge,
   WARRANTY_STATUS_OPTIONS,
@@ -42,7 +45,9 @@ export default function WarrantyList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, statusFilter]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, statusFilter]);
 
   const loadItems = async () => {
     try {
@@ -65,9 +70,18 @@ export default function WarrantyList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: WorkshopWarranty) => { setSelected({ ...item }); setFormDialog(true); };
-  const openStatusDialog = (item: WorkshopWarranty) => { setSelected({ ...item }); setStatusDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: WorkshopWarranty) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const openStatusDialog = (item: WorkshopWarranty) => {
+    setSelected({ ...item });
+    setStatusDialog(true);
+  };
 
   const handleSave = () => {
     (async () => {
@@ -84,7 +98,12 @@ export default function WarrantyList() {
   };
 
   const handleStatusSaved = async () => {
-    toast.current?.show({ severity: "success", summary: "Éxito", detail: "Estado de garantía actualizado", life: 3000 });
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Estado de garantía actualizado",
+      life: 3000,
+    });
     await loadItems();
     setStatusDialog(false);
     setSelected(null);
@@ -96,7 +115,9 @@ export default function WarrantyList() {
     <span className="font-bold text-primary">{row.warrantyNumber}</span>
   );
 
-  const statusTemplate = (row: WorkshopWarranty) => <WarrantyStatusBadge status={row.status} />;
+  const statusTemplate = (row: WorkshopWarranty) => (
+    <WarrantyStatusBadge status={row.status} />
+  );
 
   const typeTemplate = (row: WorkshopWarranty) => (
     <Tag value={WARRANTY_TYPE_LABELS[row.type]} severity="info" rounded />
@@ -111,13 +132,23 @@ export default function WarrantyList() {
 
   const originalOrderTemplate = (row: WorkshopWarranty) =>
     row.originalOrder ? (
-      <span className="font-semibold text-primary">{row.originalOrder.folio}</span>
-    ) : <span className="text-500">—</span>;
+      <span className="font-semibold text-primary">
+        {row.originalOrder.folio}
+      </span>
+    ) : (
+      <span className="text-500">—</span>
+    );
 
   const expiryTemplate = (row: WorkshopWarranty) =>
-    row.expiresAt
-      ? new Date(row.expiresAt).toLocaleDateString("es-MX", { day: "2-digit", month: "short", year: "numeric" })
-      : <span className="text-500">Sin vencimiento</span>;
+    row.expiresAt ? (
+      new Date(row.expiresAt).toLocaleDateString("es-MX", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+      })
+    ) : (
+      <span className="text-500">Sin vencimiento</span>
+    );
 
   const actionBodyTemplate = (rowData: WorkshopWarranty) => (
     <Button
@@ -125,7 +156,10 @@ export default function WarrantyList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
@@ -147,24 +181,41 @@ export default function WarrantyList() {
             type="search"
             placeholder="Folio, cliente..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
             style={{ width: "14rem" }}
           />
         </span>
         <Dropdown
           value={statusFilter}
-          options={[{ label: "Todos los estados", value: "" }, ...WARRANTY_STATUS_OPTIONS]}
-          onChange={(e) => { setStatusFilter(e.value); setPage(0); }}
+          options={[
+            { label: "Todos los estados", value: "" },
+            ...WARRANTY_STATUS_OPTIONS,
+          ]}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(0);
+          }}
           placeholder="Estado"
           style={{ width: "12rem" }}
         />
-        <CreateButton label="Nueva garantía" onClick={openNew} tooltip="Registrar garantía" />
+        <CreateButton
+          label="Nueva garantía"
+          onClick={openNew}
+          tooltip="Registrar garantía"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -175,7 +226,10 @@ export default function WarrantyList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[10, 20, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -184,12 +238,36 @@ export default function WarrantyList() {
           scrollable
           size="small"
         >
-          <Column header="N° Garantía" body={numberTemplate} style={{ minWidth: "130px" }} />
-          <Column header="Estado" body={statusTemplate} style={{ minWidth: "130px" }} />
-          <Column header="Tipo" body={typeTemplate} style={{ minWidth: "120px" }} />
-          <Column header="Cliente" body={customerTemplate} style={{ minWidth: "180px" }} />
-          <Column header="OT original" body={originalOrderTemplate} style={{ minWidth: "120px" }} />
-          <Column header="Vence" body={expiryTemplate} style={{ minWidth: "140px" }} />
+          <Column
+            header="N° Garantía"
+            body={numberTemplate}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "130px" }}
+          />
+          <Column
+            header="Tipo"
+            body={typeTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            header="Cliente"
+            body={customerTemplate}
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            header="OT original"
+            body={originalOrderTemplate}
+            style={{ minWidth: "120px" }}
+          />
+          <Column
+            header="Vence"
+            body={expiryTemplate}
+            style={{ minWidth: "140px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -213,19 +291,27 @@ export default function WarrantyList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-shield mr-3 text-primary text-3xl" />
-                {selected?.id ? `Editar ${selected.warrantyNumber}` : "Nueva Garantía"}
+                {selected?.id
+                  ? `Editar ${selected.warrantyNumber}`
+                  : "Nueva Garantía"}
               </h2>
             </div>
           </div>
         }
         modal
         className="p-fluid"
-        onHide={() => { setFormDialog(false); setSelected(null); }}
+        onHide={() => {
+          setFormDialog(false);
+          setSelected(null);
+        }}
         footer={
           <FormActionButtons
             formId="warranty-form"
             isUpdate={!!selected?.id}
-            onCancel={() => { setFormDialog(false); setSelected(null); }}
+            onCancel={() => {
+              setFormDialog(false);
+              setSelected(null);
+            }}
             isSubmitting={isSubmitting}
           />
         }
@@ -243,7 +329,10 @@ export default function WarrantyList() {
       <WarrantyStatusDialog
         visible={statusDialog}
         warranty={selected}
-        onHide={() => { setStatusDialog(false); setSelected(null); }}
+        onHide={() => {
+          setStatusDialog(false);
+          setSelected(null);
+        }}
         onSaved={handleStatusSaved}
         toast={toast}
       />

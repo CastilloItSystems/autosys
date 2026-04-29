@@ -1,6 +1,6 @@
 "use client";
 
-import EmpresasList from "@/components/empresas/EmpresasList";
+import EmpresasList from "@/modules/companies/components/EmpresasList";
 import { Page } from "@/types";
 
 const EmpresasListPage: Page = () => {

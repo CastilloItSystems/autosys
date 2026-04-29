@@ -1,4 +1,4 @@
-import DealerApprovalsList from "@/components/concesionario/approvals/DealerApprovalsList";
+import DealerApprovalsList from "@/modules/concesionario/approvals/components/DealerApprovalsList";
 
 export default function ConcesionarioApprovalsPage() {
   return <DealerApprovalsList />;

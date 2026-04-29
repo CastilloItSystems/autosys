@@ -12,7 +12,7 @@ import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import {
   confirmAction,
@@ -456,20 +456,37 @@ export default function ServiceOrderList() {
 
   // ── Row expansion ──────────────────────────────────────────────────────────
 
-  const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    VES: "Bs.",
+  };
 
   const formatAmount = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? "$";
-    return `${sym} ${Number(value || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
-  const formatCrossRef = (total: number, currency: string, exchangeRate?: number | null) => {
+  const formatCrossRef = (
+    total: number,
+    currency: string,
+    exchangeRate?: number | null,
+  ) => {
     const rate = Number(exchangeRate);
     if (!rate || rate <= 0) return null;
     if (currency === "VES") {
-      return `≈ $ ${(total / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+      return `≈ $ ${(total / rate).toLocaleString("es-VE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} USD`;
     }
-    return `≈ Bs. ${(total * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `≈ Bs. ${(total * rate).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
   const rowExpansionTemplate = (data: ServiceOrder) => {
@@ -609,7 +626,10 @@ export default function ServiceOrderList() {
                     flexShrink: 0,
                   }}
                 >
-                  {formatAmount(line.unitPrice, (data as any).currency || "USD")}
+                  {formatAmount(
+                    line.unitPrice,
+                    (data as any).currency || "USD",
+                  )}
                 </div>
                 <div
                   style={{
@@ -664,21 +684,45 @@ export default function ServiceOrderList() {
               }}
             >
               <span className="text-500">
-                Mano de obra: <b>{formatAmount(data.laborTotal, (data as any).currency || "USD")}</b>
+                Mano de obra:{" "}
+                <b>
+                  {formatAmount(
+                    data.laborTotal,
+                    (data as any).currency || "USD",
+                  )}
+                </b>
               </span>
               <span className="text-500">
-                Partes: <b>{formatAmount(data.partsTotal, (data as any).currency || "USD")}</b>
+                Partes:{" "}
+                <b>
+                  {formatAmount(
+                    data.partsTotal,
+                    (data as any).currency || "USD",
+                  )}
+                </b>
               </span>
               <span className="text-blue-500">
-                IVA: <b>{formatAmount(data.taxAmt, (data as any).currency || "USD")}</b>
+                IVA:{" "}
+                <b>
+                  {formatAmount(data.taxAmt, (data as any).currency || "USD")}
+                </b>
               </span>
               <div className="flex flex-column align-items-end">
                 <span className="text-primary font-bold">
-                  Total: {formatAmount(data.total, (data as any).currency || "USD")}
+                  Total:{" "}
+                  {formatAmount(data.total, (data as any).currency || "USD")}
                 </span>
-                {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate) && (
+                {formatCrossRef(
+                  data.total,
+                  (data as any).currency || "USD",
+                  (data as any).exchangeRate,
+                ) && (
                   <span className="text-xs text-500">
-                    {formatCrossRef(data.total, (data as any).currency || "USD", (data as any).exchangeRate)}
+                    {formatCrossRef(
+                      data.total,
+                      (data as any).currency || "USD",
+                      (data as any).exchangeRate,
+                    )}
                   </span>
                 )}
               </div>

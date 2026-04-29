@@ -1,6 +1,6 @@
 "use client";
 import { Page } from "../../../../types/layout";
-import UsuarioForm from "@/components/usuarioComponents/UsuarioForm";
+import UsuarioForm from "@/modules/users/components/UsuarioForm";
 import { useRef } from "react";
 
 const Login: Page = () => {

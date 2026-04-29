@@ -7,7 +7,7 @@ import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 import { exchangeRateService } from "@/app/api/finance";
 import type { ExchangeRate } from "@/libs/interfaces/finance";
@@ -85,7 +85,11 @@ export default function ExchangeRateForm({
   };
 
   return (
-    <form id={formId} onSubmit={handleSubmit(onSubmit)} className="flex flex-column gap-3">
+    <form
+      id={formId}
+      onSubmit={handleSubmit(onSubmit)}
+      className="flex flex-column gap-3"
+    >
       <div className="grid">
         {/* fromCurrency */}
         <div className="col-6">

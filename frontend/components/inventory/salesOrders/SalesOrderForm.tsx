@@ -19,7 +19,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import { LayoutContext } from "@/layout/context/layoutcontext";
 import { Item } from "@/libs/interfaces/inventory";
 import CustomerForm from "@/components/sales/customer/CustomerForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 type FormData = z.infer<typeof salesOrderSchema>;
 

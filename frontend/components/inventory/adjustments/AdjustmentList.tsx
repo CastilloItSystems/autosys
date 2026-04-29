@@ -5,10 +5,7 @@ import { Column } from "primereact/column";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
-import {
-  ConfirmDialog,
-  confirmDialog,
-} from "primereact/confirmdialog";
+import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Dropdown, DropdownChangeEvent } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { InputText } from "primereact/inputtext";
@@ -29,7 +26,7 @@ import warehouseService, {
 import AdjustmentForm from "@/components/inventory/adjustments/AdjustmentForm";
 import AdjustmentDetail from "@/components/inventory/adjustments/AdjustmentDetail";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   [

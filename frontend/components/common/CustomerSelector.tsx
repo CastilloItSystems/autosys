@@ -6,7 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import customerCrmService from "@/app/api/crm/customerCrmService";
 import CustomerForm from "@/components/sales/customer/CustomerForm";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import type { CustomerCrm } from "@/libs/interfaces/crm/customer.crm.interface";
 
 interface CustomerSelectorProps {
@@ -46,7 +46,9 @@ export default function CustomerSelector({
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const options = useMemo(
@@ -55,7 +57,7 @@ export default function CustomerSelector({
         label: `${c.name} (${c.code})`,
         value: c.id,
       })),
-    [customers]
+    [customers],
   );
 
   const handleCreated = async (created?: any) => {
@@ -93,7 +95,7 @@ export default function CustomerSelector({
       <Dropdown
         value={value ?? null}
         options={options}
-      onChange={(e) => onChange(e.value)}
+        onChange={(e) => onChange(e.value)}
         placeholder={loading ? "Cargando clientes..." : placeholder}
         disabled={disabled || loading}
         filter

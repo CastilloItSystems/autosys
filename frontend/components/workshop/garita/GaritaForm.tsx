@@ -7,7 +7,7 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { InputNumber } from "primereact/inputnumber";
 import { Calendar } from "primereact/calendar";
 import { Dropdown } from "primereact/dropdown";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import { garitaService } from "@/app/api/workshop";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
@@ -16,7 +16,10 @@ import {
   GARITA_EVENT_TYPES,
   type CreateGaritaFormValues,
 } from "@/libs/zods/workshop";
-import type { CreateGaritaEventInput, GaritaEventType } from "@/libs/interfaces/workshop";
+import type {
+  CreateGaritaEventInput,
+  GaritaEventType,
+} from "@/libs/interfaces/workshop";
 
 interface Props {
   serviceOrderId?: string;
@@ -32,11 +35,27 @@ const TYPE_OPTIONS = GARITA_EVENT_TYPES.map((t) => ({
   value: t,
 }));
 
-const REQUIRES_EXIT_PASS: GaritaEventType[] = ["VEHICLE_OUT", "PART_OUT", "ROAD_TEST_OUT"];
-const VEHICLE_EVENTS: GaritaEventType[] = ["VEHICLE_IN", "VEHICLE_OUT", "ROAD_TEST_OUT", "ROAD_TEST_IN"];
+const REQUIRES_EXIT_PASS: GaritaEventType[] = [
+  "VEHICLE_OUT",
+  "PART_OUT",
+  "ROAD_TEST_OUT",
+];
+const VEHICLE_EVENTS: GaritaEventType[] = [
+  "VEHICLE_IN",
+  "VEHICLE_OUT",
+  "ROAD_TEST_OUT",
+  "ROAD_TEST_IN",
+];
 const SERIAL_EVENTS: GaritaEventType[] = ["VEHICLE_IN", "VEHICLE_OUT"];
 
-export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, onSaved, onCancel }: Props) {
+export default function GaritaForm({
+  serviceOrderId,
+  totId,
+  defaultType,
+  toast,
+  onSaved,
+  onCancel,
+}: Props) {
   const [isSubmitting, setIsSubmitting] = React.useState(false);
 
   const {
@@ -85,9 +104,12 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
   };
 
   return (
-    <form id="garita-form" onSubmit={handleSubmit(onSubmit)} className="p-fluid">
+    <form
+      id="garita-form"
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
       <div className="grid">
-
         {/* ── Tipo de movimiento ── */}
         <div className="col-12 md:col-6">
           <label htmlFor="type" className="block text-900 font-medium mb-2">
@@ -105,7 +127,9 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
               />
             )}
           />
-          {errors.type && <small className="p-error block mt-1">{errors.type.message}</small>}
+          {errors.type && (
+            <small className="p-error block mt-1">{errors.type.message}</small>
+          )}
         </div>
 
         {/* ── Fecha / Hora ── */}
@@ -120,7 +144,11 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
               <Calendar
                 inputId="eventAt"
                 value={field.value ? new Date(field.value) : null}
-                onChange={(e) => field.onChange(e.value ? (e.value as Date).toISOString() : null)}
+                onChange={(e) =>
+                  field.onChange(
+                    e.value ? (e.value as Date).toISOString() : null,
+                  )
+                }
                 showTime
                 dateFormat="dd/mm/yy"
                 showIcon
@@ -132,7 +160,10 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
 
         {/* ── Placa + Vehículo + KM (una fila) ── */}
         <div className="col-12 md:col-3">
-          <label htmlFor="plateNumber" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="plateNumber"
+            className="block text-900 font-medium mb-2"
+          >
             Placa
           </label>
           <Controller
@@ -151,7 +182,10 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
         </div>
 
         <div className={`col-12 ${isVehicleEvent ? "md:col-6" : "md:col-9"}`}>
-          <label htmlFor="vehicleDesc" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="vehicleDesc"
+            className="block text-900 font-medium mb-2"
+          >
             Vehículo
           </label>
           <Controller
@@ -195,7 +229,10 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
         {isSerialEvent && (
           <>
             <div className="col-12 md:col-6">
-              <label htmlFor="serialMotor" className="block text-900 font-medium mb-2">
+              <label
+                htmlFor="serialMotor"
+                className="block text-900 font-medium mb-2"
+              >
                 Serial de motor
               </label>
               <Controller
@@ -213,7 +250,10 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
             </div>
 
             <div className="col-12 md:col-6">
-              <label htmlFor="serialBody" className="block text-900 font-medium mb-2">
+              <label
+                htmlFor="serialBody"
+                className="block text-900 font-medium mb-2"
+              >
                 Serial de carrocería
               </label>
               <Controller
@@ -234,7 +274,10 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
 
         {/* ── Conductor / Responsable ── */}
         <div className="col-12 md:col-6">
-          <label htmlFor="driverName" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="driverName"
+            className="block text-900 font-medium mb-2"
+          >
             Conductor / Responsable
           </label>
           <Controller
@@ -272,9 +315,14 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
         {/* ── Pase de salida (solo eventos de salida) ── */}
         {isExitEvent && (
           <div className="col-12">
-            <label htmlFor="exitPassRef" className="block text-900 font-medium mb-2">
+            <label
+              htmlFor="exitPassRef"
+              className="block text-900 font-medium mb-2"
+            >
               Referencia pase de salida{" "}
-              <span className="text-orange-500 text-sm font-normal">(requerido para autorizar)</span>
+              <span className="text-orange-500 text-sm font-normal">
+                (requerido para autorizar)
+              </span>
             </label>
             <Controller
               name="exitPassRef"
@@ -312,11 +360,14 @@ export default function GaritaForm({ serviceOrderId, totId, defaultType, toast, 
             )}
           />
         </div>
-
       </div>
 
       <div className="mt-4">
-        <FormActionButtons isSubmitting={isSubmitting} isEdit={false} onCancel={onCancel} />
+        <FormActionButtons
+          isSubmitting={isSubmitting}
+          isEdit={false}
+          onCancel={onCancel}
+        />
       </div>
     </form>
   );

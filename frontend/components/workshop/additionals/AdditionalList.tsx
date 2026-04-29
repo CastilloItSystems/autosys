@@ -11,11 +11,14 @@ import { Menu } from "primereact/menu";
 import type { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { additionalService } from "@/app/api/workshop";
-import type { ServiceOrderAdditional, AdditionalStatus } from "@/libs/interfaces/workshop";
+import type {
+  ServiceOrderAdditional,
+  AdditionalStatus,
+} from "@/libs/interfaces/workshop";
 import AdditionalStatusBadge from "@/components/workshop/shared/AdditionalStatusBadge";
 import AdditionalForm from "./AdditionalForm";
 
@@ -37,11 +40,16 @@ interface AdditionalListProps {
   embedded?: boolean;
 }
 
-export default function AdditionalList({ serviceOrderId, embedded }: AdditionalListProps) {
+export default function AdditionalList({
+  serviceOrderId,
+  embedded,
+}: AdditionalListProps) {
   const [items, setItems] = useState<ServiceOrderAdditional[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderAdditional | null>(null);
-  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(null);
+  const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(
+    null,
+  );
 
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<AdditionalStatus | "">("");
@@ -92,7 +100,8 @@ export default function AdditionalList({ serviceOrderId, embedded }: AdditionalL
   }, [page, rows, loadItems, embedded, serviceOrderId]);
 
   const openNew = () => {
-    const newSelected = embedded && serviceOrderId ? ({ serviceOrderId } as any) : null;
+    const newSelected =
+      embedded && serviceOrderId ? ({ serviceOrderId } as any) : null;
     setSelected(newSelected);
     setFormDialog(true);
   };
@@ -144,7 +153,10 @@ export default function AdditionalList({ serviceOrderId, embedded }: AdditionalL
     })();
   };
 
-  const handleStatusChange = async (item: ServiceOrderAdditional, newStatus: string) => {
+  const handleStatusChange = async (
+    item: ServiceOrderAdditional,
+    newStatus: string,
+  ) => {
     try {
       await additionalService.updateStatus(item.id, newStatus);
       toast.current?.show({
@@ -321,10 +333,29 @@ export default function AdditionalList({ serviceOrderId, embedded }: AdditionalL
           sortMode="multiple"
           scrollable
         >
-          <Column header="Descripción" body={descriptionTemplate} style={{ minWidth: "200px" }} />
-          {!embedded && <Column header="OT" body={folioTemplate} style={{ minWidth: "120px" }} />}
-          <Column header="Precio" body={priceTemplate} style={{ minWidth: "120px", textAlign: "right" }} headerStyle={{ textAlign: "right" }} />
-          <Column header="Estado" body={statusTemplate} style={{ minWidth: "130px" }} />
+          <Column
+            header="Descripción"
+            body={descriptionTemplate}
+            style={{ minWidth: "200px" }}
+          />
+          {!embedded && (
+            <Column
+              header="OT"
+              body={folioTemplate}
+              style={{ minWidth: "120px" }}
+            />
+          )}
+          <Column
+            header="Precio"
+            body={priceTemplate}
+            style={{ minWidth: "120px", textAlign: "right" }}
+            headerStyle={{ textAlign: "right" }}
+          />
+          <Column
+            header="Estado"
+            body={statusTemplate}
+            style={{ minWidth: "130px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -347,8 +378,14 @@ export default function AdditionalList({ serviceOrderId, embedded }: AdditionalL
           <div className="mb-2 text-center md:text-left">
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
-                <i className={`pi mr-3 text-primary text-3xl ${selected?.id ? "pi-pencil" : "pi-plus-circle"}`} />
-                {selected?.id ? "Editar Trabajo Adicional" : "Nuevo Trabajo Adicional"}
+                <i
+                  className={`pi mr-3 text-primary text-3xl ${
+                    selected?.id ? "pi-pencil" : "pi-plus-circle"
+                  }`}
+                />
+                {selected?.id
+                  ? "Editar Trabajo Adicional"
+                  : "Nuevo Trabajo Adicional"}
               </h2>
             </div>
           </div>
@@ -393,7 +430,12 @@ export default function AdditionalList({ serviceOrderId, embedded }: AdditionalL
       />
 
       {/* Context Menu */}
-      <Menu model={actionItem ? buildMenuItems(actionItem) : []} popup ref={menuRef} id="additional-menu" />
+      <Menu
+        model={actionItem ? buildMenuItems(actionItem) : []}
+        popup
+        ref={menuRef}
+        id="additional-menu"
+      />
     </motion.div>
   );
 }

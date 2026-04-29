@@ -1,4 +1,4 @@
-import DealerAfterSalesList from "@/components/concesionario/after-sales/DealerAfterSalesList";
+import DealerAfterSalesList from "@/modules/concesionario/after-sales/components/DealerAfterSalesList";
 
 export default function ConcesionarioAfterSalesPage() {
   return <DealerAfterSalesList />;

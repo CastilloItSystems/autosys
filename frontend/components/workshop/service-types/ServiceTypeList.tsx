@@ -10,7 +10,7 @@ import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import { serviceTypeService } from "@/app/api/workshop";
@@ -37,7 +37,9 @@ export default function ServiceTypeList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => { loadItems(); }, [page, rows, searchQuery, showActive]);
+  useEffect(() => {
+    loadItems();
+  }, [page, rows, searchQuery, showActive]);
 
   const loadItems = async () => {
     try {
@@ -58,16 +60,30 @@ export default function ServiceTypeList() {
     }
   };
 
-  const openNew = () => { setSelected(null); setFormDialog(true); };
-  const editItem = (item: ServiceType) => { setSelected({ ...item }); setFormDialog(true); };
-  const confirmDelete = (item: ServiceType) => { setSelected(item); setDeleteDialog(true); };
+  const openNew = () => {
+    setSelected(null);
+    setFormDialog(true);
+  };
+  const editItem = (item: ServiceType) => {
+    setSelected({ ...item });
+    setFormDialog(true);
+  };
+  const confirmDelete = (item: ServiceType) => {
+    setSelected(item);
+    setDeleteDialog(true);
+  };
 
   const handleDelete = async () => {
     if (!selected?.id) return;
     setIsDeleting(true);
     try {
       await serviceTypeService.delete(selected.id);
-      toast.current?.show({ severity: "success", summary: "Éxito", detail: "Tipo de servicio eliminado", life: 3000 });
+      toast.current?.show({
+        severity: "success",
+        summary: "Éxito",
+        detail: "Tipo de servicio eliminado",
+        life: 3000,
+      });
       await loadItems();
       setDeleteDialog(false);
       setSelected(null);
@@ -84,7 +100,9 @@ export default function ServiceTypeList() {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: `Tipo de servicio ${item.isActive ? "desactivado" : "activado"}`,
+        detail: `Tipo de servicio ${
+          item.isActive ? "desactivado" : "activado"
+        }`,
         life: 3000,
       });
       await loadItems();
@@ -98,7 +116,9 @@ export default function ServiceTypeList() {
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
-        detail: selected?.id ? "Tipo de servicio actualizado" : "Tipo de servicio creado",
+        detail: selected?.id
+          ? "Tipo de servicio actualizado"
+          : "Tipo de servicio creado",
         life: 3000,
       });
       await loadItems();
@@ -113,14 +133,21 @@ export default function ServiceTypeList() {
       rounded
       text
       aria-haspopup
-      onClick={(e) => { setActionItem(rowData); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setActionItem(rowData);
+        menuRef.current?.toggle(e);
+      }}
       tooltip="Opciones"
       tooltipOptions={{ position: "left" }}
     />
   );
 
   const statusBodyTemplate = (rowData: ServiceType) => (
-    <Tag value={rowData.isActive ? "Activo" : "Inactivo"} severity={rowData.isActive ? "success" : "secondary"} rounded />
+    <Tag
+      value={rowData.isActive ? "Activo" : "Inactivo"}
+      severity={rowData.isActive ? "success" : "secondary"}
+      rounded
+    />
   );
 
   const codeBodyTemplate = (rowData: ServiceType) => (
@@ -139,7 +166,10 @@ export default function ServiceTypeList() {
           icon={showActive ? "pi pi-filter-slash" : "pi pi-filter"}
           outlined
           size="small"
-          onClick={() => { setShowActive(!showActive); setPage(0); }}
+          onClick={() => {
+            setShowActive(!showActive);
+            setPage(0);
+          }}
         />
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -147,16 +177,27 @@ export default function ServiceTypeList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(0);
+            }}
           />
         </span>
-        <CreateButton label="Nuevo tipo" onClick={openNew} tooltip="Crear tipo de servicio" />
+        <CreateButton
+          label="Nuevo tipo"
+          onClick={openNew}
+          tooltip="Crear tipo de servicio"
+        />
       </div>
     </div>
   );
 
   return (
-    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+    >
       <Toast ref={toast} />
       <div className="card">
         <DataTable
@@ -167,7 +208,10 @@ export default function ServiceTypeList() {
           rows={rows}
           totalRecords={totalRecords}
           rowsPerPageOptions={[5, 10, 25, 50]}
-          onPage={(e) => { setPage(e.page ?? Math.floor(e.first / e.rows)); setRows(e.rows); }}
+          onPage={(e) => {
+            setPage(e.page ?? Math.floor(e.first / e.rows));
+            setRows(e.rows);
+          }}
           dataKey="id"
           loading={loading}
           header={header}
@@ -175,10 +219,31 @@ export default function ServiceTypeList() {
           sortMode="multiple"
           scrollable
         >
-          <Column field="code" header="Código" sortable body={codeBodyTemplate} style={{ minWidth: "100px" }} />
-          <Column field="name" header="Nombre" sortable style={{ minWidth: "180px" }} />
-          <Column field="description" header="Descripción" style={{ minWidth: "220px" }} />
-          <Column field="isActive" header="Estado" body={statusBodyTemplate} sortable style={{ minWidth: "100px" }} />
+          <Column
+            field="code"
+            header="Código"
+            sortable
+            body={codeBodyTemplate}
+            style={{ minWidth: "100px" }}
+          />
+          <Column
+            field="name"
+            header="Nombre"
+            sortable
+            style={{ minWidth: "180px" }}
+          />
+          <Column
+            field="description"
+            header="Descripción"
+            style={{ minWidth: "220px" }}
+          />
+          <Column
+            field="isActive"
+            header="Estado"
+            body={statusBodyTemplate}
+            sortable
+            style={{ minWidth: "100px" }}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -201,7 +266,9 @@ export default function ServiceTypeList() {
             <div className="border-bottom-2 border-primary pb-2">
               <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
                 <i className="pi pi-wrench mr-3 text-primary text-3xl" />
-                {selected?.id ? "Modificar Tipo de Servicio" : "Crear Tipo de Servicio"}
+                {selected?.id
+                  ? "Modificar Tipo de Servicio"
+                  : "Crear Tipo de Servicio"}
               </h2>
             </div>
           </div>
@@ -229,7 +296,10 @@ export default function ServiceTypeList() {
 
       <DeleteConfirmDialog
         visible={deleteDialog}
-        onHide={() => { setDeleteDialog(false); setSelected(null); }}
+        onHide={() => {
+          setDeleteDialog(false);
+          setSelected(null);
+        }}
         onConfirm={handleDelete}
         itemName={selected?.name}
         isDeleting={isDeleting}
@@ -239,7 +309,11 @@ export default function ServiceTypeList() {
         model={
           actionItem
             ? [
-                { label: "Editar", icon: "pi pi-pencil", command: () => editItem(actionItem) },
+                {
+                  label: "Editar",
+                  icon: "pi pi-pencil",
+                  command: () => editItem(actionItem),
+                },
                 {
                   label: actionItem.isActive ? "Desactivar" : "Activar",
                   icon: actionItem.isActive ? "pi pi-pause" : "pi pi-play",

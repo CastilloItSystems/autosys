@@ -19,10 +19,16 @@ import supplierBillService from "@/app/api/finance/supplierBillService";
 import SupplierBillForm from "./SupplierBillForm";
 import RegisterPaymentDialog from "./RegisterPaymentDialog";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
-import { confirmAction, ConfirmActionPopup } from "@/components/common/ConfirmAction";
+import FormActionButtons from "@/shared/components/FormActionButtons";
+import {
+  confirmAction,
+  ConfirmActionPopup,
+} from "@/components/common/ConfirmAction";
 
-const STATUS_SEVERITY: Record<string, "success" | "warning" | "danger" | "secondary"> = {
+const STATUS_SEVERITY: Record<
+  string,
+  "success" | "warning" | "danger" | "secondary"
+> = {
   PENDING_INVOICE: "warning",
   PENDING: "warning",
   PARTIAL: "warning",
@@ -57,7 +63,8 @@ export default function SupplierBillList() {
   const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showPayDialog, setShowPayDialog] = useState(false);
-  const [showRegisterInvoiceDialog, setShowRegisterInvoiceDialog] = useState(false);
+  const [showRegisterInvoiceDialog, setShowRegisterInvoiceDialog] =
+    useState(false);
   const [selected, setSelected] = useState<SupplierBill | null>(null);
   const [menuTarget, setMenuTarget] = useState<SupplierBill | null>(null);
   const [expandedRows, setExpandedRows] = useState<any>(null);
@@ -86,19 +93,29 @@ export default function SupplierBillList() {
       setBills(res.data ?? []);
       setTotal(res.meta?.total ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error", detail: "No se pudieron cargar las facturas" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar las facturas",
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => { load(); }, [page, statusFilter, searchQuery]);
+  useEffect(() => {
+    load();
+  }, [page, statusFilter, searchQuery]);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
     await load();
-    toast.current?.show({ severity: "success", summary: "Éxito", detail: "Factura guardada" });
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Factura guardada",
+    });
   };
 
   const onPaymentSuccess = async () => {
@@ -185,17 +202,22 @@ export default function SupplierBillList() {
       label: "Cancelar Factura",
       icon: "pi pi-times",
       className: "p-menuitem-danger",
-      command: () => confirmDialog({
-        message: "¿Cancelar esta factura? Esta acción no se puede deshacer.",
-        header: "Confirmar Cancelación",
-        icon: "pi pi-exclamation-triangle",
-        acceptClassName: "p-button-danger",
-        accept: async () => {
-          await supplierBillService.cancel(target!.id);
-          await load();
-          toast.current?.show({ severity: "success", summary: "Éxito", detail: "Factura cancelada" });
-        },
-      }),
+      command: () =>
+        confirmDialog({
+          message: "¿Cancelar esta factura? Esta acción no se puede deshacer.",
+          header: "Confirmar Cancelación",
+          icon: "pi pi-exclamation-triangle",
+          acceptClassName: "p-button-danger",
+          accept: async () => {
+            await supplierBillService.cancel(target!.id);
+            await load();
+            toast.current?.show({
+              severity: "success",
+              summary: "Éxito",
+              detail: "Factura cancelada",
+            });
+          },
+        }),
       disabled: target?.status === "CANCELLED",
     },
   ];
@@ -216,19 +238,25 @@ export default function SupplierBillList() {
             className="p-button-rounded p-button-danger p-button-sm"
             tooltip="Cancelar provisión"
             tooltipOptions={{ position: "top" }}
-            onClick={(e) => confirmAction({
-              target: e.currentTarget as EventTarget & HTMLElement,
-              message: `¿Cancelar provisión ${row.internalNumber}?`,
-              icon: "pi pi-ban",
-              iconClass: "text-red-500",
-              acceptLabel: "Sí, Cancelar",
-              acceptSeverity: "danger",
-              onAccept: async () => {
-                await supplierBillService.cancel(row.id);
-                await load();
-                toast.current?.show({ severity: "success", summary: "Éxito", detail: "Provisión cancelada" });
-              },
-            })}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Cancelar provisión ${row.internalNumber}?`,
+                icon: "pi pi-ban",
+                iconClass: "text-red-500",
+                acceptLabel: "Sí, Cancelar",
+                acceptSeverity: "danger",
+                onAccept: async () => {
+                  await supplierBillService.cancel(row.id);
+                  await load();
+                  toast.current?.show({
+                    severity: "success",
+                    summary: "Éxito",
+                    detail: "Provisión cancelada",
+                  });
+                },
+              })
+            }
           />
         </div>
       );
@@ -242,26 +270,35 @@ export default function SupplierBillList() {
           className="p-button-rounded p-button-success p-button-sm"
           tooltip="Registrar Pago"
           tooltipOptions={{ position: "top" }}
-          onClick={() => { setSelected(row); setShowPayDialog(true); }}
+          onClick={() => {
+            setSelected(row);
+            setShowPayDialog(true);
+          }}
         />
         <Button
           icon="pi pi-times"
           className="p-button-rounded p-button-danger p-button-sm"
           tooltip="Cancelar Factura"
           tooltipOptions={{ position: "top" }}
-          onClick={(e) => confirmAction({
-            target: e.currentTarget as EventTarget & HTMLElement,
-            message: `¿Cancelar factura ${row.internalNumber}?`,
-            icon: "pi pi-ban",
-            iconClass: "text-red-500",
-            acceptLabel: "Sí, Cancelar",
-            acceptSeverity: "danger",
-            onAccept: async () => {
-              await supplierBillService.cancel(row.id);
-              await load();
-              toast.current?.show({ severity: "success", summary: "Éxito", detail: "Factura cancelada" });
-            },
-          })}
+          onClick={(e) =>
+            confirmAction({
+              target: e.currentTarget as EventTarget & HTMLElement,
+              message: `¿Cancelar factura ${row.internalNumber}?`,
+              icon: "pi pi-ban",
+              iconClass: "text-red-500",
+              acceptLabel: "Sí, Cancelar",
+              acceptSeverity: "danger",
+              onAccept: async () => {
+                await supplierBillService.cancel(row.id);
+                await load();
+                toast.current?.show({
+                  severity: "success",
+                  summary: "Éxito",
+                  detail: "Factura cancelada",
+                });
+              },
+            })
+          }
         />
       </div>
     );
@@ -272,32 +309,56 @@ export default function SupplierBillList() {
       icon="pi pi-cog"
       rounded
       text
-      onClick={(e) => { setMenuTarget(row); setSelected(row); menuRef.current?.toggle(e); }}
+      onClick={(e) => {
+        setMenuTarget(row);
+        setSelected(row);
+        menuRef.current?.toggle(e);
+      }}
       aria-controls="supplier-bill-menu"
       aria-haspopup
     />
   );
 
-  const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
+  const CURRENCY_SYMBOLS: Record<string, string> = {
+    USD: "$",
+    EUR: "€",
+    VES: "Bs.",
+  };
 
   const fmtAmt = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? currency;
-    return `${sym} ${Number(value || 0).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
-  const fmtCross = (total: number, currency: string, exchangeRate?: number | null): string | null => {
+  const fmtCross = (
+    total: number,
+    currency: string,
+    exchangeRate?: number | null,
+  ): string | null => {
     const n = Number(total || 0);
     const rate = Number(exchangeRate);
     if (currency === "VES") {
       if (rate <= 1) return null;
-      return `≈ $ ${(n / rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`;
+      return `≈ $ ${(n / rate).toLocaleString("es-VE", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      })} USD`;
     }
     if (!rate || rate <= 0) return null;
-    return `≈ Bs. ${(n * rate).toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `≈ Bs. ${(n * rate).toLocaleString("es-VE", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}`;
   };
 
   const statusBody = (row: SupplierBill) => (
-    <Tag value={STATUS_LABELS[row.status]} severity={STATUS_SEVERITY[row.status]} />
+    <Tag
+      value={STATUS_LABELS[row.status]}
+      severity={STATUS_SEVERITY[row.status]}
+    />
   );
 
   const amountBody = (row: SupplierBill) => {
@@ -315,7 +376,9 @@ export default function SupplierBillList() {
           <div className="text-sm text-green-600">Pag: {fmtAmt(paid, cur)}</div>
         )}
         {pending > 0 && (
-          <div className="text-sm text-orange-500">Pend: {fmtAmt(pending, cur)}</div>
+          <div className="text-sm text-orange-500">
+            Pend: {fmtAmt(pending, cur)}
+          </div>
         )}
         {paid > 0 && total > 0 && (
           <div
@@ -331,7 +394,8 @@ export default function SupplierBillList() {
               style={{
                 height: "100%",
                 width: `${pct}%`,
-                background: pct >= 100 ? "var(--green-500)" : "var(--orange-400)",
+                background:
+                  pct >= 100 ? "var(--green-500)" : "var(--orange-400)",
                 borderRadius: "2px",
                 transition: "width 0.3s",
               }}
@@ -396,7 +460,10 @@ export default function SupplierBillList() {
         <Dropdown
           value={statusFilter}
           options={STATUS_OPTIONS}
-          onChange={(e) => { setStatusFilter(e.value); setPage(1); }}
+          onChange={(e) => {
+            setStatusFilter(e.value);
+            setPage(1);
+          }}
           placeholder="Filtrar estado"
           className="w-10rem"
         />
@@ -406,12 +473,18 @@ export default function SupplierBillList() {
             type="search"
             placeholder="Buscar..."
             value={searchQuery}
-            onChange={(e) => { setSearchQuery(e.target.value); setPage(1); }}
+            onChange={(e) => {
+              setSearchQuery(e.target.value);
+              setPage(1);
+            }}
           />
         </span>
         <CreateButton
           label="Nueva Factura"
-          onClick={() => { setSelected(null); setShowForm(true); }}
+          onClick={() => {
+            setSelected(null);
+            setShowForm(true);
+          }}
         />
       </div>
     </div>
@@ -422,62 +495,75 @@ export default function SupplierBillList() {
       <Toast ref={toast} />
       <ConfirmDialog />
       <ConfirmActionPopup />
-      <Menu model={getMenuItems(menuTarget)} popup ref={menuRef} id="supplier-bill-menu" />
+      <Menu
+        model={getMenuItems(menuTarget)}
+        popup
+        ref={menuRef}
+        id="supplier-bill-menu"
+      />
 
       <div className="card">
-      <DataTable
-        value={bills}
-        loading={loading}
-        lazy
-        paginator
-        rows={20}
-        rowsPerPageOptions={[5, 10, 25, 50]}
-        totalRecords={total}
-        onPage={(e) => setPage((e.page ?? 0) + 1)}
-        emptyMessage="Sin facturas registradas"
-        stripedRows
-        scrollable
-        sortMode="multiple"
-        header={header}
-        dataKey="id"
-        expandedRows={expandedRows}
-        onRowToggle={(e) => setExpandedRows(e.data)}
-        rowExpansionTemplate={rowExpansionTemplate}
-      >
-        <Column expander style={{ width: "3rem" }} />
-        <Column
-          header="Proceso"
-          body={processoBodyTemplate}
-          style={{ width: "8rem", textAlign: "center" }}
-          headerStyle={{ textAlign: "center" }}
-        />
-        <Column field="internalNumber" header="# Interno" sortable />
-        <Column
-          field="billNumber"
-          header="# Factura"
-          body={(row: SupplierBill) => row.billNumber || "Pendiente"}
-        />
-        <Column field="supplier.name" header="Proveedor" />
-        <Column
-          field="issueDate"
-          header="Emisión"
-          body={(r: SupplierBill) =>
-            r.issueDate ? new Date(r.issueDate).toLocaleDateString("es-VE") : "—"
-          }
-          sortable
-        />
-        <Column field="dueDate" header="Vence" body={(r) => r.dueDate ? new Date(r.dueDate).toLocaleDateString("es-VE") : "-"} />
-        <Column header="Monto" body={amountBody} className="text-right" />
-        <Column header="Estado" body={statusBody} />
-        <Column
-          header="Acciones"
-          body={actionsBody}
-          frozen={true}
-          alignFrozen="right"
-          style={{ width: "6rem", textAlign: "center" }}
-          headerStyle={{ textAlign: "center" }}
-        />
-      </DataTable>
+        <DataTable
+          value={bills}
+          loading={loading}
+          lazy
+          paginator
+          rows={20}
+          rowsPerPageOptions={[5, 10, 25, 50]}
+          totalRecords={total}
+          onPage={(e) => setPage((e.page ?? 0) + 1)}
+          emptyMessage="Sin facturas registradas"
+          stripedRows
+          scrollable
+          sortMode="multiple"
+          header={header}
+          dataKey="id"
+          expandedRows={expandedRows}
+          onRowToggle={(e) => setExpandedRows(e.data)}
+          rowExpansionTemplate={rowExpansionTemplate}
+        >
+          <Column expander style={{ width: "3rem" }} />
+          <Column
+            header="Proceso"
+            body={processoBodyTemplate}
+            style={{ width: "8rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+          <Column field="internalNumber" header="# Interno" sortable />
+          <Column
+            field="billNumber"
+            header="# Factura"
+            body={(row: SupplierBill) => row.billNumber || "Pendiente"}
+          />
+          <Column field="supplier.name" header="Proveedor" />
+          <Column
+            field="issueDate"
+            header="Emisión"
+            body={(r: SupplierBill) =>
+              r.issueDate
+                ? new Date(r.issueDate).toLocaleDateString("es-VE")
+                : "—"
+            }
+            sortable
+          />
+          <Column
+            field="dueDate"
+            header="Vence"
+            body={(r) =>
+              r.dueDate ? new Date(r.dueDate).toLocaleDateString("es-VE") : "-"
+            }
+          />
+          <Column header="Monto" body={amountBody} className="text-right" />
+          <Column header="Estado" body={statusBody} />
+          <Column
+            header="Acciones"
+            body={actionsBody}
+            frozen={true}
+            alignFrozen="right"
+            style={{ width: "6rem", textAlign: "center" }}
+            headerStyle={{ textAlign: "center" }}
+          />
+        </DataTable>
       </div>
 
       <Dialog
@@ -518,7 +604,10 @@ export default function SupplierBillList() {
 
       <RegisterPaymentDialog
         visible={showPayDialog}
-        onHide={() => { setShowPayDialog(false); setSelected(null); }}
+        onHide={() => {
+          setShowPayDialog(false);
+          setSelected(null);
+        }}
         bill={selected}
         onSuccess={onPaymentSuccess}
         toast={toast}
@@ -526,7 +615,10 @@ export default function SupplierBillList() {
 
       <Dialog
         visible={showRegisterInvoiceDialog}
-        onHide={() => { setShowRegisterInvoiceDialog(false); setSelected(null); }}
+        onHide={() => {
+          setShowRegisterInvoiceDialog(false);
+          setSelected(null);
+        }}
         header="Registrar factura de proveedor"
         style={{ width: "560px" }}
         breakpoints={{ "600px": "95vw" }}
@@ -538,7 +630,10 @@ export default function SupplierBillList() {
               icon="pi pi-times"
               severity="secondary"
               text
-              onClick={() => { setShowRegisterInvoiceDialog(false); setSelected(null); }}
+              onClick={() => {
+                setShowRegisterInvoiceDialog(false);
+                setSelected(null);
+              }}
             />
             <Button
               label="Registrar"
@@ -555,7 +650,10 @@ export default function SupplierBillList() {
             <InputText
               value={invoiceForm.billNumber}
               onChange={(e) =>
-                setInvoiceForm((prev) => ({ ...prev, billNumber: e.target.value }))
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  billNumber: e.target.value,
+                }))
               }
               placeholder="Nro. de control"
             />
@@ -566,7 +664,10 @@ export default function SupplierBillList() {
               type="date"
               value={invoiceForm.issueDate}
               onChange={(e) =>
-                setInvoiceForm((prev) => ({ ...prev, issueDate: e.target.value }))
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  issueDate: e.target.value,
+                }))
               }
             />
           </div>
@@ -585,7 +686,10 @@ export default function SupplierBillList() {
             <InputText
               value={invoiceForm.attachmentUrl}
               onChange={(e) =>
-                setInvoiceForm((prev) => ({ ...prev, attachmentUrl: e.target.value }))
+                setInvoiceForm((prev) => ({
+                  ...prev,
+                  attachmentUrl: e.target.value,
+                }))
               }
               placeholder="URL del PDF"
             />

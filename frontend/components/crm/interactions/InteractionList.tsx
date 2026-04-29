@@ -1,5 +1,11 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -20,7 +26,7 @@ import {
 } from "@/libs/interfaces/crm/interaction.interface";
 import InteractionForm from "./InteractionForm";
 import CreateButton from "@/components/common/CreateButton";
-import FormActionButtons from "@/components/common/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 const typeFilterOptions = [
@@ -85,7 +91,10 @@ export default function InteractionList({ customerId }: Props) {
       setInteractions(raw.data ?? raw);
       setTotal(raw.meta?.total ?? raw.length ?? 0);
     } catch {
-      toast.current?.show({ severity: "error", summary: "Error al cargar interacciones" });
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al cargar interacciones",
+      });
     } finally {
       setLoading(false);
     }
@@ -104,10 +113,18 @@ export default function InteractionList({ customerId }: Props) {
     const q = searchQuery.toLowerCase();
     return interactions.filter((i) => {
       return (
-        String(i.customer?.name || "").toLowerCase().includes(q) ||
-        String(i.subject || "").toLowerCase().includes(q) ||
-        String(i.notes || "").toLowerCase().includes(q) ||
-        String(i.outcome || "").toLowerCase().includes(q)
+        String(i.customer?.name || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(i.subject || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(i.notes || "")
+          .toLowerCase()
+          .includes(q) ||
+        String(i.outcome || "")
+          .toLowerCase()
+          .includes(q)
       );
     });
   }, [interactions, searchQuery]);
@@ -133,7 +150,10 @@ export default function InteractionList({ customerId }: Props) {
     setIsDeleting(true);
     try {
       await interactionService.delete(deleteItem.id);
-      toast.current?.show({ severity: "success", summary: "Interacción eliminada" });
+      toast.current?.show({
+        severity: "success",
+        summary: "Interacción eliminada",
+      });
       setDeleteDialog(false);
       setDeleteItem(null);
       await load();
@@ -175,13 +195,31 @@ export default function InteractionList({ customerId }: Props) {
   };
 
   const typeBody = (i: Interaction) => {
-    const cfg = INTERACTION_TYPE_CONFIG[i.type as keyof typeof INTERACTION_TYPE_CONFIG];
-    return cfg ? <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" /> : null;
+    const cfg =
+      INTERACTION_TYPE_CONFIG[i.type as keyof typeof INTERACTION_TYPE_CONFIG];
+    return cfg ? (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    ) : null;
   };
 
   const directionBody = (i: Interaction) => {
-    const cfg = INTERACTION_DIRECTION_CONFIG[i.direction as keyof typeof INTERACTION_DIRECTION_CONFIG];
-    return cfg ? <Tag value={cfg.label} severity={cfg.severity} icon={cfg.icon} className="text-xs" /> : null;
+    const cfg =
+      INTERACTION_DIRECTION_CONFIG[
+        i.direction as keyof typeof INTERACTION_DIRECTION_CONFIG
+      ];
+    return cfg ? (
+      <Tag
+        value={cfg.label}
+        severity={cfg.severity}
+        icon={cfg.icon}
+        className="text-xs"
+      />
+    ) : null;
   };
 
   const customerBody = (i: Interaction) => (
@@ -192,12 +230,16 @@ export default function InteractionList({ customerId }: Props) {
   );
 
   const notesBody = (i: Interaction) => (
-    <div className="text-sm text-700 line-clamp-2" style={{ maxWidth: "300px" }}>
+    <div
+      className="text-sm text-700 line-clamp-2"
+      style={{ maxWidth: "300px" }}
+    >
       {i.notes}
     </div>
   );
 
-  const dateBody = (i: Interaction) => new Date(i.createdAt).toLocaleDateString("es-VE");
+  const dateBody = (i: Interaction) =>
+    new Date(i.createdAt).toLocaleDateString("es-VE");
 
   const actionsBody = (i: Interaction) => (
     <Button
@@ -258,7 +300,11 @@ export default function InteractionList({ customerId }: Props) {
             }}
           />
         </span>
-        <CreateButton label="Nueva interacción" onClick={openNew} tooltip="Registrar interacción" />
+        <CreateButton
+          label="Nueva interacción"
+          onClick={openNew}
+          tooltip="Registrar interacción"
+        />
       </div>
     </div>
   );
@@ -266,9 +312,18 @@ export default function InteractionList({ customerId }: Props) {
   return (
     <>
       <Toast ref={toast} />
-      <Menu ref={menuRef} popup model={actionItems(actionItem)} id="crm-interaction-menu" />
+      <Menu
+        ref={menuRef}
+        popup
+        model={actionItems(actionItem)}
+        id="crm-interaction-menu"
+      />
 
-      <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.3 }}>
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.3 }}
+      >
         <DataTable
           value={filteredInteractions}
           header={header}
@@ -286,12 +341,28 @@ export default function InteractionList({ customerId }: Props) {
           scrollable
           sortMode="multiple"
         >
-          {!customerId && <Column header="Cliente" body={customerBody} style={{ minWidth: "160px" }} />}
-          {customerId && <Column header="Asunto" body={(i) => i.subject || "—"} />}
+          {!customerId && (
+            <Column
+              header="Cliente"
+              body={customerBody}
+              style={{ minWidth: "160px" }}
+            />
+          )}
+          {customerId && (
+            <Column header="Asunto" body={(i) => i.subject || "—"} />
+          )}
           <Column header="Tipo" body={typeBody} style={{ width: "130px" }} />
-          <Column header="Dirección" body={directionBody} style={{ width: "120px" }} />
+          <Column
+            header="Dirección"
+            body={directionBody}
+            style={{ width: "120px" }}
+          />
           <Column header="Notas" body={notesBody} />
-          <Column header="Resultado" body={(i) => i.outcome || "—"} style={{ width: "160px" }} />
+          <Column
+            header="Resultado"
+            body={(i) => i.outcome || "—"}
+            style={{ width: "160px" }}
+          />
           <Column header="Fecha" body={dateBody} style={{ width: "110px" }} />
           <Column
             header="Acciones"
@@ -311,7 +382,11 @@ export default function InteractionList({ customerId }: Props) {
           setDeleteItem(null);
         }}
         onConfirm={handleDelete}
-        itemName={deleteItem?.subject || deleteItem?.notes?.slice(0, 40) || "interacción"}
+        itemName={
+          deleteItem?.subject ||
+          deleteItem?.notes?.slice(0, 40) ||
+          "interacción"
+        }
         isDeleting={isDeleting}
       />
 

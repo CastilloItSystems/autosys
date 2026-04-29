@@ -1,0 +1,292 @@
+"use client";
+
+import React from "react";
+import { Controller, useForm } from "react-hook-form";
+import { Calendar } from "primereact/calendar";
+import { Dropdown } from "primereact/dropdown";
+import { InputText } from "primereact/inputtext";
+import { Toast } from "primereact/toast";
+import CustomerSelector from "@/components/common/CustomerSelector";
+import customerCrmService from "@/app/api/crm/customerCrmService";
+import dealerTestDriveService, {
+  SaveDealerTestDriveRequest,
+} from "../services/dealerTestDriveService";
+import { handleFormError } from "@/utils/errorHandlers";
+import type {
+  DealerTestDriveFormValues,
+  DealerTestDriveFormProps,
+} from "../interfaces/dealerTestDriveForm.interface";
+import { TEST_DRIVE_STATUS_OPTIONS } from "../utils/dealerTestDrive.utils";
+
+export default function DealerTestDriveForm({
+  testDrive,
+  unitOptions,
+  onSave,
+  formId,
+  onSubmittingChange,
+  toast,
+}: DealerTestDriveFormProps) {
+  const {
+    control,
+    handleSubmit,
+    setValue,
+    formState: { errors },
+  } = useForm<DealerTestDriveFormValues>({
+    mode: "onBlur",
+    defaultValues: {
+      dealerUnitId: testDrive?.dealerUnitId || "",
+      customerId: testDrive?.customerId || "",
+      customerName: testDrive?.customerName || "",
+      customerDocument: testDrive?.customerDocument || "",
+      customerPhone: testDrive?.customerPhone || "",
+      customerEmail: testDrive?.customerEmail || "",
+      driverLicense: testDrive?.driverLicense || "",
+      scheduledAt: testDrive?.scheduledAt
+        ? new Date(testDrive.scheduledAt)
+        : null,
+      advisorName: testDrive?.advisorName || "",
+      routeDescription: testDrive?.routeDescription || "",
+      observations: testDrive?.observations || "",
+      customerFeedback: testDrive?.customerFeedback || "",
+      status: testDrive?.status || "SCHEDULED",
+      isActive: testDrive?.isActive ?? true,
+    },
+  });
+
+  const onSubmit = async (data: DealerTestDriveFormValues) => {
+    onSubmittingChange?.(true);
+    try {
+      const payload: SaveDealerTestDriveRequest = {
+        dealerUnitId: data.dealerUnitId,
+        customerId: data.customerId,
+        customerName: data.customerName.trim(),
+        customerDocument: data.customerDocument || null,
+        customerPhone: data.customerPhone || null,
+        customerEmail: data.customerEmail || null,
+        driverLicense: data.driverLicense || null,
+        scheduledAt: data.scheduledAt ? data.scheduledAt.toISOString() : "",
+        advisorName: data.advisorName || null,
+        routeDescription: data.routeDescription || null,
+        observations: data.observations || null,
+        customerFeedback: data.customerFeedback || null,
+        status: data.status,
+        isActive: data.isActive,
+      };
+
+      if (testDrive?.id) {
+        await dealerTestDriveService.update(testDrive.id, payload);
+      } else {
+        await dealerTestDriveService.create(payload);
+      }
+      await onSave();
+    } catch (error) {
+      handleFormError(error, toast);
+    } finally {
+      onSubmittingChange?.(false);
+    }
+  };
+
+  const handleCustomerChange = async (
+    customerId: string | null,
+    onChange: (value: string) => void,
+  ) => {
+    const id = customerId ?? "";
+    onChange(id);
+    if (!id) {
+      setValue("customerName", "");
+      setValue("customerDocument", "");
+      setValue("customerPhone", "");
+      setValue("customerEmail", "");
+      return;
+    }
+    try {
+      const res = await customerCrmService.getById(id);
+      const customer = res?.data;
+      if (!customer) return;
+      setValue("customerName", customer.name || "");
+      setValue("customerDocument", customer.taxId || "");
+      setValue("customerPhone", customer.phone || customer.mobile || "");
+      setValue("customerEmail", customer.email || "");
+    } catch {
+      // noop
+    }
+  };
+
+  return (
+    <form
+      id={formId || "dealer-test-drive-form"}
+      onSubmit={handleSubmit(onSubmit)}
+      className="p-fluid"
+    >
+      <div className="grid formgrid">
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Unidad *</label>
+          <Controller
+            name="dealerUnitId"
+            control={control}
+            rules={{ required: "Debe seleccionar una unidad" }}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={unitOptions}
+                className={errors.dealerUnitId ? "p-invalid" : ""}
+                filter
+                placeholder="Seleccione una unidad"
+              />
+            )}
+          />
+          {errors.dealerUnitId && (
+            <small className="p-error">{errors.dealerUnitId.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Estatus</label>
+          <Controller
+            name="status"
+            control={control}
+            render={({ field }) => (
+              <Dropdown
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
+                options={TEST_DRIVE_STATUS_OPTIONS}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-3 field">
+          <label className="font-semibold">Fecha/Hora *</label>
+          <Controller
+            name="scheduledAt"
+            control={control}
+            rules={{ required: "La fecha/hora es requerida" }}
+            render={({ field }) => (
+              <Calendar
+                value={field.value}
+                onChange={(e) => field.onChange((e.value as Date) || null)}
+                showTime
+                hourFormat="24"
+                showIcon
+                className={errors.scheduledAt ? "p-invalid" : ""}
+              />
+            )}
+          />
+          {errors.scheduledAt && (
+            <small className="p-error">{errors.scheduledAt.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Cliente CRM *</label>
+          <Controller
+            name="customerId"
+            control={control}
+            rules={{ required: "Debe seleccionar un cliente" }}
+            render={({ field }) => (
+              <CustomerSelector
+                value={field.value}
+                onChange={(value) =>
+                  handleCustomerChange(value, field.onChange)
+                }
+                invalid={!!errors.customerId}
+              />
+            )}
+          />
+          {errors.customerId && (
+            <small className="p-error">{errors.customerId.message}</small>
+          )}
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Documento</label>
+          <Controller
+            name="customerDocument"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Licencia</label>
+          <Controller
+            name="driverLicense"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Teléfono</label>
+          <Controller
+            name="customerPhone"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Email</label>
+          <Controller
+            name="customerEmail"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Asesor</label>
+          <Controller
+            name="advisorName"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Ruta</label>
+          <Controller
+            name="routeDescription"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-6 field">
+          <label className="font-semibold">Observaciones</label>
+          <Controller
+            name="observations"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+
+        <div className="col-12 field mb-0">
+          <label className="font-semibold">Feedback cliente</label>
+          <Controller
+            name="customerFeedback"
+            control={control}
+            render={({ field }) => (
+              <InputText {...field} value={field.value || ""} />
+            )}
+          />
+        </div>
+      </div>
+    </form>
+  );
+}
