@@ -1,5 +1,5 @@
 import React from "react";
-import BrandList from "@/components/inventory/brands/BrandList";
+import BrandList from "@/modules/inventory/brands/components/BrandList";
 
 export default function Page() {
   return (

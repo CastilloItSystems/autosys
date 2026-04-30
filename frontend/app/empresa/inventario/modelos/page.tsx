@@ -1,5 +1,5 @@
 import React from "react";
-import ItemModelList from "@/components/inventory/itemModels/ItemModelList";
+import ItemModelList from "@/modules/inventory/itemModels/components/ItemModelList";
 
 export default function Page() {
   return (

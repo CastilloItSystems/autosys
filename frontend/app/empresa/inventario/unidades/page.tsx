@@ -1,5 +1,5 @@
 import React from "react";
-import UnitList from "@/components/inventory/units/UnitList";
+import UnitList from "@/modules/inventory/units/components/UnitList";
 
 export default function Page() {
   return (

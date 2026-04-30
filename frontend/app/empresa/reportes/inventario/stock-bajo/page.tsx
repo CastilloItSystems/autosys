@@ -4,8 +4,8 @@ import { useState, useEffect, useRef } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
-import ReportsTable from "@/components/inventory/reports/ReportsTable";
-import reportService from "@/app/api/inventory/reportService";
+import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
+import reportService from "@/modules/inventory/reports/services/reportService";
 
 const LowStockPage = () => {
   const toast = useRef<Toast>(null);

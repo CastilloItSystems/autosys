@@ -1,7 +1,7 @@
 // modules/crm/customer/services/customerCrmService.ts
 
 import apiClient from "@/app/api/apiClient";
-import { ApiResponse, PaginatedResponse } from "@/app/api/inventory/types";
+import { ApiResponse, PaginatedResponse } from "@/modules/inventory/types";
 import {
   CustomerCrm,
   CustomerTimeline,

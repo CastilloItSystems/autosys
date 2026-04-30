@@ -1,7 +1,7 @@
 // app/api/sales/invoiceService.ts
 
 import apiClient from "@/app/api/apiClient";
-import { ApiResponse, PaginatedResponse } from "@/app/api/inventory/types";
+import { ApiResponse, PaginatedResponse } from "@/modules/inventory/types";
 import { Invoice, InvoiceStatus } from "../interfaces/invoice.interface";
 
 interface InvoiceParams {

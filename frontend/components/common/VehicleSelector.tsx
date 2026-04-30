@@ -9,8 +9,8 @@ import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { Toast } from "primereact/toast";
 import customerVehicleService from "@/modules/crm/customer/services/customerVehicleService";
-import brandsService, { type Brand } from "@/app/api/inventory/brandService";
-import modelsService, { type Model } from "@/app/api/inventory/modelService";
+import brandsService, { type Brand } from "@/modules/inventory/brands/services/brandService";
+import modelsService, { type Model } from "@/modules/inventory/models/services/modelService";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   createCustomerVehicleSchema,

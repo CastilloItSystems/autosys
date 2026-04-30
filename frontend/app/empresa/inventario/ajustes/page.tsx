@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import AdjustmentList from "@/components/inventory/adjustments/AdjustmentList";
-import warehouseService from "@/app/api/inventory/warehouseService";
-import { Warehouse } from "@/app/api/inventory/warehouseService";
+import AdjustmentList from "@/modules/inventory/adjustments/components/AdjustmentList";
+import warehouseService from "@/modules/inventory/warehouses/services/warehouseService";
+import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 
 export default function AjustesPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);

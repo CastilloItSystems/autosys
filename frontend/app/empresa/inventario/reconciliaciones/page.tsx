@@ -1,6 +1,6 @@
 "use client";
 
-import ReconciliationList from "@/components/inventory/reconciliations/ReconciliationList";
+import ReconciliationList from "@/modules/inventory/reconciliations/components/ReconciliationList";
 
 export default function ReconciliacionesPage() {
   return <ReconciliationList />;

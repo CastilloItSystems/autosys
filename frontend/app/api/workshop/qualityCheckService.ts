@@ -1,5 +1,5 @@
 // app/api/workshop/qualityCheckService.ts
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 import type {
   QualityCheck,
   CreateQualityCheckInput,

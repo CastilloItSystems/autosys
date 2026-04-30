@@ -1,6 +1,6 @@
 "use client";
 
-import StockList from "@/components/inventory/stocks/StockList";
+import StockList from "@/modules/inventory/stocks/components/StockList";
 
 function Stock() {
   return (

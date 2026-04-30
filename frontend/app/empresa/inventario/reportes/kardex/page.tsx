@@ -1,6 +1,6 @@
 "use client";
 
-import KardexReport from "@/components/inventory/reports/KardexReport";
+import KardexReport from "@/modules/inventory/reports/components/KardexReport";
 
 const KardexPage = () => {
   return <KardexReport />;

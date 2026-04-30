@@ -1,5 +1,5 @@
 // libs/interfaces/workshop/material.interface.ts
-import type { TaxType } from "../inventory/purchaseOrder.interface";
+import type { TaxType } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 
 export type MaterialStatus =
   | "REQUESTED"

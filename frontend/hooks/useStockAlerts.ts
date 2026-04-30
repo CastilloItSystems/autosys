@@ -4,7 +4,7 @@
  */
 
 import { useCallback, useEffect, useState } from "react";
-import stockService, { StockAlert } from "@/app/api/inventory/stockService";
+import stockService, { StockAlert } from "@/modules/inventory/stocks/services/stockService";
 
 export interface StockAlertsState {
   total: number;

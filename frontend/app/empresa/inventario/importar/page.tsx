@@ -2,9 +2,9 @@
 
 import React, { useState, useCallback } from "react";
 import { TabView, TabPanel } from "primereact/tabview";
-import BulkImport from "@/components/inventory/bulk/BulkImport";
-import BulkExport from "@/components/inventory/bulk/BulkExport";
-import BulkHistory from "@/components/inventory/bulk/BulkHistory";
+import BulkImport from "@/modules/inventory/bulk/components/BulkImport";
+import BulkExport from "@/modules/inventory/bulk/components/BulkExport";
+import BulkHistory from "@/modules/inventory/bulk/components/BulkHistory";
 
 const TAB_HISTORY = 2;
 

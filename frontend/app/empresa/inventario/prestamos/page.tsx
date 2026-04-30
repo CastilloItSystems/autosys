@@ -1,4 +1,4 @@
-import LoanList from "@/components/inventory/loans/LoanList";
+import LoanList from "@/modules/inventory/loans/components/LoanList";
 
 export const metadata = {
   title: "Gestión de Préstamos",

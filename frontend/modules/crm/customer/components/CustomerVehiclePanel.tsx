@@ -17,8 +17,8 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Divider } from "primereact/divider";
 
 import customerVehicleService, { ServiceHistoryItem } from "../services/customerVehicleService";
-import brandsService, { Brand } from "@/app/api/inventory/brandService";
-import modelsService, { Model } from "@/app/api/inventory/modelService";
+import brandsService, { Brand } from "@/modules/inventory/brands/services/brandService";
+import modelsService, { Model } from "@/modules/inventory/models/services/modelService";
 import {
   CustomerVehicle,
   FUEL_TYPE_OPTIONS,

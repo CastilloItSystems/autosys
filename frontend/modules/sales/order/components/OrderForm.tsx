@@ -17,11 +17,11 @@ import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 
-import ItemsTable from "@/components/inventory/common/ItemsTable";
+import ItemsTable from "@/modules/inventory/common/ItemsTable";
 import ItemRow, {
   ItemRowColWidths,
-} from "@/components/inventory/common/ItemRow";
-import { OrderFinancialSummary } from "@/components/inventory/common/OrderFinancialSummary";
+} from "@/modules/inventory/common/ItemRow";
+import { OrderFinancialSummary } from "@/modules/inventory/common/OrderFinancialSummary";
 
 import { createOrderSchema, CreateOrderInput } from "../schemas/orderZod";
 import {
@@ -30,11 +30,11 @@ import {
   ORDER_CURRENCY_LABELS,
   TAX_TYPE_OPTIONS,
 } from "../interfaces/order.interface";
-import { Item } from "@/app/api/inventory/itemService";
-import { Warehouse } from "@/app/api/inventory/warehouseService";
+import { Item } from "@/modules/inventory/items/services/itemService";
+import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 import { Customer } from "@/modules/sales/customer/services/customerService";
 import orderService from "../services/orderService";
-import searchService from "@/app/api/inventory/searchService";
+import searchService from "@/modules/inventory/search/services/searchService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 import { useOrderCalculation } from "@/hooks/useOrderCalculation";

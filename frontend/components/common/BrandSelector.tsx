@@ -7,8 +7,8 @@ import { Toast } from "primereact/toast";
 import brandsService, {
   type Brand,
   type BrandType,
-} from "@/app/api/inventory/brandService";
-import BrandForm from "@/components/inventory/brands/BrandForm";
+} from "@/modules/inventory/brands/services/brandService";
+import BrandForm from "@/modules/inventory/brands/components/BrandForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
 interface BrandSelectorProps {

@@ -1,6 +1,6 @@
 'use client'
 
-import SerialNumberList from '@/components/inventory/serialNumbers/SerialNumberList'
+import SerialNumberList from '@/modules/inventory/serialNumbers/components/SerialNumberList'
 
 export default function EmpresaNumerosDeSeriePage() {
   return <SerialNumberList />

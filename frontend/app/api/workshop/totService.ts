@@ -1,5 +1,5 @@
 // app/api/workshop/totService.ts
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 import type {
   WorkshopTOT,
   TOTFilters,

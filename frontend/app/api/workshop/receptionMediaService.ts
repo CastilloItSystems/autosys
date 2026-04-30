@@ -1,5 +1,5 @@
 // app/api/workshop/receptionMediaService.ts
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 import type { WorkshopResponse } from "@/libs/interfaces/workshop";
 
 export type DamageSeverity = "MINOR" | "MODERATE" | "SEVERE";

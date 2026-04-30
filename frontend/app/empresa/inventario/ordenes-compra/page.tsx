@@ -1,6 +1,6 @@
 "use client";
 
-import PurchaseOrderList from "@/components/inventory/purchaseOrders/PurchaseOrderList";
+import PurchaseOrderList from "@/modules/inventory/purchaseOrders/components/PurchaseOrderList";
 
 function OrdenesCompra() {
   return (

@@ -18,8 +18,8 @@ import { handleFormError } from "@/utils/errorHandlers";
 import { materialService } from "@/app/api/workshop";
 import warehouseService, {
   type Warehouse,
-} from "@/app/api/inventory/warehouseService";
-import stockService, { type Stock } from "@/app/api/inventory/stockService";
+} from "@/modules/inventory/warehouses/services/warehouseService";
+import stockService, { type Stock } from "@/modules/inventory/stocks/services/stockService";
 import type {
   ServiceOrderMaterial,
   MaterialStatus,

@@ -14,7 +14,7 @@ import { Toast } from "primereact/toast";
 import { catalogSearchService } from "@/app/api/workshop";
 import type { UnifiedCatalogItem } from "@/app/api/workshop/catalogSearchService";
 import { Dialog } from "primereact/dialog";
-import ItemForm from "@/components/inventory/items/ItemForm";
+import ItemForm from "@/modules/inventory/items/components/ItemForm";
 import WorkshopOperationForm from "@/components/workshop/operations/WorkshopOperationForm";
 import {
   WORKSHOP_ITEM_COL_WIDTHS,

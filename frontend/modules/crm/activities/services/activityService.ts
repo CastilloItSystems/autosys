@@ -1,7 +1,7 @@
 // modules/crm/activities/services/activityService.ts
 
 import apiClient from "@/app/api/apiClient";
-import { ApiResponse, PaginatedResponse } from "@/app/api/inventory/types";
+import { ApiResponse, PaginatedResponse } from "@/modules/inventory/types";
 import { Activity, ActivityStatus } from "../interfaces/activity.interface";
 
 interface ActivityParams {

@@ -1,7 +1,7 @@
 // modules/crm/quotes/services/quoteService.ts
 
 import apiClient from "@/app/api/apiClient";
-import { ApiResponse, PaginatedResponse } from "@/app/api/inventory/types";
+import { ApiResponse, PaginatedResponse } from "@/modules/inventory/types";
 import { Quote } from "../interfaces/quote.interface";
 
 interface QuoteParams {

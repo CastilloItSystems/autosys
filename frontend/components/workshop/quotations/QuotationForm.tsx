@@ -14,7 +14,7 @@ import {
   workshopOperationService,
   catalogSearchService,
 } from "@/app/api/workshop";
-import itemService from "@/app/api/inventory/itemService";
+import itemService from "@/modules/inventory/items/services/itemService";
 import type { WorkshopQuotation } from "@/libs/interfaces/workshop";
 import {
   createQuotationSchema,

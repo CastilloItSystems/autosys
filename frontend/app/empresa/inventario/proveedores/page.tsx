@@ -1,6 +1,6 @@
 "use client";
 
-import SupplierList from "@/components/inventory/suppliers/SupplierList";
+import SupplierList from "@/modules/inventory/suppliers/components/SupplierList";
 
 function Proveedores() {
   return (

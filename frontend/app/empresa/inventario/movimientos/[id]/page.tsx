@@ -11,7 +11,7 @@ import movementService, {
   MOVEMENT_TYPE_LABELS,
   MOVEMENT_TYPE_SEVERITY,
   Movement,
-} from "@/app/api/inventory/movementService";
+} from "@/modules/inventory/movements/services/movementService";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const fadeUp = {

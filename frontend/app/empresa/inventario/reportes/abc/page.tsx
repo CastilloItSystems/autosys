@@ -1,4 +1,4 @@
-import ABCAnalysis from "@/components/inventory/reports/ABCAnalysis";
+import ABCAnalysis from "@/modules/inventory/reports/components/ABCAnalysis";
 
 export const metadata = {
   title: "Análisis ABC | AutoSys",

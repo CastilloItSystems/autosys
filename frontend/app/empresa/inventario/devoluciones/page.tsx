@@ -1,4 +1,4 @@
-import ReturnList from "@/components/inventory/returns/ReturnList";
+import ReturnList from "@/modules/inventory/returns/components/ReturnList";
 
 export const metadata = {
   title: "Gestión de Devoluciones",

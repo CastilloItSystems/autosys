@@ -1,6 +1,6 @@
 // libs/interfaces/workshop/serviceOrder.interface.ts
 import type { CustomerRef, VehicleRef } from "./shared.interface";
-import type { TaxType } from "../inventory/purchaseOrder.interface";
+import type { TaxType } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 
 export type { TaxType };
 

@@ -6,11 +6,11 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
-import ReportsTable from "@/components/inventory/reports/ReportsTable";
+import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   PendingInvoiceItem,
 } from "@/modules/sales/dashboard/services/reportService";
-import { ReportFormat } from "@/app/api/inventory/reportService";
+import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING_PREPARATION: "Pend. Preparación",

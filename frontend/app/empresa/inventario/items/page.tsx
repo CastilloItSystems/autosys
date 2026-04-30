@@ -1,6 +1,6 @@
 "use client";
 
-import ItemList from "@/components/inventory/items/ItemList";
+import ItemList from "@/modules/inventory/items/components/ItemList";
 
 function Items() {
   return (

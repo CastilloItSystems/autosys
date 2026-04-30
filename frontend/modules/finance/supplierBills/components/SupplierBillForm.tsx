@@ -15,14 +15,14 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { InputTextarea } from "primereact/inputtextarea";
 import { Toast } from "primereact/toast";
-import itemService, { Item } from "@/app/api/inventory/itemService";
-import searchService from "@/app/api/inventory/searchService";
-import supplierService from "@/app/api/inventory/supplierService";
+import itemService, { Item } from "@/modules/inventory/items/services/itemService";
+import searchService from "@/modules/inventory/search/services/searchService";
+import supplierService from "@/modules/inventory/suppliers/services/supplierService";
 import supplierBillService from "../services/supplierBillService";
-import ItemsTable from "@/components/inventory/common/ItemsTable";
+import ItemsTable from "@/modules/inventory/common/ItemsTable";
 import ItemRow, {
   ItemRowColWidths,
-} from "@/components/inventory/common/ItemRow";
+} from "@/modules/inventory/common/ItemRow";
 import type {
   CreateSupplierBillData,
   SupplierBill,

@@ -8,7 +8,7 @@ import {
   Control,
   UseFormRegister,
 } from "react-hook-form";
-import ItemsTable, { ColumnDef } from "../../inventory/common/ItemsTable";
+import ItemsTable, { ColumnDef } from "@/modules/inventory/common/ItemsTable";
 import WorkshopItemRow, { type WorkshopItemType } from "./WorkshopItemRow";
 import {
   WORKSHOP_ITEM_COL_WIDTHS,

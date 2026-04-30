@@ -1,5 +1,5 @@
 import apiClient from "@/app/api/apiClient";
-import { ReportFormat } from "@/app/api/inventory/reportService";
+import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
 
 // ============================================================================
 // TYPES

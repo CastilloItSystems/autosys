@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import CompatibilityMatrix from "@/components/inventory/models/CompatibilityMatrix";
+import CompatibilityMatrix from "@/modules/inventory/models/components/CompatibilityMatrix";
 
 export default function CompatibilidadPage() {
   return (

@@ -9,10 +9,10 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import stockService, { Stock } from "@/app/api/inventory/stockService";
+import stockService, { Stock } from "@/modules/inventory/stocks/services/stockService";
 import warehouseService, {
   Warehouse,
-} from "@/app/api/inventory/warehouseService";
+} from "@/modules/inventory/warehouses/services/warehouseService";
 
 export default function LowStockPage() {
   const [stocks, setStocks] = useState<Stock[]>([]);

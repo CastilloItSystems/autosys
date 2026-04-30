@@ -18,7 +18,7 @@ import {
   serviceTypeService,
   technicianSpecialtyService,
 } from "@/app/api/workshop";
-import itemService from "@/app/api/inventory/itemService";
+import itemService from "@/modules/inventory/items/services/itemService";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   createWorkshopOperationSchema,

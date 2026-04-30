@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import TransferList from "@/components/inventory/transfers/TransferList";
-import warehouseService from "@/app/api/inventory/warehouseService";
-import { Warehouse } from "@/app/api/inventory/warehouseService";
+import TransferList from "@/modules/inventory/transfers/components/TransferList";
+import warehouseService from "@/modules/inventory/warehouses/services/warehouseService";
+import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 
 export default function TransferenciasPage() {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);

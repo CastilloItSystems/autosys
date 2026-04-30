@@ -1,5 +1,5 @@
 import React from "react";
-import CategoryList from "@/components/inventory/categories/CategoryList";
+import CategoryList from "@/modules/inventory/categories/components/CategoryList";
 
 export default function Page() {
   return (

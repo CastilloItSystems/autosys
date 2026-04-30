@@ -1,6 +1,6 @@
 "use client";
 
-import WarehouseList from "@/components/inventory/warehouses/WarehouseList";
+import WarehouseList from "@/modules/inventory/warehouses/components/WarehouseList";
 
 function Almacenes() {
   return (

@@ -15,4 +15,4 @@ export * from "./facturaInterface";
 export * from "./balanceInterface";
 export * from "./workshopInterface";
 export * from "./common.interface";
-export * from "./inventory";
+// export * from "./inventory"; // Removed - migrated to modules/inventory

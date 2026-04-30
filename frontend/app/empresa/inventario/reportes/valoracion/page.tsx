@@ -11,11 +11,11 @@ import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
 import { ToggleButton } from "primereact/togglebutton";
 import { motion } from "framer-motion";
-import ReportsTable from "@/components/inventory/reports/ReportsTable";
+import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import reportService, {
   StockValueFilters,
-} from "@/app/api/inventory/reportService";
-import warehouseService from "@/app/api/inventory/warehouseService";
+} from "@/modules/inventory/reports/services/reportService";
+import warehouseService from "@/modules/inventory/warehouses/services/warehouseService";
 
 const fmt = (n: number) =>
   n.toLocaleString("es-VE", {

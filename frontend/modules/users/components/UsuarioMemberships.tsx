@@ -8,7 +8,7 @@ import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 
-import FormActionButtons from "../../../shared/components/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import MembershipForm from "./MembershipForm";
 import MembershipPermissions from "./MembershipPermissions";
 import {

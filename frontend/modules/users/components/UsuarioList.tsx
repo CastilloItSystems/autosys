@@ -15,7 +15,7 @@ import { MenuItem } from "primereact/menuitem";
 import UsuarioForm from "./UsuarioForm";
 import UsuarioChangePasswordForm from "./UsuarioChangePasswordForm";
 import UsuarioMemberships from "./UsuarioMemberships";
-import FormActionButtons from "../../../shared/components/FormActionButtons";
+import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "../../../components/common/CreateButton";
 import DeleteConfirmDialog from "../../../components/common/DeleteConfirmDialog";
 

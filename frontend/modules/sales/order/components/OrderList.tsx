@@ -27,14 +27,14 @@ import {
   OrderSalesStockDiagnosis,
   OrderSuggestedReplenishmentResult,
 } from "../interfaces/order.interface";
-import itemService, { Item } from "@/app/api/inventory/itemService";
+import itemService, { Item } from "@/modules/inventory/items/services/itemService";
 import warehouseService, {
   Warehouse,
-} from "@/app/api/inventory/warehouseService";
+} from "@/modules/inventory/warehouses/services/warehouseService";
 import customerService, {
   Customer,
 } from "@/modules/sales/customer/services/customerService";
-import supplierService, { Supplier } from "@/app/api/inventory/supplierService";
+import supplierService, { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
 import OrderForm from "./OrderForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";

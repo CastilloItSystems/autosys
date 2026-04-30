@@ -1,7 +1,7 @@
 // modules/crm/loyalty/services/loyaltyService.ts
 
 import apiClient from "@/app/api/apiClient";
-import { ApiResponse } from "@/app/api/inventory/types";
+import { ApiResponse } from "@/modules/inventory/types";
 import { LoyaltyEvent, CustomerSurvey } from "../interfaces/loyalty.interface";
 
 interface LoyaltyFilters {

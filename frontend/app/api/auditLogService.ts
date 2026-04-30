@@ -1,5 +1,5 @@
 import apiClient from "./apiClient";
-import { PaginatedResponse } from "./inventory/types";
+import { PaginatedResponse } from "@/modules/inventory/types";
 
 export interface AuditLog {
   id: string;

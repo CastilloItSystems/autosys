@@ -1,4 +1,4 @@
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 import type { ApiResponse } from "@/libs/interfaces";
 
 export interface UnifiedCatalogItem {

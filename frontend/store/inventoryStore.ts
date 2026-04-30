@@ -2,15 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 // Interfaces importadas
-import {
-  Item,
-  Movement,
-  PurchaseOrder,
-  SalesOrder,
-  Supplier,
-  Warehouse,
-  Reservation,
-} from "@/libs/interfaces/inventory";
+import { Item } from "@/modules/inventory/items/interfaces/item.interface";
+import { Movement } from "@/modules/inventory/movements/services/movementService";
+import { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
+import { SalesOrder } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
+import { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
+import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
+import { Reservation } from "@/modules/inventory/reservations/services/reservationService";
 
 interface InventoryState {
   // Artículos

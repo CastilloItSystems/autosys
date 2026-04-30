@@ -4,11 +4,11 @@ import { useState, useEffect, useRef } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
-import ReportsTable from "@/components/inventory/reports/ReportsTable";
+import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   SalesByProductItem,
 } from "@/modules/sales/dashboard/services/reportService";
-import { ReportFormat } from "@/app/api/inventory/reportService";
+import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
 
 const SalesByProductPage = () => {
   const toast = useRef<Toast>(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import EntryNoteList from "@/components/inventory/entryNotes/EntryNoteList";
+import EntryNoteList from "@/modules/inventory/entryNotes/components/EntryNoteList";
 
 function Recepciones() {
   return (

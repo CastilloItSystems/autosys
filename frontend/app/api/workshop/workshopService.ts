@@ -1,4 +1,4 @@
-import apiClient from "../apiClient";
+import apiClient from "@/app/api/apiClient";
 
 export const getWorkshop = async (id: string) => {
   const response = await apiClient.get(`/workshop/${id}`);

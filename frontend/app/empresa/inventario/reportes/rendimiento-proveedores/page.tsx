@@ -1,6 +1,6 @@
 "use client";
 
-import SupplierPerformanceReport from "@/components/inventory/reports/SupplierPerformanceReport";
+import SupplierPerformanceReport from "@/modules/inventory/reports/components/SupplierPerformanceReport";
 
 const SupplierPerformancePage = () => {
   return <SupplierPerformanceReport />;

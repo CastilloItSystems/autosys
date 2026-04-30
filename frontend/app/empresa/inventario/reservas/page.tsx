@@ -1,6 +1,6 @@
 "use client";
 
-import ReservationList from "@/components/inventory/reservations/ReservationList";
+import ReservationList from "@/modules/inventory/reservations/components/ReservationList";
 
 function Reservas() {
   return (

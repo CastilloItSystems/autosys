@@ -1,4 +1,4 @@
-import InventoryDashboard from "@/components/inventory/reports/InventoryDashboard";
+import InventoryDashboard from "@/modules/inventory/reports/components/InventoryDashboard";
 
 export const metadata = {
   title: "Dashboard de Inventario | AutoSys",

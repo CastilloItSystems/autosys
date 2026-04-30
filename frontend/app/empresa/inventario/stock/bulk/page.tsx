@@ -2,11 +2,11 @@
 
 import React, { useState, useCallback } from "react";
 import { TabView, TabPanel } from "primereact/tabview";
-import StockBulkImport from "@/components/inventory/bulk/stock/StockBulkImport";
-import StockBulkAdjust from "@/components/inventory/bulk/stock/StockBulkAdjust";
-import StockBulkTransfer from "@/components/inventory/bulk/stock/StockBulkTransfer";
-import StockBulkExport from "@/components/inventory/bulk/stock/StockBulkExport";
-import StockBulkHistory from "@/components/inventory/bulk/StockBulkHistory";
+import StockBulkImport from "@/modules/inventory/bulk/stock/StockBulkImport";
+import StockBulkAdjust from "@/modules/inventory/bulk/stock/StockBulkAdjust";
+import StockBulkTransfer from "@/modules/inventory/bulk/stock/StockBulkTransfer";
+import StockBulkExport from "@/modules/inventory/bulk/stock/StockBulkExport";
+import StockBulkHistory from "@/modules/inventory/bulk/components/StockBulkHistory";
 
 const TAB_HISTORY = 4;
 

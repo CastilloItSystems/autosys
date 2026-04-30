@@ -1,7 +1,7 @@
 "use client";
 
-import QuickActions from "@/components/inventory/dashboard/QuickActions";
-import InventoryDashboard from "@/components/inventory/dashboard/InventoryDashboard";
+import QuickActions from "@/modules/inventory/dashboard/components/QuickActions";
+import InventoryDashboard from "@/modules/inventory/dashboard/components/InventoryDashboard";
 
 function InventarioDashboard() {
   return (

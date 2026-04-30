@@ -26,7 +26,8 @@ import { useInventoryStore } from "@/store/inventoryStore";
 
 // Interfaces
 import { Invoice, Payment } from "@/libs/interfaces/workshop";
-import { PurchaseOrder, SalesOrder } from "@/libs/interfaces/inventory";
+import { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
+import { SalesOrder } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
 
 // =============================================
 // UTILITY FUNCTIONS

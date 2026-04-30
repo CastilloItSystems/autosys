@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import Decimal from "decimal.js-light";
-import { TaxType } from "../libs/interfaces/inventory/purchaseOrder.interface";
+import { TaxType } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 
 export interface CalculationItemInput {
   quantityOrdered: number;

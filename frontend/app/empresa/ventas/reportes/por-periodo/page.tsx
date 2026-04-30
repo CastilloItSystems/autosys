@@ -6,12 +6,12 @@ import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { Dropdown } from "primereact/dropdown";
-import ReportsTable from "@/components/inventory/reports/ReportsTable";
+import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   SalesByPeriodItem,
   SalesByPeriodSummary,
 } from "@/modules/sales/dashboard/services/reportService";
-import { ReportFormat } from "@/app/api/inventory/reportService";
+import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
 
 const GRANULARITY_OPTIONS = [
   { label: "Por Día", value: "day" },

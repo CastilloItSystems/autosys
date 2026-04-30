@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import Decimal from "decimal.js-light";
-import type { TaxType } from "../libs/interfaces/inventory/purchaseOrder.interface";
+import type { TaxType } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 
 export type ServiceOrderItemType = "LABOR" | "PART" | "OTHER";
 

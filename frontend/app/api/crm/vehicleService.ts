@@ -1,6 +1,6 @@
-import apiClient from "../apiClient";
-import { Vehicle } from "@/libs/interfaces/inventory";
-import { VehicleFormData } from "@/libs/zods/inventory/vehicleZod";
+import apiClient from "@/app/api/apiClient";
+import { Vehicle } from "@/modules/inventory/vehicles/interfaces/vehicle.interface";
+import { VehicleFormData } from "@/modules/inventory/vehicles/schemas/vehicleZod";
 
 interface VehicleResponse {
   msg: string;

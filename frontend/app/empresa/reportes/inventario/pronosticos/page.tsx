@@ -1,4 +1,4 @@
-import ForecastingView from "@/components/inventory/reports/ForecastingView";
+import ForecastingView from "@/modules/inventory/reports/components/ForecastingView";
 
 export const metadata = {
   title: "Pronósticos de Demanda | AutoSys",

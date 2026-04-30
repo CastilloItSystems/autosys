@@ -1,6 +1,6 @@
 "use client";
 
-import MovementList from "@/components/inventory/movements/MovementList";
+import MovementList from "@/modules/inventory/movements/components/MovementList";
 
 function Movimientos() {
   return (

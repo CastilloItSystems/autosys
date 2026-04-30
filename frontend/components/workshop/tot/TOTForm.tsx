@@ -20,7 +20,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import { totService } from "@/app/api/workshop";
 import supplierService, {
   type Supplier,
-} from "@/app/api/inventory/supplierService";
+} from "@/modules/inventory/suppliers/services/supplierService";
 import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
 import {
   createTOTSchema,

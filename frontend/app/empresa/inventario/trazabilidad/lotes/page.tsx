@@ -1,6 +1,6 @@
 "use client";
 
-import BatchList from "@/components/inventory/batches/BatchList";
+import BatchList from "@/modules/inventory/batches/components/BatchList";
 
 export default function EmpresaLotesPage() {
   return <BatchList />;

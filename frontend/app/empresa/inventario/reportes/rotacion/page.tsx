@@ -1,4 +1,4 @@
-import TurnoverAnalysis from "@/components/inventory/reports/TurnoverAnalysis";
+import TurnoverAnalysis from "@/modules/inventory/reports/components/TurnoverAnalysis";
 
 export const metadata = {
   title: "Análisis de Rotación | AutoSys",
