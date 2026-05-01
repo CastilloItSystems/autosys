@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { BayArea, BayStatus } from "@/libs/interfaces/workshop";
+import {
+  BayArea,
+  BayStatus,
+} from "@/modules/workshop/workshopBays/interfaces/serviceBay.interface";
 
 const STORAGE_KEY = "serviceBayFilters";
 const SEARCH_HISTORY_KEY = "serviceBaySearchHistory";
@@ -101,7 +104,7 @@ export function useServiceBayFilters() {
       // Usar replaceState para no agregar al historial del navegador
       window.history.replaceState({}, "", newURL);
     },
-    [router]
+    [router],
   );
 
   // Cargar historial de búsqueda
@@ -124,13 +127,13 @@ export function useServiceBayFilters() {
     setSearchHistory((prev) => {
       // Filtrar términos duplicados
       const filtered = prev.filter(
-        (item) => item.term.toLowerCase() !== term.toLowerCase()
+        (item) => item.term.toLowerCase() !== term.toLowerCase(),
       );
 
       // Agregar nuevo término al principio
       const updated = [{ term, timestamp: Date.now() }, ...filtered].slice(
         0,
-        MAX_HISTORY_ITEMS
+        MAX_HISTORY_ITEMS,
       );
 
       // Guardar en localStorage
@@ -174,7 +177,7 @@ export function useServiceBayFilters() {
         return newFilters;
       });
     },
-    [saveFiltersToStorage, updateURL, addToSearchHistory]
+    [saveFiltersToStorage, updateURL, addToSearchHistory],
   );
 
   // Resetear filtros
@@ -196,7 +199,7 @@ export function useServiceBayFilters() {
     (area: BayArea | null) => {
       updateFilters({ area });
     },
-    [updateFilters]
+    [updateFilters],
   );
 
   // Aplicar filtro de estado
@@ -204,7 +207,7 @@ export function useServiceBayFilters() {
     (status: BayStatus | null) => {
       updateFilters({ status });
     },
-    [updateFilters]
+    [updateFilters],
   );
 
   // Aplicar búsqueda
@@ -212,7 +215,7 @@ export function useServiceBayFilters() {
     (search: string) => {
       updateFilters({ search });
     },
-    [updateFilters]
+    [updateFilters],
   );
 
   // Cambiar modo de vista
@@ -220,7 +223,7 @@ export function useServiceBayFilters() {
     (viewMode: "grid" | "list") => {
       updateFilters({ viewMode });
     },
-    [updateFilters]
+    [updateFilters],
   );
 
   // Verificar si hay filtros activos

@@ -3,7 +3,7 @@
 import React from "react";
 import QuickActions from "@/components/common/QuickActions";
 import type { QuickAction } from "@/components/common/QuickActions";
-import WorkshopDashboard from "@/components/workshop/dashboard/WorkshopDashboard";
+import { WorkshopDashboard } from "@/modules/workshop/dashboard";
 
 const WORKSHOP_ACTIONS: QuickAction[] = [
   { label: "Citas", icon: "pi pi-calendar", to: "/empresa/workshop/appointments", color: "teal", description: "Agenda del taller" },

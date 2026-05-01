@@ -25,7 +25,8 @@ import { useOperationsStore } from "@/store/operationsStore";
 import { useInventoryStore } from "@/store/inventoryStore";
 
 // Interfaces
-import { Invoice, Payment } from "@/libs/interfaces/workshop";
+import { Invoice } from "@/modules/workshop/shared/interfaces/invoice.interface";
+import { Payment } from "@/modules/workshop/shared/interfaces/payment.interface";
 import { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 import { SalesOrder } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
 
@@ -848,7 +849,9 @@ const FinanceDashboard = () => {
                 <strong>Cliente:</strong>{" "}
                 {typeof selectedInvoice.customer === "string"
                   ? selectedInvoice.customer
-                  : selectedInvoice.customer?.nombre ?? selectedInvoice.customer?.name ?? "N/A"}
+                  : selectedInvoice.customer?.nombre ??
+                    selectedInvoice.customer?.name ??
+                    "N/A"}
               </div>
               <div>
                 <strong>Fecha de Emisión:</strong>{" "}

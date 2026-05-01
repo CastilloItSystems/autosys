@@ -2,7 +2,7 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 // Interfaces importadas
-import {
+import type {
   WorkOrder,
   WorkOrderStatus,
   Invoice,
@@ -10,7 +10,7 @@ import {
   Service,
   ServiceBay,
   ServiceCategory,
-} from "@/libs/interfaces/workshop";
+} from "@/modules/workshop/shared/interfaces/legacy.interface";
 
 interface OperationsState {
   // Órdenes de trabajo
@@ -112,7 +112,7 @@ export const useOperationsStore = create<OperationsState>()(
       actualizarWorkOrder: (id: string, updates: Partial<WorkOrder>) => {
         set((state) => ({
           workOrders: state.workOrders.map((wo) =>
-            wo._id === id ? { ...wo, ...updates } : wo
+            wo._id === id ? { ...wo, ...updates } : wo,
           ),
         }));
       },
@@ -137,7 +137,7 @@ export const useOperationsStore = create<OperationsState>()(
       actualizarInvoice: (id: string, updates: Partial<Invoice>) => {
         set((state) => ({
           invoices: state.invoices.map((inv) =>
-            inv._id === id ? { ...inv, ...updates } : inv
+            inv._id === id ? { ...inv, ...updates } : inv,
           ),
         }));
       },
@@ -162,7 +162,7 @@ export const useOperationsStore = create<OperationsState>()(
       actualizarPayment: (id: string, updates: Partial<Payment>) => {
         set((state) => ({
           payments: state.payments.map((pay) =>
-            pay._id === id ? { ...pay, ...updates } : pay
+            pay._id === id ? { ...pay, ...updates } : pay,
           ),
         }));
       },
@@ -177,7 +177,7 @@ export const useOperationsStore = create<OperationsState>()(
       actualizarService: (id: string, updates: Partial<Service>) => {
         set((state) => ({
           services: state.services.map((srv) =>
-            srv._id === id ? { ...srv, ...updates } : srv
+            srv._id === id ? { ...srv, ...updates } : srv,
           ),
         }));
       },
@@ -198,7 +198,7 @@ export const useOperationsStore = create<OperationsState>()(
       actualizarServiceBay: (id: string, updates: Partial<ServiceBay>) => {
         set((state) => ({
           serviceBays: state.serviceBays.map((bay) =>
-            bay._id === id ? { ...bay, ...updates } : bay
+            bay._id === id ? { ...bay, ...updates } : bay,
           ),
         }));
       },
@@ -236,21 +236,22 @@ export const useOperationsStore = create<OperationsState>()(
         const workOrdersActivas = state.workOrders.filter(
           (wo) =>
             (wo.estado as any).nombre !== "Completada" &&
-            (wo.estado as any).nombre !== "Cancelada"
+            (wo.estado as any).nombre !== "Cancelada",
         ).length;
         const workOrdersCompletadas = state.workOrders.filter(
-          (wo) => (wo.estado as any).nombre === "Completada"
+          (wo) => (wo.estado as any).nombre === "Completada",
         ).length;
 
         // Calcular ingresos totales
         const ingresosTotales = state.invoices.reduce(
           (total, inv) => total + inv.total,
-          0
+          0,
         );
 
         // Calcular ingresos del mes actual
         const ingresosMesActual = state.invoices
           .filter((inv) => {
+            if (!inv.issueDate) return false;
             const invDate = new Date(inv.issueDate);
             return (
               invDate.getMonth() === currentMonth &&
@@ -261,15 +262,15 @@ export const useOperationsStore = create<OperationsState>()(
 
         // Contar alertas críticas
         const alertasCriticas = state.stockAlerts.filter(
-          (alert) => alert.status === "critical"
+          (alert) => alert.status === "critical",
         ).length;
 
         // Contar bahías ocupadas y disponibles
         const bahiasOcupadas = state.serviceBays.filter(
-          (bay) => bay.status === "ocupado"
+          (bay) => bay.status === "ocupado",
         ).length;
         const bahiasDisponibles = state.serviceBays.filter(
-          (bay) => bay.status === "disponible"
+          (bay) => bay.status === "disponible",
         ).length;
 
         return {
@@ -295,6 +296,6 @@ export const useOperationsStore = create<OperationsState>()(
         stockAlerts: state.stockAlerts,
         rotationMetrics: state.rotationMetrics,
       }),
-    }
-  )
+    },
+  ),
 );

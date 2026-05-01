@@ -1,4 +1,8 @@
-import { VehicleBrand, Model, Vehicle } from "@/modules/inventory/vehicles/interfaces/vehicle.interface";
+import {
+  VehicleBrand,
+  Model,
+  Vehicle,
+} from "@/modules/inventory/vehicles/interfaces/vehicle.interface";
 
 export interface Customer {
   id: string;

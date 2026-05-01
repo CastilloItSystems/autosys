@@ -1,5 +1,5 @@
 "use client";
-import GaritaList from "@/components/workshop/garita/GaritaList";
+import { GaritaList } from "@/modules/workshop/garita";
 
 export default function WorkshopGaritaPage() {
   return <GaritaList />;

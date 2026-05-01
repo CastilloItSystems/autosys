@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
-import { getUsers } from "@/app/api/userService";
+import { getUsers } from "@/modules/users/services/user.service";
 
 interface TechnicianSelectorProps {
   value: string | null | undefined;

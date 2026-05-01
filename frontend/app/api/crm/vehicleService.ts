@@ -30,7 +30,7 @@ export const getVehicleByVin = async (vin: string): Promise<Vehicle> => {
 };
 
 export const createVehicle = async (
-  data: VehicleFormData
+  data: VehicleFormData,
 ): Promise<VehicleResponse> => {
   const response = await apiClient.post(BASE_URL, data);
   return response.data;
@@ -38,7 +38,7 @@ export const createVehicle = async (
 
 export const updateVehicle = async (
   id: string,
-  data: VehicleFormData
+  data: VehicleFormData,
 ): Promise<VehicleResponse> => {
   const response = await apiClient.put(`${BASE_URL}/${id}`, data);
   return response.data;

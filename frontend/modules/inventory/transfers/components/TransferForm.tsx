@@ -5,7 +5,10 @@ import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 
 // PrimeReact components
-import { AutoComplete, AutoCompleteCompleteEvent } from "primereact/autocomplete";
+import {
+  AutoComplete,
+  AutoCompleteCompleteEvent,
+} from "primereact/autocomplete";
 import { InputNumber } from "primereact/inputnumber";
 import { Dropdown } from "primereact/dropdown";
 import { Button } from "primereact/button";
@@ -18,8 +21,10 @@ import ItemsTable, { ColumnDef } from "@/modules/inventory/common/ItemsTable";
 
 // API functions
 import transferService from "@/modules/inventory/transfers/services/transferService";
-import type { Transfer } from "@/libs/interfaces";
-import stockService, { Stock } from "@/modules/inventory/stocks/services/stockService";
+import type { Transfer } from "@/modules/inventory/transfers/interfaces/transfer.interface";
+import stockService, {
+  Stock,
+} from "@/modules/inventory/stocks/services/stockService";
 import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 
 // Zod schema
@@ -42,19 +47,19 @@ interface TransferFormProps {
 // ── Column layout ──────────────────────────────────────────────────────────────
 
 const COLS: Record<string, React.CSSProperties> = {
-  handle:   { width: "1.75rem", flexShrink: 0 },
-  product:  { flex: "1 1 0", minWidth: "10rem" },
+  handle: { width: "1.75rem", flexShrink: 0 },
+  product: { flex: "1 1 0", minWidth: "10rem" },
   quantity: { width: "7rem", flexShrink: 0 },
   unitCost: { width: "9rem", flexShrink: 0 },
-  remove:   { width: "1.75rem", flexShrink: 0 },
+  remove: { width: "1.75rem", flexShrink: 0 },
 };
 
 const TABLE_COLS: ColumnDef[] = [
-  { label: "",             style: COLS.handle },
-  { label: "Artículo",     style: COLS.product },
-  { label: "Cantidad",     style: COLS.quantity },
-  { label: "Costo Unit.",  style: COLS.unitCost },
-  { label: "",             style: COLS.remove },
+  { label: "", style: COLS.handle },
+  { label: "Artículo", style: COLS.product },
+  { label: "Cantidad", style: COLS.quantity },
+  { label: "Costo Unit.", style: COLS.unitCost },
+  { label: "", style: COLS.remove },
 ];
 
 // ── Component ─────────────────────────────────────────────────────────────────
@@ -73,7 +78,9 @@ export default function TransferForm({
   const [suggestions, setSuggestions] = useState<any[]>([]);
   const [mounted, setMounted] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const {
     control,
@@ -112,7 +119,11 @@ export default function TransferForm({
     const loadWarehouseStocks = async () => {
       setLoadingStocks(true);
       try {
-        const response = await stockService.getByWarehouse(fromWarehouseId, 1, 1000);
+        const response = await stockService.getByWarehouse(
+          fromWarehouseId,
+          1,
+          1000,
+        );
         const stocks = (response.data || []).filter(
           (s) => s.quantityAvailable > 0,
         );
@@ -373,9 +384,7 @@ export default function TransferForm({
               columns={TABLE_COLS}
               title="Artículos"
               disabled={
-                isEditing ||
-                !fromWarehouseId ||
-                warehouseStocks.length === 0
+                isEditing || !fromWarehouseId || warehouseStocks.length === 0
               }
               minWidth={520}
               renderRow={({ field, index, dragHandleProps, isDragging }) => (
@@ -433,10 +442,12 @@ export default function TransferForm({
                             if (typeof item === "string") return item;
                             return item.name
                               ? `${item.sku} — ${item.name}`
-                              : (item.sku || "");
+                              : item.sku || "";
                           }}
                           placeholder="SKU o Nombre..."
-                          className={`w-full ${errors.items?.[index]?.itemId ? "p-invalid" : ""}`}
+                          className={`w-full ${
+                            errors.items?.[index]?.itemId ? "p-invalid" : ""
+                          }`}
                           inputClassName="w-full text-xs"
                           inputStyle={{
                             padding: "0.2rem 0.5rem",
@@ -458,7 +469,11 @@ export default function TransferForm({
                                   </span>
                                 </div>
                                 <span
-                                  className={`text-xs px-2 py-1 border-round flex-shrink-0 ${avail > 0 ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-500"}`}
+                                  className={`text-xs px-2 py-1 border-round flex-shrink-0 ${
+                                    avail > 0
+                                      ? "bg-green-100 text-green-700"
+                                      : "bg-gray-100 text-gray-500"
+                                  }`}
                                 >
                                   {avail}
                                 </span>
@@ -474,7 +489,8 @@ export default function TransferForm({
                             );
                           }}
                           onChange={(e) => {
-                            if (typeof e.value === "string") f.onChange(e.value);
+                            if (typeof e.value === "string")
+                              f.onChange(e.value);
                           }}
                           appendTo={mounted ? document.body : "self"}
                           forceSelection={false}
@@ -503,7 +519,9 @@ export default function TransferForm({
                           onValueChange={(e) => f.onChange(e.value ?? 1)}
                           min={1}
                           className="w-full"
-                          inputClassName={`w-full text-center ${errors.items?.[index]?.quantity ? "p-invalid" : ""}`}
+                          inputClassName={`w-full text-center ${
+                            errors.items?.[index]?.quantity ? "p-invalid" : ""
+                          }`}
                           inputStyle={{
                             padding: "0.25rem 0.4rem",
                             height: "30px",

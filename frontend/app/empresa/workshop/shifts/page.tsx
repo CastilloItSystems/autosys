@@ -1,5 +1,5 @@
 "use client";
-import WorkshopShiftList from "@/components/workshop/shifts/WorkshopShiftList";
+import { WorkshopShiftList } from "@/modules/workshop/shifts";
 
 export default function WorkshopShiftsPage() {
   return <WorkshopShiftList />;

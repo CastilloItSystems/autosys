@@ -10,16 +10,19 @@ import { Toast } from "primereact/toast";
 import { FileUpload, FileUploadSelectEvent } from "primereact/fileupload";
 import { Image } from "primereact/image";
 import { Button } from "primereact/button";
-import { Usuario } from "@/libs/interfaces";
+import { User } from "@/modules/users/interfaces/user.interface";
 import { handleFormError } from "@/utils/errorHandlers";
-import { updateUser, uploadUserProfilePicture } from "@/app/api/userService";
+import {
+  updateUser,
+  uploadUserProfilePicture,
+} from "@/modules/users/services/user.service";
 import { useSession } from "next-auth/react";
 import PhoneInput from "@/shared/components/PhoneInput";
 
 type FormData = z.infer<typeof profileSchema>;
 
 interface MyprofileFormProps {
-  usuario: Usuario;
+  usuario: User;
   formId?: string;
   onSave: () => void | Promise<void>;
   onSubmittingChange?: (isSubmitting: boolean) => void;

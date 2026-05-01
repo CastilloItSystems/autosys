@@ -1,4 +1,4 @@
-import IngressMotiveList from "@/components/workshop/ingress-motives/IngressMotiveList";
+import { IngressMotiveList } from "@/modules/workshop/ingressMotives";
 
 export default function IngressMotivesPage() {
   return <IngressMotiveList />;

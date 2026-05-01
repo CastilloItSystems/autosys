@@ -1,4 +1,4 @@
-import { Usuario } from "./authInterface";
+import { User } from "@/modules/users/interfaces/user.interface";
 
 export interface Empresa {
   id_empresa: string;
@@ -32,7 +32,7 @@ export interface Empresa {
   eliminado: boolean;
   createdAt: string;
   updatedAt: string;
-  users?: Usuario[];
+  users?: User[];
 }
 
 export interface EmpresaCreate {

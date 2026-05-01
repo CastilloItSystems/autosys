@@ -1,4 +1,4 @@
-import ReceptionList from "@/components/workshop/receptions/ReceptionList";
+import { ReceptionList } from "@/modules/workshop/receptions";
 
 export default function ReceptionsPage() {
   return <ReceptionList />;

@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
 import { useParams } from "next/navigation";
-import ServiceOrderDetail from "@/components/workshop/service-orders/ServiceOrderDetail";
+import { ServiceOrderDetail } from "@/modules/workshop/serviceOrders";
 
 export default function ServiceOrderDetailPage() {
   const params = useParams();

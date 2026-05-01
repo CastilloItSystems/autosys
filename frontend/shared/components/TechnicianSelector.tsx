@@ -33,9 +33,9 @@ export default function TechnicianSelector({
           setTechnicians(
             users
               .filter(
-                (u) => u.isTechnician && u.status === "active" && !u.deleted,
+                (u) => u.isTechnician && u.estado === "activo" && !u.eliminado,
               )
-              .map((u) => ({ id: u.id, name: u.name })),
+              .map((u) => ({ id: u.id, name: u.nombre })),
           );
         }
       })

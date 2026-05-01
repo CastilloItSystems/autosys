@@ -1,4 +1,4 @@
-import WorkshopOperationList from "@/components/workshop/operations/WorkshopOperationList";
+import { WorkshopOperationList } from "@/modules/workshop/operations";
 
 export default function OperationsPage() {
   return <WorkshopOperationList />;

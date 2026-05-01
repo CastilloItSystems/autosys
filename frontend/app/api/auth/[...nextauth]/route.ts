@@ -2,11 +2,11 @@ import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { googleSingIn, loginUser } from "@/modules/auth/services/auth.service";
 
-import { Usuario } from "@/libs/interfaces";
+import { User } from "@/modules/users/interfaces/user.interface";
 import GoogleProvider from "next-auth/providers/google";
 declare module "next-auth" {
   interface Session {
-    user: Usuario & {
+    user: User & {
       token?: string;
       access_token?: string; // Agregado para manejar el token de Google
     } & DefaultSession["user"];

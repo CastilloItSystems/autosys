@@ -1,4 +1,4 @@
-import TechnicianSpecialtyList from "@/components/workshop/technician-specialties/TechnicianSpecialtyList";
+import { TechnicianSpecialtyList } from "@/modules/workshop/technicianSpecialties";
 
 export default function TechnicianSpecialtiesPage() {
   return <TechnicianSpecialtyList />;

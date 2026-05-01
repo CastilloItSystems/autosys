@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import DiagnosisList from "@/components/workshop/diagnoses/DiagnosisList";
+import { DiagnosisList } from "@/modules/workshop/diagnoses";
 
 const DiagnosesPage = () => {
   return <DiagnosisList />;

@@ -2,24 +2,24 @@ import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
-import type { GaritaEvent } from "@/libs/interfaces/workshop";
+import type { GaritaEvent } from "@/modules/workshop/garita/interfaces/garita.interface";
 
 const TYPE_LABELS: Record<string, string> = {
-  VEHICLE_IN:    "Ingreso de Vehículo",
-  VEHICLE_OUT:   "Egreso de Vehículo",
-  PART_OUT:      "Salida de Pieza (T.O.T.)",
-  PART_IN:       "Reingreso de Pieza (T.O.T.)",
+  VEHICLE_IN: "Ingreso de Vehículo",
+  VEHICLE_OUT: "Egreso de Vehículo",
+  PART_OUT: "Salida de Pieza (T.O.T.)",
+  PART_IN: "Reingreso de Pieza (T.O.T.)",
   ROAD_TEST_OUT: "Salida — Prueba de Carretera",
-  ROAD_TEST_IN:  "Reingreso — Prueba de Carretera",
-  OTHER:         "Otro Movimiento",
+  ROAD_TEST_IN: "Reingreso — Prueba de Carretera",
+  OTHER: "Otro Movimiento",
 };
 
 const STATUS_LABELS: Record<string, string> = {
-  PENDING:    "Pendiente",
+  PENDING: "Pendiente",
   AUTHORIZED: "Autorizado",
-  COMPLETED:  "Completado",
-  FLAGGED:    "Irregularidad",
-  CANCELLED:  "Cancelado",
+  COMPLETED: "Completado",
+  FLAGGED: "Irregularidad",
+  CANCELLED: "Cancelado",
 };
 
 const styles = StyleSheet.create({
@@ -44,64 +44,115 @@ const styles = StyleSheet.create({
   },
   headerLeft: { width: "60%" },
   headerRight: { width: "38%", alignItems: "flex-end" },
-  headerTitle: { fontSize: 15, fontFamily: "Helvetica-Bold", color: "#0f172a", marginBottom: 2 },
+  headerTitle: {
+    fontSize: 15,
+    fontFamily: "Helvetica-Bold",
+    color: "#0f172a",
+    marginBottom: 2,
+  },
   headerSubtitle: { fontSize: 9, color: "#64748b" },
   headerFolio: { fontSize: 13, fontFamily: "Helvetica-Bold", color: "#1e3a8a" },
   headerStatusBox: {
-    marginTop: 4, paddingVertical: 3, paddingHorizontal: 8,
-    backgroundColor: "#f1f5f9", borderRadius: 3,
+    marginTop: 4,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    backgroundColor: "#f1f5f9",
+    borderRadius: 3,
   },
   headerDate: { fontSize: 9, color: "#475569" },
 
   // ── Type banner ─────────────────────────────────────────────────────────────
   typeBanner: {
     backgroundColor: "#1e3a8a",
-    paddingVertical: 6, paddingHorizontal: 10,
-    borderRadius: 4, marginBottom: 16,
-    flexDirection: "row", alignItems: "center",
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 4,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
   },
   typeBannerText: {
-    fontSize: 12, fontFamily: "Helvetica-Bold", color: "#ffffff",
+    fontSize: 12,
+    fontFamily: "Helvetica-Bold",
+    color: "#ffffff",
   },
 
   // ── Section ─────────────────────────────────────────────────────────────────
   section: { marginBottom: 14 },
   sectionTitle: {
     backgroundColor: "#f8fafc",
-    paddingVertical: 4, paddingHorizontal: 6,
-    borderLeftWidth: 3, borderLeftColor: "#3b82f6",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+    borderLeftWidth: 3,
+    borderLeftColor: "#3b82f6",
     marginBottom: 8,
-    fontFamily: "Helvetica-Bold", fontSize: 10, color: "#0f172a",
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    color: "#0f172a",
   },
   grid2: { flexDirection: "row", justifyContent: "space-between" },
   colHalf: { width: "48%" },
 
   row: { flexDirection: "row", marginBottom: 5, alignItems: "flex-start" },
-  label: { width: "42%", fontFamily: "Helvetica-Bold", color: "#64748b", fontSize: 9 },
+  label: {
+    width: "42%",
+    fontFamily: "Helvetica-Bold",
+    color: "#64748b",
+    fontSize: 9,
+  },
   value: { width: "58%", fontSize: 9, color: "#1e293b" },
   valueFull: { width: "100%", fontSize: 9, color: "#1e293b", lineHeight: 1.4 },
 
   // ── Alert box ───────────────────────────────────────────────────────────────
   alertBox: {
     backgroundColor: "#fef2f2",
-    borderWidth: 1, borderColor: "#fca5a5", borderRadius: 4,
-    paddingVertical: 6, paddingHorizontal: 8, marginBottom: 14,
+    borderWidth: 1,
+    borderColor: "#fca5a5",
+    borderRadius: 4,
+    paddingVertical: 6,
+    paddingHorizontal: 8,
+    marginBottom: 14,
   },
-  alertTitle: { fontFamily: "Helvetica-Bold", fontSize: 10, color: "#991b1b", marginBottom: 3 },
+  alertTitle: {
+    fontFamily: "Helvetica-Bold",
+    fontSize: 10,
+    color: "#991b1b",
+    marginBottom: 3,
+  },
   alertText: { fontSize: 9, color: "#7f1d1d" },
 
   // ── Signature area ──────────────────────────────────────────────────────────
-  sigRow: { flexDirection: "row", justifyContent: "space-around", marginTop: 30 },
+  sigRow: {
+    flexDirection: "row",
+    justifyContent: "space-around",
+    marginTop: 30,
+  },
   sigBox: { width: "28%", alignItems: "center" },
-  sigLine: { borderTopWidth: 1, borderTopColor: "#94a3b8", width: "100%", marginBottom: 5 },
-  sigTitle: { fontSize: 9, fontFamily: "Helvetica-Bold", color: "#334155", textAlign: "center" },
+  sigLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#94a3b8",
+    width: "100%",
+    marginBottom: 5,
+  },
+  sigTitle: {
+    fontSize: 9,
+    fontFamily: "Helvetica-Bold",
+    color: "#334155",
+    textAlign: "center",
+  },
   sigSub: { fontSize: 8, color: "#64748b", textAlign: "center", marginTop: 2 },
 
   // ── Footer ──────────────────────────────────────────────────────────────────
   footer: {
-    position: "absolute", bottom: 20, left: 32, right: 32,
-    flexDirection: "row", justifyContent: "space-between",
-    borderTopWidth: 1, borderTopColor: "#e2e8f0", paddingTop: 8,
+    position: "absolute",
+    bottom: 20,
+    left: 32,
+    right: 32,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+    paddingTop: 8,
   },
   footerText: { fontSize: 8, color: "#94a3b8" },
 });
@@ -119,12 +170,15 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-
         {/* Header */}
         <View style={styles.headerContainer} fixed>
           <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>{data.empresaName ?? "Taller Automotriz"}</Text>
-            <Text style={styles.headerSubtitle}>Registro de Movimiento de Garita / Vigilancia</Text>
+            <Text style={styles.headerTitle}>
+              {data.empresaName ?? "Taller Automotriz"}
+            </Text>
+            <Text style={styles.headerSubtitle}>
+              Registro de Movimiento de Garita / Vigilancia
+            </Text>
           </View>
           <View style={styles.headerRight}>
             <Text style={styles.headerFolio}>REG-{eventId}</Text>
@@ -161,13 +215,17 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
             {data.kmIn != null && (
               <View style={styles.row}>
                 <Text style={styles.label}>Km entrada:</Text>
-                <Text style={styles.value}>{data.kmIn.toLocaleString()} km</Text>
+                <Text style={styles.value}>
+                  {data.kmIn.toLocaleString()} km
+                </Text>
               </View>
             )}
             {data.kmOut != null && (
               <View style={styles.row}>
                 <Text style={styles.label}>Km salida:</Text>
-                <Text style={styles.value}>{data.kmOut.toLocaleString()} km</Text>
+                <Text style={styles.value}>
+                  {data.kmOut.toLocaleString()} km
+                </Text>
               </View>
             )}
             {data.serialMotor && (
@@ -195,7 +253,9 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
               <Text style={styles.value}>{data.driverId ?? "—"}</Text>
             </View>
 
-            <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Vinculación</Text>
+            <Text style={[styles.sectionTitle, { marginTop: 10 }]}>
+              Vinculación
+            </Text>
             {data.serviceOrder ? (
               <>
                 <View style={styles.row}>
@@ -205,7 +265,9 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
                 {data.serviceOrder.vehiclePlate && (
                   <View style={styles.row}>
                     <Text style={styles.label}>Placa OT:</Text>
-                    <Text style={styles.value}>{data.serviceOrder.vehiclePlate}</Text>
+                    <Text style={styles.value}>
+                      {data.serviceOrder.vehiclePlate}
+                    </Text>
                   </View>
                 )}
               </>
@@ -258,7 +320,9 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
         {data.hasIrregularity && (
           <View style={styles.alertBox}>
             <Text style={styles.alertTitle}>⚠ Irregularidad Registrada</Text>
-            <Text style={styles.alertText}>{data.irregularityNotes ?? "Sin descripción"}</Text>
+            <Text style={styles.alertText}>
+              {data.irregularityNotes ?? "Sin descripción"}
+            </Text>
           </View>
         )}
 
@@ -288,21 +352,25 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
             <View style={{ height: 40 }} />
             <View style={styles.sigLine} />
             <Text style={styles.sigTitle}>Conductor / Responsable</Text>
-            <Text style={styles.sigSub}>{data.driverName ?? "_______________"}</Text>
+            <Text style={styles.sigSub}>
+              {data.driverName ?? "_______________"}
+            </Text>
           </View>
         </View>
 
         {/* Footer */}
         <View style={styles.footer} fixed>
           <Text style={styles.footerText}>
-            AutoSys · Registro REG-{eventId} · Generado el {fmt(new Date().toISOString())}
+            AutoSys · Registro REG-{eventId} · Generado el{" "}
+            {fmt(new Date().toISOString())}
           </Text>
           <Text
             style={styles.footerText}
-            render={({ pageNumber, totalPages }) => `Página ${pageNumber} de ${totalPages}`}
+            render={({ pageNumber, totalPages }) =>
+              `Página ${pageNumber} de ${totalPages}`
+            }
           />
         </View>
-
       </Page>
     </Document>
   );

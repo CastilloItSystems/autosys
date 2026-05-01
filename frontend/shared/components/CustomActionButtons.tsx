@@ -2,7 +2,7 @@ import React, { useRef } from "react";
 import { useUserRoles } from "../../hooks/useUserRoles";
 import { Button } from "primereact/button";
 import { Menu } from "primereact/menu";
-import PDFGenerator from "../pdf/PDFGenerator";
+import PDFGenerator from "@/components/pdf/PDFGenerator";
 import {
   infoAllowedRoles,
   editAllowedRoles,

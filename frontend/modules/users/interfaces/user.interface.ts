@@ -45,6 +45,9 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   memberships?: Membership[];
+  // Legacy compatibility fields (from API response)
+  empresas?: Membership[];
+  rol?: string;
 }
 
 export interface AuditUser {

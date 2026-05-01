@@ -1,5 +1,5 @@
 "use client";
-import ChecklistTemplateList from "@/components/workshop/checklists/ChecklistTemplateList";
+import { ChecklistTemplateList } from "@/modules/workshop/checklists";
 
 export default function ChecklistTemplatesPage() {
   return <ChecklistTemplateList />;

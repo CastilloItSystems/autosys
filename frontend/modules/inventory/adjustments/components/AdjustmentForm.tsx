@@ -11,7 +11,9 @@ import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import adjustmentService from "@/modules/inventory/adjustments/services/adjustmentService";
 import { createAdjustmentSchema } from "@/modules/inventory/adjustments/schemas/adjustmentZod";
-import stockService, { Stock } from "@/modules/inventory/stocks/services/stockService";
+import stockService, {
+  Stock,
+} from "@/modules/inventory/stocks/services/stockService";
 import warehouseService, {
   Warehouse,
 } from "@/modules/inventory/warehouses/services/warehouseService";
@@ -137,7 +139,9 @@ export default function AdjustmentForm({
     };
     loadStocks();
     replace([{ itemId: "", quantityChange: 1, notes: "" }]);
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [selectedWarehouseId, replace]);
 
   const onSubmit = async (data: FormData) => {
@@ -155,7 +159,9 @@ export default function AdjustmentForm({
 
   const itemOptions = warehouseStocks.map((stock) => ({
     label: stock.item
-      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${stock.quantityAvailable})`
+      ? `${stock.item.sku || "—"} - ${stock.item.name} (Disp: ${
+          stock.quantityAvailable
+        })`
       : stock.itemId,
     value: stock.itemId,
   }));
@@ -165,7 +171,11 @@ export default function AdjustmentForm({
     value: w.id,
   }));
 
-  const renderRow = ({ index, dragHandleProps, isDragging }: ItemsTableRenderRowProps) => (
+  const renderRow = ({
+    index,
+    dragHandleProps,
+    isDragging,
+  }: ItemsTableRenderRowProps) => (
     <div
       style={{
         display: "flex",
@@ -181,7 +191,13 @@ export default function AdjustmentForm({
     >
       {/* Drag handle */}
       <div
-        style={{ ...COLUMNS[0].style, cursor: "grab", color: "var(--text-color-secondary)", display: "flex", alignItems: "center" }}
+        style={{
+          ...COLUMNS[0].style,
+          cursor: "grab",
+          color: "var(--text-color-secondary)",
+          display: "flex",
+          alignItems: "center",
+        }}
         {...dragHandleProps}
       >
         <i className="pi pi-bars text-xs" />
@@ -199,11 +215,15 @@ export default function AdjustmentForm({
               options={itemOptions}
               optionLabel="label"
               optionValue="value"
-              placeholder={loadingStocks ? "Cargando..." : "Seleccionar artículo"}
+              placeholder={
+                loadingStocks ? "Cargando..." : "Seleccionar artículo"
+              }
               filter
               showClear
               disabled={loadingStocks || !selectedWarehouseId}
-              className={errors.items?.[index]?.itemId ? "p-invalid w-full" : "w-full"}
+              className={
+                errors.items?.[index]?.itemId ? "p-invalid w-full" : "w-full"
+              }
               style={{ fontSize: "0.85rem" }}
             />
           )}
@@ -221,7 +241,11 @@ export default function AdjustmentForm({
               onValueChange={(e) => field.onChange(e.value)}
               placeholder="Cant."
               showButtons
-              className={errors.items?.[index]?.quantityChange ? "p-invalid w-full" : "w-full"}
+              className={
+                errors.items?.[index]?.quantityChange
+                  ? "p-invalid w-full"
+                  : "w-full"
+              }
               inputStyle={{ textAlign: "center", fontSize: "0.85rem" }}
             />
           )}
@@ -238,7 +262,9 @@ export default function AdjustmentForm({
               {...field}
               value={field.value || ""}
               placeholder="Notas"
-              className={errors.items?.[index]?.notes ? "p-invalid w-full" : "w-full"}
+              className={
+                errors.items?.[index]?.notes ? "p-invalid w-full" : "w-full"
+              }
               style={{ fontSize: "0.85rem" }}
             />
           )}
@@ -286,7 +312,10 @@ export default function AdjustmentForm({
       <div className="grid">
         {/* Almacén */}
         <div className="col-12 md:col-6">
-          <label htmlFor="warehouseId" className="block text-900 font-medium mb-2">
+          <label
+            htmlFor="warehouseId"
+            className="block text-900 font-medium mb-2"
+          >
             Almacén <span className="text-red-500">*</span>
           </label>
           <Controller
@@ -332,7 +361,9 @@ export default function AdjustmentForm({
             )}
           />
           {errors.reason && (
-            <small className="p-error block mt-1">{errors.reason.message}</small>
+            <small className="p-error block mt-1">
+              {errors.reason.message}
+            </small>
           )}
         </div>
 

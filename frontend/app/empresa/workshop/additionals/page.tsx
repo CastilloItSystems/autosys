@@ -1,4 +1,4 @@
-import AdditionalList from "@/components/workshop/additionals/AdditionalList";
+import { AdditionalList } from "@/modules/workshop/additionals";
 
 export default function AdditionalsPage() {
   return <AdditionalList />;

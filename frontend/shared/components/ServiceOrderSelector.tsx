@@ -1,11 +1,11 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
-import serviceOrderService from "@/app/api/workshop/serviceOrderService";
+import serviceOrderService from "@/modules/workshop/serviceOrders/services/serviceOrderService";
 import type {
   ServiceOrder,
   ServiceOrderStatus,
-} from "@/libs/interfaces/workshop";
+} from "@/modules/workshop/serviceOrders/interfaces/serviceOrder.interface";
 
 const ACTIVE_STATUSES: ServiceOrderStatus[] = [
   "OPEN",

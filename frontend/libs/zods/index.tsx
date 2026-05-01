@@ -13,4 +13,4 @@ export * from "./chequeosZodBK";
 export * from "./facturaZod";
 export * from "./balanceZod";
 // export * from "./inventory"; // Removed - migrated to modules/inventory
-export * from "./workshop";
+export * from "./workshopZod";

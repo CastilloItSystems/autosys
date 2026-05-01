@@ -1,4 +1,4 @@
-import AppointmentList from "@/components/workshop/appointments/AppointmentList";
+import { AppointmentList } from "@/modules/workshop/appointments";
 
 export default function AppointmentsPage() {
   return <AppointmentList />;

@@ -1,5 +1,5 @@
 "use client";
-import TOTList from "@/components/workshop/tot/TOTList";
+import { TOTList } from "@/modules/workshop/tot";
 
 export default function WorkshopTOTPage() {
   return <TOTList />;

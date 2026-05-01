@@ -1,8 +1,8 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
-import receptionService from "@/app/api/workshop/receptionService";
-import type { VehicleReception } from "@/libs/interfaces/workshop";
+import receptionService from "@/modules/workshop/receptions/services/receptionService";
+import type { VehicleReception } from "@/modules/workshop/receptions/interfaces/reception.interface";
 
 interface ReceptionSelectorProps {
   value: string | null | undefined;

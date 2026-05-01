@@ -1,5 +1,5 @@
 "use client";
-import PlanningBoard from "@/components/workshop/planning/PlanningBoard";
+import { PlanningBoard } from "@/modules/workshop/planning";
 
 export default function PlanningBoardPage() {
   return <PlanningBoard />;

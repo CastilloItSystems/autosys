@@ -1,9 +1,13 @@
 import apiClient from "@/app/api/apiClient";
-import { AccessType, UserStatus } from "@/app/api/userService";
+import {
+  AccessType,
+  UserStatus,
+} from "@/modules/users/interfaces/user.interface";
 // import { AccessType, UserStatus } from "@/modules/users/services/user.service";
 
 export interface LoginRequest {
-  email: string;
+  email?: string;
+  correo?: string;
   password: string;
 }
 

@@ -18,7 +18,7 @@ import {
   Transfer,
   TransferStatus,
   TRANSFER_STATUS_CONFIG,
-} from "@/libs/interfaces";
+} from "@/modules/inventory/transfers/interfaces/transfer.interface";
 import transferService from "@/modules/inventory/transfers/services/transferService";
 import TransferForm from "./TransferForm";
 import TransferDetail from "./TransferDetail";

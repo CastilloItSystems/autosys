@@ -21,7 +21,7 @@ export const getVehicleBrands = async (): Promise<{
 };
 
 export const createVehicleBrand = async (
-  data: VehicleBrandFormData
+  data: VehicleBrandFormData,
 ): Promise<VehicleBrandResponse> => {
   const response = await apiClient.post(BASE_URL, data);
   return response.data;
@@ -29,7 +29,7 @@ export const createVehicleBrand = async (
 
 export const updateVehicleBrand = async (
   id: string,
-  data: VehicleBrandFormData
+  data: VehicleBrandFormData,
 ): Promise<VehicleBrandResponse> => {
   const response = await apiClient.put(`${BASE_URL}/${id}`, data);
   return response.data;

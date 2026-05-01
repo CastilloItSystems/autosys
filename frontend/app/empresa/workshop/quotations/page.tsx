@@ -1,5 +1,5 @@
 "use client";
-import QuotationList from "@/components/workshop/quotations/QuotationList";
+import { QuotationList } from "@/modules/workshop/quotations";
 
 export default function WorkshopQuotationsPage() {
   return <QuotationList />;

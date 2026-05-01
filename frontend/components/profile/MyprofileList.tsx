@@ -11,7 +11,7 @@ import UsuarioChangePasswordForm from "../../modules/users/components/UsuarioCha
 import { Tooltip } from "primereact/tooltip";
 import MyprofileForm from "./MyprofileForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
-import { uploadUserProfilePicture } from "@/app/api/userService";
+import { uploadUserProfilePicture } from "@/modules/users/services/user.service";
 
 const MyProfileList: React.FC = () => {
   const { data: session, update } = useSession();

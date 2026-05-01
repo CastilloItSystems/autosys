@@ -8,7 +8,7 @@ import { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interfaces/pur
 import { SalesOrder } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
 import { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
 import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
-import { Reservation } from "@/modules/inventory/reservations/services/reservationService";
+import { Reservation } from "@/modules/inventory/reservations/interfaces/reservation.interface";
 
 interface InventoryState {
   // Artículos
@@ -53,7 +53,7 @@ interface InventoryState {
   agregarPurchaseOrder: (purchaseOrder: PurchaseOrder) => void;
   actualizarPurchaseOrder: (
     id: string,
-    updates: Partial<PurchaseOrder>
+    updates: Partial<PurchaseOrder>,
   ) => void;
   eliminarPurchaseOrder: (id: string) => void;
   seleccionarPurchaseOrder: (purchaseOrder: PurchaseOrder | null) => void;
@@ -108,7 +108,7 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarItem: (id: string, updates: Partial<Item>) =>
         set((state) => ({
           items: state.items.map((item) =>
-            item.id === id ? { ...item, ...updates } : item
+            item.id === id ? { ...item, ...updates } : item,
           ),
         })),
 
@@ -128,7 +128,7 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarMovement: (id: string, updates: Partial<Movement>) =>
         set((state) => ({
           movements: state.movements.map((movement) =>
-            movement.id === id ? { ...movement, ...updates } : movement
+            movement.id === id ? { ...movement, ...updates } : movement,
           ),
         })),
 
@@ -146,7 +146,7 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarPurchaseOrder: (id: string, updates: Partial<PurchaseOrder>) =>
         set((state) => ({
           purchaseOrders: state.purchaseOrders.map((po) =>
-            po.id === id ? { ...po, ...updates } : po
+            po.id === id ? { ...po, ...updates } : po,
           ),
         })),
 
@@ -167,7 +167,7 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarSalesOrder: (id: string, updates: Partial<SalesOrder>) =>
         set((state) => ({
           salesOrders: state.salesOrders.map((so) =>
-            so.id === id ? { ...so, ...updates } : so
+            so.id === id ? { ...so, ...updates } : so,
           ),
         })),
 
@@ -188,7 +188,7 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarSupplier: (id: string, updates: Partial<Supplier>) =>
         set((state) => ({
           suppliers: state.suppliers.map((supplier) =>
-            supplier.id === id ? { ...supplier, ...updates } : supplier
+            supplier.id === id ? { ...supplier, ...updates } : supplier,
           ),
         })),
 
@@ -206,14 +206,14 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarWarehouse: (id: string, updates: Partial<Warehouse>) =>
         set((state) => ({
           warehouses: state.warehouses.map((warehouse) =>
-            warehouse.id === id ? { ...warehouse, ...updates } : warehouse
+            warehouse.id === id ? { ...warehouse, ...updates } : warehouse,
           ),
         })),
 
       eliminarWarehouse: (id: string) =>
         set((state) => ({
           warehouses: state.warehouses.filter(
-            (warehouse) => warehouse.id !== id
+            (warehouse) => warehouse.id !== id,
           ),
         })),
 
@@ -226,14 +226,16 @@ export const useInventoryStore = create<InventoryState>()(
       actualizarReservation: (id: string, updates: Partial<Reservation>) =>
         set((state) => ({
           reservations: state.reservations.map((reservation) =>
-            reservation.id === id ? { ...reservation, ...updates } : reservation
+            reservation.id === id
+              ? { ...reservation, ...updates }
+              : reservation,
           ),
         })),
 
       eliminarReservation: (id: string) =>
         set((state) => ({
           reservations: state.reservations.filter(
-            (reservation) => reservation.id !== id
+            (reservation) => reservation.id !== id,
           ),
         })),
 
@@ -242,6 +244,6 @@ export const useInventoryStore = create<InventoryState>()(
     }),
     {
       name: "inventory-storage",
-    }
-  )
+    },
+  ),
 );

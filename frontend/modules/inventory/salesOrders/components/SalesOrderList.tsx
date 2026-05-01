@@ -9,7 +9,10 @@ import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import salesOrderService from "@/modules/inventory/salesOrders/services/salesOrderService";
 import SalesOrderForm from "./SalesOrderForm";
-import { SalesOrder, SalesLine } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
+import {
+  SalesOrder,
+  SalesLine,
+} from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
 import { Item } from "@/modules/inventory/items/interfaces/item.interface";
 import itemService from "@/modules/inventory/items/services/itemService";
 import CustomActionButtons from "@/components/common/CustomActionButtons";

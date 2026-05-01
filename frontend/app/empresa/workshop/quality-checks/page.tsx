@@ -1,4 +1,4 @@
-import QualityCheckList from "@/components/workshop/quality-checks/QualityCheckList";
+import { QualityCheckList } from "@/modules/workshop/qualityChecks";
 
 export default function QualityChecksPage() {
   return <QualityCheckList />;

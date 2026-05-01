@@ -1,4 +1,4 @@
-import MaterialList from "@/components/workshop/materials/MaterialList";
+import { MaterialList } from "@/modules/workshop/materials";
 
 export default function MaterialsPage() {
   return <MaterialList />;

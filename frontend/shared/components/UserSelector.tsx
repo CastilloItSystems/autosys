@@ -30,8 +30,8 @@ export default function UserSelector({
           const list = res?.users ?? [];
           setUsers(
             list
-              .filter((u) => u.status === "active" && !u.deleted)
-              .map((u) => ({ id: u.id, name: u.name })),
+              .filter((u) => u.estado === "activo" && !u.eliminado)
+              .map((u) => ({ id: u.id, name: u.nombre })),
           );
         }
       })

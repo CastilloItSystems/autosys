@@ -1,4 +1,4 @@
-import { getWorkshops } from "@/app/api";
+import { getWorkshops } from "@/modules/workshop/dashboard";
 
 import { useCallback, useEffect } from "react";
 import useSWR from "swr";

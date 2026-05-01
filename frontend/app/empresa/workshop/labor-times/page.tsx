@@ -1,4 +1,4 @@
-import LaborTimeList from "@/components/workshop/labor-times/LaborTimeList";
+import { LaborTimeList } from "@/modules/workshop/laborTimes";
 
 export default function LaborTimesPage() {
   return <LaborTimeList />;
