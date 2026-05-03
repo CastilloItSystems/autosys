@@ -23,11 +23,15 @@ import {
   ENTRY_NOTE_STATUS_CONFIG,
   ENTRY_TYPE_LABELS,
 } from "@/modules/inventory/entryNotes/interfaces/entryNote.interface";
-import itemService, { Item } from "@/modules/inventory/items/services/itemService";
+import itemService, {
+  Item,
+} from "@/modules/inventory/items/services/itemService";
 import warehouseService, {
   Warehouse,
 } from "@/modules/inventory/warehouses/services/warehouseService";
-import supplierService, { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
+import supplierService, {
+  Supplier,
+} from "@/modules/inventory/suppliers/services/supplierService";
 import EntryNoteForm from "./EntryNoteForm";
 import CompleteEntryNoteDialog from "./CompleteEntryNoteDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
@@ -39,7 +43,9 @@ import {
 } from "@/components/common/ConfirmAction";
 import dynamic from "next/dynamic";
 
-const EntryNotePDFPreview = dynamic(() => import("./EntryNotePDFPreview"), { ssr: false });
+const EntryNotePDFPreview = dynamic(() => import("./EntryNotePDFPreview"), {
+  ssr: false,
+});
 
 const EntryNoteList = () => {
   const searchParams = useSearchParams();

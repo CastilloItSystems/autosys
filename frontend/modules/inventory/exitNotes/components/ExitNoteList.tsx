@@ -22,7 +22,9 @@ import {
   EXIT_NOTE_STATUS_CONFIG,
   EXIT_NOTE_TYPE_CONFIG,
 } from "@/modules/inventory/exitNotes/interfaces/exitNote.interface";
-import itemService, { Item } from "@/modules/inventory/items/services/itemService";
+import itemService, {
+  Item,
+} from "@/modules/inventory/items/services/itemService";
 import warehouseService, {
   Warehouse,
 } from "@/modules/inventory/warehouses/services/warehouseService";
@@ -37,7 +39,9 @@ import {
 } from "@/components/common/ConfirmAction";
 import dynamic from "next/dynamic";
 
-const ExitNotePDFPreview = dynamic(() => import("./ExitNotePDFPreview"), { ssr: false });
+const ExitNotePDFPreview = dynamic(() => import("./ExitNotePDFPreview"), {
+  ssr: false,
+});
 
 interface ExitNoteListProps {
   fixedType?: string; // Para pre-filtrar por tipo (ej. WORKSHOP_SUPPLY)
