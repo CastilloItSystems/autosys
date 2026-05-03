@@ -12,6 +12,9 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Message } from "primereact/message";
 import { motion } from "framer-motion";
 import { useEmpresasStore } from "@/store/empresasStore";
+import dynamic from "next/dynamic";
+
+const ReconciliationPDFPreview = dynamic(() => import("./ReconciliationPDFPreview"), { ssr: false });
 
 import reconciliationService from "@/modules/inventory/reconciliations/services/reconciliationService";
 import {
@@ -49,6 +52,7 @@ export default function ReconciliationList() {
     useState<Reconciliation | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
+  const [pdfItem, setPdfItem] = useState<Reconciliation | null>(null);
 
   // ── Carga inicial de almacenes ───────────────────────────────────────────
   useEffect(() => {
@@ -195,6 +199,16 @@ export default function ReconciliationList() {
           setSelectedReconciliation(rowData);
           setShowDetail(true);
         }}
+      />
+      <Button
+        icon="pi pi-print"
+        rounded
+        text
+        severity="secondary"
+        size="small"
+        tooltip="Imprimir PDF"
+        tooltipOptions={{ position: "top" }}
+        onClick={() => setPdfItem(rowData)}
       />
       {rowData.status === ReconciliationStatus.DRAFT && (
         <Button
@@ -532,6 +546,19 @@ export default function ReconciliationList() {
           />
         )}
       </Dialog>
+
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Reconciliación"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ReconciliationPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

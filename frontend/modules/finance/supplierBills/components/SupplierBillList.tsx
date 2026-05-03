@@ -14,7 +14,10 @@ import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
 import { InputTextarea } from "primereact/inputtextarea";
 import { MenuItem } from "primereact/menuitem";
+import dynamic from "next/dynamic";
 import type { SupplierBill } from "../interfaces/supplierBill";
+
+const SupplierBillPDFPreview = dynamic(() => import("./SupplierBillPDFPreview"), { ssr: false });
 import supplierBillService from "../services/supplierBillService";
 import SupplierBillForm from "./SupplierBillForm";
 import RegisterPaymentDialog from "./RegisterPaymentDialog";
@@ -69,6 +72,7 @@ export default function SupplierBillList() {
   const [menuTarget, setMenuTarget] = useState<SupplierBill | null>(null);
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfBill, setPdfBill] = useState<SupplierBill | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [invoiceForm, setInvoiceForm] = useState({
     billNumber: "",
@@ -219,6 +223,14 @@ export default function SupplierBillList() {
           },
         }),
       disabled: target?.status === "CANCELLED",
+    },
+    {
+      separator: true,
+    },
+    {
+      label: "Imprimir PDF",
+      icon: "pi pi-print",
+      command: () => target && setPdfBill(target),
     },
   ];
 
@@ -612,6 +624,19 @@ export default function SupplierBillList() {
         onSuccess={onPaymentSuccess}
         toast={toast}
       />
+
+      {pdfBill && (
+        <Dialog
+          visible
+          onHide={() => setPdfBill(null)}
+          header="Vista Previa — Factura de Proveedor"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <SupplierBillPDFPreview data={pdfBill} />
+        </Dialog>
+      )}
 
       <Dialog
         visible={showRegisterInvoiceDialog}

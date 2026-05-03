@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,6 +14,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 
 import caseService from "../services/caseService";
+import { useCasesData } from "../hooks/useCasesData";
 import {
   Case,
   CASE_STATUS_CONFIG,
@@ -42,9 +43,6 @@ export default function CaseList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [cases, setCases] = useState<Case[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
   const [searchInput, setSearchInput] = useState("");
@@ -63,6 +61,22 @@ export default function CaseList() {
   const [detailCaseId, setDetailCaseId] = useState<string | null>(null);
   const [detailVisible, setDetailVisible] = useState(false);
 
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: search || undefined,
+      type: filterType || undefined,
+      status: filterStatus || undefined,
+      priority: filterPriority || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, search, filterType, filterStatus, filterPriority],
+  );
+
+  const { cases, total, loading, error, mutate } = useCasesData(listParams);
+
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 500);
     return () => clearTimeout(t);
@@ -72,35 +86,14 @@ export default function CaseList() {
     setPage(0);
   }, [search, filterType, filterStatus, filterPriority]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await caseService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: search || undefined,
-        type: filterType || undefined,
-        status: filterStatus || undefined,
-        priority: filterPriority || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setCases(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar casos",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, rows, search, filterType, filterStatus, filterPriority]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   const openNew = () => {
     setEditCase(null);
@@ -141,7 +134,7 @@ export default function CaseList() {
       });
       setDeleteDialog(false);
       setSelectedCase(null);
-      await load();
+      await mutate();
     } catch (e: any) {
       toast.current?.show({
         severity: "error",
@@ -163,7 +156,7 @@ export default function CaseList() {
     });
     setFormVisible(false);
     setEditCase(null);
-    await load();
+    await mutate();
   };
 
   const menuItems = (c: Case): MenuItem[] => [
@@ -458,7 +451,7 @@ export default function CaseList() {
         caseRecord={statusDialogCase}
         visible={statusDialogVisible}
         onHide={() => setStatusDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
 
@@ -466,7 +459,7 @@ export default function CaseList() {
         caseId={detailCaseId}
         visible={detailVisible}
         onHide={() => setDetailVisible(false)}
-        onUpdated={load}
+        onUpdated={() => void mutate()}
         toast={toast}
       />
     </>

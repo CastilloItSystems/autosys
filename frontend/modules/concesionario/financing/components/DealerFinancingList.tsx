@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -15,9 +15,7 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import dealerFinancingService from "../services/dealerFinancingService";
-import dealerUnitService from "@/modules/concesionario/vehicles/services/dealerUnitService";
 import type { DealerFinancing } from "../interfaces/dealerFinancing.interface";
-import type { DealerUnit } from "@/modules/concesionario/vehicles/interfaces/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   FINANCING_STATUS_FILTER_OPTIONS,
@@ -27,16 +25,13 @@ import {
   formatFinancingCrossRef,
 } from "../utils/dealerFinancing.utils";
 import DealerFinancingForm from "./DealerFinancingForm";
+import { useDealerFinancingData } from "../hooks/useDealerFinancingData";
+import { useDealerUnitOptionsData } from "@/modules/concesionario/vehicles";
 
 export default function DealerFinancingList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerFinancing[]>([]);
-  const [unitOptions, setUnitOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerFinancing | null>(null);
   const [actionItem, setActionItem] = useState<DealerFinancing | null>(null);
 
@@ -45,58 +40,23 @@ export default function DealerFinancingList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadUnits();
-  }, []);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadUnits = async () => {
-    try {
-      const res = await dealerUnitService.getAll({
-        page: 1,
-        limit: 300,
-        isActive: "true",
-      });
-      const units = Array.isArray(res.data) ? (res.data as DealerUnit[]) : [];
-      setUnitOptions(
-        units.map((u) => ({
-          label: `${u.code || u.vin || u.id} - ${u.brand?.name || "Unidad"}`,
-          value: u.id,
-        })),
-      );
-    } catch (error) {
-      handleFormError(error, toast);
-    }
-  };
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerFinancingService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-      });
-      setItems((res.data || []) as DealerFinancing[]);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerFinancingData(params);
+  const { unitOptions } = useDealerUnitOptionsData();
 
   const openNew = () => {
     setSelected(null);
@@ -124,7 +84,7 @@ export default function DealerFinancingList() {
         detail: "Financiamiento desactivado correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -143,7 +103,7 @@ export default function DealerFinancingList() {
         : "Financiamiento creado correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

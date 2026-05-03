@@ -14,6 +14,9 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+const AdjustmentPDFPreview = dynamic(() => import("./AdjustmentPDFPreview"), { ssr: false });
 import adjustmentService, {
   ADJUSTMENT_STATUS_LABELS,
   ADJUSTMENT_STATUS_SEVERITY,
@@ -66,6 +69,7 @@ const AdjustmentList = () => {
   // Action menu
   const menuRef = useRef<Menu>(null);
   const [actionItem, setActionItem] = useState<Adjustment | null>(null);
+  const [pdfItem, setPdfItem] = useState<Adjustment | null>(null);
 
   const toast = useRef<Toast | null>(null);
 
@@ -289,6 +293,11 @@ const AdjustmentList = () => {
         label: "Ver detalles",
         icon: "pi pi-eye",
         command: () => viewDetails(item),
+      },
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(item),
       },
     ];
 
@@ -602,6 +611,19 @@ const AdjustmentList = () => {
             toast={toast}
           />
         </Dialog>
+
+        {pdfItem && (
+          <Dialog
+            visible
+            onHide={() => setPdfItem(null)}
+            header="Vista Previa — Ajuste de Inventario"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <AdjustmentPDFPreview data={pdfItem} />
+          </Dialog>
+        )}
       </motion.div>
     </>
   );

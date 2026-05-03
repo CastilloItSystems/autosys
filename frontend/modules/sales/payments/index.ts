@@ -5,7 +5,6 @@ export type {
   PaymentStatus,
   PaymentMethod,
 } from "./interfaces/payment.interface";
-export { default as paymentService } from "./services/paymentService";
 export {
   createPaymentSchema,
   updatePaymentSchema,

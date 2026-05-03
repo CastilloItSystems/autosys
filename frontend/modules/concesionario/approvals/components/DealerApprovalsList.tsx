@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -24,13 +24,12 @@ import {
   APPROVAL_STATUS_META,
 } from "../utils/dealerApproval.utils";
 import DealerApprovalForm from "./DealerApprovalForm";
+import { useDealerApprovalsData } from "../hooks/useDealerApprovalsData";
 
 export default function DealerApprovalsList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerApproval[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerApproval | null>(null);
   const [actionItem, setActionItem] = useState<DealerApproval | null>(null);
 
@@ -40,36 +39,23 @@ export default function DealerApprovalsList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter, typeFilter]);
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerApprovalService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-        type: typeFilter || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+      type: typeFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter, typeFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerApprovalsData(params);
 
   const openNew = () => {
     setSelected(null);
@@ -97,7 +83,7 @@ export default function DealerApprovalsList() {
         detail: "Aprobación eliminada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -116,7 +102,7 @@ export default function DealerApprovalsList() {
         : "Aprobación creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

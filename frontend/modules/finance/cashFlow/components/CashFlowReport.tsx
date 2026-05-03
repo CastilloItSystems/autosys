@@ -4,10 +4,12 @@ import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
+import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
+import dynamic from "next/dynamic";
 import type {
   CashTransaction,
   CashFlowSummary,
@@ -19,6 +21,8 @@ import bankAccountService from "@/modules/finance/bankAccounts/services/bankAcco
 import TransferDialog from "./TransferDialog";
 import ManualAdjustmentDialog from "./ManualAdjustmentDialog";
 import { handleFormError } from "@/utils/errorHandlers";
+
+const CashFlowPDFPreview = dynamic(() => import("./CashFlowPDFPreview"), { ssr: false });
 
 const TYPE_LABELS: Record<string, string> = {
   INCOME: "Entrada",
@@ -117,6 +121,7 @@ export default function CashFlowReport() {
   } | null>(null);
   const [transferVisible, setTransferVisible] = useState(false);
   const [adjustmentVisible, setAdjustmentVisible] = useState(false);
+  const [pdfVisible, setPdfVisible] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -348,6 +353,13 @@ export default function CashFlowReport() {
           severity="warning"
           onClick={() => setAdjustmentVisible(true)}
         />
+        <Button
+          icon="pi pi-print"
+          label="Exportar PDF"
+          severity="secondary"
+          outlined
+          onClick={() => setPdfVisible(true)}
+        />
       </div>
     </div>
   );
@@ -372,6 +384,33 @@ export default function CashFlowReport() {
         onSuccess={onActionSuccess}
         toast={toast}
       />
+
+      {pdfVisible && (() => {
+        const selectedAccount = bankAccountsFull.find(a => a.id === filters.bankAccountId);
+        const currencySummary = summary?.unified ?? summary?.perCurrency?.[0];
+        const pdfData = {
+          transactions,
+          accountName: selectedAccount?.name,
+          periodFrom: filters.from,
+          periodTo: filters.to,
+          totalIncome: currencySummary?.totalIncome ?? 0,
+          totalOutcome: currencySummary?.totalOutcome ?? 0,
+          netFlow: currencySummary?.netFlow ?? 0,
+          currency: currencySummary?.currency ?? selectedAccount?.currency ?? "USD",
+        };
+        return (
+          <Dialog
+            visible
+            onHide={() => setPdfVisible(false)}
+            header="Vista Previa — Flujo de Caja"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <CashFlowPDFPreview data={pdfData} />
+          </Dialog>
+        );
+      })()}
 
       <div className="card">
         {/* Resumen de período (saldo apertura / cierre) */}

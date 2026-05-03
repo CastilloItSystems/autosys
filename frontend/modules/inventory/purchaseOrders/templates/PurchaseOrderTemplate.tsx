@@ -1,0 +1,417 @@
+import React from "react";
+import {
+  Document,
+  Page,
+  Text,
+  View,
+  StyleSheet,
+} from "@react-pdf/renderer";
+import "@/utils/pdfUtils";
+import {
+  PurchaseOrder,
+  PO_STATUS_CONFIG,
+  TaxType,
+} from "../interfaces/purchaseOrder.interface";
+
+const styles = StyleSheet.create({
+  page: {
+    paddingTop: 70,
+    paddingBottom: 50,
+    paddingHorizontal: 30,
+    fontFamily: "Roboto",
+    fontSize: 9,
+    color: "#1e293b",
+  },
+  header: {
+    position: "absolute",
+    top: 0,
+    left: 30,
+    right: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderBottomWidth: 2,
+    borderBottomColor: "#1e3a8a",
+    paddingBottom: 8,
+    paddingTop: 8,
+  },
+  headerLeft: { flexDirection: "row", alignItems: "center", gap: 8 },
+  headerTitle: { fontSize: 13, fontFamily: "Roboto-Bold", color: "#0f172a" },
+  headerSubtitle: { fontSize: 8, color: "#64748b", marginTop: 2 },
+  headerRight: { alignItems: "flex-end" },
+  headerNumber: { fontSize: 12, fontFamily: "Roboto-Bold", color: "#1e3a8a" },
+  headerDate: { fontSize: 8, color: "#64748b", marginTop: 2 },
+  badge: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 3,
+    fontSize: 8,
+    fontFamily: "Roboto-Bold",
+    alignSelf: "flex-start",
+    marginTop: 4,
+  },
+  section: { marginBottom: 10 },
+  sectionTitle: {
+    fontSize: 9,
+    fontFamily: "Roboto-Bold",
+    color: "#1e3a8a",
+    borderLeftWidth: 3,
+    borderLeftColor: "#3b82f6",
+    paddingLeft: 6,
+    marginBottom: 6,
+  },
+  grid2Col: { flexDirection: "row", gap: 12 },
+  col: { flex: 1 },
+  row: { flexDirection: "row", marginBottom: 3, alignItems: "flex-start" },
+  label: { width: "40%", color: "#64748b", fontSize: 8 },
+  value: { width: "60%", fontSize: 8, color: "#1e293b" },
+  valueFull: { width: "100%", fontSize: 8, color: "#1e293b", lineHeight: 1.4 },
+  table: {
+    width: "100%",
+    marginTop: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 4,
+  },
+  tableHeader: {
+    flexDirection: "row",
+    backgroundColor: "#1e3a8a",
+    paddingVertical: 5,
+    paddingHorizontal: 6,
+  },
+  tableHeaderCell: {
+    color: "#ffffff",
+    fontFamily: "Roboto-Bold",
+    fontSize: 8,
+  },
+  tableRow: {
+    flexDirection: "row",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "#e2e8f0",
+    paddingVertical: 4,
+    paddingHorizontal: 6,
+  },
+  tableRowAlt: { backgroundColor: "#f8fafc" },
+  tableCell: { fontSize: 8, color: "#334155" },
+  totalsBox: {
+    marginTop: 8,
+    alignItems: "flex-end",
+    gap: 3,
+  },
+  totalLine: { flexDirection: "row", gap: 12, justifyContent: "flex-end" },
+  totalLabel: { fontSize: 8, color: "#64748b", width: 110, textAlign: "right" },
+  totalValue: { fontSize: 9, color: "#1e293b", fontFamily: "Roboto-Bold", width: 100, textAlign: "right" },
+  grandTotal: { fontSize: 11, color: "#1e3a8a", fontFamily: "Roboto-Bold", width: 100, textAlign: "right" },
+  footer: {
+    position: "absolute",
+    bottom: 20,
+    left: 30,
+    right: 30,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: "#e2e8f0",
+    paddingTop: 6,
+  },
+  footerText: { fontSize: 7, color: "#94a3b8" },
+  notesBox: {
+    marginTop: 10,
+    padding: 8,
+    backgroundColor: "#f8fafc",
+    borderRadius: 4,
+  },
+  notesLabel: { fontSize: 8, fontFamily: "Roboto-Bold", color: "#64748b", marginBottom: 2 },
+  signatureBlock: {
+    marginTop: 24,
+    flexDirection: "row",
+    justifyContent: "space-between",
+  },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#94a3b8",
+    width: 160,
+    paddingTop: 4,
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 8,
+  },
+});
+
+const formatDate = (d?: string | null) => {
+  if (!d) return "N/A";
+  return new Date(d).toLocaleDateString("es-VE", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+};
+
+const formatAmount = (value: number | string | null, currency = "USD") => {
+  const sym = { USD: "$", EUR: "€", VES: "Bs." }[currency] ?? "$";
+  return `${sym} ${Number(value || 0).toLocaleString("es-VE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+};
+
+const statusBadgeColors: Record<string, { bg: string; text: string }> = {
+  DRAFT: { bg: "#f3f4f6", text: "#374151" },
+  PENDING_APPROVAL: { bg: "#fef9c3", text: "#854d0e" },
+  APPROVED: { bg: "#dcfce7", text: "#166534" },
+  SENT: { bg: "#dbeafe", text: "#1e40af" },
+  PARTIAL: { bg: "#fef9c3", text: "#854d0e" },
+  COMPLETED: { bg: "#dcfce7", text: "#166534" },
+  REJECTED: { bg: "#fecaca", text: "#991b1b" },
+  CANCELLED: { bg: "#fecaca", text: "#991b1b" },
+};
+
+const taxLabel = (taxType?: TaxType | null) => {
+  if (taxType === "EXEMPT") return "Exento";
+  if (taxType === "REDUCED") return "Red. 8%";
+  return "IVA 16%";
+};
+
+const PurchaseOrderTemplate = ({ data }: { data: PurchaseOrder }) => {
+  const cfg = PO_STATUS_CONFIG[data.status];
+  const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
+
+  return (
+    <Document title={`Orden de Compra - ${data.orderNumber}`}>
+      <Page size="A4" style={styles.page}>
+        {/* Header */}
+        <View style={styles.header} fixed>
+          <View style={styles.headerLeft}>
+            <View>
+              <Text style={styles.headerTitle}>Orden de Compra</Text>
+              <Text style={styles.headerSubtitle}>AutoSys</Text>
+            </View>
+          </View>
+          <View style={styles.headerRight}>
+            <Text style={styles.headerNumber}>{data.orderNumber}</Text>
+            <Text style={styles.headerDate}>{formatDate(data.orderDate)}</Text>
+            <Text
+              style={[
+                styles.badge,
+                { backgroundColor: badgeColor.bg, color: badgeColor.text },
+              ]}
+            >
+              {cfg?.label || data.status}
+            </Text>
+            {data.expectedDate && (
+              <Text style={styles.headerDate}>Entrega est.: {formatDate(data.expectedDate)}</Text>
+            )}
+          </View>
+        </View>
+
+        {/* Proveedor y Almacén */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Proveedor y Destino</Text>
+          <View style={styles.grid2Col}>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Proveedor:</Text>
+                <Text style={styles.value}>{data.supplier?.name || "—"}</Text>
+              </View>
+              {data.supplier?.taxId && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>RIF:</Text>
+                  <Text style={styles.value}>{data.supplier.taxId}</Text>
+                </View>
+              )}
+              {data.supplier?.email && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Email:</Text>
+                  <Text style={styles.value}>{data.supplier.email}</Text>
+                </View>
+              )}
+              {data.supplier?.phone && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Teléfono:</Text>
+                  <Text style={styles.value}>{data.supplier.phone}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Almacén:</Text>
+                <Text style={styles.value}>{data.warehouse?.name || "—"} ({data.warehouse?.code || ""})</Text>
+              </View>
+              {data.paymentTerms && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Términos pago:</Text>
+                  <Text style={styles.value}>{data.paymentTerms}</Text>
+                </View>
+              )}
+              {data.creditDays != null && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Días crédito:</Text>
+                  <Text style={styles.value}>{data.creditDays}</Text>
+                </View>
+              )}
+              {data.deliveryTerms && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Términos entrega:</Text>
+                  <Text style={styles.value}>{data.deliveryTerms}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {/* Items */}
+        {data.items && data.items.length > 0 && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Artículos</Text>
+            <View style={styles.table}>
+              <View style={styles.tableHeader}>
+                <Text style={[styles.tableHeaderCell, { width: "26%" }]}>Artículo</Text>
+                <Text style={[styles.tableHeaderCell, { width: "8%", textAlign: "center" }]}>Pedido</Text>
+                <Text style={[styles.tableHeaderCell, { width: "8%", textAlign: "center" }]}>Recibido</Text>
+                <Text style={[styles.tableHeaderCell, { width: "8%", textAlign: "center" }]}>Pend.</Text>
+                <Text style={[styles.tableHeaderCell, { width: "12%", textAlign: "right" }]}>Costo</Text>
+                <Text style={[styles.tableHeaderCell, { width: "8%", textAlign: "center" }]}>Desc.%</Text>
+                <Text style={[styles.tableHeaderCell, { width: "10%", textAlign: "center" }]}>Imp.</Text>
+                <Text style={[styles.tableHeaderCell, { width: "12%", textAlign: "right" }]}>Total</Text>
+              </View>
+              {data.items.map((line, idx) => (
+                <View
+                  key={line.id}
+                  style={[
+                    styles.tableRow,
+                    idx % 2 === 1 ? styles.tableRowAlt : {},
+                  ]}
+                >
+                  <Text style={[styles.tableCell, { width: "26%" }]}>
+                    {line.itemName || line.item?.name || "—"}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "8%", textAlign: "center" }]}>
+                    {line.quantityOrdered}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "8%", textAlign: "center" }]}>
+                    {line.quantityReceived}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "8%", textAlign: "center" }]}>
+                    {line.quantityPending}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "12%", textAlign: "right" }]}>
+                    {formatAmount(line.unitCost, data.currency)}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "8%", textAlign: "center" }]}>
+                    {Number(line.discountPercent) > 0 ? `${line.discountPercent}%` : "—"}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "10%", textAlign: "center" }]}>
+                    {taxLabel(line.taxType)}
+                  </Text>
+                  <Text style={[styles.tableCell, { width: "12%", textAlign: "right", fontFamily: "Roboto-Bold" }]}>
+                    {formatAmount(line.totalLine, data.currency)}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
+
+        {/* Totales */}
+        <View style={styles.totalsBox}>
+          <View style={styles.totalLine}>
+            <Text style={styles.totalLabel}>Subtotal bruto:</Text>
+            <Text style={styles.totalValue}>{formatAmount(data.subtotalBruto, data.currency)}</Text>
+          </View>
+          {Number(data.discountAmount) > 0 && (
+            <View style={styles.totalLine}>
+              <Text style={styles.totalLabel}>Descuento:</Text>
+              <Text style={styles.totalValue}>-{formatAmount(data.discountAmount, data.currency)}</Text>
+            </View>
+          )}
+          <View style={styles.totalLine}>
+            <Text style={styles.totalLabel}>Base imponible:</Text>
+            <Text style={styles.totalValue}>{formatAmount(data.baseImponible, data.currency)}</Text>
+          </View>
+          {Number(data.baseExenta) > 0 && (
+            <View style={styles.totalLine}>
+              <Text style={styles.totalLabel}>Base exenta:</Text>
+              <Text style={styles.totalValue}>{formatAmount(data.baseExenta, data.currency)}</Text>
+            </View>
+          )}
+          <View style={styles.totalLine}>
+            <Text style={styles.totalLabel}>IVA ({data.taxRate}%):</Text>
+            <Text style={styles.totalValue}>{formatAmount(data.taxAmount, data.currency)}</Text>
+          </View>
+          {data.igtfApplies && (
+            <View style={styles.totalLine}>
+              <Text style={styles.totalLabel}>IGTF:</Text>
+              <Text style={styles.totalValue}>{formatAmount(data.igtfAmount, data.currency)}</Text>
+            </View>
+          )}
+          <View style={styles.totalLine}>
+            <Text style={styles.totalLabel}>Total:</Text>
+            <Text style={styles.grandTotal}>{formatAmount(data.total, data.currency)}</Text>
+          </View>
+        </View>
+
+        {/* Aprobaciones */}
+        <View style={[styles.section, { marginTop: 12 }]}>
+          <Text style={styles.sectionTitle}>Aprobaciones</Text>
+          <View style={styles.grid2Col}>
+            <View style={styles.col}>
+              {data.submittedBy && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Enviada por:</Text>
+                  <Text style={styles.value}>{data.submittedBy} ({formatDate(data.submittedAt)})</Text>
+                </View>
+              )}
+              {data.approvedBy && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Aprobada por:</Text>
+                  <Text style={styles.value}>{data.approvedBy} ({formatDate(data.approvedAt)})</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.col}>
+              {data.rejectedBy && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Rechazada por:</Text>
+                  <Text style={styles.value}>{data.rejectedBy}</Text>
+                </View>
+              )}
+              {data.rejectionReason && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Motivo:</Text>
+                  <Text style={styles.value}>{data.rejectionReason}</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        </View>
+
+        {data.notes && (
+          <View style={styles.notesBox}>
+            <Text style={styles.notesLabel}>Notas</Text>
+            <Text style={styles.valueFull}>{data.notes}</Text>
+          </View>
+        )}
+
+        {/* Firmas */}
+        <View style={styles.signatureBlock}>
+          <Text style={styles.signatureLine}>Solicitó</Text>
+          <Text style={styles.signatureLine}>Aprobó</Text>
+          <Text style={styles.signatureLine}>Recibió</Text>
+        </View>
+
+        {/* Footer */}
+        <View style={styles.footer} fixed>
+          <Text style={styles.footerText}>AutoSys</Text>
+          <Text style={styles.footerText}>{data.orderNumber}</Text>
+          <Text
+            style={styles.footerText}
+            render={({ pageNumber, totalPages }) =>
+              `Página ${pageNumber} de ${totalPages}`
+            }
+          />
+        </View>
+      </Page>
+    </Document>
+  );
+};
+
+export default PurchaseOrderTemplate;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +22,7 @@ import { ConfirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 
 import caseService from "../services/caseService";
+import { useCaseKanbanData } from "../hooks/useCasesData";
 import {
   Case,
   CASE_STATUS_CONFIG,
@@ -38,31 +39,6 @@ import CaseForm from "./CaseForm";
 import CaseStatusDialog from "./CaseStatusDialog";
 import CaseDetailDialog from "./CaseDetailDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
-
-// Active columns shown in the Kanban (CLOSED and REJECTED are terminal → list view)
-const KANBAN_STATUSES = [
-  "OPEN",
-  "IN_ANALYSIS",
-  "IN_PROGRESS",
-  "WAITING_CLIENT",
-  "ESCALATED",
-  "RESOLVED",
-] as const;
-
-type KanbanStatus = (typeof KANBAN_STATUSES)[number];
-
-// Colors for each status column top border
-const STATUS_COLORS: Record<string, string> = {
-  OPEN: "#3B82F6",
-  IN_ANALYSIS: "#6366F1",
-  IN_PROGRESS: "#F97316",
-  WAITING_CLIENT: "#EAB308",
-  ESCALATED: "#EF4444",
-  RESOLVED: "#22C55E",
-};
-
-// Statuses that require extra info when transitioning (open dialog instead of direct update)
-const DIALOG_REQUIRED = ["RESOLVED", "CLOSED", "REJECTED"];
 
 // ── Column ────────────────────────────────────────────────────────────────────
 
@@ -299,14 +275,11 @@ function KanbanCard({ caseRecord: c, onAction, isOverlay = false }: CardProps) {
 export default function CaseKanban() {
   const toast = useRef<Toast>(null);
 
-  const [cases, setCases] = useState<Case[]>([]);
-  const [loading, setLoading] = useState(false);
   const [filterPriority, setFilterPriority] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const activeCase = cases.find((c) => c.id === activeId) ?? null;
 
   const [formVisible, setFormVisible] = useState(false);
   const [editCase, setEditCase] = useState<Case | null>(null);
@@ -328,35 +301,28 @@ export default function CaseKanban() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await caseService.getAll({
-        limit: 500,
-        search: search || undefined,
-        priority: filterPriority || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      // Only show active cases in kanban
-      const all: Case[] = raw.data ?? raw;
-      setCases(
-        all.filter((c) => !["CLOSED", "REJECTED"].includes(c.status as string)),
-      );
-    } catch {
+  const kanbanParams = useMemo(
+    () => ({
+      limit: 500,
+      search: search || undefined,
+      priority: filterPriority || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [search, filterPriority],
+  );
+
+  const { cases, loading, error, mutate } = useCaseKanbanData(kanbanParams);
+  const activeCase = cases.find((caseRecord) => caseRecord.id === activeId) ?? null;
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar casos",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [search, filterPriority]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   // Group by status
   const casesByStatus = KANBAN_STATUSES.reduce<Record<string, Case[]>>(
@@ -387,17 +353,10 @@ export default function CaseKanban() {
       return;
     }
 
-    // Optimistic update
-    setCases((prev) =>
-      prev.map((x) => (x.id === c.id ? { ...x, status: newStatus } : x)),
-    );
-
     try {
       await caseService.updateStatus(c.id, { status: newStatus });
+      await mutate();
     } catch {
-      setCases((prev) =>
-        prev.map((x) => (x.id === c.id ? { ...x, status: c.status } : x)),
-      );
       toast.current?.show({
         severity: "error",
         summary: "Error al cambiar estado",
@@ -557,7 +516,7 @@ export default function CaseKanban() {
             });
             setFormVisible(false);
             setEditCase(null);
-            await load();
+            await mutate();
           }}
           onSubmittingChange={setIsSubmitting}
           toast={toast}
@@ -569,7 +528,7 @@ export default function CaseKanban() {
         caseRecord={statusDialogCase}
         visible={statusDialogVisible}
         onHide={() => setStatusDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
 
@@ -578,7 +537,7 @@ export default function CaseKanban() {
         caseId={detailCaseId}
         visible={detailVisible}
         onHide={() => setDetailVisible(false)}
-        onUpdated={load}
+        onUpdated={() => void mutate()}
         toast={toast}
       />
     </>

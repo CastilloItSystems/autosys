@@ -1,4 +1,4 @@
-import DealerReportsView from "@/modules/concesionario/reports/components/DealerReportsView";
+import { DealerReportsView } from "@/modules/concesionario/reports";
 
 export default function ConcesionarioReportsPage() {
   return <DealerReportsView />;

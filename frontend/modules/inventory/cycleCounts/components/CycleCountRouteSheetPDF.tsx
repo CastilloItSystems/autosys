@@ -9,7 +9,7 @@ import {
   StyleSheet,
   Font,
 } from "@react-pdf/renderer";
-import "../../../utils/pdfUtils"; // registrar fuentes Roboto
+import "@/utils/pdfUtils"; // registrar fuentes Roboto
 
 import { CycleCount, CycleCountItem } from "@/modules/inventory/cycleCounts/services/cycleCountService";
 import { CYCLE_COUNT_STATUS_CONFIG } from "@/modules/inventory/cycleCounts/interfaces/cycleCount.interface";

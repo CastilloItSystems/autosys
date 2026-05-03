@@ -1,8 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Button } from "primereact/button";
-import LeadList from "@/modules/crm/leads/components/LeadList";
-import LeadKanban from "@/modules/crm/leads/components/LeadKanban";
+import { LeadKanban, LeadList } from "@/modules/crm/leads";
 
 export default function LeadsPage() {
   const [view, setView] = useState<"kanban" | "list">("kanban");

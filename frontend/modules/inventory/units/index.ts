@@ -1,6 +1,5 @@
 // units module exports
-export * from './components/UnitForm';
-export * from './components/UnitList';
-export * from './services/unitService';
+export { default as UnitForm } from './components/UnitForm';
+export { default as UnitList } from './components/UnitList';
 export * from './interfaces/unit.interface';
 export * from './schemas/unitZod';

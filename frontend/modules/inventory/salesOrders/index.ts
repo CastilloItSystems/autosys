@@ -3,6 +3,5 @@ export * from './components/ConfirmOrderDialog';
 export * from './components/SalesOrderForm';
 export * from './components/SalesOrderList';
 export * from './components/ShipOrderDialog';
-export * from './services/salesOrderService';
 export * from './interfaces/salesOrder.interface';
 export * from './schemas/salesOrderZod';

@@ -13,7 +13,6 @@ export type {
   SupplierBillItemInput,
   RegisterSupplierInvoiceData,
 } from "./interfaces/supplierBill";
-export { default as supplierBillService } from "./services/supplierBillService";
 export {
   createSupplierBillSchema,
   updateSupplierBillSchema,

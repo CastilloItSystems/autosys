@@ -15,4 +15,3 @@ export {
   TAX_TYPE_OPTIONS,
 } from "./interfaces/order.interface";
 export { createOrderSchema, type CreateOrderInput } from "./schemas/orderZod";
-export { default as orderService } from "./services/orderService";

@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,6 +14,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 
 import leadService from "../services/leadService";
+import { useLeadsData } from "../hooks/useLeadsData";
 import {
   Lead,
   LEAD_STATUS_CONFIG,
@@ -41,9 +42,6 @@ export default function LeadList() {
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
   const [search, setSearch] = useState("");
@@ -58,39 +56,34 @@ export default function LeadList() {
   const [statusDialogLead, setStatusDialogLead] = useState<Lead | null>(null);
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
 
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: search || undefined,
+      channel: filterChannel || undefined,
+      status: filterStatus || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, search, filterChannel, filterStatus],
+  );
+
+  const { leads, total, loading, error, mutate } = useLeadsData(listParams);
+
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 400);
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await leadService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: search || undefined,
-        channel: filterChannel || undefined,
-        status: filterStatus || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setLeads(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar leads",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, rows, search, filterChannel, filterStatus]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   useEffect(() => {
     setPage(0);
@@ -130,7 +123,7 @@ export default function LeadList() {
       });
       setDeleteDialog(false);
       setSelectedLead(null);
-      await load();
+      await mutate();
     } catch (error: any) {
       toast.current?.show({
         severity: "error",
@@ -152,7 +145,7 @@ export default function LeadList() {
     });
     setFormVisible(false);
     setEditLead(null);
-    await load();
+    await mutate();
   };
 
   const menuItems = (lead: Lead): MenuItem[] => [
@@ -184,7 +177,7 @@ export default function LeadList() {
             detail: "Lead convertido a oportunidad",
             life: 3000,
           });
-          load();
+          await mutate();
         } catch (e: any) {
           toast.current?.show({
             severity: "error",
@@ -430,7 +423,7 @@ export default function LeadList() {
           lead={editLead}
           formId="lead-form"
           onSave={handleSave}
-          onCreated={() => load()}
+          onCreated={() => void mutate()}
           onSubmittingChange={setFormSubmitting}
           toast={toast}
         />
@@ -440,7 +433,7 @@ export default function LeadList() {
         lead={statusDialogLead}
         visible={statusDialogVisible}
         onHide={() => setStatusDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
     </>

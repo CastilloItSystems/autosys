@@ -10,6 +10,7 @@ import { Toast } from "primereact/toast";
 import { Tag } from "primereact/tag";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -26,6 +27,8 @@ import {
 import WarrantyForm from "./WarrantyForm";
 import WarrantyStatusDialog from "./WarrantyStatusDialog";
 
+const WarrantyPDFPreview = dynamic(() => import("./WarrantyPDFPreview"), { ssr: false });
+
 export default function WarrantyList() {
   const [items, setItems] = useState<WorkshopWarranty[]>([]);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -41,6 +44,7 @@ export default function WarrantyList() {
   const [formDialog, setFormDialog] = useState(false);
   const [statusDialog, setStatusDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfItem, setPdfItem] = useState<WorkshopWarranty | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -337,6 +341,19 @@ export default function WarrantyList() {
         toast={toast}
       />
 
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Garantía"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <WarrantyPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+
       <Menu
         model={
           actionItem
@@ -352,6 +369,11 @@ export default function WarrantyList() {
                   icon: "pi pi-arrow-right-arrow-left",
                   disabled: actionItem.status === "CLOSED",
                   command: () => openStatusDialog(actionItem),
+                },
+                {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
                 },
               ]
             : []

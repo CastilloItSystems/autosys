@@ -11,6 +11,7 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Message } from "primereact/message";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import { useEmpresasStore } from "@/store/empresasStore";
 import loanService, {
   Loan,
@@ -20,6 +21,8 @@ import loanService, {
 import LoanForm from "./LoanForm";
 import LoanDetail from "./LoanDetail";
 import LoanReturnDialog from "./LoanReturnDialog";
+
+const LoanPDFPreview = dynamic(() => import("./LoanPDFPreview"), { ssr: false });
 
 const LoanList = () => {
   const { activeEmpresa } = useEmpresasStore();
@@ -39,6 +42,7 @@ const LoanList = () => {
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [pdfItem, setPdfItem] = useState<Loan | null>(null);
 
   // ── Data loading ─────────────────────────────────────────────────────────
 
@@ -233,6 +237,18 @@ const LoanList = () => {
             setSelectedLoan(rowData);
             setIsDetailOpen(true);
           }}
+          disabled={busy}
+        />
+        {/* Imprimir PDF */}
+        <Button
+          icon="pi pi-print"
+          rounded
+          text
+          severity="secondary"
+          size="small"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
           disabled={busy}
         />
         {rowData.status === LoanStatus.DRAFT && (
@@ -520,6 +536,20 @@ const LoanList = () => {
           }}
           toast={toast}
         />
+      )}
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Préstamo"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <LoanPDFPreview data={pdfItem} />
+        </Dialog>
       )}
     </motion.div>
   );

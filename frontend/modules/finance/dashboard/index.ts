@@ -4,4 +4,3 @@ export type {
   TopDebtor,
   FinanceDashboardData,
 } from "./services/financeDashboardService";
-export { default as financeDashboardService } from "./services/financeDashboardService";

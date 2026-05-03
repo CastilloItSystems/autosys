@@ -4,13 +4,17 @@ import React, { useState, useEffect, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
+import { Dialog } from "primereact/dialog";
 import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Dropdown } from "primereact/dropdown";
 import { MenuItem } from "primereact/menuitem";
+import dynamic from "next/dynamic";
 import type { SupplierPayment } from "../interfaces/supplierPayment";
+
+const SupplierPaymentPDFPreview = dynamic(() => import("./SupplierPaymentPDFPreview"), { ssr: false });
 import supplierPaymentService from "../services/supplierPaymentService";
 
 const STATUS_SEVERITY: Record<
@@ -56,6 +60,7 @@ export default function SupplierPaymentList() {
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [menuTarget, setMenuTarget] = useState<SupplierPayment | null>(null);
+  const [pdfPayment, setPdfPayment] = useState<SupplierPayment | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -110,6 +115,14 @@ export default function SupplierPaymentList() {
 
   const getMenuItems = (target: SupplierPayment | null): MenuItem[] => [
     {
+      label: "Imprimir PDF",
+      icon: "pi pi-print",
+      command: () => target && setPdfPayment(target),
+    },
+    {
+      separator: true,
+    },
+    {
       label: "Cancelar Pago",
       icon: "pi pi-times",
       className: "p-menuitem-danger",
@@ -137,20 +150,19 @@ export default function SupplierPaymentList() {
     </div>
   );
 
-  const actionsBody = (row: SupplierPayment) =>
-    row.status === "COMPLETED" ? (
-      <Button
-        icon="pi pi-cog"
-        rounded
-        text
-        onClick={(e) => {
-          setMenuTarget(row);
-          menuRef.current?.toggle(e);
-        }}
-        aria-controls="supplier-payment-menu"
-        aria-haspopup
-      />
-    ) : null;
+  const actionsBody = (row: SupplierPayment) => (
+    <Button
+      icon="pi pi-cog"
+      rounded
+      text
+      onClick={(e) => {
+        setMenuTarget(row);
+        menuRef.current?.toggle(e);
+      }}
+      aria-controls="supplier-payment-menu"
+      aria-haspopup
+    />
+  );
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -183,6 +195,19 @@ export default function SupplierPaymentList() {
         ref={menuRef}
         id="supplier-payment-menu"
       />
+
+      {pdfPayment && (
+        <Dialog
+          visible
+          onHide={() => setPdfPayment(null)}
+          header="Vista Previa — Pago a Proveedor"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <SupplierPaymentPDFPreview data={pdfPayment} />
+        </Dialog>
+      )}
 
       <div className="card">
         <DataTable

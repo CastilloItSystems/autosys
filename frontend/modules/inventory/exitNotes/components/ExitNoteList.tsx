@@ -35,6 +35,9 @@ import {
   confirmAction,
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
+import dynamic from "next/dynamic";
+
+const ExitNotePDFPreview = dynamic(() => import("./ExitNotePDFPreview"), { ssr: false });
 
 interface ExitNoteListProps {
   fixedType?: string; // Para pre-filtrar por tipo (ej. WORKSHOP_SUPPLY)
@@ -63,6 +66,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionExitNote, setActionExitNote] = useState<ExitNote | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pdfItem, setPdfItem] = useState<ExitNote | null>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -416,6 +420,12 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const getMenuItems = (note: ExitNote | null): MenuItem[] => {
     if (!note || note.status !== ExitNoteStatus.PENDING) return [];
     return [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(note),
+      },
+      { separator: true },
       {
         label: "Editar",
         icon: "pi pi-pencil",
@@ -921,6 +931,20 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
           ref={menuRef}
           id="exit-note-menu"
         />
+
+        {/* PDF Preview Dialog */}
+        {pdfItem && (
+          <Dialog
+            visible
+            onHide={() => setPdfItem(null)}
+            header="Vista Previa — Nota de Salida"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <ExitNotePDFPreview data={pdfItem} />
+          </Dialog>
+        )}
       </motion.div>
     </>
   );

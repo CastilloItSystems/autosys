@@ -1,29 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
-import dealerReportService, { DealerExecutiveReport, DealerPipelineReport } from "@/modules/concesionario/reports/services/dealerReportService";
+import { useDealerReportsData } from "../hooks/useDealerReportsData";
 
 export default function DealerReportsView() {
-  const [executive, setExecutive] = useState<DealerExecutiveReport | null>(null);
-  const [pipeline, setPipeline] = useState<DealerPipelineReport | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
-      try {
-        const [execRes, pipeRes] = await Promise.all([dealerReportService.getExecutive(), dealerReportService.getPipeline()]);
-        setExecutive(execRes.data);
-        setPipeline(pipeRes.data);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, []);
+  const { executive, pipeline, loading } = useDealerReportsData();
 
   const conversionRows = executive
     ? Object.entries(executive.conversion).map(([key, value]) => ({ key, value }))

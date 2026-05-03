@@ -5,7 +5,6 @@ export type {
   SupplierPayment,
   CreateSupplierPaymentData,
 } from "./interfaces/supplierPayment";
-export { default as supplierPaymentService } from "./services/supplierPaymentService";
 export {
   createSupplierPaymentSchema,
   paymentDetailSchema,

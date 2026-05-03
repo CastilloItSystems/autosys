@@ -25,6 +25,13 @@ import {
   confirmAction,
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
+import dynamic from "next/dynamic";
+import { Dialog } from "primereact/dialog";
+
+const PreInvoicePDFPreview = dynamic(
+  () => import("./PreInvoicePDFPreview"),
+  { ssr: false }
+);
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -89,6 +96,7 @@ const PreInvoiceList = () => {
   );
   const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
   const [paymentsMap, setPaymentsMap] = useState<Record<string, Payment[]>>({});
+  const [pdfItem, setPdfItem] = useState<PreInvoice | null>(null);
   const toast = useRef<Toast | null>(null);
   const dt = useRef(null);
 
@@ -323,6 +331,13 @@ const PreInvoiceList = () => {
             onClick={() => openPaymentDialog(rowData)}
           />
         )}
+        <Button
+          icon="pi pi-print"
+          className="p-button-rounded p-button-secondary p-button-sm"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
+        />
         {status !== PreInvoiceStatus.PAID &&
           status !== PreInvoiceStatus.CANCELLED && (
             <Button
@@ -395,7 +410,7 @@ const PreInvoiceList = () => {
         rowData.currency === "USD"
           ? "info"
           : rowData.currency === "EUR"
-          ? "help"
+          ? "contrast"
           : "warning"
       }
       className="text-xs"
@@ -470,7 +485,7 @@ const PreInvoiceList = () => {
                     data.currency === "USD"
                       ? "info"
                       : data.currency === "EUR"
-                      ? "help"
+                      ? "contrast"
                       : "warning"
                   }
                 />
@@ -784,7 +799,7 @@ const PreInvoiceList = () => {
                     )}
                     {Number(p.igtfAmount) > 0 && (
                       <Tag
-                        value={`IGTF +${formatCurrency(p.igtfAmount)}`}
+                        value={`IGTF +${formatAmount(p.igtfAmount, data.currency)}`}
                         severity="warning"
                         className="text-xs ml-auto"
                       />
@@ -887,6 +902,20 @@ const PreInvoiceList = () => {
         onSuccess={handlePaymentSuccess}
         toast={toast}
       />
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Pre-Factura"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <PreInvoicePDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </>
   );
 };

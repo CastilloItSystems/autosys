@@ -16,9 +16,12 @@ import { Toast } from "primereact/toast";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Divider } from "primereact/divider";
 
-import customerVehicleService, { ServiceHistoryItem } from "../services/customerVehicleService";
-import brandsService, { Brand } from "@/modules/inventory/brands/services/brandService";
-import modelsService, { Model } from "@/modules/inventory/models/services/modelService";
+import customerVehicleService from "../services/customerVehicleService";
+import {
+  useCustomerVehicleCatalogOptionsData,
+  useCustomerVehicleServiceHistoryData,
+  useCustomerVehiclesData,
+} from "../hooks/useCustomerCrmData";
 import {
   CustomerVehicle,
   FUEL_TYPE_OPTIONS,
@@ -36,20 +39,13 @@ interface Props {
 
 export default function CustomerVehiclePanel({ customerId }: Props) {
   const toast = useRef<Toast>(null);
-  const [vehicles, setVehicles] = useState<CustomerVehicle[]>([]);
-  const [loading, setLoading] = useState(false);
   const [dialogVisible, setDialogVisible] = useState(false);
   const [editing, setEditing] = useState<CustomerVehicle | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [models, setModels] = useState<Model[]>([]);
-
   // Service history
   const [historyVisible, setHistoryVisible] = useState(false);
   const [historyVehicle, setHistoryVehicle] = useState<CustomerVehicle | null>(null);
-  const [serviceHistory, setServiceHistory] = useState<ServiceHistoryItem[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
 
   const {
     control,
@@ -67,47 +63,40 @@ export default function CustomerVehiclePanel({ customerId }: Props) {
 
   const watchedBrandId = watch("brandId");
 
-  // ── Load vehicles ──────────────────────────────────────────────────────────
+  const {
+    vehicles,
+    loading,
+    error: vehiclesError,
+    mutate: mutateVehicles,
+  } = useCustomerVehiclesData(customerId, { limit: 50 });
+  const {
+    brands,
+    models,
+    error: catalogError,
+  } = useCustomerVehicleCatalogOptionsData(watchedBrandId);
+  const {
+    serviceHistory,
+    loading: historyLoading,
+    error: historyError,
+  } = useCustomerVehicleServiceHistoryData(customerId, historyVehicle?.id);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await customerVehicleService.getAllByCustomer(customerId, {
-        limit: 50,
-      });
-      setVehicles((res.data as any)?.data ?? res.data ?? []);
-    } catch {
+  useEffect(() => {
+    if (vehiclesError) {
       toast.current?.show({ severity: "error", summary: "Error al cargar vehículos" });
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => { load(); }, [customerId]);
-
-  // ── Load brands on mount ───────────────────────────────────────────────────
+  }, [vehiclesError]);
 
   useEffect(() => {
-    brandsService.getActive("VEHICLE").then((res) => {
-      setBrands((res.data as any) ?? []);
-    }).catch(() => {});
-  }, []);
-
-  // ── Load models when brand changes ─────────────────────────────────────────
+    if (catalogError) {
+      toast.current?.show({ severity: "error", summary: "Error al cargar catálogos" });
+    }
+  }, [catalogError]);
 
   useEffect(() => {
-    if (!watchedBrandId) {
-      setModels([]);
-      return;
+    if (historyError) {
+      toast.current?.show({ severity: "error", summary: "Error al cargar historial" });
     }
-    modelsService
-      .getActive("VEHICLE")
-      .then((res) => {
-        const all: Model[] = (res as any).data ?? [];
-        setModels(all.filter((m) => m.brandId === watchedBrandId));
-      })
-      .catch(() => {});
-  }, [watchedBrandId]);
+  }, [historyError]);
 
   // ── Open dialog ────────────────────────────────────────────────────────────
 
@@ -156,7 +145,7 @@ export default function CustomerVehiclePanel({ customerId }: Props) {
         toast.current?.show({ severity: "success", summary: "Vehículo registrado" });
       }
       setDialogVisible(false);
-      load();
+      await mutateVehicles();
     } catch (err) {
       handleFormError(err, toast);
     } finally {
@@ -166,18 +155,9 @@ export default function CustomerVehiclePanel({ customerId }: Props) {
 
   // ── Service history ────────────────────────────────────────────────────────
 
-  const openHistory = async (v: CustomerVehicle) => {
+  const openHistory = (v: CustomerVehicle) => {
     setHistoryVehicle(v);
     setHistoryVisible(true);
-    setHistoryLoading(true);
-    try {
-      const res = await customerVehicleService.getServiceHistory(customerId, v.id);
-      setServiceHistory((res as any)?.data?.serviceOrders ?? []);
-    } catch {
-      toast.current?.show({ severity: "error", summary: "Error al cargar historial" });
-    } finally {
-      setHistoryLoading(false);
-    }
   };
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -192,7 +172,7 @@ export default function CustomerVehiclePanel({ customerId }: Props) {
         try {
           await customerVehicleService.delete(customerId, v.id);
           toast.current?.show({ severity: "success", summary: "Vehículo eliminado" });
-          load();
+          await mutateVehicles();
         } catch {
           toast.current?.show({ severity: "error", summary: "Error al eliminar" });
         }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -18,6 +18,7 @@ import dealerTradeInService from "../services/dealerTradeInService";
 import type { DealerTradeIn } from "../interfaces/dealerTradeIn.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import DealerTradeInForm from "./DealerTradeInForm";
+import { useDealerTradeInsData } from "../hooks/useDealerTradeInsData";
 import {
   TRADE_IN_STATUS_FILTER_OPTIONS,
   TRADE_IN_STATUS_META,
@@ -27,8 +28,6 @@ export default function DealerTradeInList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerTradeIn[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerTradeIn | null>(null);
   const [actionItem, setActionItem] = useState<DealerTradeIn | null>(null);
 
@@ -37,35 +36,22 @@ export default function DealerTradeInList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerTradeInService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-      });
-      setItems((res.data || []) as DealerTradeIn[]);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerTradeInsData(params);
 
   const openNew = () => {
     setSelected(null);
@@ -93,7 +79,7 @@ export default function DealerTradeInList() {
         detail: "Retoma desactivada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -112,7 +98,7 @@ export default function DealerTradeInList() {
         : "Retoma creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

@@ -1,4 +1,4 @@
 export { default as DealerFinancingForm } from './components/DealerFinancingForm';
 export { default as DealerFinancingList } from './components/DealerFinancingList';
-export * from './services/dealerFinancingService';
-export * from './interfaces/dealerFinancing.interface';
+export { useDealerFinancingData } from './hooks/useDealerFinancingData';
+export type { DealerFinancing, DealerFinancingStatus } from './interfaces/dealerFinancing.interface';

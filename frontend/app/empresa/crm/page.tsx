@@ -2,7 +2,7 @@
 
 import QuickActions from "@/components/common/QuickActions";
 import type { QuickAction } from "@/components/common/QuickActions";
-import CrmDashboard from "@/modules/crm/dashboard/components/CrmDashboard";
+import { CrmDashboard } from "@/modules/crm/dashboard";
 
 const CRM_ACTIONS: QuickAction[] = [
   { label: "Leads", icon: "pi pi-chart-line", to: "/empresa/crm/leads", color: "blue", description: "Prospectos" },

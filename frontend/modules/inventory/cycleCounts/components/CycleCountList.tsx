@@ -12,6 +12,9 @@ import { Badge } from "primereact/badge";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 import { Calendar } from "primereact/calendar";
+import dynamic from "next/dynamic";
+
+const CycleCountPDFPreview = dynamic(() => import("./CycleCountPDFPreview"), { ssr: false });
 
 import cycleCountService, {
   CycleCount,
@@ -40,6 +43,7 @@ export default function CycleCountList() {
   const [showDetail, setShowDetail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [pdfItem, setPdfItem] = useState<CycleCount | null>(null);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
   const [statusFilter, setStatusFilter] = useState<CycleCountStatus | null>(
@@ -314,6 +318,15 @@ export default function CycleCountList() {
             tooltip="Cancelar"
           />
         )}
+        <Button
+          icon="pi pi-print"
+          rounded
+          size="small"
+          severity="secondary"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
+        />
       </div>
     );
   };
@@ -568,6 +581,19 @@ export default function CycleCountList() {
           <CycleCountDetail cycleCount={selectedCycleCount} />
         )}
       </Dialog>
+
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Conteo Cíclico"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <CycleCountPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

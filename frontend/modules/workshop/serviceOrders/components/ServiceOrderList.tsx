@@ -31,6 +31,9 @@ import ServiceOrderForm from "./ServiceOrderForm";
 import ServiceOrderStatusDialog from "./ServiceOrderStatusDialog";
 import ServiceOrderStepper from "./ServiceOrderStepper";
 import ServiceOrderDetail from "./ServiceOrderDetail";
+import dynamic from "next/dynamic";
+
+const ServiceOrderPDFPreview = dynamic(() => import("./ServiceOrderPDFPreview"), { ssr: false });
 
 export default function ServiceOrderList() {
   const searchParams = useSearchParams();
@@ -61,6 +64,7 @@ export default function ServiceOrderList() {
     vehiclePlate?: string;
     mileageIn?: string;
   } | null>(null);
+  const [pdfItem, setPdfItem] = useState<ServiceOrder | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -1145,6 +1149,10 @@ export default function ServiceOrderList() {
                     setDetailDialog(true);
                   },
                 },
+                { label: "Imprimir PDF", icon: "pi pi-print", command: () => setPdfItem(actionItem) },
+                { separator: true },
+                { label: "Imprimir PDF", icon: "pi pi-print", command: () => setPdfItem(actionItem) },
+                { separator: true },
                 { separator: true },
                 {
                   label: "Cambiar estado",
@@ -1173,6 +1181,32 @@ export default function ServiceOrderList() {
         ref={menuRef}
         id="service-order-menu"
       />
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Orden de Servicio"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ServiceOrderPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Orden de Servicio"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ServiceOrderPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

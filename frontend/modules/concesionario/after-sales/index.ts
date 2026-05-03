@@ -1,3 +1,3 @@
 export { default as DealerAfterSaleForm } from './components/DealerAfterSaleForm';
 export { default as DealerAfterSalesList } from './components/DealerAfterSalesList';
-export * from './services/dealerAfterSaleService';
+export { useDealerAfterSalesData } from './hooks/useDealerAfterSalesData';

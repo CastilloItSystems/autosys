@@ -1,6 +1,5 @@
 "use client";
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -19,6 +18,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 
 import interactionService from "../services/interactionService";
+import { useInteractionsData } from "../hooks/useInteractionsData";
 import {
   Interaction,
   INTERACTION_TYPE_CONFIG,
@@ -43,9 +43,6 @@ export default function InteractionList({ customerId }: Props) {
   const menuRef = useRef<Menu>(null);
   const [actionItem, setActionItem] = useState<Interaction | null>(null);
 
-  const [interactions, setInteractions] = useState<Interaction[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [filterType, setFilterType] = useState("");
   const [filterChannel, setFilterChannel] = useState("");
@@ -61,33 +58,29 @@ export default function InteractionList({ customerId }: Props) {
 
   const limit = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await interactionService.getAll({
-        page,
-        limit,
-        customerId: customerId || undefined,
-        type: filterType || undefined,
-        channel: filterChannel || undefined,
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setInteractions(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit,
+      customerId: customerId || undefined,
+      type: filterType || undefined,
+      channel: filterChannel || undefined,
+      sortOrder: "desc" as const,
+    }),
+    [page, customerId, filterType, filterChannel],
+  );
+
+  const { interactions, total, loading, error, mutate } =
+    useInteractionsData(listParams);
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar interacciones",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, customerId, filterType, filterChannel]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   useEffect(() => {
     setPage(1);
@@ -141,7 +134,7 @@ export default function InteractionList({ customerId }: Props) {
       });
       setDeleteDialog(false);
       setDeleteItem(null);
-      await load();
+      await mutate();
     } catch {
       toast.current?.show({ severity: "error", summary: "Error al eliminar" });
     } finally {
@@ -158,7 +151,7 @@ export default function InteractionList({ customerId }: Props) {
     });
     setFormVisible(false);
     setEditItem(null);
-    await load();
+    await mutate();
   };
 
   const actionItems = (item: Interaction | null): MenuItem[] => {

@@ -1,11 +1,10 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { motion } from "framer-motion";
-import customerCrmService from "../services/customerCrmService";
-import { CustomerTimeline as ICustomerTimeline } from "../interfaces/customer.crm.interface";
+import { useCustomerTimelineData } from "../hooks/useCustomerCrmData";
 import {
   LEAD_STATUS_CONFIG,
   LEAD_CHANNEL_CONFIG,
@@ -23,23 +22,7 @@ interface Props {
 }
 
 export default function CustomerTimeline({ customerId }: Props) {
-  const [data, setData] = useState<ICustomerTimeline | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await customerCrmService.getTimeline(customerId);
-        setData(res.data as unknown as ICustomerTimeline);
-      } catch (err) {
-        console.error("Error al cargar timeline:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [customerId]);
+  const { timeline: data, loading } = useCustomerTimelineData(customerId);
 
   if (loading) {
     return (

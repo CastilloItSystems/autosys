@@ -1,4 +1,4 @@
 export { default as DealerTestDriveForm } from './components/DealerTestDriveForm';
 export { default as DealerTestDriveList } from './components/DealerTestDriveList';
-export * from './services/dealerTestDriveService';
-export * from './interfaces/dealerTestDrive.interface';
+export { useDealerTestDrivesData } from './hooks/useDealerTestDrivesData';
+export type { DealerTestDrive, DealerTestDriveStatus } from './interfaces/dealerTestDrive.interface';

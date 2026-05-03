@@ -16,6 +16,9 @@ import qualityCheckService from '@/modules/workshop/qualityChecks/services/quali
 import type { QualityCheck, QualityCheckStatus } from '@/modules/workshop/qualityChecks/interfaces/qualityCheck.interface';
 import QualityCheckForm from "./QualityCheckForm";
 import QualityCheckSubmitForm from "./QualityCheckSubmitForm";
+import dynamic from "next/dynamic";
+
+const QualityCheckPDFPreview = dynamic(() => import("./QualityCheckPDFPreview"), { ssr: false });
 
 interface QualityCheckListProps {
   serviceOrderId?: string;
@@ -61,6 +64,7 @@ export default function QualityCheckList({
   const [createDialog, setCreateDialog] = useState(false);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfItem, setPdfItem] = useState<QualityCheck | null>(null);
 
   const toast = useRef<Toast>(null);
 
@@ -179,27 +183,38 @@ export default function QualityCheckList({
     );
 
   const actionsTemplate = (row: QualityCheck) => (
-    <Button
-      icon="pi pi-clipboard"
-      rounded
-      text
-      severity={
-        row.status === "IN_PROGRESS" || row.status === "PENDING"
-          ? "warning"
-          : "secondary"
-      }
-      disabled={row.status === "PASSED" || row.status === "FAILED"}
-      onClick={() => {
-        setSelected({ ...row });
-        setSubmitDialog(true);
-      }}
-      tooltip={
-        row.status === "PASSED" || row.status === "FAILED"
-          ? "Ya cerrado"
-          : "Revisar / Enviar resultado"
-      }
-      tooltipOptions={{ position: "left" }}
-    />
+    <div className="flex gap-1 flex-nowrap justify-content-center">
+      <Button
+        icon="pi pi-print"
+        rounded
+        text
+        severity="secondary"
+        onClick={() => setPdfItem(row)}
+        tooltip="Imprimir PDF"
+        tooltipOptions={{ position: "left" }}
+      />
+      <Button
+        icon="pi pi-clipboard"
+        rounded
+        text
+        severity={
+          row.status === "IN_PROGRESS" || row.status === "PENDING"
+            ? "warning"
+            : "secondary"
+        }
+        disabled={row.status === "PASSED" || row.status === "FAILED"}
+        onClick={() => {
+          setSelected({ ...row });
+          setSubmitDialog(true);
+        }}
+        tooltip={
+          row.status === "PASSED" || row.status === "FAILED"
+            ? "Ya cerrado"
+            : "Revisar / Enviar resultado"
+        }
+        tooltipOptions={{ position: "left" }}
+      />
+    </div>
   );
 
   const header = (
@@ -383,6 +398,32 @@ export default function QualityCheckList({
           toast={toast}
         />
       </Dialog>
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Chequeo de Calidad"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <QualityCheckPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Chequeo de Calidad"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <QualityCheckPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

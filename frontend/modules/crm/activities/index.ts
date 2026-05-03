@@ -2,7 +2,7 @@
 export { default as ActivityList } from "./components/ActivityList";
 export { default as ActivityForm } from "./components/ActivityForm";
 export { default as ActivityCompleteDialog } from "./components/ActivityCompleteDialog";
-export { default as activityService } from "./services/activityService";
+export { useActivitiesData } from "./hooks/useActivitiesData";
 export * from "./interfaces/activity.interface";
 export * from "./schemas/activityZod";
 export * from "./utils/activity.utils";

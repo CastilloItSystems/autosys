@@ -44,6 +44,12 @@ import {
 } from "@/components/common/ConfirmAction";
 import OrderStepper from "./OrderStepper";
 import { AuditTrailDialog } from "@/components/audit/AuditTrail";
+import dynamic from "next/dynamic";
+
+const SalesOrderPDFPreview = dynamic(
+  () => import("./SalesOrderPDFPreview"),
+  { ssr: false }
+);
 
 const formatCurrency = (value: number | string) =>
   `$${Number(value || 0).toLocaleString("es-VE", {
@@ -108,6 +114,7 @@ const OrderList = () => {
     Record<string, { purchaseQuantity: number; supplierId?: string }>
   >({});
   const [auditDialog, setAuditDialog] = useState(false);
+  const [pdfItem, setPdfItem] = useState<Order | null>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -442,6 +449,11 @@ const OrderList = () => {
     if (!order) return [];
 
     const items: MenuItem[] = [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(order),
+      },
       {
         label: "Auditoría",
         icon: "pi pi-history",
@@ -1136,6 +1148,20 @@ const OrderList = () => {
             </div>
           </div>
         </Dialog>
+
+        {/* PDF Preview Dialog */}
+        {pdfItem && (
+          <Dialog
+            visible
+            onHide={() => setPdfItem(null)}
+            header="Vista Previa — Orden de Venta"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <SalesOrderPDFPreview data={pdfItem} />
+          </Dialog>
+        )}
       </motion.div>
     </>
   );

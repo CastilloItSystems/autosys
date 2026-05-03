@@ -3,4 +3,3 @@ export type {
   ReceivableItem,
   ReceivablesData,
 } from "./services/receivablesService";
-export { default as receivablesService } from "./services/receivablesService";

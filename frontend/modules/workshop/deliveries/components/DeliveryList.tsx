@@ -16,6 +16,9 @@ import { handleFormError } from "@/utils/errorHandlers";
 import deliveryService from '@/modules/workshop/deliveries/services/deliveryService';
 import { ServiceOrderStatusBadge } from "@/modules/workshop/shared/components/ServiceOrderStatusBadge";
 import DeliveryForm from "./DeliveryForm";
+import dynamic from "next/dynamic";
+
+const DeliveryPDFPreview = dynamic(() => import("./DeliveryPDFPreview"), { ssr: false });
 import { VehicleDelivery } from "@/modules/workshop/deliveries/interfaces/delivery.interface";
 
 export default function DeliveryList() {
@@ -36,6 +39,7 @@ export default function DeliveryList() {
   const [itemToDelete, setItemToDelete] = useState<VehicleDelivery | null>(
     null,
   );
+  const [pdfItem, setPdfItem] = useState<VehicleDelivery | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -329,6 +333,16 @@ export default function DeliveryList() {
                   icon: "pi pi-eye",
                   command: () => editItem(actionItem),
                 },
+                {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
+                },
+                {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
+                },
                 // FASE 1.3: Add delete menu item
                 {
                   label: "Eliminar",
@@ -358,6 +372,32 @@ export default function DeliveryList() {
             : ""
         }`}
       />
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Entrega de Vehículo"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DeliveryPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Entrega de Vehículo"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DeliveryPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

@@ -79,7 +79,7 @@ export default function SupplierForm({
           address: supplier.address || undefined,
           isSpecialTaxpayer: supplier.isSpecialTaxpayer ?? false,
           creditDays: supplier.creditDays ?? 0,
-          currency: supplier.currency || "USD",
+          currency: (supplier.currency as "USD" | "VES" | "EUR") || "USD",
           notes: supplier.notes || undefined,
         }
       : {

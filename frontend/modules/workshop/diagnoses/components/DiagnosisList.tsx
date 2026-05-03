@@ -19,6 +19,9 @@ import diagnosisService from '@/modules/workshop/diagnoses/services/diagnosisSer
 import type { Diagnosis, DiagnosisStatus } from '@/modules/workshop/diagnoses/interfaces/diagnosis.interface';;
 import DiagnosisForm from "./DiagnosisForm";
 import DiagnosisProcessDialog from "./DiagnosisProcessDialog";
+import dynamic from "next/dynamic";
+
+const DiagnosisPDFPreview = dynamic(() => import("./DiagnosisPDFPreview"), { ssr: false });
 
 type TagSeverity =
   | "info"
@@ -83,6 +86,7 @@ export default function DiagnosisList({
   const [statusDialog, setStatusDialog] = useState(false);
   const [newStatus, setNewStatus] = useState<DiagnosisStatus | undefined>();
   const [isChangingStatus, setIsChangingStatus] = useState(false);
+  const [pdfItem, setPdfItem] = useState<Diagnosis | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -528,6 +532,12 @@ export default function DiagnosisList({
           actionItem
             ? [
                 {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
+                },
+                { separator: true },
+                {
                   label: "Editar",
                   icon: "pi pi-pencil",
                   command: () => editItem(actionItem),
@@ -561,6 +571,32 @@ export default function DiagnosisList({
         ref={menuRef}
         id="diagnosis-menu"
       />
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Diagnóstico"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DiagnosisPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Diagnóstico"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DiagnosisPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

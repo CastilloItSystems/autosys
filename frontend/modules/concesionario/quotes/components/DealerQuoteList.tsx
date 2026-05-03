@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -16,11 +16,11 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import dealerQuoteService from "../services/dealerQuoteService";
-import dealerUnitService from "@/modules/concesionario/vehicles/services/dealerUnitService";
 import type { DealerQuote } from "../interfaces/dealerQuote.interface";
-import type { DealerUnit } from "@/modules/concesionario/vehicles/interfaces/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import DealerQuoteForm from "./DealerQuoteForm";
+import { useDealerQuotesData } from "../hooks/useDealerQuotesData";
+import { useDealerUnitOptionsData } from "@/modules/concesionario/vehicles";
 import {
   QUOTE_STATUS_FILTER_OPTIONS,
   QUOTE_STATUS_META,
@@ -29,16 +29,14 @@ import {
   formatQuoteAmount,
   formatQuoteCrossRef,
 } from "../utils/dealerQuote.utils";
+import dynamic from "next/dynamic";
+
+const DealerQuotePDFPreview = dynamic(() => import("./DealerQuotePDFPreview"), { ssr: false });
 
 export default function DealerQuoteList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerQuote[]>([]);
-  const [unitOptions, setUnitOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerQuote | null>(null);
   const [actionItem, setActionItem] = useState<DealerQuote | null>(null);
 
@@ -47,62 +45,26 @@ export default function DealerQuoteList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfItem, setPdfItem] = useState<DealerQuote | null>(null);
 
-  useEffect(() => {
-    loadUnits();
-  }, []);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadUnits = async () => {
-    try {
-      const res = await dealerUnitService.getAll({
-        page: 1,
-        limit: 300,
-        isActive: "true",
-      });
-      const units = Array.isArray(res.data) ? (res.data as DealerUnit[]) : [];
-      setUnitOptions(
-        units.map((unit) => ({
-          label: `${unit.code || unit.vin || unit.id} - ${
-            unit.brand?.name || "Sin marca"
-          }`,
-          value: unit.id,
-        })),
-      );
-    } catch (error) {
-      handleFormError(error, toast);
-    }
-  };
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerQuoteService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+      sortBy: "createdAt" as const,
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerQuotesData(params);
+  const { unitOptions } = useDealerUnitOptionsData();
 
   const openNew = () => {
     setSelected(null);
@@ -130,7 +92,7 @@ export default function DealerQuoteList() {
         detail: "Cotización desactivada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -149,7 +111,7 @@ export default function DealerQuoteList() {
         : "Cotización creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };
@@ -157,6 +119,12 @@ export default function DealerQuoteList() {
   const getMenuItems = (item: DealerQuote | null): MenuItem[] => {
     if (!item) return [];
     return [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(item),
+      },
+      { separator: true },
       {
         label: "Convertir y Fiscalizar",
         icon: "pi pi-check-circle",
@@ -170,7 +138,7 @@ export default function DealerQuoteList() {
               detail: "Cotización fiscalizada correctamente",
               life: 3000,
             });
-            await loadItems();
+            await mutate();
           } catch (error) {
             handleFormError(error, toast);
           }
@@ -315,7 +283,20 @@ export default function DealerQuoteList() {
               <div>
                 <div>
                   {formatQuoteAmount(row.totalAmount, row.currency || "USD")}
-                </div>
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Cotización de Vehículo"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DealerQuotePDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+    </div>
                 {crossRef && <small className="text-500">{crossRef}</small>}
               </div>
             );

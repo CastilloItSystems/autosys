@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { DataTable } from "primereact/datatable";
@@ -8,7 +8,6 @@ import { Column } from "primereact/column";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 
-import campaignService from "../services/campaignService";
 import { Campaign } from "../interfaces/campaign.interface";
 import {
   CAMPAIGN_STATUS_FILTER_OPTIONS,
@@ -17,6 +16,7 @@ import {
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CampaignForm from "./CampaignForm";
+import { useCampaignsData } from "../hooks/useCampaignsData";
 
 let lastCampaignErrorMessage = "";
 let lastCampaignErrorAt = 0;
@@ -24,10 +24,7 @@ let lastCampaignErrorAt = 0;
 export default function CampaignList() {
   const toast = useRef<Toast>(null);
 
-  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [rowsData, setRowsData] = useState<Campaign[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
   const [statusFilter, setStatusFilter] = useState("");
@@ -44,24 +41,31 @@ export default function CampaignList() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await campaignService.getAll({
-        page: page + 1,
-        limit: rows,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-        status: statusFilter || undefined,
-        channel: channelFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      const raw = (res as any)?.data ?? res;
-      setRowsData(raw.data ?? raw);
-      setTotalRecords(raw.meta?.total ?? 0);
-    } catch (error: any) {
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+      status: statusFilter || undefined,
+      channel: channelFilter || undefined,
+      search: searchQuery || undefined,
+    }),
+    [page, rows, statusFilter, channelFilter, searchQuery],
+  );
+  const {
+    campaigns: rowsData,
+    total: totalRecords,
+    loading,
+    error,
+    mutate,
+  } = useCampaignsData(params);
+
+  useEffect(() => {
+    if (error) {
       const message =
-        error?.response?.data?.message ?? "No se pudieron cargar campañas";
+        (error as any)?.response?.data?.message ??
+        "No se pudieron cargar campañas";
       const now = Date.now();
       const shouldShowToast =
         message !== lastCampaignErrorMessage ||
@@ -72,14 +76,8 @@ export default function CampaignList() {
         lastCampaignErrorMessage = message;
         lastCampaignErrorAt = now;
       }
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, rows, statusFilter, channelFilter, searchQuery]);
+  }, [error]);
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">
@@ -137,7 +135,7 @@ export default function CampaignList() {
       life: 3000,
     });
     setOpen(false);
-    await load();
+    await mutate();
   };
 
   return (

@@ -6,7 +6,6 @@ export type {
   PreInvoiceSalesStockDiagnosis,
   SuggestedTransfersResult,
 } from "./interfaces/preInvoice.interface";
-export { default as preInvoiceService } from "./services/preInvoiceService";
 export {
   createPreInvoiceSchema,
   updatePreInvoiceSchema,

@@ -1,6 +1,6 @@
 "use client";
 
-import ActivityList from "@/modules/crm/activities/components/ActivityList";
+import { ActivityList } from "@/modules/crm/activities";
 
 export default function ActividadesPage() {
   return <ActivityList />;

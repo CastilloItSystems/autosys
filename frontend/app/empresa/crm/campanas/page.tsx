@@ -1,6 +1,6 @@
 'use client'
 
-import CampaignList from '@/modules/crm/campaigns/components/CampaignList'
+import { CampaignList } from '@/modules/crm/campaigns'
 
 export default function CampanasPage() {
   return <CampaignList />

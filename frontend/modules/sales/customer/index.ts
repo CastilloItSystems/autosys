@@ -11,4 +11,3 @@ export {
   type CreateCustomerInput,
   type UpdateCustomerInput,
 } from "./schemas/customerZod";
-export { default as customerService } from "./services/customerService";

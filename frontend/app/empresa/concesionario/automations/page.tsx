@@ -1,4 +1,4 @@
-import DealerAutomationsView from "@/modules/concesionario/automations/components/DealerAutomationsView";
+import { DealerAutomationsView } from "@/modules/concesionario/automations";
 
 export default function ConcesionarioAutomationsPage() {
   return <DealerAutomationsView />;

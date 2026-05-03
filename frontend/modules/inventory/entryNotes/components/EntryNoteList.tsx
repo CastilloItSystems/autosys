@@ -37,6 +37,9 @@ import {
   confirmAction,
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
+import dynamic from "next/dynamic";
+
+const EntryNotePDFPreview = dynamic(() => import("./EntryNotePDFPreview"), { ssr: false });
 
 const EntryNoteList = () => {
   const searchParams = useSearchParams();
@@ -69,6 +72,7 @@ const EntryNoteList = () => {
   );
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [refreshKey, setRefreshKey] = useState(0);
+  const [pdfItem, setPdfItem] = useState<EntryNote | null>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -369,33 +373,43 @@ const EntryNoteList = () => {
     );
   };
 
-  /* CRUD actions (Edit / Delete) — cog menu, solo disponible cuando PENDING */
+  /* CRUD actions — cog menu */
   const getMenuItems = (note: EntryNote | null): MenuItem[] => {
-    if (!note || note.status !== "PENDING") return [];
-    return [
+    if (!note) return [];
+    const items: MenuItem[] = [
       {
-        label: "Editar",
-        icon: "pi pi-pencil",
-        command: () => {
-          setSelectedEntryNote(note);
-          setFormDialog(true);
-        },
-      },
-      { separator: true },
-      {
-        label: "Eliminar",
-        icon: "pi pi-trash",
-        className: "p-menuitem-danger",
-        command: () => {
-          setSelectedEntryNote(note);
-          setDeleteDialog(true);
-        },
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(note),
       },
     ];
+    if (note.status === "PENDING") {
+      items.push(
+        { separator: true },
+        {
+          label: "Editar",
+          icon: "pi pi-pencil",
+          command: () => {
+            setSelectedEntryNote(note);
+            setFormDialog(true);
+          },
+        },
+        { separator: true },
+        {
+          label: "Eliminar",
+          icon: "pi pi-trash",
+          className: "p-menuitem-danger",
+          command: () => {
+            setSelectedEntryNote(note);
+            setDeleteDialog(true);
+          },
+        },
+      );
+    }
+    return items;
   };
 
   const crudBodyTemplate = (rowData: EntryNote) => {
-    if (rowData.status !== "PENDING") return null;
     return (
       <Button
         icon="pi pi-cog"
@@ -1089,6 +1103,20 @@ const EntryNoteList = () => {
           ref={menuRef}
           id="entry-note-menu"
         />
+
+        {/* PDF Preview Dialog */}
+        {pdfItem && (
+          <Dialog
+            visible
+            onHide={() => setPdfItem(null)}
+            header="Vista Previa — Nota de Entrada"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <EntryNotePDFPreview data={pdfItem} />
+          </Dialog>
+        )}
       </motion.div>
     </>
   );

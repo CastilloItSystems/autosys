@@ -2,7 +2,7 @@
 
 import QuickActions from "@/components/common/QuickActions";
 import type { QuickAction } from "@/components/common/QuickActions";
-import DealerDashboard from "@/modules/concesionario/dashboard/components/DealerDashboard";
+import { DealerDashboard } from "@/modules/concesionario/dashboard";
 
 const DEALER_ACTIONS: QuickAction[] = [
   { label: "Vehículos", icon: "pi pi-car", to: "/empresa/concesionario/vehicles", color: "blue", description: "Inventario" },

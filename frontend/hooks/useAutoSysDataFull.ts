@@ -1,3 +1,4 @@
+"use client";
 import { getAutoSyss } from "@/app/api/autoSysService";
 import { AutoSys } from "@/libs/interfaces/autoSysInterface";
 import { useCallback, useEffect } from "react";

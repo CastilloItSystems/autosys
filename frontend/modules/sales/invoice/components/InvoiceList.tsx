@@ -20,6 +20,11 @@ import {
   PAYMENT_METHOD_CONFIG,
   PaymentMethod,
 } from "@/modules/sales/payments/interfaces/payment.interface";
+import dynamic from "next/dynamic";
+
+const InvoicePDFPreview = dynamic(() => import("./InvoicePDFPreview"), {
+  ssr: false,
+});
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -66,6 +71,7 @@ const InvoiceList = () => {
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [cancelDialog, setCancelDialog] = useState(false);
+  const [pdfItem, setPdfItem] = useState<Invoice | null>(null);
   const [selectedInvoice, setSelectedInvoice] = useState<Invoice | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -235,7 +241,7 @@ const InvoiceList = () => {
         rowData.currency === "VES"
           ? "warning"
           : rowData.currency === "EUR"
-          ? "help"
+          ? "contrast"
           : "info"
       }
       className="text-xs"
@@ -250,15 +256,25 @@ const InvoiceList = () => {
   );
 
   const actionBodyTemplate = (rowData: Invoice) => {
-    if (rowData.status !== InvoiceStatus.ACTIVE) return null;
     return (
-      <Button
-        icon="pi pi-ban"
-        className="p-button-rounded p-button-danger p-button-sm"
-        tooltip="Anular factura"
-        tooltipOptions={{ position: "top" }}
-        onClick={() => openCancelDialog(rowData)}
-      />
+      <div className="flex gap-1 flex-nowrap justify-content-center">
+        <Button
+          icon="pi pi-print"
+          className="p-button-rounded p-button-secondary p-button-sm"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
+        />
+        {rowData.status === InvoiceStatus.ACTIVE && (
+          <Button
+            icon="pi pi-ban"
+            className="p-button-rounded p-button-danger p-button-sm"
+            tooltip="Anular factura"
+            tooltipOptions={{ position: "top" }}
+            onClick={() => openCancelDialog(rowData)}
+          />
+        )}
+      </div>
     );
   };
 
@@ -319,7 +335,7 @@ const InvoiceList = () => {
                     data.currency === "VES"
                       ? "warning"
                       : data.currency === "EUR"
-                      ? "help"
+                      ? "contrast"
                       : "info"
                   }
                 />
@@ -721,6 +737,20 @@ const InvoiceList = () => {
           </div>
         </div>
       </Dialog>
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Factura"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <InvoicePDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </>
   );
 };

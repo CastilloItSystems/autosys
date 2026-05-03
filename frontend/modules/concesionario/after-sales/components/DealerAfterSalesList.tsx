@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -24,13 +24,12 @@ import {
   AFTER_SALE_STATUS_META,
 } from "../utils/dealerAfterSale.utils";
 import DealerAfterSaleForm from "./DealerAfterSaleForm";
+import { useDealerAfterSalesData } from "../hooks/useDealerAfterSalesData";
 
 export default function DealerAfterSalesList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerAfterSale[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerAfterSale | null>(null);
   const [actionItem, setActionItem] = useState<DealerAfterSale | null>(null);
 
@@ -40,36 +39,23 @@ export default function DealerAfterSalesList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter, typeFilter]);
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerAfterSaleService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-        type: typeFilter || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+      type: typeFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter, typeFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerAfterSalesData(params);
 
   const openNew = () => {
     setSelected(null);
@@ -97,7 +83,7 @@ export default function DealerAfterSalesList() {
         detail: "Caso de postventa eliminado correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -116,7 +102,7 @@ export default function DealerAfterSalesList() {
         : "Caso de postventa creado correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

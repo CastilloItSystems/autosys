@@ -20,6 +20,10 @@ import paymentService from "@/modules/sales/payments/services/paymentService";
 import PaymentDialog from "@/modules/sales/payments/components/PaymentDialog";
 import type { PreInvoice } from "@/modules/sales/preInvoice/interfaces/preInvoice.interface";
 import type { Payment } from "@/modules/sales/payments/interfaces/payment.interface";
+import dynamic from "next/dynamic";
+import { Dialog } from "primereact/dialog";
+
+const ReceivablesPDFPreview = dynamic(() => import("./ReceivablesPDFPreview"), { ssr: false });
 
 const fmt = (v: number) =>
   v.toLocaleString("es-VE", {
@@ -58,6 +62,7 @@ export default function AccountsReceivableList() {
     useState<PreInvoice | null>(null);
   const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
   const [loadingCobro, setLoadingCobro] = useState<string | null>(null);
+  const [pdfItem, setPdfItem] = useState<ReceivableItem | null>(null);
 
   const exportCsv = () => {
     if (!data || data.items.length === 0) return;
@@ -422,14 +427,24 @@ export default function AccountsReceivableList() {
               style={{ width: "110px", textAlign: "center" }}
               headerStyle={{ textAlign: "center" }}
               body={(r: ReceivableItem) => (
-                <Button
-                  label="Cobrar"
-                  icon="pi pi-dollar"
-                  size="small"
-                  severity="success"
-                  loading={loadingCobro === r.id}
-                  onClick={() => openCobro(r)}
-                />
+                <div className="flex gap-1 flex-nowrap justify-content-center">
+                  <Button
+                    icon="pi pi-print"
+                    size="small"
+                    severity="secondary"
+                    tooltip="Imprimir PDF"
+                    tooltipOptions={{ position: "top" }}
+                    onClick={() => setPdfItem(r)}
+                  />
+                  <Button
+                    label="Cobrar"
+                    icon="pi pi-dollar"
+                    size="small"
+                    severity="success"
+                    loading={loadingCobro === r.id}
+                    onClick={() => openCobro(r)}
+                  />
+                </div>
               )}
             />
           </DataTable>
@@ -449,6 +464,19 @@ export default function AccountsReceivableList() {
         onSuccess={onPaymentSuccess}
         toast={toast}
       />
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Cuenta por Cobrar"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ReceivablesPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

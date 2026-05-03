@@ -20,6 +20,13 @@ import {
   confirmAction,
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
+import dynamic from "next/dynamic";
+import { Dialog } from "primereact/dialog";
+
+const PaymentReceiptPDFPreview = dynamic(
+  () => import("./PaymentReceiptPDFPreview"),
+  { ssr: false }
+);
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -65,6 +72,7 @@ const PaymentList = () => {
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pdfItem, setPdfItem] = useState<Payment | null>(null);
   const toast = useRef<Toast | null>(null);
   const dt = useRef(null);
 
@@ -217,7 +225,7 @@ const PaymentList = () => {
         rowData.currency === "VES"
           ? "warning"
           : rowData.currency === "EUR"
-          ? "help"
+          ? "contrast"
           : "info"
       }
       className="text-xs"
@@ -234,25 +242,35 @@ const PaymentList = () => {
     formatDate(rowData.processedAt);
 
   const actionBodyTemplate = (rowData: Payment) => {
-    if (rowData.status !== PaymentStatus.COMPLETED) return null;
     return (
-      <Button
-        icon="pi pi-times"
-        className="p-button-rounded p-button-danger p-button-sm"
-        tooltip="Cancelar Pago"
-        tooltipOptions={{ position: "top" }}
-        onClick={(e) =>
-          confirmAction({
-            target: e.currentTarget as EventTarget & HTMLElement,
-            message: `¿Cancelar pago ${rowData.paymentNumber}?`,
-            icon: "pi pi-ban",
-            iconClass: "text-red-500",
-            acceptLabel: "Sí, Cancelar",
-            acceptSeverity: "danger",
-            onAccept: () => handleCancel(rowData),
-          })
-        }
-      />
+      <div className="flex gap-1 flex-nowrap justify-content-center">
+        <Button
+          icon="pi pi-print"
+          className="p-button-rounded p-button-secondary p-button-sm"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
+        />
+        {rowData.status === PaymentStatus.COMPLETED && (
+          <Button
+            icon="pi pi-times"
+            className="p-button-rounded p-button-danger p-button-sm"
+            tooltip="Cancelar Pago"
+            tooltipOptions={{ position: "top" }}
+            onClick={(e) =>
+              confirmAction({
+                target: e.currentTarget as EventTarget & HTMLElement,
+                message: `¿Cancelar pago ${rowData.paymentNumber}?`,
+                icon: "pi pi-ban",
+                iconClass: "text-red-500",
+                acceptLabel: "Sí, Cancelar",
+                acceptSeverity: "danger",
+                onAccept: () => handleCancel(rowData),
+              })
+            }
+          />
+        )}
+      </div>
     );
   };
 
@@ -413,6 +431,20 @@ const PaymentList = () => {
           />
         </DataTable>
       </motion.div>
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Comprobante de Pago"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <PaymentReceiptPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </>
   );
 };

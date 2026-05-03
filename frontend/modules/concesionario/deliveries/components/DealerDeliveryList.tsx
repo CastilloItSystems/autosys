@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -15,25 +15,23 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import dealerDeliveryService from "../services/dealerDeliveryService";
-import dealerUnitService from "@/modules/concesionario/vehicles/services/dealerUnitService";
 import type { DealerDelivery } from "../interfaces/dealerDelivery.interface";
-import type { DealerUnit } from "@/modules/concesionario/vehicles/interfaces/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import {
   DELIVERY_STATUS_FILTER_OPTIONS,
   DELIVERY_STATUS_META,
 } from "../utils/dealerDelivery.utils";
 import DealerDeliveryForm from "./DealerDeliveryForm";
+import { useDealerDeliveriesData } from "../hooks/useDealerDeliveriesData";
+import { useDealerUnitOptionsData } from "@/modules/concesionario/vehicles";
+import dynamic from "next/dynamic";
+
+const DealerDeliveryPDFPreview = dynamic(() => import("./DealerDeliveryPDFPreview"), { ssr: false });
 
 export default function DealerDeliveryList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerDelivery[]>([]);
-  const [unitOptions, setUnitOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerDelivery | null>(null);
   const [actionItem, setActionItem] = useState<DealerDelivery | null>(null);
 
@@ -42,58 +40,24 @@ export default function DealerDeliveryList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfItem, setPdfItem] = useState<DealerDelivery | null>(null);
 
-  useEffect(() => {
-    loadUnits();
-  }, []);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadUnits = async () => {
-    try {
-      const res = await dealerUnitService.getAll({
-        page: 1,
-        limit: 300,
-        isActive: "true",
-      });
-      const units = Array.isArray(res.data) ? (res.data as DealerUnit[]) : [];
-      setUnitOptions(
-        units.map((u) => ({
-          label: `${u.code || u.vin || u.id} - ${u.brand?.name || "Unidad"}`,
-          value: u.id,
-        })),
-      );
-    } catch (error) {
-      handleFormError(error, toast);
-    }
-  };
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerDeliveryService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-      });
-      setItems((res.data || []) as DealerDelivery[]);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerDeliveriesData(params);
+  const { unitOptions } = useDealerUnitOptionsData();
 
   const openNew = () => {
     setSelected(null);
@@ -121,7 +85,7 @@ export default function DealerDeliveryList() {
         detail: "Entrega desactivada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -140,7 +104,7 @@ export default function DealerDeliveryList() {
         : "Entrega creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };
@@ -148,6 +112,12 @@ export default function DealerDeliveryList() {
   const getMenuItems = (item: DealerDelivery | null): MenuItem[] => {
     if (!item) return [];
     return [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(item),
+      },
+      { separator: true },
       {
         label: "Editar",
         icon: "pi pi-pencil",
@@ -292,7 +262,20 @@ export default function DealerDeliveryList() {
                 <i className="pi pi-check-circle mr-3 text-primary text-3xl" />
                 {selected?.id ? "Editar Entrega" : "Nueva Entrega"}
               </h2>
-            </div>
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Acta de Entrega"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <DealerDeliveryPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+    </div>
           </div>
         }
         footer={

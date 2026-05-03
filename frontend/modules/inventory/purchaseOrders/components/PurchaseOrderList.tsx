@@ -33,6 +33,9 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import dynamic from "next/dynamic";
+
+const PurchaseOrderPDFPreview = dynamic(() => import("./PurchaseOrderPDFPreview"), { ssr: false });
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const PurchaseOrderList = () => {
@@ -68,6 +71,7 @@ const PurchaseOrderList = () => {
   const [rejectionReason, setRejectionReason] = useState("");
   const [auditDialog, setAuditDialog] = useState(false);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [pdfItem, setPdfItem] = useState<PurchaseOrder | null>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -565,6 +569,21 @@ const PurchaseOrderList = () => {
 
     const editable = isEditableOrder(po);
     const items: MenuItem[] = [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(po),
+      },
+      { separator: true },
+      {
+        label: editable ? "Editar" : "Ver detalle",
+        icon: editable ? "pi pi-pencil" : "pi pi-eye",
+        command: () => {
+          setPurchaseOrder(po);
+          setFormDialog(true);
+        },
+      },
+      { separator: true },
       {
         label: editable ? "Editar" : "Ver detalle",
         icon: editable ? "pi pi-pencil" : "pi pi-eye",
@@ -1146,6 +1165,20 @@ const PurchaseOrderList = () => {
           ref={menuRef}
           id="purchase-order-menu"
         />
+
+        {/* PDF Preview Dialog */}
+        {pdfItem && (
+          <Dialog
+            visible
+            onHide={() => setPdfItem(null)}
+            header="Vista Previa — Orden de Compra"
+            style={{ width: "85%", height: "90vh" }}
+            contentStyle={{ padding: 0, height: "100%" }}
+            modal
+          >
+            <PurchaseOrderPDFPreview data={pdfItem} />
+          </Dialog>
+        )}
       </motion.div>
     </>
   );

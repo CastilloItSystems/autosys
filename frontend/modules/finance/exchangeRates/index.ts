@@ -14,4 +14,3 @@ export {
   createExchangeRateSchema,
   type CreateExchangeRateFormValues,
 } from "./schemas/exchangeRateZod";
-export { default as exchangeRateService } from "./services/exchangeRateService";

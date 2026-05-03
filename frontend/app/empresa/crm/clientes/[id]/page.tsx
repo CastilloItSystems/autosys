@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { TabView, TabPanel } from "primereact/tabview";
 import { Button } from "primereact/button";
@@ -7,34 +7,30 @@ import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { motion } from "framer-motion";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
 import {
-  CustomerCrm,
   CUSTOMER_TYPE_CONFIG,
   CUSTOMER_SEGMENT_CONFIG,
-} from "@/modules/crm/customer/interfaces/customer.crm.interface";
-import CustomerTimeline from "@/modules/crm/customer/components/CustomerTimeline";
-import CustomerVehiclePanel from "@/modules/crm/customer/components/CustomerVehiclePanel";
+  CustomerTimeline,
+  CustomerVehiclePanel,
+  useCustomerDetailData,
+} from "@/modules/crm/customer";
 
 export default function CustomerDetailPage() {
   const params = useParams();
   const customerId = (params as { id?: string })?.id;
   const router = useRouter();
   const toast = useRef<Toast>(null);
-  const [customer, setCustomer] = useState<CustomerCrm | null>(null);
-  const [loading, setLoading] = useState(true);
+  const {
+    customer,
+    loading,
+    error,
+  } = useCustomerDetailData(customerId);
 
   useEffect(() => {
-    if (!customerId) return;
-    setLoading(true);
-    customerCrmService
-      .getById(customerId)
-      .then((res) => setCustomer(res.data))
-      .catch(() =>
-        toast.current?.show({ severity: "error", summary: "Error al cargar cliente" })
-      )
-      .finally(() => setLoading(false));
-  }, [customerId]);
+    if (error) {
+      toast.current?.show({ severity: "error", summary: "Error al cargar cliente" });
+    }
+  }, [error]);
 
   if (loading) {
     return (

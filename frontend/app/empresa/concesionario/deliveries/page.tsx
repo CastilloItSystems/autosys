@@ -1,4 +1,4 @@
-import DealerDeliveryList from "@/modules/concesionario/deliveries/components/DealerDeliveryList";
+import { DealerDeliveryList } from "@/modules/concesionario/deliveries";
 
 export default function ConcesionarioDeliveriesPage() {
   return <DealerDeliveryList />;

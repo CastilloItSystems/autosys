@@ -8,7 +8,6 @@ export type {
   CashFlowSummary,
   CashFlowCurrencySummary,
 } from "./interfaces/cashTransaction";
-export { default as cashFlowService } from "./services/cashFlowService";
 export {
   createTransferSchema,
   createAdjustmentSchema,

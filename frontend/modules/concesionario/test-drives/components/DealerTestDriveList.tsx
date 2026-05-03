@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -15,11 +15,11 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import dealerTestDriveService from "../services/dealerTestDriveService";
-import dealerUnitService from "@/modules/concesionario/vehicles/services/dealerUnitService";
 import type { DealerTestDrive } from "../interfaces/dealerTestDrive.interface";
-import type { DealerUnit } from "@/modules/concesionario/vehicles/interfaces/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import DealerTestDriveForm from "./DealerTestDriveForm";
+import { useDealerTestDrivesData } from "../hooks/useDealerTestDrivesData";
+import { useDealerUnitOptionsData } from "@/modules/concesionario/vehicles";
 import {
   TEST_DRIVE_STATUS_FILTER_OPTIONS,
   TEST_DRIVE_STATUS_META,
@@ -29,11 +29,6 @@ export default function DealerTestDriveList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerTestDrive[]>([]);
-  const [unitOptions, setUnitOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerTestDrive | null>(null);
   const [actionItem, setActionItem] = useState<DealerTestDrive | null>(null);
 
@@ -42,62 +37,25 @@ export default function DealerTestDriveList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadUnits();
-  }, []);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadUnits = async () => {
-    try {
-      const res = await dealerUnitService.getAll({
-        page: 1,
-        limit: 300,
-        isActive: "true",
-      });
-      const units = Array.isArray(res.data) ? (res.data as DealerUnit[]) : [];
-      setUnitOptions(
-        units.map((unit) => ({
-          label: `${unit.code || unit.vin || unit.id} - ${
-            unit.brand?.name || "Sin marca"
-          }`,
-          value: unit.id,
-        })),
-      );
-    } catch (error) {
-      handleFormError(error, toast);
-    }
-  };
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerTestDriveService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-        sortBy: "scheduledAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+      sortBy: "scheduledAt" as const,
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerTestDrivesData(params);
+  const { unitOptions } = useDealerUnitOptionsData();
 
   const openNew = () => {
     setSelected(null);
@@ -125,7 +83,7 @@ export default function DealerTestDriveList() {
         detail: "Prueba de manejo anulada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -144,7 +102,7 @@ export default function DealerTestDriveList() {
         : "Prueba de manejo creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

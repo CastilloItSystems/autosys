@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -23,13 +23,12 @@ import {
   DOCUMENT_STATUS_META,
 } from "../utils/dealerDocument.utils";
 import DealerDocumentForm from "./DealerDocumentForm";
+import { useDealerDocumentsData } from "../hooks/useDealerDocumentsData";
 
 export default function DealerDocumentsList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerDocument[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerDocument | null>(null);
   const [actionItem, setActionItem] = useState<DealerDocument | null>(null);
 
@@ -38,35 +37,22 @@ export default function DealerDocumentsList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerDocumentService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-      });
-      setItems(res.data || []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      status: statusFilter || undefined,
+    }),
+    [page, rows, searchQuery, statusFilter],
+  );
+  const { items, total: totalRecords, loading, mutate } =
+    useDealerDocumentsData(params);
 
   const openNew = () => {
     setSelected(null);
@@ -94,7 +80,7 @@ export default function DealerDocumentsList() {
         detail: "Documento eliminado correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -113,7 +99,7 @@ export default function DealerDocumentsList() {
         : "Documento creado correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

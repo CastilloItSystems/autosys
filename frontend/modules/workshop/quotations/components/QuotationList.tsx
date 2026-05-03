@@ -29,6 +29,9 @@ import {
 import QuotationForm from "./QuotationForm";
 import QuotationApprovalDialog from "./QuotationApprovalDialog";
 import QuotationStepper from "./QuotationStepper";
+import dynamic from "next/dynamic";
+
+const QuotationPDFPreview = dynamic(() => import("./QuotationPDFPreview"), { ssr: false });
 
 const CURRENCY_SYMBOLS: Record<string, string> = {
   USD: "$",
@@ -100,6 +103,7 @@ export default function QuotationList() {
   const [convertLoading, setConvertLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [expandedRows, setExpandedRows] = useState<any>(null);
+  const [pdfItem, setPdfItem] = useState<WorkshopQuotation | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -745,6 +749,18 @@ export default function QuotationList() {
           actionItem
             ? [
                 {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
+                },
+                { separator: true },
+                {
+                  label: "Imprimir PDF",
+                  icon: "pi pi-print",
+                  command: () => setPdfItem(actionItem),
+                },
+                { separator: true },
+                {
                   label: "Editar",
                   icon: "pi pi-pencil",
                   disabled: !EDITABLE_STATUSES.includes(actionItem.status),
@@ -757,6 +773,32 @@ export default function QuotationList() {
         ref={menuRef}
         id="quotation-menu"
       />
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Cotización de Taller"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <QuotationPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Cotización de Taller"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <QuotationPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

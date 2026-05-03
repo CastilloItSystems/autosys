@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { DataTable, DataTableStateEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -13,6 +13,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 
 import quoteService from "../services/quoteService";
+import { useQuotesData } from "../hooks/useQuotesData";
 import {
   Quote,
   QUOTE_STATUS_CONFIG,
@@ -31,15 +32,15 @@ import {
   QUOTE_STATUS_FILTER_OPTIONS as statusFilterOptions,
   QUOTE_REVISABLE_STATUSES as REVISABLE_STATUSES,
 } from "../utils/quote.utils";
+import dynamic from "next/dynamic";
+
+const CRMQuotePDFPreview = dynamic(() => import("./CRMQuotePDFPreview"), { ssr: false });
 
 export default function QuoteList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
   const selectedRef = useRef<Quote | null>(null);
 
-  const [quotes, setQuotes] = useState<Quote[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
@@ -57,8 +58,24 @@ export default function QuoteList() {
     null,
   );
   const [statusDialogVisible, setStatusDialogVisible] = useState(false);
+  const [pdfItem, setPdfItem] = useState<Quote | null>(null);
 
   const limit = 20;
+
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit,
+      search: search || undefined,
+      type: filterType || undefined,
+      status: filterStatus || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [page, search, filterType, filterStatus],
+  );
+
+  const { quotes, total, loading, error, mutate } = useQuotesData(listParams);
 
   useEffect(() => {
     const t = setTimeout(() => setSearch(searchInput), 500);
@@ -69,34 +86,14 @@ export default function QuoteList() {
     setPage(1);
   }, [search, filterType, filterStatus]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await quoteService.getAll({
-        page,
-        limit,
-        search: search || undefined,
-        type: filterType || undefined,
-        status: filterStatus || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setQuotes(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar cotizaciones",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, search, filterType, filterStatus]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   const openNew = () => {
     setEditQuote(null);
@@ -127,7 +124,7 @@ export default function QuoteList() {
     });
     setFormDialog(false);
     setEditQuote(null);
-    await load();
+    await mutate();
   };
 
   const handleDelete = async () => {
@@ -142,7 +139,7 @@ export default function QuoteList() {
       });
       setDeleteDialog(false);
       setEditQuote(null);
-      await load();
+      await mutate();
     } catch (e: any) {
       handleFormError(e, toast);
     } finally {
@@ -157,7 +154,7 @@ export default function QuoteList() {
         severity: "success",
         summary: "Nueva versión creada",
       });
-      load();
+      await mutate();
     } catch (e: any) {
       toast.current?.show({
         severity: "error",
@@ -167,6 +164,12 @@ export default function QuoteList() {
   };
 
   const menuItems = (quote: Quote): MenuItem[] => [
+    {
+      label: "Imprimir PDF",
+      icon: "pi pi-print",
+      command: () => setPdfItem(quote),
+    },
+    { separator: true },
     {
       label: "Ver / Editar",
       icon: "pi pi-pencil",
@@ -258,6 +261,16 @@ export default function QuoteList() {
 
   const actionsBody = (q: Quote) => (
     <div className="flex gap-1 justify-content-center">
+      <Button
+        icon="pi pi-print"
+        rounded
+        text
+        severity="secondary"
+        size="small"
+        tooltip="Imprimir PDF"
+        tooltipOptions={{ position: "top" }}
+        onClick={() => setPdfItem(q)}
+      />
       <Button
         icon="pi pi-exchange"
         rounded
@@ -464,9 +477,23 @@ export default function QuoteList() {
         quote={statusDialogQuote}
         visible={statusDialogVisible}
         onHide={() => setStatusDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Cotización CRM"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <CRMQuotePDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </>
   );
 }

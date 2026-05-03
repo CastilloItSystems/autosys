@@ -1,3 +1,4 @@
+"use client";
 import { useCallback } from "react";
 import useSWR from "swr";
 import checklistService from "@/modules/workshop/checklists/services/checklistService";

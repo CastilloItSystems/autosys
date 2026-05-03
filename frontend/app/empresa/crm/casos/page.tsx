@@ -1,8 +1,7 @@
 "use client";
 import React, { useState } from "react";
 import { Button } from "primereact/button";
-import CaseList from "@/modules/crm/cases/components/CaseList";
-import CaseKanban from "@/modules/crm/cases/components/CaseKanban";
+import { CaseKanban, CaseList } from "@/modules/crm/cases";
 
 export default function CasosPage() {
   const [view, setView] = useState<"kanban" | "list">("kanban");

@@ -19,6 +19,11 @@ Font.register({
   ],
 });
 
+Font.register({
+  family: "Roboto-Bold",
+  src: "/fonts/Roboto-Bold.ttf",
+});
+
 // Función utilitaria para formatear fechas
 export const formatDate = (
   date: Date,

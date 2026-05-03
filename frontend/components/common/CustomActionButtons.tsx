@@ -49,6 +49,21 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
   // Usar función y arrays reutilizables
   const can = (allowed: string[]) => hasRole(allowed, userRoles);
 
+  // Hook para detectar sm o md (menos de 1024px)
+  const [isMobile, setIsMobile] = React.useState(false);
+  const menuRef = useRef<any>(null);
+
+  React.useEffect(() => {
+    const check = () => {
+      if (typeof window !== "undefined") {
+        setIsMobile(window.innerWidth < 1024);
+      }
+    };
+    check();
+    window.addEventListener("resize", check);
+    return () => window.removeEventListener("resize", check);
+  }, []);
+
   // Si el usuario no tiene acceso a ningún botón, no renderizar nada
   if (
     !can(infoAllowedRoles) &&
@@ -61,19 +76,6 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
   ) {
     return null;
   }
-
-  // Hook para detectar sm o md (menos de 1024px)
-  const [isMobile, setIsMobile] = React.useState(false);
-  React.useEffect(() => {
-    const check = () => {
-      if (typeof window !== "undefined") {
-        setIsMobile(window.innerWidth < 1024);
-      }
-    };
-    check();
-    window.addEventListener("resize", check);
-    return () => window.removeEventListener("resize", check);
-  }, []);
 
   // Crear items del menú
   const menuItems = [];
@@ -126,8 +128,6 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
       command: () => {}, // El PDFGenerator se muestra oculto
     });
   }
-
-  const menuRef = useRef<any>(null);
 
   if (isMobile) {
     return (

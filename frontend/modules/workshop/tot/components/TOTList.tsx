@@ -10,6 +10,9 @@ import { Dialog } from "primereact/dialog";
 import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+const TOTPDFPreview = dynamic(() => import("./TOTPDFPreview"), { ssr: false });
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
@@ -74,6 +77,7 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
   const [documentUrl, setDocumentUrl] = useState("");
   const [documentDescription, setDocumentDescription] = useState("");
   const [isAddingDocument, setIsAddingDocument] = useState(false);
+  const [pdfItem, setPdfItem] = useState<WorkshopTOT | null>(null);
   const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
 
@@ -484,6 +488,13 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
         command: () => confirmDeleteItem(item),
       });
     }
+
+    if (items.length > 0) items.push({ separator: true });
+    items.push({
+      label: "Imprimir PDF",
+      icon: "pi pi-print",
+      command: () => setPdfItem(item),
+    });
 
     return items;
   };
@@ -1053,6 +1064,19 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
           </div>
         </div>
       </Dialog>
+
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — T.O.T."
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <TOTPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
 
       <Menu
         model={getMenuItems(actionItem)}

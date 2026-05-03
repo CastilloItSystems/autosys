@@ -1,7 +1,6 @@
 "use client";
 
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -18,6 +17,10 @@ import { Column } from "primereact/column";
 import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 
 import opportunityService from "../services/opportunityService";
+import {
+  useOpportunitiesData,
+  useOpportunityDetailData,
+} from "../hooks/useOpportunitiesData";
 import {
   Opportunity,
   OPPORTUNITY_CHANNEL_CONFIG,
@@ -39,10 +42,7 @@ export default function OpportunityList() {
   const toast = useRef<Toast>(null);
 
   const [view, setView] = useState<View>("kanban");
-  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [list, setList] = useState<Opportunity[]>([]);
-  const [total, setTotal] = useState(0);
 
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
@@ -52,36 +52,51 @@ export default function OpportunityList() {
 
   const [formOpen, setFormOpen] = useState(false);
   const [detailOpen, setDetailOpen] = useState(false);
-  const [detailData, setDetailData] = useState<any>(null);
+  const [detailId, setDetailId] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await opportunityService.getAll({
-        page: page + 1,
-        limit: rows,
-        channel: channel || undefined,
-        status: status || undefined,
-        search: search || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setList(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      channel: channel || undefined,
+      status: status || undefined,
+      search: search || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, channel, status, search],
+  );
+
+  const {
+    opportunities: list,
+    total,
+    loading,
+    error,
+    mutate,
+  } = useOpportunitiesData(listParams);
+  const {
+    opportunity: detailData,
+    loading: detailLoading,
+    error: detailError,
+  } = useOpportunityDetailData(detailId);
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "No se pudieron cargar oportunidades",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, rows, channel, status, search]);
+  }, [error]);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (detailError) {
+      toast.current?.show({
+        severity: "error",
+        summary: "No se pudo abrir el detalle",
+      });
+    }
+  }, [detailError]);
 
   const flowForCurrentChannel = useMemo(
     () => getFlow(channel || "REPUESTOS"),
@@ -107,13 +122,13 @@ export default function OpportunityList() {
       life: 3000,
     });
     setFormOpen(false);
-    await load();
+    await mutate();
   };
 
   const moveStage = async (row: Opportunity, stageCode: string) => {
     try {
       await opportunityService.updateStage(row.id, stageCode);
-      load();
+      await mutate();
     } catch (e: any) {
       toast.current?.show({
         severity: "error",
@@ -135,7 +150,7 @@ export default function OpportunityList() {
               result: "LOST",
               lostReasonText: "Cierre manual desde tablero",
             });
-            load();
+            await mutate();
           } catch {
             toast.current?.show({
               severity: "error",
@@ -149,7 +164,7 @@ export default function OpportunityList() {
 
     try {
       await opportunityService.close(row.id, { result: "WON" });
-      load();
+      await mutate();
     } catch {
       toast.current?.show({
         severity: "error",
@@ -158,17 +173,9 @@ export default function OpportunityList() {
     }
   };
 
-  const openDetail = async (row: Opportunity) => {
-    try {
-      const res = await opportunityService.getById(row.id);
-      setDetailData((res as any).data ?? res);
-      setDetailOpen(true);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "No se pudo abrir el detalle",
-      });
-    }
+  const openDetail = (row: Opportunity) => {
+    setDetailId(row.id);
+    setDetailOpen(true);
   };
 
   const header = (
@@ -448,11 +455,14 @@ export default function OpportunityList() {
 
       <Dialog
         visible={detailOpen}
-        onHide={() => setDetailOpen(false)}
+        onHide={() => {
+          setDetailOpen(false);
+          setDetailId(null);
+        }}
         header="Detalle oportunidad"
         style={{ width: 720 }}
       >
-        {!detailData ? (
+        {detailLoading || !detailData ? (
           <small className="text-500">Cargando...</small>
         ) : (
           <div className="grid">
@@ -474,7 +484,7 @@ export default function OpportunityList() {
             <div className="col-12">
               <strong>Timeline:</strong>
               <ul className="mt-2">
-                {(detailData.stageHistory || []).map((h: any) => (
+                {((detailData as any).stageHistory || []).map((h: any) => (
                   <li key={h.id}>
                     {new Date(h.changedAt).toLocaleString("es-VE")} -{" "}
                     {h.fromStage || "∅"} → {h.toStage}

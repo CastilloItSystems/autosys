@@ -10,6 +10,9 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
+
+const ReworkPDFPreview = dynamic(() => import("./ReworkPDFPreview"), { ssr: false });
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -38,6 +41,7 @@ export default function ReworkList() {
   const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfItem, setPdfItem] = useState<WorkshopRework | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
@@ -203,6 +207,12 @@ export default function ReworkList() {
       ...(statusItems.length > 0 ? [{ separator: true }, ...statusItems] : []),
       { separator: true },
       {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(item),
+      },
+      { separator: true },
+      {
         label: "Eliminar",
         icon: "pi pi-trash",
         className: "text-red-500",
@@ -362,6 +372,19 @@ export default function ReworkList() {
           toast={toast}
         />
       </Dialog>
+
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Retrabajo"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ReworkPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
 
       <Menu
         model={buildMenuItems(actionItem)}

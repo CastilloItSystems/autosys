@@ -1,6 +1,5 @@
 "use client";
 import React, {
-  useCallback,
   useEffect,
   useMemo,
   useRef,
@@ -34,6 +33,7 @@ import {
   ACTIVITY_TYPE_FILTER_OPTIONS as typeFilterOptions,
   ACTIVITY_STATUS_FILTER_OPTIONS as statusFilterOptions,
 } from "../utils/activity.utils";
+import { useActivitiesData } from "../hooks/useActivitiesData";
 
 interface Props {
   customerId?: string;
@@ -44,9 +44,6 @@ export default function ActivityList({ customerId }: Props) {
   const menuRef = useRef<Menu>(null);
   const [actionItem, setActionItem] = useState<Activity | null>(null);
 
-  const [activities, setActivities] = useState<Activity[]>([]);
-  const [total, setTotal] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(1);
   const [filterType, setFilterType] = useState("");
   const [filterStatus, setFilterStatus] = useState("");
@@ -67,33 +64,33 @@ export default function ActivityList({ customerId }: Props) {
 
   const limit = 20;
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await activityService.getAll({
-        page,
-        limit,
-        customerId: customerId || undefined,
-        type: filterType || undefined,
-        status: filterStatus || undefined,
-        sortOrder: "asc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setActivities(raw.data ?? raw);
-      setTotal(raw.meta?.total ?? raw.length ?? 0);
-    } catch {
+  const params = useMemo(
+    () => ({
+      page,
+      limit,
+      customerId: customerId || undefined,
+      type: filterType || undefined,
+      status: filterStatus || undefined,
+      sortOrder: "asc" as const,
+    }),
+    [page, customerId, filterType, filterStatus],
+  );
+  const {
+    activities,
+    total,
+    loading,
+    error,
+    mutate,
+  } = useActivitiesData(params);
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar actividades",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, customerId, filterType, filterStatus]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   useEffect(() => {
     setPage(1);
@@ -149,7 +146,7 @@ export default function ActivityList({ customerId }: Props) {
       });
       setDeleteDialog(false);
       setDeleteItem(null);
-      await load();
+      await mutate();
     } catch (e: any) {
       toast.current?.show({
         severity: "error",
@@ -169,7 +166,7 @@ export default function ActivityList({ customerId }: Props) {
     });
     setFormVisible(false);
     setEditItem(null);
-    await load();
+    await mutate();
   };
 
   const actionItems = (item: Activity | null): MenuItem[] => {
@@ -427,7 +424,7 @@ export default function ActivityList({ customerId }: Props) {
         activity={completeActivity}
         visible={completeDialogVisible}
         onHide={() => setCompleteDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
     </>

@@ -1,41 +1,28 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
-import dealerDashboardService, {
-  DealerHistoryItem,
-} from "../services/dealerHistoryService";
+import { DealerHistoryItem } from "../services/dealerHistoryService";
+import { useDealerHistoryData } from "../hooks/useDealerHistoryData";
 import { HISTORY_TYPE_LABELS } from "../utils/dealerHistory.utils";
 
 export default function DealerHistoryView() {
-  const [rows, setRows] = useState<DealerHistoryItem[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(0);
   const [limit, setLimit] = useState(10);
 
-  const load = async (query?: string) => {
-    setLoading(true);
-    try {
-      const res = await dealerDashboardService.getHistory({
-        page: page + 1,
-        limit,
-        search: query || undefined,
-      });
-      setRows(res.data || []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load(search);
-  }, [page, limit, search]);
+  const params = useMemo(
+    () => ({
+      page: page + 1,
+      limit,
+      search: search || undefined,
+    }),
+    [page, limit, search],
+  );
+  const { rows, total: totalRecords, loading } = useDealerHistoryData(params);
 
   const header = (
     <div className="flex flex-wrap gap-2 align-items-center justify-content-between">

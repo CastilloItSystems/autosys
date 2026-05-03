@@ -8,32 +8,7 @@ import { Column } from "primereact/column";
 import { Skeleton } from "primereact/skeleton";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
-import apiClient from "@/app/api/apiClient";
-
-interface SupplierRow {
-  supplierId: string;
-  supplierName: string;
-  supplierCode: string;
-  contactName: string | null;
-  email: string | null;
-  totalOrders: number;
-  completedOrders: number;
-  cancelledOrders: number;
-  totalAmount: number;
-  avgOrderAmount: number;
-  itemCount: number;
-  lastOrderDate: string | null;
-  avgDeliveryDays: number | null;
-  onTimeRate: number | null;
-}
-
-interface Summary {
-  totalSuppliers: number;
-  activeSuppliers: number;
-  totalOrdersAllTime: number;
-  totalAmountAllTime: number;
-  avgOnTimeRate: number | null;
-}
+import { useSupplierPerformanceData } from "../hooks/useSupplierPerformanceData";
 
 const fmtCurrency = (n: number) =>
   n.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -54,38 +29,21 @@ const onTimeSeverity = (rate: number | null): any => {
 
 const SupplierPerformanceReport = () => {
   const toast = useRef<Toast>(null);
-  const [items, setItems] = useState<SupplierRow[]>([]);
-  const [summary, setSummary] = useState<Summary | null>(null);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState(50);
-  const [totalRecords, setTotalRecords] = useState(0);
+  const { items, summary, total: totalRecords, loading, error } =
+    useSupplierPerformanceData({ page, limit: rows });
 
   useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
-    setLoading(true);
-    try {
-      const response = await apiClient.get("/inventory/reports/supplier-performance", {
-        params: { page, limit: rows },
-      });
-      const res = response.data;
-      setItems(res.data ?? []);
-      setSummary(res.summary ?? null);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudo cargar el reporte de rendimiento de proveedores",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [error]);
 
   const summaryCards = summary
     ? [

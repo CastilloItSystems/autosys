@@ -1,43 +1,31 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
-import dealerAutomationService, { DealerAutomationAlert, DealerAutomationSummary } from "@/modules/concesionario/automations/services/dealerAutomationService";
+import dealerAutomationService, { DealerAutomationAlert, DealerAutomationSummary } from "../services/dealerAutomationService";
+import { useDealerAutomationsData } from "../hooks/useDealerAutomationsData";
 
 export default function DealerAutomationsView() {
-  const [alerts, setAlerts] = useState<DealerAutomationAlert[]>([]);
   const [summary, setSummary] = useState<DealerAutomationSummary | null>(null);
-  const [loading, setLoading] = useState(true);
   const [running, setRunning] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerAutomationService.getAlerts();
-      setAlerts(res.data || []);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { alerts, loading, mutate } = useDealerAutomationsData();
 
   const runChecks = async () => {
     setRunning(true);
     try {
       const res = await dealerAutomationService.runChecks();
       setSummary(res.data);
-      setAlerts(res.data.alerts || []);
+      await mutate();
     } finally {
       setRunning(false);
     }
   };
+
+  const displayAlerts = summary?.alerts ?? alerts;
 
   return (
     <div className="card">
@@ -48,7 +36,7 @@ export default function DealerAutomationsView() {
       <Card>
         <div className="flex gap-2 mb-3">
           <Button label="Ejecutar Chequeos" icon="pi pi-bolt" onClick={runChecks} loading={running} />
-          <Button label="Refrescar" icon="pi pi-refresh" severity="secondary" outlined onClick={load} />
+          <Button label="Refrescar" icon="pi pi-refresh" severity="secondary" outlined onClick={() => mutate()} />
         </div>
 
         {summary && (
@@ -57,7 +45,7 @@ export default function DealerAutomationsView() {
           </div>
         )}
 
-        <DataTable value={alerts} loading={loading} responsiveLayout="scroll" emptyMessage="No hay alertas disponibles">
+        <DataTable value={displayAlerts} loading={loading} responsiveLayout="scroll" emptyMessage="No hay alertas disponibles">
           <Column field="message" header="Alerta" />
           <Column field="count" header="Cantidad" />
           <Column

@@ -9,12 +9,9 @@ import { Button } from "primereact/button";
 import { Skeleton } from "primereact/skeleton";
 import { Toast } from "primereact/toast";
 import { motion } from "framer-motion";
-import dealerDashboardService, {
-  DealerHistoryItem,
-  DealerIntegrationStatus,
-  DealerOverview,
-} from "../services/dealerDashboardService";
+import { DealerHistoryItem } from "../services/dealerDashboardService";
 import { handleFormError } from "@/utils/errorHandlers";
+import { useDealerDashboardData } from "../hooks/useDealerDashboardData";
 import {
   DASHBOARD_TYPE_CONFIG,
   DASHBOARD_STATUS_SEVERITY,
@@ -25,45 +22,29 @@ import {
 
 export default function DealerDashboard() {
   const toast = useRef<Toast>(null);
-  const [loading, setLoading] = useState(true);
-  const [overview, setOverview] = useState<DealerOverview | null>(null);
-  const [history, setHistory] = useState<DealerHistoryItem[]>([]);
-  const [integrations, setIntegrations] =
-    useState<DealerIntegrationStatus | null>(null);
   const [search, setSearch] = useState("");
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  const load = async (historySearch?: string) => {
-    setLoading(true);
-    try {
-      const [overviewRes, historyRes, integrationsRes] = await Promise.all([
-        dealerDashboardService.getOverview(),
-        dealerDashboardService.getHistory({
-          page: 1,
-          limit: 20,
-          search: historySearch || undefined,
-        }),
-        dealerDashboardService.getIntegrations(),
-      ]);
-      setOverview(overviewRes.data);
-      setHistory(historyRes.data || []);
-      setIntegrations(integrationsRes.data);
-      setLastUpdated(new Date());
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    overview,
+    history,
+    integrations,
+    lastUpdated,
+    loading,
+    error,
+    mutate,
+  } = useDealerDashboardData(debouncedSearch);
 
   useEffect(() => {
-    load();
-  }, []);
-
-  useEffect(() => {
-    const t = setTimeout(() => load(search), 400);
+    const t = setTimeout(() => setDebouncedSearch(search), 400);
     return () => clearTimeout(t);
   }, [search]);
+
+  useEffect(() => {
+    if (error) {
+      handleFormError(error, toast);
+    }
+  }, [error]);
 
   const kpiCards = useMemo(
     () => [
@@ -200,7 +181,7 @@ export default function DealerDashboard() {
           outlined
           size="small"
           loading={loading}
-          onClick={() => load(search)}
+          onClick={() => mutate()}
         />
       </div>
 

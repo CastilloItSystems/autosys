@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { Tag } from "primereact/tag";
@@ -7,9 +7,7 @@ import { Skeleton } from "primereact/skeleton";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import crmDashboardService, {
-  CrmDashboardData,
-} from "../services/crmDashboardService";
+import { useCrmDashboardData } from "../hooks/useCrmDashboardData";
 import {
   LEAD_STATUS_CONFIG,
   LEAD_CHANNEL_CONFIG,
@@ -29,24 +27,7 @@ import {
 
 export default function CrmDashboard() {
   const router = useRouter();
-  const [data, setData] = useState<CrmDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const response = await crmDashboardService.get();
-      setData(response.data);
-    } catch (error) {
-      console.error("Error loading CRM dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { dashboard: data, loading } = useCrmDashboardData();
 
   // ── Skeleton loading ──────────────────────────────────────────────────────
 

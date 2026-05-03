@@ -1,5 +1,5 @@
 "use client";
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -22,6 +22,7 @@ import { ConfirmDialog } from "primereact/confirmdialog";
 import { motion } from "framer-motion";
 
 import leadService from "../services/leadService";
+import { useLeadKanbanData } from "../hooks/useLeadsData";
 import {
   Lead,
   LEAD_STATUS_CONFIG,
@@ -263,14 +264,11 @@ function KanbanCard({ lead, onAction, isOverlay = false }: CardProps) {
 export default function LeadKanban() {
   const toast = useRef<Toast>(null);
 
-  const [leads, setLeads] = useState<Lead[]>([]);
-  const [loading, setLoading] = useState(false);
   const [filterChannel, setFilterChannel] = useState("");
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
 
   const [activeId, setActiveId] = useState<string | null>(null);
-  const activeLead = leads.find((l) => l.id === activeId) ?? null;
 
   const [formVisible, setFormVisible] = useState(false);
   const [editLead, setEditLead] = useState<Lead | null>(null);
@@ -289,31 +287,28 @@ export default function LeadKanban() {
     return () => clearTimeout(t);
   }, [searchInput]);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await leadService.getAll({
-        limit: 500,
-        search: search || undefined,
-        channel: filterChannel || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      const raw = (res as any)?.data ?? res;
-      setLeads(raw.data ?? raw);
-    } catch {
+  const kanbanParams = useMemo(
+    () => ({
+      limit: 500,
+      search: search || undefined,
+      channel: filterChannel || undefined,
+      sortBy: "createdAt",
+      sortOrder: "desc" as const,
+    }),
+    [search, filterChannel],
+  );
+
+  const { leads, loading, error, mutate } = useLeadKanbanData(kanbanParams);
+  const activeLead = leads.find((lead) => lead.id === activeId) ?? null;
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error al cargar leads",
       });
-    } finally {
-      setLoading(false);
     }
-  }, [search, filterChannel]);
-
-  useEffect(() => {
-    load();
-  }, [load]);
+  }, [error]);
 
   // Group leads by status
   const leadsByStatus = LEAD_PIPELINE_ORDER.reduce<Record<string, Lead[]>>(
@@ -345,18 +340,10 @@ export default function LeadKanban() {
       return;
     }
 
-    // Optimistic update
-    setLeads((prev) =>
-      prev.map((l) => (l.id === lead.id ? { ...l, status: newStatus } : l)),
-    );
-
     try {
       await leadService.updateStatus(lead.id, { status: newStatus });
+      await mutate();
     } catch {
-      // Revert
-      setLeads((prev) =>
-        prev.map((l) => (l.id === lead.id ? { ...l, status: lead.status } : l)),
-      );
       toast.current?.show({
         severity: "error",
         summary: "Error al cambiar estado",
@@ -496,9 +483,9 @@ export default function LeadKanban() {
           formId="lead-form"
           onSave={() => {
             setFormVisible(false);
-            load();
+            void mutate();
           }}
-          onCreated={() => load()}
+          onCreated={() => void mutate()}
           onSubmittingChange={setFormSubmitting}
           toast={toast}
         />
@@ -509,7 +496,7 @@ export default function LeadKanban() {
         lead={statusDialogLead}
         visible={statusDialogVisible}
         onHide={() => setStatusDialogVisible(false)}
-        onSaved={load}
+        onSaved={() => void mutate()}
         toast={toast}
       />
     </>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useMemo, useRef, useState } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
@@ -15,12 +15,13 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import dealerUnitService from "../services/dealerUnitService";
-import brandsService from "@/modules/inventory/brands/services/brandService";
-import modelsService from "@/modules/inventory/models/services/modelService";
-import warehouseService from "@/modules/inventory/warehouses/services/warehouseService";
 import type { DealerUnit } from "../interfaces/dealerUnit.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import DealerUnitForm from "./DealerUnitForm";
+import {
+  useDealerUnitCatalogOptionsData,
+  useDealerUnitsData,
+} from "../hooks/useDealerUnitsData";
 import {
   UNIT_CONDITION_FILTER_OPTIONS,
   UNIT_STATUS_FILTER_OPTIONS,
@@ -32,8 +33,6 @@ export default function DealerUnitList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  const [items, setItems] = useState<DealerUnit[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<DealerUnit | null>(null);
   const [actionItem, setActionItem] = useState<DealerUnit | null>(null);
 
@@ -44,93 +43,33 @@ export default function DealerUnitList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [brandOptions, setBrandOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [modelOptions, setModelOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-  const [warehouseOptions, setWarehouseOptions] = useState<
-    Array<{ label: string; value: string }>
-  >([]);
-
-  const [loading, setLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  useEffect(() => {
-    loadCatalogs();
-  }, []);
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: searchQuery || undefined,
+      brandId: brandFilter || undefined,
+      condition: conditionFilter || undefined,
+      status: statusFilter || undefined,
+      sortBy: "createdAt" as const,
+      sortOrder: "desc" as const,
+    }),
+    [page, rows, searchQuery, brandFilter, conditionFilter, statusFilter],
+  );
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, brandFilter, conditionFilter, statusFilter]);
-
-  const loadCatalogs = async () => {
-    try {
-      const [brandsRes, modelsRes, warehousesRes] = await Promise.all([
-        brandsService.getActive(),
-        modelsService.getActive("VEHICLE"),
-        warehouseService.getAll({ page: 1, limit: 200, isActive: "true" }),
-      ]);
-
-      const brands = Array.isArray(brandsRes.data)
-        ? brandsRes.data.filter(
-            (brand) => brand.type === "VEHICLE" || brand.type === "BOTH",
-          )
-        : [];
-      const models = Array.isArray(modelsRes.data) ? modelsRes.data : [];
-
-      setBrandOptions(
-        brands.map((b) => ({
-          label: b.code ? `${b.code} - ${b.name}` : b.name,
-          value: b.id,
-        })),
-      );
-      setModelOptions(
-        models.map((m) => ({
-          label: `${m.name}${m.year ? ` (${m.year})` : ""}`,
-          value: m.id,
-        })),
-      );
-      setWarehouseOptions(
-        (Array.isArray(warehousesRes.data) ? warehousesRes.data : []).map(
-          (warehouse) => ({
-            label: `${warehouse.code} - ${warehouse.name}`,
-            value: warehouse.id,
-          }),
-        ),
-      );
-    } catch (error) {
-      handleFormError(error, toast);
-    }
-  };
-
-  const loadItems = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerUnitService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        brandId: brandFilter || undefined,
-        condition: conditionFilter || undefined,
-        status: statusFilter || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-      setTotalRecords(0);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    items,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useDealerUnitsData(listParams);
+  const { brandOptions, modelOptions, warehouseOptions } =
+    useDealerUnitCatalogOptionsData();
 
   const openNew = () => {
     setSelected(null);
@@ -158,7 +97,7 @@ export default function DealerUnitList() {
         detail: "Unidad desactivada correctamente",
         life: 3000,
       });
-      await loadItems();
+      await mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -177,7 +116,7 @@ export default function DealerUnitList() {
         : "Unidad creada correctamente",
       life: 3000,
     });
-    await loadItems();
+    await mutate();
     setFormDialog(false);
     setSelected(null);
   };

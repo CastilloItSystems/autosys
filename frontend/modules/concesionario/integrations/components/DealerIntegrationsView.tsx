@@ -1,31 +1,14 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Tag } from "primereact/tag";
-import dealerDashboardService, {
-  DealerIntegrationStatus,
-} from "@/modules/concesionario/integrations/services/dealerIntegrationsService";
+import { useDealerIntegrationsData } from "../hooks/useDealerIntegrationsData";
 
 export default function DealerIntegrationsView() {
-  const [data, setData] = useState<DealerIntegrationStatus | null>(null);
-  const [loading, setLoading] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await dealerDashboardService.getIntegrations();
-      setData(res.data);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, []);
+  const { data, loading } = useDealerIntegrationsData();
 
   return (
     <div className="card">

@@ -8,7 +8,6 @@ export type {
   CreateBankAccountData,
   UpdateBankAccountData,
 } from "./interfaces/bankAccount";
-export { default as bankAccountService } from "./services/bankAccountService";
 export {
   createBankAccountSchema,
   updateBankAccountSchema,

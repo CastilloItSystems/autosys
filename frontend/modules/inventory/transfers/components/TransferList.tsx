@@ -25,6 +25,9 @@ import TransferDetail from "./TransferDetail";
 import CreateButton from "@/components/common/CreateButton";
 import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 import { handleFormError } from "@/utils/errorHandlers";
+import dynamic from "next/dynamic";
+
+const TransferPDFPreview = dynamic(() => import("./TransferPDFPreview"), { ssr: false });
 
 interface TransferListProps {
   warehouseId?: string;
@@ -76,6 +79,7 @@ export default function TransferList({
     null,
   );
   const [rejectionReason, setRejectionReason] = useState("");
+  const [pdfItem, setPdfItem] = useState<Transfer | null>(null);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
@@ -463,6 +467,28 @@ export default function TransferList({
       return [];
     }
     const items: MenuItem[] = [
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfItem(transfer),
+      },
+      { separator: true },
+      {
+        label: "Ver detalle",
+        icon: "pi pi-eye",
+        command: () => {
+          viewDetail(transfer);
+        },
+      },
+      { separator: true },
+      {
+        label: "Ver detalle",
+        icon: "pi pi-eye",
+        command: () => {
+          viewDetail(transfer);
+        },
+      },
+      { separator: true },
       {
         label: "Ver detalle",
         icon: "pi pi-eye",
@@ -883,6 +909,20 @@ export default function TransferList({
         ref={menuRef}
         id="transfer-menu"
       />
+
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Transferencia"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <TransferPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 }

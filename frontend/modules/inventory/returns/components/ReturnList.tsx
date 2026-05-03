@@ -11,6 +11,7 @@ import { ConfirmDialog, confirmDialog } from "primereact/confirmdialog";
 import { Toast } from "primereact/toast";
 import { Message } from "primereact/message";
 import { motion } from "framer-motion";
+import dynamic from "next/dynamic";
 import returnService, {
   ReturnOrder,
   ReturnStatus,
@@ -21,6 +22,8 @@ import returnService, {
 import { useEmpresasStore } from "@/store/empresasStore";
 import ReturnForm from "./ReturnForm";
 import ReturnDetail from "./ReturnDetail";
+
+const ReturnPDFPreview = dynamic(() => import("./ReturnPDFPreview"), { ssr: false });
 
 const ReturnList = () => {
   const { activeEmpresa } = useEmpresasStore();
@@ -44,6 +47,7 @@ const ReturnList = () => {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
+  const [pdfItem, setPdfItem] = useState<ReturnOrder | null>(null);
 
   // ── Data loading ────────────────────────────────────────────────────────────
 
@@ -315,6 +319,19 @@ const ReturnList = () => {
             setSelectedReturn(rowData);
             setIsDetailOpen(true);
           }}
+          disabled={busy}
+        />
+
+        {/* Imprimir PDF */}
+        <Button
+          icon="pi pi-print"
+          rounded
+          text
+          severity="secondary"
+          size="small"
+          tooltip="Imprimir PDF"
+          tooltipOptions={{ position: "top" }}
+          onClick={() => setPdfItem(rowData)}
           disabled={busy}
         />
 
@@ -594,6 +611,19 @@ const ReturnList = () => {
           />
         )}
       </Dialog>
+      {/* PDF Preview Dialog */}
+      {pdfItem && (
+        <Dialog
+          visible
+          onHide={() => setPdfItem(null)}
+          header="Vista Previa — Devolución"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <ReturnPDFPreview data={pdfItem} />
+        </Dialog>
+      )}
     </motion.div>
   );
 };

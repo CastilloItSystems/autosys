@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { DataTable } from "primereact/datatable";
@@ -9,7 +9,7 @@ import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 
-import loyaltyService from "@/modules/crm/loyalty/services/loyaltyService";
+import { useLoyaltyData } from "../hooks/useLoyaltyData";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import LoyaltyForm from "./LoyaltyForm";
@@ -17,9 +17,7 @@ import LoyaltyForm from "./LoyaltyForm";
 export default function LoyaltyList() {
   const toast = useRef<Toast>(null);
 
-  const [loading, setLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [data, setData] = useState<any>(null);
   const [open, setOpen] = useState(false);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
@@ -40,29 +38,26 @@ export default function LoyaltyList() {
     { label: "Cancelado", value: "CANCELLED" },
   ];
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await loyaltyService.getAll({
-        page: page + 1,
-        limit: rows,
-        type: typeFilter || undefined,
-        status: statusFilter || undefined,
-      });
-      setData((res as any).data ?? res);
-    } catch {
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      type: typeFilter || undefined,
+      status: statusFilter || undefined,
+    }),
+    [page, rows, typeFilter, statusFilter],
+  );
+
+  const { data, loading, error, mutate } = useLoyaltyData(listParams);
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "No se pudo cargar fidelización",
       });
-    } finally {
-      setLoading(false);
     }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, rows, typeFilter, statusFilter]);
+  }, [error]);
 
   const filteredEvents = (data?.events || []).filter((row: any) => {
     const bySearch =
@@ -134,7 +129,7 @@ export default function LoyaltyList() {
       life: 3000,
     });
     setOpen(false);
-    await load();
+    await mutate();
   };
 
   return (

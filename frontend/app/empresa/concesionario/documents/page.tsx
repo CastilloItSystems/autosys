@@ -1,4 +1,4 @@
-import DealerDocumentsList from "@/modules/concesionario/documents/components/DealerDocumentsList";
+import { DealerDocumentsList } from "@/modules/concesionario/documents";
 
 export default function ConcesionarioDocumentsPage() {
   return <DealerDocumentsList />;

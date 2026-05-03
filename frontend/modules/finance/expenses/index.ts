@@ -13,7 +13,6 @@ export type {
   CreateRecurringRuleData,
 } from "./interfaces/expense";
 export { EXPENSE_CATEGORY_LABELS } from "./interfaces/expense";
-export { default as expenseService } from "./services/expenseService";
 export {
   createExpenseSchema,
   updateExpenseSchema,

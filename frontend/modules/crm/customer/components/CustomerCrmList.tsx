@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -12,6 +12,7 @@ import { MenuItem } from "primereact/menuitem";
 import { Dropdown } from "primereact/dropdown";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
+import dynamic from "next/dynamic";
 import { handleFormError } from "@/utils/errorHandlers";
 import customerCrmService from "../services/customerCrmService";
 import {
@@ -20,6 +21,8 @@ import {
   CUSTOMER_CHANNEL_CONFIG,
   CUSTOMER_TYPE_CONFIG,
 } from "../interfaces/customer.crm.interface";
+
+const CustomerContactReportPDFPreview = dynamic(() => import("./CustomerContactReportPDFPreview"), { ssr: false });
 import {
   CUSTOMER_SEGMENT_LIST_FILTER_OPTIONS,
   CUSTOMER_CHANNEL_LIST_FILTER_OPTIONS,
@@ -32,22 +35,20 @@ import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { ConfirmActionPopup } from "@/components/common/ConfirmAction";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
+import { useCustomerCrmData } from "../hooks/useCustomerCrmData";
 
 const CustomerCrmList = () => {
   const router = useRouter();
-  const [customers, setCustomers] = useState<CustomerCrm[]>([]);
   const [selectedCustomer, setSelectedCustomer] = useState<CustomerCrm | null>(
     null,
   );
   const [actionCustomer, setActionCustomer] = useState<CustomerCrm | null>(
     null,
   );
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [segmentFilter, setSegmentFilter] = useState<string | null>(null);
@@ -60,6 +61,7 @@ const CustomerCrmList = () => {
   const [timelineDialog, setTimelineDialog] = useState(false);
   const [vehiclesDialog, setVehiclesDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pdfCustomer, setPdfCustomer] = useState<CustomerCrm | null>(null);
 
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -74,40 +76,35 @@ const CustomerCrmList = () => {
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
 
-  useEffect(() => {
-    loadCustomers();
-  }, [
-    page,
-    rows,
-    sortField,
-    sortOrder,
-    debouncedSearch,
-    segmentFilter,
-    channelFilter,
-    typeFilter,
-  ]);
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      segment: segmentFilter || undefined,
+      preferredChannel: channelFilter || undefined,
+      type: typeFilter || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [
+      page,
+      rows,
+      sortField,
+      sortOrder,
+      debouncedSearch,
+      segmentFilter,
+      channelFilter,
+      typeFilter,
+    ],
+  );
 
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await customerCrmService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        segment: segmentFilter || undefined,
-        preferredChannel: channelFilter || undefined,
-        type: typeFilter || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setCustomers(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener clientes CRM:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const {
+    customers,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useCustomerCrmData(listParams);
 
   const onPageChange = (event: any) => {
     setPage(
@@ -140,7 +137,7 @@ const CustomerCrmList = () => {
       detail: selectedCustomer?.id ? "Cliente actualizado" : "Cliente creado",
       life: 3000,
     });
-    await loadCustomers();
+    await mutate();
     setFormDialog(false);
     setSelectedCustomer(null);
   };
@@ -150,7 +147,7 @@ const CustomerCrmList = () => {
     setIsDeleting(true);
     try {
       await customerCrmService.delete(selectedCustomer.id);
-      await loadCustomers();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -171,7 +168,7 @@ const CustomerCrmList = () => {
       await customerCrmService.update(customer.id, {
         isActive: !customer.isActive,
       } as any);
-      await loadCustomers();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -289,6 +286,11 @@ const CustomerCrmList = () => {
         label: customer.isActive ? "Desactivar" : "Activar",
         icon: customer.isActive ? "pi pi-eye-slash" : "pi pi-eye",
         command: () => handleToggleActive(customer),
+      },
+      {
+        label: "Imprimir PDF",
+        icon: "pi pi-print",
+        command: () => setPdfCustomer(customer),
       },
       { separator: true },
       {
@@ -656,6 +658,19 @@ const CustomerCrmList = () => {
         ref={menuRef}
         id="crm-customer-menu"
       />
+
+      {pdfCustomer && (
+        <Dialog
+          visible
+          onHide={() => setPdfCustomer(null)}
+          header="Vista Previa — Ficha de Cliente"
+          style={{ width: "85%", height: "90vh" }}
+          contentStyle={{ padding: 0, height: "100%" }}
+          modal
+        >
+          <CustomerContactReportPDFPreview data={pdfCustomer} />
+        </Dialog>
+      )}
     </>
   );
 };

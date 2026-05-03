@@ -1,3 +1,4 @@
+"use client";
 import { getWorkshops } from "@/modules/workshop/dashboard";
 
 import { useCallback, useEffect } from "react";

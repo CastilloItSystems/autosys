@@ -18,6 +18,10 @@ export const createStockSchema = object({
     .min(0, "El costo promedio no puede ser negativo")
     .default(0)
     .optional(),
+  location: string()
+    .max(100, "La ubicación no puede exceder 100 caracteres")
+    .optional()
+    .or(z.literal("")),
 });
 
 /** Schema para actualizar un registro de stock */
@@ -33,6 +37,10 @@ export const updateStockSchema = object({
   averageCost: number()
     .min(0, "El costo promedio no puede ser negativo")
     .optional(),
+  location: string()
+    .max(100, "La ubicación no puede exceder 100 caracteres")
+    .optional()
+    .or(z.literal("")),
 });
 
 /** Schema para ajustar stock */

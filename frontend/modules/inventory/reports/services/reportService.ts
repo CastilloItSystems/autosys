@@ -151,6 +151,41 @@ export interface KardexReportResponse {
   };
 }
 
+export interface SupplierPerformanceRow {
+  supplierId: string;
+  supplierName: string;
+  supplierCode: string;
+  contactName: string | null;
+  email: string | null;
+  totalOrders: number;
+  completedOrders: number;
+  cancelledOrders: number;
+  totalAmount: number;
+  avgOrderAmount: number;
+  itemCount: number;
+  lastOrderDate: string | null;
+  avgDeliveryDays: number | null;
+  onTimeRate: number | null;
+}
+
+export interface SupplierPerformanceSummary {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  totalOrdersAllTime: number;
+  totalAmountAllTime: number;
+  avgOnTimeRate: number | null;
+}
+
+export interface SupplierPerformanceFilters {
+  page?: number;
+  limit?: number;
+}
+
+export interface SupplierPerformanceResponse
+  extends PaginatedResponse<SupplierPerformanceRow> {
+  summary: SupplierPerformanceSummary;
+}
+
 // ============================================================================
 // SERVICE
 // ============================================================================
@@ -313,6 +348,16 @@ const reportService = {
     const response = await apiClient.get<KardexReportResponse>(
       `/inventory/reports/kardex`,
       { params },
+    );
+    return response.data;
+  },
+
+  async getSupplierPerformance(
+    filters: SupplierPerformanceFilters = {},
+  ): Promise<SupplierPerformanceResponse> {
+    const response = await apiClient.get<SupplierPerformanceResponse>(
+      "/inventory/reports/supplier-performance",
+      { params: filters },
     );
     return response.data;
   },
