@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -15,12 +15,11 @@ import { handleFormError } from "@/utils/errorHandlers";
 import workshopShiftService from "@/modules/workshop/shifts/services/workshopShiftService";
 import type { WorkshopShift } from "@/modules/workshop/shifts/interfaces/workshopShift.interface";
 import WorkshopShiftForm from "./WorkshopShiftForm";
+import { useWorkshopShiftsData } from "../hooks/useWorkshopShiftsData";
 
 const DAY_LABELS = ["D", "L", "M", "X", "J", "V", "S"];
 
 export default function WorkshopShiftList() {
-  const [items, setItems] = useState<WorkshopShift[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopShift | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopShift | null>(null);
 
@@ -29,35 +28,18 @@ export default function WorkshopShiftList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await workshopShiftService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { shifts, total: totalRecords, loading, mutate } = useWorkshopShiftsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -77,24 +59,22 @@ export default function WorkshopShiftList() {
         detail: `Turno ${item.isActive ? "desactivado" : "activado"}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Turno actualizado" : "Turno creado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Turno actualizado" : "Turno creado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const actionBodyTemplate = (rowData: WorkshopShift) => (
@@ -188,7 +168,7 @@ export default function WorkshopShiftList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={shifts}
           paginator
           lazy
           first={page * rows}

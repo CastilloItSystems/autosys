@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
@@ -14,7 +14,8 @@ import { Toast } from "primereact/toast";
 import type { SupplierBill } from "../interfaces/supplierBill";
 import type { PaymentMethod } from "@/modules/finance/supplierPayments/interfaces/supplierPayment";
 import supplierPaymentService from "@/modules/finance/supplierPayments/services/supplierPaymentService";
-import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
+import { useActiveBankAccountOptionsData } from "@/modules/finance/bankAccounts/hooks/useBankAccountsData";
+import { useSupplierPaymentsData } from "@/modules/finance/supplierPayments/hooks/useSupplierPaymentsData";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
@@ -70,11 +71,6 @@ export default function RegisterPaymentDialog({
   onSuccess,
   toast,
 }: Props) {
-  const [bankAccounts, setBankAccounts] = useState<
-    { label: string; value: string; currency: string }[]
-  >([]);
-  const [existingPayments, setExistingPayments] = useState<any[]>([]);
-
   // Form state
   const [method, setMethod] = useState<PaymentMethod>("TRANSFER");
   const [bankAccountId, setBankAccountId] = useState("");
@@ -94,6 +90,10 @@ export default function RegisterPaymentDialog({
   // BCV auto-fill
   const { rate: bcvUsdRate, loading: bcvLoading } = useBcvRate("USD");
   const { rate: bcvEurRate } = useBcvRate("EUR");
+  const { accounts: activeBankAccounts } = useActiveBankAccountOptionsData();
+  const { payments: existingPayments } = useSupplierPaymentsData(
+    visible && bill ? { supplierBillId: bill.id, limit: 50 } : null,
+  );
 
   // Derived
   const currency = bill?.currency ?? "USD";
@@ -127,7 +127,17 @@ export default function RegisterPaymentDialog({
   const totalWithIgtf = round2(amount + igtfAmount);
 
   // Only show accounts matching the bill's currency
-  const matchingAccounts = bankAccounts.filter((a) => a.currency === currency);
+  const matchingAccounts = useMemo(
+    () =>
+      activeBankAccounts
+        .filter((account) => account.currency === currency)
+        .map((account) => ({
+          label: `${account.name} (${account.currency})`,
+          value: account.id,
+          currency: account.currency,
+        })),
+    [activeBankAccounts, currency],
+  );
 
   // Sync mixed sum → amount
   useEffect(() => {
@@ -135,19 +145,6 @@ export default function RegisterPaymentDialog({
       setAmount(round2(mixedDetails.reduce((s, d) => s + (d.amount || 0), 0)));
     }
   }, [mixedDetails, method]);
-
-  // Load bank accounts once
-  useEffect(() => {
-    bankAccountService.getAll({ isActive: "true", limit: 100 }).then((res) => {
-      setBankAccounts(
-        (res.data ?? []).map((a: any) => ({
-          label: `${a.name} (${a.currency})`,
-          value: a.id,
-          currency: a.currency,
-        })),
-      );
-    });
-  }, []);
 
   // Reset form + load existing payments when dialog opens
   useEffect(() => {
@@ -169,10 +166,6 @@ export default function RegisterPaymentDialog({
       { method: "CASH", amount: 0 },
       { method: "TRANSFER", amount: 0 },
     ]);
-    supplierPaymentService
-      .getAll({ supplierBillId: bill.id, limit: 50 })
-      .then((res) => setExistingPayments(res.data ?? []))
-      .catch(() => setExistingPayments([]));
   }, [visible, bill?.id]);
 
   const handleSubmit = async () => {

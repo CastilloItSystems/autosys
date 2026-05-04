@@ -1,10 +1,24 @@
 import { Request, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import prisma from '../services/prisma.service.js'
-import { generateToken } from '../services/jwt.service.js'
+import { generateAccessToken } from '../services/jwt.service.js'
+import refreshTokenService from '../services/refresh-token.service.js'
 import { resolveMembershipPermissions } from '../shared/utils/resolvePermissions.js'
 import { ApiResponse } from '../shared/utils/apiResponse.js'
 import { logger } from '../shared/utils/logger.js'
+
+const issueAuthTokens = async (userId: string, email: string) => {
+  const access = generateAccessToken({ userId, email })
+  const refresh = await refreshTokenService.issue(userId)
+
+  return {
+    token: access.accessToken,
+    accessToken: access.accessToken,
+    accessTokenExpiresAt: access.accessTokenExpiresAt,
+    refreshToken: refresh.refreshToken,
+    refreshTokenExpiresAt: refresh.refreshTokenExpiresAt,
+  }
+}
 
 export const login = async (req: Request, res: Response) => {
   try {
@@ -96,10 +110,7 @@ export const login = async (req: Request, res: Response) => {
       ),
     }))
 
-    const token = generateToken({
-      userId: user.id,
-      email: user.correo,
-    })
+    const tokens = await issueAuthTokens(user.id, user.correo)
 
     const { password: _password, ...userWithoutSensitive } = user
     const userResponse = {
@@ -121,7 +132,7 @@ export const login = async (req: Request, res: Response) => {
     return ApiResponse.success(
       res,
       {
-        token,
+        ...tokens,
         user: {
           ...userResponse,
           empresas,
@@ -190,17 +201,14 @@ export const register = async (req: Request, res: Response) => {
       },
     })
 
-    const token = generateToken({
-      userId: newUser.id,
-      email: newUser.correo,
-    })
+    const tokens = await issueAuthTokens(newUser.id, newUser.correo)
 
     const { password: _password, ...userWithoutPassword } = newUser
 
     return ApiResponse.created(
       res,
       {
-        token,
+        ...tokens,
         user: {
           ...userWithoutPassword,
           empresas: [],
@@ -319,8 +327,57 @@ export const getProfile = async (req: Request, res: Response) => {
   }
 }
 
-export const logout = async (_req: Request, res: Response) => {
+export const logout = async (req: Request, res: Response) => {
+  const refreshToken =
+    typeof req.body?.refreshToken === 'string' ? req.body.refreshToken : null
+
+  if (refreshToken) {
+    await refreshTokenService.revokeToken(refreshToken)
+  } else if (req.user?.userId) {
+    await refreshTokenService.revokeActiveForUser(req.user.userId)
+  }
+
   return ApiResponse.success(res, null, 'Logout exitoso')
+}
+
+export const refresh = async (req: Request, res: Response) => {
+  try {
+    const refreshToken =
+      typeof req.body?.refreshToken === 'string' ? req.body.refreshToken.trim() : ''
+
+    if (!refreshToken) {
+      return ApiResponse.badRequest(res, 'Refresh token requerido')
+    }
+
+    const rotated = await refreshTokenService.rotate(refreshToken)
+    if (!rotated.ok) {
+      return ApiResponse.unauthorized(res, 'Refresh token inválido o expirado')
+    }
+
+    const access = generateAccessToken({
+      userId: rotated.data.user.id,
+      email: rotated.data.user.correo,
+    })
+
+    return ApiResponse.success(
+      res,
+      {
+        token: access.accessToken,
+        accessToken: access.accessToken,
+        accessTokenExpiresAt: access.accessTokenExpiresAt,
+        refreshToken: rotated.data.refreshToken,
+        refreshTokenExpiresAt: rotated.data.refreshTokenExpiresAt,
+      },
+      'Token renovado exitosamente'
+    )
+  } catch (error: unknown) {
+    const err = error instanceof Error ? error : new Error(String(error))
+    logger.error('Error renovando token', {
+      message: err.message,
+      stack: err.stack,
+    })
+    return ApiResponse.serverError(res, 'Error interno del servidor')
+  }
 }
 
 export const changePassword = async (req: Request, res: Response) => {

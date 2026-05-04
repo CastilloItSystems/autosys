@@ -1,6 +1,11 @@
 export { default as CashFlowReport } from "./components/CashFlowReport";
 export { default as TransferDialog } from "./components/TransferDialog";
 export { default as ManualAdjustmentDialog } from "./components/ManualAdjustmentDialog";
+export {
+  useCashFlowData,
+  useCashFlowSummaryData,
+  useCashTransactionsData,
+} from "./hooks/useCashFlowData";
 export type {
   CashTransaction,
   CashTransactionType,

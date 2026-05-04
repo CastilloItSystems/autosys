@@ -2,8 +2,8 @@
 import {
   getEmpresas,
   Empresa as EmpresaService,
-} from "@/app/api/empresaService";
-import { Empresa } from "@/libs/interfaces/empresaInterface";
+} from "@/modules/companies/services/empresa.service";
+import { Empresa } from "@/modules/companies/interfaces/empresa.interface";
 import { useCallback } from "react";
 import useSWR from "swr";
 

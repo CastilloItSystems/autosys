@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -9,6 +9,7 @@ import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import paymentService from "../services/paymentService";
+import { usePaymentsData } from "../hooks/usePaymentsData";
 import {
   Payment,
   PaymentStatus,
@@ -61,13 +62,10 @@ const formatCrossRef = (
   })}`;
 };
 
-const PaymentList = () => {
-  const [payments, setPayments] = useState<Payment[]>([]);
-  const [loading, setLoading] = useState(true);
+const PaymentListContent = () => {
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedRows, setExpandedRows] = useState<any>(null);
@@ -75,6 +73,19 @@ const PaymentList = () => {
   const [pdfItem, setPdfItem] = useState<Payment | null>(null);
   const toast = useRef<Toast | null>(null);
   const dt = useRef(null);
+
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [page, rows, debouncedSearch, sortField, sortOrder],
+  );
+  const { payments, total: totalRecords, loading, mutate } =
+    usePaymentsData(listParams);
 
   useEffect(() => {
     const handler = setTimeout(
@@ -84,33 +95,10 @@ const PaymentList = () => {
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
 
-  useEffect(() => {
-    loadPayments();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  const loadPayments = async () => {
-    try {
-      setLoading(true);
-      const res = await paymentService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setPayments(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener pagos:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const handleCancel = async (payment: Payment) => {
     try {
       await paymentService.cancel(payment.id);
-      await loadPayments();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Cancelado",
@@ -449,4 +437,4 @@ const PaymentList = () => {
   );
 };
 
-export default PaymentList;
+export default PaymentListContent;

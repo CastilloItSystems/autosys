@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,7 +14,6 @@ import dynamic from "next/dynamic";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
-import warrantyService from "@/modules/workshop/warranties/services/warrantyService";
 import type {
   WorkshopWarranty,
   WarrantyStatus,
@@ -26,12 +25,11 @@ import {
 } from "@/modules/workshop/shared/components/WarrantyStatusBadge";
 import WarrantyForm from "./WarrantyForm";
 import WarrantyStatusDialog from "./WarrantyStatusDialog";
+import { useWarrantiesData } from "../hooks/useWarrantiesData";
 
 const WarrantyPDFPreview = dynamic(() => import("./WarrantyPDFPreview"), { ssr: false });
 
 export default function WarrantyList() {
-  const [items, setItems] = useState<WorkshopWarranty[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopWarranty | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopWarranty | null>(null);
 
@@ -40,7 +38,6 @@ export default function WarrantyList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [statusDialog, setStatusDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -49,30 +46,14 @@ export default function WarrantyList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await warrantyService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: (statusFilter as WarrantyStatus) || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { warranties, total: totalRecords, loading, mutate } = useWarrantiesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    status: (statusFilter as WarrantyStatus) || undefined,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -88,17 +69,15 @@ export default function WarrantyList() {
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Garantía actualizada" : "Garantía registrada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Garantía actualizada" : "Garantía registrada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const handleStatusSaved = async () => {
@@ -108,7 +87,7 @@ export default function WarrantyList() {
       detail: "Estado de garantía actualizado",
       life: 3000,
     });
-    await loadItems();
+    mutate();
     setStatusDialog(false);
     setSelected(null);
   };
@@ -223,7 +202,7 @@ export default function WarrantyList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={warranties}
           paginator
           lazy
           first={page * rows}

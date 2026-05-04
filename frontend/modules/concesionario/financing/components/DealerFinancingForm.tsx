@@ -6,7 +6,7 @@ import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
+import { useCustomerDetailData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import dealerFinancingService from "../services/dealerFinancingService";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
@@ -61,6 +61,17 @@ export default function DealerFinancingForm({
       status: financing?.status || "DRAFT",
     },
   });
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState<
+    string | null
+  >(null);
+  const { customer: selectedCustomer } =
+    useCustomerDetailData(selectedCustomerId);
+
+  React.useEffect(() => {
+    if (selectedCustomer) {
+      setValue("customerName", selectedCustomer.name || "");
+    }
+  }, [selectedCustomer, setValue]);
 
   const watchCurrency = watch("currency") as "USD" | "VES" | "EUR";
   const watchFxSource = watch("exchangeRateSource");
@@ -148,24 +159,15 @@ export default function DealerFinancingForm({
     }
   };
 
-  const handleCustomerChange = async (
+  const handleCustomerChange = (
     customerId: string | null,
     onChange: (value: string) => void,
   ) => {
     const id = customerId ?? "";
     onChange(id);
+    setSelectedCustomerId(id || null);
     if (!id) {
       setValue("customerName", "");
-      return;
-    }
-    try {
-      const res = await customerCrmService.getById(id);
-      const customer = res?.data;
-      if (customer) {
-        setValue("customerName", customer.name || "");
-      }
-    } catch {
-      // noop
     }
   };
 

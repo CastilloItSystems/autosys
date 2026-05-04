@@ -5,5 +5,15 @@ export { default as UsuarioChangePasswordForm } from "./components/UsuarioChange
 export { default as UsuarioForm } from "./components/UsuarioForm";
 export { default as UsuarioList } from "./components/UsuarioList";
 export { default as UsuarioMemberships } from "./components/UsuarioMemberships";
+export {
+  useEmpresaMembershipsData,
+  useMembershipCompanyRolesData,
+  useMembershipEmpresasData,
+  useMembershipPermissionsData,
+  useUserAuditLogsData,
+  useUserData,
+  useUserMembershipsData,
+  useUsersData,
+} from "./hooks/useUsersData";
 export * from "./interfaces/user.interface";
 export * from "./schemas/user.schema";

@@ -1,5 +1,5 @@
 import apiClient from "@/app/api/apiClient";
-import type { ApiResponse } from "@/libs/interfaces";
+import type { ApiResponse } from "@/shared/interfaces/common.interface";
 
 export interface UnifiedCatalogItem {
   id: string;

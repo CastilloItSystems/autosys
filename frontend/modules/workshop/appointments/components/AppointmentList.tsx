@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -24,6 +24,7 @@ import {
   APPT_STATUS_LABELS,
 } from "@/modules/workshop/shared/components/AppointmentStatusBadge";
 import AppointmentForm from "./AppointmentForm";
+import { useAppointmentsData } from "../hooks/useAppointmentsData";
 
 const VIEW_OPTIONS = [
   { label: "Lista", value: "list", icon: "pi pi-list" },
@@ -32,8 +33,6 @@ const VIEW_OPTIONS = [
 
 export default function AppointmentList() {
   const router = useRouter();
-  const [items, setItems] = useState<ServiceAppointment[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceAppointment | null>(null);
   const [actionItem, setActionItem] = useState<ServiceAppointment | null>(null);
   const [viewMode, setViewMode] = useState<"list" | "calendar">("list");
@@ -43,7 +42,6 @@ export default function AppointmentList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [detailsDialog, setDetailsDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -53,30 +51,14 @@ export default function AppointmentList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await appointmentService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: (statusFilter as AppointmentStatus) || undefined,
-        sortBy: "scheduledDate",
-        sortOrder: "asc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { appointments, total: totalRecords, loading, mutate } = useAppointmentsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    status: (statusFilter as AppointmentStatus) || undefined,
+    sortBy: "scheduledDate",
+    sortOrder: "asc",
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -108,7 +90,7 @@ export default function AppointmentList() {
         detail: `Cita marcada como: ${APPT_STATUS_LABELS[status]}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -136,7 +118,7 @@ export default function AppointmentList() {
         detail: "Cita eliminada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -147,17 +129,15 @@ export default function AppointmentList() {
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Cita actualizada" : "Cita creada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Cita actualizada" : "Cita creada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -301,7 +281,7 @@ export default function AppointmentList() {
       ) : (
         <div className="card">
           <DataTable
-            value={items}
+            value={appointments}
             paginator
             lazy
             first={page * rows}

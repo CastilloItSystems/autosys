@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
@@ -16,6 +16,7 @@ import {
   CASE_TYPE_CONFIG,
 } from "../interfaces/case.interface";
 import caseService from "../services/caseService";
+import { useCaseDetailData } from "../hooks/useCasesData";
 import { handleFormError } from "@/utils/errorHandlers";
 
 interface Props {
@@ -35,31 +36,19 @@ function isOverdue(slaDeadline?: string | null, status?: string): boolean {
 }
 
 export default function CaseDetailDialog({ caseId, visible, onHide, onUpdated, toast }: Props) {
-  const [caseData, setCaseData] = useState<Case | null>(null);
-  const [loading, setLoading] = useState(false);
+  const { caseData, loading, mutate } = useCaseDetailData(
+    visible ? caseId : null,
+  );
   const [comment, setComment] = useState("");
   const [isInternal, setIsInternal] = useState(false);
   const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
     if (!visible || !caseId) {
-      setCaseData(null);
       setComment("");
       setIsInternal(false);
-      return;
     }
-    setLoading(true);
-    caseService
-      .getById(caseId)
-      .then((res) => {
-        const data = (res as any)?.data ?? res;
-        setCaseData(data);
-      })
-      .catch(() => {
-        toast?.current?.show({ severity: "error", summary: "Error al cargar el caso" });
-      })
-      .finally(() => setLoading(false));
-  }, [visible, caseId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [visible, caseId]);
 
   const handleAddComment = async () => {
     if (!caseId || !comment.trim()) return;
@@ -69,10 +58,7 @@ export default function CaseDetailDialog({ caseId, visible, onHide, onUpdated, t
       toast?.current?.show({ severity: "success", summary: "Comentario agregado" });
       setComment("");
       setIsInternal(false);
-      // Reload case to get updated comments
-      const res = await caseService.getById(caseId);
-      const data = (res as any)?.data ?? res;
-      setCaseData(data);
+      await mutate();
       onUpdated();
     } catch (err) {
       handleFormError(err, toast);

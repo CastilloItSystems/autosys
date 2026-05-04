@@ -14,11 +14,11 @@ import {
   SERIAL_STATUS_CONFIG,
 } from "@/types/serialNumber.interface";
 import {
-  getSerialNumbers,
   createSerialNumber,
   deleteSerialNumber,
   updateSerialNumber,
 } from "@/modules/inventory/serialNumbers/services/serialNumberService";
+import { useSerialNumbersData } from "@/modules/inventory/serialNumbers/hooks/useSerialNumbersData";
 import SerialNumberForm from "./SerialNumberForm";
 import SerialNumberDetail from "./SerialNumberDetail";
 import SerialNumberTimeline from "./SerialNumberTimeline";
@@ -32,9 +32,6 @@ interface SerialNumberListProps {
 export default function SerialNumberList({
   warehouseId,
 }: SerialNumberListProps) {
-  const [serials, setSerials] = useState<SerialNumber[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [lazyState, setLazyState] = useState({
     first: 0,
     rows: 10,
@@ -42,6 +39,12 @@ export default function SerialNumberList({
   });
 
   const [filterStatus, setFilterStatus] = useState<SerialStatus | null>(null);
+
+  const { serialNumbers: serials, total: totalRecords, loading, mutate } = useSerialNumbersData(
+    lazyState.page,
+    lazyState.rows,
+    { status: filterStatus as SerialStatus, warehouseId: warehouseId || undefined },
+  );
   const [showForm, setShowForm] = useState(false);
   const [selectedSerial, setSelectedSerial] = useState<SerialNumber | null>(
     null,
@@ -51,35 +54,6 @@ export default function SerialNumberList({
 
   const toast = useRef<Toast>(null);
 
-  // Load serial numbers
-  const loadSerialNumbers = async (
-    page: number,
-    rows: number,
-    status?: string,
-  ) => {
-    setLoading(true);
-    try {
-      const response = await getSerialNumbers(page, rows, {
-        status: status as SerialStatus,
-        warehouseId: warehouseId || undefined,
-      });
-      setSerials(response.data);
-      setTotalRecords(response.total);
-    } catch (error) {
-      console.error("Error loading serial numbers:", error);
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    loadSerialNumbers(
-      lazyState.page,
-      lazyState.rows,
-      filterStatus || undefined,
-    );
-  }, [lazyState, filterStatus, warehouseId]);
 
   const onPage = (event: any) => {
     setLazyState({
@@ -170,11 +144,7 @@ export default function SerialNumberList({
         detail: "Número de serie eliminado correctamente",
         life: 3000,
       });
-      loadSerialNumbers(
-        lazyState.page,
-        lazyState.rows,
-        filterStatus || undefined,
-      );
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -201,11 +171,7 @@ export default function SerialNumberList({
       }
       setShowForm(false);
       setSelectedSerial(null);
-      loadSerialNumbers(
-        lazyState.page,
-        lazyState.rows,
-        filterStatus || undefined,
-      );
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

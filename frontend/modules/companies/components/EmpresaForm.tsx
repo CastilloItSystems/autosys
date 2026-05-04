@@ -10,13 +10,16 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { FileUpload, FileUploadSelectEvent } from "primereact/fileupload";
 import { Image } from "primereact/image";
 import { handleFormError } from "@/utils/errorHandlers";
-import { empresaSchema, EmpresaFormData } from "@/libs/zods/empresaZod";
+import {
+  empresaSchema,
+  type EmpresaFormData,
+} from "../schemas/empresa.schema";
 import {
   createEmpresa,
   updateEmpresa,
   uploadEmpresaLogo,
-  type Empresa,
-} from "@/app/api/empresaService";
+} from "../services/empresa.service";
+import type { Empresa } from "../interfaces/empresa.interface";
 import RifInput from "@/shared/components/RifInput";
 import PhoneInput from "@/shared/components/PhoneInput";
 

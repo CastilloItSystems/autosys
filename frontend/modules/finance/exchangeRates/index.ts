@@ -1,5 +1,10 @@
 export { default as ExchangeRateForm } from "./components/ExchangeRateForm";
 export { default as ExchangeRateList } from "./components/ExchangeRateList";
+export {
+  useActiveExchangeRatesData,
+  useExchangeRatesData,
+  useLatestExchangeRateData,
+} from "./hooks/useExchangeRatesData";
 export type {
   ExchangeRate,
   ExchangeRateSource,

@@ -31,15 +31,13 @@ import {
 } from "@/modules/inventory/reconciliations/interfaces/reconciliation.interface";
 import ReconciliationForm from "./ReconciliationForm";
 import ReconciliationDetail from "./ReconciliationDetail";
+import { useReconciliationsData } from "@/modules/inventory/reconciliations/hooks/useReconciliationsData";
 
 export default function ReconciliationList() {
   const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
 
-  const [reconciliations, setReconciliations] = useState<Reconciliation[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
-  const [loading, setLoading] = useState(false);
   const [filters, setFilters] = useState<{
     status?: ReconciliationStatus | null;
     warehouseId?: string | null;
@@ -47,6 +45,14 @@ export default function ReconciliationList() {
     page: number;
     limit: number;
   }>({ page: 1, limit: 20 });
+
+  const { reconciliations, total: totalRecords, loading, mutate } = useReconciliationsData({
+    page: filters.page,
+    limit: filters.limit,
+    status: filters.status,
+    warehouseId: filters.warehouseId,
+    source: filters.source,
+  });
 
   const [selectedReconciliation, setSelectedReconciliation] =
     useState<Reconciliation | null>(null);
@@ -66,46 +72,6 @@ export default function ReconciliationList() {
     })();
   }, []);
 
-  // ── Carga de reconciliaciones ────────────────────────────────────────────
-  useEffect(() => {
-    if (activeEmpresa) loadReconciliations();
-  }, [
-    filters.page,
-    filters.limit,
-    filters.status,
-    filters.warehouseId,
-    filters.source,
-    activeEmpresa?.id_empresa,
-  ]);
-
-  const loadReconciliations = async () => {
-    setLoading(true);
-    try {
-      const params: Record<string, string> = {};
-      if (filters.status) params.status = filters.status;
-      if (filters.warehouseId) params.warehouseId = filters.warehouseId;
-      if (filters.source) params.source = filters.source;
-
-      const response = await reconciliationService.getAll(
-        filters.page,
-        filters.limit,
-        params,
-      );
-      setReconciliations(Array.isArray(response.data) ? response.data : []);
-      setTotalRecords(response.meta?.total ?? 0);
-    } catch (error: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail:
-          error?.response?.data?.message || "Error al cargar reconciliaciones",
-        life: 3000,
-      });
-      setReconciliations([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // ── Acciones de flujo ────────────────────────────────────────────────────
   const performAction = (
@@ -153,7 +119,7 @@ export default function ReconciliationList() {
             detail: `Reconciliación ${label} correctamente`,
             life: 3000,
           });
-          loadReconciliations();
+          mutate();
         } catch (err: any) {
           toast.current?.show({
             severity: "error",
@@ -509,7 +475,7 @@ export default function ReconciliationList() {
           onSuccess={() => {
             setShowForm(false);
             setSelectedReconciliation(null);
-            loadReconciliations();
+            mutate();
           }}
           onCancel={() => {
             setShowForm(false);
@@ -541,7 +507,7 @@ export default function ReconciliationList() {
             reconciliation={selectedReconciliation}
             onRefresh={() => {
               setShowDetail(false);
-              loadReconciliations();
+              mutate();
             }}
           />
         )}

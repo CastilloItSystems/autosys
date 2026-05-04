@@ -1,68 +1,99 @@
 import { User } from "@/modules/users/interfaces/user.interface";
 
 export interface Empresa {
-  id: string;
-  name: string;
-  address?: string | null;
-  phones?: string | null;
+  id_empresa: string;
+  nombre: string;
+  direccion?: string | null;
+  telefonos?: string | null;
   fax?: string | null;
-  rif?: string | null;
-  nit?: string | null;
+  numerorif?: string | null;
+  numeronit?: string | null;
   website?: string | null;
   email?: string | null;
-  contact?: string | null;
-  isDefault: boolean;
-  support1?: string | null;
-  support2?: string | null;
-  support3?: string | null;
-  usesWeb: boolean;
-  dbServer?: string | null;
-  dbUser?: string | null;
-  dbPassword?: string | null;
-  dbPort?: string | null;
-  license?: string | null;
-  archived: boolean;
-  additionalInfo?: string | null;
-  usesPrefix: boolean;
-  prefixName?: string | null;
-  dbPrefix?: string | null;
-  serverPrefix?: string | null;
-  userPrefix?: string | null;
-  logoUrl?: string | null;
-  deleted: boolean;
+  contacto?: string | null;
+  predeter: boolean;
+  soporte1?: string | null;
+  soporte2?: string | null;
+  soporte3?: string | null;
+  data_usaweb: boolean;
+  data_servidor?: string | null;
+  data_usuario?: string | null;
+  data_password?: string | null;
+  data_port?: string | null;
+  licencia?: string | null;
+  historizada: boolean;
+  masinfo?: string | null;
+  usa_prefijo: boolean;
+  name_prefijo?: string | null;
+  dprefijobd?: string | null;
+  dprefijosrv?: string | null;
+  dprefijousr?: string | null;
+  logo_url?: string | null;
+  eliminado: boolean;
   createdAt: string;
   updatedAt: string;
   users?: User[];
 }
 
+export interface AuditUser {
+  id: string;
+  nombre: string;
+  correo: string;
+}
+
+export interface AuditLog {
+  id: string;
+  entity: string;
+  entityId: string;
+  action: string;
+  userId?: string;
+  user?: AuditUser;
+  changes: {
+    before: Record<string, any>;
+    after: Record<string, any>;
+  };
+  metadata?: unknown;
+  createdAt: string;
+}
+
+export interface EmpresasResponse {
+  total: number;
+  empresas: Empresa[];
+}
+
+export interface AuditLogsResponse {
+  total: number;
+  auditLogs: AuditLog[];
+}
+
 export interface EmpresaCreate {
-  name: string;
-  address?: string;
-  phones?: string;
-  fax?: string;
-  rif?: string;
-  nit?: string;
-  website?: string;
-  email?: string;
-  contact?: string;
-  isDefault?: boolean;
-  support1?: string;
-  support2?: string;
-  support3?: string;
-  usesWeb?: boolean;
-  dbServer?: string;
-  dbUser?: string;
-  dbPassword?: string;
-  dbPort?: string;
-  license?: string;
-  archived?: boolean;
-  additionalInfo?: string;
-  usesPrefix?: boolean;
-  prefixName?: string;
-  dbPrefix?: string;
-  serverPrefix?: string;
-  userPrefix?: string;
-  logoUrl?: string;
+  nombre: string;
+  direccion?: string | null;
+  telefonos?: string | null;
+  fax?: string | null;
+  numerorif?: string | null;
+  numeronit?: string | null;
+  website?: string | null;
+  email?: string | null;
+  contacto?: string | null;
+  predeter?: boolean;
+  soporte1?: string | null;
+  soporte2?: string | null;
+  soporte3?: string | null;
+  data_usaweb?: boolean;
+  data_servidor?: string | null;
+  data_usuario?: string | null;
+  data_password?: string | null;
+  data_port?: string | null;
+  licencia?: string | null;
+  historizada?: boolean;
+  masinfo?: string | null;
+  usa_prefijo?: boolean;
+  name_prefijo?: string | null;
+  dprefijobd?: string | null;
+  dprefijosrv?: string | null;
+  dprefijousr?: string | null;
+  logo_url?: string | null;
 }
 
 export interface EmpresaUpdate extends Partial<EmpresaCreate> {}

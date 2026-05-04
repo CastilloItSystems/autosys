@@ -21,7 +21,7 @@ import supplierService, {
 import warehouseService, {
   type Warehouse,
 } from "@/modules/inventory/warehouses/services/warehouseService";
-import { ProgressSpinner } from "primereact/progressspinner";
+import { usePurchaseOrdersData } from "@/modules/inventory/purchaseOrders/hooks/usePurchaseOrdersData";
 import { motion } from "framer-motion";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
@@ -42,20 +42,17 @@ const PurchaseOrderList = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const contextualSearchFilter = searchParams.get("search") || "";
-  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
   const [purchaseOrder, setPurchaseOrder] = useState<PurchaseOrder | null>(
     null,
   );
   const [items, setItems] = useState<Item[]>([]);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState(
     contextualSearchFilter,
   );
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -88,9 +85,13 @@ const PurchaseOrderList = () => {
     setPage(0);
   }, [contextualSearchFilter]);
 
-  useEffect(() => {
-    loadPurchaseOrders();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
+  const { purchaseOrders, total: totalRecords, loading, mutate } = usePurchaseOrdersData({
+    page: page + 1,
+    limit: rows,
+    sortBy: sortField,
+    sortOrder: sortOrder,
+    search: debouncedSearch || undefined,
+  });
 
   useEffect(() => {
     loadFormData();
@@ -117,32 +118,6 @@ const PurchaseOrderList = () => {
       setWarehouses(Array.isArray(warehouseList) ? warehouseList : []);
     } catch (error) {
       console.error("Error loading form data:", error);
-    }
-  };
-
-  const loadPurchaseOrders = async () => {
-    try {
-      setLoading(true);
-      const res = await purchaseOrderService.getAll({
-        page: page + 1,
-        limit: rows,
-        sortBy: sortField,
-        sortOrder: sortOrder,
-        search: debouncedSearch || undefined,
-      });
-
-      setPurchaseOrders(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener órdenes de compra:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar las órdenes de compra",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -196,18 +171,13 @@ const PurchaseOrderList = () => {
 
   const mergePurchaseOrder = (updatedOrder?: PurchaseOrder | null) => {
     if (!updatedOrder?.id) return;
-
-    setPurchaseOrders((prev) =>
-      prev.map((po) =>
-        po.id === updatedOrder.id ? { ...po, ...updatedOrder } : po,
-      ),
-    );
     setPurchaseOrder((prev) =>
       prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
     );
     setActionPurchaseOrder((prev) =>
       prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
     );
+    mutate();
   };
 
   const handleSave = async () => {
@@ -219,7 +189,7 @@ const PurchaseOrderList = () => {
         : "Orden de compra creada correctamente",
       life: 3000,
     });
-    await loadPurchaseOrders();
+    mutate();
     hideFormDialog();
   };
 
@@ -230,9 +200,8 @@ const PurchaseOrderList = () => {
     setIsDeleting(true);
     try {
       await purchaseOrderService.delete(deletedId);
-      setPurchaseOrders((prev) => prev.filter((po) => po.id !== deletedId));
-      setTotalRecords((prev) => Math.max(0, prev - 1));
       if (remainingRows <= 0 && page > 0) setPage((prev) => prev - 1);
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -927,14 +896,6 @@ const PurchaseOrderList = () => {
       </div>
     );
   };
-
-  if (loading && purchaseOrders.length === 0) {
-    return (
-      <div className="flex justify-content-center align-items-center h-screen">
-        <ProgressSpinner />
-      </div>
-    );
-  }
 
   return (
     <>

@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AxiosError } from "axios";
 import { Column } from "primereact/column";
@@ -17,6 +17,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import orderService from "../services/orderService";
+import { useOrdersData, useSalesOrderOptionsData } from "../hooks/useOrdersData";
 import {
   Order,
   OrderItem,
@@ -27,14 +28,10 @@ import {
   OrderSalesStockDiagnosis,
   OrderSuggestedReplenishmentResult,
 } from "../interfaces/order.interface";
-import itemService, { Item } from "@/modules/inventory/items/services/itemService";
-import warehouseService, {
-  Warehouse,
-} from "@/modules/inventory/warehouses/services/warehouseService";
-import customerService, {
-  Customer,
-} from "@/modules/sales/customer/services/customerService";
-import supplierService, { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
+import type { Item } from "@/modules/inventory/items/services/itemService";
+import type { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
+import type { Customer } from "@/modules/sales/customer/services/customerService";
+import type { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
 import OrderForm from "./OrderForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
@@ -83,24 +80,17 @@ const extractSalesStockShortage = (
   };
 };
 
-const OrderList = () => {
+const OrderListContent = () => {
   const router = useRouter();
-  const [orders, setOrders] = useState<Order[]>([]);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [expandedRows, setExpandedRows] = useState<any>(null);
-  const [items, setItems] = useState<Item[]>([]);
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionOrder, setActionOrder] = useState<Order | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -119,6 +109,30 @@ const OrderList = () => {
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
 
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [page, rows, debouncedSearch, sortField, sortOrder],
+  );
+  const { orders, total: totalRecords, loading, mutate } =
+    useOrdersData(listParams);
+  const {
+    items,
+    warehouses,
+    customers,
+    suppliers,
+  }: {
+    items: Item[];
+    warehouses: Warehouse[];
+    customers: Customer[];
+    suppliers: Supplier[];
+  } = useSalesOrderOptionsData();
+
   // ── Debounced search ──
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -126,50 +140,6 @@ const OrderList = () => {
     }, 500);
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
-
-  useEffect(() => {
-    loadOrders();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  useEffect(() => {
-    loadFormData();
-  }, []);
-
-  const loadFormData = async () => {
-    try {
-      const [whRes, itemRes, custRes, supRes] = await Promise.all([
-        warehouseService.getActive(),
-        itemService.getActive(),
-        customerService.getActive(),
-        supplierService.getActive(),
-      ]);
-      setWarehouses(whRes.data || []);
-      setItems(itemRes.data || []);
-      setCustomers(custRes.data || []);
-      setSuppliers(supRes.data || []);
-    } catch (error) {
-      console.error("Error loading form data:", error);
-    }
-  };
-
-  const loadOrders = async () => {
-    try {
-      setLoading(true);
-      const res = await orderService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setOrders(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener órdenes:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onPageChange = (event: any) => {
     setPage(
@@ -205,21 +175,6 @@ const OrderList = () => {
     setFormDialog(true);
   };
 
-  const mergeOrder = (updatedOrder?: Order | null) => {
-    if (!updatedOrder?.id) return;
-    setOrders((prev) =>
-      prev.map((order) =>
-        order.id === updatedOrder.id ? { ...order, ...updatedOrder } : order,
-      ),
-    );
-    setSelectedOrder((prev) =>
-      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
-    );
-    setActionOrder((prev) =>
-      prev?.id === updatedOrder.id ? { ...prev, ...updatedOrder } : prev,
-    );
-  };
-
   const handleSave = async () => {
     toast.current?.show({
       severity: "success",
@@ -227,7 +182,7 @@ const OrderList = () => {
       detail: selectedOrder?.id ? "Orden actualizada" : "Orden creada",
       life: 3000,
     });
-    await loadOrders();
+    await mutate();
     setFormDialog(false);
     setSelectedOrder(null);
   };
@@ -238,9 +193,11 @@ const OrderList = () => {
         const deletedId = selectedOrder.id;
         const remainingRows = orders.length - 1;
         await orderService.delete(deletedId);
-        setOrders((prev) => prev.filter((order) => order.id !== deletedId));
-        setTotalRecords((prev) => Math.max(0, prev - 1));
-        if (remainingRows <= 0 && page > 0) setPage((prev) => prev - 1);
+        if (remainingRows <= 0 && page > 0) {
+          setPage((prev) => prev - 1);
+        } else {
+          await mutate();
+        }
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -258,8 +215,8 @@ const OrderList = () => {
 
   const handleApprove = async (order: Order) => {
     try {
-      const response = await orderService.approve(order.id);
-      mergeOrder(response.data);
+      await orderService.approve(order.id);
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Aprobada",
@@ -333,6 +290,7 @@ const OrderList = () => {
         detail: `Transferencias: ${transferCount} | OCs: ${poCount}`,
         life: 4500,
       });
+      await mutate();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -342,8 +300,8 @@ const OrderList = () => {
 
   const handleCancel = async (order: Order) => {
     try {
-      const response = await orderService.cancel(order.id);
-      mergeOrder(response.data);
+      await orderService.cancel(order.id);
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Cancelada",
@@ -1167,4 +1125,4 @@ const OrderList = () => {
   );
 };
 
-export default OrderList;
+export default OrderListContent;

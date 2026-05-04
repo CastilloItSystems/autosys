@@ -10,10 +10,8 @@ import { Toast } from "primereact/toast";
 import { ProgressBar } from "primereact/progressbar";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import receivablesService, {
-  type ReceivableItem,
-  type ReceivablesData,
-} from "../services/receivablesService";
+import type { ReceivableItem, ReceivablesData } from "../services/receivablesService";
+import { useReceivablesData } from "../hooks/useReceivablesData";
 import { handleFormError } from "@/utils/errorHandlers";
 import preInvoiceService from "@/modules/sales/preInvoice/services/preInvoiceService";
 import paymentService from "@/modules/sales/payments/services/paymentService";
@@ -50,11 +48,15 @@ const AGING_SEVERITY: Record<
   "sin-vencimiento": "info",
 };
 
-export default function AccountsReceivableList() {
+function AccountsReceivableListContent() {
   const toast = useRef<Toast>(null);
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<ReceivablesData | null>(null);
+  const { data, loading, error, mutate } = useReceivablesData() as {
+    data: ReceivablesData | null;
+    loading: boolean;
+    error: unknown;
+    mutate: () => Promise<ReceivablesData | undefined>;
+  };
 
   // Payment dialog state
   const [paymentDialogVisible, setPaymentDialogVisible] = useState(false);
@@ -104,21 +106,9 @@ export default function AccountsReceivableList() {
     URL.revokeObjectURL(url);
   };
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const result = await receivablesService.getReceivables();
-      setData(result);
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    load();
-  }, []);
+    if (error) handleFormError(error, toast);
+  }, [error]);
 
   const openCobro = async (row: ReceivableItem) => {
     setLoadingCobro(row.id);
@@ -141,7 +131,7 @@ export default function AccountsReceivableList() {
     setPaymentDialogVisible(false);
     setSelectedPreInvoice(null);
     setExistingPayments([]);
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Cobro registrado",
@@ -209,7 +199,7 @@ export default function AccountsReceivableList() {
             outlined
             size="small"
             loading={loading}
-            onClick={load}
+            onClick={() => void mutate()}
           />
         </div>
       </div>
@@ -480,3 +470,5 @@ export default function AccountsReceivableList() {
     </motion.div>
   );
 }
+
+export default AccountsReceivableListContent;

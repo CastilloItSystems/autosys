@@ -24,20 +24,22 @@ const DashboardMain = () => {
     if (!Array.isArray(empresas)) return [];
 
     // Ajuste: Accedemos directamente a las propiedades del objeto user, ya que no tiene una propiedad 'usuario' anidada según tu log.
-    const acceso = user?.access;
+    const acceso = user?.acceso;
     const userEmpresas = user?.empresas;
 
-    if (acceso === "full") {
+    if (acceso === "completo") {
       return empresas;
-    } else if (acceso === "limited" && Array.isArray(userEmpresas)) {
+    } else if (acceso === "limitado" && Array.isArray(userEmpresas)) {
       return empresas.filter((w: any) =>
-        userEmpresas.some((userEmpresa: any) => userEmpresa.empresaId === w.id),
+        userEmpresas.some(
+          (userEmpresa: any) => userEmpresa.id_empresa === w.id_empresa,
+        ),
       );
     } else {
       return [];
     }
   }, [user, empresas]);
-  console.log(empresas);
+
   // Evitar problemas de hidratación: solo renderizar cuando la sesión esté lista
   if (status === "loading" || loading) {
     return (
@@ -99,7 +101,7 @@ const DashboardMain = () => {
           empresasFilter.length > 0 &&
           empresasFilter.map((empresa, idx) => (
             <motion.div
-              key={empresa.id}
+              key={empresa.id_empresa}
               className="col-12 md:col-6 lg:col-4 xl:col-4 p-2 clickable"
               onClick={() => handleDivClick(empresa)}
               initial={{ opacity: 0, y: 40, scale: 0.96, filter: "blur(8px)" }}
@@ -119,8 +121,8 @@ const DashboardMain = () => {
               <div className="card h-full flex flex-column surface-card hover:surface-hover transition-colors transition-duration-300">
                 <div className="flex flex-column md:flex-row align-items-center ">
                   <img
-                    src={empresa.logoUrl || "/demo/images/nature/nature1.jpg"}
-                    alt={empresa.name}
+                    src={empresa.logo_url || "/demo/images/nature/nature1.jpg"}
+                    alt={empresa.nombre}
                     width={100}
                     height={100}
                     className="rounded-lg shadow-4 object-cover mb-3 md:mb-0 md:mr-3 card p-0"
@@ -131,10 +133,10 @@ const DashboardMain = () => {
                       {empresa.direccion}
                     </span> */}
                     <span className="text-primary block text-2xl md:text-3xl font-bold mb-1">
-                      {empresa.prefixName}
+                      {empresa.name_prefijo}
                     </span>
                     <span className="text-primary block white-space-nowrap text-xs opacity-70">
-                      {empresa.rif}
+                      {empresa.numerorif}
                     </span>
                   </div>
                 </div>

@@ -272,7 +272,7 @@ export default function ReceptionHeader({
             damages={pdfDamages}
             photos={pdfPhotos}
             empresaName={activeEmpresa?.nombre}
-            empresaLogo={activeEmpresa?.logo_url}
+            empresaLogo={activeEmpresa?.logo_url ?? undefined}
           />
         </Dialog>
       )}

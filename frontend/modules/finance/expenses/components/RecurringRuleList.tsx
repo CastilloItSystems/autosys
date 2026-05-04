@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -13,6 +13,7 @@ import { MenuItem } from "primereact/menuitem";
 import type { ExpenseRecurringRule } from "../interfaces/expense";
 import { EXPENSE_CATEGORY_LABELS } from "../interfaces/expense";
 import expenseService from "../services/expenseService";
+import { useRecurringRulesData } from "../hooks/useExpensesData";
 import RecurringRuleForm from "./RecurringRuleForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
@@ -25,12 +26,9 @@ const FREQUENCY_LABELS: Record<string, string> = {
   YEARLY: "Anual",
 };
 
-export default function RecurringRuleList() {
+function RecurringRuleListContent() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const [rules, setRules] = useState<ExpenseRecurringRule[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<ExpenseRecurringRule | null>(null);
@@ -39,32 +37,13 @@ export default function RecurringRuleList() {
   );
   const [running, setRunning] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await expenseService.getAllRules({ page, limit: 20 });
-      setRules(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar las reglas",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page]);
+  const listParams = useMemo(() => ({ page, limit: 20 }), [page]);
+  const { rules, total, loading, mutate } = useRecurringRulesData(listParams);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -76,7 +55,7 @@ export default function RecurringRuleList() {
     setRunning(true);
     try {
       const res = await expenseService.runRecurring();
-      await load();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -113,7 +92,7 @@ export default function RecurringRuleList() {
             await expenseService.updateRule(target!.id, {
               isActive: !target!.isActive,
             });
-            await load();
+            await mutate();
             toast.current?.show({
               severity: "success",
               summary: "Éxito",
@@ -287,3 +266,5 @@ export default function RecurringRuleList() {
     </>
   );
 }
+
+export default RecurringRuleListContent;

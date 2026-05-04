@@ -16,11 +16,11 @@ import {
   getDaysUntilExpiry,
 } from "@/types/batch.interface";
 import {
-  getBatches,
   createBatch,
   deleteBatch,
   updateBatch,
-} from "@/app/api/batchService";
+} from "../services/batchService";
+import { useBatchesData } from "@/modules/inventory/batches/hooks/useBatchesData";
 import BatchForm from "./BatchForm";
 import BatchDetail from "./BatchDetail";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -31,9 +31,6 @@ interface BatchListProps {
 }
 
 export default function BatchList({ warehouseId }: BatchListProps) {
-  const [batches, setBatches] = useState<Batch[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [lazyState, setLazyState] = useState({
     first: 0,
     rows: 10,
@@ -41,33 +38,18 @@ export default function BatchList({ warehouseId }: BatchListProps) {
   });
 
   const [filterStatus, setFilterStatus] = useState<BatchStatus | null>(null);
+
+  const { batches, total: totalRecords, loading, mutate } = useBatchesData(
+    lazyState.page,
+    lazyState.rows,
+    { status: filterStatus ?? undefined, warehouseId: warehouseId ?? undefined },
+  );
+
   const [showForm, setShowForm] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<Batch | null>(null);
   const [showDetail, setShowDetail] = useState(false);
 
   const toast = useRef<Toast>(null);
-
-  // Load batches
-  const loadBatches = async (page: number, rows: number, status?: string) => {
-    setLoading(true);
-    try {
-      const response = await getBatches(page, rows, {
-        status: status as BatchStatus,
-        warehouseId: warehouseId || undefined,
-      });
-      setBatches(response.data);
-      setTotalRecords(response.total);
-    } catch (error) {
-      console.error("Error loading batches:", error);
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  React.useEffect(() => {
-    loadBatches(lazyState.page, lazyState.rows, filterStatus || undefined);
-  }, [lazyState, filterStatus, warehouseId]);
 
   const onPage = (event: any) => {
     setLazyState({
@@ -172,7 +154,7 @@ export default function BatchList({ warehouseId }: BatchListProps) {
         detail: "Lote eliminado correctamente",
         life: 3000,
       });
-      loadBatches(lazyState.page, lazyState.rows, filterStatus || undefined);
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -199,7 +181,7 @@ export default function BatchList({ warehouseId }: BatchListProps) {
       }
       setShowForm(false);
       setSelectedBatch(null);
-      loadBatches(lazyState.page, lazyState.rows, filterStatus || undefined);
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

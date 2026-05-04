@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -15,64 +15,30 @@ import { motion } from "framer-motion";
 import warehouseService, {
   Warehouse,
 } from "@/modules/inventory/warehouses/services/warehouseService";
+import { useWarehousesData } from "@/modules/inventory/warehouses/hooks/useWarehousesData";
 import WarehouseForm from "./WarehouseForm";
 import CreateButton from "@/components/common/CreateButton";
 
 export default function WarehouseList() {
-  // Datos
-  const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(
-    null,
-  );
-
-  // Filtros y paginación
+  const [selectedWarehouse, setSelectedWarehouse] = useState<Warehouse | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [page, setPage] = useState<number>(0); // PrimeReact usa 0-indexed
+  const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [showActive, setShowActive] = useState<boolean>(true); // Mostrar activas por defecto
-
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
+  const [showActive, setShowActive] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const toast = useRef<Toast>(null);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
-  const [actionWarehouse, setActionWarehouse] = useState<Warehouse | null>(
-    null,
-  );
+  const [actionWarehouse, setActionWarehouse] = useState<Warehouse | null>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  // Cargar almacenes cuando cambien los filtros
-  useEffect(() => {
-    loadWarehouses();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadWarehouses = async () => {
-    try {
-      setLoading(true);
-      const response = await warehouseService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-
-      // Estructura consistente en todos los endpoints
-      const warehousesData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setWarehouses(Array.isArray(warehousesData) ? warehousesData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading warehouses:", error);
-      handleFormError(error, toast);
-      setWarehouses([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { warehouses, total: totalRecords, loading, mutate } = useWarehousesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
@@ -116,7 +82,7 @@ export default function WarehouseList() {
         detail: "Almacén eliminado correctamente",
         life: 3000,
       });
-      await loadWarehouses();
+      mutate();
       setDeleteDialog(false);
       setSelectedWarehouse(null);
     } catch (error) {
@@ -141,7 +107,7 @@ export default function WarehouseList() {
         } correctamente`,
         life: 3000,
       });
-      await loadWarehouses();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -157,7 +123,7 @@ export default function WarehouseList() {
           : "Almacén creado correctamente",
         life: 3000,
       });
-      await loadWarehouses();
+      mutate();
       setFormDialog(false);
       setSelectedWarehouse(null);
     })();
@@ -231,7 +197,7 @@ export default function WarehouseList() {
         detail: "Almacén marcado como predeterminado para ventas",
         life: 3000,
       });
-      await loadWarehouses();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

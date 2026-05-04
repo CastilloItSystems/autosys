@@ -7,7 +7,7 @@ import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
+import { useCustomerDetailData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import dealerTestDriveService, {
   SaveDealerTestDriveRequest,
 } from "../services/dealerTestDriveService";
@@ -52,6 +52,22 @@ export default function DealerTestDriveForm({
       isActive: testDrive?.isActive ?? true,
     },
   });
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState<
+    string | null
+  >(null);
+  const { customer: selectedCustomer } =
+    useCustomerDetailData(selectedCustomerId);
+
+  React.useEffect(() => {
+    if (!selectedCustomer) return;
+    setValue("customerName", selectedCustomer.name || "");
+    setValue("customerDocument", selectedCustomer.taxId || "");
+    setValue(
+      "customerPhone",
+      selectedCustomer.phone || selectedCustomer.mobile || "",
+    );
+    setValue("customerEmail", selectedCustomer.email || "");
+  }, [selectedCustomer, setValue]);
 
   const onSubmit = async (data: DealerTestDriveFormValues) => {
     onSubmittingChange?.(true);
@@ -86,29 +102,18 @@ export default function DealerTestDriveForm({
     }
   };
 
-  const handleCustomerChange = async (
+  const handleCustomerChange = (
     customerId: string | null,
     onChange: (value: string) => void,
   ) => {
     const id = customerId ?? "";
     onChange(id);
+    setSelectedCustomerId(id || null);
     if (!id) {
       setValue("customerName", "");
       setValue("customerDocument", "");
       setValue("customerPhone", "");
       setValue("customerEmail", "");
-      return;
-    }
-    try {
-      const res = await customerCrmService.getById(id);
-      const customer = res?.data;
-      if (!customer) return;
-      setValue("customerName", customer.name || "");
-      setValue("customerDocument", customer.taxId || "");
-      setValue("customerPhone", customer.phone || customer.mobile || "");
-      setValue("customerEmail", customer.email || "");
-    } catch {
-      // noop
     }
   };
 

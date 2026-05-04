@@ -47,6 +47,7 @@ const EXCLUDED_AUDIT_MODELS = new Set([
   'notificationCompanyPolicy',
   'notificationMembershipPreference',
   'notificationDelivery',
+  'refreshToken',
   'purchaseOrderItem',
   'stock',
 ])

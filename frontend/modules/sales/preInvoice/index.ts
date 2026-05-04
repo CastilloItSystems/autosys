@@ -1,5 +1,6 @@
 export { default as PreInvoiceList } from "./components/PreInvoiceList";
 export { default as PreInvoiceStepper } from "./components/PreInvoiceStepper";
+export { usePreInvoicesData } from "./hooks/usePreInvoicesData";
 export type {
   PreInvoice,
   PreInvoiceStatus,

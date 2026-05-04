@@ -1,35 +1,16 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React from "react";
 import { Card } from "primereact/card";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
-import stockService, {
-  DashboardMetrics,
-} from "@/modules/inventory/stocks/services/stockService";
 import { DiscrepancyWidget } from "./DiscrepancyWidget";
+import { useInventoryDashboardData } from "@/modules/inventory/dashboard/hooks/useInventoryDashboardData";
 
 export default function InventoryDashboard() {
-  const [metrics, setMetrics] = useState<DashboardMetrics | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    loadDashboard();
-  }, []);
-
-  const loadDashboard = async () => {
-    try {
-      setLoading(true);
-      const response = await stockService.getDashboardMetrics();
-      setMetrics(response.data);
-    } catch (error) {
-      console.error("Error loading dashboard:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { metrics, loading } = useInventoryDashboardData();
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("en-US", {

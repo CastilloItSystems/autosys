@@ -9,9 +9,8 @@ import React, {
 } from "react";
 import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
-import { Recepcion, Refineria } from "@/libs/interfaces";
 import { useEmpresasStore } from "@/store/empresasStore";
-import { NotificationItem } from "@/app/api/notificationService";
+import { NotificationItem } from "@/shared/services/notificationService";
 
 interface ExtendedUser {
   token: string;
@@ -27,8 +26,6 @@ export interface UseSocketReturn {
   online: boolean;
   conectarSocket: () => void;
   desconectarSocket: () => void;
-  recepcionModificado: Recepcion | null;
-  refineriaModificado: Refineria | null;
   notification: NotificationItem | null;
 }
 
@@ -42,10 +39,6 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const activeEmpresaId = activeEmpresa?.id_empresa;
   const [online, setOnline] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
-  const [recepcionModificado, setRecepcionModificado] =
-    useState<Recepcion | null>(null);
-  const [refineriaModificado, setRefineriaModificado] =
-    useState<Refineria | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(
     null,
   );
@@ -85,12 +78,6 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
     socketTemp.on("welcome", (data) =>
       console.log("Mensaje recibido del servidor:", data),
-    );
-    socketTemp.on("refineria-modificada", (refineria) =>
-      setRefineriaModificado(refineria),
-    );
-    socketTemp.on("recepcion-modificada", (recepcion) =>
-      setRecepcionModificado(recepcion),
     );
     socketTemp.on("notifications:received", (notificationData: NotificationItem) => {
       const incomingEmpresaId =
@@ -166,8 +153,6 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         online,
         conectarSocket,
         desconectarSocket,
-        recepcionModificado,
-        refineriaModificado,
         notification,
       }}
     >

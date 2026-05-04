@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
@@ -11,10 +11,8 @@ import { Toast } from "primereact/toast";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import MembershipForm from "./MembershipForm";
 import MembershipPermissions from "./MembershipPermissions";
-import {
-  deleteMembership,
-  getMembershipsByUser,
-} from "@/modules/users/services/user.service";
+import { deleteMembership } from "@/modules/users/services/user.service";
+import { useUserMembershipsData } from "../hooks/useUsersData";
 import type { Membership } from "../interfaces/user.interface";
 import CreateButton from "../../../components/common/CreateButton";
 
@@ -48,9 +46,6 @@ const UsuarioMemberships = ({
   userName,
   toast,
 }: UsuarioMembershipsProps) => {
-  const [memberships, setMemberships] = useState<Membership[]>([]);
-  const [loading, setLoading] = useState(false);
-
   const [formDialogVisible, setFormDialogVisible] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
@@ -59,28 +54,23 @@ const UsuarioMemberships = ({
     useState<Membership | null>(null);
   const [selectedPermMembership, setSelectedPermMembership] =
     useState<Membership | null>(null);
+  const {
+    memberships,
+    loading,
+    error: membershipsError,
+    mutate,
+  } = useUserMembershipsData(visible ? userId : null);
 
-  const load = useCallback(async () => {
-    if (!userId) return;
-    setLoading(true);
-    try {
-      const res = await getMembershipsByUser(userId);
-      setMemberships(res.memberships ?? []);
-    } catch {
+  useEffect(() => {
+    if (membershipsError) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudieron cargar las memberships",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  }, [userId, toast]);
-
-  useEffect(() => {
-    if (visible) load();
-  }, [visible, load]);
+  }, [membershipsError, toast]);
 
   const handleNew = () => {
     setSelectedMembership(null);
@@ -109,7 +99,7 @@ const UsuarioMemberships = ({
       });
       setDeleteDialogVisible(false);
       setSelectedMembership(null);
-      await load();
+      await mutate();
     } catch {
       toast.current?.show({
         severity: "error",
@@ -124,7 +114,7 @@ const UsuarioMemberships = ({
     setFormDialogVisible(false);
     setSelectedMembership(null);
     setIsSubmittingForm(false);
-    await load();
+    await mutate();
   };
 
   const hideFormDialog = () => {

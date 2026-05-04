@@ -1,8 +1,8 @@
 "use client";
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { Column } from "primereact/column";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
 import { Calendar } from "primereact/calendar";
 import { Toast } from "primereact/toast";
@@ -15,6 +15,7 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import entryNoteService from "@/modules/inventory/entryNotes/services/entryNoteService";
+import { useEntryNotesData } from "@/modules/inventory/entryNotes/hooks/useEntryNotesData";
 import type {
   EntryNote,
   EntryNoteItem,
@@ -50,18 +51,14 @@ const EntryNotePDFPreview = dynamic(() => import("./EntryNotePDFPreview"), {
 const EntryNoteList = () => {
   const searchParams = useSearchParams();
   const contextualSearchFilter = searchParams.get("search") || "";
-  const [entryNotes, setEntryNotes] = useState<EntryNote[]>([]);
   const [selectedEntryNote, setSelectedEntryNote] = useState<EntryNote | null>(
     null,
   );
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState(
     contextualSearchFilter,
   );
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -77,11 +74,18 @@ const EntryNoteList = () => {
     null,
   );
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  const [refreshKey, setRefreshKey] = useState(0);
   const [pdfItem, setPdfItem] = useState<EntryNote | null>(null);
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
+
+  const { entryNotes, total: totalRecords, loading, mutate } = useEntryNotesData({
+    page: page + 1,
+    limit: rows,
+    sortBy: sortField,
+    sortOrder: sortOrder,
+    search: debouncedSearch || undefined,
+  });
 
   const loadFormData = async () => {
     try {
@@ -98,31 +102,6 @@ const EntryNoteList = () => {
     }
   };
 
-  const loadEntryNotes = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await entryNoteService.getAll({
-        page: page + 1,
-        limit: rows,
-        sortBy: sortField,
-        sortOrder: sortOrder,
-        search: debouncedSearch || undefined,
-      });
-      setEntryNotes(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener notas de entrada:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar las notas de entrada",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
   useEffect(() => {
     const handler = setTimeout(() => {
       setDebouncedSearch(globalFilterValue);
@@ -134,10 +113,6 @@ const EntryNoteList = () => {
     setGlobalFilterValue(contextualSearchFilter);
     setPage(0);
   }, [contextualSearchFilter]);
-
-  useEffect(() => {
-    loadEntryNotes();
-  }, [loadEntryNotes, refreshKey]);
 
   useEffect(() => {
     loadFormData();
@@ -172,7 +147,7 @@ const EntryNoteList = () => {
         await entryNoteService.delete(selectedEntryNote.id);
         setExpandedRows(null);
         setPage(0);
-        setRefreshKey((k) => k + 1);
+        mutate();
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -192,7 +167,7 @@ const EntryNoteList = () => {
       await entryNoteService.start(note.id);
       setExpandedRows(null);
       setPage(0);
-      setRefreshKey((k) => k + 1);
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -214,7 +189,7 @@ const EntryNoteList = () => {
       await entryNoteService.cancel(note.id);
       setExpandedRows(null);
       setPage(0);
-      setRefreshKey((k) => k + 1);
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -991,7 +966,7 @@ const EntryNoteList = () => {
           onSuccess={() => {
             setExpandedRows(null);
             setPage(0);
-            setRefreshKey((k) => k + 1);
+            mutate();
           }}
           toast={toast}
         />
@@ -1083,7 +1058,7 @@ const EntryNoteList = () => {
             onSave={async () => {
               setExpandedRows(null);
               setPage(0);
-              setRefreshKey((k) => k + 1);
+              mutate();
               toast.current?.show({
                 severity: "success",
                 summary: "Éxito",

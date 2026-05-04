@@ -3,6 +3,7 @@ export { default as ExpenseForm } from "./components/ExpenseForm";
 export { default as RecurringRuleList } from "./components/RecurringRuleList";
 export { default as RecurringRuleForm } from "./components/RecurringRuleForm";
 export { default as RegisterExpensePaymentDialog } from "./components/RegisterExpensePaymentDialog";
+export { useExpensesData, useRecurringRulesData } from "./hooks/useExpensesData";
 export type {
   Expense,
   ExpenseCategory,

@@ -1,6 +1,5 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { FilterMatchMode } from "primereact/api";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
@@ -11,28 +10,27 @@ import { Dialog } from "primereact/dialog";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
-import { ProgressSpinner } from "primereact/progressspinner";
 
 import EmpresaForm from "./EmpresaForm";
 import EmpresaRoles from "./EmpresaRoles";
 
-import { Empresa } from "@/libs/interfaces/empresaInterface";
+import type { Empresa } from "../interfaces/empresa.interface";
+import { deleteEmpresa } from "../services/empresa.service";
 import {
-  deleteEmpresa,
-  getEmpresas,
-  getAuditLogsForEmpresa,
-} from "@/app/api/empresaService";
+  useEmpresaAuditLogsData,
+  useEmpresasData,
+} from "../hooks/useEmpresasData";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/shared/components/CreateButton";
 import AuditHistoryDialog from "@/shared/components/AuditHistoryDialog";
 import DeleteConfirmDialog from "@/shared/components/DeleteConfirmDialog";
 
-const EmpresasList = () => {
-  const [empresas, setEmpresas] = useState<Empresa[]>([]);
+const EmpresasListContent = () => {
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
 
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
+  const [filters, setFilters] = useState<DataTableFilterMeta>({
+    global: { value: null, matchMode: FilterMatchMode.CONTAINS },
+  });
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
   // Dialog states
@@ -45,9 +43,6 @@ const EmpresasList = () => {
   const [selectedAuditEmpresa, setSelectedAuditEmpresa] =
     useState<Empresa | null>(null);
 
-  const [auditLogs, setAuditLogs] = useState<any[]>([]);
-  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
-
   // Estado para el panel de roles dinámicos
   const [rolesDialogVisible, setRolesDialogVisible] = useState(false);
   const [selectedRolesEmpresa, setSelectedRolesEmpresa] =
@@ -58,66 +53,41 @@ const EmpresasList = () => {
 
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
+  const {
+    empresas,
+    loading,
+    error: empresasError,
+    mutate: mutateEmpresas,
+  } = useEmpresasData();
+  const {
+    auditLogs,
+    loading: auditLogsLoading,
+    error: auditLogsError,
+  } = useEmpresaAuditLogsData(
+    auditDialogVisible ? selectedAuditEmpresa?.id_empresa : null,
+  );
 
-  const initFilters = () => {
-    setFilters({
-      global: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    });
-    setGlobalFilterValue("");
-  };
-
-  const normalizeEmpresa = (e: any): Empresa => {
-    return {
-      ...e,
-      direccion: e.direccion ?? undefined,
-      telefonos: e.telefonos ?? undefined,
-      fax: e.fax ?? undefined,
-      numerorif: e.numerorif ?? undefined,
-      numeronit: e.numeronit ?? undefined,
-      website: e.website ?? undefined,
-      email: e.email ?? undefined,
-      contacto: e.contacto ?? undefined,
-      soporte1: e.soporte1 ?? undefined,
-      soporte2: e.soporte2 ?? undefined,
-      soporte3: e.soporte3 ?? undefined,
-      data_servidor: e.data_servidor ?? undefined,
-      data_usuario: e.data_usuario ?? undefined,
-      data_password: e.data_password ?? undefined,
-      data_port: e.data_port ?? undefined,
-      licencia: e.licencia ?? undefined,
-      masinfo: e.masinfo ?? undefined,
-      name_prefijo: e.name_prefijo ?? undefined,
-      dprefijobd: e.dprefijobd ?? undefined,
-      dprefijosrv: e.dprefijosrv ?? undefined,
-      dprefijousr: e.dprefijousr ?? undefined,
-    } as Empresa;
-  };
-
-  const fetchEmpresas = async () => {
-    try {
-      setLoading(true);
-      const empresasDB = await getEmpresas();
-      // Ajuste según la respuesta de tu backend: normalizamos null -> undefined
-      const raw = (empresasDB?.empresas ?? empresasDB) || [];
-      const normalized = (Array.isArray(raw) ? raw : []).map(normalizeEmpresa);
-      setEmpresas(normalized);
-    } catch (error) {
-      console.error("Error cargando empresas:", error);
+  useEffect(() => {
+    if (empresasError) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "Error al cargar empresas",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  };
+  }, [empresasError]);
 
   useEffect(() => {
-    fetchEmpresas();
-    initFilters();
-  }, []);
+    if (auditLogsError) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "Error al cargar el historial de auditoría",
+        life: 3000,
+      });
+    }
+  }, [auditLogsError]);
 
   const openNew = () => {
     setEmpresa(null);
@@ -144,8 +114,8 @@ const EmpresasList = () => {
     setEmpresa(null);
   };
 
-  const handleSave = () => {
-    fetchEmpresas();
+  const handleSave = async () => {
+    await mutateEmpresas();
     hideEmpresaFormDialog();
   };
 
@@ -170,7 +140,7 @@ const EmpresasList = () => {
           detail: "Empresa Eliminada",
           life: 3000,
         });
-        fetchEmpresas();
+        await mutateEmpresas();
         setDeleteEmpresaDialog(false);
         setEmpresa(null);
       } catch (error) {
@@ -234,24 +204,8 @@ const EmpresasList = () => {
       {
         label: "Ver auditoría",
         icon: "pi pi-history",
-        command: async () => {
+        command: () => {
           setSelectedAuditEmpresa(empresaItem);
-          setAuditLogsLoading(true);
-          try {
-            const result = await getAuditLogsForEmpresa(empresaItem.id_empresa);
-            setAuditLogs(result.auditLogs || []);
-          } catch (error) {
-            console.error("Error loading audit logs:", error);
-            toast.current?.show({
-              severity: "error",
-              summary: "Error",
-              detail: "Error al cargar el historial de auditoría",
-              life: 3000,
-            });
-            setAuditLogs([]);
-          } finally {
-            setAuditLogsLoading(false);
-          }
           setAuditDialogVisible(true);
         },
       },
@@ -457,4 +411,4 @@ const EmpresasList = () => {
   );
 };
 
-export default EmpresasList;
+export default EmpresasListContent;

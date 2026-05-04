@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { Button } from "primereact/button";
-import { DataTable, DataTableFilterMeta } from "primereact/datatable";
+import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
@@ -19,19 +19,12 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "../../../components/common/CreateButton";
 import DeleteConfirmDialog from "../../../components/common/DeleteConfirmDialog";
 
-import {
-  deleteUser,
-  getUsers,
-  getAuditLogsForUser,
-} from "@/modules/users/services/user.service";
-import type { User, AuditLog } from "../interfaces/user.interface";
+import { deleteUser } from "@/modules/users/services/user.service";
+import type { User } from "../interfaces/user.interface";
+import { useUserAuditLogsData, useUsersData } from "../hooks/useUsersData";
 
-const UsuarioList = () => {
-  const [usuarios, setUsuarios] = useState<User[]>([]);
+const UsuarioListContent = () => {
   const [usuario, setUsuario] = useState<User | null>(null);
-
-  const [filters, setFilters] = useState<DataTableFilterMeta>({});
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
   const [isDeleting, setIsDeleting] = useState(false);
@@ -54,12 +47,23 @@ const UsuarioList = () => {
   const [selectedAuditUsuario, setSelectedAuditUsuario] = useState<User | null>(
     null,
   );
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
-  const [auditLogsLoading, setAuditLogsLoading] = useState(false);
 
   const toast = useRef<Toast | null>(null);
+  const {
+    usuarios,
+    loading,
+    error: usersError,
+    mutate: mutateUsuarios,
+  } = useUsersData();
+  const {
+    auditLogs,
+    loading: auditLogsLoading,
+    error: auditLogsError,
+  } = useUserAuditLogsData(
+    auditDialogVisible ? selectedAuditUsuario?.id : null,
+  );
 
-  const showToast = (
+  const showToast = useCallback((
     severity: "success" | "info" | "warn" | "error",
     summary: string,
     detail: string,
@@ -70,25 +74,19 @@ const UsuarioList = () => {
       detail,
       life: 3000,
     });
-  };
-
-  const loadUsuarios = async () => {
-    try {
-      setLoading(true);
-      const response = await getUsers();
-      console.log(response);
-      setUsuarios(response.users ?? []);
-    } catch (error) {
-      console.error("Error cargando usuarios:", error);
-      showToast("error", "Error", "No se pudieron cargar los usuarios");
-    } finally {
-      setLoading(false);
-    }
-  };
+  }, []);
 
   useEffect(() => {
-    loadUsuarios();
-  }, []);
+    if (usersError) {
+      showToast("error", "Error", "No se pudieron cargar los usuarios");
+    }
+  }, [showToast, usersError]);
+
+  useEffect(() => {
+    if (auditLogsError) {
+      showToast("error", "Error", "No se pudo cargar la auditoría");
+    }
+  }, [auditLogsError, showToast]);
 
   const openNew = () => {
     setUsuario(null);
@@ -144,13 +142,13 @@ const UsuarioList = () => {
   };
 
   const handleSave = async () => {
-    await loadUsuarios();
+    await mutateUsuarios();
     setUsuarioFormDialog(false);
     setUsuario(null);
   };
 
   const handlePasswordChanged = async () => {
-    await loadUsuarios();
+    await mutateUsuarios();
     setUsuarioPasswordFormDialog(false);
     setUsuario(null);
   };
@@ -162,7 +160,7 @@ const UsuarioList = () => {
     try {
       await deleteUser(usuario.id);
       showToast("success", "Éxito", "Usuario eliminado correctamente");
-      await loadUsuarios();
+      await mutateUsuarios();
       setDeleteUsuarioDialog(false);
       setUsuario(null);
     } catch (error) {
@@ -178,20 +176,9 @@ const UsuarioList = () => {
     setMembershipDialogVisible(true);
   };
 
-  const handleViewAudit = async (usuario: User) => {
-    try {
-      setSelectedAuditUsuario(usuario);
-      setAuditDialogVisible(true);
-      setAuditLogsLoading(true);
-
-      const response = await getAuditLogsForUser(usuario.id);
-      setAuditLogs(response.auditLogs ?? []);
-    } catch (error) {
-      console.error("Error cargando auditoría:", error);
-      showToast("error", "Error", "No se pudo cargar la auditoría");
-    } finally {
-      setAuditLogsLoading(false);
-    }
+  const handleViewAudit = (usuario: User) => {
+    setSelectedAuditUsuario(usuario);
+    setAuditDialogVisible(true);
   };
 
   const onGlobalFilterChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -345,7 +332,6 @@ const UsuarioList = () => {
           rows={10}
           dataKey="id"
           loading={loading}
-          filters={filters}
           globalFilter={globalFilterValue}
           header={header}
           emptyMessage="No se encontraron usuarios"
@@ -448,7 +434,6 @@ const UsuarioList = () => {
         onHide={() => {
           setAuditDialogVisible(false);
           setSelectedAuditUsuario(null);
-          setAuditLogs([]);
         }}
       >
         {auditLogsLoading ? (
@@ -518,4 +503,4 @@ const UsuarioList = () => {
   );
 };
 
-export default UsuarioList;
+export default UsuarioListContent;

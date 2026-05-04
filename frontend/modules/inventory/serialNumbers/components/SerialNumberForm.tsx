@@ -14,7 +14,7 @@ import {
 import {
   createSerialNumberSchema,
   CreateSerialNumberInput,
-} from "@/libs/zods/serialNumberZod";
+} from "../schemas/serialNumberZod";
 
 interface SerialNumberFormProps {
   serial?: SerialNumber | null;

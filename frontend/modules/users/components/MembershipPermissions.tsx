@@ -1,20 +1,15 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 
-import {
-  getMembershipPermissions,
-  setMembershipPermissions,
-} from "../services/user.service";
-import type {
-  MembershipPermissionOverride,
-  MembershipPermissionsResponse,
-} from "../interfaces/user.interface";
+import { setMembershipPermissions } from "../services/user.service";
+import { useMembershipPermissionsData } from "../hooks/useUsersData";
+import type { MembershipPermissionOverride } from "../interfaces/user.interface";
 
 import {
   PERMISSION_GROUPS,
@@ -43,46 +38,42 @@ const MembershipPermissions = ({
   membershipLabel,
   toast,
 }: MembershipPermissionsProps) => {
-  const [data, setData] = useState<MembershipPermissionsResponse | null>(null);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [states, setStates] = useState<Record<string, OverrideState>>({});
   const [dirty, setDirty] = useState(false);
+  const {
+    permissionsData: data,
+    loading,
+    error: permissionsError,
+    mutate,
+  } = useMembershipPermissionsData(visible ? membershipId : null);
 
-  const load = useCallback(async () => {
-    if (!membershipId) return;
-    setLoading(true);
-    try {
-      const res = await getMembershipPermissions(membershipId);
-      setData(res);
-
-      // Inicializar estados desde overrides existentes
-      const initial: Record<string, OverrideState> = {};
-      for (const perm of ALL_PERMISSIONS) {
-        initial[perm] = "inherit";
-      }
-      for (const override of res.overrides) {
-        initial[override.permissionCode] =
-          override.action === "GRANT" ? "grant" : "revoke";
-      }
-      setStates(initial);
-      setDirty(false);
-    } catch {
+  useEffect(() => {
+    if (permissionsError) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudieron cargar los permisos",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  }, [membershipId, toast]);
+  }, [permissionsError, toast]);
 
   useEffect(() => {
-    if (visible) load();
-  }, [visible, load]);
+    if (!visible || !data) return;
+
+    const initial: Record<string, OverrideState> = {};
+    for (const perm of ALL_PERMISSIONS) {
+      initial[perm] = "inherit";
+    }
+    for (const override of data.overrides) {
+      initial[override.permissionCode] =
+        override.action === "GRANT" ? "grant" : "revoke";
+    }
+    setStates(initial);
+    setDirty(false);
+  }, [data, visible]);
 
   // Cicla: inherit → grant → revoke → inherit
   const cycleState = (perm: string) => {
@@ -124,7 +115,7 @@ const MembershipPermissions = ({
         life: 3000,
       });
       setDirty(false);
-      await load();
+      await mutate();
     } catch (err: any) {
       toast.current?.show({
         severity: "error",

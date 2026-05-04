@@ -1,11 +1,11 @@
 import axios from "axios";
-import { getSession, signIn, signOut } from "next-auth/react";
+import { getSession, signOut } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 interface ExtendedUser {
   token: string;
 }
-// asdlasd
+
 const apiClient = axios.create({
   baseURL:
     process.env.NEXT_PUBLIC_API_BASE_URL ||
@@ -19,7 +19,6 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   async (config) => {
     const session = await getSession();
-    console.log(session);
     const token = (session?.user as ExtendedUser)?.token;
     if (token) {
       config.headers["Authorization"] = `Bearer ${token}`;
@@ -43,26 +42,7 @@ let logoutAlertShown = false;
 
 // 2) Interceptor de respuesta: captura logout o 401
 apiClient.interceptors.response.use(
-  async (response) => {
-    // log full response and headers for debugging
-    // console.log("API Response headers:", response);
-    // log x-new-token if present
-    const newToken =
-      response.headers["x-new-token"] || response.headers["X-New-Token"];
-    // dentro de tu interceptor, tras leer newToken:
-    if (newToken) {
-      // Actualiza la sesión con el nuevo token y propiedades personalizadas
-      const session = await getSession();
-      const updatedSession = {
-        ...session,
-        user: {
-          ...session?.user,
-          tokenNuevo: newToken,
-          token: " Nuevo Nombre", // ejemplo: actualizamos el nombre de usuario
-          name: "Nuevo Nombre", // ejemplo: actualizamos el nombre de usuario
-        },
-      };
-    }
+  (response) => {
     if (response.data?.logout) {
       if (!logoutAlertShown) {
         logoutAlertShown = true;
@@ -75,19 +55,33 @@ apiClient.interceptors.response.use(
     }
     return response;
   },
-  (error) => {
-    console.log("API Error response:", error.response);
-    if (error.response?.status === 401) {
-      if (error.response.data?.logout === true) {
-        if (!logoutAlertShown) {
-          logoutAlertShown = true;
-          window.alert(
-            "Su sesión ha finalizado. Por favor inicie sesión nuevamente.",
-          );
-        }
-        // use signOut without redirect and manual navigation
-        signOut({ callbackUrl: "/auth/login" });
+  async (error) => {
+    const originalRequest = error.config;
+
+    if (
+      error.response?.status === 401 &&
+      originalRequest &&
+      !originalRequest._retry
+    ) {
+      originalRequest._retry = true;
+      const session = await getSession();
+      const token = (session?.user as ExtendedUser)?.token;
+
+      if (token) {
+        originalRequest.headers = originalRequest.headers || {};
+        originalRequest.headers["Authorization"] = `Bearer ${token}`;
+        return apiClient(originalRequest);
       }
+    }
+
+    if (error.response?.status === 401) {
+      if (!logoutAlertShown) {
+        logoutAlertShown = true;
+        window.alert(
+          "Su sesión ha finalizado. Por favor inicie sesión nuevamente.",
+        );
+      }
+      signOut({ callbackUrl: "/auth/login" });
       return Promise.reject(new Error("Unauthorized"));
     }
 

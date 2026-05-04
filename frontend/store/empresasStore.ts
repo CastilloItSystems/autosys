@@ -1,4 +1,4 @@
-import { Empresa } from "@/libs/interfaces/empresaInterface";
+import { Empresa } from "@/modules/companies/interfaces/empresa.interface";
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 

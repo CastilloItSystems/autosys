@@ -7,7 +7,7 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
+import { useCustomerDetailData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import dealerTradeInService from "../services/dealerTradeInService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type {
@@ -50,6 +50,17 @@ export default function DealerTradeInForm({
       status: tradeIn?.status || "PENDING",
     },
   });
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState<
+    string | null
+  >(null);
+  const { customer: selectedCustomer } =
+    useCustomerDetailData(selectedCustomerId);
+
+  React.useEffect(() => {
+    if (selectedCustomer) {
+      setValue("customerName", selectedCustomer.name || "");
+    }
+  }, [selectedCustomer, setValue]);
 
   const onSubmit = async (data: DealerTradeInFormValues) => {
     onSubmittingChange?.(true);
@@ -79,24 +90,15 @@ export default function DealerTradeInForm({
     }
   };
 
-  const handleCustomerChange = async (
+  const handleCustomerChange = (
     customerId: string | null,
     onChange: (value: string) => void,
   ) => {
     const id = customerId ?? "";
     onChange(id);
+    setSelectedCustomerId(id || null);
     if (!id) {
       setValue("customerName", "");
-      return;
-    }
-    try {
-      const res = await customerCrmService.getById(id);
-      const customer = res?.data;
-      if (customer) {
-        setValue("customerName", customer.name || "");
-      }
-    } catch {
-      // noop
     }
   };
 

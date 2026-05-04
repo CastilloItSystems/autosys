@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -16,10 +16,9 @@ import { handleFormError } from "@/utils/errorHandlers";
 import technicianSpecialtyService from "@/modules/workshop/technicianSpecialties/services/technicianSpecialtyService";
 import type { TechnicianSpecialty } from "@/modules/workshop/technicianSpecialties/interfaces/technicianSpecialty.interface";
 import TechnicianSpecialtyForm from "./TechnicianSpecialtyForm";
+import { useTechnicianSpecialtiesData } from "../hooks/useTechnicianSpecialtiesData";
 
 export default function TechnicianSpecialtyList() {
-  const [items, setItems] = useState<TechnicianSpecialty[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<TechnicianSpecialty | null>(null);
   const [actionItem, setActionItem] = useState<TechnicianSpecialty | null>(
     null,
@@ -30,7 +29,6 @@ export default function TechnicianSpecialtyList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -39,28 +37,12 @@ export default function TechnicianSpecialtyList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await technicianSpecialtyService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { specialties, total: totalRecords, loading, mutate } = useTechnicianSpecialtiesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -86,7 +68,7 @@ export default function TechnicianSpecialtyList() {
         detail: "Especialidad técnica eliminada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -109,26 +91,24 @@ export default function TechnicianSpecialtyList() {
         }`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id
-          ? "Especialidad técnica actualizada"
-          : "Especialidad técnica creada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id
+        ? "Especialidad técnica actualizada"
+        : "Especialidad técnica creada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const actionBodyTemplate = (rowData: TechnicianSpecialty) => (
@@ -205,7 +185,7 @@ export default function TechnicianSpecialtyList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={specialties}
           paginator
           lazy
           first={page * rows}

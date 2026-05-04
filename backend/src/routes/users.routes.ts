@@ -6,6 +6,7 @@ import {
   updateUser,
   deleteUser,
   uploadProfilePicture,
+  saveFcmToken,
 } from '../controllers/users.controller.js'
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 import { authorize } from '../shared/middleware/authorize.middleware.js'
@@ -31,6 +32,7 @@ const checkSelfOrAuthorize = (permission: string) => {
   }
 }
 
+router.post('/fcm-token', saveFcmToken)
 router.get('/', getAllUsers)
 router.post(
   '/',

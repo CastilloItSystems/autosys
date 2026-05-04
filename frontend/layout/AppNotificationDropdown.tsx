@@ -12,7 +12,7 @@ import { useSocket } from "@/hooks/useSocket";
 import {
   markAllNotificationsAsRead,
   markNotificationAsRead,
-} from "@/app/api/notificationService";
+} from "@/shared/services/notificationService";
 
 interface AppNotificationDropdownProps {
   session: any;

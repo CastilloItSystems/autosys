@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -11,6 +11,7 @@ import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import unitsService, { Unit } from "@/modules/inventory/units/services/unitService";
+import { useUnitsData } from "@/modules/inventory/units/hooks/useUnitsData";
 import UnitForm from "./UnitForm";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
@@ -24,19 +25,11 @@ const UNIT_TYPES_LABELS: Record<string, string> = {
 };
 
 export default function UnitList() {
-  // Datos
-  const [units, setUnits] = useState<Unit[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedUnit, setSelectedUnit] = useState<Unit | null>(null);
-
-  // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [page, setPage] = useState<number>(0); // PrimeReact usa 0-indexed
+  const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [showActive, setShowActive] = useState<boolean>(true); // Mostrar activos por defecto
-
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
+  const [showActive, setShowActive] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -45,40 +38,12 @@ export default function UnitList() {
   const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
 
-  // Cargar unidades cuando cambien los filtros
-  useEffect(() => {
-    loadUnits();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadUnits = async () => {
-    try {
-      setLoading(true);
-      const response = await unitsService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-
-      // Estructura consistente en todos los endpoints
-      const unitsData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setUnits(Array.isArray(unitsData) ? unitsData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading units:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar unidades",
-        life: 3000,
-      });
-      setUnits([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { units, total: totalRecords, loading, mutate } = useUnitsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
@@ -123,7 +88,7 @@ export default function UnitList() {
         detail: "Unidad eliminada correctamente",
         life: 3000,
       });
-      loadUnits();
+      mutate();
       setDeleteDialog(false);
       setSelectedUnit(null);
     } catch (error) {
@@ -150,7 +115,7 @@ export default function UnitList() {
         } correctamente`,
         life: 3000,
       });
-      loadUnits();
+      mutate();
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -170,7 +135,7 @@ export default function UnitList() {
         : "Unidad creada correctamente",
       life: 3000,
     });
-    loadUnits();
+    mutate();
     setFormDialog(false);
   };
 

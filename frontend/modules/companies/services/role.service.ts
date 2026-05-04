@@ -9,43 +9,51 @@ export interface CompanyRole {
   isSystem: boolean;
   createdAt: string;
   updatedAt: string;
-  // Prisma returns counts in `_count`. backend selects `userEmpresaRoles`.
-  _count?: { userEmpresaRoles?: number; memberships?: number };
+  _count?: { memberships?: number };
 }
 
-// ── CRUD de roles por empresa ──────────────────────────────────────────────
+export interface CreateCompanyRoleData {
+  name: string;
+  description?: string;
+  permissionCodes: string[];
+}
+
+export interface UpdateCompanyRoleData {
+  name?: string;
+  description?: string;
+  permissionCodes?: string[];
+}
 
 export const getCompanyRoles = async (
-  companyId: string,
+  empresaId: string,
 ): Promise<CompanyRole[]> => {
-  const response = await apiClient.get(`/companies/${companyId}/roles`);
-  console.log("response", response);
-  return response.data.data.roles;
+  const response = await apiClient.get(`/empresas/${empresaId}/roles`);
+  return response.data.roles ?? [];
 };
 
 export const createCompanyRole = async (
-  companyId: string,
-  data: { name: string; description?: string; permissionCodes: string[] },
+  empresaId: string,
+  data: CreateCompanyRoleData,
 ): Promise<CompanyRole> => {
-  const response = await apiClient.post(`/companies/${companyId}/roles`, data);
-  return response.data.data.role;
+  const response = await apiClient.post(`/empresas/${empresaId}/roles`, data);
+  return response.data.role;
 };
 
 export const updateCompanyRole = async (
-  companyId: string,
+  empresaId: string,
   roleId: string,
-  data: { name?: string; description?: string; permissionCodes?: string[] },
+  data: UpdateCompanyRoleData,
 ): Promise<CompanyRole> => {
   const response = await apiClient.put(
-    `/companies/${companyId}/roles/${roleId}`,
+    `/empresas/${empresaId}/roles/${roleId}`,
     data,
   );
-  return response.data.data.role;
+  return response.data.role;
 };
 
 export const deleteCompanyRole = async (
-  companyId: string,
+  empresaId: string,
   roleId: string,
 ): Promise<void> => {
-  await apiClient.delete(`/companies/${companyId}/roles/${roleId}`);
+  await apiClient.delete(`/empresas/${empresaId}/roles/${roleId}`);
 };

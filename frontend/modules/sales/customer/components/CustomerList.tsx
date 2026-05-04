@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -7,12 +7,12 @@ import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import customerService from "../services/customerService";
+import { useSalesCustomersData } from "../hooks/useSalesCustomersData";
 import {
   Customer,
   CustomerType,
@@ -27,16 +27,13 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 
-const CustomerList = () => {
-  const [customers, setCustomers] = useState<Customer[]>([]);
+const CustomerListContent = () => {
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(
     null,
   );
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("name");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc");
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -49,6 +46,19 @@ const CustomerList = () => {
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
 
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [page, rows, debouncedSearch, sortField, sortOrder],
+  );
+  const { customers, total: totalRecords, loading, mutate } =
+    useSalesCustomersData(listParams);
+
   // ── Debounced search ──
   useEffect(() => {
     const handler = setTimeout(() => {
@@ -56,29 +66,6 @@ const CustomerList = () => {
     }, 500);
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
-
-  useEffect(() => {
-    loadCustomers();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  const loadCustomers = async () => {
-    try {
-      setLoading(true);
-      const res = await customerService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setCustomers(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener clientes:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onPageChange = (event: any) => {
     setPage(
@@ -111,7 +98,7 @@ const CustomerList = () => {
       detail: selectedCustomer?.id ? "Cliente actualizado" : "Cliente creado",
       life: 3000,
     });
-    await loadCustomers();
+    await mutate();
     setFormDialog(false);
     setSelectedCustomer(null);
   };
@@ -120,7 +107,7 @@ const CustomerList = () => {
     try {
       if (selectedCustomer?.id) {
         await customerService.delete(selectedCustomer.id);
-        await loadCustomers();
+        await mutate();
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -141,7 +128,7 @@ const CustomerList = () => {
       await customerService.update(customer.id, {
         isActive: !customer.isActive,
       } as any);
-      await loadCustomers();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -505,4 +492,4 @@ const CustomerList = () => {
   );
 };
 
-export default CustomerList;
+export default CustomerListContent;

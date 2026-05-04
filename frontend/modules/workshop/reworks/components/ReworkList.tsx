@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -26,10 +26,9 @@ import {
   REWORK_STATUS_LABELS,
 } from "@/modules/workshop/shared/components/ReworkStatusBadge";
 import ReworkForm from "./ReworkForm";
+import { useReworksData } from "../hooks/useReworksData";
 
 export default function ReworkList() {
-  const [items, setItems] = useState<WorkshopRework[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopRework | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopRework | null>(null);
 
@@ -38,7 +37,6 @@ export default function ReworkList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [pdfItem, setPdfItem] = useState<WorkshopRework | null>(null);
@@ -46,29 +44,13 @@ export default function ReworkList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, statusFilter]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await reworkService.getAll({
-        page: page + 1,
-        limit: rows,
-        status: (statusFilter as ReworkStatus) || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { reworks, total: totalRecords, loading, mutate } = useReworksData({
+    page: page + 1,
+    limit: rows,
+    status: (statusFilter as ReworkStatus) || undefined,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -81,17 +63,15 @@ export default function ReworkList() {
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Retrabajo actualizado" : "Retrabajo registrado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Retrabajo actualizado" : "Retrabajo registrado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const handleDelete = (item: WorkshopRework) => {
@@ -111,7 +91,7 @@ export default function ReworkList() {
             detail: "Retrabajo eliminado",
             life: 3000,
           });
-          await loadItems();
+          mutate();
         } catch (error) {
           handleFormError(error, toast);
         }
@@ -131,7 +111,7 @@ export default function ReworkList() {
         detail: `Retrabajo marcado como ${REWORK_STATUS_LABELS[newStatus]}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -274,7 +254,7 @@ export default function ReworkList() {
       <ConfirmDialog />
       <div className="card">
         <DataTable
-          value={items}
+          value={reworks}
           paginator
           lazy
           first={page * rows}

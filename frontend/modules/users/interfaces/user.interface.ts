@@ -15,6 +15,18 @@ export interface MembershipEmpresa {
   nombre: string;
 }
 
+export interface MembershipCompanyRole {
+  id: string;
+  name: string;
+  description?: string | null;
+  empresaId: string;
+  permissions: string[];
+  isSystem: boolean;
+  createdAt: string;
+  updatedAt: string;
+  _count?: { userEmpresaRoles?: number; memberships?: number };
+}
+
 export interface Membership {
   id: string;
   userId: string;
@@ -88,6 +100,11 @@ export interface AuditLogsResponse {
 export interface MembershipsResponse {
   total: number;
   memberships: Membership[];
+}
+
+export interface MembershipEmpresasResponse {
+  total: number;
+  empresas: MembershipEmpresa[];
 }
 
 export interface MembershipResponse {

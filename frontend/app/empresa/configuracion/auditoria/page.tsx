@@ -9,7 +9,7 @@ import { Dialog } from "primereact/dialog";
 import { Dropdown } from "primereact/dropdown";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
-import auditLogService, { type AuditLog } from "@/app/api/auditLogService";
+import auditLogService, { type AuditLog } from "@/shared/services/auditLog.service";
 import {
   ACTION_OPTIONS,
   AuditActionTag,

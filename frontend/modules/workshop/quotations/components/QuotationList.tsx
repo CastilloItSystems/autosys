@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -26,6 +26,7 @@ import {
   APPROVAL_TYPE_LABELS,
   APPROVAL_CHANNEL_LABELS,
 } from "./QuotationStatusBadge";
+import { useQuotationsData } from "../hooks/useQuotationsData";
 import QuotationForm from "./QuotationForm";
 import QuotationApprovalDialog from "./QuotationApprovalDialog";
 import QuotationStepper from "./QuotationStepper";
@@ -86,9 +87,6 @@ const CONVERTIBLE_STATUSES: QuotationStatus[] = [
 ];
 
 export default function QuotationList() {
-  const [items, setItems] = useState<WorkshopQuotation[]>([]);
-  console.log(items);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopQuotation | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopQuotation | null>(null);
 
@@ -97,7 +95,6 @@ export default function QuotationList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [approvalDialog, setApprovalDialog] = useState(false);
   const [convertLoading, setConvertLoading] = useState(false);
@@ -108,30 +105,14 @@ export default function QuotationList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await quotationService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: statusFilter || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (err) {
-      handleFormError(err, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { quotations: items, total: totalRecords, loading, mutate } = useQuotationsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    status: statusFilter || undefined,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -155,7 +136,7 @@ export default function QuotationList() {
         detail: "Cotización emitida correctamente",
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (err) {
       handleFormError(err, toast);
     }
@@ -170,7 +151,7 @@ export default function QuotationList() {
         detail: "Cotización marcada como enviada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (err) {
       handleFormError(err, toast);
     }
@@ -186,7 +167,7 @@ export default function QuotationList() {
         detail: "Orden de servicio creada exitosamente",
         life: 4000,
       });
-      await loadItems();
+      mutate();
     } catch (err) {
       handleFormError(err, toast);
     } finally {
@@ -201,7 +182,7 @@ export default function QuotationList() {
       detail: selected?.id ? "Cotización actualizada" : "Cotización creada",
       life: 3000,
     });
-    await loadItems();
+    mutate();
     setFormDialog(false);
     setSelected(null);
   };
@@ -213,7 +194,7 @@ export default function QuotationList() {
       detail: "Respuesta del cliente guardada",
       life: 3000,
     });
-    await loadItems();
+    mutate();
     setApprovalDialog(false);
     setSelected(null);
   };

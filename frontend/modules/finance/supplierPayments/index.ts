@@ -1,4 +1,5 @@
 export { default as SupplierPaymentList } from "./components/SupplierPaymentList";
+export { useSupplierPaymentsData } from "./hooks/useSupplierPaymentsData";
 export type {
   PaymentMethod,
   PaymentStatus,

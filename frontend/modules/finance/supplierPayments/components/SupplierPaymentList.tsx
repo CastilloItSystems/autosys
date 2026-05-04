@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -13,6 +13,7 @@ import { Dropdown } from "primereact/dropdown";
 import { MenuItem } from "primereact/menuitem";
 import dynamic from "next/dynamic";
 import type { SupplierPayment } from "../interfaces/supplierPayment";
+import { useSupplierPaymentsData } from "../hooks/useSupplierPaymentsData";
 
 const SupplierPaymentPDFPreview = dynamic(() => import("./SupplierPaymentPDFPreview"), { ssr: false });
 import supplierPaymentService from "../services/supplierPaymentService";
@@ -51,41 +52,23 @@ const STATUS_OPTIONS = [
   { label: "Cancelado", value: "CANCELLED" },
 ];
 
-export default function SupplierPaymentList() {
+function SupplierPaymentListContent() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const [payments, setPayments] = useState<SupplierPayment[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [menuTarget, setMenuTarget] = useState<SupplierPayment | null>(null);
   const [pdfPayment, setPdfPayment] = useState<SupplierPayment | null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await supplierPaymentService.getAll({
-        page,
-        limit: 20,
-        status: statusFilter || undefined,
-      });
-      setPayments(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar los pagos",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, statusFilter]);
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit: 20,
+      status: statusFilter || undefined,
+    }),
+    [page, statusFilter],
+  );
+  const { payments, total, loading, mutate } =
+    useSupplierPaymentsData(listParams);
 
   const cancelPayment = async (payment: SupplierPayment) => {
     confirmDialog({
@@ -96,7 +79,7 @@ export default function SupplierPaymentList() {
       accept: async () => {
         try {
           await supplierPaymentService.cancel(payment.id);
-          await load();
+          await mutate();
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -273,3 +256,5 @@ export default function SupplierPaymentList() {
     </>
   );
 }
+
+export default SupplierPaymentListContent;

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -20,6 +20,7 @@ import {
   LaborTimeStatusBadge,
   LABOR_STATUS_LABELS,
 } from "@/modules/workshop/shared/components/LaborTimeStatusBadge";
+import { useLaborTimesData } from "../hooks/useLaborTimesData";
 import LaborTimeStartForm from "./LaborTimeStartForm";
 
 interface LaborTimeListProps {
@@ -31,8 +32,6 @@ export default function LaborTimeList({
   serviceOrderId,
   embedded,
 }: LaborTimeListProps) {
-  const [items, setItems] = useState<LaborTime[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [actionItem, setActionItem] = useState<LaborTime | null>(null);
 
   const [serviceOrderFilter, setServiceOrderFilter] = useState("");
@@ -40,7 +39,6 @@ export default function LaborTimeList({
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [startDialog, setStartDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -50,30 +48,16 @@ export default function LaborTimeList({
   // Use prop serviceOrderId when embedded, otherwise use state filter
   const finalServiceOrderId = embedded ? serviceOrderId : serviceOrderFilter;
 
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
-    setPage(0); // Reset to page 1 when filter changes
-    loadItems();
-  }, [finalServiceOrderId, statusFilter, embedded]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await laborTimeService.getAll({
-        page: page + 1,
-        limit: rows,
-        serviceOrderId: finalServiceOrderId || undefined,
-        status: (statusFilter as LaborTimeStatus) || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { laborTimes: items, total: totalRecords, loading, mutate } = useLaborTimesData(
+    (!embedded || serviceOrderId)
+      ? {
+          page: page + 1,
+          limit: rows,
+          serviceOrderId: finalServiceOrderId || undefined,
+          status: (statusFilter as LaborTimeStatus) || undefined,
+        }
+      : undefined,
+  );
 
   const handleAction = async (
     action: "pause" | "resume" | "finish" | "cancel",
@@ -93,23 +77,21 @@ export default function LaborTimeList({
         detail: `Tiempo ${labels[action]}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleStartSaved = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Tiempo iniciado",
-        life: 3000,
-      });
-      await loadItems();
-      setStartDialog(false);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Tiempo iniciado",
+      life: 3000,
+    });
+    mutate();
+    setStartDialog(false);
   };
 
   // ── Templates ──────────────────────────────────────────────────────────────

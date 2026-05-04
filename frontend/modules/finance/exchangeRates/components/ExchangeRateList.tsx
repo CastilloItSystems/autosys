@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -19,6 +19,10 @@ import {
 } from "@/components/common/ConfirmAction";
 import { handleFormError } from "@/utils/errorHandlers";
 import exchangeRateService from "../services/exchangeRateService";
+import {
+  useActiveExchangeRatesData,
+  useExchangeRatesData,
+} from "../hooks/useExchangeRatesData";
 import type {
   ExchangeRate,
   ExchangeRateSource,
@@ -62,10 +66,7 @@ const fmtDate = (s: string) =>
     year: "numeric",
   });
 
-export default function ExchangeRateList() {
-  const [items, setItems] = useState<ExchangeRate[]>([]);
-  const [activeRates, setActiveRates] = useState<ExchangeRate[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
+function ExchangeRateListContent() {
   const [actionItem, setActionItem] = useState<ExchangeRate | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -74,7 +75,6 @@ export default function ExchangeRateList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [bcvLoading, setBcvLoading] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -82,45 +82,23 @@ export default function ExchangeRateList() {
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const res = await exchangeRateService.getAll({
-        source: sourceFilter || undefined,
-        fromCurrency: fromFilter || undefined,
-        page: page + 1,
-        limit: rows,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudo cargar las tasas",
-      });
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rows, sourceFilter, fromFilter]);
-
-  const loadActiveRates = useCallback(async () => {
-    try {
-      const res = await exchangeRateService.getActive();
-      setActiveRates(res.data ?? []);
-    } catch {
-      // silently ignore
-    }
-  }, []);
-
-  useEffect(() => {
-    load();
-  }, [load]);
-
-  useEffect(() => {
-    loadActiveRates();
-  }, [loadActiveRates]);
+  const listParams = useMemo(
+    () => ({
+      source: sourceFilter || undefined,
+      fromCurrency: fromFilter || undefined,
+      page: page + 1,
+      limit: rows,
+    }),
+    [page, rows, sourceFilter, fromFilter],
+  );
+  const {
+    rates: items,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useExchangeRatesData(listParams);
+  const { rates: activeRates, mutate: mutateActiveRates } =
+    useActiveExchangeRatesData();
 
   const handlePage = (e: DataTablePageEvent) => {
     setPage(e.first / e.rows);
@@ -137,8 +115,8 @@ export default function ExchangeRateList() {
         summary: "BCV actualizado",
         detail: `${count} tasa(s) obtenidas del BCV`,
       });
-      load();
-      loadActiveRates();
+      await mutate();
+      await mutateActiveRates();
     } catch (err) {
       handleFormError(err, toast);
     } finally {
@@ -154,8 +132,8 @@ export default function ExchangeRateList() {
         summary: "Eliminado",
         detail: "Tasa eliminada correctamente",
       });
-      load();
-      loadActiveRates();
+      await mutate();
+      await mutateActiveRates();
     } catch (err) {
       handleFormError(err, toast);
     }
@@ -171,7 +149,7 @@ export default function ExchangeRateList() {
     setFormDialog(true);
   };
 
-  const onSave = () => {
+  const onSave = async () => {
     setFormDialog(false);
     toast.current?.show({
       severity: "success",
@@ -180,8 +158,8 @@ export default function ExchangeRateList() {
         ? "Tasa actualizada correctamente"
         : "Tasa manual registrada",
     });
-    load();
-    loadActiveRates();
+    await mutate();
+    await mutateActiveRates();
   };
 
   const menuItems = (item: ExchangeRate) => {
@@ -421,3 +399,5 @@ export default function ExchangeRateList() {
     </div>
   );
 }
+
+export default ExchangeRateListContent;

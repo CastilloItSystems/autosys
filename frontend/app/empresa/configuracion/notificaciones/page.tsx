@@ -12,7 +12,7 @@ import {
   NotificationPreferenceItem,
   updateCompanyNotificationPolicies,
   updateMyNotificationPreferences,
-} from "@/app/api/notificationService";
+} from "@/shared/services/notificationService";
 import { InputSwitch } from "primereact/inputswitch";
 import { InputNumber } from "primereact/inputnumber";
 import { Button } from "primereact/button";

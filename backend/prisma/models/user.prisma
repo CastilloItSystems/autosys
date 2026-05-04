@@ -18,6 +18,7 @@ model User {
 
   auditLogs     AuditLog[]
   memberships   Membership[]
+  refreshTokens RefreshToken[]
   qualityCheckInspections QualityCheck[]
 
   @@index([eliminado])

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,12 +14,11 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import serviceTypeService from '@/modules/workshop/serviceTypes/services/serviceTypeService';
-import type { ServiceType } from '@/modules/workshop/serviceTypes/interfaces/serviceType.interface';;
+import type { ServiceType } from '@/modules/workshop/serviceTypes/interfaces/serviceType.interface';
 import ServiceTypeForm from "./ServiceTypeForm";
+import { useServiceTypesData } from "../hooks/useServiceTypesData";
 
 export default function ServiceTypeList() {
-  const [items, setItems] = useState<ServiceType[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceType | null>(null);
   const [actionItem, setActionItem] = useState<ServiceType | null>(null);
 
@@ -28,7 +27,6 @@ export default function ServiceTypeList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -37,28 +35,12 @@ export default function ServiceTypeList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await serviceTypeService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { serviceTypes, total: totalRecords, loading, mutate } = useServiceTypesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -84,7 +66,7 @@ export default function ServiceTypeList() {
         detail: "Tipo de servicio eliminado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -105,26 +87,24 @@ export default function ServiceTypeList() {
         }`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id
-          ? "Tipo de servicio actualizado"
-          : "Tipo de servicio creado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id
+        ? "Tipo de servicio actualizado"
+        : "Tipo de servicio creado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const actionBodyTemplate = (rowData: ServiceType) => (
@@ -201,7 +181,7 @@ export default function ServiceTypeList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={serviceTypes}
           paginator
           lazy
           first={page * rows}

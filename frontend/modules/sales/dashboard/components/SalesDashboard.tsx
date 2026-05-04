@@ -9,9 +9,8 @@ import { Skeleton } from "primereact/skeleton";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import { motion } from "framer-motion";
-import salesReportService, {
-  type SalesDashboard,
-} from "../services/reportService";
+import type { SalesDashboard } from "../services/reportService";
+import { useSalesDashboardData } from "../hooks/useSalesDashboardData";
 import { handleFormError } from "@/utils/errorHandlers";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
@@ -30,28 +29,59 @@ const CURRENCY_SEVERITY: Record<string, "success" | "warning" | "info"> = {
 
 // ── Component ──────────────────────────────────────────────────────────────────
 
-export default function SalesDashboard() {
-  const toast = useRef<Toast>(null);
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<SalesDashboard | null>(null);
-  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+const SalesDashboardSkeleton = () => (
+  <div className="p-3">
+    <div className="flex align-items-center justify-content-between mb-4">
+      <div>
+        <Skeleton width="260px" height="1.8rem" className="mb-2" />
+        <Skeleton width="200px" height="1rem" />
+      </div>
+      <Skeleton width="110px" height="2.2rem" />
+    </div>
+    <div className="grid mb-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="col-12 md:col-6 lg:col-3">
+          <div className="card">
+            <div className="flex justify-content-between align-items-center mb-2">
+              <div>
+                <Skeleton width="120px" height="0.9rem" className="mb-2" />
+                <Skeleton width="80px" height="2rem" />
+              </div>
+              <Skeleton shape="circle" size="2.5rem" />
+            </div>
+            <Skeleton width="80%" height="0.8rem" />
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="grid">
+      <div className="col-12 md:col-4">
+        <Skeleton height="160px" />
+      </div>
+      <div className="col-12 md:col-8">
+        <Skeleton height="220px" />
+      </div>
+    </div>
+  </div>
+);
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const result = await salesReportService.getDashboard();
-      setData(result);
-      setLastUpdated(new Date());
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
+function SalesDashboardContent() {
+  const toast = useRef<Toast>(null);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const { data, loading, error, mutate } = useSalesDashboardData() as {
+    data: SalesDashboard | null;
+    loading: boolean;
+    error: unknown;
+    mutate: () => Promise<SalesDashboard | undefined>;
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (data) setLastUpdated(new Date());
+  }, [data]);
+
+  useEffect(() => {
+    if (error) handleFormError(error, toast);
+  }, [error]);
 
   const kpiCards = useMemo(
     () => [
@@ -94,41 +124,7 @@ export default function SalesDashboard() {
   // ── Skeleton ──────────────────────────────────────────────────────────────────
 
   if (loading && !data) {
-    return (
-      <div className="p-3">
-        <div className="flex align-items-center justify-content-between mb-4">
-          <div>
-            <Skeleton width="260px" height="1.8rem" className="mb-2" />
-            <Skeleton width="200px" height="1rem" />
-          </div>
-          <Skeleton width="110px" height="2.2rem" />
-        </div>
-        <div className="grid mb-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="col-12 md:col-6 lg:col-3">
-              <div className="card">
-                <div className="flex justify-content-between align-items-center mb-2">
-                  <div>
-                    <Skeleton width="120px" height="0.9rem" className="mb-2" />
-                    <Skeleton width="80px" height="2rem" />
-                  </div>
-                  <Skeleton shape="circle" size="2.5rem" />
-                </div>
-                <Skeleton width="80%" height="0.8rem" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="grid">
-          <div className="col-12 md:col-4">
-            <Skeleton height="160px" />
-          </div>
-          <div className="col-12 md:col-8">
-            <Skeleton height="220px" />
-          </div>
-        </div>
-      </div>
-    );
+    return <SalesDashboardSkeleton />;
   }
 
   return (
@@ -159,7 +155,7 @@ export default function SalesDashboard() {
           outlined
           size="small"
           loading={loading}
-          onClick={load}
+          onClick={() => void mutate()}
         />
       </div>
 
@@ -280,3 +276,5 @@ export default function SalesDashboard() {
     </motion.div>
   );
 }
+
+export default SalesDashboardContent;

@@ -4260,6 +4260,26 @@ model Permission {
   @@map("permissions")
 }
 
+model RefreshToken {
+  id                String    @id @default(cuid())
+  userId            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash         String    @unique
+  familyId          String
+  expiresAt         DateTime
+  revokedAt         DateTime?
+  replacedByTokenId String?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([userId, revokedAt])
+  @@index([familyId])
+  @@index([expiresAt])
+  @@map("refresh_tokens")
+}
+
+
 model RolePermission {
   roleId        String
   permissionId  String
@@ -4783,6 +4803,7 @@ model User {
 
   auditLogs     AuditLog[]
   memberships   Membership[]
+  refreshTokens RefreshToken[]
   qualityCheckInspections QualityCheck[]
 
   @@index([eliminado])
@@ -4801,6 +4822,7 @@ enum Access {
   completo
   ninguno
 }
+
 
 // backend/prisma/models/workshop/checklist.prisma
 

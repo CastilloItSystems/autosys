@@ -20,7 +20,7 @@ import {
   LEAD_SOURCE_OPTIONS,
 } from "../interfaces/lead.interface";
 import leadService from "../services/leadService";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
+import { useCustomerOptionsData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import { handleFormError } from "@/utils/errorHandlers";
 
 interface Props {
@@ -50,16 +50,7 @@ export default function LeadForm({
 }: Props) {
   const isEditing = !!lead;
 
-  const [customers, setCustomers] = React.useState<{ label: string; value: string }[]>([]);
-
-  React.useEffect(() => {
-    customerCrmService.getActive().then((res) => {
-      const list = (res as any)?.data ?? res ?? [];
-      setCustomers(
-        list.map((c: any) => ({ label: `${c.name} (${c.code})`, value: c.id }))
-      );
-    }).catch(() => {});
-  }, []);
+  const { customerOptions: customers } = useCustomerOptionsData();
 
   const {
     control,

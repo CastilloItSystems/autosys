@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
+import { useTransfersData } from "@/modules/inventory/transfers/hooks/useTransfersData";
 import { useRouter, useSearchParams } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -51,12 +52,7 @@ export default function TransferList({
   const preInvoiceFilter = searchParams.get("preInvoiceId") || "";
   const contextualSearchFilter = searchParams.get("search") || "";
 
-  // Datos
-  const [transfers, setTransfers] = useState<Transfer[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(
-    null,
-  );
+  const [selectedTransfer, setSelectedTransfer] = useState<Transfer | null>(null);
 
   // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>(
@@ -66,8 +62,7 @@ export default function TransferList({
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
 
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
+
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [detailDialog, setDetailDialog] = useState<boolean>(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
@@ -84,40 +79,21 @@ export default function TransferList({
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  // Cargar transferencias cuando cambien los filtros
-  useEffect(() => {
-    loadTransfers();
-  }, [page, rows, searchQuery, filterStatus, warehouseId, preInvoiceFilter]);
+  const { transfers, total: totalRecords, loading, mutate } = useTransfersData(
+    page + 1,
+    rows,
+    {
+      status: filterStatus || undefined,
+      fromWarehouseId: warehouseId || undefined,
+      preInvoiceId: preInvoiceFilter || undefined,
+      search: searchQuery || undefined,
+    },
+  );
 
   useEffect(() => {
     setSearchQuery(contextualSearchFilter);
     setPage(0);
   }, [contextualSearchFilter]);
-
-  const loadTransfers = async () => {
-    try {
-      setLoading(true);
-      const response = await transferService.getAll(page + 1, rows, {
-        status: filterStatus || undefined,
-        fromWarehouseId: warehouseId || undefined,
-        preInvoiceId: preInvoiceFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      setTransfers(response.data || []);
-      setTotalRecords(response.meta?.total || 0);
-    } catch (error) {
-      console.error("Error loading transfers:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar transferencias",
-        life: 3000,
-      });
-      setTransfers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onPageChange = (event: any) => {
     const newPage =
@@ -140,7 +116,6 @@ export default function TransferList({
 
   const fetchFullTransfer = async (id: string) => {
     try {
-      setLoading(true);
       const res = await transferService.getById(id);
       return res.data;
     } catch (error) {
@@ -153,7 +128,6 @@ export default function TransferList({
       });
       return null;
     } finally {
-      setLoading(false);
     }
   };
 
@@ -182,7 +156,7 @@ export default function TransferList({
     setActionInProgress(transferId);
     try {
       await action();
-      loadTransfers();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     } finally {
@@ -348,7 +322,7 @@ export default function TransferList({
         : "Transferencia creada correctamente",
       life: 3000,
     });
-    loadTransfers();
+    mutate();
     setFormDialog(false);
   };
 

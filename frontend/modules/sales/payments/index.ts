@@ -1,5 +1,9 @@
 export { default as PaymentList } from "./components/PaymentList";
 export { default as PaymentDialog } from "./components/PaymentDialog";
+export {
+  usePaymentsData,
+  usePreInvoicePaymentsData,
+} from "./hooks/usePaymentsData";
 export type {
   Payment,
   PaymentStatus,

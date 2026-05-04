@@ -28,6 +28,7 @@ import type {
   SupplierBill,
   SupplierBillItemInput,
 } from "../interfaces/supplierBill";
+import { useAvailablePurchaseOrdersData } from "../hooks/useSupplierBillsData";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
@@ -138,7 +139,6 @@ export default function SupplierBillForm({
   >([]);
   const [items, setItems] = useState<Item[]>([]);
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
-  const [availablePOs, setAvailablePOs] = useState<any[]>([]);
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
     () => {
       const map: Record<string, any> = {};
@@ -150,6 +150,7 @@ export default function SupplierBillForm({
   );
 
   const isEditing = !!bill;
+  const { purchaseOrders: availablePOs } = useAvailablePurchaseOrdersData();
 
   const { control, handleSubmit, register, watch, setValue } =
     useForm<SupplierBillFormValues>({
@@ -287,9 +288,8 @@ export default function SupplierBillForm({
     Promise.all([
       supplierService.getAll({ isActive: "true", limit: 200 }),
       itemService.getActive(),
-      supplierBillService.getAvailablePurchaseOrders(),
     ])
-      .then(([suppliersRes, itemsRes, poRes]) => {
+      .then(([suppliersRes, itemsRes]) => {
         setSuppliers(
           (suppliersRes.data ?? []).map((s: any) => ({
             label: s.name,
@@ -297,7 +297,6 @@ export default function SupplierBillForm({
           })),
         );
         setItems(itemsRes.data ?? []);
-        setAvailablePOs(poRes.data ?? []);
       })
       .catch(() => {});
   }, []);

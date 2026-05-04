@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -16,6 +16,7 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { MenuItem } from "primereact/menuitem";
 import dynamic from "next/dynamic";
 import type { SupplierBill } from "../interfaces/supplierBill";
+import { useSupplierBillsData } from "../hooks/useSupplierBillsData";
 
 const SupplierBillPDFPreview = dynamic(() => import("./SupplierBillPDFPreview"), { ssr: false });
 import supplierBillService from "../services/supplierBillService";
@@ -56,12 +57,9 @@ const STATUS_OPTIONS = [
   { label: "Cancelada", value: "CANCELLED" },
 ];
 
-export default function SupplierBillList() {
+function SupplierBillListContent() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const [bills, setBills] = useState<SupplierBill[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -84,37 +82,21 @@ export default function SupplierBillList() {
     taxAmount: 0,
     total: 0,
   });
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await supplierBillService.getAll({
-        page,
-        limit: 20,
-        status: statusFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      setBills(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar las facturas",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, statusFilter, searchQuery]);
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit: 20,
+      status: statusFilter || undefined,
+      search: searchQuery || undefined,
+    }),
+    [page, statusFilter, searchQuery],
+  );
+  const { bills, total, loading, mutate } = useSupplierBillsData(listParams);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -123,7 +105,7 @@ export default function SupplierBillList() {
   };
 
   const onPaymentSuccess = async () => {
-    await load();
+    await mutate();
   };
 
   const openRegisterInvoiceDialog = (bill: SupplierBill) => {
@@ -166,7 +148,7 @@ export default function SupplierBillList() {
       });
       setShowRegisterInvoiceDialog(false);
       setSelected(null);
-      await load();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Factura registrada",
@@ -214,7 +196,7 @@ export default function SupplierBillList() {
           acceptClassName: "p-button-danger",
           accept: async () => {
             await supplierBillService.cancel(target!.id);
-            await load();
+            await mutate();
             toast.current?.show({
               severity: "success",
               summary: "Éxito",
@@ -260,7 +242,7 @@ export default function SupplierBillList() {
                 acceptSeverity: "danger",
                 onAccept: async () => {
                   await supplierBillService.cancel(row.id);
-                  await load();
+                  await mutate();
                   toast.current?.show({
                     severity: "success",
                     summary: "Éxito",
@@ -302,7 +284,7 @@ export default function SupplierBillList() {
               acceptSeverity: "danger",
               onAccept: async () => {
                 await supplierBillService.cancel(row.id);
-                await load();
+                await mutate();
                 toast.current?.show({
                   severity: "success",
                   summary: "Éxito",
@@ -771,3 +753,5 @@ export default function SupplierBillList() {
     </>
   );
 }
+
+export default SupplierBillListContent;

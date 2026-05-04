@@ -1,12 +1,12 @@
 "use client";
 import React, { useEffect, useRef, useState } from "react";
+import { useReservationsData } from "@/modules/inventory/reservations/hooks/useReservationsData";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import { Dropdown } from "primereact/dropdown";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import type { MenuItem } from "primereact/menuitem";
 import { Button } from "primereact/button";
@@ -31,21 +31,22 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const ReservationList = () => {
-  // Data state
-  const [reservations, setReservations] = useState<Reservation[]>([]);
+  // Cross-module catalog data
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Pagination state
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
 
   // Filter state
-  const [selectedStatus, setSelectedStatus] = useState<
-    ReservationStatus | undefined
-  >(undefined);
+  const [selectedStatus, setSelectedStatus] = useState<ReservationStatus | undefined>(undefined);
+
+  const { reservations, total: totalRecords, loading, mutate } = useReservationsData(
+    page + 1,
+    rows,
+    selectedStatus,
+  );
 
   // Dialog state
   const [formDialog, setFormDialog] = useState(false);
@@ -65,44 +66,16 @@ const ReservationList = () => {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  // Load initial data
+  // Load catalog data on mount
   useEffect(() => {
     loadItems();
     loadWarehouses();
-    loadReservations();
   }, []);
 
-  // Reload when filters change
+  // Reset page when filter changes
   useEffect(() => {
     setPage(0);
-    loadReservations();
   }, [selectedStatus]);
-
-  const loadReservations = async () => {
-    setLoading(true);
-    try {
-      const res = await reservationService.getAll(
-        page + 1,
-        rows,
-        selectedStatus || undefined,
-        undefined,
-        undefined,
-      );
-      console.log(res);
-      setReservations(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      console.error("Error fetching reservations:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar reservas",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const loadItems = async () => {
     try {
@@ -123,7 +96,7 @@ const ReservationList = () => {
   };
 
   const handleSave = async () => {
-    await loadReservations();
+    mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -160,7 +133,7 @@ const ReservationList = () => {
         detail: "Reserva eliminada",
         life: 3000,
       });
-      await loadReservations();
+      mutate();
       setDeleteDialog(false);
       setSelectedReservation(null);
     } catch (e: any) {
@@ -187,7 +160,7 @@ const ReservationList = () => {
         detail: "Reserva consumida",
         life: 3000,
       });
-      await loadReservations();
+      mutate();
       setConsumeDialog(false);
       setSelectedReservation(null);
     } catch (error: any) {
@@ -214,7 +187,7 @@ const ReservationList = () => {
         detail: "Reserva liberada",
         life: 3000,
       });
-      await loadReservations();
+      mutate();
       setReleaseDialog(false);
       setSelectedReservation(null);
     } catch (error: any) {
@@ -234,7 +207,7 @@ const ReservationList = () => {
         detail: "Marcado como pendiente de retiro",
         life: 3000,
       });
-      await loadReservations();
+      mutate();
     } catch (error: any) {
       handleFormError(error, toast);
     } finally {
@@ -375,14 +348,6 @@ const ReservationList = () => {
       <CreateButton onClick={openNew} label="Nueva Reserva" />
     </div>
   );
-
-  if (loading) {
-    return (
-      <div className="flex justify-content-center align-items-center h-screen">
-        <ProgressSpinner />
-      </div>
-    );
-  }
 
   return (
     <>

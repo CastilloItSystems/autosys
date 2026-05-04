@@ -22,6 +22,21 @@ export const useCasesData = (params?: CaseParams) => {
   };
 };
 
+export const useCaseDetailData = (caseId?: string | null) => {
+  const { data, error, isLoading, mutate } = useSWR(
+    caseId ? ["crm-case-detail", caseId] : null,
+    () => caseService.getById(caseId as string),
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    caseData: data?.data ?? null,
+    loading: isLoading,
+    error,
+    mutate: useCallback(() => mutate(), [mutate]),
+  };
+};
+
 export const useCaseKanbanData = (params?: CaseParams) => {
   const data = useCasesData(params);
 

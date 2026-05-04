@@ -1,6 +1,11 @@
 import NextAuth, { DefaultSession } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { googleSingIn, loginUser } from "@/modules/auth/services/auth.service";
+import {
+  googleSingIn,
+  loginUser,
+  logoutBackendSession,
+  refreshBackendToken,
+} from "@/modules/auth/services/auth.service";
 
 import { User } from "@/modules/users/interfaces/user.interface";
 import GoogleProvider from "next-auth/providers/google";
@@ -12,6 +17,70 @@ declare module "next-auth" {
     } & DefaultSession["user"];
   }
 }
+const REFRESH_SKEW_MS = 60 * 1000;
+
+const stripBackendTokens = (user: any) => {
+  const {
+    token,
+    accessToken,
+    accessTokenExpiresAt,
+    refreshToken,
+    refreshTokenExpiresAt,
+    ...safeUser
+  } = user ?? {};
+
+  return {
+    safeUser,
+    accessToken: accessToken || token,
+    accessTokenExpiresAt,
+    refreshToken,
+    refreshTokenExpiresAt,
+  };
+};
+
+const shouldRefreshBackendAccessToken = (expiresAt: unknown) => {
+  if (typeof expiresAt !== "string") return false;
+  const expiresTime = Date.parse(expiresAt);
+  if (!Number.isFinite(expiresTime)) return false;
+  return Date.now() + REFRESH_SKEW_MS >= expiresTime;
+};
+
+const refreshTokenState = async (token: any) => {
+  const refreshToken =
+    typeof token.backendRefreshToken === "string"
+      ? token.backendRefreshToken
+      : "";
+
+  if (!refreshToken) {
+    return {
+      ...token,
+      backendAuthError: "MissingRefreshToken",
+    };
+  }
+
+  try {
+    const response = await refreshBackendToken(refreshToken);
+    const data = response.data;
+    const accessToken = data.accessToken || data.token;
+
+    return {
+      ...token,
+      backendToken: accessToken,
+      backendAccessToken: accessToken,
+      backendAccessTokenExpiresAt: data.accessTokenExpiresAt,
+      backendRefreshToken: data.refreshToken,
+      backendRefreshTokenExpiresAt: data.refreshTokenExpiresAt,
+      backendAuthError: undefined,
+    };
+  } catch (error) {
+    console.error("Backend token refresh failed:", error);
+    return {
+      ...token,
+      backendAuthError: "RefreshAccessTokenError",
+    };
+  }
+};
+
 const handler = NextAuth({
   providers: [
     GoogleProvider({
@@ -32,16 +101,13 @@ const handler = NextAuth({
             (credentials as any).email ?? (credentials as any).correo;
           const password = (credentials as any).password;
           if (!correo || !password) {
-            console.warn("Credentials missing email/correo or password", {
-              credentials,
-            });
+            console.warn("Credentials missing email/correo or password");
             return null;
           }
           const response = await loginUser({
             correo,
             password,
           });
-          console.log("lo que envia el backend", response);
 
           // Verificamos si la respuesta fue exitosa y si contiene la propiedad data.user
           if (
@@ -54,8 +120,14 @@ const handler = NextAuth({
           }
 
           // Extraemos el usuario y el token de la propiedad "data"
-          const userData = response.data.user;
-          (userData as any).token = response.data.token;
+          const userData = {
+            ...response.data.user,
+            token: response.data.accessToken || response.data.token,
+            accessToken: response.data.accessToken || response.data.token,
+            accessTokenExpiresAt: response.data.accessTokenExpiresAt,
+            refreshToken: response.data.refreshToken,
+            refreshTokenExpiresAt: response.data.refreshTokenExpiresAt,
+          };
 
           return userData as any;
         } catch (error) {
@@ -77,9 +149,14 @@ const handler = NextAuth({
   callbacks: {
     async jwt({ token, user, account, trigger, session }) {
       if (user) {
-        token.user = user;
-        // Save the backend JWT token
-        token.backendToken = (user as any).token;
+        const backendAuth = stripBackendTokens(user);
+        token.user = backendAuth.safeUser;
+        token.backendToken = backendAuth.accessToken;
+        token.backendAccessToken = backendAuth.accessToken;
+        token.backendAccessTokenExpiresAt = backendAuth.accessTokenExpiresAt;
+        token.backendRefreshToken = backendAuth.refreshToken;
+        token.backendRefreshTokenExpiresAt = backendAuth.refreshTokenExpiresAt;
+        token.backendAuthError = undefined;
       }
       // Actualización desde el cliente (update())
       if (trigger === "update" && session?.updatedUsuario) {
@@ -119,14 +196,29 @@ const handler = NextAuth({
             //   token.role = googleUser.role;
             //   token.email = googleUser.email;
             //   token.name = googleUser.name;
-            token.user = response;
+            const backendAuth = stripBackendTokens(response);
+            token.user = backendAuth.safeUser;
+            token.backendToken = backendAuth.accessToken;
+            token.backendAccessToken = backendAuth.accessToken;
+            token.backendAccessTokenExpiresAt = backendAuth.accessTokenExpiresAt;
+            token.backendRefreshToken = backendAuth.refreshToken;
+            token.backendRefreshTokenExpiresAt =
+              backendAuth.refreshTokenExpiresAt;
             token.access_token = account.access_token;
           }
-          // console.log(token);
         } catch (error) {
           console.error("Google auth error:", error);
         }
       }
+
+      if (
+        !user &&
+        token.backendRefreshToken &&
+        shouldRefreshBackendAccessToken(token.backendAccessTokenExpiresAt)
+      ) {
+        return refreshTokenState(token);
+      }
+
       return token;
     },
     async session({ session, token }) {
@@ -137,8 +229,12 @@ const handler = NextAuth({
       }
 
       // Add backend token to session
-      if (token.backendToken) {
-        (session.user as any).token = token.backendToken;
+      const backendToken =
+        typeof token.backendAccessToken === "string"
+          ? token.backendAccessToken
+          : token.backendToken;
+      if (backendToken) {
+        (session.user as any).token = backendToken;
       }
 
       return session;
@@ -209,6 +305,27 @@ const handler = NextAuth({
     //   }
     //   return true;
     // },
+  },
+  events: {
+    async signOut(message) {
+      const token = "token" in message ? (message.token as any) : null;
+      const refreshToken =
+        typeof token?.backendRefreshToken === "string"
+          ? token.backendRefreshToken
+          : undefined;
+      const accessToken =
+        typeof token?.backendAccessToken === "string"
+          ? token.backendAccessToken
+          : typeof token?.backendToken === "string"
+            ? token.backendToken
+            : undefined;
+
+      if (refreshToken || accessToken) {
+        await logoutBackendSession(refreshToken, accessToken).catch((error) => {
+          console.error("Backend logout failed:", error);
+        });
+      }
+    },
   },
   secret: process.env.AUTH_SECRET,
 });

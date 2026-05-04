@@ -38,7 +38,7 @@ const FCMSetup = () => {
               // console.log("Token FCM:", token);
 
               // Enviar token al backend
-              await apiClient.post("/save-token", { token });
+              await apiClient.post("/users/fcm-token", { token });
             }
           }
         }

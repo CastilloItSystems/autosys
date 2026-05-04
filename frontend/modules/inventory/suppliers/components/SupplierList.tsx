@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -9,20 +9,18 @@ import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
 import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
-import supplierService, {
-  type Supplier,
-} from "@/modules/inventory/suppliers/services/supplierService";
+import { type Supplier } from "@/modules/inventory/suppliers/services/supplierService";
+import supplierService from "@/modules/inventory/suppliers/services/supplierService";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { handleFormError } from "@/utils/errorHandlers";
 import SupplierForm from "./SupplierForm";
 import SupplierDetailDialog from "./SupplierDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
+import { useSuppliersData } from "@/modules/inventory/suppliers/hooks/useSuppliersData";
 
 export default function SupplierList() {
   // Datos
-  const [suppliers, setSuppliers] = useState<Supplier[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedSupplier, setSelectedSupplier] = useState<Supplier | null>(
     null,
   );
@@ -34,7 +32,6 @@ export default function SupplierList() {
   const [showActive, setShowActive] = useState<boolean>(true);
 
   // UI
-  const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [detailsDialog, setDetailsDialog] = useState<boolean>(false);
@@ -44,40 +41,12 @@ export default function SupplierList() {
   const [actionSupplier, setActionSupplier] = useState<Supplier | null>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  // Cargar proveedores cuando cambien los filtros
-  useEffect(() => {
-    loadSuppliers();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadSuppliers = async () => {
-    try {
-      setLoading(true);
-      const response = await supplierService.getAll({
-        page: page + 1,
-        limit: rows,
-        name: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-
-      // Estructura consistente en todos los endpoints
-      const suppliersData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setSuppliers(Array.isArray(suppliersData) ? suppliersData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading suppliers:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar proveedores",
-        life: 3000,
-      });
-      setSuppliers([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { suppliers, total: totalRecords, loading, mutate } = useSuppliersData({
+    page: page + 1,
+    limit: rows,
+    name: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     const newPage =
@@ -119,7 +88,7 @@ export default function SupplierList() {
         detail: "Proveedor eliminado correctamente",
         life: 3000,
       });
-      await loadSuppliers();
+      await mutate();
       setDeleteDialog(false);
       setSelectedSupplier(null);
     } catch (error) {
@@ -140,7 +109,7 @@ export default function SupplierList() {
         } correctamente`,
         life: 3000,
       });
-      await loadSuppliers();
+      await mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -156,7 +125,7 @@ export default function SupplierList() {
           : "Proveedor creado correctamente",
         life: 3000,
       });
-      await loadSuppliers();
+      await mutate();
       setFormDialog(false);
       setSelectedSupplier(null);
     })();

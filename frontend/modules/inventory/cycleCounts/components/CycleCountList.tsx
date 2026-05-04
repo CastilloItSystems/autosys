@@ -31,18 +31,16 @@ import CycleCountForm from "./CycleCountForm";
 import CycleCountDetail from "./CycleCountDetail";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { useSession } from "next-auth/react";
+import { useCycleCountsData } from "@/modules/inventory/cycleCounts/hooks/useCycleCountsData";
 
 export default function CycleCountList() {
   const { data: session } = useSession();
-  const [cycleCounts, setCycleCounts] = useState<CycleCount[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selectedCycleCount, setSelectedCycleCount] =
     useState<CycleCount | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [showDetail, setShowDetail] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [pdfItem, setPdfItem] = useState<CycleCount | null>(null);
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
@@ -52,6 +50,14 @@ export default function CycleCountList() {
   const [warehouseFilter, setWarehouseFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const toast = useRef<Toast>(null);
+
+  const { cycleCounts, total: totalRecords, loading, mutate } = useCycleCountsData({
+    page: page + 1,
+    limit: rows,
+    status: statusFilter || undefined,
+    warehouseId: warehouseFilter || undefined,
+    search: searchQuery || undefined,
+  });
 
   const canCreate = true;
   /* session?.user?.rol
@@ -75,42 +81,6 @@ export default function CycleCountList() {
       }
     })();
   }, []);
-
-  useEffect(() => {
-    loadCycleCounts();
-  }, [page, rows, statusFilter, warehouseFilter, searchQuery]);
-
-  const loadCycleCounts = async () => {
-    try {
-      setLoading(true);
-      const filters: any = {};
-
-      if (statusFilter) filters.status = statusFilter;
-      if (warehouseFilter) filters.warehouseId = warehouseFilter;
-      if (searchQuery) filters.search = searchQuery;
-
-      const response = await cycleCountService.getAll({
-        page: page + 1,
-        limit: rows,
-        ...filters,
-      });
-
-      const data = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setCycleCounts(Array.isArray(data) ? data : []);
-      setTotalRecords(total);
-    } catch (error) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar conteos cíclicos",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const performAction = async (
     cycleCountId: string,
@@ -185,7 +155,7 @@ export default function CycleCountList() {
             detail: `Conteo ${actionLabel} exitosamente`,
             life: 3000,
           });
-          loadCycleCounts();
+          mutate();
         } catch (error: any) {
           // Mostrar mensaje de error específico si viene del backend (ej. Forbidden)
           const errorMsg =
@@ -535,7 +505,7 @@ export default function CycleCountList() {
             });
             setShowForm(false);
             setSelectedCycleCount(null);
-            loadCycleCounts();
+            mutate();
           }}
           onSubmittingChange={setIsSubmitting}
         />

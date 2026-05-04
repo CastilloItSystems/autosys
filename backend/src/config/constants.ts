@@ -55,7 +55,7 @@ export const CLOUDFLARE_R2 = {
 
 export const JWT_CONFIG = {
   SECRET: process.env.JWT_SECRET || 'your-secret-key-change-this',
-  EXPIRES_IN: process.env.JWT_EXPIRES_IN || '7d',
+  EXPIRES_IN: process.env.JWT_EXPIRES_IN || '15m',
   ALGORITHM: 'HS256' as const,
 }
 

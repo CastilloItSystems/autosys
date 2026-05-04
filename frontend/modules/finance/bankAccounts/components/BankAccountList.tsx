@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -13,6 +13,7 @@ import { InputText } from "primereact/inputtext";
 import { MenuItem } from "primereact/menuitem";
 import type { BankAccount } from "../interfaces/bankAccount";
 import bankAccountService from "../services/bankAccountService";
+import { useBankAccountsData } from "../hooks/useBankAccountsData";
 import BankAccountForm from "./BankAccountForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
@@ -24,12 +25,9 @@ const TYPE_LABELS: Record<string, string> = {
   CRYPTO: "Cripto",
 };
 
-export default function BankAccountList() {
+function BankAccountListContent() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const [accounts, setAccounts] = useState<BankAccount[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [showForm, setShowForm] = useState(false);
   const [selected, setSelected] = useState<BankAccount | null>(null);
@@ -38,12 +36,22 @@ export default function BankAccountList() {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [syncing, setSyncing] = useState(false);
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit: 20,
+      isActive: "true",
+      search: searchQuery || undefined,
+    }),
+    [page, searchQuery],
+  );
+  const { accounts, total, loading, mutate } = useBankAccountsData(listParams);
 
   const syncBalances = async () => {
     setSyncing(true);
     try {
       await bankAccountService.syncBalances();
-      await load();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Saldos sincronizados",
@@ -61,36 +69,10 @@ export default function BankAccountList() {
     }
   };
 
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await bankAccountService.getAll({
-        page,
-        limit: 20,
-        isActive: "true",
-        search: searchQuery || undefined,
-      });
-      setAccounts(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar las cuentas",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, searchQuery]);
-
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -118,7 +100,7 @@ export default function BankAccountList() {
             await bankAccountService.update(target!.id, {
               isActive: !target!.isActive,
             });
-            await load();
+            await mutate();
             toast.current?.show({
               severity: "success",
               summary: "Éxito",
@@ -288,3 +270,5 @@ export default function BankAccountList() {
     </>
   );
 }
+
+export default BankAccountListContent;

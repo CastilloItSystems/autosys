@@ -8,13 +8,13 @@ import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { useSearchParams } from "next/navigation";
 import { handleFormError } from "@/utils/errorHandlers";
 import exitNoteService from "@/modules/inventory/exitNotes/services/exitNoteService";
+import { useExitNotesData } from "@/modules/inventory/exitNotes/hooks/useExitNotesData";
 import {
   ExitNote,
   ExitNoteItem,
@@ -49,15 +49,12 @@ interface ExitNoteListProps {
 
 const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const searchParams = useSearchParams();
-  const [exitNotes, setExitNotes] = useState<ExitNote[]>([]);
   const [selectedExitNote, setSelectedExitNote] = useState<ExitNote | null>(
     null,
   );
-  const [loading, setLoading] = useState(true);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [sortField, setSortField] = useState<string>("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [deleteDialog, setDeleteDialog] = useState(false);
@@ -74,6 +71,13 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const dt = useRef(null);
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
+
+  const { exitNotes, total: totalRecords, loading, mutate } = useExitNotesData({
+    page: page + 1,
+    limit: rows,
+    search: debouncedSearch || undefined,
+    type: (fixedType as any) || undefined,
+  });
 
   // ── Debounced search ──
   useEffect(() => {
@@ -93,10 +97,6 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   }, [searchParams]);
 
   useEffect(() => {
-    loadExitNotes();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  useEffect(() => {
     loadFormData();
   }, []);
 
@@ -110,30 +110,6 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
       setItems(itemRes.data || []);
     } catch (error) {
       console.error("Error loading form data:", error);
-    }
-  };
-
-  const loadExitNotes = async () => {
-    try {
-      setLoading(true);
-      const res = await exitNoteService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        type: (fixedType as any) || undefined, // Filtro predefinido (ej. WORKSHOP_SUPPLY)
-      });
-      setExitNotes(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener notas de salida:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar las notas de salida",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -186,7 +162,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
         : "Nota de salida creada",
       life: 3000,
     });
-    await loadExitNotes();
+    mutate();
     setFormDialog(false);
     setSelectedExitNote(null);
   };
@@ -195,7 +171,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     try {
       if (selectedExitNote?.id) {
         await exitNoteService.delete(selectedExitNote.id);
-        await loadExitNotes();
+        mutate();
         toast.current?.show({
           severity: "success",
           summary: "Éxito",
@@ -213,7 +189,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const handleStart = async (note: ExitNote) => {
     try {
       await exitNoteService.start(note.id);
-      await loadExitNotes();
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -228,7 +204,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const handleReady = async (note: ExitNote) => {
     try {
       await exitNoteService.markReady(note.id);
-      await loadExitNotes();
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -244,7 +220,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     if (!selectedExitNote) return;
     try {
       await exitNoteService.deliver(selectedExitNote.id);
-      await loadExitNotes();
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Entregada",
@@ -262,7 +238,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const handleCancel = async (note: ExitNote) => {
     try {
       await exitNoteService.cancel(note.id, "Cancelada por el usuario");
-      await loadExitNotes();
+      mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -798,7 +774,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
           }}
           exitNote={selectedExitNote}
           onUpdate={async () => {
-            await loadExitNotes();
+            mutate();
           }}
           toast={toast}
           warehouses={warehouses}

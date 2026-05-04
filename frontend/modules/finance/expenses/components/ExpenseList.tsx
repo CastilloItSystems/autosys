@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useMemo, useState, useRef } from "react";
+import dynamic from "next/dynamic";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -15,6 +16,7 @@ import { MenuItem } from "primereact/menuitem";
 import type { Expense } from "../interfaces/expense";
 import { EXPENSE_CATEGORY_LABELS } from "../interfaces/expense";
 import expenseService from "../services/expenseService";
+import { useExpensesData } from "../hooks/useExpensesData";
 import ExpenseForm from "./ExpenseForm";
 import RegisterExpensePaymentDialog from "./RegisterExpensePaymentDialog";
 import CreateButton from "@/components/common/CreateButton";
@@ -23,6 +25,10 @@ import {
   confirmAction,
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
+
+const ExpensePDFPreview = dynamic(() => import("./ExpensePDFPreview"), {
+  ssr: false,
+});
 
 const STATUS_SEVERITY: Record<
   string,
@@ -49,51 +55,33 @@ const STATUS_OPTIONS = [
   { label: "Cancelado", value: "CANCELLED" },
 ];
 
-export default function ExpenseList() {
+function ExpenseListContent() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
-  const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [showPayDialog, setShowPayDialog] = useState(false);
   const [selected, setSelected] = useState<Expense | null>(null);
   const [menuTarget, setMenuTarget] = useState<Expense | null>(null);
+  const [pdfItem, setPdfItem] = useState<Expense | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const res = await expenseService.getAll({
-        page,
-        limit: 20,
-        status: statusFilter || undefined,
-        search: searchQuery || undefined,
-      });
-      setExpenses(res.data ?? []);
-      setTotal(res.meta?.total ?? 0);
-    } catch {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar los gastos",
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    load();
-  }, [page, statusFilter, searchQuery]);
+  const listParams = useMemo(
+    () => ({
+      page,
+      limit: 20,
+      status: statusFilter || undefined,
+      search: searchQuery || undefined,
+    }),
+    [page, statusFilter, searchQuery],
+  );
+  const { expenses, total, loading, mutate } = useExpensesData(listParams);
 
   const onSave = async () => {
     setShowForm(false);
     setSelected(null);
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -102,10 +90,15 @@ export default function ExpenseList() {
   };
 
   const onPaymentSuccess = async () => {
-    await load();
+    await mutate();
   };
 
   const getMenuItems = (target: Expense | null): MenuItem[] => [
+    {
+      label: "Imprimir",
+      icon: "pi pi-print",
+      command: () => setPdfItem(target),
+    },
     {
       label: "Editar",
       icon: "pi pi-pencil",
@@ -125,7 +118,7 @@ export default function ExpenseList() {
           acceptClassName: "p-button-danger",
           accept: async () => {
             await expenseService.cancel(target!.id);
-            await load();
+            await mutate();
             toast.current?.show({
               severity: "success",
               summary: "Éxito",
@@ -171,7 +164,7 @@ export default function ExpenseList() {
                 acceptSeverity: "danger",
                 onAccept: async () => {
                   await expenseService.cancel(row.id);
-                  await load();
+                  await mutate();
                   toast.current?.show({
                     severity: "success",
                     summary: "Éxito",
@@ -384,6 +377,25 @@ export default function ExpenseList() {
         onSuccess={onPaymentSuccess}
         toast={toast}
       />
+
+      <Dialog
+        visible={!!pdfItem}
+        onHide={() => setPdfItem(null)}
+        header={
+          <div className="flex align-items-center gap-2">
+            <i className="pi pi-print text-primary" />
+            <span>Comprobante de Gasto — {pdfItem?.expenseNumber}</span>
+          </div>
+        }
+        style={{ width: "85vw", height: "90vh" }}
+        maximizable
+        modal
+        contentStyle={{ padding: 0, height: "calc(90vh - 8rem)" }}
+      >
+        {pdfItem && <ExpensePDFPreview data={pdfItem} />}
+      </Dialog>
     </>
   );
 }
+
+export default ExpenseListContent;

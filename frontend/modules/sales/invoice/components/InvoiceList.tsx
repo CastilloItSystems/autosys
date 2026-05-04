@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -11,6 +11,7 @@ import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import invoiceService from "../services/invoiceService";
+import { useInvoicesData } from "../hooks/useInvoicesData";
 import {
   Invoice,
   InvoiceStatus,
@@ -59,13 +60,10 @@ const formatCrossRef = (
   })}`;
 };
 
-const InvoiceList = () => {
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
-  const [loading, setLoading] = useState(true);
+const InvoiceListContent = () => {
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedRows, setExpandedRows] = useState<any>(null);
@@ -78,6 +76,19 @@ const InvoiceList = () => {
   const toast = useRef<Toast | null>(null);
   const dt = useRef(null);
 
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [page, rows, debouncedSearch, sortField, sortOrder],
+  );
+  const { invoices, total: totalRecords, loading, mutate } =
+    useInvoicesData(listParams);
+
   useEffect(() => {
     const handler = setTimeout(
       () => setDebouncedSearch(globalFilterValue),
@@ -85,29 +96,6 @@ const InvoiceList = () => {
     );
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
-
-  useEffect(() => {
-    loadInvoices();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  const loadInvoices = async () => {
-    try {
-      setLoading(true);
-      const res = await invoiceService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setInvoices(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener facturas:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onPageChange = (event: any) => {
     setPage(
@@ -156,7 +144,7 @@ const InvoiceList = () => {
     setCancelLoading(true);
     try {
       await invoiceService.cancel(selectedInvoice.id, cancelReason.trim());
-      await loadInvoices();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Anulada",
@@ -755,4 +743,4 @@ const InvoiceList = () => {
   );
 };
 
-export default InvoiceList;
+export default InvoiceListContent;

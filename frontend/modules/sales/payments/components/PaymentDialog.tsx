@@ -14,7 +14,7 @@ import { Divider } from "primereact/divider";
 import { Toast } from "primereact/toast";
 
 import preInvoiceService from "@/modules/sales/preInvoice/services/preInvoiceService";
-import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
+import { useActiveBankAccountOptionsData } from "@/modules/finance/bankAccounts/hooks/useBankAccountsData";
 import {
   PreInvoice,
   PreInvoiceSalesStockDiagnosis,
@@ -119,9 +119,9 @@ const PaymentDialog = ({
   const [creatingSuggestedTransfers, setCreatingSuggestedTransfers] =
     useState(false);
   const [bankAccountId, setBankAccountId] = useState<string | null>(null);
-  const [bankAccounts, setBankAccounts] = useState<
-    { id: string; name: string; currency: string; currentBalance: number }[]
-  >([]);
+  const { accounts: bankAccounts } = useActiveBankAccountOptionsData(
+    visible ? { isActive: "true" } : null,
+  );
 
   // Mixed payment details
   const [mixedDetails, setMixedDetails] = useState<PaymentDetail[]>([
@@ -158,17 +158,6 @@ const PaymentDialog = ({
       ]);
     }
   }, [visible, preInvoice?.id]);
-
-  useEffect(() => {
-    if (visible) {
-      bankAccountService
-        .getAll({ isActive: "true" })
-        .then((res) => {
-          setBankAccounts(res.data ?? []);
-        })
-        .catch(() => {});
-    }
-  }, [visible]);
 
   // Sync mixed details sum with amount
   useEffect(() => {

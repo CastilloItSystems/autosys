@@ -8,7 +8,7 @@ import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
 import { Toast } from "primereact/toast";
 import CustomerSelector from "@/components/common/CustomerSelector";
-import customerCrmService from "@/modules/crm/customer/services/customerCrmService";
+import { useCustomerDetailData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import dealerReservationService, {
   SaveDealerReservationRequest,
 } from "../services/dealerReservationService";
@@ -72,6 +72,11 @@ export default function DealerReservationForm({
       isActive: reservation?.isActive ?? true,
     },
   });
+  const [selectedCustomerId, setSelectedCustomerId] = React.useState<
+    string | null
+  >(null);
+  const { customer: selectedCustomer } =
+    useCustomerDetailData(selectedCustomerId);
 
   const watchCurrency = watch("currency") as "USD" | "VES" | "EUR";
   const watchFxSource = watch("exchangeRateSource");
@@ -95,6 +100,17 @@ export default function DealerReservationForm({
 
   const prevCurrencyRef = React.useRef<string>(watchCurrency);
   const pendingRateRef = React.useRef(false);
+
+  React.useEffect(() => {
+    if (!selectedCustomer) return;
+    setValue("customerName", selectedCustomer.name || "");
+    setValue("customerDocument", selectedCustomer.taxId || "");
+    setValue(
+      "customerPhone",
+      selectedCustomer.phone || selectedCustomer.mobile || "",
+    );
+    setValue("customerEmail", selectedCustomer.email || "");
+  }, [selectedCustomer, setValue]);
 
   // Auto-fill exchange rate when BCV rate loads
   React.useEffect(() => {
@@ -173,29 +189,18 @@ export default function DealerReservationForm({
     }
   };
 
-  const handleCustomerChange = async (
+  const handleCustomerChange = (
     customerId: string | null,
     onChange: (value: string) => void,
   ) => {
     const id = customerId ?? "";
     onChange(id);
+    setSelectedCustomerId(id || null);
     if (!id) {
       setValue("customerName", "");
       setValue("customerDocument", "");
       setValue("customerPhone", "");
       setValue("customerEmail", "");
-      return;
-    }
-    try {
-      const res = await customerCrmService.getById(id);
-      const customer = res?.data;
-      if (!customer) return;
-      setValue("customerName", customer.name || "");
-      setValue("customerDocument", customer.taxId || "");
-      setValue("customerPhone", customer.phone || customer.mobile || "");
-      setValue("customerEmail", customer.email || "");
-    } catch {
-      // noop
     }
   };
 

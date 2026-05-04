@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -15,6 +15,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import { handleFormError } from "@/utils/errorHandlers";
 import deliveryService from '@/modules/workshop/deliveries/services/deliveryService';
 import { ServiceOrderStatusBadge } from "@/modules/workshop/shared/components/ServiceOrderStatusBadge";
+import { useDeliveriesData } from "../hooks/useDeliveriesData";
 import DeliveryForm from "./DeliveryForm";
 import dynamic from "next/dynamic";
 
@@ -22,8 +23,6 @@ const DeliveryPDFPreview = dynamic(() => import("./DeliveryPDFPreview"), { ssr: 
 import { VehicleDelivery } from "@/modules/workshop/deliveries/interfaces/delivery.interface";
 
 export default function DeliveryList() {
-  const [items, setItems] = useState<VehicleDelivery[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<VehicleDelivery | null>(null);
   const [actionItem, setActionItem] = useState<VehicleDelivery | null>(null);
 
@@ -31,7 +30,6 @@ export default function DeliveryList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // FASE 1.3: Add delete confirmation dialog state
@@ -44,38 +42,13 @@ export default function DeliveryList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await deliveryService.getAll({
-        page: page + 1,
-        limit: rows,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      // getAll may return a list or paged response depending on backend
-      const payload = res.data as any;
-      if (Array.isArray(payload)) {
-        setItems(payload);
-        setTotalRecords(payload.length);
-      } else if (payload?.data) {
-        setItems(payload.data ?? []);
-        setTotalRecords(payload.pagination?.total ?? 0);
-      } else {
-        setItems([]);
-        setTotalRecords(0);
-      }
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { deliveries: items, loading, mutate } = useDeliveriesData({
+    page: page + 1,
+    limit: rows,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
+  const totalRecords = items.length;
 
   const openNew = () => {
     setSelected(null);
@@ -88,17 +61,15 @@ export default function DeliveryList() {
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Entrega registrada correctamente",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Entrega registrada correctamente",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   // FASE 1.3: Delete delivery with confirmation
@@ -117,7 +88,7 @@ export default function DeliveryList() {
         detail: "Entrega eliminada correctamente",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteConfirmDialog(false);
       setItemToDelete(null);
     } catch (error) {

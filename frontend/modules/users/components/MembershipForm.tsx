@@ -1,15 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { classNames } from "primereact/utils";
 import { Toast } from "primereact/toast";
 
-import { getEmpresas } from "@/app/api/empresaService";
-import { getCompanyRoles, CompanyRole } from "@/app/api/roleService";
 import {
   createMembership,
   updateMembership,
@@ -20,6 +17,10 @@ import type {
 } from "../interfaces/user.interface";
 import { membershipSchema } from "../schemas/user.schema";
 import type { MembershipFormData } from "../schemas/user.schema";
+import {
+  useMembershipCompanyRolesData,
+  useMembershipEmpresasData,
+} from "../hooks/useUsersData";
 
 const statusOptions = [
   { label: "Activo", value: "active" },
@@ -46,12 +47,6 @@ const MembershipForm = ({
   formId = "membership-form",
   onSubmittingChange,
 }: MembershipFormProps) => {
-  const [empresas, setEmpresas] = useState<{ label: string; value: string }[]>(
-    [],
-  );
-  const [roles, setRoles] = useState<CompanyRole[]>([]);
-  const [loadingRoles, setLoadingRoles] = useState(false);
-
   const {
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -68,44 +63,37 @@ const MembershipForm = ({
   });
 
   const watchedEmpresaId = watch("empresaId");
+  const {
+    empresaOptions,
+    error: empresasError,
+  } = useMembershipEmpresasData();
+  const {
+    roleOptions,
+    loading: loadingRoles,
+    error: rolesError,
+  } = useMembershipCompanyRolesData(watchedEmpresaId);
 
-  // Cargar lista de empresas al montar
   useEffect(() => {
-    getEmpresas()
-      .then((res) => {
-        setEmpresas(
-          res.empresas.map((e) => ({ label: e.nombre, value: e.id_empresa })),
-        );
-      })
-      .catch(() => {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudieron cargar las empresas",
-          life: 3000,
-        });
+    if (empresasError) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar las empresas",
+        life: 3000,
       });
-  }, [toast]);
-
-  // Cargar roles cuando cambia la empresa seleccionada
-  useEffect(() => {
-    if (!watchedEmpresaId) {
-      setRoles([]);
-      return;
     }
-    setLoadingRoles(true);
-    getCompanyRoles(watchedEmpresaId)
-      .then(setRoles)
-      .catch(() => {
-        toast.current?.show({
-          severity: "error",
-          summary: "Error",
-          detail: "No se pudieron cargar los roles",
-          life: 3000,
-        });
-      })
-      .finally(() => setLoadingRoles(false));
-  }, [watchedEmpresaId, toast]);
+  }, [empresasError, toast]);
+
+  useEffect(() => {
+    if (rolesError) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail: "No se pudieron cargar los roles",
+        life: 3000,
+      });
+    }
+  }, [rolesError, toast]);
 
   // Si estamos editando, resetear al recibir la membership
   useEffect(() => {
@@ -161,8 +149,6 @@ const MembershipForm = ({
     }
   };
 
-  const roleOptions = roles.map((r) => ({ label: r.name, value: r.id }));
-
   return (
     <div className="p-2">
       <form id={formId} onSubmit={handleSubmit(onSubmit)} className="p-fluid">
@@ -178,7 +164,7 @@ const MembershipForm = ({
               render={({ field }) => (
                 <Dropdown
                   {...field}
-                  options={empresas}
+                  options={empresaOptions}
                   placeholder="Seleccionar empresa"
                   disabled={!!membership}
                   className={classNames({ "p-invalid": errors.empresaId })}

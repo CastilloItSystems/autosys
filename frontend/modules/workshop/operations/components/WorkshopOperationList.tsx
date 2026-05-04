@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -21,6 +21,7 @@ import type {
 } from "@/modules/workshop/operations/interfaces/workshopOperation.interface";
 import { DIFFICULTY_OPTIONS } from "@/modules/workshop/operations/schemas/workshopOperationZod";
 import WorkshopOperationForm from "./WorkshopOperationForm";
+import { useWorkshopOperationsData } from "../hooks/useWorkshopOperationsData";
 
 const DIFFICULTY_SEVERITY: Record<
   OperationDifficulty,
@@ -40,8 +41,6 @@ const DIFFICULTY_LABEL: Record<OperationDifficulty, string> = {
 };
 
 export default function WorkshopOperationList() {
-  const [items, setItems] = useState<WorkshopOperation[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopOperation | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopOperation | null>(null);
 
@@ -51,7 +50,6 @@ export default function WorkshopOperationList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,29 +58,13 @@ export default function WorkshopOperationList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive, filterDifficulty]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await workshopOperationService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-        difficulty: (filterDifficulty as any) || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { operations, total: totalRecords, loading, mutate } = useWorkshopOperationsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+    difficulty: (filterDifficulty as any) || undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -108,7 +90,7 @@ export default function WorkshopOperationList() {
         detail: "Operación eliminada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -127,24 +109,22 @@ export default function WorkshopOperationList() {
         detail: `Operación ${item.isActive ? "desactivada" : "activada"}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Operación actualizada" : "Operación creada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Operación actualizada" : "Operación creada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   // ── Body templates ──
@@ -304,7 +284,7 @@ export default function WorkshopOperationList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={operations}
           paginator
           lazy
           first={page * rows}

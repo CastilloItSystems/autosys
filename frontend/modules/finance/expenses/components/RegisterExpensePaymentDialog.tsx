@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
@@ -14,7 +14,8 @@ import { Toast } from "primereact/toast";
 import type { Expense } from "../interfaces/expense";
 import type { PaymentMethod } from "@/modules/finance/supplierPayments/interfaces/supplierPayment";
 import supplierPaymentService from "@/modules/finance/supplierPayments/services/supplierPaymentService";
-import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
+import { useActiveBankAccountOptionsData } from "@/modules/finance/bankAccounts/hooks/useBankAccountsData";
+import { useSupplierPaymentsData } from "@/modules/finance/supplierPayments/hooks/useSupplierPaymentsData";
 import { handleFormError } from "@/utils/errorHandlers";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
@@ -67,11 +68,6 @@ export default function RegisterExpensePaymentDialog({
   onSuccess,
   toast,
 }: Props) {
-  const [bankAccounts, setBankAccounts] = useState<
-    { label: string; value: string; currency: string }[]
-  >([]);
-  const [existingPayments, setExistingPayments] = useState<any[]>([]);
-
   const [method, setMethod] = useState<PaymentMethod>("CASH");
   const [bankAccountId, setBankAccountId] = useState("");
   const [amount, setAmount] = useState(0);
@@ -90,6 +86,10 @@ export default function RegisterExpensePaymentDialog({
   // BCV auto-fill
   const { rate: bcvUsdRate, loading: bcvLoading } = useBcvRate("USD");
   const { rate: bcvEurRate } = useBcvRate("EUR");
+  const { accounts: activeBankAccounts } = useActiveBankAccountOptionsData();
+  const { payments: existingPayments } = useSupplierPaymentsData(
+    visible && expense ? { expenseId: expense.id, limit: 50 } : null,
+  );
 
   const currency = expense?.currency ?? "USD";
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";
@@ -123,25 +123,23 @@ export default function RegisterExpensePaymentDialog({
   const totalWithIgtf = round2(amount + igtfAmount);
 
   // Only show accounts matching the expense's currency
-  const matchingAccounts = bankAccounts.filter((a) => a.currency === currency);
+  const matchingAccounts = useMemo(
+    () =>
+      activeBankAccounts
+        .filter((account) => account.currency === currency)
+        .map((account) => ({
+          label: `${account.name} (${account.currency})`,
+          value: account.id,
+          currency: account.currency,
+        })),
+    [activeBankAccounts, currency],
+  );
 
   useEffect(() => {
     if (method === "MIXED") {
       setAmount(round2(mixedDetails.reduce((s, d) => s + (d.amount || 0), 0)));
     }
   }, [mixedDetails, method]);
-
-  useEffect(() => {
-    bankAccountService.getAll({ isActive: "true", limit: 100 }).then((res) => {
-      setBankAccounts(
-        (res.data ?? []).map((a: any) => ({
-          label: `${a.name} (${a.currency})`,
-          value: a.id,
-          currency: a.currency,
-        })),
-      );
-    });
-  }, []);
 
   useEffect(() => {
     if (!visible || !expense) return;
@@ -160,10 +158,6 @@ export default function RegisterExpensePaymentDialog({
       { method: "CASH", amount: 0 },
       { method: "TRANSFER", amount: 0 },
     ]);
-    supplierPaymentService
-      .getAll({ expenseId: expense.id, limit: 50 })
-      .then((res) => setExistingPayments(res.data ?? []))
-      .catch(() => setExistingPayments([]));
   }, [visible, expense?.id]);
 
   const handleSubmit = async () => {

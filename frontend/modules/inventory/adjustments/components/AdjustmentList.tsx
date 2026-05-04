@@ -10,7 +10,6 @@ import { Dropdown, DropdownChangeEvent } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { InputText } from "primereact/inputtext";
 import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
@@ -30,6 +29,7 @@ import AdjustmentForm from "@/modules/inventory/adjustments/components/Adjustmen
 import AdjustmentDetail from "@/modules/inventory/adjustments/components/AdjustmentDetail";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
+import { useAdjustmentsData } from "@/modules/inventory/adjustments/hooks/useAdjustmentsData";
 
 const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   [
@@ -43,9 +43,7 @@ const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
 
 const AdjustmentList = () => {
   // State
-  const [adjustments, setAdjustments] = useState<Adjustment[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] =
@@ -55,7 +53,6 @@ const AdjustmentList = () => {
   // Pagination (backend espera page 1-based)
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<AdjustmentStatus | null>(
@@ -73,52 +70,23 @@ const AdjustmentList = () => {
 
   const toast = useRef<Toast | null>(null);
 
-  useEffect(() => {
-    fetchAdjustments();
-  }, [
+  const { adjustments, total: totalRecords, loading, mutate } = useAdjustmentsData({
     page,
     limit,
-    filterStatus,
-    filterWarehouse,
-    filterDateFrom,
-    filterDateTo,
-    searchQuery,
-  ]);
+    status: filterStatus || undefined,
+    warehouseId: filterWarehouse || undefined,
+    search: searchQuery || undefined,
+    dateFrom: filterDateFrom
+      ? filterDateFrom.toISOString().split("T")[0]
+      : undefined,
+    dateTo: filterDateTo
+      ? filterDateTo.toISOString().split("T")[0]
+      : undefined,
+  });
 
   useEffect(() => {
     fetchWarehouses();
   }, []);
-
-  const fetchAdjustments = async () => {
-    try {
-      setLoading(true);
-      const response = await adjustmentService.getAll({
-        page,
-        limit,
-        status: filterStatus || undefined,
-        warehouseId: filterWarehouse || undefined,
-        search: searchQuery || undefined,
-        dateFrom: filterDateFrom
-          ? filterDateFrom.toISOString().split("T")[0]
-          : undefined,
-        dateTo: filterDateTo
-          ? filterDateTo.toISOString().split("T")[0]
-          : undefined,
-      });
-      setAdjustments(response.data);
-      setTotalRecords(response.meta.total);
-    } catch (error) {
-      console.error("Error fetching adjustments:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar los ajustes",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchWarehouses = async () => {
     try {
@@ -150,7 +118,7 @@ const AdjustmentList = () => {
     });
     setFormDialog(false);
     setPage(1);
-    fetchAdjustments();
+    mutate();
   };
 
   const viewDetails = async (adjustment: Adjustment) => {
@@ -182,7 +150,7 @@ const AdjustmentList = () => {
       accept: async () => {
         try {
           await adjustmentService.approve(adjustment.id);
-          fetchAdjustments();
+          mutate();
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -209,7 +177,7 @@ const AdjustmentList = () => {
       accept: async () => {
         try {
           await adjustmentService.apply(adjustment.id);
-          fetchAdjustments();
+          mutate();
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -236,7 +204,7 @@ const AdjustmentList = () => {
       accept: async () => {
         try {
           await adjustmentService.reject(adjustment.id);
-          fetchAdjustments();
+          mutate();
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -263,7 +231,7 @@ const AdjustmentList = () => {
       accept: async () => {
         try {
           await adjustmentService.cancel(adjustment.id);
-          fetchAdjustments();
+          mutate();
           toast.current?.show({
             severity: "success",
             summary: "Éxito",
@@ -459,17 +427,6 @@ const AdjustmentList = () => {
     </div>
   );
 
-  if (loading && adjustments.length === 0) {
-    return (
-      <div
-        className="flex justify-content-center align-items-center"
-        style={{ height: "400px" }}
-      >
-        <ProgressSpinner />
-      </div>
-    );
-  }
-
   return (
     <>
       <Toast ref={toast} />
@@ -568,12 +525,8 @@ const AdjustmentList = () => {
             </div>
           }
         >
-          {selectedAdjustment ? (
+          {selectedAdjustment && (
             <AdjustmentDetail adjustment={selectedAdjustment} />
-          ) : (
-            <div className="flex justify-content-center">
-              <ProgressSpinner />
-            </div>
           )}
         </Dialog>
 

@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -16,10 +16,9 @@ import { handleFormError } from "@/utils/errorHandlers";
 import workshopBayService from "@/modules/workshop/workshopBays/services/workshopBayService";
 import type { WorkshopBay } from "@/modules/workshop/workshopBays/interfaces/workshopBay.interface";
 import WorkshopBayForm from "./WorkshopBayForm";
+import { useWorkshopBaysData } from "../hooks/useWorkshopBaysData";
 
 export default function WorkshopBayList() {
-  const [items, setItems] = useState<WorkshopBay[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<WorkshopBay | null>(null);
   const [actionItem, setActionItem] = useState<WorkshopBay | null>(null);
 
@@ -28,7 +27,6 @@ export default function WorkshopBayList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -37,28 +35,12 @@ export default function WorkshopBayList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await workshopBayService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { bays, total: totalRecords, loading, mutate } = useWorkshopBaysData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -84,7 +66,7 @@ export default function WorkshopBayList() {
         detail: "Bahía eliminada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -103,24 +85,22 @@ export default function WorkshopBayList() {
         detail: `Bahía ${item.isActive ? "desactivada" : "activada"}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Bahía actualizada" : "Bahía creada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Bahía actualizada" : "Bahía creada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const actionBodyTemplate = (rowData: WorkshopBay) => (
@@ -197,7 +177,7 @@ export default function WorkshopBayList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={bays}
           paginator
           lazy
           first={page * rows}

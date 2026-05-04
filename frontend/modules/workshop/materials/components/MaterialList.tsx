@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -27,6 +27,7 @@ import stockService, {
   type Stock,
 } from "@/modules/inventory/stocks/services/stockService";
 import MaterialStatusBadge from "@/modules/workshop/shared/components/MaterialStatusBadge";
+import { useMaterialsData } from "../hooks/useMaterialsData";
 import MaterialForm from "./MaterialForm";
 
 const MATERIAL_STATUS_OPTIONS = [
@@ -67,8 +68,6 @@ export default function MaterialList({
   embedded,
 }: MaterialListProps) {
   const router = useRouter();
-  const [items, setItems] = useState<ServiceOrderMaterial[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderMaterial | null>(null);
   const [actionItem, setActionItem] = useState<ServiceOrderMaterial | null>(
     null,
@@ -80,7 +79,6 @@ export default function MaterialList({
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -102,31 +100,17 @@ export default function MaterialList({
   // Use prop serviceOrderId when embedded, otherwise use state filter
   const finalServiceOrderId = embedded ? serviceOrderId : soIdFilter;
 
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
-    setPage(0); // Reset to page 1 when filter changes
-    loadItems();
-  }, [searchQuery, statusFilter, finalServiceOrderId, embedded]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await materialService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: (statusFilter as MaterialStatus) || undefined,
-        serviceOrderId: finalServiceOrderId || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { materials: items, total: totalRecords, loading, mutate } = useMaterialsData(
+    (!embedded || serviceOrderId)
+      ? {
+          page: page + 1,
+          limit: rows,
+          search: searchQuery || undefined,
+          status: (statusFilter as MaterialStatus) || undefined,
+          serviceOrderId: finalServiceOrderId || undefined,
+        }
+      : undefined,
+  );
 
   const openNew = () => {
     setSelected(null);
@@ -152,7 +136,7 @@ export default function MaterialList({
         detail: "Material eliminado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -163,17 +147,15 @@ export default function MaterialList({
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id ? "Material actualizado" : "Material creado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id ? "Material actualizado" : "Material creado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const handleStatusChange = async (
@@ -189,7 +171,7 @@ export default function MaterialList({
         detail: "Estado del material actualizado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       return true;
     } catch (error) {
       handleFormError(error, toast);
@@ -211,7 +193,7 @@ export default function MaterialList({
           : "Material marcado como rechazado por cliente",
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

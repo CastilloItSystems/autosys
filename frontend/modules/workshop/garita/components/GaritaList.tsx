@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -23,6 +23,7 @@ import GaritaStatusBadge, {
   GARITA_TYPE_ICON,
   GARITA_VALID_TRANSITIONS,
 } from "./GaritaStatusBadge";
+import { useGaritaData } from "../hooks/useGaritaData";
 import GaritaForm from "./GaritaForm";
 import GaritaDetailDialog from "./GaritaDetailDialog";
 import { InputNumber } from "primereact/inputnumber";
@@ -48,8 +49,6 @@ const TYPE_OPTIONS = (Object.keys(GARITA_TYPE_LABELS) as GaritaEventType[]).map(
 );
 
 export default function GaritaList({ serviceOrderId, embedded }: Props) {
-  const [items, setItems] = useState<GaritaEvent[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<
     GaritaEventStatus | undefined
@@ -57,7 +56,6 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
   const [typeFilter, setTypeFilter] = useState<GaritaEventType | undefined>();
   const [page, setPage] = useState(0);
   const [rows] = useState(25);
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [statusDialog, setStatusDialog] = useState(false);
   const [selected, setSelected] = useState<GaritaEvent | null>(null);
@@ -69,38 +67,18 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
   const [detailEvent, setDetailEvent] = useState<GaritaEvent | null>(null);
   const toast = useRef<Toast>(null);
 
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await garitaService.getAll({
-        serviceOrderId: serviceOrderId || undefined,
-        status: statusFilter,
-        type: typeFilter,
-        search: searchQuery || undefined,
-        page: page + 1,
-        limit: rows,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return;
-    setPage(0);
-    loadItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [serviceOrderId, statusFilter, typeFilter, searchQuery, embedded]);
-
-  useEffect(() => {
-    loadItems();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  const { events: items, total: totalRecords, loading, mutate } = useGaritaData(
+    (!embedded || serviceOrderId)
+      ? {
+          serviceOrderId: serviceOrderId || undefined,
+          status: statusFilter,
+          type: typeFilter,
+          search: searchQuery || undefined,
+          page: page + 1,
+          limit: rows,
+        }
+      : undefined,
+  );
 
   const handleSaved = () => {
     toast.current?.show({
@@ -108,7 +86,7 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
       summary: "Registro creado",
       life: 3000,
     });
-    loadItems();
+    mutate();
     setFormDialog(false);
   };
 
@@ -136,7 +114,7 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
         summary: "Estado actualizado",
         life: 3000,
       });
-      loadItems();
+      mutate();
       setStatusDialog(false);
     } catch (error) {
       handleFormError(error, toast);
@@ -154,7 +132,7 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
         summary: "Registro eliminado",
         life: 3000,
       });
-      loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

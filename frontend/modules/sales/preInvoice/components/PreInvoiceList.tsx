@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
 import { InputText } from "primereact/inputtext";
@@ -9,14 +9,14 @@ import { Tag } from "primereact/tag";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
 import preInvoiceService from "../services/preInvoiceService";
-import paymentService from "@/modules/sales/payments/services/paymentService";
+import { usePreInvoicesData } from "../hooks/usePreInvoicesData";
+import { usePreInvoicePaymentsData } from "@/modules/sales/payments/hooks/usePaymentsData";
 import {
   PreInvoice,
   PreInvoiceStatus,
   PREINVOICE_STATUS_CONFIG,
 } from "../interfaces/preInvoice.interface";
 import {
-  Payment,
   PAYMENT_METHOD_CONFIG,
 } from "@/modules/sales/payments/interfaces/payment.interface";
 import PreInvoiceStepper from "./PreInvoiceStepper";
@@ -79,13 +79,113 @@ const formatCrossRef = (
   })}`;
 };
 
-const PreInvoiceList = () => {
-  const [preInvoices, setPreInvoices] = useState<PreInvoice[]>([]);
-  const [loading, setLoading] = useState(true);
+const PreInvoicePaymentsSection = ({
+  preInvoice,
+}: {
+  preInvoice: PreInvoice;
+}) => {
+  const { payments } = usePreInvoicePaymentsData(preInvoice.id);
+  const piPayments = payments.filter((p) => p.status === "COMPLETED");
+  if (piPayments.length === 0) return null;
+
+  const totalPaid = piPayments.reduce((sum, p) => sum + Number(p.amount), 0);
+  const pending = Math.max(0, Number(preInvoice.total) - totalPaid);
+
+  return (
+    <div
+      className="mt-3"
+      style={{
+        border: "1px solid var(--surface-300)",
+        borderRadius: "6px",
+        overflow: "hidden",
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "8px 12px",
+          backgroundColor: "var(--green-50)",
+          borderBottom: "2px solid var(--surface-300)",
+        }}
+      >
+        <div className="flex align-items-center gap-2">
+          <i className="pi pi-wallet text-green-600" />
+          <span
+            className="font-bold text-green-700"
+            style={{ fontSize: "0.85rem" }}
+          >
+            Pagos ({piPayments.length})
+          </span>
+        </div>
+        <div className="flex gap-3" style={{ fontSize: "0.8rem" }}>
+          <span className="text-green-600">
+            Pagado: <b>{formatAmount(totalPaid, preInvoice.currency)}</b>
+          </span>
+          {pending > 0 && (
+            <span className="text-orange-500">
+              Pendiente: <b>{formatAmount(pending, preInvoice.currency)}</b>
+            </span>
+          )}
+        </div>
+      </div>
+      {piPayments.map((payment) => {
+        const methodCfg =
+          PAYMENT_METHOD_CONFIG[
+            payment.method as keyof typeof PAYMENT_METHOD_CONFIG
+          ];
+        return (
+          <div
+            key={payment.id}
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              padding: "6px 12px",
+              borderBottom: "1px solid var(--surface-200)",
+              fontSize: "0.8rem",
+            }}
+          >
+            <i
+              className={`${methodCfg?.icon} ${methodCfg?.color}`}
+              style={{ width: "1.2rem" }}
+            />
+            <span className="text-600" style={{ width: "8rem" }}>
+              {payment.paymentNumber}
+            </span>
+            <span style={{ width: "7rem" }}>
+              {methodCfg?.label || payment.method}
+            </span>
+            <span className="font-semibold" style={{ width: "6rem" }}>
+              {formatAmount(payment.amount, preInvoice.currency)}
+            </span>
+            {payment.reference && (
+              <span className="text-500 text-xs">
+                Ref: {payment.reference}
+              </span>
+            )}
+            {Number(payment.igtfAmount) > 0 && (
+              <Tag
+                value={`IGTF +${formatAmount(
+                  payment.igtfAmount,
+                  preInvoice.currency,
+                )}`}
+                severity="warning"
+                className="text-xs ml-auto"
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+};
+
+const PreInvoiceListContent = () => {
   const [globalFilterValue, setGlobalFilterValue] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [sortField, setSortField] = useState("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [expandedRows, setExpandedRows] = useState<any>(null);
@@ -94,11 +194,26 @@ const PreInvoiceList = () => {
   const [paymentPreInvoice, setPaymentPreInvoice] = useState<PreInvoice | null>(
     null,
   );
-  const [existingPayments, setExistingPayments] = useState<Payment[]>([]);
-  const [paymentsMap, setPaymentsMap] = useState<Record<string, Payment[]>>({});
   const [pdfItem, setPdfItem] = useState<PreInvoice | null>(null);
   const toast = useRef<Toast | null>(null);
   const dt = useRef(null);
+
+  const listParams = useMemo(
+    () => ({
+      page: page + 1,
+      limit: rows,
+      search: debouncedSearch || undefined,
+      sortBy: sortField,
+      sortOrder,
+    }),
+    [page, rows, debouncedSearch, sortField, sortOrder],
+  );
+  const { preInvoices, total: totalRecords, loading, mutate } =
+    usePreInvoicesData(listParams);
+  const {
+    payments: existingPayments,
+    mutate: mutateSelectedPayments,
+  } = usePreInvoicePaymentsData(paymentPreInvoice?.id);
 
   useEffect(() => {
     const handler = setTimeout(
@@ -107,29 +222,6 @@ const PreInvoiceList = () => {
     );
     return () => clearTimeout(handler);
   }, [globalFilterValue]);
-
-  useEffect(() => {
-    loadPreInvoices();
-  }, [page, rows, sortField, sortOrder, debouncedSearch]);
-
-  const loadPreInvoices = async () => {
-    try {
-      setLoading(true);
-      const res = await preInvoiceService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: debouncedSearch || undefined,
-        sortBy: sortField,
-        sortOrder,
-      });
-      setPreInvoices(Array.isArray(res.data) ? res.data : []);
-      setTotalRecords(res.meta?.total || 0);
-    } catch (error) {
-      console.error("Error al obtener pre-facturas:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const onPageChange = (event: any) => {
     setPage(
@@ -162,7 +254,7 @@ const PreInvoiceList = () => {
   const handleStartPreparation = async (pi: PreInvoice) => {
     try {
       await preInvoiceService.startPreparation(pi.id);
-      await loadPreInvoices();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -177,7 +269,7 @@ const PreInvoiceList = () => {
   const handleMarkReady = async (pi: PreInvoice) => {
     try {
       await preInvoiceService.markReady(pi.id);
-      await loadPreInvoices();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -189,63 +281,26 @@ const PreInvoiceList = () => {
     }
   };
 
-  const openPaymentDialog = async (pi: PreInvoice) => {
-    try {
-      const res = await paymentService.getByPreInvoice(pi.id);
-      setExistingPayments(Array.isArray(res.data) ? res.data : []);
-    } catch {
-      setExistingPayments([]);
-    }
+  const openPaymentDialog = (pi: PreInvoice) => {
     setPaymentPreInvoice(pi);
     setPaymentDialog(true);
   };
 
   const handlePaymentSuccess = async () => {
-    await loadPreInvoices();
-    // Refresh payments cache for this PI
-    if (paymentPreInvoice) {
-      try {
-        const res = await paymentService.getByPreInvoice(paymentPreInvoice.id);
-        setPaymentsMap((prev) => ({
-          ...prev,
-          [paymentPreInvoice.id]: Array.isArray(res.data) ? res.data : [],
-        }));
-      } catch {
-        /* ignore */
-      }
-    }
+    await mutate();
+    if (paymentPreInvoice) await mutateSelectedPayments();
     setPaymentDialog(false);
     setPaymentPreInvoice(null);
   };
 
-  const loadPaymentsForPI = async (piId: string) => {
-    if (paymentsMap[piId]) return; // already cached
-    try {
-      const res = await paymentService.getByPreInvoice(piId);
-      setPaymentsMap((prev) => ({
-        ...prev,
-        [piId]: Array.isArray(res.data) ? res.data : [],
-      }));
-    } catch {
-      setPaymentsMap((prev) => ({ ...prev, [piId]: [] }));
-    }
-  };
-
   const handleRowToggle = (e: any) => {
     setExpandedRows(e.data);
-    // Load payments for newly expanded rows
-    if (e.data) {
-      const expandedIds = Array.isArray(e.data)
-        ? e.data.map((r: any) => r.id)
-        : Object.keys(e.data);
-      expandedIds.forEach((id: string) => loadPaymentsForPI(id));
-    }
   };
 
   const handleCancel = async (pi: PreInvoice) => {
     try {
       await preInvoiceService.cancel(pi.id);
-      await loadPreInvoices();
+      await mutate();
       toast.current?.show({
         severity: "success",
         summary: "Cancelada",
@@ -712,104 +767,7 @@ const PreInvoiceList = () => {
           </div>
         )}
 
-        {/* ── Payments section ── */}
-        {(() => {
-          const piPayments = (paymentsMap[data.id] || []).filter(
-            (p) => p.status === "COMPLETED",
-          );
-          if (piPayments.length === 0) return null;
-          const totalPaid = piPayments.reduce(
-            (sum, p) => sum + Number(p.amount),
-            0,
-          );
-          const pending = Math.max(0, Number(data.total) - totalPaid);
-          return (
-            <div
-              className="mt-3"
-              style={{
-                border: "1px solid var(--surface-300)",
-                borderRadius: "6px",
-                overflow: "hidden",
-              }}
-            >
-              <div
-                style={{
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "space-between",
-                  padding: "8px 12px",
-                  backgroundColor: "var(--green-50)",
-                  borderBottom: "2px solid var(--surface-300)",
-                }}
-              >
-                <div className="flex align-items-center gap-2">
-                  <i className="pi pi-wallet text-green-600" />
-                  <span
-                    className="font-bold text-green-700"
-                    style={{ fontSize: "0.85rem" }}
-                  >
-                    Pagos ({piPayments.length})
-                  </span>
-                </div>
-                <div className="flex gap-3" style={{ fontSize: "0.8rem" }}>
-                  <span className="text-green-600">
-                    Pagado: <b>{formatAmount(totalPaid, data.currency)}</b>
-                  </span>
-                  {pending > 0 && (
-                    <span className="text-orange-500">
-                      Pendiente: <b>{formatAmount(pending, data.currency)}</b>
-                    </span>
-                  )}
-                </div>
-              </div>
-              {piPayments.map((p) => {
-                const methodCfg =
-                  PAYMENT_METHOD_CONFIG[
-                    p.method as keyof typeof PAYMENT_METHOD_CONFIG
-                  ];
-                return (
-                  <div
-                    key={p.id}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "8px",
-                      padding: "6px 12px",
-                      borderBottom: "1px solid var(--surface-200)",
-                      fontSize: "0.8rem",
-                    }}
-                  >
-                    <i
-                      className={`${methodCfg?.icon} ${methodCfg?.color}`}
-                      style={{ width: "1.2rem" }}
-                    />
-                    <span className="text-600" style={{ width: "8rem" }}>
-                      {p.paymentNumber}
-                    </span>
-                    <span style={{ width: "7rem" }}>
-                      {methodCfg?.label || p.method}
-                    </span>
-                    <span className="font-semibold" style={{ width: "6rem" }}>
-                      {formatAmount(p.amount, data.currency)}
-                    </span>
-                    {p.reference && (
-                      <span className="text-500 text-xs">
-                        Ref: {p.reference}
-                      </span>
-                    )}
-                    {Number(p.igtfAmount) > 0 && (
-                      <Tag
-                        value={`IGTF +${formatAmount(p.igtfAmount, data.currency)}`}
-                        severity="warning"
-                        className="text-xs ml-auto"
-                      />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          );
-        })()}
+        <PreInvoicePaymentsSection preInvoice={data} />
       </div>
     );
   };
@@ -920,4 +878,4 @@ const PreInvoiceList = () => {
   );
 };
 
-export default PreInvoiceList;
+export default PreInvoiceListContent;

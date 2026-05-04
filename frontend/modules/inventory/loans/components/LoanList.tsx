@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -18,6 +18,7 @@ import loanService, {
   LoanStatus,
   LOAN_STATUS_CONFIG,
 } from "@/modules/inventory/loans/services/loanService";
+import { useLoansData } from "@/modules/inventory/loans/hooks/useLoansData";
 import LoanForm from "./LoanForm";
 import LoanDetail from "./LoanDetail";
 import LoanReturnDialog from "./LoanReturnDialog";
@@ -27,9 +28,6 @@ const LoanPDFPreview = dynamic(() => import("./LoanPDFPreview"), { ssr: false })
 const LoanList = () => {
   const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
-  const [loans, setLoans] = useState<Loan[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [filters, setFilters] = useState<{
     status?: LoanStatus | null;
     borrowerName?: string;
@@ -37,48 +35,21 @@ const LoanList = () => {
     limit: number;
   }>({ page: 1, limit: 20 });
 
+  const { loans, total: totalRecords, loading, mutate } = useLoansData(
+    filters.page,
+    filters.limit,
+    {
+      status: filters.status || undefined,
+      borrowerName: filters.borrowerName || undefined,
+    },
+  );
+
   const [selectedLoan, setSelectedLoan] = useState<Loan | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [pdfItem, setPdfItem] = useState<Loan | null>(null);
-
-  // ── Data loading ─────────────────────────────────────────────────────────
-
-  const loadLoans = async () => {
-    try {
-      setLoading(true);
-      const response = await loanService.getAll(filters.page, filters.limit, {
-        status: filters.status || undefined,
-        borrowerName: filters.borrowerName || undefined,
-      });
-      setLoans(Array.isArray(response.data) ? response.data : []);
-      setTotalRecords(response.meta?.total ?? 0);
-    } catch (error: any) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail:
-          error?.response?.data?.message ||
-          "No se pudieron cargar los préstamos",
-        life: 3000,
-      });
-      setLoans([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeEmpresa) loadLoans();
-  }, [
-    filters.page,
-    filters.limit,
-    filters.status,
-    filters.borrowerName,
-    activeEmpresa?.id_empresa,
-  ]);
 
   // ── Actions ──────────────────────────────────────────────────────────────
 
@@ -100,7 +71,7 @@ const LoanList = () => {
             detail: `Préstamo ${loan.loanNumber} aprobado`,
             life: 3000,
           });
-          loadLoans();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -133,7 +104,7 @@ const LoanList = () => {
             detail: `Préstamo ${loan.loanNumber} activado`,
             life: 3000,
           });
-          loadLoans();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -166,7 +137,7 @@ const LoanList = () => {
             detail: `Préstamo ${loan.loanNumber} cancelado`,
             life: 3000,
           });
-          loadLoans();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -479,7 +450,7 @@ const LoanList = () => {
           loan={selectedLoan ?? undefined}
           onSuccess={() => {
             setIsFormOpen(false);
-            loadLoans();
+            mutate();
           }}
           onCancel={() => {
             setIsFormOpen(false);
@@ -513,7 +484,7 @@ const LoanList = () => {
               setIsDetailOpen(false);
               setIsReturnOpen(true);
             }}
-            onRefresh={loadLoans}
+            onRefresh={mutate}
           />
         )}
       </Dialog>
@@ -532,7 +503,7 @@ const LoanList = () => {
               detail: "Devolución registrada correctamente",
               life: 3000,
             });
-            loadLoans();
+            mutate();
           }}
           toast={toast}
         />

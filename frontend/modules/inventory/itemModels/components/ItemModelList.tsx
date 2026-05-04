@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -11,26 +11,19 @@ import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import modelsService, { type Model } from "@/modules/inventory/models/services/modelService";
+import { useModelsData } from "@/modules/inventory/models/hooks/useModelsData";
 import ItemModelForm from "./ItemModelForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 
 export default function ItemModelList() {
-  // Datos
-  const [models, setModels] = useState<Model[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedModel, setSelectedModel] = useState<Model | null>(null);
   const [actionModel, setActionModel] = useState<Model | null>(null);
-
-  // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [page, setPage] = useState<number>(0); // PrimeReact usa 0-indexed
+  const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [showActive, setShowActive] = useState<boolean>(true); // Mostrar activos por defecto
-
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
+  const [showActive, setShowActive] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
@@ -38,39 +31,12 @@ export default function ItemModelList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  // Cargar modelos cuando cambien los filtros
-  useEffect(() => {
-    loadModels();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadModels = async () => {
-    try {
-      setLoading(true);
-      const response = await modelsService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      // Estructura consistente en todos los endpoints
-      const modelsData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setModels(Array.isArray(modelsData) ? modelsData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading models:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar modelos de inventario",
-        life: 3000,
-      });
-      setModels([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { models, total: totalRecords, loading, mutate } = useModelsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
@@ -115,7 +81,7 @@ export default function ItemModelList() {
         detail: "Modelo eliminado correctamente",
         life: 3000,
       });
-      loadModels();
+      mutate();
       setDeleteDialog(false);
       setSelectedModel(null);
     } catch (error) {
@@ -142,7 +108,7 @@ export default function ItemModelList() {
         } correctamente`,
         life: 3000,
       });
-      loadModels();
+      mutate();
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -162,7 +128,7 @@ export default function ItemModelList() {
         : "Modelo creado correctamente",
       life: 3000,
     });
-    loadModels();
+    mutate();
     setFormDialog(false);
   };
 

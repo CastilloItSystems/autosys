@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -17,6 +17,7 @@ import { handleFormError } from "@/utils/errorHandlers";
 import additionalService from '@/modules/workshop/additionals/services/additionalService';
 import type { ServiceOrderAdditional, AdditionalStatus } from '@/modules/workshop/additionals/interfaces/additional.interface';
 import AdditionalStatusBadge from "@/modules/workshop/shared/components/AdditionalStatusBadge";
+import { useAdditionalsData } from "../hooks/useAdditionalsData";
 import AdditionalForm from "./AdditionalForm";
 
 const ADDITIONAL_STATUS_OPTIONS = [
@@ -41,8 +42,6 @@ export default function AdditionalList({
   serviceOrderId,
   embedded,
 }: AdditionalListProps) {
-  const [items, setItems] = useState<ServiceOrderAdditional[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrderAdditional | null>(null);
   const [actionItem, setActionItem] = useState<ServiceOrderAdditional | null>(
     null,
@@ -54,7 +53,6 @@ export default function AdditionalList({
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -65,36 +63,17 @@ export default function AdditionalList({
 
   const finalServiceOrderId = embedded ? serviceOrderId : soIdFilter;
 
-  const loadItems = useCallback(async () => {
-    try {
-      setLoading(true);
-      const res = await additionalService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: (statusFilter as AdditionalStatus) || undefined,
-        serviceOrderId: finalServiceOrderId || undefined,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [page, rows, searchQuery, statusFilter, finalServiceOrderId]);
-
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return;
-    setPage(0);
-    loadItems();
-  }, [searchQuery, statusFilter, finalServiceOrderId, embedded, loadItems]);
-
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return;
-    loadItems();
-  }, [page, rows, loadItems, embedded, serviceOrderId]);
+  const { additionals: items, total: totalRecords, loading, mutate } = useAdditionalsData(
+    (!embedded || serviceOrderId)
+      ? {
+          page: page + 1,
+          limit: rows,
+          search: searchQuery || undefined,
+          status: (statusFilter as AdditionalStatus) || undefined,
+          serviceOrderId: finalServiceOrderId || undefined,
+        }
+      : undefined,
+  );
 
   const openNew = () => {
     const newSelected =
@@ -124,7 +103,7 @@ export default function AdditionalList({
         detail: "Trabajo adicional eliminado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -135,19 +114,17 @@ export default function AdditionalList({
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id
-          ? "Trabajo adicional actualizado"
-          : "Trabajo adicional creado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id
+        ? "Trabajo adicional actualizado"
+        : "Trabajo adicional creado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const handleStatusChange = async (
@@ -162,7 +139,7 @@ export default function AdditionalList({
         detail: "Estado del trabajo actualizado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }

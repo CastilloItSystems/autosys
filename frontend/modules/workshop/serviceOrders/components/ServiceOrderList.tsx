@@ -1,6 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from "react";
 import { useSearchParams } from "next/navigation";
+import { useServiceOrdersData } from "../hooks/useServiceOrdersData";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -37,8 +38,6 @@ const ServiceOrderPDFPreview = dynamic(() => import("./ServiceOrderPDFPreview"),
 
 export default function ServiceOrderList() {
   const searchParams = useSearchParams();
-  const [items, setItems] = useState<ServiceOrder[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<ServiceOrder | null>(null);
   const [actionItem, setActionItem] = useState<ServiceOrder | null>(null);
 
@@ -47,7 +46,6 @@ export default function ServiceOrderList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [detailDialog, setDetailDialog] = useState(false);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -69,6 +67,15 @@ export default function ServiceOrderList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
+  const { serviceOrders: items, total: totalRecords, loading, mutate } = useServiceOrdersData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    status: (statusFilter as ServiceOrderStatus) || undefined,
+    sortBy: "receivedAt",
+    sortOrder: "desc",
+  });
+
   useEffect(() => {
     const action = searchParams.get("action");
     if (action === "new") {
@@ -83,31 +90,6 @@ export default function ServiceOrderList() {
       setFormDialog(true);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await serviceOrderService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status: (statusFilter as ServiceOrderStatus) || undefined,
-        sortBy: "receivedAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openNew = () => {
     setSelected(null);
@@ -139,7 +121,7 @@ export default function ServiceOrderList() {
         detail: `Orden ${selected.folio} eliminada`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -150,20 +132,18 @@ export default function ServiceOrderList() {
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id
-          ? `Orden ${selected.folio} actualizada`
-          : "Orden de trabajo creada",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-      setPreloadData(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id
+        ? `Orden ${selected.folio} actualizada`
+        : "Orden de trabajo creada",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
+    setPreloadData(null);
   };
 
   const handleStatusSaved = async () => {
@@ -173,7 +153,7 @@ export default function ServiceOrderList() {
       detail: "Estado actualizado",
       life: 3000,
     });
-    await loadItems();
+    mutate();
     setStatusDialog(false);
     setSelected(null);
   };
@@ -192,7 +172,7 @@ export default function ServiceOrderList() {
         detail: `OT ${order.folio} → ${newStatus}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -207,7 +187,7 @@ export default function ServiceOrderList() {
         detail: `Se generó la pre-factura para ${order.folio}`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
@@ -1129,7 +1109,7 @@ export default function ServiceOrderList() {
               setDetailDialog(false);
               setDetailId(null);
               setDetailItem(null);
-              loadItems();
+              mutate();
             }}
           />
         )}

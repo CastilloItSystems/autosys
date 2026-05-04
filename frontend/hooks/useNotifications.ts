@@ -3,7 +3,7 @@ import {
   listNotifications,
   NotificationItem,
   NotificationListResponse,
-} from "@/app/api/notificationService";
+} from "@/shared/services/notificationService";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 const EMPTY_STATE: NotificationListResponse = {

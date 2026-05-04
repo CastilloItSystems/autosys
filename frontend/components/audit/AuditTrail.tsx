@@ -7,7 +7,7 @@ import { DataTable } from "primereact/datatable";
 import { Dialog } from "primereact/dialog";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
-import auditLogService, { type AuditLog } from "@/app/api/auditLogService";
+import auditLogService, { type AuditLog } from "@/shared/services/auditLog.service";
 import { handleFormError } from "@/utils/errorHandlers";
 
 export const ENTITY_OPTIONS = [

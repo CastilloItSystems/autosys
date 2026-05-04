@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -17,7 +17,8 @@ import type {
 } from "../interfaces/cashTransaction";
 import type { BankAccount } from "@/modules/finance/bankAccounts/interfaces/bankAccount";
 import cashFlowService from "../services/cashFlowService";
-import bankAccountService from "@/modules/finance/bankAccounts/services/bankAccountService";
+import { useActiveBankAccountOptionsData } from "@/modules/finance/bankAccounts/hooks/useBankAccountsData";
+import { useCashFlowData } from "../hooks/useCashFlowData";
 import TransferDialog from "./TransferDialog";
 import ManualAdjustmentDialog from "./ManualAdjustmentDialog";
 import { handleFormError } from "@/utils/errorHandlers";
@@ -96,90 +97,72 @@ const firstOfMonth = new Date(
   .toISOString()
   .split("T")[0];
 
-export default function CashFlowReport() {
+function CashFlowReportContent() {
   const toast = useRef<Toast>(null);
-  const [transactions, setTransactions] = useState<CashTransaction[]>([]);
-  const [summary, setSummary] = useState<CashFlowSummary | null>(null);
-  const [bankAccountsFull, setBankAccountsFull] = useState<BankAccount[]>([]);
-  const [bankAccounts, setBankAccounts] = useState<
-    { label: string; value: string }[]
-  >([]);
-  const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
   const [page, setPage] = useState(1);
-  const [total, setTotal] = useState(0);
   const [filters, setFilters] = useState({
     from: firstOfMonth,
     to: today,
     bankAccountId: "",
     convertTo: "" as string,
   });
-  const [periodBalance, setPeriodBalance] = useState<{
-    opening: number;
-    closing: number;
-    currency: string;
-  } | null>(null);
   const [transferVisible, setTransferVisible] = useState(false);
   const [adjustmentVisible, setAdjustmentVisible] = useState(false);
   const [pdfVisible, setPdfVisible] = useState(false);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const [txRes, sumRes] = await Promise.all([
-        cashFlowService.getAll({
-          ...filters,
-          page,
-          limit: 50,
-          bankAccountId: filters.bankAccountId || undefined,
-        }),
-        cashFlowService.getSummary({
-          ...filters,
-          bankAccountId: filters.bankAccountId || undefined,
-          convertTo: filters.convertTo || undefined,
-        }),
-      ]);
-      const txData: CashTransaction[] = txRes.data ?? [];
-      setTransactions(txData);
-      setTotal(txRes.meta?.total ?? 0);
-      setSummary(sumRes.data ?? null);
-
-      // Period balance: opening = balance at oldest tx minus its amount; closing = balance at newest tx
-      if (filters.bankAccountId && txData.length > 0) {
-        const newest = txData[0]; // DESC order
-        const oldest = txData[txData.length - 1];
-        const closing = Number(newest.runningBalance ?? 0);
-        const opening =
-          Number(oldest.runningBalance ?? 0) - Number(oldest.amount);
-        const currency = newest.currency;
-        setPeriodBalance({ opening, closing, currency });
-      } else {
-        setPeriodBalance(null);
-      }
-    } catch (err) {
-      handleFormError(err, toast);
-    } finally {
-      setLoading(false);
-    }
-  }, [filters, page]);
-
-  useEffect(() => {
-    bankAccountService.getAll({ isActive: "true", limit: 100 }).then((res) => {
-      const accounts: BankAccount[] = res.data ?? [];
-      setBankAccountsFull(accounts);
-      setBankAccounts([
-        { label: "Todas las cuentas", value: "" },
-        ...accounts.map((a) => ({
-          label: `${a.name} (${a.currency})`,
-          value: a.id,
-        })),
-      ]);
-    });
-  }, []);
+  const transactionParams = useMemo(
+    () => ({
+      ...filters,
+      page,
+      limit: 50,
+      bankAccountId: filters.bankAccountId || undefined,
+    }),
+    [filters, page],
+  );
+  const summaryParams = useMemo(
+    () => ({
+      ...filters,
+      bankAccountId: filters.bankAccountId || undefined,
+      convertTo: filters.convertTo || undefined,
+    }),
+    [filters],
+  );
+  const {
+    transactions,
+    total,
+    summary,
+    loading,
+    error,
+    mutate,
+  }: {
+    transactions: CashTransaction[];
+    total: number;
+    summary: CashFlowSummary | null;
+    loading: boolean;
+    error: unknown;
+    mutate: () => Promise<unknown>;
+  } = useCashFlowData(transactionParams, summaryParams);
+  const {
+    accounts: bankAccountsFull,
+    bankAccountOptions: bankAccounts,
+  }: {
+    accounts: BankAccount[];
+    bankAccountOptions: { label: string; value: string }[];
+  } = useActiveBankAccountOptionsData();
 
   useEffect(() => {
-    load();
-  }, [load]);
+    if (error) handleFormError(error, toast);
+  }, [error]);
+
+  const periodBalance = useMemo(() => {
+    if (!filters.bankAccountId || transactions.length === 0) return null;
+    const newest = transactions[0];
+    const oldest = transactions[transactions.length - 1];
+    const closing = Number(newest.runningBalance ?? 0);
+    const opening = Number(oldest.runningBalance ?? 0) - Number(oldest.amount);
+    return { opening, closing, currency: newest.currency };
+  }, [filters.bankAccountId, transactions]);
 
   const exportCsv = async () => {
     setExporting(true);
@@ -262,7 +245,7 @@ export default function CashFlowReport() {
     v.toLocaleString("es-VE", { minimumFractionDigits: 2 });
 
   const onActionSuccess = async () => {
-    await load();
+    await mutate();
     toast.current?.show({
       severity: "success",
       summary: "Éxito",
@@ -327,7 +310,7 @@ export default function CashFlowReport() {
           icon="pi pi-search"
           onClick={() => {
             setPage(1);
-            load();
+            void mutate();
           }}
         />
         <Button
@@ -555,3 +538,5 @@ export default function CashFlowReport() {
     </>
   );
 }
+
+export default CashFlowReportContent;

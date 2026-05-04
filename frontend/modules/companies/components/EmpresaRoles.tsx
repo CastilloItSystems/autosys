@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
@@ -10,12 +10,12 @@ import { Divider } from "primereact/divider";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Toast } from "primereact/toast";
 import {
-  getCompanyRoles,
   createCompanyRole,
   updateCompanyRole,
   deleteCompanyRole,
-  CompanyRole,
-} from "@/app/api/roleService";
+  type CompanyRole,
+} from "../services/role.service";
+import { useCompanyRolesData } from "../hooks/useEmpresasData";
 
 import {
   PERMISSION_GROUPS,
@@ -41,8 +41,6 @@ const EmpresaRoles = ({
   empresaNombre,
   toast,
 }: EmpresaRolesProps) => {
-  const [roles, setRoles] = useState<CompanyRole[]>([]);
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -55,31 +53,29 @@ const EmpresaRoles = ({
     new Set(),
   );
   const [permSearch, setPermSearch] = useState("");
+  const {
+    roles,
+    loading,
+    error: rolesError,
+    mutate,
+  } = useCompanyRolesData(visible ? empresaId : null);
 
-  const loadRoles = useCallback(async () => {
-    if (!empresaId) return;
-    setLoading(true);
-    try {
-      const data = await getCompanyRoles(empresaId);
-      setRoles(data);
-    } catch {
+  useEffect(() => {
+    if (rolesError) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudieron cargar los roles",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  }, [empresaId]);
+  }, [rolesError, toast]);
 
   useEffect(() => {
     if (visible) {
-      loadRoles();
       setViewMode("list");
     }
-  }, [visible, loadRoles]);
+  }, [visible]);
 
   const openCreate = () => {
     setEditingRole(null);
@@ -142,7 +138,7 @@ const EmpresaRoles = ({
           life: 3000,
         });
       }
-      await loadRoles();
+      await mutate();
       setViewMode("list");
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo guardar el rol";
@@ -176,7 +172,7 @@ const EmpresaRoles = ({
         detail: `Rol "${role.name}" eliminado`,
         life: 3000,
       });
-      await loadRoles();
+      await mutate();
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo eliminar el rol";
       toast.current?.show({
@@ -449,9 +445,9 @@ const EmpresaRoles = ({
                 header="Usuarios"
                 body={(row: CompanyRole) => (
                   <Tag
-                    value={`${row._count?.userEmpresaRoles ?? 0} usuarios`}
+                    value={`${row._count?.memberships ?? 0} usuarios`}
                     severity={
-                      (row._count?.userEmpresaRoles ?? 0) > 0
+                      (row._count?.memberships ?? 0) > 0
                         ? "warning"
                         : "secondary"
                     }
@@ -482,7 +478,7 @@ const EmpresaRoles = ({
                       onClick={() => handleDelete(row)}
                       loading={deleting === row.id}
                       disabled={
-                        row.isSystem || (row._count?.userEmpresaRoles ?? 0) > 0
+                        row.isSystem || (row._count?.memberships ?? 0) > 0
                       }
                       size="small"
                     />

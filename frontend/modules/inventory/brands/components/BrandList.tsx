@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -11,6 +11,7 @@ import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import brandsService from "@/modules/inventory/brands/services/brandService";
+import { useBrandsData } from "@/modules/inventory/brands/hooks/useBrandsData";
 import BrandForm from "./BrandForm";
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
@@ -18,19 +19,11 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import type { Brand } from "@/modules/inventory/brands/services/brandService";
 
 export default function BrandList() {
-  // Datos
-  const [brands, setBrands] = useState<Brand[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
   const [selectedBrand, setSelectedBrand] = useState<Brand | null>(null);
-
-  // Filtros y paginación
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const [page, setPage] = useState<number>(0); // PrimeReact usa 0-indexed
+  const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
-  const [showActive, setShowActive] = useState<boolean>(true); // Mostrar activas por defecto
-
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
+  const [showActive, setShowActive] = useState<boolean>(true);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
@@ -39,40 +32,12 @@ export default function BrandList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
 
-  // Cargar marcas cuando cambien los filtros
-  useEffect(() => {
-    loadBrands();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadBrands = async () => {
-    try {
-      setLoading(true);
-      const response = await brandsService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-
-      // Estructura consistente en todos los endpoints
-      const brandsData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setBrands(Array.isArray(brandsData) ? brandsData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading brands:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar marcas de inventario",
-        life: 3000,
-      });
-      setBrands([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { brands, total: totalRecords, loading, mutate } = useBrandsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
@@ -116,7 +81,7 @@ export default function BrandList() {
         detail: "Marca eliminada correctamente",
         life: 3000,
       });
-      loadBrands();
+      mutate();
       setDeleteDialog(false);
     } catch (error) {
       console.error("Error deleting brand:", error);
@@ -140,7 +105,7 @@ export default function BrandList() {
         } correctamente`,
         life: 3000,
       });
-      loadBrands();
+      mutate();
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -160,7 +125,7 @@ export default function BrandList() {
         : "Marca creada correctamente",
       life: 3000,
     });
-    loadBrands();
+    mutate();
     setFormDialog(false);
   };
 

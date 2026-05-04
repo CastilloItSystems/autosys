@@ -9,7 +9,6 @@ import { Dialog } from "primereact/dialog";
 import { Dropdown, DropdownChangeEvent } from "primereact/dropdown";
 import { Calendar } from "primereact/calendar";
 import { Tag } from "primereact/tag";
-import { ProgressSpinner } from "primereact/progressspinner";
 import { Sidebar } from "primereact/sidebar";
 import { motion, AnimatePresence } from "framer-motion";
 import { Skeleton } from "primereact/skeleton";
@@ -25,6 +24,7 @@ import warehouseService, {
 } from "@/modules/inventory/warehouses/services/warehouseService";
 import itemService, { Item } from "@/modules/inventory/items/services/itemService";
 import MovementDetailForm from "./MovementDetailForm";
+import { useMovementsData } from "@/modules/inventory/movements/hooks/useMovementsData";
 
 const MOVEMENT_TYPES: { label: string; value: MovementType | null }[] = [
   { label: "Todos", value: null },
@@ -44,10 +44,8 @@ const MovementList = () => {
   const searchParams = useSearchParams();
 
   // State
-  const [movements, setMovements] = useState<Movement[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [items, setItems] = useState<Item[]>([]);
-  const [loading, setLoading] = useState(true);
 
   // Detail modal
   const [selectedMovement, setSelectedMovement] = useState<Movement | null>(
@@ -59,7 +57,6 @@ const MovementList = () => {
   // Pagination
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(10);
-  const [totalRecords, setTotalRecords] = useState(0);
 
   // Filters
   const [filterType, setFilterType] = useState<MovementType | null>(null);
@@ -76,6 +73,21 @@ const MovementList = () => {
 
   const toast = useRef<Toast | null>(null);
 
+  const { movements, total: totalRecords, loading, mutate } = useMovementsData({
+    page,
+    limit,
+    type: filterType || undefined,
+    warehouseToId: filterWarehouse || undefined,
+    warehouseFromId: filterWarehouse || undefined,
+    itemId: filterItemId || undefined,
+    dateFrom: filterDateFrom
+      ? filterDateFrom.toISOString().split("T")[0]
+      : undefined,
+    dateTo: filterDateTo
+      ? filterDateTo.toISOString().split("T")[0]
+      : undefined,
+  });
+
   // Initialize filters from URL if present
   useEffect(() => {
     const itemIdParam = searchParams.get("itemId");
@@ -84,52 +96,6 @@ const MovementList = () => {
       setShowFilters(true);
     }
   }, [searchParams]);
-
-  // Fetch data on mount and when filters/pagination change
-  useEffect(() => {
-    fetchMovements();
-  }, [
-    page,
-    limit,
-    filterType,
-    filterWarehouse,
-    filterItemId,
-    filterDateFrom,
-    filterDateTo,
-  ]);
-
-  const fetchMovements = async () => {
-    try {
-      setLoading(true);
-      const response = await movementService.getAll({
-        page,
-        limit,
-        type: filterType || undefined,
-        warehouseToId: filterWarehouse || undefined,
-        warehouseFromId: filterWarehouse || undefined,
-        itemId: filterItemId || undefined,
-        dateFrom: filterDateFrom
-          ? filterDateFrom.toISOString().split("T")[0]
-          : undefined,
-        dateTo: filterDateTo
-          ? filterDateTo.toISOString().split("T")[0]
-          : undefined,
-      });
-
-      setMovements(response.data);
-      setTotalRecords(response.meta?.total ?? response.data.length);
-    } catch (error) {
-      console.error("Error fetching movements:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar los movimientos",
-        life: 3000,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Fetch warehouses, items, and dashboard on mount
   useEffect(() => {
@@ -321,7 +287,7 @@ const MovementList = () => {
   const handleDetailSave = (updatedMovement: Movement) => {
     setSelectedMovement(updatedMovement);
     closeDetail();
-    fetchMovements();
+    mutate();
   };
 
   // ── Dashboard KPI Cards ───────────────────────────────────────────────

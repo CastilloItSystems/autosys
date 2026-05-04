@@ -5,7 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { InputText } from "primereact/inputtext";
 import { classNames } from "primereact/utils";
-import { profileSchema } from "@/libs/zods";
+import { profileSchema } from "@/modules/auth/schemas/auth.schema";
 import { Toast } from "primereact/toast";
 import { FileUpload, FileUploadSelectEvent } from "primereact/fileupload";
 import { Image } from "primereact/image";
@@ -55,9 +55,9 @@ const MyprofileForm = ({
 
   useEffect(() => {
     if (usuario) {
-      if (usuario.nombre !== undefined) setValue("nombre", usuario.nombre);
+      if (usuario.nombre !== undefined) setValue("name", usuario.nombre);
       if (usuario.telefono !== undefined && usuario.telefono !== null)
-        setValue("telefono", usuario.telefono);
+        setValue("phone", usuario.telefono);
       setPreviewUrl(usuario.img || null);
     }
   }, [usuario, setValue]);
@@ -82,7 +82,10 @@ const MyprofileForm = ({
   const onSubmit = async (data: FormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
-      const usuarioActualizado = await updateUser(usuario.id, data);
+      const usuarioActualizado = await updateUser(usuario.id, {
+        nombre: data.name,
+        telefono: data.phone,
+      });
 
       let finalImg = usuarioActualizado.img;
 
@@ -161,29 +164,29 @@ const MyprofileForm = ({
         </div>
 
         <div className="field mb-4 col-12 md:col-8">
-          <label htmlFor="nombre" className="font-medium text-900">
+          <label htmlFor="name" className="font-medium text-900">
             Nombre
           </label>
           <InputText
-            id="nombre"
+            id="name"
             type="text"
-            className={classNames("w-full", { "p-invalid": errors.nombre })}
-            {...register("nombre")}
+            className={classNames("w-full", { "p-invalid": errors.name })}
+            {...register("name")}
           />
-          {errors.nombre && (
-            <small className="p-error">{errors.nombre.message}</small>
+          {errors.name && (
+            <small className="p-error">{errors.name.message}</small>
           )}
         </div>
 
         <div className="field mb-4 col-12 md:col-4">
           <label className="block font-medium text-900 mb-2">Teléfono</label>
           <Controller
-            name="telefono"
+            name="phone"
             control={control}
             render={({ field, fieldState }) => (
               <>
                 <PhoneInput
-                  id="telefono"
+                  id="phone"
                   value={field.value}
                   onChange={field.onChange}
                   error={fieldState.error}

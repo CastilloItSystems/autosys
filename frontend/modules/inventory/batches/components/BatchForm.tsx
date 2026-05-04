@@ -13,7 +13,7 @@ import {
   BatchStatus,
   BATCH_STATUS_CONFIG,
 } from "@/types/batch.interface";
-import { createBatchSchema, CreateBatchInput } from "@/libs/zods/batchZod";
+import { createBatchSchema, CreateBatchInput } from "../schemas/batchZod";
 
 interface BatchFormProps {
   batch?: Batch | null;

@@ -40,7 +40,7 @@ import { useBcvRate } from "@/hooks/useBcvRate";
 import { useOrderCalculation } from "@/hooks/useOrderCalculation";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
-import customerService from "@/modules/sales/customer/services/customerService";
+import { useActiveSalesCustomersData } from "@/modules/sales/customer/hooks/useSalesCustomersData";
 import CustomerForm from "@/modules/sales/customer/components/CustomerForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
@@ -110,6 +110,7 @@ export default function OrderForm({
   const [customerDialog, setCustomerDialog] = useState(false);
   const [isCustomerSubmitting, setIsCustomerSubmitting] = useState(false);
   const [loadingCustomers, setLoadingCustomers] = useState(false);
+  const { mutate: mutateActiveCustomers } = useActiveSalesCustomersData();
   const [itemSuggestions, setItemSuggestions] = useState<any[]>([]);
   const [selectedItemsMap, setSelectedItemsMap] = useState<Record<string, any>>(
     () => {
@@ -257,6 +258,10 @@ export default function OrderForm({
     3,
   );
 
+  useEffect(() => {
+    setLocalCustomers(customers);
+  }, [customers]);
+
   /* ── Sync totalLine back to form fields ── */
   useEffect(() => {
     if (calcResult?.items) {
@@ -286,8 +291,8 @@ export default function OrderForm({
     } else {
       setLoadingCustomers(true);
       try {
-        const res = await customerService.getActive();
-        setLocalCustomers(Array.isArray(res?.data) ? res.data : []);
+        const res = await mutateActiveCustomers();
+        setLocalCustomers(res && Array.isArray(res.data) ? res.data : []);
       } finally {
         setLoadingCustomers(false);
       }

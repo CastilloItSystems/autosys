@@ -276,19 +276,24 @@ import {
   register,
   getProfile,
   logout,
+  refresh,
   changePassword,
 } from '../controllers/auth.controller.js'
-import { authenticate } from '../shared/middleware/authenticate.middleware.js'
+import {
+  authenticate,
+  optionalAuthenticate,
+} from '../shared/middleware/authenticate.middleware.js'
 
 const router = Router()
 
 // Rutas públicas
 router.post('/login', login)
 router.post('/register', register)
+router.post('/refresh', refresh)
 
 // Rutas protegidas
 router.get('/profile', authenticate, getProfile)
-router.post('/logout', authenticate, logout)
+router.post('/logout', optionalAuthenticate, logout)
 router.post('/change-password', authenticate, changePassword)
 
 export default router

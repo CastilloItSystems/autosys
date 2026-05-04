@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getNotificationsByUserId } from "@/shared/services/notification.service";
-import { Notification } from "@/libs/interfaces";
+import { Notification } from "@/shared/interfaces/notification";
 export interface NotificationResponse {
   total: number; // Total de notificaciones
   notifications: Notification[]; // Array de notificaciones

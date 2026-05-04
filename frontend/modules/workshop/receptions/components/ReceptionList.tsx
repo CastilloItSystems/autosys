@@ -16,6 +16,7 @@ import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import receptionService from '@/modules/workshop/receptions/services/receptionService';
 import type { VehicleReception, ReceptionStatus } from '@/modules/workshop/receptions/interfaces/reception.interface';
+import { useReceptionsData } from "../hooks/useReceptionsData";
 import ReceptionForm from "./ReceptionForm";
 
 const FUEL_LABELS: Record<string, string> = {
@@ -40,8 +41,6 @@ const STATUS_CONFIG: Record<
 export default function ReceptionList() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const [items, setItems] = useState<VehicleReception[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<VehicleReception | null>(null);
   const [actionItem, setActionItem] = useState<VehicleReception | null>(null);
 
@@ -49,7 +48,6 @@ export default function ReceptionList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -63,6 +61,14 @@ export default function ReceptionList() {
 
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
+
+  const { receptions: items, total: totalRecords, loading, mutate } = useReceptionsData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    sortBy: "createdAt",
+    sortOrder: "desc",
+  });
 
   useEffect(() => {
     const action = searchParams.get("action");
@@ -82,30 +88,6 @@ export default function ReceptionList() {
       setFormDialog(true);
     }
   }, [searchParams]);
-
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await receptionService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        sortBy: "createdAt",
-        sortOrder: "desc",
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const openNew = () => {
     setPreloadData(null);
@@ -139,7 +121,7 @@ export default function ReceptionList() {
         detail: "Recepción eliminada",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -150,7 +132,7 @@ export default function ReceptionList() {
   };
 
   const handleSave = async (newReceptionId?: string) => {
-    await loadItems();
+    mutate();
     if (newReceptionId) {
       // Auto-transición: mantener dialog abierto en modo edición
       try {

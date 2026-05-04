@@ -287,6 +287,32 @@ export const updateUser = async (req: Request, res: Response) => {
   }
 }
 
+export const saveFcmToken = async (req: Request, res: Response) => {
+  const userId = req.user?.userId
+  const { token } = req.body
+
+  if (!token || typeof token !== 'string') {
+    return res.status(400).json({ error: 'Token FCM inválido.' })
+  }
+
+  try {
+    const user = await prisma.user.findUnique({ where: { id: String(userId) } })
+    if (!user) return res.status(404).json({ error: 'Usuario no encontrado.' })
+
+    if (!user.fcmTokens.includes(token)) {
+      await prisma.user.update({
+        where: { id: String(userId) },
+        data: { fcmTokens: { push: token } },
+      })
+    }
+
+    return res.json({ ok: true })
+  } catch (error) {
+    console.error('Error guardando FCM token:', error)
+    return res.status(500).json({ error: 'Error al guardar el token.' })
+  }
+}
+
 export const deleteUser = async (req: Request, res: Response) => {
   const { id } = req.params
 

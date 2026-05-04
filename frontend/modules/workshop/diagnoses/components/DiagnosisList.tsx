@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -17,6 +17,7 @@ import DiagnosisSeverityBadge from "@/modules/workshop/shared/components/Diagnos
 import { handleFormError } from "@/utils/errorHandlers";
 import diagnosisService from '@/modules/workshop/diagnoses/services/diagnosisService';
 import type { Diagnosis, DiagnosisStatus } from '@/modules/workshop/diagnoses/interfaces/diagnosis.interface';;
+import { useDiagnosesData } from "../hooks/useDiagnosesData";
 import DiagnosisForm from "./DiagnosisForm";
 import DiagnosisProcessDialog from "./DiagnosisProcessDialog";
 import dynamic from "next/dynamic";
@@ -66,8 +67,6 @@ export default function DiagnosisList({
   serviceOrderId,
   embedded,
 }: DiagnosisListProps) {
-  const [items, setItems] = useState<Diagnosis[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<Diagnosis | null>(null);
   const [actionItem, setActionItem] = useState<Diagnosis | null>(null);
 
@@ -76,7 +75,6 @@ export default function DiagnosisList({
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [processDialog, setProcessDialog] = useState(false);
   const [processItem, setProcessItem] = useState<Diagnosis | null>(null);
@@ -91,33 +89,17 @@ export default function DiagnosisList({
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return;
-    loadItems();
-  }, [page, rows, searchQuery, statusFilter, serviceOrderId, embedded]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await diagnosisService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        status:
-          statusFilter !== "ALL"
-            ? (statusFilter as DiagnosisStatus)
-            : undefined,
-        serviceOrderId,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { diagnoses: items, total: totalRecords, loading, mutate } = useDiagnosesData(
+    (!embedded || serviceOrderId)
+      ? {
+          page: page + 1,
+          limit: rows,
+          search: searchQuery || undefined,
+          status: statusFilter !== "ALL" ? (statusFilter as DiagnosisStatus) : undefined,
+          serviceOrderId,
+        }
+      : undefined,
+  );
 
   // ── Form dialog ──────────────────────────────────────────────────────────
 
@@ -140,7 +122,7 @@ export default function DiagnosisList({
     });
     setFormDialog(false);
     setSelected(null);
-    await loadItems();
+    mutate();
   };
 
   // ── Process dialog ───────────────────────────────────────────────────────
@@ -158,7 +140,7 @@ export default function DiagnosisList({
   const handleProcessClose = () => {
     setProcessDialog(false);
     setProcessItem(null);
-    loadItems();
+    mutate();
   };
 
   // ── Delete ───────────────────────────────────────────────────────────────
@@ -179,7 +161,7 @@ export default function DiagnosisList({
         detail: "Diagnóstico eliminado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -207,7 +189,7 @@ export default function DiagnosisList({
         summary: "Estado actualizado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setStatusDialog(false);
       setSelected(null);
     } catch (e) {

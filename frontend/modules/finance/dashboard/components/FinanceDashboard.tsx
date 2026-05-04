@@ -21,9 +21,8 @@ import {
   Legend,
   ResponsiveContainer,
 } from "recharts";
-import financeDashboardService, {
-  type FinanceDashboardData,
-} from "../services/financeDashboardService";
+import type { FinanceDashboardData } from "../services/financeDashboardService";
+import { useFinanceDashboardData } from "../hooks/useFinanceDashboardData";
 import { handleFormError } from "@/utils/errorHandlers";
 
 const CURRENCY_COLORS: Record<string, string> = {
@@ -67,29 +66,51 @@ const fmt = (v: number) =>
     maximumFractionDigits: 2,
   });
 
-export default function FinanceDashboard() {
+const FinanceDashboardSkeleton = () => (
+  <div className="p-3">
+    <div className="flex align-items-center justify-content-between mb-4">
+      <Skeleton width="240px" height="1.8rem" />
+      <Skeleton width="110px" height="2.2rem" />
+    </div>
+    <div className="grid mb-4">
+      {[...Array(4)].map((_, i) => (
+        <div key={i} className="col-12 md:col-6 lg:col-3">
+          <div className="card">
+            <Skeleton width="120px" height="0.9rem" className="mb-2" />
+            <Skeleton width="160px" height="2rem" className="mb-1" />
+            <Skeleton width="80%" height="0.8rem" />
+          </div>
+        </div>
+      ))}
+    </div>
+    <div className="grid">
+      {[...Array(2)].map((_, i) => (
+        <div key={i} className="col-12 md:col-6">
+          <Skeleton height="260px" />
+        </div>
+      ))}
+    </div>
+  </div>
+);
+
+function FinanceDashboardContent() {
   const toast = useRef<Toast>(null);
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
-  const [data, setData] = useState<FinanceDashboardData | null>(null);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
-
-  const load = async () => {
-    setLoading(true);
-    try {
-      const result = await financeDashboardService.getDashboard();
-      setData(result);
-      setLastUpdated(new Date());
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
+  const { data, loading, error, mutate } = useFinanceDashboardData() as {
+    data: FinanceDashboardData | null;
+    loading: boolean;
+    error: unknown;
+    mutate: () => Promise<FinanceDashboardData | undefined>;
   };
 
   useEffect(() => {
-    load();
-  }, []);
+    if (data) setLastUpdated(new Date());
+  }, [data]);
+
+  useEffect(() => {
+    if (error) handleFormError(error, toast);
+  }, [error]);
 
   const totalPendingAP = useMemo(() => {
     if (!data) return 0;
@@ -158,32 +179,7 @@ export default function FinanceDashboard() {
   }, [data, totalPendingAP]);
 
   if (loading && !data) {
-    return (
-      <div className="p-3">
-        <div className="flex align-items-center justify-content-between mb-4">
-          <Skeleton width="240px" height="1.8rem" />
-          <Skeleton width="110px" height="2.2rem" />
-        </div>
-        <div className="grid mb-4">
-          {[...Array(4)].map((_, i) => (
-            <div key={i} className="col-12 md:col-6 lg:col-3">
-              <div className="card">
-                <Skeleton width="120px" height="0.9rem" className="mb-2" />
-                <Skeleton width="160px" height="2rem" className="mb-1" />
-                <Skeleton width="80%" height="0.8rem" />
-              </div>
-            </div>
-          ))}
-        </div>
-        <div className="grid">
-          {[...Array(2)].map((_, i) => (
-            <div key={i} className="col-12 md:col-6">
-              <Skeleton height="260px" />
-            </div>
-          ))}
-        </div>
-      </div>
-    );
+    return <FinanceDashboardSkeleton />;
   }
 
   return (
@@ -214,7 +210,7 @@ export default function FinanceDashboard() {
           outlined
           size="small"
           loading={loading}
-          onClick={load}
+          onClick={() => void mutate()}
         />
       </div>
 
@@ -717,3 +713,5 @@ export default function FinanceDashboard() {
     </motion.div>
   );
 }
+
+export default FinanceDashboardContent;

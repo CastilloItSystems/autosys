@@ -4,8 +4,10 @@ import type {
   UsersResponse,
   AuditLogsResponse,
   MembershipsResponse,
+  MembershipEmpresasResponse,
   User,
   Membership,
+  MembershipCompanyRole,
   MembershipPermissionsResponse,
   MembershipPermissionOverride,
   CreateUserRequest,
@@ -24,6 +26,8 @@ export type {
   MembershipRole,
   MembershipEmpresa,
   Membership,
+  MembershipCompanyRole,
+  MembershipEmpresasResponse,
   User,
   AuditUser,
   AuditLog,
@@ -113,6 +117,19 @@ export const getMembershipsByUser = async (
 ): Promise<MembershipsResponse> => {
   const response = await apiClient.get(`/memberships/user/${userId}`);
   return response.data;
+};
+
+export const getMembershipEmpresas =
+  async (): Promise<MembershipEmpresasResponse> => {
+    const response = await apiClient.get("/empresas");
+    return response.data;
+  };
+
+export const getMembershipCompanyRoles = async (
+  empresaId: string,
+): Promise<MembershipCompanyRole[]> => {
+  const response = await apiClient.get(`/empresas/${empresaId}/roles`);
+  return response.data.roles ?? [];
 };
 
 export const createMembership = async (

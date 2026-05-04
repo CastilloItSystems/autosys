@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "primereact/button";
@@ -10,8 +10,7 @@ import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Card } from "primereact/card";
 import KPICard from "@/components/common/KPICard";
-import dashboardService from '@/modules/workshop/dashboard/services/dashboardService';
-import { handleFormError } from "@/utils/errorHandlers";
+import { useWorkshopDashboardData } from "../hooks/useWorkshopDashboardData";
 import type { WorkshopDashboardData, DashboardAlert, RecentActivity, QuickStat } from '@/modules/workshop/dashboard/interfaces/dashboard.interface';
 // ─── helpers ────────────────────────────────────────────────────────────────
 
@@ -52,31 +51,13 @@ function activityIcon(type: RecentActivity["type"]): string {
 export default function WorkshopDashboard() {
   const router = useRouter();
   const toast = useRef<Toast>(null);
-  const [data, setData] = useState<WorkshopDashboardData | null>(null);
-  const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
-  const loadDashboard = async () => {
-    try {
-      const res = await dashboardService.getDashboard();
-      setData(res.data);
-      setLastUpdated(new Date());
-    } catch (error) {
-      handleFormError(error, toast);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadDashboard();
-    const interval = setInterval(loadDashboard, 60_000);
-    return () => clearInterval(interval);
-  }, []);
+  const { dashboard: data, loading, mutate: swrMutate } = useWorkshopDashboardData();
 
   const handleRefresh = () => {
-    setLoading(true);
-    loadDashboard();
+    swrMutate();
+    setLastUpdated(new Date());
   };
 
   if (loading && !data) {

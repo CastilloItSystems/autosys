@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -13,72 +13,34 @@ import { motion } from "framer-motion";
 import categoriesService, {
   Category,
 } from "@/modules/inventory/categories/services/categoryService";
+import { useCategoriesData } from "@/modules/inventory/categories/hooks/useCategoriesData";
 import CategoryForm from "./CategoryForm";
 import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
 export default function CategoryList() {
-  // Datos
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [totalRecords, setTotalRecords] = useState<number>(0);
-  const [selectedCategory, setSelectedCategory] = useState<Category | null>(
-    null,
-  );
-
-  // Filtros y paginación
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [page, setPage] = useState<number>(0);
   const [rows, setRows] = useState<number>(10);
   const [showActive, setShowActive] = useState<boolean>(true);
-
-  // UI
-  const [loading, setLoading] = useState<boolean>(true);
   const [formDialog, setFormDialog] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [hierarchyDialog, setHierarchyDialog] = useState<boolean>(false);
-  const [categoryToShowHierarchy, setCategoryToShowHierarchy] =
-    useState<Category | null>(null);
+  const [categoryToShowHierarchy, setCategoryToShowHierarchy] = useState<Category | null>(null);
   const toast = useRef<Toast>(null);
-
-  // States for new patterns
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [actionCategory, setActionCategory] = useState<Category | null>(null);
   const menuRef = useRef<Menu>(null);
 
-  // Cargar categorías cuando cambien los filtros
-  useEffect(() => {
-    loadCategories();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadCategories = async () => {
-    try {
-      setLoading(true);
-      const response = await categoriesService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      const categoriesData = response.data || [];
-      const total = response.meta?.total || 0;
-
-      setCategories(Array.isArray(categoriesData) ? categoriesData : []);
-      setTotalRecords(total);
-    } catch (error) {
-      console.error("Error loading categories:", error);
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "Error al cargar categorías",
-        life: 3000,
-      });
-      setCategories([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { categories, total: totalRecords, loading, mutate } = useCategoriesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const onPageChange = (event: any) => {
     // Con lazy=true, event tiene: { first, rows, sortBy, filters, globalFilter }
@@ -123,7 +85,7 @@ export default function CategoryList() {
         detail: "Categoría eliminada correctamente",
         life: 3000,
       });
-      loadCategories();
+      mutate();
       setDeleteDialog(false);
       setSelectedCategory(null);
     } catch (error) {
@@ -150,7 +112,7 @@ export default function CategoryList() {
         } correctamente`,
         life: 3000,
       });
-      loadCategories();
+      mutate();
     } catch (error) {
       toast.current?.show({
         severity: "error",
@@ -170,7 +132,7 @@ export default function CategoryList() {
         : "Categoría creada correctamente",
       life: 3000,
     });
-    loadCategories();
+    mutate();
     setFormDialog(false);
   };
 

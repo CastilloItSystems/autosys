@@ -1,6 +1,10 @@
 export { default as CustomerList } from "./components/CustomerList";
 export { default as CustomerForm } from "./components/CustomerForm";
 export { default as CustomerDetailDialog } from "./components/CustomerDetailDialog";
+export {
+  useActiveSalesCustomersData,
+  useSalesCustomersData,
+} from "./hooks/useSalesCustomersData";
 export type { Customer } from "./services/customerService";
 export {
   CustomerType,

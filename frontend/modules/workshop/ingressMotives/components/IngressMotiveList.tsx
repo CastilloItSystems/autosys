@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -14,12 +14,11 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import ingressMotiveService from '@/modules/workshop/ingressMotives/services/ingressMotiveService';
-import type { IngressMotive } from '@/modules/workshop/ingressMotives/interfaces/ingressMotive.interface';;
+import type { IngressMotive } from '@/modules/workshop/ingressMotives/interfaces/ingressMotive.interface';
 import IngressMotiveForm from "./IngressMotiveForm";
+import { useIngressMotivesData } from "../hooks/useIngressMotivesData";
 
 export default function IngressMotiveList() {
-  const [items, setItems] = useState<IngressMotive[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<IngressMotive | null>(null);
   const [actionItem, setActionItem] = useState<IngressMotive | null>(null);
 
@@ -28,7 +27,6 @@ export default function IngressMotiveList() {
   const [rows, setRows] = useState(10);
   const [showActive, setShowActive] = useState(true);
 
-  const [loading, setLoading] = useState(true);
   const [formDialog, setFormDialog] = useState(false);
   const [deleteDialog, setDeleteDialog] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -37,29 +35,12 @@ export default function IngressMotiveList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await ingressMotiveService.getAll({
-        page: page + 1,
-        limit: rows,
-        search: searchQuery || undefined,
-        isActive: showActive ? "true" : undefined,
-      });
-      console.log(res);
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { ingressMotives, total: totalRecords, loading, mutate } = useIngressMotivesData({
+    page: page + 1,
+    limit: rows,
+    search: searchQuery || undefined,
+    isActive: showActive ? "true" : undefined,
+  });
 
   const openNew = () => {
     setSelected(null);
@@ -85,7 +66,7 @@ export default function IngressMotiveList() {
         detail: "Motivo de ingreso eliminado",
         life: 3000,
       });
-      await loadItems();
+      mutate();
       setDeleteDialog(false);
       setSelected(null);
     } catch (error) {
@@ -106,26 +87,24 @@ export default function IngressMotiveList() {
         }`,
         life: 3000,
       });
-      await loadItems();
+      mutate();
     } catch (error) {
       handleFormError(error, toast);
     }
   };
 
   const handleSave = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: selected?.id
-          ? "Motivo de ingreso actualizado"
-          : "Motivo de ingreso creado",
-        life: 3000,
-      });
-      await loadItems();
-      setFormDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: selected?.id
+        ? "Motivo de ingreso actualizado"
+        : "Motivo de ingreso creado",
+      life: 3000,
+    });
+    mutate();
+    setFormDialog(false);
+    setSelected(null);
   };
 
   const actionBodyTemplate = (rowData: IngressMotive) => (
@@ -202,7 +181,7 @@ export default function IngressMotiveList() {
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={ingressMotives}
           paginator
           lazy
           first={page * rows}

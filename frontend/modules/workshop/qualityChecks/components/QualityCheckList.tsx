@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -11,12 +11,11 @@ import { ProgressBar } from "primereact/progressbar";
 import { motion } from "framer-motion";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
-import { handleFormError } from "@/utils/errorHandlers";
-import qualityCheckService from '@/modules/workshop/qualityChecks/services/qualityCheckService';
 import type { QualityCheck, QualityCheckStatus } from '@/modules/workshop/qualityChecks/interfaces/qualityCheck.interface';
 import QualityCheckForm from "./QualityCheckForm";
 import QualityCheckSubmitForm from "./QualityCheckSubmitForm";
 import dynamic from "next/dynamic";
+import { useQualityChecksData } from "../hooks/useQualityChecksData";
 
 const QualityCheckPDFPreview = dynamic(() => import("./QualityCheckPDFPreview"), { ssr: false });
 
@@ -52,15 +51,12 @@ export default function QualityCheckList({
   serviceOrderId,
   embedded,
 }: QualityCheckListProps) {
-  const [items, setItems] = useState<QualityCheck[]>([]);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [selected, setSelected] = useState<QualityCheck | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const [loading, setLoading] = useState(true);
   const [createDialog, setCreateDialog] = useState(false);
   const [submitDialog, setSubmitDialog] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -71,55 +67,37 @@ export default function QualityCheckList({
   // Use prop serviceOrderId when embedded
   const finalServiceOrderId = embedded ? serviceOrderId : searchQuery;
 
-  useEffect(() => {
-    if (embedded && !serviceOrderId) return; // Wait for prop if embedded
-    setPage(0); // Reset to page 1 when filter changes
-    loadItems();
-  }, [finalServiceOrderId, embedded]);
-
-  const loadItems = async () => {
-    try {
-      setLoading(true);
-      const res = await qualityCheckService.getAll({
-        serviceOrderId: finalServiceOrderId || undefined,
-        page: page + 1,
-        limit: rows,
-      });
-      setItems(res.data ?? []);
-      setTotalRecords(res.meta?.total ?? 0);
-    } catch (error) {
-      handleFormError(error, toast);
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const { qualityChecks, total: totalRecords, loading, mutate } = useQualityChecksData(
+    embedded && !serviceOrderId
+      ? undefined // Don't fetch while embedded and waiting for prop
+      : {
+          serviceOrderId: finalServiceOrderId || undefined,
+          page: page + 1,
+          limit: rows,
+        },
+  );
 
   const handleCreateSaved = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Control de calidad creado",
-        life: 3000,
-      });
-      await loadItems();
-      setCreateDialog(false);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Control de calidad creado",
+      life: 3000,
+    });
+    mutate();
+    setCreateDialog(false);
   };
 
   const handleSubmitSaved = () => {
-    (async () => {
-      toast.current?.show({
-        severity: "success",
-        summary: "Éxito",
-        detail: "Control de calidad enviado",
-        life: 3000,
-      });
-      await loadItems();
-      setSubmitDialog(false);
-      setSelected(null);
-    })();
+    toast.current?.show({
+      severity: "success",
+      summary: "Éxito",
+      detail: "Control de calidad enviado",
+      life: 3000,
+    });
+    mutate();
+    setSubmitDialog(false);
+    setSelected(null);
   };
 
   // ── Templates ──────────────────────────────────────────────────────────────
@@ -255,7 +233,7 @@ export default function QualityCheckList({
       <Toast ref={toast} />
       <div className="card">
         <DataTable
-          value={items}
+          value={qualityChecks}
           paginator
           lazy
           first={page * rows}
@@ -398,19 +376,6 @@ export default function QualityCheckList({
           toast={toast}
         />
       </Dialog>
-      {/* PDF Preview Dialog */}
-      {pdfItem && (
-        <Dialog
-          visible
-          onHide={() => setPdfItem(null)}
-          header="Vista Previa — Chequeo de Calidad"
-          style={{ width: "85%", height: "90vh" }}
-          contentStyle={{ padding: 0, height: "100%" }}
-          modal
-        >
-          <QualityCheckPDFPreview data={pdfItem} />
-        </Dialog>
-      )}
       {/* PDF Preview Dialog */}
       {pdfItem && (
         <Dialog

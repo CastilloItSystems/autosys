@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useRef } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -20,6 +20,7 @@ import returnService, {
   RETURN_TYPE_CONFIG,
 } from "@/modules/inventory/returns/services/returnService";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { useReturnsData } from "@/modules/inventory/returns/hooks/useReturnsData";
 import ReturnForm from "./ReturnForm";
 import ReturnDetail from "./ReturnDetail";
 
@@ -28,9 +29,6 @@ const ReturnPDFPreview = dynamic(() => import("./ReturnPDFPreview"), { ssr: fals
 const ReturnList = () => {
   const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
-  const [returns, setReturns] = useState<ReturnOrder[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [filters, setFilters] = useState<{
     status?: ReturnStatus | null;
     type?: ReturnType | null;
@@ -41,6 +39,12 @@ const ReturnList = () => {
     limit: 20,
   });
 
+  const { returns, total: totalRecords, loading, mutate } = useReturnsData(
+    filters.page,
+    filters.limit,
+    { status: filters.status || undefined, type: filters.type || undefined },
+  );
+
   const [selectedReturn, setSelectedReturn] = useState<ReturnOrder | null>(
     null,
   );
@@ -49,42 +53,6 @@ const ReturnList = () => {
   const [actionInProgress, setActionInProgress] = useState<string | null>(null);
   const [pdfItem, setPdfItem] = useState<ReturnOrder | null>(null);
 
-  // ── Data loading ────────────────────────────────────────────────────────────
-
-  const loadReturns = async () => {
-    try {
-      setLoading(true);
-      const response = await returnService.getAll(filters.page, filters.limit, {
-        status: filters.status || undefined,
-        type: filters.type || undefined,
-      });
-      setReturns(Array.isArray(response.data) ? response.data : []);
-      setTotalRecords(response.meta?.total || 0);
-    } catch (error: any) {
-      const detail =
-        error?.response?.data?.message ||
-        "No se pudieron cargar las devoluciones";
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail,
-        life: 3000,
-      });
-      setReturns([]);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeEmpresa) loadReturns();
-  }, [
-    filters.page,
-    filters.limit,
-    filters.status,
-    filters.type,
-    activeEmpresa?.id_empresa,
-  ]);
 
   // ── Actions ──────────────────────────────────────────────────────────────────
 
@@ -106,7 +74,7 @@ const ReturnList = () => {
             detail: `Devolución ${ret.returnNumber} enviada a aprobación`,
             life: 3000,
           });
-          loadReturns();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -141,7 +109,7 @@ const ReturnList = () => {
             detail: `Devolución ${ret.returnNumber} aprobada`,
             life: 3000,
           });
-          loadReturns();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -176,7 +144,7 @@ const ReturnList = () => {
             detail: `Devolución ${ret.returnNumber} procesada. Stock actualizado.`,
             life: 4000,
           });
-          loadReturns();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -211,7 +179,7 @@ const ReturnList = () => {
             detail: `Devolución ${ret.returnNumber} rechazada`,
             life: 3000,
           });
-          loadReturns();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -246,7 +214,7 @@ const ReturnList = () => {
             detail: `Devolución ${ret.returnNumber} cancelada`,
             life: 3000,
           });
-          loadReturns();
+          mutate();
         } catch (error: any) {
           toast.current?.show({
             severity: "error",
@@ -577,7 +545,7 @@ const ReturnList = () => {
         <ReturnForm
           onSuccess={() => {
             setIsFormOpen(false);
-            loadReturns();
+            mutate();
           }}
           onCancel={() => {
             setIsFormOpen(false);
@@ -607,7 +575,7 @@ const ReturnList = () => {
         {selectedReturn && (
           <ReturnDetail
             returnOrder={selectedReturn}
-            onRefresh={() => loadReturns()}
+            onRefresh={() => mutate()}
           />
         )}
       </Dialog>

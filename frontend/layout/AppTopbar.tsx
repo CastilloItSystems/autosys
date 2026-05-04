@@ -16,7 +16,6 @@ import { classNames } from "primereact/utils";
 import { signOut, useSession } from "next-auth/react";
 import { User } from "next-auth";
 import { useSocket } from "@/hooks/useSocket";
-import { useRefineriaStore } from "@/store/refineriaStore";
 import AppNotificationDropdown from "./AppNotificationDropdown";
 import { Dialog } from "primereact/dialog";
 import { useEmpresasStore } from "@/store/empresasStore";
@@ -32,10 +31,8 @@ interface ExtendedUser extends User {
 
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
   const { data: session } = useSession();
-  const { activeRefineria } = useRefineriaStore();
   const { activeEmpresa } = useEmpresasStore();
-  console.log("sersion", session);
-  const { online, desconectarSocket } = useSocket();
+const { online, desconectarSocket } = useSocket();
 
   const handleSignOut = async () => {
     // Revoca el token de Google si existe
@@ -152,8 +149,8 @@ const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
               // <li className="topbar-menu-empty ">
 
               <Link href={"/empresa"} className="app-logo">
-                <img alt="app logo" src={activeEmpresa.logo_url} />
-                <span className="app-name">{activeEmpresa.name_prefijo}</span>
+                <img alt="app logo" src={activeEmpresa.logo_url ?? undefined} />
+                <span className="app-name">{activeEmpresa.name_prefijo ?? ""}</span>
               </Link>
               // </li>
             ))}
