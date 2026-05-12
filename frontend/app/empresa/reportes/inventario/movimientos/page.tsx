@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
@@ -15,11 +15,7 @@ const MovementsPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getMovements(page, rows);
@@ -36,7 +32,11 @@ const MovementsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const columns = [
     {

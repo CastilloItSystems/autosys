@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
+import dynamic from "next/dynamic";
 
 // PrimeReact Components
 import { Card } from "primereact/card";
@@ -10,7 +11,10 @@ import { ProgressBar } from "primereact/progressbar";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { TabView, TabPanel } from "primereact/tabview";
-import { Chart } from "primereact/chart";
+const Chart = dynamic(
+  () => import("primereact/chart").then((m) => m.Chart),
+  { ssr: false },
+);
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -189,7 +193,7 @@ const FinanceDashboard = () => {
   // =============================================
   // FINANCIAL CALCULATIONS
   // =============================================
-  const calculateFinancialStats = () => {
+  const stats = useMemo(() => {
     const totalIngresos = invoices.reduce((sum, inv) => sum + inv.total, 0);
     const totalPagado = invoices.reduce(
       (sum, inv) => sum + (inv.paidAmount ?? 0),
@@ -239,9 +243,7 @@ const FinanceDashboard = () => {
       roi,
       ratioLiquidez,
     };
-  };
-
-  const stats = calculateFinancialStats();
+  }, [invoices, purchaseOrders, salesOrders]);
 
   // =============================================
   // EVENT HANDLERS

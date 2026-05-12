@@ -1,6 +1,7 @@
 "use client";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "primereact/button";
+import Image from "next/image";
 import React from "react";
 
 import type { Page } from "@/types";
@@ -45,9 +46,11 @@ const Error: Page = () => {
             ERROR DE AUTENTICACIÓN
           </h1>
           <p className="text-color-secondary mb-4">{getErrorMessage(error)}</p>
-          <img
+          <Image
             src="/layout/images/pages/auth/error.svg"
             alt="error"
+            width={200}
+            height={200}
             className="mb-4 align-self-center"
           />
           <div className="flex gap-2">

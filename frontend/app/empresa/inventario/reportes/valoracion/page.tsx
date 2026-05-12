@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
@@ -188,7 +188,7 @@ const StockValuePage = () => {
     "#06B6D4",
   ];
 
-  const columns = [
+  const columns = useMemo(() => [
     { field: "itemName", header: "Artículo", sortable: true, width: "20%" },
     { field: "itemSKU", header: "SKU", sortable: true, width: "11%" },
     {
@@ -247,7 +247,7 @@ const StockValuePage = () => {
       },
     },
     { field: "warehouseName", header: "Almacén", sortable: true, width: "12%" },
-  ];
+  ], []);
 
   return (
     <>

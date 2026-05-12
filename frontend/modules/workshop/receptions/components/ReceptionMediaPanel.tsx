@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Button } from "primereact/button";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -10,6 +10,7 @@ import { InputTextarea } from "primereact/inputtextarea";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
+import Image from "next/image";
 import { handleFormError } from "@/utils/errorHandlers";
 import receptionMediaService, {
   type ReceptionDamage,
@@ -91,7 +92,7 @@ export default function ReceptionMediaPanel({
   const [galleriaVisible, setGalleriaVisible] = useState(false);
   const [galleriaIndex, setGalleriaIndex] = useState(0);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const [dmgRes, phRes] = await Promise.all([
@@ -105,11 +106,11 @@ export default function ReceptionMediaPanel({
     } finally {
       setLoading(false);
     }
-  };
+  }, [receptionId, toast]);
 
   useEffect(() => {
     load();
-  }, [receptionId]);
+  }, [load]);
 
   // ── Damage handlers ────────────────────────────────────────────────────────
   const openNewDamage = () => {
@@ -312,18 +313,17 @@ export default function ReceptionMediaPanel({
               if (!row.photoUrl)
                 return <span className="text-500 text-sm">—</span>;
               return (
-                <img
-                  src={row.photoUrl}
-                  alt="Foto del daño"
-                  style={{
-                    width: "40px",
-                    height: "40px",
-                    objectFit: "cover",
-                    borderRadius: "4px",
-                    cursor: "pointer",
-                  }}
+                <div
+                  style={{ position: "relative", width: "40px", height: "40px", borderRadius: "4px", overflow: "hidden", cursor: "pointer" }}
                   onClick={() => row.photoUrl && window.open(row.photoUrl, "_blank")}
-                />
+                >
+                  <Image
+                    src={row.photoUrl}
+                    alt="Foto del daño"
+                    fill
+                    style={{ objectFit: "cover" }}
+                  />
+                </div>
               );
             }}
           />
@@ -415,13 +415,11 @@ export default function ReceptionMediaPanel({
                     setGalleriaVisible(true);
                   }}
                 >
-                  <img
+                  <Image
                     src={ph.url}
                     alt={ph.description ?? ph.type}
-                    style={{ width: "100%", height: "100%", objectFit: "cover" }}
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = "/placeholder-image.png";
-                    }}
+                    fill
+                    style={{ objectFit: "cover" }}
                   />
                   <div className="absolute bottom-0 left-0 right-0 flex align-items-center justify-content-between px-2 py-1 bg-black-alpha-60">
                     <span className="text-white text-xs font-medium">
@@ -476,10 +474,12 @@ export default function ReceptionMediaPanel({
           }
         >
           <div className="flex align-items-center justify-content-center h-full bg-black-alpha-90">
-            <img
+            <Image
               src={photos[galleriaIndex]?.url}
               alt={photos[galleriaIndex]?.description ?? photos[galleriaIndex]?.type}
-              style={{ maxHeight: "80vh", maxWidth: "100%", objectFit: "contain" }}
+              width={1200}
+              height={900}
+              style={{ maxHeight: "80vh", maxWidth: "100%", objectFit: "contain", width: "auto", height: "auto" }}
             />
           </div>
           <Toolbar
@@ -615,6 +615,7 @@ export default function ReceptionMediaPanel({
                 }}
               />
               {damagePreview && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={damagePreview}
                   alt="Previsualización"
@@ -696,6 +697,7 @@ export default function ReceptionMediaPanel({
                 }}
               />
               {photoPreview && (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={photoPreview}
                   alt="Previsualización"

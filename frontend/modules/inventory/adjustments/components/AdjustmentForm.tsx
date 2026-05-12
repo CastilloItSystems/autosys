@@ -107,7 +107,7 @@ export default function AdjustmentForm({
       }
     };
     loadWarehouses();
-  }, []);
+  }, [toast]);
 
   useEffect(() => {
     if (!selectedWarehouseId) {
@@ -142,7 +142,7 @@ export default function AdjustmentForm({
     return () => {
       cancelled = true;
     };
-  }, [selectedWarehouseId, replace]);
+  }, [selectedWarehouseId, replace, toast]);
 
   const onSubmit = async (data: FormData) => {
     if (onSubmittingChange) onSubmittingChange(true);

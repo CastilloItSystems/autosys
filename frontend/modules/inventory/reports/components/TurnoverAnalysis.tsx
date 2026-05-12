@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useContext } from "react";
+import { useState, useEffect, useRef, useContext, useCallback } from "react";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Card } from "primereact/card";
@@ -31,18 +31,7 @@ const TurnoverAnalysis = () => {
   const [chartData, setChartData] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
 
-  useEffect(() => {
-    loadTurnoverMetrics();
-  }, [page, rows, selectedClassification]);
-
-  useEffect(() => {
-    if (summary) {
-      initializeChart();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [summary, isDark]);
-
-  const loadTurnoverMetrics = async () => {
+  const loadTurnoverMetrics = useCallback(async () => {
     setLoading(true);
     try {
       let response;
@@ -73,7 +62,18 @@ const TurnoverAnalysis = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, selectedClassification]);
+
+  useEffect(() => {
+    loadTurnoverMetrics();
+  }, [loadTurnoverMetrics]);
+
+  useEffect(() => {
+    if (summary) {
+      initializeChart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [summary, isDark]);
 
   const initializeChart = () => {
     const labels = ["Rápido", "Moderado", "Lento", "Estático"];

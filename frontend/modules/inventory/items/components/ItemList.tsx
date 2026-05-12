@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Column } from "primereact/column";
 import { DataTable } from "primereact/datatable";
@@ -17,6 +17,7 @@ import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { Sidebar } from "primereact/sidebar";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import itemService, { Item } from "@/modules/inventory/items/services/itemService";
 import searchService from "@/modules/inventory/search/services/searchService";
 import type { ISearchFilters } from "@/modules/inventory/search/services/searchService";
@@ -58,27 +59,7 @@ const ItemList = () => {
   const searchTimeout = useRef<NodeJS.Timeout | null>(null);
 
   // Cargar items cuando cambien los filtros
-  useEffect(() => {
-    const hasAdvancedFilters = Object.keys(advancedFilters).length > 0;
-
-    if ((searchQuery && searchQuery.trim().length > 0) || hasAdvancedFilters) {
-      // Si hay búsqueda o filtros avanzados, usar searchService
-      performSearch();
-    } else {
-      // Si no hay búsqueda ni filtros, cargar todo normal
-      loadItems();
-    }
-  }, [
-    page,
-    rows,
-    searchQuery,
-    showActive,
-    advancedFilters,
-    sortField,
-    sortOrder,
-  ]);
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       const response = await itemService.getAll({
@@ -106,9 +87,9 @@ const ItemList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, showActive, sortField, sortOrder]);
 
-  const performSearch = async () => {
+  const performSearch = useCallback(async () => {
     try {
       setLoading(true);
       const response = await searchService.search({
@@ -129,7 +110,6 @@ const ItemList = () => {
         model: { name: res.modelName },
         category: { name: res.categoryName },
         brand: { name: res.brandName },
-        // Images are already in correct structure from backend update
       }));
 
       setItems(searchItems as unknown as Item[]);
@@ -146,7 +126,16 @@ const ItemList = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, searchQuery, showActive, advancedFilters, sortField, sortOrder]);
+
+  useEffect(() => {
+    const hasAdvancedFilters = Object.keys(advancedFilters).length > 0;
+    if ((searchQuery && searchQuery.trim().length > 0) || hasAdvancedFilters) {
+      performSearch();
+    } else {
+      loadItems();
+    }
+  }, [loadItems, performSearch, searchQuery, advancedFilters]);
 
   const onPageChange = (event: any) => {
     const newPage =
@@ -516,16 +505,14 @@ const ItemList = () => {
 
             {/* Imagen + info principal */}
             <div className="flex flex-column align-items-center gap-2 px-3 py-2">
-              <img
-                src={getPrimaryImage(item)}
-                alt={item.name}
-                style={{
-                  width: "100%",
-                  height: "110px",
-                  objectFit: "cover",
-                  borderRadius: "8px",
-                }}
-              />
+              <div style={{ position: "relative", width: "100%", height: "110px", borderRadius: "8px", overflow: "hidden" }}>
+                <Image
+                  src={getPrimaryImage(item)}
+                  alt={item.name}
+                  fill
+                  style={{ objectFit: "cover" }}
+                />
+              </div>
               <div className="text-center w-full">
                 <div
                   className="text-primary font-bold mb-1"
@@ -667,16 +654,14 @@ const ItemList = () => {
             }}
           >
             {/* Imagen */}
-            <img
-              src={getPrimaryImage(item)}
-              alt={item.name}
-              style={{
-                width: "5rem",
-                height: "5rem",
-                objectFit: "cover",
-                borderRadius: "8px",
-              }}
-            />
+            <div style={{ position: "relative", width: "5rem", height: "5rem", borderRadius: "8px", overflow: "hidden", flexShrink: 0 }}>
+              <Image
+                src={getPrimaryImage(item)}
+                alt={item.name}
+                fill
+                style={{ objectFit: "cover" }}
+              />
+            </div>
 
             {/* Info principal */}
             <div className="flex-1 min-w-min">

@@ -158,7 +158,7 @@ export default function RegisterExpensePaymentDialog({
       { method: "CASH", amount: 0 },
       { method: "TRANSFER", amount: 0 },
     ]);
-  }, [visible, expense?.id]);
+  }, [visible, expense?.id, bcvAutoRate, currency, expense]);
 
   const handleSubmit = async () => {
     if (!expense) return;

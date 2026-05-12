@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -40,11 +40,7 @@ const PaymentMethodsPage = () => {
   const [dateFrom, setDateFrom] = useState<Date | null>(null);
   const [dateTo, setDateTo] = useState<Date | null>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [dateFrom, dateTo]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {};
@@ -63,7 +59,11 @@ const PaymentMethodsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [dateFrom, dateTo]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-VE", {

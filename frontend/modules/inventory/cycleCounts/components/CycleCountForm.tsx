@@ -138,7 +138,7 @@ export default function CycleCountForm({
     };
 
     loadStock();
-  }, [selectedWarehouseId, cycleCount]);
+  }, [selectedWarehouseId, cycleCount, replace, toast]);
 
   // ── AutoComplete search ───────────────────────────────────────────────────
 

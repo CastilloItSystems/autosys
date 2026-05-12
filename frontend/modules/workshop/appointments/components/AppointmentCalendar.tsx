@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
@@ -65,7 +65,7 @@ export default function AppointmentCalendar({
   const weekStart = weekDates[0];
   const weekEnd = weekDates[6];
 
-  const load = async () => {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const startDate = new Date(weekStart);
@@ -90,11 +90,11 @@ export default function AppointmentCalendar({
     } finally {
       setLoading(false);
     }
-  };
+  }, [weekStart, weekEnd]);
 
   useEffect(() => {
     load();
-  }, [currentDate]);
+  }, [load]);
 
   const prevWeek = () => {
     const d = new Date(currentDate);

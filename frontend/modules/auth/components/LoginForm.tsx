@@ -24,6 +24,13 @@ const LoginForm: Page = () => {
   const filledInput = layoutConfig.inputStyle === "filled";
   const { conectarSocket } = useSocket();
   const [submitting, setSubmitting] = useState(false);
+  React.useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("expired") === "1") {
+      setError("Tu sesión ha finalizado. Inicia sesión nuevamente para continuar.");
+    }
+  }, []);
+
   const {
     register,
     handleSubmit,

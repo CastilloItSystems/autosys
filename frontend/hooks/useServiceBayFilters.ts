@@ -38,13 +38,6 @@ export function useServiceBayFilters() {
   // Historial de búsqueda
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
 
-  // Cargar filtros desde localStorage y URL al montar
-  useEffect(() => {
-    loadFiltersFromStorage();
-    loadSearchHistory();
-    syncFiltersFromURL();
-  }, []);
-
   // Sincronizar filtros desde URL
   const syncFiltersFromURL = useCallback(() => {
     const urlArea = searchParams.get("area") as BayArea | null;
@@ -104,7 +97,7 @@ export function useServiceBayFilters() {
       // Usar replaceState para no agregar al historial del navegador
       window.history.replaceState({}, "", newURL);
     },
-    [router],
+    [],
   );
 
   // Cargar historial de búsqueda
@@ -119,6 +112,13 @@ export function useServiceBayFilters() {
       console.error("Error loading search history:", error);
     }
   }, []);
+
+  // Cargar filtros desde localStorage y URL al montar
+  useEffect(() => {
+    loadFiltersFromStorage();
+    loadSearchHistory();
+    syncFiltersFromURL();
+  }, [loadFiltersFromStorage, loadSearchHistory, syncFiltersFromURL]);
 
   // Agregar término al historial
   const addToSearchHistory = useCallback((term: string) => {

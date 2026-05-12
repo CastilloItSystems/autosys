@@ -119,7 +119,7 @@ export const useOrderCalculation = (
       items: finalItems,
     };
   }, [
-    JSON.stringify(items),
+    items,
     globalDiscountAmount,
     igtfApplies,
     taxRatePercent,

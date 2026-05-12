@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -37,11 +37,7 @@ const PendingInvoicesPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await salesReportService.getPendingInvoices({
@@ -61,7 +57,11 @@ const PendingInvoicesPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-VE", {
@@ -69,7 +69,7 @@ const PendingInvoicesPage = () => {
       maximumFractionDigits: 2,
     }).format(value);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "preInvoiceNumber",
       header: "Nro. Pre-Factura",
@@ -132,7 +132,7 @@ const PendingInvoicesPage = () => {
         />
       ),
     },
-  ];
+  ], []);
 
   const summaryCards = [
     {

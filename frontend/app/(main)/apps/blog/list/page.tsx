@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { Avatar } from 'primereact/avatar';
 import { DataView } from 'primereact/dataview';
 import { Dropdown, DropdownChangeEvent } from 'primereact/dropdown';
+import Image from 'next/image';
 import React, { useState } from 'react';
 
 interface Blog {
@@ -101,8 +102,8 @@ function BlogList() {
                 <div className="p-3">
                     <div className="surface-100 cursor-pointer z-index border-round" onClick={() => router.push('/apps/blog/detail')}>
                         <div className="relative">
-                            <img src={blog.coverImage} className="w-full" alt={blog.description.split(' ', 1).join(' ')} />
-                            <img src={blog.profile} className="flex absolute w-4rem h-4rem" style={{ bottom: '-1.5rem', right: '1.5rem' }} alt={blog.description.split(' ', 1).join(' ')} />
+                            <Image src={blog.coverImage} className="w-full" alt={blog.description.split(' ', 1).join(' ')} width={400} height={250} style={{ width: '100%', height: 'auto' }} />
+                            <Image src={blog.profile} className="flex absolute w-4rem h-4rem" style={{ bottom: '-1.5rem', right: '1.5rem' }} alt={blog.description.split(' ', 1).join(' ')} width={64} height={64} />
                         </div>
                         <div className="p-3">
                             <div className="text-900 font-semibold text-xl mb-3">{blog.title}</div>

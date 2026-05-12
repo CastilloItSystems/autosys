@@ -1,9 +1,11 @@
-import InventoryDashboard from "@/modules/inventory/reports/components/InventoryDashboard";
+"use client";
 
-export const metadata = {
-  title: "Dashboard de Inventario | AutoSys",
-  description: "Vista general de métricas y KPIs de inventario",
-};
+import dynamic from "next/dynamic";
+
+const InventoryDashboard = dynamic(
+  () => import("@/modules/inventory/reports/components/InventoryDashboard"),
+  { ssr: false },
+);
 
 export default function InventoryReportsDashboardPage() {
   return <InventoryDashboard />;

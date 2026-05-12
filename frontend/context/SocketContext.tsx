@@ -11,9 +11,10 @@ import { io, Socket } from "socket.io-client";
 import { useSession } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
 import { NotificationItem } from "@/shared/services/notificationService";
+import { SESSION_EXPIRED_EVENT } from "@/lib/sessionExpiration";
 
 interface ExtendedUser {
-  token: string;
+  token?: string;
 }
 
 interface SocketAuthPayload {
@@ -37,6 +38,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const { data: session, status } = useSession();
   const activeEmpresa = useEmpresasStore((state) => state.activeEmpresa);
   const activeEmpresaId = activeEmpresa?.id_empresa;
+  const sessionToken = (session?.user as ExtendedUser | undefined)?.token;
   const [online, setOnline] = useState(false);
   const [socket, setSocket] = useState<Socket | null>(null);
   const [notification, setNotification] = useState<NotificationItem | null>(
@@ -48,8 +50,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const token = (session.user as ExtendedUser)?.token;
-    if (!token) {
+    if (!sessionToken) {
       console.error("SocketProvider: No se encontró el token en la sesión");
       return;
     }
@@ -58,7 +59,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const apiBaseUrl =
       process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:4000/api";
     const serverPath = apiBaseUrl.replace(/\/api\/?$/, "");
-    const authPayload: SocketAuthPayload = { token };
+    const authPayload: SocketAuthPayload = { token: sessionToken };
     if (activeEmpresaId) {
       authPayload.empresaId = activeEmpresaId;
     }
@@ -98,7 +99,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     );
 
     setSocket(socketTemp);
-  }, [session, status, activeEmpresaId]);
+  }, [session, sessionToken, status, activeEmpresaId]);
 
   const desconectarSocket = useCallback(() => {
     if (socket) {
@@ -110,28 +111,40 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
   // Se intenta conectar automáticamente si hay sesión y no hay socket
   useEffect(() => {
-    if (status === "authenticated" && !socket) {
+    if (status === "authenticated" && sessionToken && !socket) {
       conectarSocket();
     } else if (status === "unauthenticated" && socket) {
       desconectarSocket();
     }
-  }, [status, socket, conectarSocket, desconectarSocket]);
+  }, [status, sessionToken, socket, conectarSocket, desconectarSocket]);
 
-  // Si cambia la empresa activa, forzamos reconexión para revalidar membresía/rol en backend
+  // Si cambia la empresa activa o el access token, forzamos reconexión.
   useEffect(() => {
     if (!socket) return;
 
     const socketOpts = socket.io.opts as { auth?: SocketAuthPayload };
     const socketEmpresaId = socketOpts.auth?.empresaId;
+    const socketToken = socketOpts.auth?.token;
     const currentSocketEmpresaId = socketEmpresaId || null;
     const currentActiveEmpresaId = activeEmpresaId || null;
 
-    if (currentSocketEmpresaId !== currentActiveEmpresaId) {
+    if (
+      socketToken !== sessionToken ||
+      currentSocketEmpresaId !== currentActiveEmpresaId
+    ) {
       socket.disconnect();
       setSocket(null);
       setOnline(false);
     }
-  }, [socket, activeEmpresaId]);
+  }, [socket, sessionToken, activeEmpresaId]);
+
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, desconectarSocket);
+
+    return () => {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, desconectarSocket);
+    };
+  }, [desconectarSocket]);
 
   useEffect(() => {
     setNotification(null);

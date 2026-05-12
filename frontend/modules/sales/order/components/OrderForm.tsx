@@ -237,7 +237,7 @@ export default function OrderForm({
         setValue(`items.${idx}.unitPrice`, converted);
       });
     }
-  }, [bcvRate]);
+  }, [bcvRate, isEditing, referenceUsdRate, selectedItemsMap, setValue, watch, watchCurrency]);
 
   /* ── Real-time calculation ── */
   const watchItemsSerialized = JSON.stringify(watchItems);
@@ -249,7 +249,8 @@ export default function OrderForm({
         discountPercent: item.discountPercent || 0,
         taxType: (item.taxType as "IVA" | "EXEMPT" | "REDUCED") || "IVA",
       })),
-    [watchItemsSerialized],
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [watchItemsSerialized], // serialized string avoids object reference churn
   );
   const calcResult = useOrderCalculation(
     calcItems,
@@ -272,7 +273,7 @@ export default function OrderForm({
         }
       });
     }
-  }, [calcResult]);
+  }, [calcResult, setValue, watchItems]);
 
   /* ── Options ── */
   const customerOptions = useMemo(

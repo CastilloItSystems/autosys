@@ -1,4 +1,4 @@
-import NextAuth, { DefaultSession } from "next-auth";
+import NextAuth from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import {
   googleSingIn,
@@ -7,17 +7,26 @@ import {
   refreshBackendToken,
 } from "@/modules/auth/services/auth.service";
 
-import { User } from "@/modules/users/interfaces/user.interface";
 import GoogleProvider from "next-auth/providers/google";
-declare module "next-auth" {
-  interface Session {
-    user: User & {
-      token?: string;
-      access_token?: string; // Agregado para manejar el token de Google
-    } & DefaultSession["user"];
+
+const REFRESH_SKEW_MS = 2 * 60 * 1000;
+const backendRefreshRequests = new Map<
+  string,
+  ReturnType<typeof refreshBackendToken>
+>();
+
+const refreshBackendTokenOnce = (refreshToken: string) => {
+  const existing = backendRefreshRequests.get(refreshToken);
+  if (existing) {
+    return existing;
   }
-}
-const REFRESH_SKEW_MS = 60 * 1000;
+
+  const pending = refreshBackendToken(refreshToken).finally(() => {
+    backendRefreshRequests.delete(refreshToken);
+  });
+  backendRefreshRequests.set(refreshToken, pending);
+  return pending;
+};
 
 const stripBackendTokens = (user: any) => {
   const {
@@ -59,19 +68,21 @@ const refreshTokenState = async (token: any) => {
   }
 
   try {
-    const response = await refreshBackendToken(refreshToken);
+    const response = await refreshBackendTokenOnce(refreshToken);
     const data = response.data;
     const accessToken = data.accessToken || data.token;
 
-    return {
+    const nextToken = {
       ...token,
       backendToken: accessToken,
       backendAccessToken: accessToken,
       backendAccessTokenExpiresAt: data.accessTokenExpiresAt,
       backendRefreshToken: data.refreshToken,
       backendRefreshTokenExpiresAt: data.refreshTokenExpiresAt,
-      backendAuthError: undefined,
     };
+    delete nextToken.backendAuthError;
+
+    return nextToken;
   } catch (error) {
     console.error("Backend token refresh failed:", error);
     return {
@@ -166,8 +177,13 @@ const handler = NextAuth({
             : {}),
           nombre: session.updatedUsuario.nombre,
           telefono: session.updatedUsuario.telefono,
+          img: session.updatedUsuario.img,
         };
       }
+
+      const forceBackendTokenRefresh =
+        trigger === "update" && session?.forceBackendTokenRefresh === true;
+
       if (account?.provider === "google") {
         token.access_token = account.access_token; // Guarda el access_token
         try {
@@ -213,8 +229,8 @@ const handler = NextAuth({
 
       if (
         !user &&
-        token.backendRefreshToken &&
-        shouldRefreshBackendAccessToken(token.backendAccessTokenExpiresAt)
+        (forceBackendTokenRefresh ||
+          shouldRefreshBackendAccessToken(token.backendAccessTokenExpiresAt))
       ) {
         return refreshTokenState(token);
       }
@@ -222,7 +238,7 @@ const handler = NextAuth({
       return token;
     },
     async session({ session, token }) {
-      session.user = token.user as any;
+      session.user = (token.user || session.user) as any;
 
       if (token.access_token && typeof token.access_token === "string") {
         session.user.access_token = token.access_token; // Expón el access_token en la sesión
@@ -235,6 +251,17 @@ const handler = NextAuth({
           : token.backendToken;
       if (backendToken) {
         (session.user as any).token = backendToken;
+      }
+      if (typeof token.backendAccessTokenExpiresAt === "string") {
+        (session.user as any).backendAccessTokenExpiresAt =
+          token.backendAccessTokenExpiresAt;
+      }
+      if (typeof token.backendRefreshTokenExpiresAt === "string") {
+        (session.user as any).backendRefreshTokenExpiresAt =
+          token.backendRefreshTokenExpiresAt;
+      }
+      if (typeof token.backendAuthError === "string") {
+        (session.user as any).backendAuthError = token.backendAuthError;
       }
 
       return session;

@@ -16,10 +16,6 @@ const AppSubMenu = (props: MenuProps) => {
         }
     }, [layoutState.overlaySubmenuActive]);
 
-    useEffect(() => {
-        generateBreadcrumbs(props.model);
-    }, []);
-
     const generateBreadcrumbs = (model: MenuModel[]) => {
         let breadcrumbs: Breadcrumb[] = [];
 
@@ -39,6 +35,11 @@ const AppSubMenu = (props: MenuProps) => {
         });
         setBreadcrumbs(breadcrumbs);
     };
+
+    useEffect(() => {
+        generateBreadcrumbs(props.model);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     return (
         <MenuProvider>

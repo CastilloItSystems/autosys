@@ -46,22 +46,6 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
   // Obtener roles del usuario con hook reutilizable
   const userRoles = useUserRoles();
 
-  // Usar función y arrays reutilizables
-  const can = (allowed: string[]) => hasRole(allowed, userRoles);
-
-  // Si el usuario no tiene acceso a ningún botón, no renderizar nada
-  if (
-    !can(infoAllowedRoles) &&
-    !can(editAllowedRoles) &&
-    !can(deleteAllowedRoles) &&
-    !can(duplicateAllowedRoles) &&
-    !can(pdfAllowedRoles) &&
-    !can(editAllowedRoles) && // Para ver pagos usamos edit roles
-    !can(editAllowedRoles) // Para agregar pago usamos edit roles
-  ) {
-    return null;
-  }
-
   // Hook para detectar sm o md (menos de 1024px)
   const [isMobile, setIsMobile] = React.useState(false);
   React.useEffect(() => {
@@ -74,6 +58,22 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
     window.addEventListener("resize", check);
     return () => window.removeEventListener("resize", check);
   }, []);
+
+  const menuRef = useRef<any>(null);
+
+  // Usar función y arrays reutilizables
+  const can = (allowed: string[]) => hasRole(allowed, userRoles);
+
+  // Si el usuario no tiene acceso a ningún botón, no renderizar nada
+  if (
+    !can(infoAllowedRoles) &&
+    !can(editAllowedRoles) &&
+    !can(deleteAllowedRoles) &&
+    !can(duplicateAllowedRoles) &&
+    !can(pdfAllowedRoles)
+  ) {
+    return null;
+  }
 
   // Crear items del menú
   const menuItems = [];
@@ -126,8 +126,6 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
       command: () => {}, // El PDFGenerator se muestra oculto
     });
   }
-
-  const menuRef = useRef<any>(null);
 
   if (isMobile) {
     return (

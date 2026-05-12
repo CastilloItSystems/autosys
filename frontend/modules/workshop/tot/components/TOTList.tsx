@@ -11,6 +11,7 @@ import { Toast } from "primereact/toast";
 import { Dropdown } from "primereact/dropdown";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
+import Image from "next/image";
 
 const TOTPDFPreview = dynamic(() => import("./TOTPDFPreview"), { ssr: false });
 import CreateButton from "@/components/common/CreateButton";
@@ -679,12 +680,12 @@ export default function TOTList({ serviceOrderId, embedded }: Props) {
                   rel="noopener noreferrer"
                   className="inline-block"
                 >
-                  <img
+                  <Image
                     src={url}
                     alt={`Foto ${idx + 1}`}
+                    width={150}
+                    height={120}
                     style={{
-                      maxWidth: "150px",
-                      maxHeight: "120px",
                       objectFit: "cover",
                       borderRadius: "6px",
                       cursor: "pointer",

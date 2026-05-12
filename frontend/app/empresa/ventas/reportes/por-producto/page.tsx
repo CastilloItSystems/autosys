@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
@@ -23,11 +23,7 @@ const SalesByProductPage = () => {
     dateTo?: Date | null;
   }>({});
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows, filters]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = { page, limit: rows };
@@ -50,7 +46,11 @@ const SalesByProductPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, filters]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-VE", {
@@ -58,7 +58,7 @@ const SalesByProductPage = () => {
       maximumFractionDigits: 2,
     }).format(value);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "itemName",
       header: "Producto",
@@ -110,7 +110,7 @@ const SalesByProductPage = () => {
         </span>
       ),
     },
-  ];
+  ], []);
 
   return (
     <>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -29,20 +29,7 @@ export default function LowStockPage() {
     loadWarehouses();
   }, []);
 
-  useEffect(() => {
-    loadLowStock();
-  }, [page, rows, warehouseFilter]);
-
-  const loadWarehouses = async () => {
-    try {
-      const response = await warehouseService.getActive();
-      setWarehouses(Array.isArray(response.data) ? response.data : []);
-    } catch (error) {
-      console.error("Error loading warehouses:", error);
-    }
-  };
-
-  const loadLowStock = async () => {
+  const loadLowStock = useCallback(async () => {
     try {
       setLoading(true);
       const response = await stockService.getLowStock(
@@ -62,6 +49,19 @@ export default function LowStockPage() {
       });
     } finally {
       setLoading(false);
+    }
+  }, [page, rows, warehouseFilter]);
+
+  useEffect(() => {
+    loadLowStock();
+  }, [loadLowStock]);
+
+  const loadWarehouses = async () => {
+    try {
+      const response = await warehouseService.getActive();
+      setWarehouses(Array.isArray(response.data) ? response.data : []);
+    } catch (error) {
+      console.error("Error loading warehouses:", error);
     }
   };
 

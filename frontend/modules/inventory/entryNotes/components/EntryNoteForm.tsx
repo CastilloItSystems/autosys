@@ -216,7 +216,7 @@ export default function EntryNoteForm({
         replace(poItems);
       }
     }
-  }, [selectedPOId, purchaseOrders, isEditing, setValue, replace]);
+  }, [selectedPOId, purchaseOrders, isEditing, setValue, replace, items]);
 
   // When Supplier changes, fill snapshots
   useEffect(() => {

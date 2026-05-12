@@ -1,5 +1,5 @@
 "use client";
-import React, { useContext, useEffect, useState } from "react";
+import React, { useCallback, useContext, useEffect, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Button } from "primereact/button";
@@ -72,12 +72,7 @@ const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
 
   const selectedType = watch("type");
 
-  // Load data on mount
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     try {
       setLoading(true);
       const [itemsResponse, warehousesResponse] = await Promise.all([
@@ -97,7 +92,12 @@ const MovementForm = ({ onSave, onCancel, toast }: MovementFormProps) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [toast]);
+
+  // Load data on mount
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const onSubmit = async (data: FormData) => {
     setSubmitting(true);

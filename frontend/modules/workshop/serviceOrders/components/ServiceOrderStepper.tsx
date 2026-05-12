@@ -81,7 +81,7 @@ export default function ServiceOrderStepper({
           </span>
         </div>
         <span className="text-xs text-500">
-          (la OT retomará desde "En Proceso" al reactivarse)
+          (la OT retomará desde &quot;En Proceso&quot; al reactivarse)
         </span>
       </div>
     );

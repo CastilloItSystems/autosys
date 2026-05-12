@@ -1,9 +1,11 @@
-import ABCAnalysis from "@/modules/inventory/reports/components/ABCAnalysis";
+"use client";
 
-export const metadata = {
-  title: "Análisis ABC | AutoSys",
-  description: "Análisis de Pareto - Clasificación ABC de artículos",
-};
+import dynamic from "next/dynamic";
+
+const ABCAnalysis = dynamic(
+  () => import("@/modules/inventory/reports/components/ABCAnalysis"),
+  { ssr: false },
+);
 
 export default function ABCAnalysisPage() {
   return <ABCAnalysis />;

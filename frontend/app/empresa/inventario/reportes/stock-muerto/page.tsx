@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -16,11 +16,7 @@ const DeadStockPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getDeadStock(page, rows);
@@ -36,7 +32,11 @@ const DeadStockPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const inactiveSeverity = (days: number) => {
     if (days > 365) return "danger";
@@ -50,7 +50,7 @@ const DeadStockPage = () => {
     return "#3B82F6";
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     { field: "itemName", header: "Artículo", sortable: true, width: "22%" },
     { field: "itemSKU", header: "SKU", sortable: true, width: "12%" },
     { field: "warehouseName", header: "Almacén", sortable: true, width: "14%" },
@@ -104,7 +104,7 @@ const DeadStockPage = () => {
         />
       ),
     },
-  ];
+  ], []);
 
   return (
     <>

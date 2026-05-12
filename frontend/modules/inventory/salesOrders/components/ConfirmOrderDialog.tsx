@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
@@ -38,14 +38,7 @@ const ConfirmOrderDialog = ({
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (visible) {
-      loadWarehouses();
-      setSelectedWarehouse("");
-    }
-  }, [visible]);
-
-  const loadWarehouses = async () => {
+  const loadWarehouses = useCallback(async () => {
     try {
       const response = await warehouseService.getAll();
       const warehouseList = (Array.isArray(response?.data)
@@ -56,7 +49,14 @@ const ConfirmOrderDialog = ({
       console.error("Error loading warehouses:", error);
       handleFormError(error, toast);
     }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (visible) {
+      loadWarehouses();
+      setSelectedWarehouse("");
+    }
+  }, [visible, loadWarehouses]);
 
   const handleConfirm = async () => {
     if (!selectedWarehouse) {

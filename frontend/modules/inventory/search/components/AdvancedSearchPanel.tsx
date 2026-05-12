@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { Card } from "primereact/card";
 import { Button } from "primereact/button";
 import { InputText } from "primereact/inputtext";
@@ -47,27 +47,23 @@ export const AdvancedSearchPanel: React.FC<AdvancedSearchPanelProps> = ({
   });
 
   // Load aggregations on mount
-  useEffect(() => {
-    loadAggregations();
-  }, []);
-
-  // Reload aggregations when query changes
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      loadAggregations();
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [query]);
-
-  const loadAggregations = async () => {
+  const loadAggregations = useCallback(async (q?: string) => {
     try {
-      const agg = await searchService.getAggregations(query || undefined);
+      const agg = await searchService.getAggregations(q || undefined);
       setAggregations(agg);
       onAggregationsLoad?.(agg);
     } catch (error) {
       console.error("Error loading aggregations:", error);
     }
-  };
+  }, [onAggregationsLoad]);
+
+  // Load on mount and debounced on query change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      loadAggregations(query);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [query, loadAggregations]);
 
   const handleSearch = async () => {
     if (!query.trim()) {

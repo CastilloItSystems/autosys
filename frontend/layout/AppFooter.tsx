@@ -1,5 +1,6 @@
 import React, { useContext } from "react";
 import { Button } from "primereact/button";
+import Image from "next/image";
 import { LayoutContext } from "./context/layoutcontext";
 
 const AppFooter = () => {
@@ -8,15 +9,11 @@ const AppFooter = () => {
   return (
     <div className="layout-footer mt-auto">
       <div className="footer-start">
-        <img
-          src={
-            "/layout/images/" +
-            (layoutConfig.colorScheme === "light"
-              ? "logo-AutoSys"
-              : "logo-AutoSys") +
-            ".ico"
-          }
+        <Image
+          src="/layout/images/logo-AutoSys.ico"
           alt="logo"
+          width={32}
+          height={32}
         />
         <span className="app-name">AutoSys</span>
       </div>

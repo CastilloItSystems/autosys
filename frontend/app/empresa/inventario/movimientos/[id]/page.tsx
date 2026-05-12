@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
@@ -57,11 +57,7 @@ const MovementDetailPage = () => {
   const [cancelling, setCancelling] = useState(false);
   const [cancelDialog, setCancelDialog] = useState(false);
 
-  useEffect(() => {
-    fetchMovement();
-  }, [id]);
-
-  const fetchMovement = async () => {
+  const fetchMovement = useCallback(async () => {
     try {
       setLoading(true);
       const res = await movementService.getById(id);
@@ -77,7 +73,11 @@ const MovementDetailPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, router]);
+
+  useEffect(() => {
+    fetchMovement();
+  }, [fetchMovement]);
 
   const handleCancel = async () => {
     setCancelling(true);

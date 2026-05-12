@@ -2,6 +2,7 @@
 import React from "react";
 import { useContext } from "react";
 import { Button } from "primereact/button";
+import Image from "next/image";
 import { Page } from "../../../../types/layout";
 import { classNames } from "primereact/utils";
 import { InputText } from "primereact/inputtext";
@@ -31,10 +32,11 @@ const Lockscreen: Page = () => {
 
         <div className="flex align-items-center justify-content-between mb-4">
           <div className="flex">
-            <img
+            <Image
               src="/layout/images/avatar.png"
               className="mr-3"
-              style={{ width: "52px", height: "52px" }}
+              width={52}
+              height={52}
               alt="avatar"
             />
             <div className="flex flex-column justify-content-center gap-1">

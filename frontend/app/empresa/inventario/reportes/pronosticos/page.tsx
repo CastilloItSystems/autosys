@@ -1,9 +1,11 @@
-import ForecastingView from "@/modules/inventory/reports/components/ForecastingView";
+"use client";
 
-export const metadata = {
-  title: "Pronósticos de Demanda | AutoSys",
-  description: "Proyecciones y pronósticos de demanda futura",
-};
+import dynamic from "next/dynamic";
+
+const ForecastingView = dynamic(
+  () => import("@/modules/inventory/reports/components/ForecastingView"),
+  { ssr: false },
+);
 
 export default function ForecastingPage() {
   return <ForecastingView />;

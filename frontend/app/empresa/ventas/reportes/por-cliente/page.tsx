@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -24,11 +24,7 @@ const SalesByCustomerPage = () => {
     dateTo?: Date | null;
   }>({});
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows, filters]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = { page, limit: rows };
@@ -51,7 +47,11 @@ const SalesByCustomerPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, filters]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-VE", {
@@ -59,7 +59,7 @@ const SalesByCustomerPage = () => {
       maximumFractionDigits: 2,
     }).format(value);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "customerName",
       header: "Cliente",
@@ -119,7 +119,7 @@ const SalesByCustomerPage = () => {
           ? new Date(row.lastInvoiceDate).toLocaleDateString("es-VE")
           : "—",
     },
-  ];
+  ], []);
 
   return (
     <>

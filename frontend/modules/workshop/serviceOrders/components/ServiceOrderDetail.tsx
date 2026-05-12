@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { TabView, TabPanel } from "primereact/tabview";
 import { Button } from "primereact/button";
@@ -60,17 +60,7 @@ export default function ServiceOrderDetail({
   const router = useRouter();
   const toast = useRef<Toast>(null);
 
-  useEffect(() => {
-    if (serviceOrderId) loadServiceOrder();
-  }, [serviceOrderId]);
-
-  useEffect(() => {
-    if (typeof initialTabIndex === "number") {
-      setActiveTab(initialTabIndex);
-    }
-  }, [initialTabIndex, serviceOrderId]);
-
-  const loadServiceOrder = async () => {
+  const loadServiceOrder = useCallback(async () => {
     try {
       setLoading(true);
       const res = await serviceOrderService.getById(serviceOrderId);
@@ -80,7 +70,17 @@ export default function ServiceOrderDetail({
     } finally {
       setLoading(false);
     }
-  };
+  }, [serviceOrderId]);
+
+  useEffect(() => {
+    if (serviceOrderId) loadServiceOrder();
+  }, [serviceOrderId, loadServiceOrder]);
+
+  useEffect(() => {
+    if (typeof initialTabIndex === "number") {
+      setActiveTab(initialTabIndex);
+    }
+  }, [initialTabIndex, serviceOrderId]);
 
   const handleBack = () => {
     if (onClose) onClose();

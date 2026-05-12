@@ -277,18 +277,18 @@ function StatusDialog({
     }
   }, [visible]);
 
-  useEffect(() => {
-    if (!visible || !order || !forcedStatus) return;
-    applyStatusSelection(forcedStatus);
-  }, [visible, order, forcedStatus]);
-
-  const applyStatusSelection = (status: ServiceOrderStatus) => {
+  const applyStatusSelection = useCallback((status: ServiceOrderStatus) => {
     if (!order) return;
     setSelectedStatus(status);
     const options = getStatusChangeNoteOptions(order.status, status);
     setNoteOptions(options);
     setNotes(options[0] ?? "");
-  };
+  }, [order]);
+
+  useEffect(() => {
+    if (!visible || !order || !forcedStatus) return;
+    applyStatusSelection(forcedStatus);
+  }, [visible, order, forcedStatus, applyStatusSelection]);
 
   const handleSave = async () => {
     if (!order || !selectedStatus) return;

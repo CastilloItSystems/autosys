@@ -263,6 +263,7 @@ export default function ReceptionSignaturePanel({
               className="border-1 border-surface-200 border-round surface-50 flex align-items-center justify-content-center p-3"
               style={{ minHeight: 100 }}
             >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={savedSignatureUrl}
                 alt="Firma del cliente"

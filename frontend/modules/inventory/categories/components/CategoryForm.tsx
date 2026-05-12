@@ -95,7 +95,7 @@ export default function CategoryForm({
     };
 
     loadCategories();
-  }, [category?.id]);
+  }, [category?.id, category]);
 
   // Simular loading inicial para consistencia visual
   useEffect(() => {

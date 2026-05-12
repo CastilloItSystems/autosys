@@ -104,6 +104,7 @@ export default function PhotoCapture({
 
   const itemTemplate = (photo: Photo) => (
     <div className="relative" style={{ width: 120, height: 100 }}>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
         src={photo.fileUrl}
         alt={photo.fileName ?? "foto"}
@@ -222,6 +223,7 @@ export default function PhotoCapture({
       >
         {previewPhoto && (
           <div className="flex justify-content-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewPhoto.fileUrl}
               alt={previewPhoto.fileName ?? "foto"}

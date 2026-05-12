@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import apiClient from "@/app/api/apiClient";
 
 interface UseBcvRateReturn {
@@ -42,7 +42,7 @@ export const useBcvRate = (
   const [error, setError] = useState<string | null>(null);
   const [source, setSource] = useState<"BCV_AUTO" | "MANUAL">("BCV_AUTO");
 
-  const fetchRate = async () => {
+  const fetchRate = useCallback(async () => {
     if (currency === "VES") {
       setRate(1);
       setSource("BCV_AUTO");
@@ -75,7 +75,7 @@ export const useBcvRate = (
     } finally {
       setLoading(false);
     }
-  };
+  }, [currency]);
 
   const setManualRate = (manualRate: number) => {
     setRate(manualRate);
@@ -84,7 +84,7 @@ export const useBcvRate = (
 
   useEffect(() => {
     fetchRate();
-  }, [currency]);
+  }, [fetchRate]);
 
   return { rate, loading, error, source, setManualRate, fetchRate };
 };

@@ -451,7 +451,7 @@ export default function QuotationList() {
             <span className="block font-bold text-700 mb-1">
               Notas al cliente:
             </span>
-            <p className="m-0 text-sm text-600 italic">"{data.notes}"</p>
+            <p className="m-0 text-sm text-600 italic">&quot;{data.notes}&quot;</p>
           </div>
         )}
 

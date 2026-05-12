@@ -201,7 +201,8 @@ export default function SupplierBillForm({
     name: "items",
   });
 
-  const watchedItems = useWatch({ control, name: "items" }) ?? [];
+  const watchedItemsRaw = useWatch({ control, name: "items" });
+  const watchedItems = useMemo(() => watchedItemsRaw ?? [], [watchedItemsRaw]);
   const selectedPOId = watch("purchaseOrderId");
   const currency = (watch("currency") || "USD") as "USD" | "EUR" | "VES";
   const watchExchangeRate = watch("exchangeRate");

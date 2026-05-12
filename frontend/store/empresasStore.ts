@@ -5,6 +5,7 @@ import { persist } from "zustand/middleware";
 interface EmpresasState {
   activeEmpresa: Empresa | null;
   setActiveEmpresa: (empresa: Empresa) => void;
+  clearActiveEmpresa: () => void;
 }
 
 export const useEmpresasStore = create<EmpresasState>()(
@@ -12,6 +13,7 @@ export const useEmpresasStore = create<EmpresasState>()(
     (set) => ({
       activeEmpresa: null,
       setActiveEmpresa: (empresa) => set({ activeEmpresa: empresa }),
+      clearActiveEmpresa: () => set({ activeEmpresa: null }),
     }),
     {
       name: "empresas-store", // Nombre único para el localStorage

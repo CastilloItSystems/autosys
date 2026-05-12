@@ -27,9 +27,15 @@ function toObject(pairs: Pair[]): Record<string, string> | null {
 export default function MetadataInput({ value, onChange }: MetadataInputProps) {
   const [pairs, setPairs] = useState<Pair[]>(() => toPairs(value));
 
-  useEffect(() => {
-    setPairs(toPairs(value));
-  }, []);
+  useEffect(
+    () => {
+      // Intentionally runs only on mount to seed internal pairs from the initial prop value.
+      // Subsequent prop changes are not tracked — pairs are managed locally via update().
+      setPairs(toPairs(value));
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   const update = (next: Pair[]) => {
     setPairs(next);

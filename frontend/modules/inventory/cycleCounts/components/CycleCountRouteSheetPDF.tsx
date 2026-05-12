@@ -263,7 +263,7 @@ export default function CycleCountRouteSheetPDF({
           </View>
           {!isCompleted && (
             <Text style={styles.infoNote}>
-              * Hoja de ruta para conteo físico. Complete la columna "Cant. Contada" y "Nueva Ubicación" si corresponde.
+              * Hoja de ruta para conteo físico. Complete la columna &quot;Cant. Contada&quot; y &quot;Nueva Ubicación&quot; si corresponde.
             </Text>
           )}
         </View>

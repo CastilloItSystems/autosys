@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { DataView } from "primereact/dataview";
@@ -90,34 +90,6 @@ export default function StockList() {
   const [historyDetailLoading, setHistoryDetailLoading] =
     useState<boolean>(false);
 
-  // Cargar almacenes y dashboard al montar
-  useEffect(() => {
-    loadWarehouses();
-    loadDashboard();
-  }, []);
-
-  // Cargar stocks cuando cambien los filtros
-  useEffect(() => {
-    loadStocks();
-  }, [page, rows, stockFilter, warehouseFilter, debouncedSearch]);
-
-  // Debounce para búsqueda server-side
-  useEffect(() => {
-    const timeout = setTimeout(() => {
-      setDebouncedSearch(searchQuery.trim());
-      setPage(0);
-    }, 300);
-    return () => clearTimeout(timeout);
-  }, [searchQuery]);
-
-  useEffect(() => {
-    return () => {
-      if (searchTimeout.current) {
-        clearTimeout(searchTimeout.current);
-      }
-    };
-  }, []);
-
   const fetchStocksByCurrentFilter = async (
     search: string,
     nextPage: number,
@@ -164,7 +136,7 @@ export default function StockList() {
     }
   };
 
-  const loadStocks = async () => {
+  const loadStocks = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -191,7 +163,35 @@ export default function StockList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [debouncedSearch, page, rows, stockFilter, warehouseFilter]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Cargar almacenes y dashboard al montar
+  useEffect(() => {
+    loadWarehouses();
+    loadDashboard();
+  }, []);
+
+  // Cargar stocks cuando cambien los filtros
+  useEffect(() => {
+    loadStocks();
+  }, [loadStocks]);
+
+  // Debounce para búsqueda server-side
+  useEffect(() => {
+    const timeout = setTimeout(() => {
+      setDebouncedSearch(searchQuery.trim());
+      setPage(0);
+    }, 300);
+    return () => clearTimeout(timeout);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    return () => {
+      if (searchTimeout.current) {
+        clearTimeout(searchTimeout.current);
+      }
+    };
+  }, []);
 
   const handleSearch = (value: string) => {
     setSearchQuery(value);

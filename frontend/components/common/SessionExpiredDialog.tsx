@@ -10,6 +10,7 @@ import {
   SESSION_EXPIRED_EVENT,
   type SessionExpiredEventDetail,
 } from "@/lib/sessionExpiration";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 export default function SessionExpiredDialog() {
   const [visible, setVisible] = useState(false);
@@ -17,6 +18,7 @@ export default function SessionExpiredDialog() {
   const [detail, setDetail] = useState<SessionExpiredEventDetail>(
     DEFAULT_SESSION_EXPIRED_DETAIL,
   );
+  const clearActiveEmpresa = useEmpresasStore((state) => state.clearActiveEmpresa);
 
   useEffect(() => {
     const handleSessionExpired = (event: Event) => {
@@ -39,8 +41,9 @@ export default function SessionExpiredDialog() {
 
   const handleSignIn = useCallback(async () => {
     setIsSigningOut(true);
-    await signOut({ callbackUrl: "/auth/login" });
-  }, []);
+    clearActiveEmpresa();
+    await signOut({ callbackUrl: "/auth/login?expired=1" });
+  }, [clearActiveEmpresa]);
 
   const footer = (
     <div className="flex justify-content-center sm:justify-content-end">

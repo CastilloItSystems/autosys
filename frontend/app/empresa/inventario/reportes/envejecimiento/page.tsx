@@ -1,10 +1,14 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
-import { Chart } from "primereact/chart";
+const Chart = dynamic(
+  () => import("primereact/chart").then((m) => m.Chart),
+  { ssr: false },
+);
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Skeleton } from "primereact/skeleton";
@@ -35,11 +39,7 @@ const AgingReportPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [chartData, setChartData] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiClient.get("/inventory/reports/aging", {
@@ -76,7 +76,11 @@ const AgingReportPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const chartOptions = {
     responsive: true,

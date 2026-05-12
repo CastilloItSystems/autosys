@@ -197,19 +197,6 @@ export default function QuotationForm({
   // Flag: currency changed but rate not ready yet → reconvert once rate arrives
   const pendingReconversionRef = React.useRef(false);
 
-  // Auto-fill exchangeRate field when BCV rate loads
-  React.useEffect(() => {
-    if (effectiveRate && effectiveRate > 0) {
-      setValue("exchangeRate", effectiveRate);
-
-      // If a reconversion was pending (rate arrived after currency change), do it now
-      if (pendingReconversionRef.current) {
-        pendingReconversionRef.current = false;
-        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
-      }
-    }
-  }, [effectiveRate]);
-
   const reconvertItems = React.useCallback(
     (currency: string, usdRate: number | null, curRate: number | null) => {
       const currentItems = watch("items") as any[];
@@ -229,6 +216,19 @@ export default function QuotationForm({
     },
     [selectedItemsMap, setValue, watch],
   );
+
+  // Auto-fill exchangeRate field when BCV rate loads
+  React.useEffect(() => {
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate", effectiveRate);
+
+      // If a reconversion was pending (rate arrived after currency change), do it now
+      if (pendingReconversionRef.current) {
+        pendingReconversionRef.current = false;
+        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+      }
+    }
+  }, [effectiveRate, setValue, reconvertItems, watchCurrency, usdVesRate, currencyVesRate]);
 
   React.useEffect(() => {
     const prev = prevCurrencyRef.current;
@@ -250,7 +250,7 @@ export default function QuotationForm({
       // Rate still loading — mark pending, reconvert when it arrives via effectiveRate effect
       pendingReconversionRef.current = true;
     }
-  }, [watchCurrency]);
+  }, [watchCurrency, usdVesRate, currencyVesRate, reconvertItems]);
 
   const watchedItems = (watch("items") ?? []) as any[];
 
@@ -363,7 +363,7 @@ export default function QuotationForm({
         append(itemsToAppend);
       }
     },
-    [setValue, append],
+    [setValue, append, watchCurrency, usdVesRate, currencyVesRate],
   );
 
   const onSubmit = async (data: any) => {

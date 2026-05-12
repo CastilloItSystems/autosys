@@ -1,11 +1,15 @@
-import axios from "axios";
-import { getSession } from "next-auth/react";
+import axios, { type InternalAxiosRequestConfig } from "axios";
 import { useEmpresasStore } from "@/store/empresasStore";
-import { notifySessionExpired } from "@/lib/sessionExpiration";
+import {
+  expireBackendSession,
+  getValidBackendSession,
+} from "@/lib/backendAuthSession";
 
-interface ExtendedUser {
-  token: string;
-}
+type AuthRequestConfig = InternalAxiosRequestConfig & {
+  _retry?: boolean;
+};
+
+const AUTHLESS_ENDPOINTS = ["/auth/login", "/auth/register", "/auth/refresh"];
 
 const apiClient = axios.create({
   baseURL:
@@ -16,19 +20,41 @@ const apiClient = axios.create({
   },
 });
 
-// Interceptor para agregar el token a cada solicitud
+function isAuthlessRequest(config: InternalAxiosRequestConfig) {
+  const url = config.url ?? "";
+  return AUTHLESS_ENDPOINTS.some((endpoint) => url.includes(endpoint));
+}
+
+function setRequestHeader(
+  config: InternalAxiosRequestConfig,
+  name: string,
+  value: string,
+) {
+  config.headers = config.headers || {};
+
+  if (typeof (config.headers as any).set === "function") {
+    (config.headers as any).set(name, value);
+    return;
+  }
+
+  (config.headers as Record<string, string>)[name] = value;
+}
+
+// Interceptor para agregar un access token valido a cada solicitud protegida.
 apiClient.interceptors.request.use(
   async (config) => {
-    const session = await getSession();
-    const token = (session?.user as ExtendedUser)?.token;
-    if (token) {
-      config.headers["Authorization"] = `Bearer ${token}`;
+    if (!isAuthlessRequest(config)) {
+      const session = await getValidBackendSession();
+      const token = session?.user?.token;
+      if (token) {
+        setRequestHeader(config, "Authorization", `Bearer ${token}`);
+      }
     }
 
     // Inyectar empresaId si está disponible en el store (Zustand)
     const activeEmpresa = useEmpresasStore.getState().activeEmpresa;
     if (activeEmpresa?.id_empresa) {
-      config.headers["X-Empresa-Id"] = activeEmpresa.id_empresa;
+      setRequestHeader(config, "X-Empresa-Id", activeEmpresa.id_empresa);
     }
 
     return config;
@@ -41,20 +67,20 @@ apiClient.interceptors.request.use(
 // Evita mostrar el diálogo muchas veces cuando varias solicitudes fallan juntas.
 let sessionExpiredNoticeShown = false;
 
-function showSessionExpiredNotice() {
+async function showSessionExpiredNotice() {
   if (sessionExpiredNoticeShown) {
     return;
   }
 
   sessionExpiredNoticeShown = true;
-  notifySessionExpired();
+  await expireBackendSession();
 }
 
 // 2) Interceptor de respuesta: captura logout o 401
 apiClient.interceptors.response.use(
   (response) => {
     if (response.data?.logout) {
-      showSessionExpiredNotice();
+      void showSessionExpiredNotice();
       return Promise.reject(new Error("Logout triggered"));
     }
 
@@ -62,26 +88,26 @@ apiClient.interceptors.response.use(
     return response;
   },
   async (error) => {
-    const originalRequest = error.config;
+    const originalRequest = error.config as AuthRequestConfig | undefined;
 
     if (
       error.response?.status === 401 &&
       originalRequest &&
-      !originalRequest._retry
+      !originalRequest._retry &&
+      !isAuthlessRequest(originalRequest)
     ) {
       originalRequest._retry = true;
-      const session = await getSession();
-      const token = (session?.user as ExtendedUser)?.token;
+      const session = await getValidBackendSession({ forceRefresh: true });
+      const token = session?.user?.token;
 
       if (token) {
-        originalRequest.headers = originalRequest.headers || {};
-        originalRequest.headers["Authorization"] = `Bearer ${token}`;
+        setRequestHeader(originalRequest, "Authorization", `Bearer ${token}`);
         return apiClient(originalRequest);
       }
     }
 
     if (error.response?.status === 401) {
-      showSessionExpiredNotice();
+      await showSessionExpiredNotice();
       return Promise.reject(new Error("Unauthorized"));
     }
 

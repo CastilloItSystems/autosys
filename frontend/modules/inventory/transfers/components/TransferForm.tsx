@@ -143,7 +143,7 @@ export default function TransferForm({
 
     loadWarehouseStocks();
     replace([{ itemId: "", quantity: 1, unitCost: 0 }]);
-  }, [fromWarehouseId]);
+  }, [fromWarehouseId, isEditing, replace, toast]);
 
   // Cargar datos de la transferencia si está en modo edición
   useEffect(() => {

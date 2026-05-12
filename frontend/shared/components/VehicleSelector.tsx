@@ -55,11 +55,17 @@ export default function VehicleSelector({
   const [loading, setLoading] = useState(false);
   const [createDialog, setCreateDialog] = useState(false);
 
+  // Refs to always call the latest callbacks without adding them to effect deps
+  const onChangeRef = useRef(onChange);
+  onChangeRef.current = onChange;
+  const onVehicleSelectRef = useRef(onVehicleSelect);
+  onVehicleSelectRef.current = onVehicleSelect;
+
   useEffect(() => {
     if (!customerId) {
       setVehicles([]);
-      onChange(null);
-      onVehicleSelect?.(null);
+      onChangeRef.current(null);
+      onVehicleSelectRef.current?.(null);
       return;
     }
     setLoading(true);

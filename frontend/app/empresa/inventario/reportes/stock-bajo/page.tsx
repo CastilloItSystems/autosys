@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -16,11 +16,7 @@ const LowStockPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getLowStock(page, rows);
@@ -36,7 +32,11 @@ const LowStockPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   /** Returns row-level CSS class for severity highlighting */
   const rowClass = (row: any) => {
@@ -54,7 +54,7 @@ const LowStockPage = () => {
     return "info";
   };
 
-  const columns = [
+  const columns = useMemo(() => [
     { field: "itemName", header: "Artículo", sortable: true, width: "22%" },
     { field: "itemSKU", header: "SKU", sortable: true, width: "12%" },
     { field: "warehouseName", header: "Almacén", sortable: true, width: "15%" },
@@ -103,7 +103,7 @@ const LowStockPage = () => {
           ? new Date(row.lastMovement).toLocaleDateString("es-VE")
           : "—",
     },
-  ];
+  ], []);
 
   return (
     <>

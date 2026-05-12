@@ -1,5 +1,5 @@
 "use client";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Dialog } from "primereact/dialog";
 import { Button } from "primereact/button";
 import { InputNumber } from "primereact/inputnumber";
@@ -43,13 +43,7 @@ const ShipOrderDialog = ({
   const [lines, setLines] = useState<LineToShip[]>([]);
   const [submitting, setSubmitting] = useState(false);
 
-  useEffect(() => {
-    if (visible && order) {
-      initializeLines();
-    }
-  }, [visible, order]);
-
-  const initializeLines = () => {
+  const initializeLines = useCallback(() => {
     if (!order?.items) return;
 
     const initialLines: LineToShip[] = order.items
@@ -79,7 +73,13 @@ const ShipOrderDialog = ({
       .filter((line: any) => line !== null);
 
     setLines(initialLines);
-  };
+  }, [order]);
+
+  useEffect(() => {
+    if (visible && order) {
+      initializeLines();
+    }
+  }, [visible, order, initializeLines]);
 
   const updateQuantity = (index: number, value: number | null) => {
     setLines((prev) => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
@@ -15,11 +15,7 @@ const LowStockPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getLowStock(page, rows);
@@ -36,7 +32,11 @@ const LowStockPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const columns = [
     { field: "itemName", header: "Artículo", sortable: true, width: "25%" },

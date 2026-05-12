@@ -260,7 +260,7 @@ export default function ChecklistTemplateForm({
       {fields.length === 0 && (
         <div className="text-center p-4 surface-100 border-round text-600 mb-3">
           <i className="pi pi-inbox text-3xl mb-2 block" />
-          <p className="m-0">No hay ítems. Haga clic en "Agregar ítem" para comenzar.</p>
+          <p className="m-0">No hay ítems. Haga clic en &quot;Agregar ítem&quot; para comenzar.</p>
         </div>
       )}
 

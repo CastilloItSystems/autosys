@@ -407,7 +407,7 @@ const LoanForm = ({ loan, onSuccess, onCancel }: LoanFormProps) => {
               {itemRows.length === 0 ? (
                 <div className="flex flex-column align-items-center justify-content-center py-5 border-1 border-dashed surface-border border-round text-500">
                   <i className="pi pi-inbox text-4xl mb-2 text-300" />
-                  <span>Sin artículos. Haz clic en "Agregar artículo".</span>
+                  <span>Sin artículos. Haz clic en &quot;Agregar artículo&quot;.</span>
                 </div>
               ) : (
                 <DataTable

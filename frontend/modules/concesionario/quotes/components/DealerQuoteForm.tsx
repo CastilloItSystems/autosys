@@ -118,7 +118,7 @@ export default function DealerQuoteForm({
         pendingRateRef.current = false;
       }
     }
-  }, [effectiveRate, watchFxSource]);
+  }, [effectiveRate, watchFxSource, setValue]);
 
   React.useEffect(() => {
     const prev = prevCurrencyRef.current;
@@ -128,7 +128,7 @@ export default function DealerQuoteForm({
     if (!effectiveRate || effectiveRate <= 0) {
       pendingRateRef.current = true;
     }
-  }, [watchCurrency]);
+  }, [watchCurrency, effectiveRate]);
 
   const currencyPrefix = QUOTE_CURRENCY_SYMBOLS[watchCurrency] + " ";
 

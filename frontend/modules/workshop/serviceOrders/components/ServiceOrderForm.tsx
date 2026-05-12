@@ -144,16 +144,6 @@ export default function ServiceOrderForm({
   const prevCurrencyRef = useRef<string>(watchCurrency);
   const pendingReconversionRef = useRef(false);
 
-  useEffect(() => {
-    if (effectiveRate && effectiveRate > 0) {
-      setValue("exchangeRate" as any, effectiveRate);
-      if (pendingReconversionRef.current) {
-        pendingReconversionRef.current = false;
-        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
-      }
-    }
-  }, [effectiveRate]);
-
   const reconvertItems = useCallback(
     (currency: string, usdRate: number | null, curRate: number | null) => {
       const currentItems = watch("items") as any[];
@@ -177,6 +167,16 @@ export default function ServiceOrderForm({
   );
 
   useEffect(() => {
+    if (effectiveRate && effectiveRate > 0) {
+      setValue("exchangeRate" as any, effectiveRate);
+      if (pendingReconversionRef.current) {
+        pendingReconversionRef.current = false;
+        reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
+      }
+    }
+  }, [effectiveRate, setValue, reconvertItems, watchCurrency, usdVesRate, currencyVesRate]);
+
+  useEffect(() => {
     const prev = prevCurrencyRef.current;
     if (prev === watchCurrency) return;
     prevCurrencyRef.current = watchCurrency;
@@ -195,7 +195,7 @@ export default function ServiceOrderForm({
     } else {
       pendingReconversionRef.current = true;
     }
-  }, [watchCurrency]);
+  }, [watchCurrency, usdVesRate, currencyVesRate, reconvertItems]);
 
   const watchedItems = (watch("items") ?? []) as any[];
   const watchedTypes = watchedItems.map(
@@ -307,7 +307,7 @@ export default function ServiceOrderForm({
         append(itemsToAppend as any);
       }
     },
-    [setValue, append],
+    [setValue, append, watchCurrency, usdVesRate, currencyVesRate],
   );
 
   useEffect(() => {

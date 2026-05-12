@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -59,11 +59,7 @@ export default function ChecklistTemplateList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  useEffect(() => {
-    loadItems();
-  }, [page, rows, searchQuery, showActive, categoryFilter]);
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     try {
       setLoading(true);
       const res = await checklistService.getAll({
@@ -82,7 +78,11 @@ export default function ChecklistTemplateList() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, searchQuery, showActive, categoryFilter]);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
 
   const openNew = () => {
     setSelected(null);

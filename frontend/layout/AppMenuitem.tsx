@@ -52,6 +52,7 @@ const AppMenuitem = (props: AppMenuItemProps) => {
             }
         };
         onRouteChange();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [pathname, searchParams, layoutConfig]);
 
     const itemClick = (event: React.MouseEvent<HTMLAnchorElement>) => {

@@ -166,7 +166,7 @@ export default function RegisterPaymentDialog({
       { method: "CASH", amount: 0 },
       { method: "TRANSFER", amount: 0 },
     ]);
-  }, [visible, bill?.id]);
+  }, [visible, bill?.id, bcvAutoRate, bill, currency]);
 
   const handleSubmit = async () => {
     if (!bill) return;

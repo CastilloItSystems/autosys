@@ -433,7 +433,7 @@ export default function QuoteForm({
 
           {fields.length === 0 && (
             <div className="text-center text-500 py-3 border-1 border-dashed border-300 border-round">
-              Sin líneas. Haz clic en "Agregar línea" para comenzar.
+              Sin líneas. Haz clic en &quot;Agregar línea&quot; para comenzar.
             </div>
           )}
 

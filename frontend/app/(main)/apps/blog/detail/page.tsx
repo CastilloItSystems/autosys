@@ -3,6 +3,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from 'primereact/button';
 import { InputText } from 'primereact/inputtext';
 import { InputTextarea } from 'primereact/inputtextarea';
+import Image from 'next/image';
 import React from 'react';
 
 function BlogDetail() {
@@ -55,12 +56,12 @@ function BlogDetail() {
                     </div>
                 </div>
                 <div className="flex flex-column align-items-center justify-content-center">
-                    <img className="w-4rem h-4rem" src={`/demo/images/avatar/circle/avatar-f-2@2x.png`} alt="Avatar" />
+                    <Image className="w-4rem h-4rem" src={`/demo/images/avatar/circle/avatar-f-2@2x.png`} alt="Avatar" width={64} height={64} />
                     <span className="mt-3 font-bold text-900 text-center white-space-nowrap">Jane Cooper</span>
                 </div>
             </div>
             <div className="text-center my-6">
-                <img src="/demo/images/blog/blogdetail.png" alt="Image" className="w-full" />
+                <Image src="/demo/images/blog/blogdetail.png" alt="Image" className="w-full" width={800} height={450} style={{ width: '100%', height: 'auto' }} />
             </div>
             <div className="text-2xl text-900 mb-4 font-semibold">Sodales massa, morbi convallis</div>
             <p className="line-height-3 text-lg mb-4">
@@ -98,7 +99,7 @@ function BlogDetail() {
                 {comments.map((comment, i) => {
                     return (
                         <li key={i} className="flex p-3 mb-3 border-1 surface-border border-round">
-                            <img src={comment.image} className="w-3rem h-3rem mr-3 flex-shrink-0" alt={'Image' + i} />
+                            <Image src={comment.image} className="w-3rem h-3rem mr-3 flex-shrink-0" alt={'Image' + i} width={48} height={48} />
                             <div>
                                 <span className="font-semibold text-900">{comment.name}</span>
                                 <p className="font-semibold text-600 m-0 text-sm">{comment.date}</p>

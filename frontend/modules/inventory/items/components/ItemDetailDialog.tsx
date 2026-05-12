@@ -6,6 +6,7 @@ import { Tag } from "primereact/tag";
 import { Divider } from "primereact/divider";
 import { ProgressBar } from "primereact/progressbar";
 import { Chip } from "primereact/chip";
+import Image from "next/image";
 import { Item } from "@/modules/inventory/items/services/itemService";
 
 interface ItemDetailDialogProps {
@@ -218,16 +219,12 @@ export default function ItemDetailDialog({
             background: "var(--surface-50)",
           }}
         >
-          <div className="border-round overflow-hidden shadow-1 bg-white">
-            <img
+          <div className="border-round overflow-hidden shadow-1 bg-white" style={{ position: "relative", height: "180px" }}>
+            <Image
               src={getPrimaryImage(item)}
               alt={item.name}
-              className="w-full"
-              style={{
-                maxHeight: "180px",
-                objectFit: "contain",
-                display: "block",
-              }}
+              fill
+              style={{ objectFit: "contain" }}
             />
           </div>
 

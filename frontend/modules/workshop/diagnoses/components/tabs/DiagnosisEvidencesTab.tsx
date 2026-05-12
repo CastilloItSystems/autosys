@@ -4,6 +4,7 @@ import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
+import Image from "next/image";
 import diagnosisService from "@/modules/workshop/diagnoses/services/diagnosisService";
 import { handleFormError } from "@/utils/errorHandlers";
 import type { DiagnosisEvidence } from "@/modules/workshop/diagnoses/interfaces/diagnosis.interface";
@@ -154,20 +155,14 @@ export default function DiagnosisEvidencesTab({
               <div className="flex align-items-center gap-3 min-w-0">
                 {ev.type === "photo" ? (
                   <a href={ev.url} target="_blank" rel="noopener noreferrer">
-                    <img
-                      src={ev.url}
-                      alt={ev.description || "evidencia"}
-                      style={{
-                        width: 48,
-                        height: 48,
-                        objectFit: "cover",
-                        borderRadius: 6,
-                        flexShrink: 0,
-                      }}
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).style.display = "none";
-                      }}
-                    />
+                    <div style={{ position: "relative", width: 48, height: 48, borderRadius: 6, overflow: "hidden", flexShrink: 0 }}>
+                      <Image
+                        src={ev.url}
+                        alt={ev.description || "evidencia"}
+                        fill
+                        style={{ objectFit: "cover" }}
+                      />
+                    </div>
                   </a>
                 ) : (
                   <i
@@ -275,6 +270,7 @@ export default function DiagnosisEvidencesTab({
               onClick={() => fileInputRef.current?.click()}
             >
               {previewUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={previewUrl}
                   alt="preview"

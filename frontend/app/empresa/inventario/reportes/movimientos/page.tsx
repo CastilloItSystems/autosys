@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -48,15 +48,7 @@ const MovementsPage = () => {
   const [rows, setRows] = useState(20);
   const [summary, setSummary] = useState<any>(null);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  useEffect(() => {
-    loadSummary();
-  }, []);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getMovements(page, rows);
@@ -72,7 +64,15 @@ const MovementsPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  useEffect(() => {
+    loadSummary();
+  }, []);
 
   const loadSummary = async () => {
     setSummaryLoading(true);
@@ -153,7 +153,7 @@ const MovementsPage = () => {
     },
   ];
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "movementDate",
       header: "Fecha",
@@ -224,7 +224,7 @@ const MovementsPage = () => {
         <span className="text-500 text-sm">{row.reference || "—"}</span>
       ),
     },
-  ];
+  ], []);
 
   return (
     <>

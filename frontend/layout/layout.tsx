@@ -15,6 +15,7 @@ import AppTopbar from "./AppTopbar";
 import { LayoutContext } from "./context/layoutcontext";
 import AppBreadcrumb from "./AppBreadCrumb";
 import AppFooter from "./AppFooter";
+import { SocketProvider } from "@/context/SocketContext";
 import type { AppTopbarRef, ChildContainerProps } from "@/types";
 
 const Layout = (props: ChildContainerProps) => {
@@ -192,7 +193,7 @@ const Layout = (props: ChildContainerProps) => {
   });
 
   return (
-    <React.Fragment>
+    <SocketProvider>
       <div className={classNames("layout-container", containerClassName)}>
         <AppTopbar ref={topbarRef} />
         <div
@@ -214,7 +215,7 @@ const Layout = (props: ChildContainerProps) => {
         </div>
         <AppConfig />
       </div>
-    </React.Fragment>
+    </SocketProvider>
   );
 };
 

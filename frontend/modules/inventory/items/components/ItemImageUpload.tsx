@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { Button } from "primereact/button";
 import { Card } from "primereact/card";
 import { Toast } from "primereact/toast";
 import { Dialog } from "primereact/dialog";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Tag } from "primereact/tag";
+import Image from "next/image";
 import imageService from "@/modules/inventory/items/services/imageUploadService";
 import type { IItemImage } from "@/modules/inventory/items/services/imageUploadService";
 
@@ -31,12 +32,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
   const [showImagePreview, setShowImagePreview] = useState(false);
   const [dragover, setDragover] = useState(false);
 
-  // Load images on mount
-  useEffect(() => {
-    loadImages();
-  }, [itemId]);
-
-  const loadImages = async () => {
+  const loadImages = useCallback(async () => {
     setLoading(true);
     try {
       const response = await imageService.getByItem(itemId);
@@ -48,7 +44,12 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemId, onImagesChange]);
+
+  // Load images on mount
+  useEffect(() => {
+    loadImages();
+  }, [itemId, loadImages]);
 
   const handleFileSelect = (files: FileList | null) => {
     if (!files) return;
@@ -247,6 +248,7 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
                         setShowImagePreview(true);
                       }}
                       style={{
+                        position: "relative",
                         width: "100%",
                         height: "150px",
                         overflow: "hidden",
@@ -254,14 +256,11 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
                         backgroundColor: "#f5f5f5",
                       }}
                     >
-                      <img
+                      <Image
                         src={image.url}
                         alt="Item image"
-                        style={{
-                          width: "100%",
-                          height: "100%",
-                          objectFit: "cover",
-                        }}
+                        fill
+                        style={{ objectFit: "cover" }}
                       />
                     </div>
 
@@ -311,10 +310,12 @@ export const ItemImageUpload: React.FC<ItemImageUploadProps> = ({
       >
         {selectedImage && (
           <div className="text-center">
-            <img
+            <Image
               src={selectedImage.url}
               alt="Preview"
-              style={{ maxWidth: "100%", maxHeight: "500px" }}
+              width={600}
+              height={500}
+              style={{ maxWidth: "100%", maxHeight: "500px", width: "auto", height: "auto" }}
             />
             {selectedImage.isPrimary && (
               <div className="mt-3">

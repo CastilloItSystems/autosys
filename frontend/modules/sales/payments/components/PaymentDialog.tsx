@@ -157,7 +157,7 @@ const PaymentDialog = ({
         { method: PaymentMethod.TRANSFER, amount: 0 },
       ]);
     }
-  }, [visible, preInvoice?.id]);
+  }, [visible, preInvoice, remainingAmount]);
 
   // Sync mixed details sum with amount
   useEffect(() => {

@@ -1,11 +1,13 @@
 import {
   forwardRef,
+  useCallback,
   useContext,
   useImperativeHandle,
   useRef,
   useEffect,
   useState,
 } from "react";
+import Image from "next/image";
 import { LayoutContext } from "./context/layoutcontext";
 import type { AppTopbarRef } from "@/types";
 import { Ripple } from "primereact/ripple";
@@ -31,7 +33,7 @@ interface ExtendedUser extends User {
 
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
   const { data: session } = useSession();
-  const { activeEmpresa } = useEmpresasStore();
+  const { activeEmpresa, clearActiveEmpresa } = useEmpresasStore();
 const { online, desconectarSocket } = useSocket();
 
   const handleSignOut = async () => {
@@ -47,6 +49,7 @@ const { online, desconectarSocket } = useSocket();
         console.error("Error al revocar el token de Google:", e);
       }
     }
+    clearActiveEmpresa();
     await signOut();
     desconectarSocket();
   };
@@ -78,25 +81,25 @@ const { online, desconectarSocket } = useSocket();
   useImperativeHandle(ref, () => ({
     menubutton: menubuttonRef.current,
   }));
-  const logo = () => {
+  const logo = useCallback(() => {
     const path = "/layout/images/";
-    let logo;
+    let logoFile;
     if (
       layoutConfig.layoutTheme === "primaryColor" &&
       layoutConfig.theme !== "yellow"
     ) {
-      logo = "logo-AutoSys.ico";
+      logoFile = "logo-AutoSys.ico";
     } else {
-      logo =
+      logoFile =
         layoutConfig.colorScheme === "light"
           ? "logo-AutoSys.ico"
           : "logo-AutoSys.ico";
     }
-    return path + logo;
-  };
+    return path + logoFile;
+  }, [layoutConfig.layoutTheme, layoutConfig.theme, layoutConfig.colorScheme]);
   useEffect(() => {
     logo();
-  }, []);
+  }, [logo]);
 
   const onCloseTab = (index: number) => {
     if (tabs.length > 1) {
@@ -116,7 +119,7 @@ const { online, desconectarSocket } = useSocket();
   return (
     <div className="layout-topbar">
       <Link href={"/"} className="app-logo">
-        <img alt="app logo" src={logo()} />
+        <Image alt="app logo" src={logo()} width={32} height={32} />
         <span className="app-name">AutoSys</span>
       </Link>
 
@@ -149,6 +152,7 @@ const { online, desconectarSocket } = useSocket();
               // <li className="topbar-menu-empty ">
 
               <Link href={"/empresa"} className="app-logo">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img alt="app logo" src={activeEmpresa.logo_url ?? undefined} />
                 <span className="app-name">{activeEmpresa.name_prefijo ?? ""}</span>
               </Link>
@@ -173,6 +177,7 @@ const { online, desconectarSocket } = useSocket();
             className="topbar-profile-button p-link"
             type="button"
           >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               alt="avatar"
               src={

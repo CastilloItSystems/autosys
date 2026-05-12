@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -23,11 +23,8 @@ export default function StockItemDetailPage() {
   const [loading, setLoading] = useState(true);
   const toast = useRef<Toast>(null);
 
-  useEffect(() => {
-    if (itemId) loadItemStock();
-  }, [itemId, page, rows]);
-
-  const loadItemStock = async () => {
+  const loadItemStock = useCallback(async () => {
+    if (!itemId) return;
     try {
       setLoading(true);
       const response = await stockService.getByItem(itemId, page + 1, rows);
@@ -44,7 +41,11 @@ export default function StockItemDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [itemId, page, rows]);
+
+  useEffect(() => {
+    loadItemStock();
+  }, [loadItemStock]);
 
   const onPageChange = (event: any) => {
     const newPage =

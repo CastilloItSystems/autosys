@@ -1,6 +1,6 @@
 import { useEventListener } from 'primereact/hooks';
 import { DomHandler } from 'primereact/utils';
-import { MutableRefObject, useContext, useEffect } from 'react';
+import { MutableRefObject, useCallback, useContext, useEffect } from 'react';
 import { LayoutContext } from '../context/layoutcontext';
 import type { UseSubmenuOverlayPositionProps } from '@/types';
 import { MenuContext } from '../context/menucontext';
@@ -26,7 +26,7 @@ export const useSubmenuOverlayPosition = ({ target, overlay, container, when }: 
         listener: handleScroll
     });
 
-    const calculatePosition = () => {
+    const calculatePosition = useCallback(() => {
         if (overlay && target) {
             const { left, top } = target.getBoundingClientRect();
             const { width: vWidth, height: vHeight } = DomHandler.getViewport();
@@ -47,7 +47,7 @@ export const useSubmenuOverlayPosition = ({ target, overlay, container, when }: 
                 overlay.style.top = vHeight < height ? `${topOffset - (height - vHeight)}px` : `${topOffset}px`;
             }
         }
-    };
+    }, [overlay, target, container, isHorizontal, isSlim, isSlimPlus]);
 
     useEffect(() => {
         if (when) {
@@ -57,11 +57,13 @@ export const useSubmenuOverlayPosition = ({ target, overlay, container, when }: 
         return () => {
             unbindScrollListener();
         };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [when]);
 
     useEffect(() => {
         if (when) {
             calculatePosition();
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [when, activeMenu]);
 };

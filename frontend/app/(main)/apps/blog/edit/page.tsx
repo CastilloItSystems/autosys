@@ -38,6 +38,7 @@ function BlogEdit() {
         return (
             <div className="h-20rem m-1 border-round">
                 <div className="w-full h-full relative border-round p-0">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={file.objectURL} className="w-full h-full border-round" alt={file.name} />
                     <Button type="button" icon="pi pi-times" className="text-sm absolute justify-content-center align-items-center" rounded style={{ top: '-10px', right: '-10px' }} onClick={(e) => onContentButtonClick(e, props.onRemove)}></Button>
                 </div>

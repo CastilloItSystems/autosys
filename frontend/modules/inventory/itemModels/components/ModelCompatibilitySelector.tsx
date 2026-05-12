@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Button } from "primereact/button";
@@ -29,13 +29,7 @@ export default function ModelCompatibilitySelector({
   const [loading, setLoading] = useState(false);
   const [adding, setAdding] = useState(false);
 
-  // Cargar datos
-  useEffect(() => {
-    loadCompatibilities();
-    loadAvailableModels();
-  }, [modelId, modelType]);
-
-  const loadCompatibilities = async () => {
+  const loadCompatibilities = useCallback(async () => {
     try {
       setLoading(true);
       let data: ModelCompatibility[] = [];
@@ -61,9 +55,9 @@ export default function ModelCompatibilitySelector({
     } finally {
       setLoading(false);
     }
-  };
+  }, [modelId, modelType, toast]);
 
-  const loadAvailableModels = async () => {
+  const loadAvailableModels = useCallback(async () => {
     try {
       // Si soy Repuesto, busco Vehículos. Si soy Vehículo, busco Repuestos.
       const targetType = modelType === "PART" ? "VEHICLE" : "PART";
@@ -72,7 +66,13 @@ export default function ModelCompatibilitySelector({
     } catch (error) {
       console.error("Error loading models:", error);
     }
-  };
+  }, [modelType]);
+
+  // Cargar datos
+  useEffect(() => {
+    loadCompatibilities();
+    loadAvailableModels();
+  }, [modelId, modelType, loadCompatibilities, loadAvailableModels]);
 
   const handleAdd = async () => {
     if (!selectedModelId) return;

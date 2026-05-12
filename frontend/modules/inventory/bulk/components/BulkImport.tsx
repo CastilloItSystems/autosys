@@ -578,7 +578,6 @@ export const BulkImport = ({ onComplete, onGoToHistory }: BulkImportProps) => {
       {/* ── Upload Section ─────────────────────────────────────────────── */}
       <Card header={<h3 className="m-0 p-3">Subir archivo CSV o Excel</h3>}>
         <div className="flex flex-column gap-4">
-          {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
           <FileUpload
             ref={fileUploadRef}
             name="importFile[]"

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -33,11 +33,7 @@ const SalesByPeriodPage = () => {
     granularity: "day" | "week" | "month";
   }>({ granularity: "day" });
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows, filters]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const params: any = {
@@ -64,7 +60,11 @@ const SalesByPeriodPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, filters]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const formatCurrency = (value: number) =>
     new Intl.NumberFormat("es-VE", {
@@ -72,7 +72,7 @@ const SalesByPeriodPage = () => {
       maximumFractionDigits: 2,
     }).format(value);
 
-  const columns = [
+  const columns = useMemo(() => [
     { field: "period", header: "Período", sortable: true, width: "18%" },
     {
       field: "invoiceCount",
@@ -115,7 +115,7 @@ const SalesByPeriodPage = () => {
         </span>
       ),
     },
-  ];
+  ], []);
 
   const summaryCards = [
     {

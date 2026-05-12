@@ -1,12 +1,18 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  typescript: {
-    // Ignorar errores de tipo durante el build para permitir despliegues.
-    // Nota: corregir los errores de TS en el proyecto es lo ideal.
-    ignoreBuildErrors: true,
+  modularizeImports: {
+    "lucide-react": {
+      transform: "lucide-react/dist/esm/icons/{{kebabCase member}}",
+      preventFullImport: true,
+    },
   },
-
+  images: {
+    remotePatterns: [
+      { protocol: 'https', hostname: 'castilloitsystems.com' },
+      { protocol: 'http', hostname: 'localhost' },
+    ],
+  },
   // Configuración necesaria para NextAuth
   async rewrites() {
     if (process.env.NEXT_PUBLIC_API_BASE_URL) {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -22,11 +22,7 @@ const ExitsWithoutInvoicePage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await reportService.getExitsWithoutInvoice(page, rows);
@@ -43,13 +39,17 @@ const ExitsWithoutInvoicePage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const criticalCount = summary?.criticalCount ?? 0;
   const warningCount = summary?.warningCount ?? 0;
   const normalCount = summary?.normalCount ?? 0;
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "exitNoteNumber",
       header: "Nro. Nota de Salida",
@@ -117,7 +117,7 @@ const ExitsWithoutInvoicePage = () => {
         />
       ),
     },
-  ];
+  ], []);
 
   const summaryCards = [
     {

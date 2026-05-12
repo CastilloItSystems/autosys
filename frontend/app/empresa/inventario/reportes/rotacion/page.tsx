@@ -1,9 +1,11 @@
-import TurnoverAnalysis from "@/modules/inventory/reports/components/TurnoverAnalysis";
+"use client";
 
-export const metadata = {
-  title: "Análisis de Rotación | AutoSys",
-  description: "Métricas de rotación y movimiento de inventario",
-};
+import dynamic from "next/dynamic";
+
+const TurnoverAnalysis = dynamic(
+  () => import("@/modules/inventory/reports/components/TurnoverAnalysis"),
+  { ssr: false },
+);
 
 export default function TurnoverAnalysisPage() {
   return <TurnoverAnalysis />;

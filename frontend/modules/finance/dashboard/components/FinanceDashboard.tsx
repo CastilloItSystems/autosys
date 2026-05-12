@@ -176,7 +176,7 @@ function FinanceDashboardContent() {
         onClick: () => router.push("/empresa/finanzas/pagos-proveedor"),
       },
     ];
-  }, [data, totalPendingAP]);
+  }, [data, totalPendingAP, router]);
 
   if (loading && !data) {
     return <FinanceDashboardSkeleton />;

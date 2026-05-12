@@ -5,8 +5,8 @@ import { SessionProvider } from "next-auth/react";
 import { LayoutProvider } from "@/layout/context/layoutcontext";
 import { SWRCacheProvider } from "@/store/SWRCacheProvider";
 import AppInitializer from "@/components/common/AppInitializer";
-import { SocketProvider } from "@/context/SocketContext";
 import SessionExpiredDialog from "@/components/common/SessionExpiredDialog";
+import BackendAuthSessionBridge from "@/components/common/BackendAuthSessionBridge";
 
 // Registrar locale español para PrimeReact
 addLocale("es", {
@@ -61,13 +61,12 @@ export default function ClientProviders({
 }) {
   return (
     <SessionProvider>
+      <BackendAuthSessionBridge />
       <LayoutProvider>
         <PrimeReactProvider value={{ ripple: true }}>
-          <SocketProvider>
-            <SessionExpiredDialog />
-            <AppInitializer />
-            <SWRCacheProvider>{children}</SWRCacheProvider>
-          </SocketProvider>
+          <SessionExpiredDialog />
+          <AppInitializer />
+          <SWRCacheProvider>{children}</SWRCacheProvider>
         </PrimeReactProvider>
       </LayoutProvider>
     </SessionProvider>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -42,11 +42,7 @@ const BatchExpiryPage = () => {
   const [totalRecords, setTotalRecords] = useState(0);
   const [daysAhead, setDaysAhead] = useState(90);
 
-  useEffect(() => {
-    loadData();
-  }, [page, rows, daysAhead]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       const response = await apiClient.get("/inventory/reports/batch-expiry", {
@@ -66,7 +62,11 @@ const BatchExpiryPage = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows, daysAhead]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const summaryCards = summary
     ? [

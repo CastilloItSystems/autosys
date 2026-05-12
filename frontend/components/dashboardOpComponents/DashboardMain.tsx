@@ -5,6 +5,7 @@ import { useSession } from "next-auth/react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
+import Image from "next/image";
 import useSWR from "swr";
 import { useEmpresaDataFull } from "@/hooks/useEmpresasDataFull";
 import { useEmpresasStore } from "@/store/empresasStore";
@@ -76,10 +77,11 @@ const DashboardMain = () => {
         className="flex flex-column align-items-center justify-content-center"
         style={{ height: "300px" }}
       >
-        <img
+        <Image
           src="/layout/images/pages/auth/access-denied.svg"
           alt="Sin datos"
           width={120}
+          height={120}
         />
         <h3 className="mt-3">No tienes Empresa</h3>
         <p className="text-500">
@@ -120,6 +122,7 @@ const DashboardMain = () => {
             >
               <div className="card h-full flex flex-column surface-card hover:surface-hover transition-colors transition-duration-300">
                 <div className="flex flex-column md:flex-row align-items-center ">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={empresa.logo_url || "/demo/images/nature/nature1.jpg"}
                     alt={empresa.nombre}

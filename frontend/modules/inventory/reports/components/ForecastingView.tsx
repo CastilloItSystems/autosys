@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useContext } from "react";
+import { useState, useEffect, useRef, useContext, useCallback } from "react";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Card } from "primereact/card";
@@ -36,24 +36,7 @@ const ForecastingView = () => {
   const [rows, setRows] = useState(20);
   const [detailedMetrics, setDetailedMetrics] = useState<any>(null);
 
-  useEffect(() => {
-    loadForecasts();
-  }, [page, rows]);
-
-  useEffect(() => {
-    if (selectedItem) {
-      loadDetailedForecast(selectedItem.id);
-    }
-  }, [selectedItem]);
-
-  useEffect(() => {
-    if (selectedItem) {
-      initializeDetailChart();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedItem, detailedMetrics, isDark]);
-
-  const loadForecasts = async () => {
+  const loadForecasts = useCallback(async () => {
     setLoading(true);
     try {
       const response = await analyticsService.getAllForecasts({
@@ -73,7 +56,24 @@ const ForecastingView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [page, rows]);
+
+  useEffect(() => {
+    loadForecasts();
+  }, [loadForecasts]);
+
+  useEffect(() => {
+    if (selectedItem) {
+      loadDetailedForecast(selectedItem.id);
+    }
+  }, [selectedItem]);
+
+  useEffect(() => {
+    if (selectedItem) {
+      initializeDetailChart();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedItem, detailedMetrics, isDark]);
 
   const loadDetailedForecast = async (itemId: string) => {
     try {

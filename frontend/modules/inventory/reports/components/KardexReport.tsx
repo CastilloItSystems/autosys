@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "primereact/card";
 import { DataTable } from "primereact/datatable";
 import { Column } from "primereact/column";
@@ -48,35 +48,16 @@ const KardexReport = () => {
   const [page, setPage] = useState(1);
   const [rows, setRows] = useState(50);
 
-  useEffect(() => {
-    loadWarehouses();
-  }, []);
-
-  useEffect(() => {
-    if (selectedItem?.id) {
-      loadKardex();
-    }
-  }, [selectedItem, selectedWarehouse, dateFrom, dateTo, page, rows]);
-
-  const loadWarehouses = async () => {
+  const loadWarehouses = useCallback(async () => {
     try {
       const res = await warehouseService.getActive();
       setWarehouses((res.data ?? []).map((w: any) => ({ id: w.id, name: w.name })));
     } catch {
       // non-critical
     }
-  };
+  }, []);
 
-  const searchItems = async (event: AutoCompleteCompleteEvent) => {
-    try {
-      const res = await itemService.search(event.query);
-      setItemSuggestions((res.data ?? []) as Item[]);
-    } catch {
-      setItemSuggestions([]);
-    }
-  };
-
-  const loadKardex = async () => {
+  const loadKardex = useCallback(async () => {
     if (!selectedItem) return;
     setLoading(true);
     try {
@@ -99,6 +80,25 @@ const KardexReport = () => {
       });
     } finally {
       setLoading(false);
+    }
+  }, [selectedItem, selectedWarehouse, dateFrom, dateTo, page, rows]);
+
+  useEffect(() => {
+    loadWarehouses();
+  }, [loadWarehouses]);
+
+  useEffect(() => {
+    if (selectedItem?.id) {
+      loadKardex();
+    }
+  }, [loadKardex, selectedItem?.id]);
+
+  const searchItems = async (event: AutoCompleteCompleteEvent) => {
+    try {
+      const res = await itemService.search(event.query);
+      setItemSuggestions((res.data ?? []) as Item[]);
+    } catch {
+      setItemSuggestions([]);
     }
   };
 
