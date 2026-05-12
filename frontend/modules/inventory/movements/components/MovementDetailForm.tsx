@@ -8,6 +8,7 @@ import {
   MOVEMENT_TYPE_SEVERITY,
   Movement,
 } from "@/modules/inventory/movements/services/movementService";
+import { formatCurrency as fmtCurrencyUtil } from "@/utils/currencyFormat";
 
 interface MovementDetailFormProps {
   movement: Movement | null;
@@ -20,12 +21,7 @@ interface MovementDetailFormProps {
 /* ── Helpers ───────────────────────────────────────────────── */
 
 const formatCurrency = (v: number | null | undefined) =>
-  v == null
-    ? "-"
-    : new Intl.NumberFormat("es-CL", {
-        style: "currency",
-        currency: "CLP",
-      }).format(v);
+  v == null ? "-" : fmtCurrencyUtil(v, "USD");
 
 const fmtDate = (d: string | undefined | null, long = false) => {
   if (!d) return "-";

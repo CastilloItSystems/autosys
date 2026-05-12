@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useContext, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useContext, useCallback } from "react";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Card } from "primereact/card";
@@ -227,7 +227,7 @@ const ForecastingView = () => {
     </div>
   );
 
-  const columns = [
+  const columns = useMemo(() => [
     { field: "itemName", header: "Artículo", width: "18%" },
     { field: "sku", header: "SKU", width: "12%" },
     { field: "code", header: "Código", width: "12%" },
@@ -274,7 +274,7 @@ const ForecastingView = () => {
         />
       ),
     },
-  ];
+  ], []);
 
   if (loading && items.length === 0) {
     return (

@@ -8,6 +8,7 @@ import { ProgressBar } from "primereact/progressbar";
 import { Chip } from "primereact/chip";
 import Image from "next/image";
 import { Item } from "@/modules/inventory/items/services/itemService";
+import { formatCurrency } from "@/utils/currencyFormat";
 
 interface ItemDetailDialogProps {
   visible: boolean;
@@ -16,14 +17,10 @@ interface ItemDetailDialogProps {
 }
 
 const fmt = (val: number | undefined | null) =>
-  new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
-    val || 0,
-  );
+  formatCurrency(val || 0, "USD");
 
 const fmtUSD = (val: number | undefined | null) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(
-    val || 0,
-  );
+  formatCurrency(val || 0, "USD");
 
 const getPrimaryImage = (item: Item) => {
   if (!item.images || item.images.length === 0)

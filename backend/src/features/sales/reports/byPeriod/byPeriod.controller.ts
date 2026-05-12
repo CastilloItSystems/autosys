@@ -30,6 +30,7 @@ export const getByPeriodReportHandler = async (req: Request, res: Response): Pro
       message: 'Sales by period',
       data: result.data,
       summary: result.summary,
+      fxRates: result.fxRates,
       meta: { page, limit, total: result.total, totalPages: result.totalPages },
       timestamp: new Date().toISOString(),
     })

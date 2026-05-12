@@ -3,6 +3,10 @@
  */
 
 import prisma from '../../../../services/prisma.service.js'
+import {
+  buildFallbackRateMap,
+  toUSD,
+} from '../../../../shared/utils/currency.js'
 
 type Granularity = 'day' | 'week' | 'month'
 
@@ -28,6 +32,34 @@ function getPeriodKey(date: Date, granularity: Granularity): string {
   return date.toISOString().split('T')[0]
 }
 
+type Agg = {
+  invoiceCount: number
+  subtotal: Record<string, number>
+  taxAmount: Record<string, number>
+  igtfAmount: Record<string, number>
+  total: Record<string, number>
+  subtotalUSD: number
+  taxAmountUSD: number
+  igtfAmountUSD: number
+  totalUSD: number
+}
+
+const emptyAgg = (): Agg => ({
+  invoiceCount: 0,
+  subtotal: {},
+  taxAmount: {},
+  igtfAmount: {},
+  total: {},
+  subtotalUSD: 0,
+  taxAmountUSD: 0,
+  igtfAmountUSD: 0,
+  totalUSD: 0,
+})
+
+function addToBucket(map: Record<string, number>, currency: string, amount: number) {
+  map[currency] = (map[currency] ?? 0) + amount
+}
+
 export async function getByPeriodReport(
   page = 1,
   limit = 50,
@@ -46,10 +78,14 @@ export async function getByPeriodReport(
     if (filters?.dateTo) where.invoiceDate.lte = new Date(filters.dateTo)
   }
 
+  const fallback = await buildFallbackRateMap(db, empresaId)
+
   const invoices = await db.invoice.findMany({
     where,
     select: {
       invoiceDate: true,
+      currency: true,
+      exchangeRate: true,
       subtotalBruto: true,
       taxAmount: true,
       igtfAmount: true,
@@ -59,26 +95,31 @@ export async function getByPeriodReport(
   })
 
   const granularity: Granularity = filters?.granularity ?? 'day'
-  const periodMap = new Map<
-    string,
-    { invoiceCount: number; subtotal: number; taxAmount: number; igtfAmount: number; total: number }
-  >()
+  const periodMap = new Map<string, Agg>()
 
   for (const inv of invoices) {
     const key = getPeriodKey(new Date(inv.invoiceDate), granularity)
-    const existing = periodMap.get(key) ?? {
-      invoiceCount: 0,
-      subtotal: 0,
-      taxAmount: 0,
-      igtfAmount: 0,
-      total: 0,
-    }
-    existing.invoiceCount += 1
-    existing.subtotal += Number(inv.subtotalBruto)
-    existing.taxAmount += Number(inv.taxAmount)
-    existing.igtfAmount += Number(inv.igtfAmount)
-    existing.total += Number(inv.total)
-    periodMap.set(key, existing)
+    const agg = periodMap.get(key) ?? emptyAgg()
+    const cur = inv.currency
+    const rate = inv.exchangeRate != null ? Number(inv.exchangeRate) : null
+
+    const sub = Number(inv.subtotalBruto)
+    const tax = Number(inv.taxAmount)
+    const igtf = Number(inv.igtfAmount)
+    const tot = Number(inv.total)
+
+    agg.invoiceCount += 1
+    addToBucket(agg.subtotal, cur, sub)
+    addToBucket(agg.taxAmount, cur, tax)
+    addToBucket(agg.igtfAmount, cur, igtf)
+    addToBucket(agg.total, cur, tot)
+
+    agg.subtotalUSD += toUSD(sub, cur, rate, fallback) ?? 0
+    agg.taxAmountUSD += toUSD(tax, cur, rate, fallback) ?? 0
+    agg.igtfAmountUSD += toUSD(igtf, cur, rate, fallback) ?? 0
+    agg.totalUSD += toUSD(tot, cur, rate, fallback) ?? 0
+
+    periodMap.set(key, agg)
   }
 
   const allData = Array.from(periodMap.entries())
@@ -87,16 +128,24 @@ export async function getByPeriodReport(
 
   const total = allData.length
   const data = allData.slice((page - 1) * limit, page * limit)
-  const grandTotal = allData.reduce((acc, d) => acc + d.total, 0)
+  const grandTotalUSD = allData.reduce((acc, d) => acc + d.totalUSD, 0)
 
   const summary = {
     totalPeriods: total,
     totalInvoices: invoices.length,
-    totalRevenue: grandTotal,
-    avgRevenuePerPeriod: total > 0 ? grandTotal / total : 0,
+    totalRevenueUSD: grandTotalUSD,
+    avgRevenuePerPeriodUSD: total > 0 ? grandTotalUSD / total : 0,
   }
 
-  return { data, summary, total, page, limit, totalPages: Math.ceil(total / limit) }
+  return {
+    data,
+    summary,
+    fxRates: fallback,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  }
 }
 
 export default { getByPeriodReport }

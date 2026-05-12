@@ -3,6 +3,58 @@
  */
 
 import prisma from '../../../../services/prisma.service.js'
+import {
+  buildFallbackRateMap,
+  toUSD,
+  accumulate,
+  emptyBreakdown,
+  type FallbackRateMap,
+} from '../../../../shared/utils/currency.js'
+
+type InvoiceRow = {
+  total: any
+  currency: string
+  exchangeRate: any | null
+  invoiceDate: Date
+}
+
+type PaymentRow = {
+  amount: any
+  currency: string
+  exchangeRate: any | null
+  processedAt: Date | null
+}
+
+function reduceInvoices(rows: InvoiceRow[], fallback: FallbackRateMap) {
+  const acc = emptyBreakdown()
+  for (const r of rows) {
+    accumulate(
+      acc,
+      Number(r.total),
+      r.currency,
+      r.exchangeRate != null ? Number(r.exchangeRate) : null,
+      fallback,
+    )
+  }
+  return { ...acc, invoices: rows.length }
+}
+
+function reducePayments(rows: PaymentRow[], fallback: FallbackRateMap) {
+  const amount: Record<string, number> = {}
+  let amountUSD = 0
+  for (const r of rows) {
+    const amt = Number(r.amount)
+    amount[r.currency] = (amount[r.currency] ?? 0) + amt
+    const usd = toUSD(
+      amt,
+      r.currency,
+      r.exchangeRate != null ? Number(r.exchangeRate) : null,
+      fallback,
+    )
+    if (usd != null) amountUSD += usd
+  }
+  return { amount, amountUSD, payments: rows.length }
+}
 
 export async function getSalesDashboard(empresaId?: string, prismaClient?: any) {
   const db = prismaClient || prisma
@@ -14,35 +66,29 @@ export async function getSalesDashboard(empresaId?: string, prismaClient?: any) 
   const startOfWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
 
+  const fallbackRates = await buildFallbackRateMap(db, empresaId)
+
+  const invoiceSelect = {
+    total: true,
+    currency: true,
+    exchangeRate: true,
+    invoiceDate: true,
+  }
+
   const [
-    todayInvoices,
-    weekInvoices,
-    monthInvoices,
-    todayPayments,
+    monthInvoiceRows,
+    todayPaymentRows,
     pendingOrders,
     pendingPreInvoices,
-    byCurrency,
     recentInvoices,
   ] = await Promise.all([
-    db.invoice.aggregate({
-      where: { ...where, status: 'ACTIVE', invoiceDate: { gte: startOfToday } },
-      _count: { id: true },
-      _sum: { total: true },
-    }),
-    db.invoice.aggregate({
-      where: { ...where, status: 'ACTIVE', invoiceDate: { gte: startOfWeek } },
-      _count: { id: true },
-      _sum: { total: true },
-    }),
-    db.invoice.aggregate({
+    db.invoice.findMany({
       where: { ...where, status: 'ACTIVE', invoiceDate: { gte: startOfMonth } },
-      _count: { id: true },
-      _sum: { total: true },
+      select: invoiceSelect,
     }),
-    db.payment.aggregate({
+    db.payment.findMany({
       where: { ...where, status: 'COMPLETED', processedAt: { gte: startOfToday } },
-      _count: { id: true },
-      _sum: { amount: true },
+      select: { amount: true, currency: true, exchangeRate: true, processedAt: true },
     }),
     db.order.count({ where: { ...where, status: 'PENDING_APPROVAL' } }),
     db.preInvoice.count({
@@ -51,12 +97,6 @@ export async function getSalesDashboard(empresaId?: string, prismaClient?: any) 
         status: { in: ['PENDING_PREPARATION', 'IN_PREPARATION', 'READY_FOR_PAYMENT'] },
       },
     }),
-    db.invoice.groupBy({
-      by: ['currency'],
-      where: { ...where, status: 'ACTIVE', invoiceDate: { gte: startOfMonth } },
-      _sum: { total: true },
-      _count: { id: true },
-    }),
     db.invoice.findMany({
       where: { ...where, status: 'ACTIVE' },
       select: {
@@ -64,6 +104,7 @@ export async function getSalesDashboard(empresaId?: string, prismaClient?: any) 
         invoiceNumber: true,
         total: true,
         currency: true,
+        exchangeRate: true,
         invoiceDate: true,
         customer: { select: { name: true } },
       },
@@ -72,37 +113,53 @@ export async function getSalesDashboard(empresaId?: string, prismaClient?: any) 
     }),
   ])
 
-  const currencyMap: Record<string, number> = { USD: 0, VES: 0, EUR: 0 }
-  for (const c of byCurrency) {
-    currencyMap[c.currency] = Number(c._sum.total ?? 0)
-  }
+  const weekRows = monthInvoiceRows.filter((r: InvoiceRow) => r.invoiceDate >= startOfWeek)
+  const todayRows = monthInvoiceRows.filter((r: InvoiceRow) => r.invoiceDate >= startOfToday)
+
+  const today = reduceInvoices(todayRows, fallbackRates)
+  const week = reduceInvoices(weekRows, fallbackRates)
+  const month = reduceInvoices(monthInvoiceRows, fallbackRates)
+  const todayPay = reducePayments(todayPaymentRows, fallbackRates)
 
   return {
     today: {
-      invoices: todayInvoices._count.id,
-      revenue: Number(todayInvoices._sum.total ?? 0),
-      payments: todayPayments._count.id,
-      paymentsAmount: Number(todayPayments._sum.amount ?? 0),
+      invoices: today.invoices,
+      revenue: today.revenue,
+      revenueUSD: today.revenueUSD,
+      payments: todayPay.payments,
+      paymentsAmount: todayPay.amount,
+      paymentsAmountUSD: todayPay.amountUSD,
     },
     week: {
-      invoices: weekInvoices._count.id,
-      revenue: Number(weekInvoices._sum.total ?? 0),
+      invoices: week.invoices,
+      revenue: week.revenue,
+      revenueUSD: week.revenueUSD,
     },
     month: {
-      invoices: monthInvoices._count.id,
-      revenue: Number(monthInvoices._sum.total ?? 0),
+      invoices: month.invoices,
+      revenue: month.revenue,
+      revenueUSD: month.revenueUSD,
     },
     pending: {
       ordersAwaitingApproval: pendingOrders,
       preInvoicesAwaitingPayment: pendingPreInvoices,
     },
-    byCurrency: currencyMap,
+    byCurrency: month.revenue,
+    byCurrencyUSD: month.revenueUSD,
+    fxRates: fallbackRates,
     recentInvoices: recentInvoices.map((inv: any) => ({
       id: inv.id,
       invoiceNumber: inv.invoiceNumber,
       customerName: inv.customer?.name ?? '—',
       total: Number(inv.total),
       currency: inv.currency,
+      exchangeRate: inv.exchangeRate != null ? Number(inv.exchangeRate) : null,
+      totalUSD: toUSD(
+        Number(inv.total),
+        inv.currency,
+        inv.exchangeRate != null ? Number(inv.exchangeRate) : null,
+        fallbackRates,
+      ),
       invoiceDate: inv.invoiceDate,
     })),
   }

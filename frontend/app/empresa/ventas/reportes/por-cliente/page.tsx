@@ -8,12 +8,15 @@ import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   SalesByCustomerItem,
+  CurrencyAmount,
 } from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
+import MultiCurrencyCell from "@/components/common/MultiCurrencyCell";
 
 const SalesByCustomerPage = () => {
   const toast = useRef<Toast>(null);
   const [items, setItems] = useState<SalesByCustomerItem[]>([]);
+  const [fxRates, setFxRates] = useState<CurrencyAmount>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -37,6 +40,7 @@ const SalesByCustomerPage = () => {
       const response = await salesReportService.getByCustomer(params);
       setItems(response.data);
       setTotalRecords(response.meta?.total ?? 0);
+      setFxRates(response.fxRates ?? {});
     } catch {
       toast.current?.show({
         severity: "error",
@@ -52,12 +56,6 @@ const SalesByCustomerPage = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
 
   const columns = useMemo(() => [
     {
@@ -92,22 +90,30 @@ const SalesByCustomerPage = () => {
       ),
     },
     {
-      field: "totalRevenue",
+      field: "totalRevenueUSD",
       header: "Total Facturado",
       sortable: true,
-      width: "16%",
+      width: "18%",
       body: (row: SalesByCustomerItem) => (
-        <span className="font-bold text-primary">
-          {formatCurrency(row.totalRevenue)}
-        </span>
+        <MultiCurrencyCell
+          amount={row.totalRevenue}
+          amountUSD={row.totalRevenueUSD}
+          highlight="primary"
+        />
       ),
     },
     {
-      field: "avgTicket",
-      header: "Ticket Promedio",
+      field: "avgTicketUSD",
+      header: "Ticket Prom. (USD)",
       sortable: true,
-      width: "15%",
-      body: (row: SalesByCustomerItem) => formatCurrency(row.avgTicket),
+      width: "14%",
+      body: (row: SalesByCustomerItem) => (
+        <MultiCurrencyCell
+          amountUSD={row.avgTicketUSD}
+          amount={{ USD: row.avgTicketUSD }}
+          highlight="usd"
+        />
+      ),
     },
     {
       field: "lastInvoiceDate",
@@ -124,6 +130,14 @@ const SalesByCustomerPage = () => {
   return (
     <>
       <Toast ref={toast} />
+      {Object.keys(fxRates).length > 0 && (
+        <div className="text-xs text-500 mb-2">
+          Tasas usadas:{" "}
+          {Object.entries(fxRates)
+            .map(([c, r]) => `${c} ${r.toFixed(4)}/USD`)
+            .join(" · ")}
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <Card title="Ventas por Cliente">
           <Skeleton height="300px" />

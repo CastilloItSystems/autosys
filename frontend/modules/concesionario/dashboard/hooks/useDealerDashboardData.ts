@@ -1,5 +1,5 @@
 "use client";
-import { useCallback } from "react";
+import { useCallback, useEffect, useState } from "react";
 import useSWR from "swr";
 import dealerDashboardService from "../services/dealerDashboardService";
 
@@ -21,17 +21,23 @@ export const useDealerDashboardData = (historySearch?: string) => {
         overview: overviewRes.data,
         history: historyRes.data ?? [],
         integrations: integrationsRes.data,
-        lastUpdated: new Date(),
       };
     },
     { revalidateOnFocus: false },
   );
 
+  // `lastUpdated` no se persiste en el cache SWR (localStorage serializa Date
+  // como string y rompe `.toLocaleTimeString`). Se trackea local al hook.
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  useEffect(() => {
+    if (data) setLastUpdated(new Date());
+  }, [data]);
+
   return {
     overview: data?.overview ?? null,
     history: data?.history ?? [],
     integrations: data?.integrations ?? null,
-    lastUpdated: data?.lastUpdated ?? null,
+    lastUpdated,
     loading: isLoading,
     error,
     mutate: useCallback(() => mutate(), [mutate]),

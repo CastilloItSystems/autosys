@@ -27,6 +27,7 @@ export const getByProductReportHandler = async (req: Request, res: Response): Pr
       success: true,
       message: 'Sales by product',
       data: result.data,
+      fxRates: result.fxRates,
       meta: { page, limit, total: result.total, totalPages: result.totalPages },
       timestamp: new Date().toISOString(),
     })

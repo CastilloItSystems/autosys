@@ -32,7 +32,8 @@ export interface CashFlowSummary {
   unified: CashFlowCurrencySummary | null
   bySource: Array<{
     source: CashTransactionSource
-    _sum: { amount: number | null }
-    _count: number
+    count: number
+    /** Suma neta por moneda — no cruza divisas. */
+    byCurrency: Record<string, number>
   }>
 }

@@ -14,6 +14,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
+import { formatCurrency } from "@/utils/currencyFormat";
 import additionalService from '@/modules/workshop/additionals/services/additionalService';
 import type { ServiceOrderAdditional, AdditionalStatus } from '@/modules/workshop/additionals/interfaces/additional.interface';
 import AdditionalStatusBadge from "@/modules/workshop/shared/components/AdditionalStatusBadge";
@@ -27,11 +28,6 @@ const ADDITIONAL_STATUS_OPTIONS = [
   { label: "Ejecutado", value: "EXECUTED" },
   { label: "Rechazado", value: "REJECTED" },
 ];
-
-const currencyFormatter = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-});
 
 interface AdditionalListProps {
   serviceOrderId?: string;
@@ -203,7 +199,7 @@ export default function AdditionalList({
   );
 
   const priceTemplate = (row: ServiceOrderAdditional) => (
-    <span>{currencyFormatter.format(row.estimatedPrice)}</span>
+    <span>{formatCurrency(row.estimatedPrice, "USD")}</span>
   );
 
   const statusTemplate = (row: ServiceOrderAdditional) => (

@@ -5,18 +5,31 @@ import { ReportFormat } from "@/modules/inventory/reports/services/reportService
 // TYPES
 // ============================================================================
 
+export type CurrencyAmount = Record<string, number>;
+
 export interface SalesDashboard {
-  today: { invoices: number; revenue: number; payments: number; paymentsAmount: number };
-  week: { invoices: number; revenue: number };
-  month: { invoices: number; revenue: number };
+  today: {
+    invoices: number;
+    revenue: CurrencyAmount;
+    revenueUSD: number;
+    payments: number;
+    paymentsAmount: CurrencyAmount;
+    paymentsAmountUSD: number;
+  };
+  week: { invoices: number; revenue: CurrencyAmount; revenueUSD: number };
+  month: { invoices: number; revenue: CurrencyAmount; revenueUSD: number };
   pending: { ordersAwaitingApproval: number; preInvoicesAwaitingPayment: number };
-  byCurrency: { USD: number; VES: number; EUR: number };
+  byCurrency: CurrencyAmount;
+  byCurrencyUSD: number;
+  fxRates: Record<string, number>;
   recentInvoices: {
     id: string;
     invoiceNumber: string;
     customerName: string;
     total: number;
     currency: string;
+    exchangeRate: number | null;
+    totalUSD: number | null;
     invoiceDate: string;
   }[];
 }
@@ -24,17 +37,21 @@ export interface SalesDashboard {
 export interface SalesByPeriodItem {
   period: string;
   invoiceCount: number;
-  subtotal: number;
-  taxAmount: number;
-  igtfAmount: number;
-  total: number;
+  subtotal: CurrencyAmount;
+  taxAmount: CurrencyAmount;
+  igtfAmount: CurrencyAmount;
+  total: CurrencyAmount;
+  subtotalUSD: number;
+  taxAmountUSD: number;
+  igtfAmountUSD: number;
+  totalUSD: number;
 }
 
 export interface SalesByPeriodSummary {
   totalPeriods: number;
   totalInvoices: number;
-  totalRevenue: number;
-  avgRevenuePerPeriod: number;
+  totalRevenueUSD: number;
+  avgRevenuePerPeriodUSD: number;
 }
 
 export interface SalesByCustomerItem {
@@ -43,10 +60,12 @@ export interface SalesByCustomerItem {
   taxId: string;
   customerType: string;
   invoiceCount: number;
-  totalRevenue: number;
-  avgTicket: number;
-  lastInvoiceDate: string;
-  totalDiscount: number;
+  totalRevenue: CurrencyAmount;
+  totalRevenueUSD: number;
+  avgTicketUSD: number;
+  totalDiscount: CurrencyAmount;
+  totalDiscountUSD: number;
+  lastInvoiceDate: string | null;
 }
 
 export interface SalesByProductItem {
@@ -54,26 +73,30 @@ export interface SalesByProductItem {
   itemName: string;
   sku: string;
   totalQuantity: number;
-  totalRevenue: number;
-  avgUnitPrice: number;
+  totalRevenue: CurrencyAmount;
+  totalRevenueUSD: number;
+  avgUnitPrice: CurrencyAmount;
   invoiceCount: number;
-  totalDiscount: number;
+  totalDiscount: CurrencyAmount;
+  totalDiscountUSD: number;
 }
 
 export interface OrderPipelineStatus {
   status: string;
   count: number;
-  totalValue: number;
-  avgValue: number;
+  totalValue: CurrencyAmount;
+  totalValueUSD: number;
+  avgValueUSD: number;
 }
 
 export interface OrderPipelineReport {
   byStatus: OrderPipelineStatus[];
   avgApprovalHours: number;
   pendingOldestDays: number;
+  fxRates: CurrencyAmount;
   summary: {
     totalOrders: number;
-    totalValue: number;
+    totalValueUSD: number;
     approvedRate: number;
     cancelledRate: number;
   };
@@ -82,16 +105,28 @@ export interface OrderPipelineReport {
 export interface PaymentMethodItem {
   method: string;
   count: number;
-  totalAmount: number;
+  totalAmount: CurrencyAmount;
+  totalAmountUSD: number;
   percentage: number;
-  igtfAmount: number;
-  avgAmount: number;
+  igtfAmount: CurrencyAmount;
+  igtfAmountUSD: number;
+  avgAmountUSD: number;
 }
 
 export interface PaymentMethodsReport {
   data: PaymentMethodItem[];
-  byCurrency: { currency: string; count: number; totalAmount: number }[];
-  summary: { totalPayments: number; totalAmount: number; totalIgtf: number };
+  byCurrency: {
+    currency: string;
+    count: number;
+    totalAmount: number;
+    totalAmountUSD: number;
+  }[];
+  fxRates: CurrencyAmount;
+  summary: {
+    totalPayments: number;
+    totalAmountUSD: number;
+    totalIgtfUSD: number;
+  };
 }
 
 export interface PendingInvoiceItem {
@@ -125,7 +160,12 @@ const salesReportService = {
     granularity?: "day" | "week" | "month";
     customerId?: string;
     currency?: string;
-  }): Promise<{ data: SalesByPeriodItem[]; summary: SalesByPeriodSummary; meta: any }> {
+  }): Promise<{
+    data: SalesByPeriodItem[];
+    summary: SalesByPeriodSummary;
+    fxRates: CurrencyAmount;
+    meta: any;
+  }> {
     const res = await apiClient.get("/sales/reports/by-period", { params });
     return res.data;
   },
@@ -136,7 +176,7 @@ const salesReportService = {
     dateFrom?: string;
     dateTo?: string;
     search?: string;
-  }): Promise<{ data: SalesByCustomerItem[]; meta: any }> {
+  }): Promise<{ data: SalesByCustomerItem[]; fxRates: CurrencyAmount; meta: any }> {
     const res = await apiClient.get("/sales/reports/by-customer", { params });
     return res.data;
   },
@@ -147,7 +187,7 @@ const salesReportService = {
     dateFrom?: string;
     dateTo?: string;
     search?: string;
-  }): Promise<{ data: SalesByProductItem[]; meta: any }> {
+  }): Promise<{ data: SalesByProductItem[]; fxRates: CurrencyAmount; meta: any }> {
     const res = await apiClient.get("/sales/reports/by-product", { params });
     return res.data;
   },

@@ -15,6 +15,7 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
+import { formatCurrency } from "@/utils/currencyFormat";
 import materialService from "@/modules/workshop/materials/services/materialService";
 import type {
   ServiceOrderMaterial,
@@ -52,11 +53,6 @@ const EXIT_NOTE_STATUS_META: Record<
   DELIVERED: { label: "Entregada", severity: "success" },
   CANCELLED: { label: "Cancelada", severity: "danger" },
 };
-
-const currencyFormatter = new Intl.NumberFormat("es-MX", {
-  style: "currency",
-  currency: "MXN",
-});
 
 interface MaterialListProps {
   serviceOrderId?: string;
@@ -365,7 +361,7 @@ export default function MaterialList({
   );
 
   const priceTemplate = (row: ServiceOrderMaterial) => (
-    <span>{currencyFormatter.format(row.unitPrice)}</span>
+    <span>{formatCurrency(row.unitPrice, "USD")}</span>
   );
 
   const statusTemplate = (row: ServiceOrderMaterial) => (

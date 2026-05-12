@@ -234,7 +234,7 @@ class CashTransactionService {
       if (to) where.transactionDate.lte = new Date(to + 'T23:59:59.999Z')
     }
 
-    const [byCurrencyRate, bySource] = await Promise.all([
+    const [byCurrencyRate, bySourceRaw] = await Promise.all([
       // avg exchange rate + sum per currency (for conversion)
       db.cashTransaction.groupBy({
         by: ['currency'],
@@ -242,13 +242,34 @@ class CashTransactionService {
         _sum: { amount: true },
         _avg: { exchangeRate: true },
       }),
+      // Sumar por [source, currency] — no cruzar monedas en un mismo bucket
       db.cashTransaction.groupBy({
-        by: ['source'],
+        by: ['source', 'currency'],
         where,
         _sum: { amount: true },
         _count: true,
       }),
     ])
+
+    // Re-agrupar bySource preservando breakdown por moneda
+    const bySourceMap = new Map<
+      string,
+      {
+        source: string
+        count: number
+        byCurrency: Record<string, number>
+      }
+    >()
+    for (const r of bySourceRaw as any[]) {
+      const src = r.source
+      const cur = r.currency
+      const agg =
+        bySourceMap.get(src) ?? { source: src, count: 0, byCurrency: {} }
+      agg.byCurrency[cur] = (agg.byCurrency[cur] ?? 0) + Number(r._sum.amount ?? 0)
+      agg.count += r._count
+      bySourceMap.set(src, agg)
+    }
+    const bySource = Array.from(bySourceMap.values())
 
     // Per-currency income/outcome
     const currencies = byCurrencyRate.map((r) => r.currency)

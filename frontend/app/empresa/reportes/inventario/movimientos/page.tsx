@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Skeleton } from "primereact/skeleton";
@@ -38,7 +38,7 @@ const MovementsPage = () => {
     loadData();
   }, [loadData]);
 
-  const columns = [
+  const columns = useMemo(() => [
     {
       field: "movementDate",
       header: "Fecha",
@@ -94,7 +94,7 @@ const MovementsPage = () => {
         <span className="text-sm text-gray-600">{row.reference || "-"}</span>
       ),
     },
-  ];
+  ], []);
 
   return (
     <div className="space-y-6">

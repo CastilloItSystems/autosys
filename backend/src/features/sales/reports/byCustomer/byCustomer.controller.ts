@@ -27,6 +27,7 @@ export const getByCustomerReportHandler = async (req: Request, res: Response): P
       success: true,
       message: 'Sales by customer',
       data: result.data,
+      fxRates: result.fxRates,
       meta: { page, limit, total: result.total, totalPages: result.totalPages },
       timestamp: new Date().toISOString(),
     })

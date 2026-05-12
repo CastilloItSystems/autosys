@@ -33,17 +33,13 @@ import { Invoice } from "@/modules/workshop/shared/interfaces/invoice.interface"
 import { Payment } from "@/modules/workshop/shared/interfaces/payment.interface";
 import { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
 import { SalesOrder } from "@/modules/inventory/salesOrders/interfaces/salesOrder.interface";
+import { formatCurrency } from "@/utils/currencyFormat";
 
 // =============================================
 // UTILITY FUNCTIONS
 // =============================================
 
-const formatPrice = (price: number): string => {
-  return new Intl.NumberFormat("es-MX", {
-    style: "currency",
-    currency: "MXN",
-  }).format(price);
-};
+const formatPrice = (price: number): string => formatCurrency(price, "USD");
 
 const formatDate = (date: string | Date | undefined): string => {
   if (!date) return "Sin fecha";

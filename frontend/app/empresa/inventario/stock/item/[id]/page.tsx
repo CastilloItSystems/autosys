@@ -10,6 +10,7 @@ import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { motion } from "framer-motion";
 import stockService, { Stock } from "@/modules/inventory/stocks/services/stockService";
+import { formatCurrency } from "@/utils/currencyFormat";
 
 export default function StockItemDetailPage() {
   const params = useParams();
@@ -71,12 +72,6 @@ export default function StockItemDetailPage() {
     stocks.length > 0
       ? stocks.reduce((sum, s) => sum + s.averageCost, 0) / stocks.length
       : 0;
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(value);
 
   const quantityBodyTemplate = (rowData: Stock) => {
     const minStock = rowData.item?.minStock ?? 5;

@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
+import useSWR from "swr";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
 import { Tag } from "primereact/tag";
@@ -10,33 +11,29 @@ import reportService from "@/modules/inventory/reports/services/reportService";
 
 const LowStockPage = () => {
   const toast = useRef<Toast>(null);
-  const [items, setItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
-  const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await reportService.getLowStock(page, rows);
-      setItems(response.data);
-      setTotalRecords(response.meta.total);
-    } catch (error) {
+  const { data, error, isLoading } = useSWR(
+    ["low-stock", page, rows],
+    ([, p, r]) => reportService.getLowStock(p as number, r as number),
+    { keepPreviousData: true, revalidateOnFocus: false },
+  );
+
+  const items = data?.data ?? [];
+  const totalRecords = data?.meta?.total ?? 0;
+  const loading = isLoading;
+
+  useEffect(() => {
+    if (error) {
       toast.current?.show({
         severity: "error",
         summary: "Error",
         detail: "No se pudieron cargar los artículos con stock bajo",
         life: 3000,
       });
-    } finally {
-      setLoading(false);
     }
-  }, [page, rows]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
+  }, [error]);
 
   /** Returns row-level CSS class for severity highlighting */
   const rowClass = (row: any) => {

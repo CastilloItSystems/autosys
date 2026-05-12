@@ -34,6 +34,44 @@ type SalesReportType =
   | 'payment-methods'
   | 'pending-invoices'
 
+/**
+ * Convierte un breakdown `Record<currency, number>` a string legible:
+ * `"USD 500.00 | VES 18250.00"`. Devuelve `""` si está vacío.
+ */
+function formatBreakdown(obj: Record<string, number>): string {
+  const entries = Object.entries(obj ?? {})
+    .filter(([, n]) => n)
+    .sort(([, a], [, b]) => Math.abs(b) - Math.abs(a))
+  return entries.map(([c, n]) => `${c} ${n.toFixed(2)}`).join(' | ')
+}
+
+/**
+ * Aplana rows pre-export:
+ *  - Cualquier valor `Record<string, number>` (breakdown multi-moneda) se
+ *    convierte en string `"USD 100.00 | VES 3600.00"` para que CSV/Excel/PDF
+ *    no muestren JSON crudo.
+ *  - Otros valores se mantienen.
+ */
+function normalizeRowsForExport(data: any[]): any[] {
+  return data.map((row) => {
+    const out: any = {}
+    for (const [k, v] of Object.entries(row)) {
+      if (
+        v &&
+        typeof v === 'object' &&
+        !Array.isArray(v) &&
+        !(v instanceof Date) &&
+        Object.values(v as any).every((x) => typeof x === 'number')
+      ) {
+        out[k] = formatBreakdown(v as Record<string, number>)
+      } else {
+        out[k] = v
+      }
+    }
+    return out
+  })
+}
+
 export const exportSalesReportHandler = async (
   req: Request,
   res: Response
@@ -76,11 +114,12 @@ export const exportSalesReportHandler = async (
         data = result.data
         columns = [
           { header: 'Período', key: 'period', width: 90 },
-          { header: 'Facturas', key: 'invoiceCount', width: 65, align: 'right', format: 'number' },
-          { header: 'Subtotal', key: 'subtotal', width: 90, align: 'right', format: 'currency' },
-          { header: 'IVA', key: 'taxAmount', width: 80, align: 'right', format: 'currency' },
-          { header: 'IGTF', key: 'igtfAmount', width: 75, align: 'right', format: 'currency' },
-          { header: 'Total', key: 'total', width: 90, align: 'right', format: 'currency' },
+          { header: 'Facturas', key: 'invoiceCount', width: 60, align: 'right', format: 'number' },
+          { header: 'Subtotal (USD)', key: 'subtotalUSD', width: 90, align: 'right', format: 'currency' },
+          { header: 'IVA (USD)', key: 'taxAmountUSD', width: 80, align: 'right', format: 'currency' },
+          { header: 'IGTF (USD)', key: 'igtfAmountUSD', width: 80, align: 'right', format: 'currency' },
+          { header: 'Total (USD)', key: 'totalUSD', width: 90, align: 'right', format: 'currency' },
+          { header: 'Total por moneda', key: 'total', width: 160 },
         ]
         break
       }
@@ -93,8 +132,9 @@ export const exportSalesReportHandler = async (
           { header: 'RIF / Cédula', key: 'taxId', width: 85 },
           { header: 'Tipo', key: 'customerType', width: 60, align: 'center' },
           { header: 'Facturas', key: 'invoiceCount', width: 55, align: 'right', format: 'number' },
-          { header: 'Total Facturado', key: 'totalRevenue', width: 90, align: 'right', format: 'currency' },
-          { header: 'Ticket Prom.', key: 'avgTicket', width: 80, align: 'right', format: 'currency' },
+          { header: 'Total Facturado (USD)', key: 'totalRevenueUSD', width: 100, align: 'right', format: 'currency' },
+          { header: 'Ticket Prom. (USD)', key: 'avgTicketUSD', width: 90, align: 'right', format: 'currency' },
+          { header: 'Total por moneda', key: 'totalRevenue', width: 160 },
           { header: 'Última Fact.', key: 'lastInvoiceDate', width: 80, format: 'date' },
         ]
         break
@@ -108,9 +148,10 @@ export const exportSalesReportHandler = async (
           { header: 'SKU', key: 'sku', width: 75, align: 'center' },
           { header: 'Cantidad', key: 'totalQuantity', width: 65, align: 'right', format: 'number' },
           { header: 'Facturas', key: 'invoiceCount', width: 55, align: 'right', format: 'number' },
-          { header: 'Precio Prom.', key: 'avgUnitPrice', width: 80, align: 'right', format: 'currency' },
-          { header: 'Revenue Total', key: 'totalRevenue', width: 90, align: 'right', format: 'currency' },
-          { header: 'Descuentos', key: 'totalDiscount', width: 80, align: 'right', format: 'currency' },
+          { header: 'Precio Prom. por moneda', key: 'avgUnitPrice', width: 140 },
+          { header: 'Revenue (USD)', key: 'totalRevenueUSD', width: 95, align: 'right', format: 'currency' },
+          { header: 'Revenue por moneda', key: 'totalRevenue', width: 160 },
+          { header: 'Descuentos (USD)', key: 'totalDiscountUSD', width: 90, align: 'right', format: 'currency' },
         ]
         break
       }
@@ -120,9 +161,10 @@ export const exportSalesReportHandler = async (
         data = result.byStatus
         columns = [
           { header: 'Estado', key: 'status', width: 130 },
-          { header: 'Cantidad', key: 'count', width: 80, align: 'right', format: 'number' },
-          { header: 'Valor Total', key: 'totalValue', width: 170, align: 'right', format: 'currency' },
-          { header: 'Valor Promedio', key: 'avgValue', width: 135, align: 'right', format: 'currency' },
+          { header: 'Cantidad', key: 'count', width: 70, align: 'right', format: 'number' },
+          { header: 'Valor Total (USD)', key: 'totalValueUSD', width: 110, align: 'right', format: 'currency' },
+          { header: 'Valor por moneda', key: 'totalValue', width: 160 },
+          { header: 'Valor Promedio (USD)', key: 'avgValueUSD', width: 120, align: 'right', format: 'currency' },
         ]
         break
       }
@@ -133,10 +175,11 @@ export const exportSalesReportHandler = async (
         columns = [
           { header: 'Método', key: 'method', width: 100 },
           { header: 'Cantidad', key: 'count', width: 65, align: 'right', format: 'number' },
-          { header: 'Monto Total', key: 'totalAmount', width: 100, align: 'right', format: 'currency' },
+          { header: 'Monto (USD)', key: 'totalAmountUSD', width: 100, align: 'right', format: 'currency' },
+          { header: 'Monto por moneda', key: 'totalAmount', width: 160 },
           { header: '% del Total', key: 'percentage', width: 75, align: 'right', format: 'percent' },
-          { header: 'IGTF', key: 'igtfAmount', width: 90, align: 'right', format: 'currency' },
-          { header: 'Prom. por Pago', key: 'avgAmount', width: 90, align: 'right', format: 'currency' },
+          { header: 'IGTF (USD)', key: 'igtfAmountUSD', width: 90, align: 'right', format: 'currency' },
+          { header: 'Prom. por Pago (USD)', key: 'avgAmountUSD', width: 100, align: 'right', format: 'currency' },
         ]
         break
       }
@@ -161,6 +204,9 @@ export const exportSalesReportHandler = async (
         return
     }
 
+    // Aplanar breakdowns multi-moneda a string legible
+    data = normalizeRowsForExport(data)
+
     let buffer: Buffer | null = null
 
     if (format === 'excel') {
@@ -172,7 +218,7 @@ export const exportSalesReportHandler = async (
       res.setHeader('Content-Type', 'application/pdf')
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}.pdf"`)
     } else {
-      buffer = Buffer.from(convertToCSV(data), 'utf-8')
+      buffer = Buffer.from(convertToCSV(data, columns), 'utf-8')
       res.setHeader('Content-Type', 'text/csv')
       res.setHeader('Content-Disposition', `attachment; filename="${fileName}.csv"`)
     }
@@ -189,20 +235,32 @@ export const exportSalesReportHandler = async (
   }
 }
 
-function convertToCSV(data: any[]): string {
-  if (data.length === 0) return ''
-  const headers = Object.keys(data[0])
+/**
+ * CSV usa el orden y headers definidos en `columns` (no `Object.keys`).
+ * Esto garantiza consistencia con Excel/PDF y permite headers en español.
+ */
+function convertToCSV(data: any[], columns: ExportColumn[]): string {
+  if (data.length === 0) return columns.map((c) => csvCell(c.header)).join(',')
+  const header = columns.map((c) => csvCell(c.header)).join(',')
   const rows = data.map((row) =>
-    headers
-      .map((h) => {
-        const v = row[h]
-        if (v === null || v === undefined) return ''
-        const s = String(v)
-        return s.includes(',') || s.includes('"') ? `"${s.replace(/"/g, '""')}"` : s
-      })
-      .join(',')
+    columns.map((c) => csvCell(formatCell(row[c.key], c.format))).join(','),
   )
-  return [headers.join(','), ...rows].join('\n')
+  return [header, ...rows].join('\n')
+}
+
+function formatCell(v: any, fmt?: ExportColumn['format']): string {
+  if (v === null || v === undefined) return ''
+  if (v instanceof Date) return v.toISOString().split('T')[0]
+  if (fmt === 'currency' && typeof v === 'number') return v.toFixed(2)
+  if (fmt === 'percent' && typeof v === 'number') return `${v.toFixed(2)}%`
+  if (fmt === 'number' && typeof v === 'number') return String(v)
+  return String(v)
+}
+
+function csvCell(s: string): string {
+  return s.includes(',') || s.includes('"') || s.includes('\n')
+    ? `"${s.replace(/"/g, '""')}"`
+    : s
 }
 
 export default { exportSalesReportHandler }

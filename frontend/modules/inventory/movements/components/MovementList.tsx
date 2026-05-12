@@ -25,6 +25,7 @@ import warehouseService, {
 import itemService, { Item } from "@/modules/inventory/items/services/itemService";
 import MovementDetailForm from "./MovementDetailForm";
 import { useMovementsData } from "@/modules/inventory/movements/hooks/useMovementsData";
+import { formatCurrency as fmtCurrencyUtil } from "@/utils/currencyFormat";
 
 const MOVEMENT_TYPES: { label: string; value: MovementType | null }[] = [
   { label: "Todos", value: null },
@@ -193,10 +194,7 @@ const MovementList = () => {
 
   const priceBodyTemplate = (value: number | null | undefined) => {
     if (value === null || value === undefined) return "-";
-    return new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-    }).format(value);
+    return fmtCurrencyUtil(value, "USD");
   };
 
   const warehouseBodyTemplate = (rowData: Movement, field: "from" | "to") => {
@@ -292,11 +290,7 @@ const MovementList = () => {
 
   // ── Dashboard KPI Cards ───────────────────────────────────────────────
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-CL", {
-      style: "currency",
-      currency: "CLP",
-    }).format(value);
+  const formatCurrency = (value: number) => fmtCurrencyUtil(value, "USD");
 
   const renderDashboard = () => {
     const kpis = [

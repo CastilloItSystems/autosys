@@ -13,6 +13,7 @@ import movementService, {
   Movement,
 } from "@/modules/inventory/movements/services/movementService";
 import { handleFormError } from "@/utils/errorHandlers";
+import { formatCurrency as fmtCurrencyUtil } from "@/utils/currencyFormat";
 
 const fadeUp = {
   hidden: { opacity: 0, y: 16 },
@@ -39,13 +40,8 @@ const isSystemId = (str: string | undefined | null): boolean => {
 const formatUser = (id: string | undefined | null) =>
   !id ? "-" : isSystemId(id) ? "Sistema" : id;
 
-const formatCurrency = (v: number | null | undefined) =>
-  v == null
-    ? "-"
-    : new Intl.NumberFormat("es-CL", {
-        style: "currency",
-        currency: "CLP",
-      }).format(v);
+const formatCurrency = (v: number | null | undefined, currency = "USD") =>
+  v == null ? "-" : fmtCurrencyUtil(v, currency);
 
 const MovementDetailPage = () => {
   const { id } = useParams() as { id: string };

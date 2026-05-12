@@ -3,11 +3,25 @@
  */
 
 import prisma from '../../../../services/prisma.service.js'
+import {
+  buildFallbackRateMap,
+  toUSD,
+} from '../../../../shared/utils/currency.js'
 
 interface ByCustomerFilters {
   dateFrom?: string
   dateTo?: string
   search?: string
+}
+
+type Agg = {
+  customerId: string
+  invoiceCount: number
+  totalRevenue: Record<string, number>
+  totalDiscount: Record<string, number>
+  totalRevenueUSD: number
+  totalDiscountUSD: number
+  lastInvoiceDate: Date | null
 }
 
 export async function getByCustomerReport(
@@ -18,45 +32,82 @@ export async function getByCustomerReport(
   filters?: ByCustomerFilters
 ) {
   const db = prismaClient || prisma
-  const invoiceWhere: any = { status: 'ACTIVE' }
-  if (empresaId) invoiceWhere.empresaId = empresaId
+  const where: any = { status: 'ACTIVE' }
+  if (empresaId) where.empresaId = empresaId
   if (filters?.dateFrom || filters?.dateTo) {
-    invoiceWhere.invoiceDate = {}
-    if (filters?.dateFrom) invoiceWhere.invoiceDate.gte = new Date(filters.dateFrom)
-    if (filters?.dateTo) invoiceWhere.invoiceDate.lte = new Date(filters.dateTo)
+    where.invoiceDate = {}
+    if (filters?.dateFrom) where.invoiceDate.gte = new Date(filters.dateFrom)
+    if (filters?.dateTo) where.invoiceDate.lte = new Date(filters.dateTo)
   }
 
-  const grouped = await db.invoice.groupBy({
-    by: ['customerId'],
-    where: invoiceWhere,
-    _count: { id: true },
-    _sum: { total: true, discountAmount: true },
-    _avg: { total: true },
-    _max: { invoiceDate: true },
-    orderBy: { _sum: { total: 'desc' } },
+  const fallback = await buildFallbackRateMap(db, empresaId)
+
+  const invoices = await db.invoice.findMany({
+    where,
+    select: {
+      customerId: true,
+      currency: true,
+      exchangeRate: true,
+      total: true,
+      discountAmount: true,
+      invoiceDate: true,
+    },
   })
 
-  const customerIds = grouped.map((g: any) => g.customerId)
+  const aggMap = new Map<string, Agg>()
+  for (const inv of invoices) {
+    const id = inv.customerId
+    const agg =
+      aggMap.get(id) ?? {
+        customerId: id,
+        invoiceCount: 0,
+        totalRevenue: {},
+        totalDiscount: {},
+        totalRevenueUSD: 0,
+        totalDiscountUSD: 0,
+        lastInvoiceDate: null,
+      }
+    const cur = inv.currency
+    const rate = inv.exchangeRate != null ? Number(inv.exchangeRate) : null
+    const tot = Number(inv.total)
+    const disc = Number(inv.discountAmount ?? 0)
+
+    agg.invoiceCount += 1
+    agg.totalRevenue[cur] = (agg.totalRevenue[cur] ?? 0) + tot
+    agg.totalDiscount[cur] = (agg.totalDiscount[cur] ?? 0) + disc
+    agg.totalRevenueUSD += toUSD(tot, cur, rate, fallback) ?? 0
+    agg.totalDiscountUSD += toUSD(disc, cur, rate, fallback) ?? 0
+    if (!agg.lastInvoiceDate || inv.invoiceDate > agg.lastInvoiceDate) {
+      agg.lastInvoiceDate = inv.invoiceDate
+    }
+    aggMap.set(id, agg)
+  }
+
+  const customerIds = Array.from(aggMap.keys())
   const customers = await db.customer.findMany({
     where: { id: { in: customerIds } },
     select: { id: true, name: true, taxId: true, type: true },
   })
   const customerMap = new Map(customers.map((c: any) => [c.id, c]))
 
-  let rows = grouped.map((g: any) => {
+  let rows = Array.from(aggMap.values()).map((g) => {
     const customer = customerMap.get(g.customerId) as any
     return {
       customerId: g.customerId,
       customerName: customer?.name ?? '—',
       taxId: customer?.taxId ?? '—',
       customerType: customer?.type ?? '—',
-      invoiceCount: g._count.id,
-      totalRevenue: Number(g._sum.total ?? 0),
-      avgTicket: Number(g._avg.total ?? 0),
-      lastInvoiceDate: g._max.invoiceDate,
-      totalDiscount: Number(g._sum.discountAmount ?? 0),
+      invoiceCount: g.invoiceCount,
+      totalRevenue: g.totalRevenue,
+      totalRevenueUSD: g.totalRevenueUSD,
+      avgTicketUSD: g.invoiceCount > 0 ? g.totalRevenueUSD / g.invoiceCount : 0,
+      totalDiscount: g.totalDiscount,
+      totalDiscountUSD: g.totalDiscountUSD,
+      lastInvoiceDate: g.lastInvoiceDate,
     }
   })
+
+  rows.sort((a, b) => b.totalRevenueUSD - a.totalRevenueUSD)
 
   if (filters?.search) {
     const s = filters.search.toLowerCase()
@@ -70,7 +121,14 @@ export async function getByCustomerReport(
   const total = rows.length
   const data = rows.slice((page - 1) * limit, page * limit)
 
-  return { data, total, page, limit, totalPages: Math.ceil(total / limit) }
+  return {
+    data,
+    fxRates: fallback,
+    total,
+    page,
+    limit,
+    totalPages: Math.ceil(total / limit),
+  }
 }
 
 export default { getByCustomerReport }

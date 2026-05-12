@@ -7,12 +7,16 @@ import { Skeleton } from "primereact/skeleton";
 import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   SalesByProductItem,
+  CurrencyAmount,
 } from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
+import MultiCurrencyCell from "@/components/common/MultiCurrencyCell";
+import { formatBreakdownLine } from "@/utils/currencyFormat";
 
 const SalesByProductPage = () => {
   const toast = useRef<Toast>(null);
   const [items, setItems] = useState<SalesByProductItem[]>([]);
+  const [fxRates, setFxRates] = useState<CurrencyAmount>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -36,6 +40,7 @@ const SalesByProductPage = () => {
       const response = await salesReportService.getByProduct(params);
       setItems(response.data);
       setTotalRecords(response.meta?.total ?? 0);
+      setFxRates(response.fxRates ?? {});
     } catch {
       toast.current?.show({
         severity: "error",
@@ -51,12 +56,6 @@ const SalesByProductPage = () => {
   useEffect(() => {
     loadData();
   }, [loadData]);
-
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
 
   const columns = useMemo(() => [
     {
@@ -88,26 +87,38 @@ const SalesByProductPage = () => {
     {
       field: "avgUnitPrice",
       header: "Precio Prom.",
-      sortable: true,
-      width: "14%",
-      body: (row: SalesByProductItem) => formatCurrency(row.avgUnitPrice),
+      sortable: false,
+      width: "16%",
+      body: (row: SalesByProductItem) => (
+        <span className="text-sm" title={formatBreakdownLine(row.avgUnitPrice)}>
+          {formatBreakdownLine(row.avgUnitPrice)}
+        </span>
+      ),
     },
     {
-      field: "totalDiscount",
+      field: "totalDiscountUSD",
       header: "Descuentos",
       sortable: true,
-      width: "13%",
-      body: (row: SalesByProductItem) => formatCurrency(row.totalDiscount),
+      width: "14%",
+      body: (row: SalesByProductItem) => (
+        <MultiCurrencyCell
+          amount={row.totalDiscount}
+          amountUSD={row.totalDiscountUSD}
+          highlight="usd"
+        />
+      ),
     },
     {
-      field: "totalRevenue",
+      field: "totalRevenueUSD",
       header: "Revenue Total",
       sortable: true,
-      width: "15%",
+      width: "17%",
       body: (row: SalesByProductItem) => (
-        <span className="font-bold text-primary">
-          {formatCurrency(row.totalRevenue)}
-        </span>
+        <MultiCurrencyCell
+          amount={row.totalRevenue}
+          amountUSD={row.totalRevenueUSD}
+          highlight="primary"
+        />
       ),
     },
   ], []);
@@ -115,6 +126,14 @@ const SalesByProductPage = () => {
   return (
     <>
       <Toast ref={toast} />
+      {Object.keys(fxRates).length > 0 && (
+        <div className="text-xs text-500 mb-2">
+          Tasas usadas:{" "}
+          {Object.entries(fxRates)
+            .map(([c, r]) => `${c} ${r.toFixed(4)}/USD`)
+            .join(" · ")}
+        </div>
+      )}
       {loading && items.length === 0 ? (
         <Card title="Ventas por Producto">
           <Skeleton height="300px" />

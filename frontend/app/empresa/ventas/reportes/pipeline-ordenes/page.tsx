@@ -11,6 +11,8 @@ import { motion } from "framer-motion";
 import salesReportService, {
   OrderPipelineReport,
 } from "@/modules/sales/dashboard/services/reportService";
+import MultiCurrencyCell from "@/components/common/MultiCurrencyCell";
+import { formatCurrency as fmtCurrency } from "@/utils/currencyFormat";
 
 const STATUS_LABELS: Record<string, string> = {
   DRAFT: "Borrador",
@@ -55,12 +57,6 @@ const OrderPipelinePage = () => {
     }
   };
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-
   const summaryCards = [
     {
       label: "Total Órdenes",
@@ -71,8 +67,8 @@ const OrderPipelinePage = () => {
       isCount: true,
     },
     {
-      label: "Valor Total",
-      value: data?.summary.totalValue ?? 0,
+      label: "Valor Total (USD)",
+      value: data?.summary.totalValueUSD ?? 0,
       icon: "pi pi-dollar",
       color: "#22C55E",
       bg: "#F0FDF4",
@@ -133,7 +129,7 @@ const OrderPipelinePage = () => {
                           ? `${(card.value as number).toFixed(1)}%`
                           : card.isHours
                           ? `${card.value}h`
-                          : `$${formatCurrency(card.value as number)}`}
+                          : fmtCurrency(card.value as number, "USD")}
                       </p>
                     )}
                   </div>
@@ -143,6 +139,15 @@ const OrderPipelinePage = () => {
           </div>
         ))}
       </div>
+
+      {data?.fxRates && Object.keys(data.fxRates).length > 0 && (
+        <div className="text-xs text-500 mb-2">
+          Tasas usadas:{" "}
+          {Object.entries(data.fxRates)
+            .map(([c, r]) => `${c} ${r.toFixed(4)}/USD`)
+            .join(" · ")}
+        </div>
+      )}
 
       <Card title="Pipeline de Órdenes por Estado">
         {loading ? (
@@ -165,18 +170,24 @@ const OrderPipelinePage = () => {
               body={(row) => <span className="font-semibold">{row.count}</span>}
             />
             <Column
-              field="totalValue"
+              field="totalValueUSD"
               header="Valor Total"
               body={(row) => (
-                <span className="font-bold">
-                  {formatCurrency(row.totalValue)}
-                </span>
+                <MultiCurrencyCell
+                  amount={row.totalValue}
+                  amountUSD={row.totalValueUSD}
+                  highlight="primary"
+                />
               )}
             />
             <Column
-              field="avgValue"
-              header="Valor Promedio"
-              body={(row) => formatCurrency(row.avgValue)}
+              field="avgValueUSD"
+              header="Valor Promedio (USD)"
+              body={(row) => (
+                <span className="font-semibold">
+                  {fmtCurrency(row.avgValueUSD ?? 0, "USD")}
+                </span>
+              )}
             />
           </DataTable>
         )}

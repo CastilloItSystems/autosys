@@ -11,6 +11,7 @@ import salesReportService, {
   PendingInvoiceItem,
 } from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
+import { formatCurrency } from "@/utils/currencyFormat";
 
 const STATUS_LABELS: Record<string, string> = {
   PENDING_PREPARATION: "Pend. Preparación",
@@ -63,12 +64,6 @@ const PendingInvoicesPage = () => {
     loadData();
   }, [loadData]);
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-
   const columns = useMemo(() => [
     {
       field: "preInvoiceNumber",
@@ -92,7 +87,7 @@ const PendingInvoicesPage = () => {
       sortable: true,
       width: "12%",
       body: (row: PendingInvoiceItem) => (
-        <span className="font-bold">{formatCurrency(row.total)}</span>
+        <span className="font-bold">{formatCurrency(row.total, row.currency)}</span>
       ),
     },
     {

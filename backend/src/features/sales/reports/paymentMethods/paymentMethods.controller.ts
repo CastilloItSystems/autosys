@@ -26,6 +26,7 @@ export const getPaymentMethodsReportHandler = async (
       message: 'Payment methods report',
       data: result.data,
       byCurrency: result.byCurrency,
+      fxRates: result.fxRates,
       summary: result.summary,
       timestamp: new Date().toISOString(),
     })

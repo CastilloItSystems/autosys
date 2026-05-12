@@ -3,15 +3,17 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { Toast } from "primereact/toast";
 import { Card } from "primereact/card";
-import { Tag } from "primereact/tag";
 import { Skeleton } from "primereact/skeleton";
 import { Dropdown } from "primereact/dropdown";
 import ReportsTable from "@/modules/inventory/reports/components/ReportsTable";
 import salesReportService, {
   SalesByPeriodItem,
   SalesByPeriodSummary,
+  CurrencyAmount,
 } from "@/modules/sales/dashboard/services/reportService";
 import { ReportFormat } from "@/modules/inventory/reports/services/reportService";
+import MultiCurrencyCell from "@/components/common/MultiCurrencyCell";
+import { formatCurrency as fmtCurrency } from "@/utils/currencyFormat";
 
 const GRANULARITY_OPTIONS = [
   { label: "Por Día", value: "day" },
@@ -23,6 +25,7 @@ const SalesByPeriodPage = () => {
   const toast = useRef<Toast>(null);
   const [items, setItems] = useState<SalesByPeriodItem[]>([]);
   const [summary, setSummary] = useState<SalesByPeriodSummary | null>(null);
+  const [fxRates, setFxRates] = useState<CurrencyAmount>({});
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
@@ -50,6 +53,7 @@ const SalesByPeriodPage = () => {
       setItems(response.data);
       setTotalRecords(response.meta?.total ?? 0);
       setSummary(response.summary ?? null);
+      setFxRates(response.fxRates ?? {});
     } catch {
       toast.current?.show({
         severity: "error",
@@ -66,53 +70,67 @@ const SalesByPeriodPage = () => {
     loadData();
   }, [loadData]);
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-
   const columns = useMemo(() => [
-    { field: "period", header: "Período", sortable: true, width: "18%" },
+    { field: "period", header: "Período", sortable: true, width: "16%" },
     {
       field: "invoiceCount",
       header: "Facturas",
       sortable: true,
-      width: "10%",
+      width: "8%",
       body: (row: SalesByPeriodItem) => (
         <span className="font-semibold">{row.invoiceCount}</span>
       ),
     },
     {
-      field: "subtotal",
+      field: "subtotalUSD",
       header: "Subtotal",
       sortable: true,
-      width: "15%",
-      body: (row: SalesByPeriodItem) => formatCurrency(row.subtotal),
+      width: "19%",
+      body: (row: SalesByPeriodItem) => (
+        <MultiCurrencyCell
+          amount={row.subtotal}
+          amountUSD={row.subtotalUSD}
+          highlight="usd"
+        />
+      ),
     },
     {
-      field: "taxAmount",
+      field: "taxAmountUSD",
       header: "IVA",
-      sortable: true,
-      width: "13%",
-      body: (row: SalesByPeriodItem) => formatCurrency(row.taxAmount),
-    },
-    {
-      field: "igtfAmount",
-      header: "IGTF",
-      sortable: true,
-      width: "12%",
-      body: (row: SalesByPeriodItem) => formatCurrency(row.igtfAmount),
-    },
-    {
-      field: "total",
-      header: "Total",
       sortable: true,
       width: "15%",
       body: (row: SalesByPeriodItem) => (
-        <span className="font-bold text-primary">
-          {formatCurrency(row.total)}
-        </span>
+        <MultiCurrencyCell
+          amount={row.taxAmount}
+          amountUSD={row.taxAmountUSD}
+          highlight="usd"
+        />
+      ),
+    },
+    {
+      field: "igtfAmountUSD",
+      header: "IGTF",
+      sortable: true,
+      width: "13%",
+      body: (row: SalesByPeriodItem) => (
+        <MultiCurrencyCell
+          amount={row.igtfAmount}
+          amountUSD={row.igtfAmountUSD}
+          highlight="usd"
+        />
+      ),
+    },
+    {
+      field: "totalUSD",
+      header: "Total",
+      sortable: true,
+      width: "19%",
+      body: (row: SalesByPeriodItem) => (
+        <MultiCurrencyCell
+          amount={row.total}
+          amountUSD={row.totalUSD}
+          highlight="primary"
+        />
       ),
     },
   ], []);
@@ -135,15 +153,15 @@ const SalesByPeriodPage = () => {
       isCount: true,
     },
     {
-      label: "Ingresos Totales",
-      value: summary?.totalRevenue ?? 0,
+      label: "Ingresos Totales (USD)",
+      value: summary?.totalRevenueUSD ?? 0,
       icon: "pi pi-dollar",
       color: "#F97316",
       bg: "#FFF7ED",
     },
     {
-      label: "Promedio / Período",
-      value: summary?.avgRevenuePerPeriod ?? 0,
+      label: "Promedio / Período (USD)",
+      value: summary?.avgRevenuePerPeriodUSD ?? 0,
       icon: "pi pi-chart-bar",
       color: "#8B5CF6",
       bg: "#F5F3FF",
@@ -179,7 +197,7 @@ const SalesByPeriodPage = () => {
                     >
                       {card.isCount
                         ? card.value
-                        : `$${formatCurrency(card.value)}`}
+                        : fmtCurrency(card.value, "USD")}
                     </p>
                   )}
                 </div>
@@ -188,6 +206,15 @@ const SalesByPeriodPage = () => {
           </div>
         ))}
       </div>
+
+      {Object.keys(fxRates).length > 0 && (
+        <div className="text-xs text-500 mb-2">
+          Tasas usadas:{" "}
+          {Object.entries(fxRates)
+            .map(([c, r]) => `${c} ${r.toFixed(4)}/USD`)
+            .join(" · ")}
+        </div>
+      )}
 
       {loading && items.length === 0 ? (
         <Card title="Ventas por Período">

@@ -12,6 +12,10 @@ import { motion } from "framer-motion";
 import salesReportService, {
   PaymentMethodsReport,
 } from "@/modules/sales/dashboard/services/reportService";
+import MultiCurrencyCell from "@/components/common/MultiCurrencyCell";
+import {
+  formatCurrency as fmtCurrency,
+} from "@/utils/currencyFormat";
 
 const METHOD_LABELS: Record<string, string> = {
   CASH: "Efectivo",
@@ -65,12 +69,6 @@ const PaymentMethodsPage = () => {
     loadData();
   }, [loadData]);
 
-  const formatCurrency = (value: number) =>
-    new Intl.NumberFormat("es-VE", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-
   const summaryCards = [
     {
       label: "Total Pagos",
@@ -81,15 +79,15 @@ const PaymentMethodsPage = () => {
       isCount: true,
     },
     {
-      label: "Monto Total",
-      value: data?.summary.totalAmount ?? 0,
+      label: "Monto Total (USD)",
+      value: data?.summary.totalAmountUSD ?? 0,
       icon: "pi pi-dollar",
       color: "#22C55E",
       bg: "#F0FDF4",
     },
     {
-      label: "Total IGTF",
-      value: data?.summary.totalIgtf ?? 0,
+      label: "Total IGTF (USD)",
+      value: data?.summary.totalIgtfUSD ?? 0,
       icon: "pi pi-percentage",
       color: "#F97316",
       bg: "#FFF7ED",
@@ -130,7 +128,7 @@ const PaymentMethodsPage = () => {
                       >
                         {card.isCount
                           ? card.value
-                          : `$${formatCurrency(card.value as number)}`}
+                          : fmtCurrency(card.value as number, "USD")}
                       </p>
                     )}
                   </div>
@@ -140,6 +138,15 @@ const PaymentMethodsPage = () => {
           </div>
         ))}
       </div>
+
+      {data?.fxRates && Object.keys(data.fxRates).length > 0 && (
+        <div className="text-xs text-500 mb-2">
+          Tasas usadas:{" "}
+          {Object.entries(data.fxRates)
+            .map(([c, r]) => `${c} ${r.toFixed(4)}/USD`)
+            .join(" · ")}
+        </div>
+      )}
 
       <div className="grid">
         <div className="col-12 lg:col-8">
@@ -192,12 +199,14 @@ const PaymentMethodsPage = () => {
                   )}
                 />
                 <Column
-                  field="totalAmount"
+                  field="totalAmountUSD"
                   header="Monto Total"
                   body={(row) => (
-                    <span className="font-bold">
-                      {formatCurrency(row.totalAmount)}
-                    </span>
+                    <MultiCurrencyCell
+                      amount={row.totalAmount}
+                      amountUSD={row.totalAmountUSD}
+                      highlight="primary"
+                    />
                   )}
                 />
                 <Column
@@ -217,14 +226,24 @@ const PaymentMethodsPage = () => {
                   )}
                 />
                 <Column
-                  field="igtfAmount"
+                  field="igtfAmountUSD"
                   header="IGTF"
-                  body={(row) => formatCurrency(row.igtfAmount)}
+                  body={(row) => (
+                    <MultiCurrencyCell
+                      amount={row.igtfAmount}
+                      amountUSD={row.igtfAmountUSD}
+                      highlight="usd"
+                    />
+                  )}
                 />
                 <Column
-                  field="avgAmount"
-                  header="Prom. por Pago"
-                  body={(row) => formatCurrency(row.avgAmount)}
+                  field="avgAmountUSD"
+                  header="Prom. por Pago (USD)"
+                  body={(row) => (
+                    <span className="font-semibold">
+                      {fmtCurrency(row.avgAmountUSD ?? 0, "USD")}
+                    </span>
+                  )}
                 />
               </DataTable>
             )}
@@ -246,7 +265,20 @@ const PaymentMethodsPage = () => {
                 <Column
                   field="totalAmount"
                   header="Monto"
-                  body={(row) => formatCurrency(row.totalAmount)}
+                  body={(row) => (
+                    <span className="font-semibold">
+                      {fmtCurrency(row.totalAmount, row.currency)}
+                    </span>
+                  )}
+                />
+                <Column
+                  field="totalAmountUSD"
+                  header="≈ USD"
+                  body={(row) => (
+                    <span className="text-700">
+                      {fmtCurrency(row.totalAmountUSD ?? 0, "USD")}
+                    </span>
+                  )}
                 />
               </DataTable>
             )}

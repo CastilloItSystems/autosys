@@ -5,6 +5,7 @@ import { SessionProvider } from "next-auth/react";
 import { LayoutProvider } from "@/layout/context/layoutcontext";
 import { SWRCacheProvider } from "@/store/SWRCacheProvider";
 import AppInitializer from "@/components/common/AppInitializer";
+import { SocketProvider } from "@/context/SocketContext";
 import SessionExpiredDialog from "@/components/common/SessionExpiredDialog";
 import BackendAuthSessionBridge from "@/components/common/BackendAuthSessionBridge";
 
@@ -64,9 +65,11 @@ export default function ClientProviders({
       <BackendAuthSessionBridge />
       <LayoutProvider>
         <PrimeReactProvider value={{ ripple: true }}>
-          <SessionExpiredDialog />
-          <AppInitializer />
-          <SWRCacheProvider>{children}</SWRCacheProvider>
+          <SocketProvider>
+            <SessionExpiredDialog />
+            <AppInitializer />
+            <SWRCacheProvider>{children}</SWRCacheProvider>
+          </SocketProvider>
         </PrimeReactProvider>
       </LayoutProvider>
     </SessionProvider>

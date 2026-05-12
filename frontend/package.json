@@ -6,6 +6,7 @@
     "dev": "next dev -p 3000",
     "test": "echo \"No tests configured\" && exit 0",
     "build": "next build",
+    "analyze": "ANALYZE=true next build",
     "start": "next start",
     "format": "prettier --write \"{app,demo,layout,types}/**/*.{js,ts,tsx,d.ts}\"",
     "lint": "next lint"
@@ -34,7 +35,7 @@
     "html2canvas": "^1.4.1",
     "jspdf": "^3.0.1",
     "lucide-react": "0.479.0",
-    "next": "13.4.8",
+    "next": "^14.2.35",
     "next-auth": "4.24.11",
     "primeflex": "3.3.0",
     "primeicons": "7.0.0",
@@ -55,6 +56,7 @@
     "zustand": "5.0.3"
   },
   "devDependencies": {
+    "@next/bundle-analyzer": "^14.2.35",
     "@types/node": "18.15.11",
     "@types/react": "18.0.34",
     "@types/react-dom": "18.0.11",
@@ -62,7 +64,7 @@
     "@types/react-transition-group": "4.4.1",
     "@types/socket.io-client": "3.0.0",
     "eslint": "8.35.0",
-    "eslint-config-next": "13.4.9",
+    "eslint-config-next": "^14.2.35",
     "prettier": "2.8.4",
     "sass": "1.58.3"
   },
