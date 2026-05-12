@@ -18,6 +18,7 @@ import {
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 import EventService from '../shared/events/event.service.js'
 import { EventType } from '../shared/events/event.types.js'
 import { v4 as uuidv4 } from 'uuid'
@@ -126,7 +127,25 @@ export class CycleCountService {
         throw new NotFoundError('Ciclo de conteo no encontrado')
       }
 
-      return cycleCount as unknown as ICycleCountWithRelations
+      const userIds = [
+        cycleCount.createdBy,
+        cycleCount.startedBy,
+        cycleCount.completedBy,
+        cycleCount.approvedBy,
+        cycleCount.appliedBy,
+      ]
+      const nameMap = await resolveUserNames(null, userIds)
+
+      const enriched = {
+        ...cycleCount,
+        createdByName: nameMap.get(cycleCount.createdBy) ?? null,
+        startedByName: cycleCount.startedBy ? (nameMap.get(cycleCount.startedBy) ?? null) : null,
+        completedByName: cycleCount.completedBy ? (nameMap.get(cycleCount.completedBy) ?? null) : null,
+        approvedByName: cycleCount.approvedBy ? (nameMap.get(cycleCount.approvedBy) ?? null) : null,
+        appliedByName: cycleCount.appliedBy ? (nameMap.get(cycleCount.appliedBy) ?? null) : null,
+      }
+
+      return enriched as unknown as ICycleCountWithRelations
     } catch (error) {
       logger.error('Error al obtener ciclo de conteo', { error, id })
       throw error
@@ -186,8 +205,26 @@ export class CycleCountService {
         prisma.cycleCount.count({ where }),
       ])
 
+      const allUserIds = cycleCounts.flatMap((cc) => [
+        cc.createdBy,
+        cc.startedBy,
+        cc.completedBy,
+        cc.approvedBy,
+        cc.appliedBy,
+      ])
+      const nameMap = await resolveUserNames(null, allUserIds)
+
+      const enriched = cycleCounts.map((cc) => ({
+        ...cc,
+        createdByName: nameMap.get(cc.createdBy) ?? null,
+        startedByName: cc.startedBy ? (nameMap.get(cc.startedBy) ?? null) : null,
+        completedByName: cc.completedBy ? (nameMap.get(cc.completedBy) ?? null) : null,
+        approvedByName: cc.approvedBy ? (nameMap.get(cc.approvedBy) ?? null) : null,
+        appliedByName: cc.appliedBy ? (nameMap.get(cc.appliedBy) ?? null) : null,
+      }))
+
       return {
-        data: cycleCounts as unknown as ICycleCountWithRelations[],
+        data: enriched as unknown as ICycleCountWithRelations[],
         total,
       }
     } catch (error) {

@@ -8,6 +8,7 @@ import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreateCaseDTO, UpdateCaseDTO, UpdateCaseStatusDTO, AddCommentDTO } from './cases.dto.js'
 import { ICase, ICaseFilters } from './cases.interface.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -219,7 +220,21 @@ class CasesService {
       (db as PrismaClient).case.count({ where }),
     ])
 
-    return { data: data as unknown as ICase[], total }
+    // Batch-resolve assignedTo + createdBy names across all records
+    const userIds = [...new Set(
+      (data as any[]).flatMap((r: any) => [r.assignedTo, r.createdBy]).filter(Boolean)
+    )]
+    let namesMap = new Map<string, string>()
+    if (userIds.length > 0) {
+      namesMap = await resolveUserNames(null, userIds)
+    }
+    const enriched = (data as any[]).map((r: any) => ({
+      ...r,
+      assignedToName: r.assignedTo ? (namesMap.get(r.assignedTo) ?? null) : null,
+      createdByName: r.createdBy ? (namesMap.get(r.createdBy) ?? null) : null,
+    }))
+
+    return { data: enriched as unknown as ICase[], total }
   }
 
   // ---------------------------------------------------------------------------
@@ -240,7 +255,25 @@ class CasesService {
     })
 
     if (!caseRecord) throw new NotFoundError('Caso no encontrado')
-    return caseRecord as unknown as ICase
+    const record = caseRecord as any
+
+    // Resolve user names for the main case record
+    const caseUserIds = [record.assignedTo, record.createdBy].filter(Boolean)
+    if (caseUserIds.length > 0) {
+      const caseNames = await resolveUserNames(null, caseUserIds)
+      record.assignedToName = record.assignedTo ? (caseNames.get(record.assignedTo) ?? null) : null
+      record.createdByName = record.createdBy ? (caseNames.get(record.createdBy) ?? null) : null
+    } else {
+      record.assignedToName = null
+      record.createdByName = null
+    }
+
+    // Resolve user names for comments
+    if (Array.isArray(record.comments) && record.comments.length > 0) {
+      const names = await resolveUserNames(null, record.comments.map((c: any) => c.createdBy))
+      record.comments = record.comments.map((c: any) => ({ ...c, createdByName: names.get(c.createdBy) ?? null }))
+    }
+    return record as unknown as ICase
   }
 
   // ---------------------------------------------------------------------------

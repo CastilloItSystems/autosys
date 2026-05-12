@@ -8,6 +8,7 @@ import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreateActivityDTO, UpdateActivityDTO } from './activities.dto.js'
 import { IActivity, IActivityFilters } from './activities.interface.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -84,7 +85,21 @@ class ActivitiesService {
       where: { id, empresaId },
     })
     if (!activity) throw new NotFoundError('Actividad no encontrada')
-    return activity as unknown as IActivity
+
+    const record = activity as any
+    const userIds = [record.assignedTo, record.completedBy, record.createdBy].filter(Boolean)
+    if (userIds.length > 0) {
+      const namesMap = await resolveUserNames(null, userIds)
+      record.assignedToName = record.assignedTo ? (namesMap.get(record.assignedTo) ?? null) : null
+      record.completedByName = record.completedBy ? (namesMap.get(record.completedBy) ?? null) : null
+      record.createdByName = record.createdBy ? (namesMap.get(record.createdBy) ?? null) : null
+    } else {
+      record.assignedToName = null
+      record.completedByName = null
+      record.createdByName = null
+    }
+
+    return record as unknown as IActivity
   }
 
   async findAll(
@@ -123,7 +138,22 @@ class ActivitiesService {
       (db as PrismaClient).activity.count({ where }),
     ])
 
-    return { data: data as unknown as IActivity[], total }
+    // Batch-resolve assignedTo + completedBy + createdBy names
+    const userIds = [...new Set(
+      (data as any[]).flatMap((r: any) => [r.assignedTo, r.completedBy, r.createdBy]).filter(Boolean)
+    )]
+    let namesMap = new Map<string, string>()
+    if (userIds.length > 0) {
+      namesMap = await resolveUserNames(null, userIds)
+    }
+    const enriched = (data as any[]).map((r: any) => ({
+      ...r,
+      assignedToName: r.assignedTo ? (namesMap.get(r.assignedTo) ?? null) : null,
+      completedByName: r.completedBy ? (namesMap.get(r.completedBy) ?? null) : null,
+      createdByName: r.createdBy ? (namesMap.get(r.createdBy) ?? null) : null,
+    }))
+
+    return { data: enriched as unknown as IActivity[], total }
   }
 
   // ---------------------------------------------------------------------------

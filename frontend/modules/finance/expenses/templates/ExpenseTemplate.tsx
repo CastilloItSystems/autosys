@@ -1,12 +1,15 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { Expense } from "../interfaces/expense";
 import { EXPENSE_CATEGORY_LABELS } from "../interfaces/expense";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -176,7 +179,7 @@ const formatAmount = (value?: number | null, currency = "USD") => {
   })}`;
 };
 
-const ExpenseTemplate = ({ data }: { data: Expense }) => {
+const ExpenseTemplate = ({ data, company }: { data: Expense; company?: PdfCompanyInfo }) => {
   const badgeColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.PENDING;
   const cur = data.currency ?? "USD";
   const hasTax = Number(data.taxAmount) > 0;
@@ -185,27 +188,14 @@ const ExpenseTemplate = ({ data }: { data: Expense }) => {
   return (
     <Document title={`Gasto Operativo - ${data.expenseNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* ── Header ── */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Comprobante de Gasto Operativo</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.expenseNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.expenseDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {STATUS_LABELS[data.status] ?? data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Comprobante de Gasto Operativo"
+          documentNumber={data.expenseNumber}
+          date={formatDate(data.expenseDate)}
+          status={STATUS_LABELS[data.status] ?? data.status}
+          statusColor={badgeColor}
+        />
 
         {/* ── Detalles del gasto ── */}
         <View style={styles.section}>
@@ -330,17 +320,10 @@ const ExpenseTemplate = ({ data }: { data: Expense }) => {
           </View>
         </View>
 
-        {/* ── Footer ── */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.expenseNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.expenseNumber}
+        />
       </Page>
     </Document>
   );

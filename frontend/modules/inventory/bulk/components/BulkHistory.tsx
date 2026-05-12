@@ -334,7 +334,7 @@ export const BulkHistory = ({ refreshKey = 0 }: BulkHistoryProps) => {
             field="createdBy"
             header="Usuario"
             style={{ width: "120px" }}
-            body={(rowData) => rowData.createdBy || "-"}
+            body={(rowData) => rowData.createdByName || rowData.createdBy || "-"}
           />
           <Column
             field="actions"

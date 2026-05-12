@@ -59,11 +59,15 @@ export interface PreInvoice {
   preparedAt?: string | null;
   paidAt?: string | null;
   preparedBy?: string | null;
+  preparedByName?: string | null;
   items: PreInvoiceItem[];
   order?: {
     id: string;
     orderNumber: string;
     status: string;
+    approvedBy?: string | null;
+    approvedAt?: string | null;
+    approvedByName?: string | null;
   };
   serviceOrder?: {
     id: string;

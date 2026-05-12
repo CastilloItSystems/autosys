@@ -55,6 +55,11 @@ const AppMenuEmpresa = () => {
           to: "/empresa/inventario/invoice",
         },
         {
+          label: "Notas de Crédito",
+          icon: "pi pi-fw pi-file-minus",
+          to: "/empresa/inventario/notas-credito",
+        },
+        {
           label: "Reportes",
           icon: "pi pi-fw pi-chart-bar",
           items: [

@@ -7,6 +7,9 @@ import {
   StyleSheet,
   Image,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 
@@ -78,11 +81,12 @@ interface ReceptionPDFData {
 
 interface WorkshopReceptionTemplateProps {
   data: ReceptionPDFData;
+  company?: PdfCompanyInfo;
 }
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 30,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontSize: 10,
@@ -323,37 +327,18 @@ const formatChecklistValue = (r: ChecklistResponsePDF): string => {
 
 const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
   data,
+  company,
 }) => {
   return (
     <Document>
       <Page size="A4" style={styles.page} wrap>
-        {/* Header (Muestra en todas las páginas opcional, o solo en primera. Lo dejaremos en flujo normal) */}
-        <View style={styles.headerContainer} fixed>
-          <View style={styles.headerLeft}>
-            {data.empresaLogo && (
-              <Image src={data.empresaLogo} style={styles.logo} />
-            )}
-            <View>
-              <Text style={styles.headerTitle}>
-                {data.empresaName || "Taller Mecánico"}
-              </Text>
-              <Text style={styles.headerSubtitle}>
-                Documento de Recepción de Vehículo
-              </Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerFolio}>Recepción: {data.folio}</Text>
-            <View style={styles.headerStatusBox}>
-              <Text style={styles.headerDate}>
-                Estado: {statusLabel[data.status] || data.status}
-              </Text>
-            </View>
-            <Text style={[styles.headerDate, { marginTop: 4 }]}>
-              Fecha: {formatDate(data.createdAt)}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Documento de Recepcion de Vehiculo"
+          documentNumber={data.folio}
+          date={formatDate(data.createdAt)}
+          status={statusLabel[data.status] || data.status}
+        />
 
         {/* 2 Columnas: Vehículo y Cliente */}
         <View style={styles.grid2Col}>
@@ -670,18 +655,10 @@ const WorkshopReceptionTemplate: React.FC<WorkshopReceptionTemplateProps> = ({
           </Text>
         </View>
 
-        {/* Footer (Paginación) */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            Generado por AutoSys el {formatDate(new Date().toISOString())}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.folio}
+        />
       </Page>
     </Document>
   );

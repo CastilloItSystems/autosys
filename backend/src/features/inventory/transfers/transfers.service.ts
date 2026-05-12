@@ -15,6 +15,7 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 const MSG = INVENTORY_MESSAGES.transfer
 import {
@@ -237,7 +238,12 @@ class TransfersService {
 
     if (!transfer) throw new NotFoundError(MSG.notFound)
 
-    return transfer as ITransferWithRelations
+    const nameMap = await resolveUserNames(db, [transfer.approvedBy, transfer.rejectedBy])
+    const result = transfer as any
+    if (transfer.approvedBy) result.approvedByName = nameMap.get(transfer.approvedBy) ?? null
+    if (transfer.rejectedBy) result.rejectedByName = nameMap.get(transfer.rejectedBy) ?? null
+
+    return result as ITransferWithRelations
   }
 
   /**
@@ -288,8 +294,16 @@ class TransfersService {
       }),
     ])
 
+    const allUserIds = transfers.flatMap((t: any) => [t.approvedBy, t.rejectedBy])
+    const nameMap = await resolveUserNames(db, allUserIds)
+    const enriched = transfers.map((t: any) => {
+      if (t.approvedBy) t.approvedByName = nameMap.get(t.approvedBy) ?? null
+      if (t.rejectedBy) t.rejectedByName = nameMap.get(t.rejectedBy) ?? null
+      return t
+    })
+
     return {
-      data: transfers as ITransferWithRelations[],
+      data: enriched as ITransferWithRelations[],
       total,
       page,
       limit,

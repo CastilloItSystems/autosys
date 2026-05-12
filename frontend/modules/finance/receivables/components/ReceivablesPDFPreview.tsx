@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import ReceivablesTemplate from "../templates/ReceivablesTemplate";
 import type { ReceivableItem } from "../services/receivablesService";
 
 const ReceivablesPDFPreview = ({ data }: { data: ReceivableItem }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <ReceivablesTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <ReceivablesTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default ReceivablesPDFPreview;

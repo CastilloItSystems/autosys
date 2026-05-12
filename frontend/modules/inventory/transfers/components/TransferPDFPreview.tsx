@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import TransferTemplate from "../templates/TransferTemplate";
 import type { Transfer } from "../interfaces/transfer.interface";
 
 const TransferPDFPreview = ({ data }: { data: Transfer }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <TransferTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <TransferTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default TransferPDFPreview;

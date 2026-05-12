@@ -43,10 +43,14 @@ export interface Reconciliation {
   approvedAt?: string;
   appliedAt?: string;
   startedBy?: string;
+  startedByName?: string | null;
   completedBy?: string;
   approvedBy?: string;
+  approvedByName?: string | null;
   appliedBy?: string;
+  appliedByName?: string | null;
   createdBy?: string;
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
   warehouse?: {

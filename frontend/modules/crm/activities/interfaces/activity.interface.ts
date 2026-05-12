@@ -36,11 +36,14 @@ export interface Activity {
   title: string;
   description?: string | null;
   assignedTo: string;
+  assignedToName?: string | null;
   dueAt: string;
   completedAt?: string | null;
   completedBy?: string | null;
+  completedByName?: string | null;
   outcome?: string | null;
   createdBy: string;
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
 }

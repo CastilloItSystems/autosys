@@ -66,6 +66,8 @@ export interface Order {
   approvedAt?: string | null;
   createdBy?: string | null;
   approvedBy?: string | null;
+  approvedByName?: string | null;
+  createdByName?: string | null;
   items: OrderItem[];
   customer?: {
     id: string;

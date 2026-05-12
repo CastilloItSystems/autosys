@@ -32,6 +32,7 @@ import purchaseOrdersService from '../../inventory/purchaseOrders/purchaseOrders
 import { OrderNumberGenerator } from '../shared/utils/orderNumberGenerator.js'
 import { TaxType as POTaxType } from '../../inventory/purchaseOrders/purchaseOrders.interface.js'
 import { createAuditLog } from '../../../services/audit.service.js'
+import { resolveUserNames } from '../shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -1547,7 +1548,11 @@ class OrdersService {
       include: ORDER_INCLUDE,
     })
     if (!order) throw new NotFoundError(MSG.notFound)
-    return order as unknown as IOrder
+    const names = await resolveUserNames(db, [(order as any).approvedBy, (order as any).createdBy])
+    const result = order as any
+    result.approvedByName = names.get(result.approvedBy) ?? null
+    result.createdByName = names.get(result.createdBy) ?? null
+    return result as unknown as IOrder
   }
 
   async findAll(
@@ -1600,7 +1605,15 @@ class OrdersService {
       (db as PrismaClient).order.count({ where }),
     ])
 
-    return { data: data as unknown as IOrder[], total }
+    const allUserIds = (data as any[]).flatMap((o) => [o.approvedBy, o.createdBy])
+    const names = await resolveUserNames(db, allUserIds)
+    const enriched = (data as any[]).map((o) => ({
+      ...o,
+      approvedByName: names.get(o.approvedBy) ?? null,
+      createdByName: names.get(o.createdBy) ?? null,
+    }))
+
+    return { data: enriched as unknown as IOrder[], total }
   }
 
   // -------------------------------------------------------------------------
@@ -1915,6 +1928,10 @@ class OrdersService {
     })
 
     if (!updated) throw new Error('Error al aprobar la orden')
+
+    const names = await resolveUserNames(db, [approvedBy, (updated as any).createdBy])
+    ;(updated as any).approvedByName = names.get(approvedBy) ?? null
+    ;(updated as any).createdByName = names.get((updated as any).createdBy) ?? null
 
     logger.info(`Orden aprobada con pre-factura: ${id}`, {
       preInvoiceNumber,

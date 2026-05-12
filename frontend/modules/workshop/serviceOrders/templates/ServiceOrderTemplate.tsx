@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   ServiceOrder,
@@ -14,7 +17,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -176,34 +179,21 @@ const priorityLabel: Record<string, string> = {
   ASAP: "Urgente",
 };
 
-const ServiceOrderTemplate = ({ data }: { data: ServiceOrder }) => {
+const ServiceOrderTemplate = ({ data, company }: { data: ServiceOrder; company?: PdfCompanyInfo }) => {
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.OPEN;
 
   return (
     <Document title={`Orden de Servicio - ${data.folio}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Orden de Servicio</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.folio}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.receivedAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {data.status}
-            </Text>
-            <Text style={styles.headerDate}>Prioridad: {priorityLabel[data.priority] || data.priority}</Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Orden de Servicio"
+          documentNumber={data.folio}
+          date={formatDate(data.receivedAt)}
+          status={data.status}
+          statusColor={badgeColor}
+          type={`Prioridad: ${priorityLabel[data.priority] || data.priority}`}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -392,17 +382,10 @@ const ServiceOrderTemplate = ({ data }: { data: ServiceOrder }) => {
           <Text style={styles.signatureLine}>Asesor de Servicio</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.folio}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.folio}
+        />
       </Page>
     </Document>
   );

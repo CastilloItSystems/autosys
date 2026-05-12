@@ -85,6 +85,8 @@ export class LoanResponseDTO implements ILoanResponseDTO {
   createdBy: string
   createdAt: Date
   updatedAt: Date
+  createdByName?: string | null
+  approvedByName?: string | null
 
   constructor(data: any) {
     this.id = data.id
@@ -108,6 +110,8 @@ export class LoanResponseDTO implements ILoanResponseDTO {
     this.createdBy = data.createdBy
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
+    if (data.createdByName != null) this.createdByName = String(data.createdByName)
+    if (data.approvedByName != null) this.approvedByName = String(data.approvedByName)
 
     // Calculate days overdue if applicable
     if (data.status === 'OVERDUE' || data.status === 'ACTIVE') {

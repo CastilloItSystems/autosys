@@ -1,6 +1,7 @@
 // backend/src/features/workshop/workshopReworks/workshopReworks.service.ts
 import type { PrismaClient } from '../../../generated/prisma/client.js'
 import { NotFoundError, BadRequestError } from '../../../shared/utils/apiError.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type Db = PrismaClient | Omit<PrismaClient, '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'>
 
@@ -56,19 +57,28 @@ export async function findAllReworks(db: Db, empresaId: string, filters: IRework
     (db as PrismaClient).workshopRework.findMany({ where, include: BASE_INCLUDE, skip, take: limit, orderBy: { createdAt: 'desc' } }),
     (db as PrismaClient).workshopRework.count({ where }),
   ])
-  return { data, page, limit, total }
+  const userMap = await resolveUserNames(db, data.map((r) => r.createdBy))
+  const enriched = data.map((r) => ({
+    ...r,
+    createdByName: r.createdBy ? (userMap.get(r.createdBy) ?? null) : null,
+  }))
+  return { data: enriched, page, limit, total }
 }
 
 export async function findReworkById(db: Db, id: string, empresaId: string) {
   const item = await (db as PrismaClient).workshopRework.findFirst({ where: { id, empresaId }, include: BASE_INCLUDE })
   if (!item) throw new NotFoundError('Retrabajo no encontrado')
-  return item
+  const userMap = await resolveUserNames(db, [item.createdBy])
+  return {
+    ...item,
+    createdByName: item.createdBy ? (userMap.get(item.createdBy) ?? null) : null,
+  }
 }
 
 export async function createRework(db: Db, empresaId: string, data: ICreateReworkInput) {
   const order = await (db as PrismaClient).serviceOrder.findFirst({ where: { id: data.originalOrderId, empresaId } })
   if (!order) throw new NotFoundError('Orden de trabajo no encontrada')
-  return (db as PrismaClient).workshopRework.create({
+  const created = await (db as PrismaClient).workshopRework.create({
     data: {
       originalOrderId: data.originalOrderId,
       motive: data.motive,
@@ -81,6 +91,11 @@ export async function createRework(db: Db, empresaId: string, data: ICreateRewor
     },
     include: BASE_INCLUDE,
   })
+  const userMap = await resolveUserNames(db, [created.createdBy])
+  return {
+    ...created,
+    createdByName: created.createdBy ? (userMap.get(created.createdBy) ?? null) : null,
+  }
 }
 
 export async function updateRework(db: Db, id: string, empresaId: string, data: IUpdateReworkInput) {
@@ -89,7 +104,12 @@ export async function updateRework(db: Db, id: string, empresaId: string, data: 
     const reworkOrder = await (db as PrismaClient).serviceOrder.findFirst({ where: { id: data.reworkOrderId, empresaId } })
     if (!reworkOrder) throw new NotFoundError('Orden de retrabajo no encontrada')
   }
-  return (db as PrismaClient).workshopRework.update({ where: { id }, data, include: BASE_INCLUDE })
+  const updated = await (db as PrismaClient).workshopRework.update({ where: { id }, data, include: BASE_INCLUDE })
+  const userMap = await resolveUserNames(db, [updated.createdBy])
+  return {
+    ...updated,
+    createdByName: updated.createdBy ? (userMap.get(updated.createdBy) ?? null) : null,
+  }
 }
 
 export async function changeReworkStatus(db: Db, id: string, empresaId: string, newStatus: ReworkStatus) {
@@ -100,5 +120,10 @@ export async function changeReworkStatus(db: Db, id: string, empresaId: string, 
   }
   const updateData: any = { status: newStatus }
   if (newStatus === 'RESOLVED') updateData.resolvedAt = new Date()
-  return (db as PrismaClient).workshopRework.update({ where: { id }, data: updateData, include: BASE_INCLUDE })
+  const updated = await (db as PrismaClient).workshopRework.update({ where: { id }, data: updateData, include: BASE_INCLUDE })
+  const userMap = await resolveUserNames(db, [updated.createdBy])
+  return {
+    ...updated,
+    createdByName: updated.createdBy ? (userMap.get(updated.createdBy) ?? null) : null,
+  }
 }

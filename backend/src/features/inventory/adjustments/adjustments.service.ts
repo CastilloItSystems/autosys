@@ -11,6 +11,7 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 import {
   IAdjustmentWithRelations,
   IAdjustmentItem,
@@ -118,7 +119,18 @@ class AdjustmentService {
       include: ADJUSTMENT_INCLUDE,
     })
     if (!adjustment) throw new NotFoundError(MSG.notFound)
-    return adjustment as unknown as IAdjustmentWithRelations
+
+    const nameMap = await resolveUserNames(db, [
+      adjustment.createdBy,
+      adjustment.approvedBy,
+      adjustment.appliedBy,
+    ])
+    return {
+      ...adjustment,
+      createdByName: nameMap.get(adjustment.createdBy) ?? null,
+      approvedByName: adjustment.approvedBy ? (nameMap.get(adjustment.approvedBy) ?? null) : null,
+      appliedByName: adjustment.appliedBy ? (nameMap.get(adjustment.appliedBy) ?? null) : null,
+    } as unknown as IAdjustmentWithRelations
   }
 
   async findAll(
@@ -179,8 +191,22 @@ class AdjustmentService {
       }),
     ])
 
+    const allUserIds = adjustments.flatMap((a) => [
+      a.createdBy,
+      a.approvedBy ?? null,
+      a.appliedBy ?? null,
+    ])
+    const nameMap = await resolveUserNames(db, allUserIds)
+
+    const enriched = adjustments.map((a) => ({
+      ...a,
+      createdByName: nameMap.get(a.createdBy) ?? null,
+      approvedByName: a.approvedBy ? (nameMap.get(a.approvedBy) ?? null) : null,
+      appliedByName: a.appliedBy ? (nameMap.get(a.appliedBy) ?? null) : null,
+    }))
+
     return {
-      items: adjustments as unknown as IAdjustmentWithRelations[],
+      items: enriched as unknown as IAdjustmentWithRelations[],
       total,
       page,
       limit,

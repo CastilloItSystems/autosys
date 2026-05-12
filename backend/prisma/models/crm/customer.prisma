@@ -71,6 +71,7 @@ model Customer {
   preInvoices       PreInvoice[]
   payments          Payment[]
   invoices          Invoice[]
+  creditNotes       CreditNote[]
 
   // Relaciones CRM (nuevas)
   contacts          CustomerContact[]

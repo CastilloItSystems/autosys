@@ -26,6 +26,7 @@ export interface SupplierPayment {
   reference: string | null
   notes: string | null
   processedBy: string | null
+  processedByName?: string | null
   processedAt: string
   empresaId: string
   createdAt: string

@@ -479,6 +479,7 @@ const AdjustmentList = () => {
             field="createdBy"
             header="Solicitante"
             style={{ minWidth: "140px" }}
+            body={(rowData: Adjustment) => rowData.createdByName ?? rowData.createdBy ?? "—"}
           />
           <Column
             field="createdAt"

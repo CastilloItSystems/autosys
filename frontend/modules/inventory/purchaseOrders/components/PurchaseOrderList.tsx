@@ -13,8 +13,13 @@ import entryNoteService from "@/modules/inventory/entryNotes/services/entryNoteS
 import { AuditTrailDialog } from "@/components/audit/AuditTrail";
 import PurchaseOrderForm from "./PurchaseOrderForm";
 import PurchaseOrderStepper from "./PurchaseOrderStepper";
-import { PurchaseOrder, PO_STATUS_CONFIG } from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
-import itemService, { type Item } from "@/modules/inventory/items/services/itemService";
+import {
+  PurchaseOrder,
+  PO_STATUS_CONFIG,
+} from "@/modules/inventory/purchaseOrders/interfaces/purchaseOrder.interface";
+import itemService, {
+  type Item,
+} from "@/modules/inventory/items/services/itemService";
 import supplierService, {
   type Supplier,
 } from "@/modules/inventory/suppliers/services/supplierService";
@@ -35,7 +40,10 @@ import {
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import dynamic from "next/dynamic";
 
-const PurchaseOrderPDFPreview = dynamic(() => import("./PurchaseOrderPDFPreview"), { ssr: false });
+const PurchaseOrderPDFPreview = dynamic(
+  () => import("./PurchaseOrderPDFPreview"),
+  { ssr: false },
+);
 import FormActionButtons from "@/shared/components/FormActionButtons";
 
 const PurchaseOrderList = () => {
@@ -85,7 +93,12 @@ const PurchaseOrderList = () => {
     setPage(0);
   }, [contextualSearchFilter]);
 
-  const { purchaseOrders, total: totalRecords, loading, mutate } = usePurchaseOrdersData({
+  const {
+    purchaseOrders,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = usePurchaseOrdersData({
     page: page + 1,
     limit: rows,
     sortBy: sortField,
@@ -544,15 +557,7 @@ const PurchaseOrderList = () => {
         command: () => setPdfItem(po),
       },
       { separator: true },
-      {
-        label: editable ? "Editar" : "Ver detalle",
-        icon: editable ? "pi pi-pencil" : "pi pi-eye",
-        command: () => {
-          setPurchaseOrder(po);
-          setFormDialog(true);
-        },
-      },
-      { separator: true },
+
       {
         label: editable ? "Editar" : "Ver detalle",
         icon: editable ? "pi pi-pencil" : "pi pi-eye",

@@ -1,3 +1,5 @@
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
+
 // Tipos para la factura
 export interface Client {
   name: string;
@@ -27,6 +29,7 @@ export interface InvoiceData {
 // Tipo genérico para plantillas
 export interface TemplateProps<T> {
   data: T;
+  company?: PdfCompanyInfo;
 }
 
 // Tipo para el componente PDFGenerator

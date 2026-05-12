@@ -56,6 +56,35 @@ const formatDate = (date: string | Date | undefined): string => {
   }
 };
 
+type LegacyCustomerName = {
+  name?: string | null;
+};
+
+const hasLegacyCustomerName = (
+  customer: object,
+): customer is LegacyCustomerName => {
+  return "name" in customer;
+};
+
+const getCustomerDisplayName = (
+  customer: Invoice["customer"] | null | undefined,
+): string => {
+  if (!customer) {
+    return "N/A";
+  }
+
+  if (typeof customer === "string") {
+    return customer;
+  }
+
+  return (
+    customer.nombre ??
+    customer.nombreCompleto ??
+    (hasLegacyCustomerName(customer) ? customer.name : undefined) ??
+    "N/A"
+  );
+};
+
 // =============================================
 // TEMPLATE COMPONENTS
 // =============================================
@@ -847,11 +876,7 @@ const FinanceDashboard = () => {
               </div>
               <div>
                 <strong>Cliente:</strong>{" "}
-                {typeof selectedInvoice.customer === "string"
-                  ? selectedInvoice.customer
-                  : selectedInvoice.customer?.nombre ??
-                    selectedInvoice.customer?.name ??
-                    "N/A"}
+                {getCustomerDisplayName(selectedInvoice.customer)}
               </div>
               <div>
                 <strong>Fecha de Emisión:</strong>{" "}

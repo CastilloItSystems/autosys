@@ -1,11 +1,14 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { CustomerCrm } from "../interfaces/customer.crm.interface";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -149,28 +152,20 @@ const formatAmount = (value?: number | null, currency = "USD") => {
   })}`;
 };
 
-const CustomerContactReportTemplate = ({ data }: { data: CustomerCrm }) => {
+const CustomerContactReportTemplate = ({ data, company }: { data: CustomerCrm; company?: PdfCompanyInfo }) => {
   const contacts = data.contacts ?? [];
   const vehicles = data.vehicles ?? [];
 
   return (
     <Document title={`Ficha de Cliente - ${data.name}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>{data.name}</Text>
-              <Text style={styles.headerSubtitle}>
-                {TYPE_LABELS[data.type] ?? data.type}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerCode}>{data.code}</Text>
-            <Text style={styles.headerType}>AutoSys CRM</Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Ficha de Cliente"
+          documentNumber={data.code}
+          date={formatDate(data.createdAt)}
+          type={TYPE_LABELS[data.type] ?? data.type}
+        />
 
         {/* Datos Generales */}
         <View style={styles.section}>
@@ -386,17 +381,10 @@ const CustomerContactReportTemplate = ({ data }: { data: CustomerCrm }) => {
           </View>
         )}
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys CRM</Text>
-          <Text style={styles.footerText}>{data.code}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.code}
+        />
       </Page>
     </Document>
   );

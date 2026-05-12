@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Adjustment,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -151,7 +154,7 @@ const formatDate = (d?: Date | string | null) => {
   }
 };
 
-const AdjustmentTemplate = ({ data }: { data: Adjustment }) => {
+const AdjustmentTemplate = ({ data, company }: { data: Adjustment; company?: PdfCompanyInfo }) => {
   const statusLabel =
     ADJUSTMENT_STATUS_LABELS[data.status as AdjustmentStatus] || data.status;
   const badgeColor =
@@ -167,27 +170,14 @@ const AdjustmentTemplate = ({ data }: { data: Adjustment }) => {
   return (
     <Document title={`Ajuste de Inventario - ${data.adjustmentNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Ajuste de Inventario</Text>
-              <Text style={styles.headerSubtitle}>AutoSys — Inventario</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.adjustmentNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {statusLabel}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Ajuste de Inventario"
+          documentNumber={data.adjustmentNumber}
+          date={formatDate(data.createdAt)}
+          status={statusLabel}
+          statusColor={badgeColor}
+        />
 
         {/* Datos generales */}
         <View style={styles.section}>
@@ -208,13 +198,13 @@ const AdjustmentTemplate = ({ data }: { data: Adjustment }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Creado por:</Text>
-                <Text style={styles.value}>{data.createdBy || "—"}</Text>
+                <Text style={styles.value}>{data.createdByName ?? data.createdBy ?? "—"}</Text>
               </View>
             </View>
             <View style={styles.col}>
               <View style={styles.row}>
                 <Text style={styles.label}>Aprobado por:</Text>
-                <Text style={styles.value}>{data.approvedBy || "—"}</Text>
+                <Text style={styles.value}>{data.approvedByName ?? data.approvedBy ?? "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Aprobado el:</Text>
@@ -222,7 +212,7 @@ const AdjustmentTemplate = ({ data }: { data: Adjustment }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Aplicado por:</Text>
-                <Text style={styles.value}>{data.appliedBy || "—"}</Text>
+                <Text style={styles.value}>{data.appliedByName ?? data.appliedBy ?? "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Aplicado el:</Text>
@@ -350,36 +340,29 @@ const AdjustmentTemplate = ({ data }: { data: Adjustment }) => {
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Creado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.createdBy || ""}
+              {data.createdByName ?? data.createdBy ?? ""}
             </Text>
           </View>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Aprobado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.approvedBy || ""}
+              {data.approvedByName ?? data.approvedBy ?? ""}
             </Text>
           </View>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Aplicado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.appliedBy || ""}
+              {data.appliedByName ?? data.appliedBy ?? ""}
             </Text>
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.adjustmentNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.adjustmentNumber}
+        />
       </Page>
     </Document>
   );

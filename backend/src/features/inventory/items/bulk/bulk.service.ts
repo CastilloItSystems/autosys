@@ -18,6 +18,7 @@ import { v4 as uuid } from 'uuid'
 import prisma from '../../../../services/prisma.service.js'
 import { PaginationHelper } from '../../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../../shared/constants/messages.js'
+import { resolveUserNames } from '../../../sales/shared/userNameResolver.js'
 import { logger } from '../../../../shared/utils/logger.js'
 import ExcelJS from 'exceljs'
 
@@ -635,8 +636,14 @@ export class BulkService {
 
     const meta = PaginationHelper.getMeta(validPage, validLimit, total)
 
+    const names = await resolveUserNames(null, operations.map((op: any) => op.createdBy))
+    const enriched = operations.map((op: any) => ({
+      ...op,
+      createdByName: op.createdBy ? (names.get(op.createdBy) ?? null) : null,
+    }))
+
     return {
-      data: operations,
+      data: enriched,
       ...meta,
     }
   }

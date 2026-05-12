@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import ServiceOrderTemplate from "../templates/ServiceOrderTemplate";
 import type { ServiceOrder } from "../interfaces/serviceOrder.interface";
 
 const ServiceOrderPDFPreview = ({ data }: { data: ServiceOrder }) => (
-  <PDFViewer width="100%" height="100%">
-    <ServiceOrderTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <ServiceOrderTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default ServiceOrderPDFPreview;

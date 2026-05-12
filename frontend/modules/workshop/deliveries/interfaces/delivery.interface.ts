@@ -6,6 +6,7 @@ export interface VehicleDelivery {
   serviceOrderId: string
   serviceOrder?: OrderRef | null
   deliveredBy: string | null
+  deliveredByName?: string | null
   receivedByName: string | null
   clientConformity: boolean
   clientSignature: string | null

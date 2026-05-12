@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   WorkshopQuotation,
@@ -14,7 +17,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -182,7 +185,7 @@ const channelLabel: Record<string, string> = {
   DIGITAL_SIGNATURE: "Firma Digital",
 };
 
-const QuotationTemplate = ({ data }: { data: WorkshopQuotation }) => {
+const QuotationTemplate = ({ data, company }: { data: WorkshopQuotation; company?: PdfCompanyInfo }) => {
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
 
   const approvedItems = data.items.filter((i) => i.approved);
@@ -191,33 +194,15 @@ const QuotationTemplate = ({ data }: { data: WorkshopQuotation }) => {
   return (
     <Document title={`Cotización - ${data.quotationNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Cotización de Taller</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.quotationNumber}</Text>
-            {data.version > 1 && (
-              <Text style={styles.headerDate}>Versión: {data.version}</Text>
-            )}
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {data.status}
-            </Text>
-            {data.validUntil && (
-              <Text style={styles.headerDate}>Válida hasta: {formatDate(data.validUntil)}</Text>
-            )}
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Cotizacion de Taller"
+          documentNumber={data.quotationNumber}
+          date={formatDate(data.createdAt)}
+          status={data.status}
+          statusColor={badgeColor}
+          type={data.version > 1 ? `Version: ${data.version}` : undefined}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -375,17 +360,10 @@ const QuotationTemplate = ({ data }: { data: WorkshopQuotation }) => {
           <Text style={styles.signatureLine}>Asesor de Servicio</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.quotationNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.quotationNumber}
+        />
       </Page>
     </Document>
   );

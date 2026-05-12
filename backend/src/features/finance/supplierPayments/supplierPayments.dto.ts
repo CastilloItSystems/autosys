@@ -21,6 +21,7 @@ export class CreateSupplierPaymentDTO implements ICreateSupplierPaymentInput {
   details?: any
   reference?: string
   notes?: string
+  processedByName?: string | null
 
   constructor(data: unknown) {
     const r = asRecord(data)

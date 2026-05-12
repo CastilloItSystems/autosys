@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Payment,
@@ -17,7 +20,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -158,34 +161,21 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   REFUNDED: { bg: "#dbeafe", text: "#1e40af" },
 };
 
-const PaymentReceiptTemplate = ({ data }: { data: Payment }) => {
+const PaymentReceiptTemplate = ({ data, company }: { data: Payment; company?: PdfCompanyInfo }) => {
   const cfg = PAYMENT_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.PENDING;
 
   return (
     <Document title={`Comprobante de Pago - ${data.paymentNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Comprobante de Pago</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.paymentNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.processedAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Comprobante de Pago"
+          documentNumber={data.paymentNumber}
+          date={formatDate(data.processedAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -312,7 +302,7 @@ const PaymentReceiptTemplate = ({ data }: { data: Payment }) => {
           <View style={styles.col}>
             <View style={styles.row}>
               <Text style={styles.label}>Procesado por:</Text>
-              <Text style={styles.value}>{data.processedBy || "—"}</Text>
+              <Text style={styles.value}>{data.processedByName || data.processedBy || "—"}</Text>
             </View>
           </View>
         </View>
@@ -324,19 +314,10 @@ const PaymentReceiptTemplate = ({ data }: { data: Payment }) => {
           </View>
         )}
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>
-            {data.paymentNumber}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.paymentNumber}
+        />
       </Page>
     </Document>
   );

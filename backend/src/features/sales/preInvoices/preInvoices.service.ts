@@ -19,6 +19,7 @@ import {
   ICreateSuggestedTransfersResult,
 } from './preInvoices.interface.js'
 import transfersService from '../../inventory/transfers/transfers.service.js'
+import { resolveUserNames } from '../shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -32,7 +33,7 @@ const PI_INCLUDE = {
       item: { select: { id: true, sku: true, name: true } },
     },
   },
-  order: { select: { id: true, orderNumber: true, status: true } },
+  order: { select: { id: true, orderNumber: true, status: true, approvedBy: true, approvedAt: true } },
   serviceOrder: { select: { id: true, folio: true, status: true } },
   consolidatedServiceOrders: {
     select: { id: true, folio: true, status: true },
@@ -409,7 +410,11 @@ class PreInvoicesService {
       include: PI_INCLUDE,
     })
     if (!pi) throw new NotFoundError('Pre-factura no encontrada')
-    return pi as unknown as IPreInvoice
+    const names = await resolveUserNames(db, [(pi as any).preparedBy, (pi as any).order?.approvedBy])
+    const result = pi as any
+    result.preparedByName = names.get(result.preparedBy) ?? null
+    if (result.order) result.order.approvedByName = names.get(result.order.approvedBy) ?? null
+    return result as unknown as IPreInvoice
   }
 
   async findAll(
@@ -496,7 +501,17 @@ class PreInvoicesService {
       (db as PrismaClient).preInvoice.count({ where }),
     ])
 
-    return { data: data as unknown as IPreInvoice[], total }
+    const allUserIds = (data as any[]).flatMap((p) => [p.preparedBy, p.order?.approvedBy])
+    const names = await resolveUserNames(db, allUserIds)
+    const enriched = (data as any[]).map((p) => ({
+      ...p,
+      preparedByName: names.get(p.preparedBy) ?? null,
+      order: p.order
+        ? { ...p.order, approvedByName: names.get(p.order.approvedBy) ?? null }
+        : p.order,
+    }))
+
+    return { data: enriched as unknown as IPreInvoice[], total }
   }
 
   // -------------------------------------------------------------------------

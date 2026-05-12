@@ -160,6 +160,8 @@ export class OrderResponseDTO {
   approvedAt?: Date
   createdBy?: string
   approvedBy?: string
+  approvedByName?: string
+  createdByName?: string
   items: any[]
   customer?: any
   warehouse?: any
@@ -197,6 +199,8 @@ export class OrderResponseDTO {
     if (data.approvedAt != null) this.approvedAt = data.approvedAt as Date
     if (data.createdBy != null) this.createdBy = String(data.createdBy)
     if (data.approvedBy != null) this.approvedBy = String(data.approvedBy)
+    if (data.approvedByName != null) this.approvedByName = String(data.approvedByName)
+    if (data.createdByName != null) this.createdByName = String(data.createdByName)
     if (data.customer != null) this.customer = data.customer
     if (data.warehouse != null) this.warehouse = data.warehouse
   }

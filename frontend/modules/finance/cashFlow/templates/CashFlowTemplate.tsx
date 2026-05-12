@@ -1,5 +1,8 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { CashTransaction } from "../interfaces/cashTransaction";
 
@@ -16,7 +19,7 @@ export interface CashFlowTemplateData {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -136,30 +139,18 @@ const formatAmount = (value?: number | null, currency = "USD") => {
   })}`;
 };
 
-const CashFlowTemplate = ({ data }: { data: CashFlowTemplateData }) => {
+const CashFlowTemplate = ({ data, company }: { data: CashFlowTemplateData; company?: PdfCompanyInfo }) => {
   const cur = data.currency ?? "USD";
 
   return (
     <Document title="Flujo de Caja">
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Flujo de Caja</Text>
-              <Text style={styles.headerSubtitle}>
-                {data.accountName ? data.accountName : "Todas las cuentas"}
-              </Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            {data.periodFrom && data.periodTo ? (
-              <Text style={styles.headerDate}>
-                {`${formatDate(data.periodFrom)} — ${formatDate(data.periodTo)}`}
-              </Text>
-            ) : null}
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Flujo de Caja"
+          documentNumber={data.accountName ? data.accountName : "Todas las cuentas"}
+          date={data.periodFrom && data.periodTo ? `${formatDate(data.periodFrom)} - ${formatDate(data.periodTo)}` : undefined}
+        />
 
         {/* Summary Cards */}
         <View style={styles.section}>
@@ -286,19 +277,10 @@ const CashFlowTemplate = ({ data }: { data: CashFlowTemplateData }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>
-            {`Generado: ${new Date().toLocaleDateString("es-VE")}`}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.accountName || "Flujo de Caja"}
+        />
       </Page>
     </Document>
   );

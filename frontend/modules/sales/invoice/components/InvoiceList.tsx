@@ -22,6 +22,8 @@ import {
   PaymentMethod,
 } from "@/modules/sales/payments/interfaces/payment.interface";
 import dynamic from "next/dynamic";
+import ApprovalTrail from "@/modules/sales/shared/components/ApprovalTrail";
+import AuditTimeline from "@/modules/sales/shared/components/AuditTimeline";
 
 const InvoicePDFPreview = dynamic(() => import("./InvoicePDFPreview"), {
   ssr: false,
@@ -271,6 +273,48 @@ const InvoiceListContent = () => {
     const invItems = data.items || [];
     return (
       <div className="p-3">
+        <div className="grid mb-3">
+          <div className="col-12 md:col-6">
+            <ApprovalTrail
+              entries={[
+                {
+                  label: "Aprobado por (Orden)",
+                  name:
+                    data.preInvoice?.order?.approvedByName ??
+                    data.preInvoice?.order?.approvedBy,
+                  date: data.preInvoice?.order?.approvedAt,
+                  icon: "pi pi-check-circle",
+                  refLabel: "Orden",
+                  refValue: data.preInvoice?.order?.orderNumber,
+                },
+                {
+                  label: "Preparado por",
+                  name:
+                    data.preInvoice?.preparedByName ??
+                    data.preInvoice?.preparedBy,
+                  date: data.preInvoice?.preparedAt,
+                  icon: "pi pi-file-edit",
+                },
+                {
+                  label: "Emitido por",
+                  name: data.issuedByName ?? data.issuedBy,
+                  date: data.invoiceDate,
+                  icon: "pi pi-receipt",
+                },
+                {
+                  label: "Anulado por",
+                  name: data.cancelledByName ?? data.cancelledBy,
+                  date: data.cancelledAt,
+                  icon: "pi pi-ban",
+                },
+              ]}
+            />
+          </div>
+          <div className="col-12 md:col-6">
+            <AuditTimeline entity="Invoice" entityId={data.id} />
+          </div>
+        </div>
+
         {/* Info cards */}
         <div className="grid mb-3">
           <div className="col-12 md:col-3">

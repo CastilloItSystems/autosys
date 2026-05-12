@@ -1,10 +1,13 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { WorkshopTOT, TOTStatus } from "../interfaces/tot.interface";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 70, paddingBottom: 50, paddingHorizontal: 30, fontFamily: "Roboto" },
+  page: { paddingTop: 88, paddingBottom: 50, paddingHorizontal: 30, fontFamily: "Roboto" },
   header: { position: "absolute", top: 20, left: 30, right: 30, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#1e3a8a", paddingBottom: 8 },
   footer: { position: "absolute", bottom: 20, left: 30, right: 30, flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 7, color: "#94a3b8" },
@@ -72,7 +75,7 @@ const formatDate = (d?: string | null) => {
 const formatAmount = (v?: number | null) =>
   v != null ? v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
 
-const TOTTemplate = ({ data }: { data: WorkshopTOT }) => {
+const TOTTemplate = ({ data, company }: { data: WorkshopTOT; company?: PdfCompanyInfo }) => {
   const badgeColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.REQUESTED;
   const providerDisplay = data.supplier?.name ?? data.providerName ?? "—";
   const providerPhone = data.supplier?.phone ?? "—";
@@ -80,20 +83,14 @@ const TOTTemplate = ({ data }: { data: WorkshopTOT }) => {
   return (
     <Document title={"TOT - " + data.totNumber}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Trabajo Externo (T.O.T.)</Text>
-            <Text style={styles.headerSubtitle}>AutoSys</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.totNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text style={[styles.badge, { backgroundColor: badgeColor.bg, color: badgeColor.text }]}>
-              {STATUS_LABELS[data.status]}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Trabajo Externo (T.O.T.)"
+          documentNumber={data.totNumber}
+          date={formatDate(data.createdAt)}
+          status={STATUS_LABELS[data.status]}
+          statusColor={badgeColor}
+        />
 
         {/* Orden de Servicio y Proveedor */}
         <View style={[styles.section, { marginTop: 8 }]}>
@@ -252,15 +249,10 @@ const TOTTemplate = ({ data }: { data: WorkshopTOT }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.totNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => "Página " + pageNumber + " de " + totalPages}
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.totNumber}
+        />
       </Page>
     </Document>
   );

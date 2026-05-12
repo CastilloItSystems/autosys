@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import CRMQuoteTemplate from "../templates/CRMQuoteTemplate";
 import type { Quote } from "../interfaces/quote.interface";
 
 const CRMQuotePDFPreview = ({ data }: { data: Quote }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <CRMQuoteTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <CRMQuoteTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default CRMQuotePDFPreview;

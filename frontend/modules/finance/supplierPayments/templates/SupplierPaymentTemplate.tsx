@@ -1,11 +1,14 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { SupplierPayment } from "../interfaces/supplierPayment";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -151,34 +154,21 @@ const formatAmount = (value?: number | null, currency = "USD") => {
   })}`;
 };
 
-const SupplierPaymentTemplate = ({ data }: { data: SupplierPayment }) => {
+const SupplierPaymentTemplate = ({ data, company }: { data: SupplierPayment; company?: PdfCompanyInfo }) => {
   const badgeColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.PENDING;
   const cur = data.currency ?? "USD";
 
   return (
     <Document title={`Pago a Proveedor - ${data.paymentNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Comprobante de Pago a Proveedor</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.paymentNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.processedAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {STATUS_LABELS[data.status] ?? data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Comprobante de Pago a Proveedor"
+          documentNumber={data.paymentNumber}
+          date={formatDate(data.processedAt)}
+          status={STATUS_LABELS[data.status] ?? data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Detalles del Pago */}
         <View style={styles.section}>
@@ -231,7 +221,7 @@ const SupplierPaymentTemplate = ({ data }: { data: SupplierPayment }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Procesado por:</Text>
-                <Text style={styles.value}>{data.processedBy ?? "—"}</Text>
+                <Text style={styles.value}>{data.processedByName ?? data.processedBy ?? "—"}</Text>
               </View>
             </View>
           </View>
@@ -275,17 +265,10 @@ const SupplierPaymentTemplate = ({ data }: { data: SupplierPayment }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.paymentNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.paymentNumber}
+        />
       </Page>
     </Document>
   );

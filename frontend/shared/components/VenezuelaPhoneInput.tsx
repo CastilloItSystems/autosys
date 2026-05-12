@@ -17,10 +17,7 @@ interface VenezuelaPhoneInputProps {
  * Formats input to +58 or 04XX pattern
  * Used in employee forms for phone field
  */
-const VenezuelaPhoneInput = forwardRef<
-  HTMLInputElement,
-  VenezuelaPhoneInputProps
->(
+const VenezuelaPhoneInput = forwardRef<InputText, VenezuelaPhoneInputProps>(
   (
     {
       value = "",

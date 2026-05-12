@@ -14,6 +14,7 @@ import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { createAuditLog } from '../../../services/audit.service.js'
 import SupplierBillService from '../../finance/supplierBills/supplierBills.service.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 import {
   IEntryNoteWithRelations,
   IEntryNoteItem,
@@ -433,7 +434,13 @@ export class EntryNoteService {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
-    return entryNote as unknown as IEntryNoteWithRelations
+    const note = entryNote as any
+    const nameMap = await resolveUserNames(db, [note.receivedBy, note.verifiedBy, note.authorizedBy])
+    if (note.receivedBy) note.receivedByName = nameMap.get(note.receivedBy) ?? null
+    if (note.verifiedBy) note.verifiedByName = nameMap.get(note.verifiedBy) ?? null
+    if (note.authorizedBy) note.authorizedByName = nameMap.get(note.authorizedBy) ?? null
+
+    return note as unknown as IEntryNoteWithRelations
   }
 
   /**
@@ -495,8 +502,17 @@ export class EntryNoteService {
       }),
     ])
 
+    const allUserIds = entryNotes.flatMap((n: any) => [n.receivedBy, n.verifiedBy, n.authorizedBy])
+    const nameMap = await resolveUserNames(db, allUserIds)
+    const enriched = entryNotes.map((n: any) => {
+      if (n.receivedBy) n.receivedByName = nameMap.get(n.receivedBy) ?? null
+      if (n.verifiedBy) n.verifiedByName = nameMap.get(n.verifiedBy) ?? null
+      if (n.authorizedBy) n.authorizedByName = nameMap.get(n.authorizedBy) ?? null
+      return n
+    })
+
     return {
-      entryNotes: entryNotes as unknown as IEntryNoteWithRelations[],
+      entryNotes: enriched as unknown as IEntryNoteWithRelations[],
       total,
       page,
       limit,

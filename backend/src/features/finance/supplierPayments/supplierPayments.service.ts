@@ -13,6 +13,7 @@ import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { recalculateBankBalance } from '../shared/recalculateBankBalance.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -65,14 +66,25 @@ class SupplierPaymentService {
       }),
     ])
 
-    return paginate(data, total, page, limit)
+    const userIds = data.map((p) => p.processedBy)
+    const userNames = await resolveUserNames(db, userIds)
+    const enriched = data.map((p) => ({
+      ...p,
+      processedByName: p.processedBy ? (userNames.get(p.processedBy) ?? null) : null,
+    }))
+
+    return paginate(enriched, total, page, limit)
   }
 
   async findById(empresaId: string, id: string) {
     const db = this.db as PrismaClient
     const payment = await db.supplierPayment.findFirst({ where: { id, empresaId }, include: PAYMENT_INCLUDE })
     if (!payment) throw new NotFoundError('Pago a proveedor no encontrado')
-    return payment
+    const userNames = await resolveUserNames(db, [payment.processedBy])
+    return {
+      ...payment,
+      processedByName: payment.processedBy ? (userNames.get(payment.processedBy) ?? null) : null,
+    }
   }
 
   async create(empresaId: string, input: ICreateSupplierPaymentInput, userId?: string) {

@@ -210,7 +210,7 @@ const LoanDetail = ({ loan, onReturn, onRefresh }: LoanDetailProps) => {
             <div className="grid">
               <div className="col-12 md:col-6">
                 <span className="text-500 text-sm font-semibold block mb-1">Aprobado por</span>
-                <span>{loan.approvedBy || "—"}</span>
+                <span>{(loan.approvedByName ?? loan.approvedBy) || "—"}</span>
               </div>
               <div className="col-12 md:col-6">
                 <span className="text-500 text-sm font-semibold block mb-1">Aprobado en</span>
@@ -311,7 +311,7 @@ const LoanDetail = ({ loan, onReturn, onRefresh }: LoanDetailProps) => {
       {/* ── Metadata ─────────────────────────────────────────────────── */}
       <div className="text-xs text-500 pt-2 border-top-1 surface-border flex flex-column gap-1">
         <span>ID: {loan.id}</span>
-        <span>Creado por: {loan.createdBy}</span>
+        <span>Creado por: {loan.createdByName ?? loan.createdBy}</span>
         <span>
           Última actualización:{" "}
           {new Date(loan.updatedAt).toLocaleString("es-VE")}

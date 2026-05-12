@@ -87,6 +87,7 @@ model Item {
   exitNoteItems  ExitNoteItem[]
   entryNoteItems EntryNoteItem[]
   invoiceItems   InvoiceItem[]
+  creditNoteItems CreditNoteItem[]
   batches        Batch[]
   serialNumbers  SerialNumber[]
   images         ItemImage[]

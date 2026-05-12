@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   PreInvoice,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -121,6 +124,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   notesLabel: { fontSize: 8, fontFamily: "Roboto-Bold", color: "#64748b", marginBottom: 2 },
+  signatureBlock: { marginTop: 24, flexDirection: "row", justifyContent: "space-between" },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#94a3b8",
+    width: 160,
+    paddingTop: 4,
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 8,
+  },
 });
 
 const formatDate = (d?: string | null) => {
@@ -154,34 +167,21 @@ const taxLabel = (taxType?: string | null) => {
   return "IVA 16%";
 };
 
-const PreInvoiceTemplate = ({ data }: { data: PreInvoice }) => {
+const PreInvoiceTemplate = ({ data, company }: { data: PreInvoice; company?: PdfCompanyInfo }) => {
   const cfg = PREINVOICE_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.PENDING_PREPARATION;
 
   return (
     <Document title={`Pre-Factura - ${data.preInvoiceNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Pre-Factura</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.preInvoiceNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Pre-Factura"
+          documentNumber={data.preInvoiceNumber}
+          date={formatDate(data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -340,17 +340,25 @@ const PreInvoiceTemplate = ({ data }: { data: PreInvoice }) => {
           </View>
         )}
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.preInvoiceNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
+        {/* Firmas */}
+        <View style={styles.signatureBlock}>
+          <Text style={styles.signatureLine}>
+            {data.order?.approvedByName
+              ? `Aprobado por: ${data.order.approvedByName}`
+              : "Aprobado por (Orden)"}
+          </Text>
+          <Text style={styles.signatureLine}>
+            {data.preparedByName
+              ? `Preparado por: ${data.preparedByName}`
+              : "Preparado por"}
+          </Text>
+          <Text style={styles.signatureLine}>Cliente</Text>
         </View>
+
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.preInvoiceNumber}
+        />
       </Page>
     </Document>
   );

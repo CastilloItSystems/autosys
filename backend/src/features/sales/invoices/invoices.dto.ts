@@ -23,8 +23,10 @@ export class InvoiceResponseDTO {
   notes?: string | null
   invoiceDate: Date
   issuedBy?: string | null
+  issuedByName?: string | null
   cancelledAt?: Date | null
   cancelledBy?: string | null
+  cancelledByName?: string | null
   cancellationReason?: string | null
   items: any[]
   preInvoice?: any
@@ -60,8 +62,10 @@ export class InvoiceResponseDTO {
     if (data.exchangeRate != null) this.exchangeRate = Number(data.exchangeRate)
     if (data.notes != null) this.notes = String(data.notes)
     if (data.issuedBy != null) this.issuedBy = String(data.issuedBy)
+    if (data.issuedByName != null) this.issuedByName = String(data.issuedByName)
     if (data.cancelledAt != null) this.cancelledAt = data.cancelledAt as Date
     if (data.cancelledBy != null) this.cancelledBy = String(data.cancelledBy)
+    if (data.cancelledByName != null) this.cancelledByName = String(data.cancelledByName)
     if (data.cancellationReason != null) this.cancellationReason = String(data.cancellationReason)
     if (data.preInvoice != null) this.preInvoice = data.preInvoice
     if (data.payment != null) this.payment = data.payment

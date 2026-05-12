@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import DiagnosisTemplate from "../templates/DiagnosisTemplate";
 import type { Diagnosis } from "../interfaces/diagnosis.interface";
 
 const DiagnosisPDFPreview = ({ data }: { data: Diagnosis }) => (
-  <PDFViewer width="100%" height="100%">
-    <DiagnosisTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <DiagnosisTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default DiagnosisPDFPreview;

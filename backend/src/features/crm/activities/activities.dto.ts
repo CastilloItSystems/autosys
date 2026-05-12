@@ -68,11 +68,14 @@ export class ActivityResponseDTO {
   title: string
   description?: string | null
   assignedTo: string
+  assignedToName?: string | null
   dueAt: Date
   completedAt?: Date | null
   completedBy?: string | null
+  completedByName?: string | null
   outcome?: string | null
   createdBy: string
+  createdByName?: string | null
   createdAt: Date
   updatedAt: Date
 
@@ -93,5 +96,8 @@ export class ActivityResponseDTO {
     if (data.completedAt != null) this.completedAt = data.completedAt
     if (data.completedBy != null) this.completedBy = data.completedBy
     if (data.outcome != null) this.outcome = data.outcome
+    this.assignedToName = (data as any).assignedToName ?? null
+    this.completedByName = (data as any).completedByName ?? null
+    this.createdByName = (data as any).createdByName ?? null
   }
 }

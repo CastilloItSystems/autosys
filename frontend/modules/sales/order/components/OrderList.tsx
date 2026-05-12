@@ -40,6 +40,7 @@ import {
   ConfirmActionPopup,
 } from "@/components/common/ConfirmAction";
 import OrderStepper from "./OrderStepper";
+import ApprovalTrail from "@/modules/sales/shared/components/ApprovalTrail";
 import { AuditTrailDialog } from "@/components/audit/AuditTrail";
 import dynamic from "next/dynamic";
 
@@ -499,6 +500,25 @@ const OrderListContent = () => {
     return (
       <div className="p-3">
         <OrderStepper currentStatus={data.status} />
+
+        <ApprovalTrail
+          className="my-2"
+          entries={[
+            {
+              label: "Aprobado por",
+              name: data.approvedByName ?? data.approvedBy,
+              date: data.approvedAt,
+              icon: "pi pi-check-circle",
+            },
+            {
+              label: "Creado por",
+              name: data.createdByName ?? data.createdBy,
+              date: data.createdAt,
+              icon: "pi pi-user",
+            },
+          ]}
+        />
+
         {orderItems.length > 0 && (
           <div
             style={{

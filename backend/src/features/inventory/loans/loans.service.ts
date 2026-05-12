@@ -20,6 +20,7 @@ import {
 } from './loans.interface.js'
 import { MovementType } from '../movements/movements.interface.js'
 import { EventType } from '../shared/events/event.types.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 import EventService from '../shared/events/event.service.js'
 import HookRegistry from '../hooks/hook.registry.js'
 import { HookType, HookStage } from '../hooks/hook.interface.js'
@@ -153,7 +154,11 @@ class LoansService {
         throw new NotFoundError('Loan not found')
       }
 
-      return this.mapToInterface(loan)
+      const nameMap = await resolveUserNames(null, [loan.createdBy, loan.approvedBy])
+      const result = this.mapToInterface(loan)
+      result.createdByName = nameMap.get(loan.createdBy ?? '') ?? null
+      result.approvedByName = nameMap.get(loan.approvedBy ?? '') ?? null
+      return result
     } catch (error) {
       logger.error('Error finding loan', { error, id })
       throw error
@@ -204,8 +209,16 @@ class LoansService {
         db.loan.count({ where }),
       ])
 
+      const allUserIds = loans.flatMap((loan: any) => [loan.createdBy, loan.approvedBy])
+      const nameMap = await resolveUserNames(null, allUserIds)
+
       return {
-        items: loans.map((loan) => this.mapToInterface(loan)),
+        items: loans.map((loan: any) => {
+          const result = this.mapToInterface(loan)
+          result.createdByName = nameMap.get(loan.createdBy ?? '') ?? null
+          result.approvedByName = nameMap.get(loan.approvedBy ?? '') ?? null
+          return result
+        }),
         total,
         page,
         limit,

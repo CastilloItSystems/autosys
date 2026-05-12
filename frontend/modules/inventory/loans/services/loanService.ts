@@ -44,12 +44,14 @@ export interface Loan {
   items: LoanItem[];
   approvedAt?: Date;
   approvedBy?: string;
+  approvedByName?: string;
   startDate: Date;
   dueDate: Date;
   returnedAt?: Date;
   purpose?: string;
   notes?: string;
   createdBy: string;
+  createdByName?: string;
   createdAt: Date;
   updatedAt: Date;
 }

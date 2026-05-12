@@ -17,6 +17,7 @@ export interface WorkshopRework {
   realCost: number | null
   notes: string | null
   createdBy: string
+  createdByName?: string | null
   resolvedAt: string | null
   empresaId: string
   createdAt: string

@@ -6,12 +6,15 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import { ReceivableItem } from "../services/receivablesService";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -146,27 +149,21 @@ const agingLabel: Record<string, string> = {
 
 interface ReceivablesTemplateProps {
   data: ReceivableItem;
+  company?: PdfCompanyInfo;
 }
 
-const ReceivablesTemplate = ({ data }: ReceivablesTemplateProps) => {
+const ReceivablesTemplate = ({ data, company }: ReceivablesTemplateProps) => {
   const agingColor = agingColors[data.agingBucket] || agingColors["sin-vencimiento"];
 
   return (
     <Document title={`Cuenta por Cobrar - ${data.preInvoiceNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Estado de Cuenta — Cuentas por Cobrar</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.preInvoiceNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Estado de Cuenta - Cuentas por Cobrar"
+          documentNumber={data.preInvoiceNumber}
+          date={formatDate(data.createdAt)}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -239,17 +236,10 @@ const ReceivablesTemplate = ({ data }: ReceivablesTemplateProps) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.preInvoiceNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.preInvoiceNumber}
+        />
       </Page>
     </Document>
   );

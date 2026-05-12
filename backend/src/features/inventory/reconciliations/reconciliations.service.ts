@@ -20,6 +20,7 @@ import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import EventService from '../shared/events/event.service.js'
 import { EventType } from '../shared/events/event.types.js'
 import { v4 as uuidv4 } from 'uuid'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 export class ReconciliationService {
   /**
@@ -122,7 +123,20 @@ export class ReconciliationService {
         throw new NotFoundError('Reconciliación no encontrada')
       }
 
-      return reconciliation as unknown as IReconciliationWithRelations
+      const nameMap = await resolveUserNames(null, [
+        reconciliation.createdBy,
+        reconciliation.startedBy,
+        reconciliation.approvedBy,
+        reconciliation.appliedBy,
+      ])
+
+      return {
+        ...reconciliation,
+        startedByName: reconciliation.startedBy ? (nameMap.get(reconciliation.startedBy) ?? null) : null,
+        approvedByName: reconciliation.approvedBy ? (nameMap.get(reconciliation.approvedBy) ?? null) : null,
+        appliedByName: reconciliation.appliedBy ? (nameMap.get(reconciliation.appliedBy) ?? null) : null,
+        createdByName: reconciliation.createdBy ? (nameMap.get(reconciliation.createdBy) ?? null) : null,
+      } as unknown as IReconciliationWithRelations
     } catch (error) {
       logger.error('Error al obtener reconciliación', { error, id })
       throw error
@@ -179,8 +193,24 @@ export class ReconciliationService {
         db.reconciliation.count({ where }),
       ])
 
+      const allUserIds = reconciliations.flatMap((r: any) => [
+        r.createdBy,
+        r.startedBy ?? null,
+        r.approvedBy ?? null,
+        r.appliedBy ?? null,
+      ])
+      const nameMap = await resolveUserNames(null, allUserIds)
+
+      const enriched = reconciliations.map((r: any) => ({
+        ...r,
+        createdByName: r.createdBy ? (nameMap.get(r.createdBy) ?? null) : null,
+        startedByName: r.startedBy ? (nameMap.get(r.startedBy) ?? null) : null,
+        approvedByName: r.approvedBy ? (nameMap.get(r.approvedBy) ?? null) : null,
+        appliedByName: r.appliedBy ? (nameMap.get(r.appliedBy) ?? null) : null,
+      }))
+
       return {
-        data: reconciliations as unknown as IReconciliationWithRelations[],
+        data: enriched as unknown as IReconciliationWithRelations[],
         total,
       }
     } catch (error) {

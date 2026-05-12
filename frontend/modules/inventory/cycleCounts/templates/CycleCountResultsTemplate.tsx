@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   CycleCount,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -149,7 +152,7 @@ const formatDate = (d?: Date | string | null) => {
   }
 };
 
-const CycleCountResultsTemplate = ({ data }: { data: CycleCount }) => {
+const CycleCountResultsTemplate = ({ data, company }: { data: CycleCount; company?: PdfCompanyInfo }) => {
   const cfg = CYCLE_COUNT_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
   const items = data.items || [];
@@ -160,29 +163,14 @@ const CycleCountResultsTemplate = ({ data }: { data: CycleCount }) => {
   return (
     <Document title={`Conteo Cíclico - ${data.cycleCountNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Resultados de Conteo Cíclico</Text>
-              <Text style={styles.headerSubtitle}>AutoSys — Inventario</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.cycleCountNumber}</Text>
-            <Text style={styles.headerDate}>
-              {data.warehouse?.name || data.warehouseId}
-            </Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Resultados de Conteo Ciclico"
+          documentNumber={data.cycleCountNumber}
+          date={formatDate(data.startedAt || data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Resumen */}
         <View style={styles.section}>
@@ -205,7 +193,7 @@ const CycleCountResultsTemplate = ({ data }: { data: CycleCount }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Iniciado por:</Text>
-                <Text style={styles.value}>{data.startedBy || "—"}</Text>
+                <Text style={styles.value}>{(data.startedByName ?? data.startedBy) || "—"}</Text>
               </View>
             </View>
             <View style={styles.col}>
@@ -219,7 +207,7 @@ const CycleCountResultsTemplate = ({ data }: { data: CycleCount }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Aprobado por:</Text>
-                <Text style={styles.value}>{data.approvedBy || "—"}</Text>
+                <Text style={styles.value}>{(data.approvedByName ?? data.approvedBy) || "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Creado el:</Text>
@@ -373,29 +361,22 @@ const CycleCountResultsTemplate = ({ data }: { data: CycleCount }) => {
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Realizado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.startedBy || ""}
+              {(data.startedByName ?? data.startedBy) || ""}
             </Text>
           </View>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Aprobado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.approvedBy || ""}
+              {(data.approvedByName ?? data.approvedBy) || ""}
             </Text>
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.cycleCountNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.cycleCountNumber}
+        />
       </Page>
     </Document>
   );

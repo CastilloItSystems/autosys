@@ -60,8 +60,11 @@ export interface ExitNote {
   expectedReturnDate?: string;
   notes?: string;
   authorizedBy?: string;
+  authorizedByName?: string | null;
   preparedBy?: string;
+  preparedByName?: string | null;
   deliveredBy?: string;
+  deliveredByName?: string | null;
   createdAt: string;
   updatedAt: string;
   items?: ExitNoteItem[];

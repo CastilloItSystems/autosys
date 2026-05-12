@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import ExpenseTemplate from "../templates/ExpenseTemplate";
 import type { Expense } from "../interfaces/expense";
 
 const ExpensePDFPreview = ({ data }: { data: Expense }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <ExpenseTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <ExpenseTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default ExpensePDFPreview;

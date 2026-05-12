@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Transfer,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -148,34 +151,21 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#fecaca", text: "#991b1b" },
 };
 
-const TransferTemplate = ({ data }: { data: Transfer }) => {
+const TransferTemplate = ({ data, company }: { data: Transfer; company?: PdfCompanyInfo }) => {
   const cfg = TRANSFER_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
 
   return (
     <Document title={`Transferencia - ${data.transferNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Transferencia entre Almacenes</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.transferNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Transferencia entre Almacenes"
+          documentNumber={data.transferNumber}
+          date={formatDate(data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Almacenes */}
         <View style={styles.section}>
@@ -251,7 +241,7 @@ const TransferTemplate = ({ data }: { data: Transfer }) => {
               {data.approvedBy && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Aprobado por:</Text>
-                  <Text style={styles.value}>{data.approvedBy} ({formatDate(data.approvedAt)})</Text>
+                  <Text style={styles.value}>{data.approvedByName ?? data.approvedBy} ({formatDate(data.approvedAt)})</Text>
                 </View>
               )}
             </View>
@@ -259,7 +249,7 @@ const TransferTemplate = ({ data }: { data: Transfer }) => {
               {data.rejectedBy && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Rechazado por:</Text>
-                  <Text style={styles.value}>{data.rejectedBy}</Text>
+                  <Text style={styles.value}>{data.rejectedByName ?? data.rejectedBy}</Text>
                 </View>
               )}
               {data.rejectionReason && (
@@ -304,17 +294,10 @@ const TransferTemplate = ({ data }: { data: Transfer }) => {
           <Text style={styles.signatureLine}>Almacén Destino</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.transferNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.transferNumber}
+        />
       </Page>
     </Document>
   );

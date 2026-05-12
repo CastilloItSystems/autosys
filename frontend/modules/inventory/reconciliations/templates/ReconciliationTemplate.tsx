@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Reconciliation,
@@ -16,7 +19,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -177,7 +180,7 @@ interface TimelineStep {
   active: boolean;
 }
 
-const ReconciliationTemplate = ({ data }: { data: Reconciliation }) => {
+const ReconciliationTemplate = ({ data, company }: { data: Reconciliation; company?: PdfCompanyInfo }) => {
   const cfg = RECONCILIATION_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
   const items = data.items || [];
@@ -202,32 +205,15 @@ const ReconciliationTemplate = ({ data }: { data: Reconciliation }) => {
   return (
     <Document title={`Reconciliación - ${data.reconciliationNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Reconciliación de Inventario</Text>
-              <Text style={styles.headerSubtitle}>AutoSys — Inventario</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.reconciliationNumber}</Text>
-            <Text style={styles.headerDate}>
-              {data.warehouse?.name || data.warehouseId}
-            </Text>
-            {sourceCfg && (
-              <Text style={styles.headerDate}>{sourceCfg.label}</Text>
-            )}
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Reconciliacion de Inventario"
+          documentNumber={data.reconciliationNumber}
+          date={data.warehouse?.name || data.warehouseId}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+          type={sourceCfg?.label}
+        />
 
         {/* Timeline */}
         <View style={styles.section}>
@@ -269,17 +255,17 @@ const ReconciliationTemplate = ({ data }: { data: Reconciliation }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Responsable:</Text>
-                <Text style={styles.value}>{data.startedBy || "—"}</Text>
+                <Text style={styles.value}>{data.startedByName ?? data.startedBy ?? "—"}</Text>
               </View>
             </View>
             <View style={styles.col}>
               <View style={styles.row}>
                 <Text style={styles.label}>Aprobado por:</Text>
-                <Text style={styles.value}>{data.approvedBy || "—"}</Text>
+                <Text style={styles.value}>{data.approvedByName ?? data.approvedBy ?? "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Aplicado por:</Text>
-                <Text style={styles.value}>{data.appliedBy || "—"}</Text>
+                <Text style={styles.value}>{data.appliedByName ?? data.appliedBy ?? "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Creado el:</Text>
@@ -408,29 +394,22 @@ const ReconciliationTemplate = ({ data }: { data: Reconciliation }) => {
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Responsable</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.startedBy || ""}
+              {data.startedByName ?? data.startedBy ?? ""}
             </Text>
           </View>
           <View style={styles.signatureBox}>
             <View style={styles.signatureLine} />
             <Text style={styles.signatureLabel}>Aprobado por</Text>
             <Text style={[styles.signatureLabel, { marginTop: 2 }]}>
-              {data.approvedBy || ""}
+              {data.approvedByName ?? data.approvedBy ?? ""}
             </Text>
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.reconciliationNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.reconciliationNumber}
+        />
       </Page>
     </Document>
   );

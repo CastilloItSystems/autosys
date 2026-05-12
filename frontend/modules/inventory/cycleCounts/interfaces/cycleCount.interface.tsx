@@ -68,10 +68,15 @@ export interface CycleCount {
   approvedAt?: Date | string;
   appliedAt?: Date | string;
   startedBy?: string;
+  startedByName?: string;
   completedBy?: string;
+  completedByName?: string;
   approvedBy?: string;
+  approvedByName?: string;
   appliedBy?: string;
+  appliedByName?: string;
   createdBy?: string;
+  createdByName?: string;
   createdAt: Date | string;
   updatedAt: Date | string;
   warehouse?: {

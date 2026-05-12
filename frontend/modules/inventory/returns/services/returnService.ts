@@ -47,11 +47,14 @@ export interface ReturnOrder {
   reason: string;
   notes?: string;
   approvedBy?: string;
+  approvedByName?: string | null;
   approvedAt?: Date;
   processedBy?: string;
+  processedByName?: string | null;
   processedAt?: Date;
   items: ReturnItem[];
   createdBy: string;
+  createdByName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

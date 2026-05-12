@@ -46,6 +46,7 @@ export class PaymentResponseDTO {
   reference?: string | null
   notes?: string | null
   processedBy?: string | null
+  processedByName?: string | null
   processedAt: Date
   preInvoice?: any
   customer?: any
@@ -73,6 +74,7 @@ export class PaymentResponseDTO {
     if (data.reference != null) this.reference = String(data.reference)
     if (data.notes != null) this.notes = String(data.notes)
     if (data.processedBy != null) this.processedBy = String(data.processedBy)
+    if (data.processedByName != null) this.processedByName = String(data.processedByName)
     if (data.preInvoice != null) this.preInvoice = data.preInvoice
     if (data.customer != null) this.customer = data.customer
   }

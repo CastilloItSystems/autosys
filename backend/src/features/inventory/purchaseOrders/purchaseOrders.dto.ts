@@ -223,14 +223,19 @@ export class PurchaseOrderResponseDTO {
   orderDate: Date
   expectedDate: Date | null
   createdBy: string | null
+  createdByName?: string | null
   submittedBy: string | null
+  submittedByName?: string | null
   submittedAt: Date | null
   approvedBy: string | null
+  approvedByName?: string | null
   approvedAt: Date | null
   rejectedBy: string | null
+  rejectedByName?: string | null
   rejectedAt: Date | null
   rejectionReason: string | null
   sentBy: string | null
+  sentByName?: string | null
   sentAt: Date | null
   createdAt: Date
   updatedAt: Date
@@ -263,14 +268,19 @@ export class PurchaseOrderResponseDTO {
     this.orderDate = po.orderDate
     this.expectedDate = po.expectedDate ?? null
     this.createdBy = po.createdBy ?? null
+    this.createdByName = (po as any).createdByName ?? null
     this.submittedBy = po.submittedBy ?? null
+    this.submittedByName = (po as any).submittedByName ?? null
     this.submittedAt = po.submittedAt ?? null
     this.approvedBy = po.approvedBy ?? null
+    this.approvedByName = (po as any).approvedByName ?? null
     this.approvedAt = po.approvedAt ?? null
     this.rejectedBy = po.rejectedBy ?? null
+    this.rejectedByName = (po as any).rejectedByName ?? null
     this.rejectedAt = po.rejectedAt ?? null
     this.rejectionReason = po.rejectionReason ?? null
     this.sentBy = po.sentBy ?? null
+    this.sentByName = (po as any).sentByName ?? null
     this.sentAt = po.sentAt ?? null
     this.createdAt = po.createdAt
     this.updatedAt = po.updatedAt

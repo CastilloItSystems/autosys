@@ -1,31 +1,9 @@
 "use client";
 import React, { useState } from "react";
-import dynamic from "next/dynamic";
-import PDFDownloadButton from "./PDFDownloadButton";
 import { PDFGeneratorProps } from "@/types/pdfTypes";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
-
-// Carga dinámica para evitar SSR del visor
-const PDFViewer = dynamic(() => import("./PDFViewer"), {
-  ssr: false,
-  loading: () => (
-    <div
-      style={{
-        width: "100%",
-        height: "600px",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        backgroundColor: "#f0f0f0",
-        borderRadius: "8px",
-        border: "1px dashed #ccc",
-      }}
-    >
-      Cargando vista previa...
-    </div>
-  ),
-});
+import CompanyPDFViewer from "./CompanyPDFViewer";
 
 const PDFGenerator = <T,>({
   template: Template,
@@ -76,9 +54,9 @@ const PDFGenerator = <T,>({
             height: "100%",
           }}
         >
-          <PDFViewer width="100%" height="100%">
-            <Template data={data} />
-          </PDFViewer>
+          <CompanyPDFViewer>
+            {(company) => <Template data={data} company={company} />}
+          </CompanyPDFViewer>
         </Dialog>
       )}
 

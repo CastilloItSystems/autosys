@@ -53,8 +53,11 @@ export interface Adjustment {
   approvedAt?: Date;
   appliedAt?: Date;
   approvedBy?: string;
+  approvedByName?: string | null;
   appliedBy?: string;
+  appliedByName?: string | null;
   createdBy?: string;
+  createdByName?: string | null;
   createdAt: Date;
   updatedAt: Date;
 }

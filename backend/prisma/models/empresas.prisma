@@ -59,6 +59,7 @@ model Empresa {
   orders          Order[]
   preInvoices     PreInvoice[]
   invoices        Invoice[]
+  creditNotes     CreditNote[]
   payments        Payment[]
 
   // CRM

@@ -67,14 +67,19 @@ export interface PurchaseOrder {
   orderDate?: string;
   expectedDate?: string | null;
   createdBy?: string | null;
+  createdByName?: string | null;
   submittedBy?: string | null;
+  submittedByName?: string | null;
   submittedAt?: string | null;
   approvedBy?: string | null;
+  approvedByName?: string | null;
   approvedAt?: string | null;
   rejectedBy?: string | null;
+  rejectedByName?: string | null;
   rejectedAt?: string | null;
   rejectionReason?: string | null;
   sentBy?: string | null;
+  sentByName?: string | null;
   sentAt?: string | null;
   supplier?: Supplier;
   warehouse?: {

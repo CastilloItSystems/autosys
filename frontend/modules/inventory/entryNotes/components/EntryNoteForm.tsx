@@ -116,8 +116,8 @@ export default function EntryNoteForm({
           reason: entryNote.reason || undefined,
           reference: entryNote.reference || undefined,
           notes: entryNote.notes || undefined,
-          receivedBy: entryNote.receivedBy || undefined,
-          authorizedBy: entryNote.authorizedBy || undefined,
+          receivedBy: entryNote.receivedByName || entryNote.receivedBy || undefined,
+          authorizedBy: entryNote.authorizedByName || entryNote.authorizedBy || undefined,
           items: Array.isArray(entryNote.items)
             ? entryNote.items.map((i) => ({
                 itemId: i.itemId,

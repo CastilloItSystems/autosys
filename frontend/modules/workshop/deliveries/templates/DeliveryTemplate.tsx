@@ -6,12 +6,15 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import { VehicleDelivery } from "../interfaces/delivery.interface";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -108,23 +111,16 @@ const formatDate = (d?: string | null) => {
   });
 };
 
-const DeliveryTemplate = ({ data }: { data: VehicleDelivery }) => {
+const DeliveryTemplate = ({ data, company }: { data: VehicleDelivery; company?: PdfCompanyInfo }) => {
   return (
     <Document title={`Entrega de Vehículo - ${data.id}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Acta de Entrega de Vehículo</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>ID: {data.id.slice(-8).toUpperCase()}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.deliveredAt)}</Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Acta de Entrega de Vehiculo"
+          documentNumber={`Entrega #${data.id.slice(-8).toUpperCase()}`}
+          date={formatDate(data.deliveredAt || data.createdAt)}
+        />
 
         {/* Orden de servicio */}
         <View style={styles.section}>
@@ -146,7 +142,7 @@ const DeliveryTemplate = ({ data }: { data: VehicleDelivery }) => {
             <View style={styles.col}>
               <View style={styles.row}>
                 <Text style={styles.label}>Entregado por:</Text>
-                <Text style={styles.value}>{data.deliveredBy || "—"}</Text>
+                <Text style={styles.value}>{data.deliveredByName ?? data.deliveredBy ?? "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Recibido por:</Text>
@@ -194,17 +190,10 @@ const DeliveryTemplate = ({ data }: { data: VehicleDelivery }) => {
           Al firmar, el cliente acepta la entrega del vehículo y los trabajos realizados.
         </Text>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>Entrega #{data.id.slice(-8).toUpperCase()}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={`Entrega #${data.id.slice(-8).toUpperCase()}`}
+        />
       </Page>
     </Document>
   );

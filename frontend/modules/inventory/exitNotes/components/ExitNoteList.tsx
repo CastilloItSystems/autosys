@@ -396,39 +396,45 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     );
   };
 
-  /* ── Column: CRUD actions (cog menu - only PENDING) ── */
+  /* ── Column: actions menu ── */
   const getMenuItems = (note: ExitNote | null): MenuItem[] => {
-    if (!note || note.status !== ExitNoteStatus.PENDING) return [];
-    return [
+    if (!note) return [];
+    const items: MenuItem[] = [
       {
         label: "Imprimir PDF",
         icon: "pi pi-print",
         command: () => setPdfItem(note),
       },
-      { separator: true },
-      {
-        label: "Editar",
-        icon: "pi pi-pencil",
-        command: () => {
-          setSelectedExitNote(note);
-          setFormDialog(true);
-        },
-      },
-      { separator: true },
-      {
-        label: "Eliminar",
-        icon: "pi pi-trash",
-        className: "p-menuitem-danger",
-        command: () => {
-          setSelectedExitNote(note);
-          setDeleteDialog(true);
-        },
-      },
     ];
+
+    if (note.status === ExitNoteStatus.PENDING) {
+      items.push(
+        { separator: true },
+        {
+          label: "Editar",
+          icon: "pi pi-pencil",
+          command: () => {
+            setSelectedExitNote(note);
+            setFormDialog(true);
+          },
+        },
+        { separator: true },
+        {
+          label: "Eliminar",
+          icon: "pi pi-trash",
+          className: "p-menuitem-danger",
+          command: () => {
+            setSelectedExitNote(note);
+            setDeleteDialog(true);
+          },
+        },
+      );
+    }
+
+    return items;
   };
 
   const crudBodyTemplate = (rowData: ExitNote) => {
-    if (rowData.status !== ExitNoteStatus.PENDING) return null;
     return (
       <Button
         icon="pi pi-cog"

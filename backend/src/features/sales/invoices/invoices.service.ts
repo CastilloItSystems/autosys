@@ -10,6 +10,7 @@ import {
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { IInvoice, InvoiceStatus, IInvoiceFilters } from './invoices.interface.js'
+import { resolveUserNames } from '../shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -25,7 +26,9 @@ const INVOICE_INCLUDE = {
       id: true,
       preInvoiceNumber: true,
       orderId: true,
-      order: { select: { id: true, orderNumber: true } },
+      preparedBy: true,
+      preparedAt: true,
+      order: { select: { id: true, orderNumber: true, approvedBy: true, approvedAt: true } },
     },
   },
   payment: {
@@ -46,7 +49,22 @@ class InvoicesService {
       include: INVOICE_INCLUDE,
     })
     if (!invoice) throw new NotFoundError('Factura no encontrada')
-    return invoice as unknown as IInvoice
+    const inv = invoice as any
+    const names = await resolveUserNames(db, [
+      inv.issuedBy,
+      inv.cancelledBy,
+      inv.preInvoice?.preparedBy,
+      inv.preInvoice?.order?.approvedBy,
+    ])
+    inv.issuedByName = names.get(inv.issuedBy) ?? null
+    inv.cancelledByName = names.get(inv.cancelledBy) ?? null
+    if (inv.preInvoice) {
+      inv.preInvoice.preparedByName = names.get(inv.preInvoice.preparedBy) ?? null
+      if (inv.preInvoice.order) {
+        inv.preInvoice.order.approvedByName = names.get(inv.preInvoice.order.approvedBy) ?? null
+      }
+    }
+    return inv as unknown as IInvoice
   }
 
   async findAll(
@@ -90,7 +108,29 @@ class InvoicesService {
       (db as PrismaClient).invoice.count({ where }),
     ])
 
-    return { data: data as unknown as IInvoice[], total }
+    const allUserIds = (data as any[]).flatMap((inv) => [
+      inv.issuedBy,
+      inv.cancelledBy,
+      inv.preInvoice?.preparedBy,
+      inv.preInvoice?.order?.approvedBy,
+    ])
+    const names = await resolveUserNames(db, allUserIds)
+    const enriched = (data as any[]).map((inv) => ({
+      ...inv,
+      issuedByName: names.get(inv.issuedBy) ?? null,
+      cancelledByName: names.get(inv.cancelledBy) ?? null,
+      preInvoice: inv.preInvoice
+        ? {
+            ...inv.preInvoice,
+            preparedByName: names.get(inv.preInvoice.preparedBy) ?? null,
+            order: inv.preInvoice.order
+              ? { ...inv.preInvoice.order, approvedByName: names.get(inv.preInvoice.order.approvedBy) ?? null }
+              : inv.preInvoice.order,
+          }
+        : inv.preInvoice,
+    }))
+
+    return { data: enriched as unknown as IInvoice[], total }
   }
 
   /**

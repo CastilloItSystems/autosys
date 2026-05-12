@@ -163,7 +163,7 @@ export default function ReworkForm({
                 <b>Estado:</b> {rework.status}
               </span>
               <span>
-                <b>Creado por:</b> {rework.createdBy}
+                <b>Creado por:</b> {rework.createdByName ?? rework.createdBy}
               </span>
             </div>
           </div>

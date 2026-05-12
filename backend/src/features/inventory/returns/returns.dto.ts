@@ -39,6 +39,9 @@ export class ReturnResponseDTO {
   createdAt: Date
   updatedAt: Date
   items?: any[]
+  createdByName?: string | null
+  approvedByName?: string | null
+  processedByName?: string | null
 
   constructor(data: any) {
     this.id = data.id
@@ -51,5 +54,8 @@ export class ReturnResponseDTO {
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
     if (data.items) this.items = data.items
+    this.createdByName = data.createdByName ?? null
+    this.approvedByName = data.approvedByName ?? null
+    this.processedByName = data.processedByName ?? null
   }
 }

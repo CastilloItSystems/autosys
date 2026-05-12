@@ -16,10 +16,7 @@ interface DocumentNumberInputProps {
  * Document Number Input Component
  * Only accepts numeric input, 6-10 digits
  */
-const DocumentNumberInput = forwardRef<
-  HTMLInputElement,
-  DocumentNumberInputProps
->(
+const DocumentNumberInput = forwardRef<InputText, DocumentNumberInputProps>(
   (
     {
       value = "",

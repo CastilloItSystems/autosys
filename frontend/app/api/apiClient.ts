@@ -1,6 +1,7 @@
 import axios from "axios";
-import { getSession, signOut } from "next-auth/react";
+import { getSession } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { notifySessionExpired } from "@/lib/sessionExpiration";
 
 interface ExtendedUser {
   token: string;
@@ -37,22 +38,27 @@ apiClient.interceptors.request.use(
   },
 );
 
-// guard to prevent multiple logout alerts
-let logoutAlertShown = false;
+// Evita mostrar el diálogo muchas veces cuando varias solicitudes fallan juntas.
+let sessionExpiredNoticeShown = false;
+
+function showSessionExpiredNotice() {
+  if (sessionExpiredNoticeShown) {
+    return;
+  }
+
+  sessionExpiredNoticeShown = true;
+  notifySessionExpired();
+}
 
 // 2) Interceptor de respuesta: captura logout o 401
 apiClient.interceptors.response.use(
   (response) => {
     if (response.data?.logout) {
-      if (!logoutAlertShown) {
-        logoutAlertShown = true;
-        window.alert(
-          "Sesión expirada. Por favor inicie sesión nuevamente este? .",
-        );
-      }
-      signOut({ callbackUrl: "/auth/login" });
+      showSessionExpiredNotice();
       return Promise.reject(new Error("Logout triggered"));
     }
+
+    sessionExpiredNoticeShown = false;
     return response;
   },
   async (error) => {
@@ -75,13 +81,7 @@ apiClient.interceptors.response.use(
     }
 
     if (error.response?.status === 401) {
-      if (!logoutAlertShown) {
-        logoutAlertShown = true;
-        window.alert(
-          "Su sesión ha finalizado. Por favor inicie sesión nuevamente.",
-        );
-      }
-      signOut({ callbackUrl: "/auth/login" });
+      showSessionExpiredNotice();
       return Promise.reject(new Error("Unauthorized"));
     }
 

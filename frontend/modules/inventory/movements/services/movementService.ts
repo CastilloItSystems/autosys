@@ -80,9 +80,11 @@ export interface Movement {
   invoiceId?: string | null;
   exitType?: "MANUAL" | "SYSTEM" | null;
   approvedBy?: string | null;
+  approvedByName?: string | null;
   approvedAt?: string | null;
   movementDate: string;
   createdBy?: string;
+  createdByName?: string | null;
   createdAt: string;
   updatedAt: string;
   variance?: number | null;

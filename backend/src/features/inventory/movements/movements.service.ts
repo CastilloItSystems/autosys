@@ -17,6 +17,7 @@ import { logger } from '../../../shared/utils/logger.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 import inventoryNotificationTriggerService from '../shared/notifications/inventory-notification-trigger.service.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -268,7 +269,12 @@ export class MovementService {
 
     if (!movement) throw new NotFoundError(MSG.notFound)
 
-    return movement as IMovementWithRelations
+    const result = movement as any
+    const names = await resolveUserNames(db, [result.createdBy, result.approvedBy])
+    if (result.createdBy) result.createdByName = names.get(result.createdBy) ?? null
+    if (result.approvedBy) result.approvedByName = names.get(result.approvedBy) ?? null
+
+    return result as IMovementWithRelations
   }
 
   async findAll(
@@ -329,7 +335,15 @@ export class MovementService {
       }),
     ])
 
-    return { items: movements as IMovementWithRelations[], page, limit, total }
+    const allIds = movements.flatMap((m: any) => [m.createdBy, m.approvedBy])
+    const names = await resolveUserNames(db, allIds)
+    const enriched = movements.map((m: any) => {
+      if (m.createdBy) m.createdByName = names.get(m.createdBy) ?? null
+      if (m.approvedBy) m.approvedByName = names.get(m.approvedBy) ?? null
+      return m
+    })
+
+    return { items: enriched as IMovementWithRelations[], page, limit, total }
   }
 
   async findByType(

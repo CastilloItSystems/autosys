@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Loan,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -154,7 +157,7 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#fecaca", text: "#991b1b" },
 };
 
-const LoanTemplate = ({ data }: { data: Loan }) => {
+const LoanTemplate = ({ data, company }: { data: Loan; company?: PdfCompanyInfo }) => {
   const cfg = LOAN_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
   const isOverdue = data.status === LoanStatus.OVERDUE;
@@ -166,27 +169,14 @@ const LoanTemplate = ({ data }: { data: Loan }) => {
   return (
     <Document title={"Préstamo - " + data.loanNumber}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Orden de Préstamo</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.loanNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.startDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Orden de Prestamo"
+          documentNumber={data.loanNumber}
+          date={formatDate(data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Datos generales */}
         <View style={styles.section}>
@@ -212,7 +202,7 @@ const LoanTemplate = ({ data }: { data: Loan }) => {
               ) : null}
               <View style={styles.row}>
                 <Text style={styles.label}>Creado por:</Text>
-                <Text style={styles.value}>{data.createdBy}</Text>
+                <Text style={styles.value}>{data.createdByName ?? data.createdBy}</Text>
               </View>
             </View>
             <View style={styles.col}>
@@ -220,7 +210,7 @@ const LoanTemplate = ({ data }: { data: Loan }) => {
                 <View style={styles.row}>
                   <Text style={styles.label}>Aprobado por:</Text>
                   <Text style={styles.value}>
-                    {data.approvedBy +
+                    {(data.approvedByName ?? data.approvedBy) +
                       (data.approvedAt
                         ? " (" + formatDate(data.approvedAt) + ")"
                         : "")}
@@ -337,17 +327,10 @@ const LoanTemplate = ({ data }: { data: Loan }) => {
           <Text style={styles.signatureLine}>Aprobado por</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.loanNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              "Página " + pageNumber + " de " + totalPages
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.loanNumber}
+        />
       </Page>
     </Document>
   );

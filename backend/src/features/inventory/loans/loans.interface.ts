@@ -53,6 +53,8 @@ export interface ILoanWithRelations extends ILoan {
   approver?: any
   creator?: any
   warehouse?: any
+  createdByName?: string | null
+  approvedByName?: string | null
 }
 
 export interface ICreateLoanInput {

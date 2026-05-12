@@ -84,7 +84,7 @@ export default function TransferDetail({ transfer }: TransferDetailProps) {
             <i className="pi pi-check-circle text-orange-500 text-xl" />
             <div>
               <span className="text-700 font-bold block">Aprobado por</span>
-              <span className="text-900">{transfer.approvedBy || "—"}</span>
+              <span className="text-900">{transfer.approvedByName ?? transfer.approvedBy ?? "—"}</span>
             </div>
           </div>
           <div>
@@ -113,7 +113,7 @@ export default function TransferDetail({ transfer }: TransferDetailProps) {
           content={
             <div className="flex flex-column gap-2">
               <span className="font-semibold">
-                Rechazada por: {transfer.rejectedBy || "—"}
+                Rechazada por: {transfer.rejectedByName ?? transfer.rejectedBy ?? "—"}
               </span>
               {transfer.rejectedAt && (
                 <small>

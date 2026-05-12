@@ -80,9 +80,12 @@ export interface Adjustment {
   reason: string;
   notes?: string;
   createdBy?: string;
+  createdByName?: string | null;
   approvedBy?: string;
+  approvedByName?: string | null;
   approvedAt?: string;
   appliedBy?: string;
+  appliedByName?: string | null;
   appliedAt?: string;
   createdAt: string;
   updatedAt: string;

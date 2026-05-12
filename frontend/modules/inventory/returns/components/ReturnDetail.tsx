@@ -125,7 +125,7 @@ const ReturnDetail = ({ returnOrder, onRefresh }: ReturnDetailProps) => {
             <div className="grid">
               <div className="col-12 md:col-6">
                 <span className="text-500 text-sm font-semibold block mb-1">Aprobado por</span>
-                <span>{returnOrder.approvedBy || "—"}</span>
+                <span>{returnOrder.approvedByName || returnOrder.approvedBy || "—"}</span>
               </div>
               <div className="col-12 md:col-6">
                 <span className="text-500 text-sm font-semibold block mb-1">Aprobado en</span>
@@ -147,7 +147,7 @@ const ReturnDetail = ({ returnOrder, onRefresh }: ReturnDetailProps) => {
                 <span className="text-500 text-sm font-semibold block mb-1">
                   {returnOrder.status === ReturnStatus.REJECTED ? "Rechazado por" : "Procesado por"}
                 </span>
-                <span>{returnOrder.processedBy || "—"}</span>
+                <span>{returnOrder.processedByName || returnOrder.processedBy || "—"}</span>
               </div>
               <div className="col-12 md:col-6">
                 <span className="text-500 text-sm font-semibold block mb-1">
@@ -219,7 +219,7 @@ const ReturnDetail = ({ returnOrder, onRefresh }: ReturnDetailProps) => {
       {/* ── Metadata ─────────────────────────────────────────────────── */}
       <div className="text-xs text-500 pt-2 border-top-1 surface-border flex flex-column gap-1">
         <span>ID: {returnOrder.id}</span>
-        <span>Creado por: {returnOrder.createdBy}</span>
+        <span>Creado por: {returnOrder.createdByName || returnOrder.createdBy}</span>
         <span>Última actualización: {new Date(returnOrder.updatedAt).toLocaleString("es-VE")}</span>
       </div>
 

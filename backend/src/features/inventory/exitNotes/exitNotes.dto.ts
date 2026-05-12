@@ -127,8 +127,11 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
   preparedAt?: Date
   deliveredAt?: Date
   preparedBy?: string
+  preparedByName?: string | null
   deliveredBy?: string
+  deliveredByName?: string | null
   authorizedBy?: string
+  authorizedByName?: string | null
   createdAt: Date
   updatedAt: Date
 
@@ -161,7 +164,10 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
     if (data.preparedAt !== undefined) this.preparedAt = data.preparedAt
     if (data.deliveredAt !== undefined) this.deliveredAt = data.deliveredAt
     if (data.preparedBy !== undefined) this.preparedBy = data.preparedBy
+    if ((data as any).preparedByName !== undefined) this.preparedByName = (data as any).preparedByName
     if (data.deliveredBy !== undefined) this.deliveredBy = data.deliveredBy
+    if ((data as any).deliveredByName !== undefined) this.deliveredByName = (data as any).deliveredByName
     if (data.authorizedBy !== undefined) this.authorizedBy = data.authorizedBy
+    if ((data as any).authorizedByName !== undefined) this.authorizedByName = (data as any).authorizedByName
   }
 }

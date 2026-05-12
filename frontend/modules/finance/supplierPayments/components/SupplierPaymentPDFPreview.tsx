@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import SupplierPaymentTemplate from "../templates/SupplierPaymentTemplate";
 import type { SupplierPayment } from "../interfaces/supplierPayment";
 
 const SupplierPaymentPDFPreview = ({ data }: { data: SupplierPayment }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <SupplierPaymentTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <SupplierPaymentTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default SupplierPaymentPDFPreview;

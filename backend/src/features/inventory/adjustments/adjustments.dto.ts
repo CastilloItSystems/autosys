@@ -69,12 +69,15 @@ export class AdjustmentResponseDTO {
   status: AdjustmentStatus
   reason: string
   createdBy: string
+  createdByName?: string | null
   createdAt: Date
   updatedAt: Date
   notes?: string | null
   approvedBy?: string | null
+  approvedByName?: string | null
   approvedAt?: Date | null
   appliedBy?: string | null
+  appliedByName?: string | null
   appliedAt?: Date | null
   items?: IAdjustmentItem[]
   warehouse?: unknown
@@ -96,6 +99,10 @@ export class AdjustmentResponseDTO {
     if (data.appliedAt !== undefined) this.appliedAt = data.appliedAt
     if (data.items !== undefined) this.items = data.items
     if (data.warehouse !== undefined) this.warehouse = data.warehouse
+    // Enriched name fields
+    if ('createdByName' in data) this.createdByName = (data as any).createdByName
+    if ('approvedByName' in data) this.approvedByName = (data as any).approvedByName
+    if ('appliedByName' in data) this.appliedByName = (data as any).appliedByName
   }
 }
 

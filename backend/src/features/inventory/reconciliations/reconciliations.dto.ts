@@ -93,12 +93,15 @@ export class ReconciliationResponseDTO {
   status: string
   source: string
   startedBy?: string | null
+  startedByName?: string | null
   startedAt?: Date | null
   completedBy?: string | null
   completedAt?: Date | null
   approvedBy?: string | null
+  approvedByName?: string | null
   approvedAt?: Date | null
   appliedBy?: string | null
+  appliedByName?: string | null
   appliedAt?: Date | null
   reason: string
   notes?: string | null
@@ -106,6 +109,7 @@ export class ReconciliationResponseDTO {
   warehouse?: any
   items?: ReconciliationItemResponseDTO[]
   createdBy: string
+  createdByName?: string | null
   createdAt: Date
   updatedAt: Date
 
@@ -134,6 +138,12 @@ export class ReconciliationResponseDTO {
       this.items = data.items.map(
         (item) => new ReconciliationItemResponseDTO(item)
       )
+    // Enriched name fields
+    const d = data as any
+    if ('createdByName' in d) this.createdByName = d.createdByName
+    if ('startedByName' in d) this.startedByName = d.startedByName
+    if ('approvedByName' in d) this.approvedByName = d.approvedByName
+    if ('appliedByName' in d) this.appliedByName = d.appliedByName
   }
 }
 

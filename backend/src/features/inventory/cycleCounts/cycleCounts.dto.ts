@@ -87,37 +87,53 @@ export class CycleCountResponseDTO {
   warehouseId: string
   status: string
   startedBy?: string | null
+  startedByName?: string | null
   startedAt?: Date | null
   completedBy?: string | null
+  completedByName?: string | null
   completedAt?: Date | null
   approvedBy?: string | null
+  approvedByName?: string | null
   approvedAt?: Date | null
   appliedBy?: string | null
+  appliedByName?: string | null
   appliedAt?: Date | null
   notes?: string | null
   remarks?: string | null
   warehouse?: any
   items?: CycleCountItemResponseDTO[]
   createdBy: string
+  createdByName?: string | null
   createdAt: Date
   updatedAt: Date
 
-  constructor(data: ICycleCountWithRelations) {
+  constructor(data: ICycleCountWithRelations & {
+    createdByName?: string | null
+    startedByName?: string | null
+    completedByName?: string | null
+    approvedByName?: string | null
+    appliedByName?: string | null
+  }) {
     this.id = data.id
     this.cycleCountNumber = data.cycleCountNumber
     this.warehouseId = data.warehouseId
     this.status = data.status
     this.startedBy = data.startedBy ?? null
+    if (data.startedByName != null) this.startedByName = String(data.startedByName)
     this.startedAt = data.startedAt ?? null
     this.completedBy = data.completedBy ?? null
+    if (data.completedByName != null) this.completedByName = String(data.completedByName)
     this.completedAt = data.completedAt ?? null
     this.approvedBy = data.approvedBy ?? null
+    if (data.approvedByName != null) this.approvedByName = String(data.approvedByName)
     this.approvedAt = data.approvedAt ?? null
     this.appliedBy = data.appliedBy ?? null
+    if (data.appliedByName != null) this.appliedByName = String(data.appliedByName)
     this.appliedAt = data.appliedAt ?? null
     this.notes = data.notes ?? null
     this.remarks = data.remarks ?? null
     this.createdBy = data.createdBy
+    if (data.createdByName != null) this.createdByName = String(data.createdByName)
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt ?? new Date()
     if (data.warehouse) this.warehouse = data.warehouse

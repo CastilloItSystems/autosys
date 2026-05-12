@@ -132,7 +132,7 @@ export default function CaseDetailDialog({ caseId, visible, onHide, onUpdated, t
 
             <div className="col-12 md:col-6 mb-3">
               <div className="text-xs text-500 mb-1">Asignado a</div>
-              <div className="text-sm">{caseData.assignedTo ?? <span className="text-400">—</span>}</div>
+              <div className="text-sm">{caseData.assignedToName || caseData.assignedTo || <span className="text-400">—</span>}</div>
             </div>
 
             <div className="col-12 md:col-6 mb-3">
@@ -230,7 +230,7 @@ export default function CaseDetailDialog({ caseId, visible, onHide, onUpdated, t
                   }`}
                 >
                   <div className="flex justify-content-between align-items-center mb-1">
-                    <span className="font-semibold text-xs text-700">{c.createdBy}</span>
+                    <span className="font-semibold text-xs text-700">{c.createdByName ?? c.createdBy}</span>
                     <span className="text-xs text-400">
                       {new Date(c.createdAt).toLocaleString("es-VE")}
                     </span>

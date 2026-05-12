@@ -13,6 +13,7 @@ import type {
 import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrderStatusHistory.service.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type Db =
   | PrismaClient
@@ -48,7 +49,12 @@ export async function findAllDeliveries(
     }),
     (db as PrismaClient).vehicleDelivery.count({ where: { empresaId } }),
   ])
-  return { data, page, limit, total }
+  const userMap = await resolveUserNames(db, data.map((d) => d.deliveredBy))
+  const enriched = data.map((d) => ({
+    ...d,
+    deliveredByName: d.deliveredBy ? (userMap.get(d.deliveredBy) ?? null) : null,
+  }))
+  return { data: enriched, page, limit, total }
 }
 
 export async function createDelivery(
@@ -143,7 +149,11 @@ export async function createDelivery(
     })
   }
 
-  return delivery
+  const userMap = await resolveUserNames(db, [delivery.deliveredBy])
+  return {
+    ...delivery,
+    deliveredByName: delivery.deliveredBy ? (userMap.get(delivery.deliveredBy) ?? null) : null,
+  }
 }
 
 export async function findDeliveryByServiceOrder(
@@ -151,9 +161,15 @@ export async function findDeliveryByServiceOrder(
   serviceOrderId: string,
   empresaId: string
 ) {
-  return (db as PrismaClient).vehicleDelivery.findFirst({
+  const delivery = await (db as PrismaClient).vehicleDelivery.findFirst({
     where: { serviceOrderId, empresaId },
   })
+  if (!delivery) return null
+  const userMap = await resolveUserNames(db, [delivery.deliveredBy])
+  return {
+    ...delivery,
+    deliveredByName: delivery.deliveredBy ? (userMap.get(delivery.deliveredBy) ?? null) : null,
+  }
 }
 
 // FASE 1.2: Update delivery (editable fields only)
@@ -168,7 +184,7 @@ export async function updateDelivery(
   })
   if (!delivery) throw new NotFoundError('Entrega no encontrada')
 
-  return (db as PrismaClient).vehicleDelivery.update({
+  const updated = await (db as PrismaClient).vehicleDelivery.update({
     where: { id },
     data: {
       receivedByName: data.receivedByName ?? delivery.receivedByName,
@@ -193,6 +209,11 @@ export async function updateDelivery(
       serviceOrder: { select: { id: true, folio: true, status: true } },
     },
   })
+  const userMap = await resolveUserNames(db, [updated.deliveredBy])
+  return {
+    ...updated,
+    deliveredByName: updated.deliveredBy ? (userMap.get(updated.deliveredBy) ?? null) : null,
+  }
 }
 
 // FASE 1.3: Delete delivery

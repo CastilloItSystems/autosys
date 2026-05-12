@@ -65,8 +65,10 @@ export class TransferResponseDTO {
   quantity: number
   notes?: string | null
   approvedBy?: string | null
+  approvedByName?: string | null
   approvedAt?: Date | null
   rejectedBy?: string | null
+  rejectedByName?: string | null
   rejectedAt?: Date | null
   rejectionReason?: string | null
   sentAt?: Date | null
@@ -91,6 +93,8 @@ export class TransferResponseDTO {
       preInvoice?: { id: string; preInvoiceNumber: string } | null
       exitNote?: any
       entryNote?: any
+      approvedByName?: string | null
+      rejectedByName?: string | null
     }
   ) {
     this.id = data.id
@@ -102,8 +106,10 @@ export class TransferResponseDTO {
     this.quantity = data.quantity
     this.notes = data.notes ?? null
     this.approvedBy = data.approvedBy ?? null
+    this.approvedByName = data.approvedByName ?? null
     this.approvedAt = data.approvedAt ?? null
     this.rejectedBy = data.rejectedBy ?? null
+    this.rejectedByName = data.rejectedByName ?? null
     this.rejectedAt = data.rejectedAt ?? null
     this.rejectionReason = data.rejectionReason ?? null
     this.sentAt = data.sentAt ?? null

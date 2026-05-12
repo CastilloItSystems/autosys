@@ -1,5 +1,8 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import type { GaritaEvent } from "@/modules/workshop/garita/interfaces/garita.interface";
@@ -24,7 +27,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 32,
+    paddingTop: 88,
     paddingBottom: 52,
     paddingHorizontal: 32,
     fontSize: 10,
@@ -162,36 +165,23 @@ const fmt = (d?: string | null) =>
 
 interface Props {
   data: GaritaEvent & { empresaName?: string };
+  company?: PdfCompanyInfo;
 }
 
-const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
+const GaritaEventTemplate: React.FC<Props> = ({ data, company }) => {
   const eventId = data.id.slice(-8).toUpperCase();
 
   return (
     <Document>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.headerContainer} fixed>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>
-              {data.empresaName ?? "Taller Automotriz"}
-            </Text>
-            <Text style={styles.headerSubtitle}>
-              Registro de Movimiento de Garita / Vigilancia
-            </Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerFolio}>REG-{eventId}</Text>
-            <View style={styles.headerStatusBox}>
-              <Text style={styles.headerDate}>
-                Estado: {STATUS_LABELS[data.status] ?? data.status}
-              </Text>
-            </View>
-            <Text style={[styles.headerDate, { marginTop: 4 }]}>
-              Fecha: {fmt(data.eventAt)}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Registro de Movimiento de Garita / Vigilancia"
+          documentNumber={`REG-${eventId}`}
+          date={fmt(data.eventAt)}
+          status={STATUS_LABELS[data.status] ?? data.status}
+          type={TYPE_LABELS[data.type] ?? data.type}
+        />
 
         {/* Tipo de evento */}
         <View style={styles.typeBanner}>
@@ -358,19 +348,10 @@ const GaritaEventTemplate: React.FC<Props> = ({ data }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>
-            AutoSys · Registro REG-{eventId} · Generado el{" "}
-            {fmt(new Date().toISOString())}
-          </Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={`REG-${eventId}`}
+        />
       </Page>
     </Document>
   );

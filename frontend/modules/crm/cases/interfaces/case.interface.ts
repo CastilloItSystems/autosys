@@ -28,6 +28,7 @@ export interface CaseComment {
   comment: string
   isInternal: boolean
   createdBy: string
+  createdByName?: string | null
   createdAt: string
 }
 
@@ -54,7 +55,9 @@ export interface Case {
   resolvedAt?: string | null
   closedAt?: string | null
   assignedTo?: string | null
+  assignedToName?: string | null
   createdBy: string
+  createdByName?: string | null
   empresaId: string
   comments?: CaseComment[]
   createdAt: string

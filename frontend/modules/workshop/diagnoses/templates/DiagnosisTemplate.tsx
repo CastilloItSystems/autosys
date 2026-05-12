@@ -6,12 +6,15 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import { Diagnosis, DiagnosisStatus } from "../interfaces/diagnosis.interface";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -169,7 +172,7 @@ const evidenceTypeLabel: Record<string, string> = {
   document: "Documento",
 };
 
-const DiagnosisTemplate = ({ data }: { data: Diagnosis }) => {
+const DiagnosisTemplate = ({ data, company }: { data: Diagnosis; company?: PdfCompanyInfo }) => {
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
 
   const visibleFindings = data.findings?.filter((f) => !f.isHiddenFinding) || [];
@@ -178,32 +181,15 @@ const DiagnosisTemplate = ({ data }: { data: Diagnosis }) => {
   return (
     <Document title={`Diagnóstico - ${data.id}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Reporte de Diagnóstico</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>ID: {data.id.slice(-8).toUpperCase()}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {data.status}
-            </Text>
-            {data.severity && (
-              <Text style={styles.headerDate}>
-                Severidad: {severityLabel[data.severity] || data.severity}
-              </Text>
-            )}
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Reporte de Diagnostico"
+          documentNumber={`ID: ${data.id.slice(-8).toUpperCase()}`}
+          date={formatDate(data.createdAt)}
+          status={data.status}
+          statusColor={badgeColor}
+          type={data.severity ? `Severidad: ${severityLabel[data.severity] || data.severity}` : undefined}
+        />
 
         {/* Técnico y Órdenes */}
         <View style={styles.section}>
@@ -384,17 +370,10 @@ const DiagnosisTemplate = ({ data }: { data: Diagnosis }) => {
           <Text style={styles.signatureLine}>Autorización Cliente</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>Diagnóstico #{data.id.slice(-8).toUpperCase()}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={`Diagnostico #${data.id.slice(-8).toUpperCase()}`}
+        />
       </Page>
     </Document>
   );

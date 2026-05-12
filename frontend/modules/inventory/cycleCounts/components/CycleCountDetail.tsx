@@ -21,6 +21,7 @@ import { ProgressSpinner } from "primereact/progressspinner";
 import { PDFDownloadLink } from "@react-pdf/renderer";
 import cycleCountService from "@/modules/inventory/cycleCounts/services/cycleCountService";
 import CycleCountRouteSheetPDF from "./CycleCountRouteSheetPDF";
+import { usePdfCompanyInfo } from "@/components/pdf/pdfCompany";
 
 interface CycleCountDetailProps {
   cycleCount: CycleCount;
@@ -40,6 +41,7 @@ export default function CycleCountDetail({
 }: CycleCountDetailProps) {
   const statusConfig = CYCLE_COUNT_STATUS_CONFIG[cycleCount.status];
   const toast = useRef<Toast>(null);
+  const { company } = usePdfCompanyInfo();
   const isInProgress = cycleCount.status === CycleCountStatus.IN_PROGRESS;
   const [isExporting, setIsExporting] = useState(false);
 
@@ -374,6 +376,7 @@ export default function CycleCountDetail({
               <CycleCountRouteSheetPDF
                 cycleCount={cycleCount as any}
                 warehouseName={cycleCount.warehouse?.name}
+                company={company}
               />
             }
             fileName={`hoja-ruta-${cycleCount.cycleCountNumber}.pdf`}
@@ -457,7 +460,7 @@ export default function CycleCountDetail({
               <div>
                 <span className="text-700 font-bold block">Completado por</span>
                 <span className="text-900">
-                  {cycleCount.completedBy || "—"}
+                  {(cycleCount.completedByName ?? cycleCount.completedBy) || "—"}
                 </span>
                 <div className="text-sm text-500 mt-1">
                   {new Date(cycleCount.completedAt).toLocaleDateString(
@@ -481,7 +484,7 @@ export default function CycleCountDetail({
                 <div>
                   <span className="text-700 font-bold block">Aprobado por</span>
                   <span className="text-900">
-                    {cycleCount.approvedBy || "—"}
+                    {(cycleCount.approvedByName ?? cycleCount.approvedBy) || "—"}
                   </span>
                   <div className="text-sm text-500 mt-1">
                     {new Date(cycleCount.approvedAt).toLocaleDateString(

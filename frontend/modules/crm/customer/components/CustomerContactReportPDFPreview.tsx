@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import CustomerContactReportTemplate from "../templates/CustomerContactReportTemplate";
 import type { CustomerCrm } from "../interfaces/customer.crm.interface";
 
 const CustomerContactReportPDFPreview = ({ data }: { data: CustomerCrm }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <CustomerContactReportTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <CustomerContactReportTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default CustomerContactReportPDFPreview;

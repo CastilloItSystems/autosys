@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   PurchaseOrder,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -171,37 +174,21 @@ const taxLabel = (taxType?: TaxType | null) => {
   return "IVA 16%";
 };
 
-const PurchaseOrderTemplate = ({ data }: { data: PurchaseOrder }) => {
+const PurchaseOrderTemplate = ({ data, company }: { data: PurchaseOrder; company?: PdfCompanyInfo }) => {
   const cfg = PO_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
 
   return (
     <Document title={`Orden de Compra - ${data.orderNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Orden de Compra</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.orderNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.orderDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-            {data.expectedDate && (
-              <Text style={styles.headerDate}>Entrega est.: {formatDate(data.expectedDate)}</Text>
-            )}
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Orden de Compra"
+          documentNumber={data.orderNumber}
+          date={formatDate(data.orderDate || data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Proveedor y Almacén */}
         <View style={styles.section}>
@@ -357,13 +344,13 @@ const PurchaseOrderTemplate = ({ data }: { data: PurchaseOrder }) => {
               {data.submittedBy && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Enviada por:</Text>
-                  <Text style={styles.value}>{data.submittedBy} ({formatDate(data.submittedAt)})</Text>
+                  <Text style={styles.value}>{data.submittedByName || data.submittedBy} ({formatDate(data.submittedAt)})</Text>
                 </View>
               )}
               {data.approvedBy && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Aprobada por:</Text>
-                  <Text style={styles.value}>{data.approvedBy} ({formatDate(data.approvedAt)})</Text>
+                  <Text style={styles.value}>{data.approvedByName || data.approvedBy} ({formatDate(data.approvedAt)})</Text>
                 </View>
               )}
             </View>
@@ -371,7 +358,7 @@ const PurchaseOrderTemplate = ({ data }: { data: PurchaseOrder }) => {
               {data.rejectedBy && (
                 <View style={styles.row}>
                   <Text style={styles.label}>Rechazada por:</Text>
-                  <Text style={styles.value}>{data.rejectedBy}</Text>
+                  <Text style={styles.value}>{data.rejectedByName || data.rejectedBy}</Text>
                 </View>
               )}
               {data.rejectionReason && (
@@ -398,17 +385,10 @@ const PurchaseOrderTemplate = ({ data }: { data: PurchaseOrder }) => {
           <Text style={styles.signatureLine}>Recibió</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.orderNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.orderNumber}
+        />
       </Page>
     </Document>
   );

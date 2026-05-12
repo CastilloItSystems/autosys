@@ -474,8 +474,8 @@ export default function CrmDashboard() {
                         <span className="surface-100 border-round px-1 mr-1">
                           {act.type}
                         </span>
-                        {act.assignedTo && (
-                          <span className="text-400">{act.assignedTo}</span>
+                        {(act.assignedToName || act.assignedTo) && (
+                          <span className="text-400">{act.assignedToName || act.assignedTo}</span>
                         )}
                       </div>
                     </div>

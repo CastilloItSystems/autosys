@@ -47,15 +47,26 @@ export interface Invoice {
   notes?: string | null;
   invoiceDate: string;
   issuedBy?: string | null;
+  issuedByName?: string | null;
   cancelledAt?: string | null;
   cancelledBy?: string | null;
+  cancelledByName?: string | null;
   cancellationReason?: string | null;
   items: InvoiceItem[];
   preInvoice?: {
     id: string;
     preInvoiceNumber: string;
     orderId: string;
-    order?: { id: string; orderNumber: string };
+    preparedBy?: string | null;
+    preparedByName?: string | null;
+    preparedAt?: string | null;
+    order?: {
+      id: string;
+      orderNumber: string;
+      approvedBy?: string | null;
+      approvedAt?: string | null;
+      approvedByName?: string | null;
+    };
   };
   payment?: {
     id: string;

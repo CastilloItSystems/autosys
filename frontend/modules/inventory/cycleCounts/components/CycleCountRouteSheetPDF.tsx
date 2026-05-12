@@ -7,8 +7,10 @@ import {
   Text,
   View,
   StyleSheet,
-  Font,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils"; // registrar fuentes Roboto
 
 import { CycleCount, CycleCountItem } from "@/modules/inventory/cycleCounts/services/cycleCountService";
@@ -21,6 +23,7 @@ const styles = StyleSheet.create({
     fontFamily: "Roboto",
     fontSize: 8,
     padding: 28,
+    paddingTop: 88,
     paddingBottom: 50,
   },
   // Header
@@ -176,7 +179,7 @@ interface CycleCountRouteSheetPDFProps {
     >;
   };
   warehouseName?: string;
-  empresaName?: string;
+  company?: PdfCompanyInfo;
 }
 
 // ─── Helper: ordenar ítems por ubicación luego SKU ───────────────────────────
@@ -199,7 +202,7 @@ function sortItems(items: CycleCountRouteSheetPDFProps["cycleCount"]["items"]) {
 export default function CycleCountRouteSheetPDF({
   cycleCount,
   warehouseName,
-  empresaName,
+  company,
 }: CycleCountRouteSheetPDFProps) {
   const isCompleted = ["APPROVED", "APPLIED"].includes(cycleCount.status);
   const sortedItems = sortItems(cycleCount.items);
@@ -224,14 +227,16 @@ export default function CycleCountRouteSheetPDF({
   return (
     <Document title={`Hoja de Ruta - ${cycleCount.cycleCountNumber}`}>
       <Page size="A4" orientation="landscape" style={styles.page}>
-        {/* ── Header ── */}
+        <PdfDocumentHeader
+          company={company}
+          title="Hoja de Ruta - Conteo Ciclico"
+          documentNumber={cycleCount.cycleCountNumber}
+          date={dateStr}
+          status={statusLabel}
+          type={warehouseName ?? cycleCount.warehouse?.name ?? undefined}
+        />
+
         <View style={styles.headerBlock}>
-          <Text style={styles.title}>
-            HOJA DE RUTA — CONTEO CÍCLICO
-          </Text>
-          {empresaName && (
-            <Text style={styles.subtitle}>{empresaName}</Text>
-          )}
           <View style={styles.metaRow}>
             <View style={styles.metaItem}>
               <Text style={styles.metaLabel}>Número:</Text>
@@ -376,13 +381,9 @@ export default function CycleCountRouteSheetPDF({
           </Text>
         </View>
 
-        {/* Número de página */}
-        <Text
-          style={styles.pageNumber}
-          render={({ pageNumber, totalPages }) =>
-            `Pág. ${pageNumber} / ${totalPages}`
-          }
-          fixed
+        <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={cycleCount.cycleCountNumber}
         />
       </Page>
     </Document>

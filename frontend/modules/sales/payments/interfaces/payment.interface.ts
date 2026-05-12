@@ -42,6 +42,7 @@ export interface Payment {
   reference?: string | null;
   notes?: string | null;
   processedBy?: string | null;
+  processedByName?: string | null;
   processedAt: string;
   preInvoice?: {
     id: string;

@@ -35,6 +35,9 @@ export interface IReturn {
 export interface IReturnWithRelations extends IReturn {
   items?: IReturnItem[]
   warehouse?: any
+  createdByName?: string | null
+  approvedByName?: string | null
+  processedByName?: string | null
 }
 
 export interface IReturnItem {

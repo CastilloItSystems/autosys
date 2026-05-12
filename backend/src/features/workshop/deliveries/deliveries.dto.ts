@@ -38,6 +38,7 @@ export class DeliveryResponseDTO {
   serviceOrder?: OrderRef | null
   deliveredAt: Date
   deliveredBy: string
+  deliveredByName: string | null
   receivedByName: string | null
   clientConformity: boolean
   clientSignature: string | null
@@ -53,6 +54,7 @@ export class DeliveryResponseDTO {
     this.serviceOrder = data.serviceOrder ?? null
     this.deliveredAt = data.deliveredAt
     this.deliveredBy = data.deliveredBy
+    this.deliveredByName = data.deliveredByName ?? null
     this.receivedByName = data.receivedByName ?? null
     this.clientConformity = data.clientConformity
     this.clientSignature = data.clientSignature ?? null

@@ -13,6 +13,7 @@ import {
 } from './returns.interface.js'
 import { EventType } from '../shared/events/event.types.js'
 import EventService from '../shared/events/event.service.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 const eventService = EventService.getInstance()
 
@@ -101,7 +102,7 @@ class ReturnsService {
     })
 
     if (!ret) throw new NotFoundError('Return not found')
-    return this.mapToInterface(ret)
+    return this.mapToInterfaceWithNames(ret)
   }
 
   async findAll(
@@ -128,12 +129,15 @@ class ReturnsService {
       db.returnOrder.count({ where }),
     ])
 
-    return {
-      data: data.map((r) => this.mapToInterface(r)),
-      total,
-      page,
-      limit,
-    }
+    const allIds = data.flatMap((r: any) => [r.createdBy, r.approvedBy, r.processedBy])
+    const names = await resolveUserNames(null, allIds)
+    const mapped = data.map((r: any) => ({
+      ...this.mapToInterface(r),
+      createdByName: r.createdBy ? (names.get(r.createdBy) ?? null) : null,
+      approvedByName: r.approvedBy ? (names.get(r.approvedBy) ?? null) : null,
+      processedByName: r.processedBy ? (names.get(r.processedBy) ?? null) : null,
+    }))
+    return { data: mapped, total, page, limit }
   }
 
   async submit(id: string, userId: string): Promise<IReturnWithRelations> {
@@ -352,6 +356,16 @@ class ReturnsService {
       items: ret.items,
       warehouse: ret.warehouse,
     }
+  }
+
+  private async mapToInterfaceWithNames(ret: any): Promise<IReturnWithRelations> {
+    const names = await resolveUserNames(null, [ret.createdBy, ret.approvedBy, ret.processedBy])
+    return {
+      ...this.mapToInterface(ret),
+      createdByName: ret.createdBy ? (names.get(ret.createdBy) ?? null) : null,
+      approvedByName: ret.approvedBy ? (names.get(ret.approvedBy) ?? null) : null,
+      processedByName: ret.processedBy ? (names.get(ret.processedBy) ?? null) : null,
+    } as IReturnWithRelations
   }
 }
 

@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Order,
@@ -15,7 +18,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -167,34 +170,21 @@ const taxLabel = (taxType?: string | null) => {
   return "IVA 16%";
 };
 
-const SalesOrderTemplate = ({ data }: { data: Order }) => {
+const SalesOrderTemplate = ({ data, company }: { data: Order; company?: PdfCompanyInfo }) => {
   const cfg = ORDER_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
 
   return (
     <Document title={`Orden de Venta - ${data.orderNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Orden de Venta</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.orderNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.orderDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Orden de Venta"
+          documentNumber={data.orderNumber}
+          date={formatDate(data.orderDate)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Cliente y almacén */}
         <View style={styles.section}>
@@ -341,22 +331,23 @@ const SalesOrderTemplate = ({ data }: { data: Order }) => {
 
         {/* Firmas */}
         <View style={styles.signatureBlock}>
-          <Text style={styles.signatureLine}>Preparado por</Text>
-          <Text style={styles.signatureLine}>Aprobado por</Text>
+          <Text style={styles.signatureLine}>
+            {data.createdByName
+              ? `Preparado por: ${data.createdByName}`
+              : "Preparado por"}
+          </Text>
+          <Text style={styles.signatureLine}>
+            {data.approvedByName
+              ? `Aprobado por: ${data.approvedByName}${data.approvedAt ? `  ${formatDate(data.approvedAt)}` : ""}`
+              : "Aprobado por"}
+          </Text>
           <Text style={styles.signatureLine}>Cliente</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.orderNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.orderNumber}
+        />
       </Page>
     </Document>
   );

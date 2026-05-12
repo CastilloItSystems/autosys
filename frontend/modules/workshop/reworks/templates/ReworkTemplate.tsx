@@ -1,10 +1,13 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { WorkshopRework, ReworkStatus } from "../interfaces/rework.interface";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 70, paddingBottom: 50, paddingHorizontal: 30, fontFamily: "Roboto" },
+  page: { paddingTop: 88, paddingBottom: 50, paddingHorizontal: 30, fontFamily: "Roboto" },
   header: { position: "absolute", top: 20, left: 30, right: 30, flexDirection: "row", justifyContent: "space-between", alignItems: "center", borderBottomWidth: 2, borderBottomColor: "#1e3a8a", paddingBottom: 8 },
   footer: { position: "absolute", bottom: 20, left: 30, right: 30, flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 7, color: "#94a3b8" },
@@ -60,7 +63,7 @@ const formatDate = (d?: string | null) => {
 const formatAmount = (v?: number | null) =>
   v != null ? v.toLocaleString("es-VE", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "—";
 
-const ReworkTemplate = ({ data }: { data: WorkshopRework }) => {
+const ReworkTemplate = ({ data, company }: { data: WorkshopRework; company?: PdfCompanyInfo }) => {
   const badgeColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.OPEN;
   const shortId = data.id.slice(0, 8).toUpperCase();
   const variance =
@@ -71,20 +74,14 @@ const ReworkTemplate = ({ data }: { data: WorkshopRework }) => {
   return (
     <Document title={"Retrabajo - " + shortId}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <Text style={styles.headerTitle}>Retrabajo</Text>
-            <Text style={styles.headerSubtitle}>AutoSys</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{"#" + shortId}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text style={[styles.badge, { backgroundColor: badgeColor.bg, color: badgeColor.text }]}>
-              {STATUS_LABELS[data.status]}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Retrabajo"
+          documentNumber={`#${shortId}`}
+          date={formatDate(data.createdAt)}
+          status={STATUS_LABELS[data.status]}
+          statusColor={badgeColor}
+        />
 
         {/* Órdenes */}
         <View style={[styles.section, { marginTop: 8 }]}>
@@ -198,15 +195,10 @@ const ReworkTemplate = ({ data }: { data: WorkshopRework }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{"#" + shortId}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) => "Página " + pageNumber + " de " + totalPages}
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={`#${shortId}`}
+        />
       </Page>
     </Document>
   );

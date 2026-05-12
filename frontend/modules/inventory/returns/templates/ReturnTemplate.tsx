@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   ReturnOrder,
@@ -17,7 +20,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -160,7 +163,7 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#fecaca", text: "#991b1b" },
 };
 
-const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
+const ReturnTemplate = ({ data, company }: { data: ReturnOrder; company?: PdfCompanyInfo }) => {
   const cfg = RETURN_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.DRAFT;
   const typeLabel = TYPE_LABELS[data.type] ?? data.type;
@@ -172,27 +175,15 @@ const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
   return (
     <Document title={"Devolución - " + data.returnNumber}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Orden de Devolución</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.returnNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Orden de Devolucion"
+          documentNumber={data.returnNumber}
+          date={formatDate(data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+          type={typeLabel}
+        />
 
         {/* Datos generales */}
         <View style={styles.section}>
@@ -209,7 +200,7 @@ const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Creado por:</Text>
-                <Text style={styles.value}>{data.createdBy}</Text>
+                <Text style={styles.value}>{data.createdByName || data.createdBy}</Text>
               </View>
             </View>
             <View style={styles.col}>
@@ -217,7 +208,7 @@ const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
                 <View style={styles.row}>
                   <Text style={styles.label}>Aprobado por:</Text>
                   <Text style={styles.value}>
-                    {data.approvedBy + (data.approvedAt ? " (" + formatDate(data.approvedAt) + ")" : "")}
+                    {(data.approvedByName || data.approvedBy) + (data.approvedAt ? " (" + formatDate(data.approvedAt) + ")" : "")}
                   </Text>
                 </View>
               ) : null}
@@ -225,7 +216,7 @@ const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
                 <View style={styles.row}>
                   <Text style={styles.label}>Procesado por:</Text>
                   <Text style={styles.value}>
-                    {data.processedBy + (data.processedAt ? " (" + formatDate(data.processedAt) + ")" : "")}
+                    {(data.processedByName || data.processedBy) + (data.processedAt ? " (" + formatDate(data.processedAt) + ")" : "")}
                   </Text>
                 </View>
               ) : null}
@@ -319,17 +310,10 @@ const ReturnTemplate = ({ data }: { data: ReturnOrder }) => {
           <Text style={styles.signatureLine}>Procesado por</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.returnNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              "Página " + pageNumber + " de " + totalPages
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.returnNumber}
+        />
       </Page>
     </Document>
   );

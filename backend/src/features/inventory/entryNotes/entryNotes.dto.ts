@@ -168,8 +168,11 @@ export class EntryNoteResponseDTO {
   receivedAt: Date | null
   verifiedAt: Date | null
   receivedBy: string | null
+  receivedByName: string | null
   verifiedBy: string | null
+  verifiedByName: string | null
   authorizedBy: string | null
+  authorizedByName: string | null
   createdAt: Date
   updatedAt: Date
   purchaseOrder?: unknown
@@ -196,8 +199,11 @@ export class EntryNoteResponseDTO {
     this.receivedAt = data.receivedAt ?? null
     this.verifiedAt = data.verifiedAt ?? null
     this.receivedBy = data.receivedBy ?? null
+    this.receivedByName = (data as any).receivedByName ?? null
     this.verifiedBy = data.verifiedBy ?? null
+    this.verifiedByName = (data as any).verifiedByName ?? null
     this.authorizedBy = data.authorizedBy ?? null
+    this.authorizedByName = (data as any).authorizedByName ?? null
     this.createdAt = data.createdAt
     this.updatedAt = data.updatedAt
 

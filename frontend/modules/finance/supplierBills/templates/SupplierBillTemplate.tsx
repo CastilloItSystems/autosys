@@ -1,11 +1,14 @@
 import React from "react";
 import { Document, Page, Text, View, StyleSheet } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import type { SupplierBill } from "../interfaces/supplierBill";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -170,7 +173,7 @@ const formatAmount = (value?: number | null, currency = "USD") => {
   })}`;
 };
 
-const SupplierBillTemplate = ({ data }: { data: SupplierBill }) => {
+const SupplierBillTemplate = ({ data, company }: { data: SupplierBill; company?: PdfCompanyInfo }) => {
   const badgeColor = STATUS_COLORS[data.status] ?? STATUS_COLORS.PENDING;
   const cur = data.currency ?? "USD";
   const items = data.items ?? [];
@@ -178,34 +181,14 @@ const SupplierBillTemplate = ({ data }: { data: SupplierBill }) => {
   return (
     <Document title={`Factura Proveedor - ${data.internalNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Factura de Proveedor</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>
-              {data.billNumber ? data.billNumber : data.internalNumber}
-            </Text>
-            {data.billNumber ? (
-              <Text style={styles.headerDate}>
-                {`Int: ${data.internalNumber}`}
-              </Text>
-            ) : null}
-            <Text style={styles.headerDate}>{formatDate(data.issueDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {STATUS_LABELS[data.status] ?? data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Factura de Proveedor"
+          documentNumber={data.billNumber ? data.billNumber : data.internalNumber}
+          date={formatDate(data.issueDate)}
+          status={STATUS_LABELS[data.status] ?? data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Datos del Proveedor y Documento */}
         <View style={styles.section}>
@@ -419,17 +402,10 @@ const SupplierBillTemplate = ({ data }: { data: SupplierBill }) => {
           </View>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.internalNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.internalNumber}
+        />
       </Page>
     </Document>
   );

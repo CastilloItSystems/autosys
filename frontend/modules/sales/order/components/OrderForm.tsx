@@ -43,6 +43,7 @@ import { Button } from "primereact/button";
 import { useActiveSalesCustomersData } from "@/modules/sales/customer/hooks/useSalesCustomersData";
 import CustomerForm from "@/modules/sales/customer/components/CustomerForm";
 import FormActionButtons from "@/shared/components/FormActionButtons";
+import ApprovalTrail from "@/modules/sales/shared/components/ApprovalTrail";
 
 /**
  * Convert a USD base price to the target currency.
@@ -423,6 +424,25 @@ export default function OrderForm({
 
   return (
     <>
+      {order?.approvedAt && (
+        <ApprovalTrail
+          className="mb-3"
+          entries={[
+            {
+              label: "Aprobado por",
+              name: order.approvedByName ?? order.approvedBy,
+              date: order.approvedAt,
+              icon: "pi pi-check-circle",
+            },
+            {
+              label: "Creado por",
+              name: order.createdByName ?? order.createdBy,
+              date: order.createdAt,
+              icon: "pi pi-user",
+            },
+          ]}
+        />
+      )}
       <form
         id={formId || "order-form"}
         onSubmit={handleSubmit(onSubmit)}

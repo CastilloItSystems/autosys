@@ -18,18 +18,6 @@ interface MovementDetailFormProps {
 }
 
 /* ── Helpers ───────────────────────────────────────────────── */
-const isSystemId = (str: string | undefined | null): boolean => {
-  if (!str) return false;
-  if (
-    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str)
-  )
-    return true;
-  if (/^c[a-z0-9]{20,30}$/i.test(str)) return true;
-  return false;
-};
-
-const formatUser = (id: string | undefined | null) =>
-  !id ? "-" : isSystemId(id) ? "Sistema" : id;
 
 const formatCurrency = (v: number | null | undefined) =>
   v == null
@@ -355,7 +343,7 @@ export default function MovementDetailForm({
               <div className="col-6 md:col-3">
                 <span className="text-xs text-500 block mb-1">Creado por</span>
                 <span className="text-sm font-semibold text-900">
-                  {formatUser(movement.createdBy)}
+                  {movement.createdByName || movement.createdBy || "—"}
                 </span>
               </div>
               <div className="col-6 md:col-3">
@@ -373,7 +361,7 @@ export default function MovementDetailForm({
                       Aprobado por
                     </span>
                     <span className="text-sm font-semibold text-900">
-                      {formatUser(movement.approvedBy)}
+                      {movement.approvedByName || movement.approvedBy || "—"}
                     </span>
                   </div>
                   <div className="col-6 md:col-3">

@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   ExitNote,
@@ -16,7 +19,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -148,7 +151,7 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#fecaca", text: "#991b1b" },
 };
 
-const ExitNoteTemplate = ({ data }: { data: ExitNote }) => {
+const ExitNoteTemplate = ({ data, company }: { data: ExitNote; company?: PdfCompanyInfo }) => {
   const cfg = EXIT_NOTE_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.PENDING;
   const typeCfg = EXIT_NOTE_TYPE_CONFIG[data.type];
@@ -156,28 +159,15 @@ const ExitNoteTemplate = ({ data }: { data: ExitNote }) => {
   return (
     <Document title={`Nota de Salida - ${data.exitNoteNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Nota de Salida</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.exitNoteNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-            <Text style={styles.headerDate}>Tipo: {typeCfg?.label || data.type}</Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Nota de Salida"
+          documentNumber={data.exitNoteNumber}
+          date={formatDate(data.createdAt)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+          type={typeCfg?.label || data.type}
+        />
 
         {/* Almacén y Destino */}
         <View style={styles.section}>
@@ -262,17 +252,17 @@ const ExitNoteTemplate = ({ data }: { data: ExitNote }) => {
             <View style={styles.col}>
               <View style={styles.row}>
                 <Text style={styles.label}>Autorizado por:</Text>
-                <Text style={styles.value}>{data.authorizedBy || "—"}</Text>
+                <Text style={styles.value}>{data.authorizedByName || data.authorizedBy || "—"}</Text>
               </View>
             </View>
             <View style={styles.col}>
               <View style={styles.row}>
                 <Text style={styles.label}>Preparado por:</Text>
-                <Text style={styles.value}>{data.preparedBy || "—"}</Text>
+                <Text style={styles.value}>{data.preparedByName || data.preparedBy || "—"}</Text>
               </View>
               <View style={styles.row}>
                 <Text style={styles.label}>Entregado por:</Text>
-                <Text style={styles.value}>{data.deliveredBy || "—"}</Text>
+                <Text style={styles.value}>{data.deliveredByName || data.deliveredBy || "—"}</Text>
               </View>
             </View>
           </View>
@@ -292,17 +282,10 @@ const ExitNoteTemplate = ({ data }: { data: ExitNote }) => {
           <Text style={styles.signatureLine}>Recibió</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.exitNoteNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.exitNoteNumber}
+        />
       </Page>
     </Document>
   );

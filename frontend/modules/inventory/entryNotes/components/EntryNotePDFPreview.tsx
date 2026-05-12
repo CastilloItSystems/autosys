@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import EntryNoteTemplate from "../templates/EntryNoteTemplate";
 import type { EntryNote } from "../interfaces/entryNote.interface";
 
 const EntryNotePDFPreview = ({ data }: { data: EntryNote }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <EntryNoteTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <EntryNoteTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default EntryNotePDFPreview;

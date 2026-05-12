@@ -12,6 +12,7 @@ import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { CreatePaymentDTO } from './payments.dto.js'
 import { recalculateBankBalance } from '../../finance/shared/recalculateBankBalance.js'
 import preInvoicesService from '../preInvoices/preInvoices.service.js'
+import { resolveUserNames } from '../shared/userNameResolver.js'
 import {
   IPayment,
   PaymentStatus,
@@ -585,7 +586,10 @@ class PaymentsService {
       include: PAYMENT_INCLUDE,
     })
     if (!payment) throw new NotFoundError('Pago no encontrado')
-    return payment as unknown as IPayment
+    const names = await resolveUserNames(null, [(payment as any).processedBy])
+    const result = payment as any
+    result.processedByName = names.get(result.processedBy) ?? null
+    return result as unknown as IPayment
   }
 
   async findAll(
@@ -633,7 +637,14 @@ class PaymentsService {
       (db as PrismaClient).payment.count({ where }),
     ])
 
-    return { data: data as unknown as IPayment[], total }
+    const allUserIds = (data as any[]).map((p) => p.processedBy)
+    const names = await resolveUserNames(null, allUserIds)
+    const enriched = (data as any[]).map((p) => ({
+      ...p,
+      processedByName: names.get(p.processedBy) ?? null,
+    }))
+
+    return { data: enriched as unknown as IPayment[], total }
   }
 
   // -------------------------------------------------------------------------

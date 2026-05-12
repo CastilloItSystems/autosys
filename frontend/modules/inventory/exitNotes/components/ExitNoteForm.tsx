@@ -102,7 +102,7 @@ export default function ExitNoteForm({
             ? new Date(exitNote.expectedReturnDate)
             : undefined,
           notes: exitNote.notes || undefined,
-          authorizedBy: exitNote.authorizedBy || undefined,
+          authorizedBy: exitNote.authorizedByName || exitNote.authorizedBy || undefined,
           items: Array.isArray(exitNote.items)
             ? exitNote.items.map((i) => ({
                 itemId: i.itemId,

@@ -6,6 +6,9 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import {
   Invoice,
@@ -19,7 +22,7 @@ import {
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -125,6 +128,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
   },
   notesLabel: { fontSize: 8, fontFamily: "Roboto-Bold", color: "#64748b", marginBottom: 2 },
+  signatureBlock: { marginTop: 24, flexDirection: "row", justifyContent: "space-between" },
+  signatureLine: {
+    borderTopWidth: 1,
+    borderTopColor: "#94a3b8",
+    width: 160,
+    paddingTop: 4,
+    textAlign: "center",
+    color: "#64748b",
+    fontSize: 8,
+  },
 });
 
 const formatDate = (d?: string | null) => {
@@ -156,37 +169,22 @@ const taxLabel = (taxType?: string | null) => {
   return "IVA 16%";
 };
 
-const InvoiceTemplate = ({ data }: { data: Invoice }) => {
+const InvoiceTemplate = ({ data, company }: { data: Invoice; company?: PdfCompanyInfo }) => {
   const cfg = INVOICE_STATUS_CONFIG[data.status];
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.ACTIVE;
 
   return (
     <Document title={`Factura - ${data.invoiceNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Factura</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.invoiceNumber}</Text>
-            {data.fiscalNumber && (
-              <Text style={styles.headerDate}>Control: {data.fiscalNumber}</Text>
-            )}
-            <Text style={styles.headerDate}>{formatDate(data.invoiceDate)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {cfg?.label || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Factura"
+          documentNumber={data.invoiceNumber}
+          date={formatDate(data.invoiceDate)}
+          status={cfg?.label || data.status}
+          statusColor={badgeColor}
+          type={data.fiscalNumber ? `Control: ${data.fiscalNumber}` : undefined}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -350,17 +348,25 @@ const InvoiceTemplate = ({ data }: { data: Invoice }) => {
           </View>
         )}
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.invoiceNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
+        {/* Firmas */}
+        <View style={styles.signatureBlock}>
+          <Text style={styles.signatureLine}>
+            {data.preInvoice?.order?.approvedByName
+              ? `Aprobado por: ${data.preInvoice.order.approvedByName}`
+              : "Aprobado por (Orden)"}
+          </Text>
+          <Text style={styles.signatureLine}>
+            {data.issuedByName
+              ? `Emitido por: ${data.issuedByName}`
+              : "Emitido por"}
+          </Text>
+          <Text style={styles.signatureLine}>Cliente</Text>
         </View>
+
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.invoiceNumber}
+        />
       </Page>
     </Document>
   );

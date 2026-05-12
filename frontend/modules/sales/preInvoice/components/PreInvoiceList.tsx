@@ -20,6 +20,8 @@ import {
   PAYMENT_METHOD_CONFIG,
 } from "@/modules/sales/payments/interfaces/payment.interface";
 import PreInvoiceStepper from "./PreInvoiceStepper";
+import ApprovalTrail from "@/modules/sales/shared/components/ApprovalTrail";
+import AuditTimeline from "@/modules/sales/shared/components/AuditTimeline";
 import PaymentDialog from "@/modules/sales/payments/components/PaymentDialog";
 import {
   confirmAction,
@@ -481,6 +483,32 @@ const PreInvoiceListContent = () => {
     return (
       <div className="p-3">
         <PreInvoiceStepper currentStatus={data.status} />
+
+        <div className="grid mt-2 mb-1">
+          <div className="col-12 md:col-6">
+            <ApprovalTrail
+              entries={[
+                {
+                  label: "Aprobado por (Orden)",
+                  name: data.order?.approvedByName ?? data.order?.approvedBy,
+                  date: data.order?.approvedAt,
+                  icon: "pi pi-check-circle",
+                  refLabel: "Orden",
+                  refValue: data.order?.orderNumber,
+                },
+                {
+                  label: "Preparado por",
+                  name: data.preparedByName ?? data.preparedBy,
+                  date: data.preparedAt,
+                  icon: "pi pi-file-edit",
+                },
+              ]}
+            />
+          </div>
+          <div className="col-12 md:col-6">
+            <AuditTimeline entity="PreInvoice" entityId={data.id} />
+          </div>
+        </div>
 
         {/* Info cards */}
         <div className="grid my-3">

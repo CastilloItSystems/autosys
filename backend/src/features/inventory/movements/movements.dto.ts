@@ -122,7 +122,9 @@ export class MovementResponseDTO {
   exitType?: string | null
   notes?: string | null
   createdBy?: string | null
+  createdByName?: string | null
   approvedBy?: string | null
+  approvedByName?: string | null
   approvedAt?: Date | null
   snapshotQuantity?: number | null
   variance?: number | null
@@ -159,7 +161,9 @@ export class MovementResponseDTO {
     this.exitType = movement.exitType ?? null
     this.notes = movement.notes ?? null
     this.createdBy = movement.createdBy ?? null
+    this.createdByName = (movement as any).createdByName ?? null
     this.approvedBy = movement.approvedBy ?? null
+    this.approvedByName = (movement as any).approvedByName ?? null
     this.approvedAt = movement.approvedAt ?? null
     this.snapshotQuantity = movement.snapshotQuantity ?? null
     this.variance = movement.variance ?? null

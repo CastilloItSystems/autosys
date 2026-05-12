@@ -6,12 +6,15 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import { DealerDelivery } from "../interfaces/dealerDelivery.interface";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -129,33 +132,20 @@ const statusBadgeColors: Record<string, { bg: string; text: string }> = {
   CANCELLED: { bg: "#fecaca", text: "#991b1b" },
 };
 
-const DealerDeliveryTemplate = ({ data }: { data: DealerDelivery }) => {
+const DealerDeliveryTemplate = ({ data, company }: { data: DealerDelivery; company?: PdfCompanyInfo }) => {
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.SCHEDULED;
 
   return (
     <Document title={`Acta de Entrega - ${data.deliveryNumber}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Acta de Entrega de Vehículo</Text>
-              <Text style={styles.headerSubtitle}>AutoSys — Concesionario</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>{data.deliveryNumber}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.scheduledAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Acta de Entrega de Vehiculo"
+          documentNumber={data.deliveryNumber}
+          date={formatDate(data.scheduledAt)}
+          status={data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Cliente */}
         <View style={styles.section}>
@@ -260,17 +250,10 @@ const DealerDeliveryTemplate = ({ data }: { data: DealerDelivery }) => {
           Al firmar, el comprador acepta la entrega del vehículo en las condiciones descritas.
         </Text>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>{data.deliveryNumber}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={data.deliveryNumber}
+        />
       </Page>
     </Document>
   );

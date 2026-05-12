@@ -22,6 +22,7 @@ import {
 } from './exitNotes.interface.js'
 import { dispatchMaterialFromExitNote } from '../../workshop/serviceOrderMaterials/internal/dispatchMaterial.js'
 import inventoryNotificationTriggerService from '../shared/notifications/inventory-notification-trigger.service.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -494,7 +495,14 @@ class ExitNotesService {
       include: EXIT_NOTE_INCLUDE,
     })
     if (!note) throw new NotFoundError(MSG.notFound)
-    return note as unknown as IExitNote
+
+    const n = note as any
+    const nameMap = await resolveUserNames(db, [n.authorizedBy, n.preparedBy, n.deliveredBy])
+    if (n.authorizedBy) n.authorizedByName = nameMap.get(n.authorizedBy) ?? null
+    if (n.preparedBy) n.preparedByName = nameMap.get(n.preparedBy) ?? null
+    if (n.deliveredBy) n.deliveredByName = nameMap.get(n.deliveredBy) ?? null
+
+    return n as unknown as IExitNote
   }
 
   async findByNumber(
@@ -569,7 +577,16 @@ class ExitNotesService {
       (db as PrismaClient).exitNote.count({ where }),
     ])
 
-    return { data: data as unknown as IExitNote[], total }
+    const allUserIds = data.flatMap((n: any) => [n.authorizedBy, n.preparedBy, n.deliveredBy])
+    const nameMap = await resolveUserNames(db, allUserIds)
+    const enriched = data.map((n: any) => {
+      if (n.authorizedBy) n.authorizedByName = nameMap.get(n.authorizedBy) ?? null
+      if (n.preparedBy) n.preparedByName = nameMap.get(n.preparedBy) ?? null
+      if (n.deliveredBy) n.deliveredByName = nameMap.get(n.deliveredBy) ?? null
+      return n
+    })
+
+    return { data: enriched as unknown as IExitNote[], total }
   }
 
   // -------------------------------------------------------------------------

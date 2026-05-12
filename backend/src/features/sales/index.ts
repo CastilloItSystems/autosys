@@ -6,8 +6,9 @@ import preInvoiceRoutes from './preInvoices/preInvoices.routes.js'
 import paymentRoutes from './payments/payments.routes.js'
 import invoiceRoutes from './invoices/invoices.routes.js'
 // import quoteRoutes from './quotes/quotes.routes.js'
-// import creditNoteRoutes from './creditNotes/creditNotes.routes.js'
+import creditNoteRoutes from './creditNotes/creditNotes.routes.js'
 import reportRoutes from './reports/index.js'
+import auditRoutes from './audit/audit.routes.js'
 
 const router = Router()
 
@@ -32,9 +33,12 @@ router.use('/invoices', invoiceRoutes)
 // router.use('/quotes', quoteRoutes)
 
 // Notas de Crédito
-// router.use('/credit-notes', creditNoteRoutes)
+router.use('/credit-notes', creditNoteRoutes)
 
 // Reportes
 router.use('/reports', reportRoutes)
+
+// Historial de auditoría de entidades de ventas
+router.use('/audit', auditRoutes)
 
 export default router

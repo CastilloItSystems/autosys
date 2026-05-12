@@ -1,12 +1,12 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import SalesOrderTemplate from "../templates/SalesOrderTemplate";
 import type { Order } from "../interfaces/order.interface";
 
 const SalesOrderPDFPreview = ({ data }: { data: Order }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" } as any}>
-    <SalesOrderTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <SalesOrderTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 
 export default SalesOrderPDFPreview;

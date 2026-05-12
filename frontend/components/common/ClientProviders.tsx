@@ -6,6 +6,7 @@ import { LayoutProvider } from "@/layout/context/layoutcontext";
 import { SWRCacheProvider } from "@/store/SWRCacheProvider";
 import AppInitializer from "@/components/common/AppInitializer";
 import { SocketProvider } from "@/context/SocketContext";
+import SessionExpiredDialog from "@/components/common/SessionExpiredDialog";
 
 // Registrar locale español para PrimeReact
 addLocale("es", {
@@ -63,6 +64,7 @@ export default function ClientProviders({
       <LayoutProvider>
         <PrimeReactProvider value={{ ripple: true }}>
           <SocketProvider>
+            <SessionExpiredDialog />
             <AppInitializer />
             <SWRCacheProvider>{children}</SWRCacheProvider>
           </SocketProvider>

@@ -99,10 +99,14 @@ export interface Reconciliation {
   approvedAt?: Date | string;
   appliedAt?: Date | string;
   startedBy?: string;
+  startedByName?: string | null;
   completedBy?: string;
   approvedBy?: string;
+  approvedByName?: string | null;
   appliedBy?: string;
+  appliedByName?: string | null;
   createdBy?: string;
+  createdByName?: string | null;
   createdAt: Date | string;
   updatedAt: Date | string;
   warehouse?: {

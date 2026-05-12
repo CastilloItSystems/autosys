@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import WorkshopReceptionTemplate from "@/components/pdf/templates/WorkshopReceptionTemplate";
-import { urlToBase64ViaProxy } from "@/modules/workshop/receptions/services/receptionPdfService";
+import { urlToBase64ViaProxy } from "@/components/pdf/pdfImage";
 
 interface ChecklistResponsePDF {
   itemName: string;
@@ -78,14 +78,9 @@ const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
         return await urlToBase64ViaProxy(url);
       };
 
-      // Signature and Logo
-      const [signatureBase64, logoBase64] = await Promise.all([
-        resolveImage(props.clientSignature),
-        resolveImage(props.empresaLogo),
-      ]);
+      const signatureBase64 = await resolveImage(props.clientSignature);
 
       newProps.clientSignature = signatureBase64;
-      newProps.empresaLogo = logoBase64 ?? undefined;
 
       // Photos
       if (newProps.photos && newProps.photos.length > 0) {
@@ -137,9 +132,11 @@ const ReceptionPDFPreview: React.FC<ReceptionPDFPreviewProps> = (props) => {
   }
 
   return (
-    <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-      <WorkshopReceptionTemplate data={processedProps} />
-    </PDFViewer>
+    <CompanyPDFViewer>
+      {(company) => (
+        <WorkshopReceptionTemplate data={processedProps} company={company} />
+      )}
+    </CompanyPDFViewer>
   );
 };
 

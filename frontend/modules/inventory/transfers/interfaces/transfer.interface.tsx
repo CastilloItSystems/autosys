@@ -77,8 +77,10 @@ export interface Transfer {
   items: TransferItem[];
   notes?: string;
   approvedBy?: string;
+  approvedByName?: string | null;
   approvedAt?: Date | string;
   rejectedBy?: string;
+  rejectedByName?: string | null;
   rejectedAt?: Date | string;
   rejectionReason?: string;
   exitNoteId?: string | null;

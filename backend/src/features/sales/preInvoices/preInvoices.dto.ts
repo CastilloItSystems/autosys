@@ -26,6 +26,7 @@ export class PreInvoiceResponseDTO {
   preparedAt?: Date | null
   paidAt?: Date | null
   preparedBy?: string | null
+  preparedByName?: string | null
   items: any[]
   order?: any
   serviceOrder?: any
@@ -64,6 +65,7 @@ export class PreInvoiceResponseDTO {
     if (data.preparedAt != null) this.preparedAt = data.preparedAt as Date
     if (data.paidAt != null) this.paidAt = data.paidAt as Date
     if (data.preparedBy != null) this.preparedBy = String(data.preparedBy)
+    if (data.preparedByName != null) this.preparedByName = String(data.preparedByName)
     if (data.order != null) this.order = data.order
     if (data.serviceOrder != null) this.serviceOrder = data.serviceOrder
     if (data.consolidatedServiceOrders != null)

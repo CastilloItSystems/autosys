@@ -26,6 +26,7 @@ import {
   PurchaseOrderCurrency,
 } from './purchaseOrders.interface.js'
 import { calculateOrderTotals } from '../shared/utils/calculateOrderTotals.js'
+import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -414,8 +415,16 @@ class PurchaseOrderService {
 
     if (!po) throw new NotFoundError(INVENTORY_MESSAGES.purchaseOrder.notFound)
 
+    const poData = po as any
+    const names = await resolveUserNames(null, [poData.createdBy, poData.submittedBy, poData.approvedBy, poData.rejectedBy, poData.sentBy])
+    if (poData.createdBy) poData.createdByName = names.get(poData.createdBy) ?? null
+    if (poData.submittedBy) poData.submittedByName = names.get(poData.submittedBy) ?? null
+    if (poData.approvedBy) poData.approvedByName = names.get(poData.approvedBy) ?? null
+    if (poData.rejectedBy) poData.rejectedByName = names.get(poData.rejectedBy) ?? null
+    if (poData.sentBy) poData.sentByName = names.get(poData.sentBy) ?? null
+
     return enrichWithQuantityPending(
-      po as unknown as Record<string, unknown>
+      poData as unknown as Record<string, unknown>
     ) as unknown as IPurchaseOrderWithRelations
   }
 
@@ -476,6 +485,16 @@ class PurchaseOrderService {
         orderBy: { [sortBy]: sortOrder },
       }),
     ])
+
+    const allIds = (pos as any[]).flatMap((p: any) => [p.createdBy, p.submittedBy, p.approvedBy, p.rejectedBy, p.sentBy])
+    const names = await resolveUserNames(null, allIds)
+    for (const p of pos as any[]) {
+      if (p.createdBy) p.createdByName = names.get(p.createdBy) ?? null
+      if (p.submittedBy) p.submittedByName = names.get(p.submittedBy) ?? null
+      if (p.approvedBy) p.approvedByName = names.get(p.approvedBy) ?? null
+      if (p.rejectedBy) p.rejectedByName = names.get(p.rejectedBy) ?? null
+      if (p.sentBy) p.sentByName = names.get(p.sentBy) ?? null
+    }
 
     return {
       items: (pos as unknown as Record<string, unknown>[]).map(

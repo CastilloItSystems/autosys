@@ -1,7 +1,7 @@
 "use client";
 
 import { InputText } from "primereact/inputtext";
-import { forwardRef, useCallback } from "react";
+import { forwardRef, useCallback, type LegacyRef } from "react";
 
 interface AccountNumberInputProps {
   value?: string;
@@ -29,7 +29,7 @@ const AccountNumberInput = forwardRef<
       className = "",
       disabled = false,
     },
-    ref,
+    ref
   ) => {
     const handleChange = useCallback(
       (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -45,12 +45,12 @@ const AccountNumberInput = forwardRef<
 
         onChange?.(inputValue);
       },
-      [onChange],
+      [onChange]
     );
 
     return (
       <InputText
-        ref={ref}
+        ref={ref as LegacyRef<InputText>}
         type="text"
         value={value}
         onChange={handleChange}
@@ -61,7 +61,7 @@ const AccountNumberInput = forwardRef<
         maxLength={20}
       />
     );
-  },
+  }
 );
 
 AccountNumberInput.displayName = "AccountNumberInput";

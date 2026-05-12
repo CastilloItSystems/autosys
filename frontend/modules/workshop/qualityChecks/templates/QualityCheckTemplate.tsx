@@ -6,12 +6,15 @@ import {
   View,
   StyleSheet,
 } from "@react-pdf/renderer";
+import PdfDocumentHeader from "@/components/pdf/PdfDocumentHeader";
+import PdfDocumentFooter from "@/components/pdf/PdfDocumentFooter";
+import type { PdfCompanyInfo } from "@/components/pdf/pdfCompany";
 import "@/utils/pdfUtils";
 import { QualityCheck, QualityCheckStatus } from "../interfaces/qualityCheck.interface";
 
 const styles = StyleSheet.create({
   page: {
-    paddingTop: 70,
+    paddingTop: 88,
     paddingBottom: 50,
     paddingHorizontal: 30,
     fontFamily: "Roboto",
@@ -164,33 +167,20 @@ const statusLabel: Record<string, string> = {
   FAILED: "Fallido",
 };
 
-const QualityCheckTemplate = ({ data }: { data: QualityCheck }) => {
+const QualityCheckTemplate = ({ data, company }: { data: QualityCheck; company?: PdfCompanyInfo }) => {
   const badgeColor = statusBadgeColors[data.status] || statusBadgeColors.PENDING;
 
   return (
     <Document title={`Chequeo de Calidad - ${data.id}`}>
       <Page size="A4" style={styles.page}>
-        {/* Header */}
-        <View style={styles.header} fixed>
-          <View style={styles.headerLeft}>
-            <View>
-              <Text style={styles.headerTitle}>Chequeo de Calidad</Text>
-              <Text style={styles.headerSubtitle}>AutoSys</Text>
-            </View>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerNumber}>ID: {data.id.slice(-8).toUpperCase()}</Text>
-            <Text style={styles.headerDate}>{formatDate(data.createdAt)}</Text>
-            <Text
-              style={[
-                styles.badge,
-                { backgroundColor: badgeColor.bg, color: badgeColor.text },
-              ]}
-            >
-              {statusLabel[data.status] || data.status}
-            </Text>
-          </View>
-        </View>
+                <PdfDocumentHeader
+          company={company}
+          title="Chequeo de Calidad"
+          documentNumber={`ID: ${data.id.slice(-8).toUpperCase()}`}
+          date={formatDate(data.createdAt)}
+          status={statusLabel[data.status] || data.status}
+          statusColor={badgeColor}
+        />
 
         {/* Info general */}
         <View style={styles.section}>
@@ -298,17 +288,10 @@ const QualityCheckTemplate = ({ data }: { data: QualityCheck }) => {
           <Text style={styles.signatureLine}>Inspector de Calidad</Text>
         </View>
 
-        {/* Footer */}
-        <View style={styles.footer} fixed>
-          <Text style={styles.footerText}>AutoSys</Text>
-          <Text style={styles.footerText}>QC #{data.id.slice(-8).toUpperCase()}</Text>
-          <Text
-            style={styles.footerText}
-            render={({ pageNumber, totalPages }) =>
-              `Página ${pageNumber} de ${totalPages}`
-            }
-          />
-        </View>
+                <PdfDocumentFooter
+          companyName={company?.name}
+          documentNumber={`QC #${data.id.slice(-8).toUpperCase()}`}
+        />
       </Page>
     </Document>
   );

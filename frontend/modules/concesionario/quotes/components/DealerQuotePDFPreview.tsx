@@ -1,11 +1,11 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import DealerQuoteTemplate from "../templates/DealerQuoteTemplate";
 import type { DealerQuote } from "../interfaces/dealerQuote.interface";
 
 const DealerQuotePDFPreview = ({ data }: { data: DealerQuote }) => (
-  <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-    <DealerQuoteTemplate data={data} />
-  </PDFViewer>
+  <CompanyPDFViewer>
+    {(company) => <DealerQuoteTemplate data={data} company={company} />}
+  </CompanyPDFViewer>
 );
 export default DealerQuotePDFPreview;

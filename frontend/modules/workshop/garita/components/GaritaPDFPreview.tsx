@@ -1,5 +1,5 @@
 import React from "react";
-import { PDFViewer } from "@react-pdf/renderer";
+import CompanyPDFViewer from "@/components/pdf/CompanyPDFViewer";
 import GaritaEventTemplate from "@/components/pdf/templates/GaritaEventTemplate";
 import type { GaritaEvent } from '@/modules/workshop/garita/interfaces/garita.interface';;
 
@@ -9,9 +9,9 @@ interface Props {
 
 const GaritaPDFPreview: React.FC<Props> = ({ event }) => {
   return (
-    <PDFViewer width="100%" height="100%" style={{ border: "none" }}>
-      <GaritaEventTemplate data={event} />
-    </PDFViewer>
+    <CompanyPDFViewer>
+      {(company) => <GaritaEventTemplate data={event} company={company} />}
+    </CompanyPDFViewer>
   );
 };
 
