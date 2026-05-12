@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputTextarea } from "primereact/inputtextarea";
 import ServiceOrderSelector from "@/components/common/ServiceOrderSelector";
@@ -238,7 +238,7 @@ export default function AdditionalForm({
 
         {/* SECCIÓN 2: Ítems */}
         <WorkshopItemsTable
-          control={control}
+          control={control as Control<any, any, any>}
           register={register}
           fields={fields}
           append={append}

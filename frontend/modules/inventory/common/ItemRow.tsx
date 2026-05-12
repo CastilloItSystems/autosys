@@ -60,7 +60,7 @@ export interface ItemRowFieldPaths {
 
 export interface ItemRowProps {
   // react-hook-form — typed as any so this works with any form schema
-  control: Control<any>;
+  control: Control<any, any, any>;
   register: UseFormRegister<any>;
   /** errors.items?.[index] — already scoped to this row */
   rowErrors?: Record<string, any>;

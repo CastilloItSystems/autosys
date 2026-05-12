@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
@@ -679,7 +679,7 @@ export default function WorkshopOperationForm({
           <Divider className="my-2" />
           <WorkshopItemsTable
             variant="suggested"
-            control={control}
+            control={control as Control<any, any, any>}
             register={register}
             fields={materialFields}
             append={appendMaterial as any}

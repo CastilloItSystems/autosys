@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 
-import { useForm } from "react-hook-form";
+import { Control, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
@@ -445,7 +445,7 @@ export default function ItemForm({
         >
           <TabPanel header="Datos Básicos" leftIcon="pi pi-box">
             <BasicDataTab
-              control={control}
+              control={control as Control<any, any, any>}
               errors={errors}
               brands={brands}
               categories={categories}
@@ -465,7 +465,7 @@ export default function ItemForm({
 
           <TabPanel header="Precios" leftIcon="pi pi-dollar">
             <PricingTab
-              control={control}
+              control={control as Control<any, any, any>}
               errors={errors}
               calculatedMargin={calculatedMargin}
               pricing={pricing}

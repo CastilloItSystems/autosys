@@ -1,6 +1,6 @@
 "use client";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { Dropdown } from "primereact/dropdown";
@@ -409,7 +409,7 @@ export default function ExitNoteForm({
           ]}
           renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
             <ItemRow
-              control={control}
+              control={control as Control<any, any, any>}
               register={register}
               autoFocus={autoFocus}
               rowErrors={(errors.items as any)?.[index]}

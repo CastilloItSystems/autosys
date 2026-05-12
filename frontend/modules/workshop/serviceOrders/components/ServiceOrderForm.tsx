@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import CustomerSelector from "@/components/common/CustomerSelector";
@@ -717,7 +717,7 @@ export default function ServiceOrderForm({
 
         {/* ── Ítems ──────────────────────────────────────────────────────── */}
         <WorkshopItemsTable
-          control={control}
+          control={control as Control<any, any, any>}
           register={register}
           fields={fields}
           append={append}

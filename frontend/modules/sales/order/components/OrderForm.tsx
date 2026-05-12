@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { useForm, Controller, useFieldArray } from "react-hook-form";
+import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputText } from "primereact/inputtext";
 import { InputNumber } from "primereact/inputnumber";
@@ -604,7 +604,7 @@ export default function OrderForm({
             ]}
             renderRow={({ index, onAddRow, dragHandleProps, isDragging }) => (
               <ItemRow
-                control={control}
+                control={control as Control<any, any, any>}
                 register={register}
                 rowErrors={(errors.items as any)?.[index]}
                 itemOptions={itemOptions}

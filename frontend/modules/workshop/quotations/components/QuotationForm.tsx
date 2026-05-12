@@ -1,6 +1,6 @@
 "use client";
 import React from "react";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { Control, useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { InputTextarea } from "primereact/inputtextarea";
 import { InputNumber } from "primereact/inputnumber";
@@ -491,7 +491,7 @@ export default function QuotationForm({
       {/* Ítems */}
       <div className="mb-4">
         <WorkshopItemsTable
-          control={control}
+          control={control as Control<any, any, any>}
           register={register}
           fields={fields}
           append={append}

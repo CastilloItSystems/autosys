@@ -6,7 +6,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Controller, useFieldArray, useForm } from "react-hook-form";
+import { Control, Controller, useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { classNames } from "primereact/utils";
 import {
@@ -869,7 +869,7 @@ const PurchaseOrderForm = ({
               autoFocus,
             }) => (
               <ItemRow
-                control={control}
+                control={control as Control<any, any, any>}
                 register={register}
                 autoFocus={autoFocus}
                 rowErrors={(errors.items as any)?.[index]}

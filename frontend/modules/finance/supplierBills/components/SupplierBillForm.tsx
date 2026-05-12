@@ -7,7 +7,7 @@ import React, {
   useRef,
   useState,
 } from "react";
-import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
+import { Control, Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 import { Divider } from "primereact/divider";
 import { Dropdown } from "primereact/dropdown";
@@ -696,7 +696,7 @@ export default function SupplierBillForm({
             autoFocus,
           }) => (
             <ItemRow
-              control={control}
+              control={control as Control<any, any, any>}
               register={register}
               autoFocus={autoFocus}
               itemOptions={itemOptions}
