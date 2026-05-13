@@ -7,6 +7,7 @@
     "test": "echo \"No tests configured\" && exit 0",
     "build": "next build",
     "analyze": "ANALYZE=true next build",
+    "validate:access": "node scripts/validate-access-map.mjs",
     "start": "next start",
     "format": "prettier --write \"{app,demo,layout,types}/**/*.{js,ts,tsx,d.ts}\"",
     "lint": "next lint"
