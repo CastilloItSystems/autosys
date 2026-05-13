@@ -214,21 +214,21 @@ const router = Router()
 // Rutas específicas ANTES de /:id
 router.get(
   '/active',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_VIEW),
   controller.getActive
 )
 router.get(
   '/code/:code',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_VIEW),
   validateRequest(supplierCodeSchema, 'params'),
   controller.getByCode
 )
 
 // CRUD base
-router.get('/', authorize(PERMISSIONS.INVENTORY_VIEW), controller.getAll)
+router.get('/', authorize(PERMISSIONS.PURCHASES_SUPPLIERS_VIEW), controller.getAll)
 router.post(
   '/',
-  authorize(PERMISSIONS.INVENTORY_CREATE),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_CREATE),
   validateRequest(createSupplierSchema, 'body'),
   controller.create
 )
@@ -236,26 +236,26 @@ router.post(
 // Rutas con :id
 router.get(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_VIEW),
   validateRequest(supplierIdSchema, 'params'),
   controller.getOne
 )
 router.put(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_UPDATE),
   validateRequest(supplierIdSchema, 'params'),
   validateRequest(updateSupplierSchema, 'body'),
   controller.update
 )
 router.patch(
   '/:id/toggle',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_UPDATE),
   validateRequest(supplierIdSchema, 'params'),
   controller.toggleActive
 )
 router.delete(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_DELETE),
+  authorize(PERMISSIONS.PURCHASES_SUPPLIERS_DELETE),
   validateRequest(supplierIdSchema, 'params'),
   controller.delete
 )

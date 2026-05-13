@@ -11,16 +11,27 @@ import { Checkbox } from "primereact/checkbox";
 import { classNames } from "primereact/utils";
 import PhoneInput from "../../../shared/components/PhoneInput";
 
-import { createUser, updateUser } from "@/modules/users/services/user.service";
+import {
+  createCompanyUser,
+  createUser,
+  updateCompanyUser,
+  updateUser,
+} from "@/modules/users/services/user.service";
 import type {
+  CreateCompanyUserRequest,
   CreateUserRequest,
+  UpdateCompanyUserRequest,
   UpdateUserRequest,
   User,
+  UserScope,
 } from "../interfaces/user.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import { PasswordRequirements } from "./PasswordRequirements";
 import { createUserSchema, updateUserSchema } from "../schemas/user.schema";
 import type { UserFormData } from "../schemas/user.schema";
+import { useMembershipCompanyRolesData } from "../hooks/useUsersData";
+import { useEmpresasStore } from "@/store/empresasStore";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 interface UsuarioFormProps {
   usuario?: User | null;
@@ -28,6 +39,7 @@ interface UsuarioFormProps {
   toast: React.RefObject<any>;
   formId?: string; // Permite inyectar un ID dinámico al form para conectarlo con botones externos
   onSubmittingChange?: (isSubmitting: boolean) => void;
+  scope?: UserScope;
 }
 
 const estatusValues = [
@@ -40,6 +52,12 @@ const accesoValues = [
   { label: "Completo", value: "completo" },
   { label: "Limitado", value: "limitado" },
   { label: "Ninguno", value: "ninguno" },
+];
+
+const membershipStatusValues = [
+  { label: "Activo", value: "active" },
+  { label: "Invitado", value: "invited" },
+  { label: "Suspendido", value: "suspended" },
 ];
 
 const departamentoValues = [
@@ -56,14 +74,25 @@ const UsuarioForm = ({
   toast,
   formId = "usuario-form",
   onSubmittingChange,
+  scope = "global",
 }: UsuarioFormProps) => {
   const currentSchema = usuario ? updateUserSchema : createUserSchema;
+  const isCompanyScope = scope === "company";
+  const activeEmpresaId = useEmpresasStore(
+    (state) => state.activeEmpresa?.id_empresa,
+  );
+  const { roleOptions, loading: rolesLoading } = useMembershipCompanyRolesData(
+    isCompanyScope ? activeEmpresaId : null,
+  );
+  const selectedMembership = usuario?.memberships?.[0];
+  const refreshAuthContext = useRefreshAuthContext();
 
   const {
     register,
     handleSubmit,
     formState: { errors, isSubmitting },
     setValue,
+    setError,
     reset,
     control,
     watch,
@@ -78,6 +107,8 @@ const UsuarioForm = ({
       acceso: "ninguno",
       estado: "activo",
       isTechnician: false,
+      roleId: "",
+      membershipStatus: "active",
       password: "",
       confirmPassword: "",
     },
@@ -93,6 +124,8 @@ const UsuarioForm = ({
         acceso: usuario.acceso,
         estado: usuario.estado,
         isTechnician: usuario.isTechnician ?? false,
+        roleId: selectedMembership?.roleId ?? "",
+        membershipStatus: selectedMembership?.status ?? "active",
         password: "",
         confirmPassword: "",
       });
@@ -105,19 +138,29 @@ const UsuarioForm = ({
         acceso: "ninguno",
         estado: "activo",
         isTechnician: false,
+        roleId: "",
+        membershipStatus: "active",
         password: "",
         confirmPassword: "",
       });
     }
-  }, [usuario, reset]);
+  }, [selectedMembership?.roleId, selectedMembership?.status, usuario, reset]);
 
   const onSubmit = async (data: UserFormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
     try {
+      if (isCompanyScope && !data.roleId) {
+        setError("roleId", {
+          type: "manual",
+          message: "Seleccione un rol de empresa",
+        });
+        return;
+      }
+
       const departamentoArray = data.departamento;
 
       if (usuario?.id) {
-        const payload: UpdateUserRequest = {
+        const payload: UpdateUserRequest | UpdateCompanyUserRequest = {
           nombre: data.nombre,
           correo: data.correo,
           telefono: data.telefono || null,
@@ -126,9 +169,19 @@ const UsuarioForm = ({
           estado: data.estado,
           isTechnician: data.isTechnician ?? false,
           ...(data.password ? { password: data.password } : {}),
+          ...(isCompanyScope
+            ? {
+                roleId: data.roleId,
+                membershipStatus: data.membershipStatus,
+              }
+            : {}),
         };
 
-        await updateUser(usuario.id, payload);
+        if (isCompanyScope) {
+          await updateCompanyUser(usuario.id, payload as UpdateCompanyUserRequest);
+        } else {
+          await updateUser(usuario.id, payload as UpdateUserRequest);
+        }
 
         toast.current?.show({
           severity: "success",
@@ -137,17 +190,28 @@ const UsuarioForm = ({
           life: 3000,
         });
       } else {
-        const payload: CreateUserRequest = {
+        const payload: CreateUserRequest | CreateCompanyUserRequest = {
           nombre: data.nombre,
           correo: data.correo,
           telefono: data.telefono || undefined,
           departamento: departamentoArray,
           acceso: data.acceso,
           estado: data.estado,
+          isTechnician: data.isTechnician ?? false,
           password: data.password!, // Validado por createUserSchema
+          ...(isCompanyScope
+            ? {
+                roleId: data.roleId!,
+                membershipStatus: data.membershipStatus,
+              }
+            : {}),
         };
 
-        await createUser(payload);
+        if (isCompanyScope) {
+          await createCompanyUser(payload as CreateCompanyUserRequest);
+        } else {
+          await createUser(payload as CreateUserRequest);
+        }
 
         toast.current?.show({
           severity: "success",
@@ -157,6 +221,7 @@ const UsuarioForm = ({
         });
       }
 
+      await refreshAuthContext();
       await onSave();
     } catch (error) {
       handleFormError(error, toast);
@@ -330,6 +395,72 @@ const UsuarioForm = ({
             </small>
           )}
         </div>
+
+        {isCompanyScope && (
+          <>
+            <div className="col-12 md:col-6">
+              <label htmlFor="roleId" className="block text-900 font-medium mb-2">
+                Rol de empresa <span className="text-red-500">*</span>
+              </label>
+              <Controller
+                name="roleId"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="roleId"
+                    value={field.value}
+                    options={roleOptions}
+                    loading={rolesLoading}
+                    onChange={(e) => field.onChange(e.value)}
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Seleccione un rol"
+                    className={classNames("w-full", {
+                      "p-invalid": errors.roleId,
+                    })}
+                  />
+                )}
+              />
+              {errors.roleId && (
+                <small className="p-error block mt-1">
+                  {errors.roleId.message}
+                </small>
+              )}
+            </div>
+
+            <div className="col-12 md:col-6">
+              <label
+                htmlFor="membershipStatus"
+                className="block text-900 font-medium mb-2"
+              >
+                Estado en empresa
+              </label>
+              <Controller
+                name="membershipStatus"
+                control={control}
+                render={({ field }) => (
+                  <Dropdown
+                    id="membershipStatus"
+                    value={field.value}
+                    options={membershipStatusValues}
+                    onChange={(e) => field.onChange(e.value)}
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="Seleccione un estado"
+                    className={classNames("w-full", {
+                      "p-invalid": errors.membershipStatus,
+                    })}
+                  />
+                )}
+              />
+              {errors.membershipStatus && (
+                <small className="p-error block mt-1">
+                  {errors.membershipStatus.message}
+                </small>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Es técnico */}
         <div className="col-12 md:col-6">

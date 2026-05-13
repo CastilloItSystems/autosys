@@ -7,6 +7,34 @@ import {
   seedDefaultNotificationPoliciesForEmpresa,
   seedDefaultBankAccountForEmpresa,
 } from '../services/empresa-setup.service.js'
+import { PERMISSIONS } from '../shared/constants/permissions.js'
+import { getEmpresaIdsForUserPermission } from '../shared/utils/resolvePermissions.js'
+
+const MY_EMPRESAS_SELECT = {
+  id_empresa: true,
+  nombre: true,
+  direccion: true,
+  telefonos: true,
+  fax: true,
+  numerorif: true,
+  numeronit: true,
+  website: true,
+  email: true,
+  contacto: true,
+  predeter: true,
+  soporte1: true,
+  soporte2: true,
+  soporte3: true,
+  data_usaweb: true,
+  historizada: true,
+  masinfo: true,
+  usa_prefijo: true,
+  name_prefijo: true,
+  logo_url: true,
+  eliminado: true,
+  createdAt: true,
+  updatedAt: true,
+} as const
 
 export const uploadLogo = async (req: Request, res: Response) => {
   try {
@@ -52,11 +80,24 @@ export const uploadLogo = async (req: Request, res: Response) => {
   }
 }
 
-export const getAllEmpresas = async (_req: Request, res: Response) => {
+export const getAllEmpresas = async (req: Request, res: Response) => {
   try {
+    const userId = req.user?.userId
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuario no autenticado' })
+    }
+
+    const allowedEmpresaIds = await getEmpresaIdsForUserPermission(
+      userId,
+      PERMISSIONS.COMPANIES_VIEW
+    )
+
     const empresas = await prisma.empresa.findMany({
       where: {
         eliminado: false,
+        id_empresa: {
+          in: allowedEmpresaIds,
+        },
       },
       orderBy: {
         createdAt: 'desc',
@@ -69,6 +110,48 @@ export const getAllEmpresas = async (_req: Request, res: Response) => {
     })
   } catch (error) {
     console.error('Error obteniendo empresas:', error)
+    return res.status(500).json({ error: 'Error interno del servidor' })
+  }
+}
+
+export const getMyEmpresas = async (req: Request, res: Response) => {
+  try {
+    const userId = req.user?.userId
+    if (!userId) {
+      return res.status(401).json({ error: 'Usuario no autenticado' })
+    }
+
+    const memberships = await prisma.membership.findMany({
+      where: {
+        userId,
+        status: 'active',
+        empresa: {
+          eliminado: false,
+        },
+      },
+      include: {
+        empresa: {
+          select: MY_EMPRESAS_SELECT,
+        },
+      },
+      orderBy: {
+        assignedAt: 'desc',
+      },
+    })
+
+    const empresas = memberships
+      .map((membership) => membership.empresa)
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      )
+
+    return res.json({
+      total: empresas.length,
+      empresas,
+    })
+  } catch (error) {
+    console.error('Error obteniendo empresas del usuario:', error)
     return res.status(500).json({ error: 'Error interno del servidor' })
   }
 }
@@ -235,7 +318,7 @@ export const deleteEmpresa = async (req: Request, res: Response) => {
  * POST /empresas/:id/seed-defaults
  * (Re)creates the default system roles for an existing empresa.
  * Useful for empresas created before the auto-seeding was in place.
- * Requires OWNER or ADMIN via authorizeGlobal.
+ * Requires companies.update on the target empresa.
  */
 export const seedDefaultsForEmpresa = async (req: Request, res: Response) => {
   const { id } = req.params

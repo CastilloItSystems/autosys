@@ -2,6 +2,7 @@
 
 import { useCallback } from "react";
 import useSWR from "swr";
+import { useEmpresasStore } from "@/store/empresasStore";
 
 import {
   getAuditLogsForUser,
@@ -10,6 +11,7 @@ import {
   getMembershipPermissions,
   getMembershipsByEmpresa,
   getMembershipsByUser,
+  getCompanyUsers,
   getUser,
   getUsers,
 } from "../services/user.service";
@@ -20,13 +22,22 @@ import type {
   MembershipPermissionsResponse,
   MembershipsResponse,
   User,
+  UserScope,
   UsersResponse,
 } from "../interfaces/user.interface";
 
-export const useUsersData = () => {
+export const useUsersData = (scope: UserScope = "global") => {
+  const isCompanyScope = scope === "company";
+  const activeEmpresaId = useEmpresasStore(
+    (state) => state.activeEmpresa?.id_empresa,
+  );
   const { data, error, isLoading, mutate } = useSWR<UsersResponse>(
-    "users-list",
-    getUsers,
+    isCompanyScope
+      ? activeEmpresaId
+        ? ["company-users-list", activeEmpresaId]
+        : null
+      : "users-list",
+    isCompanyScope ? getCompanyUsers : getUsers,
     { revalidateOnFocus: false },
   );
 

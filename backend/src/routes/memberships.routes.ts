@@ -10,11 +10,7 @@ import {
 } from '../controllers/memberships.controller.js'
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 import { extractEmpresa } from '../shared/middleware/empresa.middleware.js'
-import {
-  authorize,
-  authorizeRoles,
-} from '../shared/middleware/authorize.middleware.js'
-import { authorizeGlobal } from '../shared/middleware/authorizeGlobal.middleware.js'
+import { authorize } from '../shared/middleware/authorize.middleware.js'
 import { PERMISSIONS } from '../shared/constants/permissions.js'
 
 const router = Router()
@@ -50,11 +46,26 @@ router.delete(
   deleteMembership
 )
 
-// memberships de un usuario global
-router.get('/user/:id', authorizeRoles('OWNER', 'ADMIN'), getMembershipsByUser)
+// memberships de un usuario dentro de la empresa activa
+router.get(
+  '/user/:id',
+  extractEmpresa,
+  authorize(PERMISSIONS.USERS_VIEW),
+  getMembershipsByUser
+)
 
 // Permisos override por membership
-router.get('/:id/permissions', authorizeGlobal(), getMembershipPermissions)
-router.put('/:id/permissions', authorizeGlobal(), setMembershipPermissions)
+router.get(
+  '/:id/permissions',
+  extractEmpresa,
+  authorize(PERMISSIONS.USERS_VIEW),
+  getMembershipPermissions
+)
+router.put(
+  '/:id/permissions',
+  extractEmpresa,
+  authorize(PERMISSIONS.USERS_UPDATE),
+  setMembershipPermissions
+)
 
 export default router

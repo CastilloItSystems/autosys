@@ -1,11 +1,19 @@
 import AppSubMenu from "./AppSubMenu";
 import type { MenuModel } from "@/types";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { useMemo } from "react";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { filterMenuByPermissions } from "@/lib/menuPermissions";
+
+type PermissionMenuModel = MenuModel & {
+  items?: PermissionMenuModel[];
+};
 
 const AppMenuEmpresa = () => {
   const { activeEmpresa } = useEmpresasStore();
+  const { canAccessGate } = useUserPermissions();
 
-  const model: MenuModel[] = [
+  const model = useMemo<PermissionMenuModel[]>(() => [
     // ── DASHBOARDS ──
     {
       label: activeEmpresa?.name_prefijo || "Selecciona una Empresa",
@@ -104,14 +112,24 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-wallet",
       items: [
         {
+          label: "Dashboard",
+          icon: "pi pi-fw pi-chart-line",
+          to: "/empresa/compras",
+        },
+        {
           label: "Proveedores",
           icon: "pi pi-fw pi-users",
-          to: "/empresa/inventario/proveedores",
+          to: "/empresa/compras/proveedores",
         },
         {
           label: "Órdenes de Compra",
           icon: "pi pi-fw pi-shopping-cart",
-          to: "/empresa/inventario/ordenes-compra",
+          to: "/empresa/compras/ordenes-compra",
+        },
+        {
+          label: "Rend. Proveedores",
+          icon: "pi pi-fw pi-star-fill",
+          to: "/empresa/compras/reportes/rendimiento-proveedores",
         },
       ],
     },
@@ -292,11 +310,6 @@ const AppMenuEmpresa = () => {
               label: "Vencimientos",
               icon: "pi pi-fw pi-calendar-times",
               to: "/empresa/inventario/reportes/vencimientos",
-            },
-            {
-              label: "Rend. Proveedores",
-              icon: "pi pi-fw pi-star-fill",
-              to: "/empresa/inventario/reportes/rendimiento-proveedores",
             },
           ],
         },
@@ -683,11 +696,6 @@ const AppMenuEmpresa = () => {
       icon: "pi pi-fw pi-cog",
       items: [
         {
-          label: "General",
-          icon: "pi pi-fw pi-cog",
-          to: "/empresa/configuracion/general",
-        },
-        {
           label: "Usuarios y Permisos",
           icon: "pi pi-fw pi-users",
           to: "/empresa/configuracion/usuarios",
@@ -696,6 +704,11 @@ const AppMenuEmpresa = () => {
           label: "Auditoría",
           icon: "pi pi-fw pi-history",
           to: "/empresa/configuracion/auditoria",
+        },
+        {
+          label: "Notificaciones",
+          icon: "pi pi-fw pi-bell",
+          to: "/empresa/configuracion/notificaciones",
         },
         {
           label: "Integraciones",
@@ -740,9 +753,14 @@ const AppMenuEmpresa = () => {
         },
       ],
     },
-  ];
+  ], [activeEmpresa?.name_prefijo]);
 
-  return <AppSubMenu model={model} />;
+  const filteredModel = useMemo(
+    () => filterMenuByPermissions(model, canAccessGate),
+    [canAccessGate, model],
+  );
+
+  return <AppSubMenu model={filteredModel} />;
 };
 
 export default AppMenuEmpresa;

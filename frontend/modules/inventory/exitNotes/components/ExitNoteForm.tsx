@@ -102,7 +102,8 @@ export default function ExitNoteForm({
             ? new Date(exitNote.expectedReturnDate)
             : undefined,
           notes: exitNote.notes || undefined,
-          authorizedBy: exitNote.authorizedByName || exitNote.authorizedBy || undefined,
+          authorizedBy:
+            exitNote.authorizedByName || exitNote.authorizedBy || undefined,
           items: Array.isArray(exitNote.items)
             ? exitNote.items.map((i) => ({
                 itemId: i.itemId,
@@ -407,7 +408,13 @@ export default function ExitNoteForm({
             { label: "Lote", style: COLS.batch! },
             { label: "", style: COLS.remove },
           ]}
-          renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
+          renderRow={({
+            index,
+            onAddRow,
+            dragHandleProps,
+            isDragging,
+            autoFocus,
+          }) => (
             <ItemRow
               control={control as Control<any, any, any>}
               register={register}

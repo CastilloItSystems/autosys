@@ -5,6 +5,8 @@ import jwt from 'jsonwebtoken'
 import { corsConfig } from '../config/cors.config.js'
 import { logger } from '../shared/utils/logger.js'
 import prisma from '../services/prisma.service.js'
+import { PERMISSIONS } from '../shared/constants/permissions.js'
+import { getEffectivePermissionsForMembership } from '../shared/utils/resolvePermissions.js'
 
 let io: SocketIOServer
 
@@ -14,13 +16,12 @@ let io: SocketIOServer
 interface AuthPayload {
   userId?: string
   empresaId?: string
-  role?: string
 }
 
 interface SocketData {
   userId: string
   empresaId?: string
-  role?: string
+  permissions: string[]
 }
 
 interface StockUpdatePayload {
@@ -75,19 +76,6 @@ interface NotificationPayload {
 // ==============================
 // Helpers
 // ==============================
-const ROLE_ALIASES: Record<string, string> = {
-  MANAGER: 'GERENTE',
-  SELLER: 'VENDEDOR',
-  CASHIER: 'CAJERO',
-  WAREHOUSE: 'ALMACENISTA',
-}
-
-const normalizeRoleName = (role?: string): string | undefined => {
-  if (!role || typeof role !== 'string') return undefined
-  const normalized = role.trim().toUpperCase().replace(/\s+/g, '_')
-  return ROLE_ALIASES[normalized] ?? normalized
-}
-
 const resolveUserIdFromPayload = (payload: AuthPayload): string | null => {
   if (!payload.userId || typeof payload.userId !== 'string') return null
   const normalized = payload.userId.trim()
@@ -131,14 +119,11 @@ const getEmpresaIdFromSocket = (
   return undefined
 }
 
-const hasRole = (
+const hasPermission = (
   socket: Socket<any, any, any, SocketData>,
-  roles: string[]
+  permission: string
 ): boolean => {
-  const currentRole = normalizeRoleName(socket.data.role)
-  if (!currentRole) return false
-
-  return roles.some((role) => normalizeRoleName(role) === currentRole)
+  return socket.data.permissions.includes(permission)
 }
 
 // Restringe rooms arbitrarias para evitar abuso
@@ -275,6 +260,7 @@ export const initSocket = (server: HTTPServer) => {
       if (!userId) return next(new Error('Unauthorized: token sin userId'))
 
       socket.data.userId = userId
+      socket.data.permissions = []
 
       const requestedEmpresaId = getEmpresaIdFromSocket(socket, payload)
       if (requestedEmpresaId) {
@@ -285,11 +271,7 @@ export const initSocket = (server: HTTPServer) => {
               empresaId: requestedEmpresaId,
             },
           },
-          include: {
-            role: {
-              select: { name: true },
-            },
-          },
+          select: { id: true, status: true },
         })
 
         if (!membership) {
@@ -304,10 +286,9 @@ export const initSocket = (server: HTTPServer) => {
         }
 
         socket.data.empresaId = requestedEmpresaId
-        socket.data.role = normalizeRoleName(membership.role?.name)
-      } else {
-        // Compatibilidad temporal: conexión por usuario (sin empresa activa)
-        socket.data.role = normalizeRoleName(payload.role)
+        socket.data.permissions = Array.from(
+          await getEffectivePermissionsForMembership(membership.id)
+        )
       }
 
       return next()
@@ -370,7 +351,7 @@ export const initSocket = (server: HTTPServer) => {
     // INVENTORY
     socket.on('inventory:stock-update', (data: unknown) => {
       if (!isStockUpdatePayload(data)) return
-      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE'])) return
+      if (!hasPermission(socket, PERMISSIONS.STOCK_ADJUST)) return
       if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Actualización de stock', {
@@ -383,10 +364,7 @@ export const initSocket = (server: HTTPServer) => {
 
     socket.on('inventory:low-stock-alert', (data: unknown) => {
       if (!isLowStockPayload(data)) return
-      if (
-        !hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'VENDEDOR', 'ALMACENISTA'])
-      )
-        return
+      if (!hasPermission(socket, PERMISSIONS.STOCK_VIEW)) return
       if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.warn('Socket.IO: Alerta de stock bajo', {
@@ -404,8 +382,7 @@ export const initSocket = (server: HTTPServer) => {
     // SALES
     socket.on('sales:new-order', (data: unknown) => {
       if (!isNewOrderPayload(data)) return
-      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'VENDEDOR']))
-        return
+      if (!hasPermission(socket, PERMISSIONS.ORDERS_CREATE)) return
       if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Nueva orden de venta', {
@@ -418,8 +395,7 @@ export const initSocket = (server: HTTPServer) => {
 
     socket.on('sales:payment-received', (data: unknown) => {
       if (!isPaymentPayload(data)) return
-      if (!hasRole(socket, ['SUPER_ADMIN', 'ADMIN', 'GERENTE', 'CAJERO']))
-        return
+      if (!hasPermission(socket, PERMISSIONS.PAYMENTS_CREATE)) return
       if (!socket.data.empresaId || socket.data.empresaId !== data.empresaId) return
 
       logger.info('Socket.IO: Pago recibido', {

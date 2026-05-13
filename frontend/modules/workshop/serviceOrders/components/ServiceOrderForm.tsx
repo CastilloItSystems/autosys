@@ -174,7 +174,14 @@ export default function ServiceOrderForm({
         reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
       }
     }
-  }, [effectiveRate, setValue, reconvertItems, watchCurrency, usdVesRate, currencyVesRate]);
+  }, [
+    effectiveRate,
+    setValue,
+    reconvertItems,
+    watchCurrency,
+    usdVesRate,
+    currencyVesRate,
+  ]);
 
   useEffect(() => {
     const prev = prevCurrencyRef.current;

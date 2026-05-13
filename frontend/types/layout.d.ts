@@ -169,6 +169,10 @@ export interface MenuModel {
     badgeClassName?: string;
     badgeStyle?: CSSProperties;
     className?: string;
+    permission?: string;
+    permissionsAny?: string[];
+    permissionsAll?: string[];
+    scope?: 'active' | 'any';
 }
 
 export interface UseSubmenuOverlayPositionProps {

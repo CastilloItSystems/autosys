@@ -19,14 +19,14 @@ const router = Router()
 // GET /api/inventory/purchase-orders
 router.get(
   '/',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_VIEW),
   purchaseOrderController.getAll
 )
 
 // POST /api/inventory/purchase-orders
 router.post(
   '/',
-  authorize(PERMISSIONS.INVENTORY_CREATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_CREATE),
   validateBody(createPurchaseOrderSchema),
   purchaseOrderController.create
 )
@@ -34,13 +34,13 @@ router.post(
 // PATCH /api/inventory/purchase-orders/:id/approve
 router.patch(
   '/:id/submit',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_UPDATE),
   purchaseOrderController.submit
 )
 
 router.patch(
   '/:id/approve',
-  authorize(PERMISSIONS.INVENTORY_APPROVE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_APPROVE),
   validateBody(approvePurchaseOrderSchema),
   purchaseOrderController.approve
 )
@@ -48,7 +48,7 @@ router.patch(
 // PATCH /api/inventory/purchase-orders/:id/reject
 router.patch(
   '/:id/reject',
-  authorize(PERMISSIONS.INVENTORY_APPROVE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_APPROVE),
   validateBody(rejectPurchaseOrderSchema),
   purchaseOrderController.reject
 )
@@ -56,21 +56,21 @@ router.patch(
 // PATCH /api/inventory/purchase-orders/:id/send
 router.patch(
   '/:id/send',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_UPDATE),
   purchaseOrderController.send
 )
 
 // PATCH /api/inventory/purchase-orders/:id/cancel
 router.patch(
   '/:id/cancel',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_UPDATE),
   purchaseOrderController.cancel
 )
 
 // POST /api/inventory/purchase-orders/:id/receive
 router.post(
   '/:id/receive',
-  authorize(PERMISSIONS.INVENTORY_CREATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_RECEIVE),
   validateBody(receiveOrderSchema),
   purchaseOrderController.receive
 )
@@ -78,7 +78,7 @@ router.post(
 // POST /api/inventory/purchase-orders/:id/items
 router.post(
   '/:id/items',
-  authorize(PERMISSIONS.INVENTORY_CREATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_CREATE),
   validateBody(addPurchaseOrderItemSchema),
   purchaseOrderController.addItem
 )
@@ -86,21 +86,21 @@ router.post(
 // GET /api/inventory/purchase-orders/:id/items
 router.get(
   '/:id/items',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_VIEW),
   purchaseOrderController.getItems
 )
 
 // GET /api/inventory/purchase-orders/:id
 router.get(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_VIEW),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_VIEW),
   purchaseOrderController.getOne
 )
 
 // PUT /api/inventory/purchase-orders/:id
 router.put(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_UPDATE),
   validateBody(updatePurchaseOrderSchema),
   purchaseOrderController.update
 )
@@ -108,7 +108,7 @@ router.put(
 // DELETE /api/inventory/purchase-orders/:id
 router.delete(
   '/:id',
-  authorize(PERMISSIONS.INVENTORY_DELETE),
+  authorize(PERMISSIONS.PURCHASES_ORDERS_DELETE),
   purchaseOrderController.delete
 )
 

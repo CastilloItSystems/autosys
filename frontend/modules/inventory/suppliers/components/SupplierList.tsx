@@ -18,6 +18,7 @@ import SupplierForm from "./SupplierForm";
 import SupplierDetailDialog from "./SupplierDetailDialog";
 import CreateButton from "@/components/common/CreateButton";
 import { useSuppliersData } from "@/modules/inventory/suppliers/hooks/useSuppliersData";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 export default function SupplierList() {
   // Datos
@@ -40,6 +41,9 @@ export default function SupplierList() {
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [actionSupplier, setActionSupplier] = useState<Supplier | null>(null);
   const menuRef = useRef<Menu | null>(null);
+  const { hasPermission } = useUserPermissions();
+  const canUpdateSupplier = hasPermission("purchases.suppliers.update");
+  const canDeleteSupplier = hasPermission("purchases.suppliers.delete");
 
   const { suppliers, total: totalRecords, loading, mutate } = useSuppliersData({
     page: page + 1,
@@ -392,23 +396,35 @@ export default function SupplierList() {
                     setDetailsDialog(true);
                   },
                 },
-                {
-                  label: "Editar",
-                  icon: "pi pi-pencil",
-                  command: () => editSupplier(actionSupplier),
-                },
-                {
-                  label: actionSupplier.isActive ? "Desactivar" : "Activar",
-                  icon: actionSupplier.isActive ? "pi pi-pause" : "pi pi-play",
-                  command: () => handleToggleSupplier(actionSupplier),
-                },
-                { separator: true },
-                {
-                  label: "Eliminar",
-                  icon: "pi pi-trash",
-                  className: "p-menuitem-danger",
-                  command: () => confirmDeleteSupplier(actionSupplier),
-                },
+                ...(canUpdateSupplier
+                  ? [
+                      {
+                        label: "Editar",
+                        icon: "pi pi-pencil",
+                        command: () => editSupplier(actionSupplier),
+                      },
+                      {
+                        label: actionSupplier.isActive
+                          ? "Desactivar"
+                          : "Activar",
+                        icon: actionSupplier.isActive
+                          ? "pi pi-pause"
+                          : "pi pi-play",
+                        command: () => handleToggleSupplier(actionSupplier),
+                      },
+                    ]
+                  : []),
+                ...(canDeleteSupplier
+                  ? [
+                      { separator: true },
+                      {
+                        label: "Eliminar",
+                        icon: "pi pi-trash",
+                        className: "p-menuitem-danger",
+                        command: () => confirmDeleteSupplier(actionSupplier),
+                      },
+                    ]
+                  : []),
               ]
             : []
         }

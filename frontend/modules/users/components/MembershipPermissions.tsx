@@ -16,6 +16,8 @@ import {
   PERMISSION_LABELS,
   ALL_PERMISSIONS,
 } from "@/lib/permissions";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 // ── Tipos ─────────────────────────────────────────────────────────────────
 
@@ -38,6 +40,9 @@ const MembershipPermissions = ({
   membershipLabel,
   toast,
 }: MembershipPermissionsProps) => {
+  const { hasPermission } = useUserPermissions();
+  const refreshAuthContext = useRefreshAuthContext();
+  const canUpdatePermissions = hasPermission("users.update");
   const [saving, setSaving] = useState(false);
   const [search, setSearch] = useState("");
   const [states, setStates] = useState<Record<string, OverrideState>>({});
@@ -116,6 +121,7 @@ const MembershipPermissions = ({
       });
       setDirty(false);
       await mutate();
+      await refreshAuthContext();
     } catch (err: any) {
       toast.current?.show({
         severity: "error",
@@ -188,7 +194,7 @@ const MembershipPermissions = ({
             )}
           </div>
           <div className="flex gap-2 mb-4">
-            {(grants > 0 || revokes > 0) && (
+            {canUpdatePermissions && (grants > 0 || revokes > 0) && (
               <Button
                 label="Limpiar overrides"
                 icon="pi pi-refresh"
@@ -207,14 +213,16 @@ const MembershipPermissions = ({
               onClick={onHide}
               disabled={saving}
             />
-            <Button
-              label="Guardar cambios"
-              icon="pi pi-save"
-              //   severity="success"
-              onClick={handleSave}
-              loading={saving}
-              disabled={!dirty}
-            />
+            {canUpdatePermissions ? (
+              <Button
+                label="Guardar cambios"
+                icon="pi pi-save"
+                //   severity="success"
+                onClick={handleSave}
+                loading={saving}
+                disabled={!dirty}
+              />
+            ) : null}
           </div>
         </div>
       }

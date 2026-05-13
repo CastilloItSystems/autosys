@@ -358,9 +358,9 @@ const MyProfileList: React.FC = () => {
                             <span
                               key={idx}
                               className="p-tag p-tag-rounded bg-primary text-white border-none px-3 py-1"
-                              title={empresa.empresa?.nombre ?? empresa.empresaId}
+                              title={empresa.nombre ?? empresa.empresaId}
                             >
-                              {empresa.empresa?.nombre ?? empresa.empresaId}
+                              {empresa.nombre ?? empresa.empresaId}
                             </span>
                           ))}
                         </div>

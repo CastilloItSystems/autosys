@@ -1,7 +1,7 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import { Dropdown } from "primereact/dropdown";
-import { getUsers } from "@/modules/users/services/user.service";
+import { getCompanyUsers } from "@/modules/users/services/user.service";
 
 interface TechnicianSelectorProps {
   value: string | null | undefined;
@@ -26,7 +26,7 @@ export default function TechnicianSelector({
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    getUsers()
+    getCompanyUsers()
       .then((res) => {
         if (!cancelled) {
           const users = res?.users ?? [];

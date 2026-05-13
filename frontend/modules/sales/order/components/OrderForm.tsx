@@ -18,9 +18,7 @@ import { Toast } from "primereact/toast";
 import { AutoCompleteCompleteEvent } from "primereact/autocomplete";
 
 import ItemsTable from "@/modules/inventory/common/ItemsTable";
-import ItemRow, {
-  ItemRowColWidths,
-} from "@/modules/inventory/common/ItemRow";
+import ItemRow, { ItemRowColWidths } from "@/modules/inventory/common/ItemRow";
 import { OrderFinancialSummary } from "@/modules/inventory/common/OrderFinancialSummary";
 
 import { createOrderSchema, CreateOrderInput } from "../schemas/orderZod";
@@ -237,7 +235,15 @@ export default function OrderForm({
         setValue(`items.${idx}.unitPrice`, converted);
       });
     }
-  }, [bcvRate, isEditing, referenceUsdRate, selectedItemsMap, setValue, watch, watchCurrency]);
+  }, [
+    bcvRate,
+    isEditing,
+    referenceUsdRate,
+    selectedItemsMap,
+    setValue,
+    watch,
+    watchCurrency,
+  ]);
 
   /* ── Real-time calculation ── */
   const watchItemsSerialized = JSON.stringify(watchItems);

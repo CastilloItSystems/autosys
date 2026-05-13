@@ -5,6 +5,7 @@ import useSWR from "swr";
 import {
   getAuditLogsForEmpresa,
   getEmpresas,
+  getMyEmpresas,
 } from "../services/empresa.service";
 import { getCompanyRoles } from "../services/role.service";
 import type {
@@ -14,11 +15,28 @@ import type {
 import type { CompanyRole } from "../services/role.service";
 
 export const EMPRESAS_SWR_KEY = "empresa-data-global";
+export const MY_EMPRESAS_SWR_KEY = "my-empresa-data";
 
 export const useEmpresasData = () => {
   const { data, error, isLoading, mutate } = useSWR<EmpresasResponse>(
     EMPRESAS_SWR_KEY,
     getEmpresas,
+    { revalidateOnFocus: false },
+  );
+
+  return {
+    empresas: data?.empresas ?? [],
+    total: data?.total ?? 0,
+    loading: isLoading,
+    error,
+    mutate: useCallback(() => mutate(), [mutate]),
+  };
+};
+
+export const useMyEmpresasData = () => {
+  const { data, error, isLoading, mutate } = useSWR<EmpresasResponse>(
+    MY_EMPRESAS_SWR_KEY,
+    getMyEmpresas,
     { revalidateOnFocus: false },
   );
 

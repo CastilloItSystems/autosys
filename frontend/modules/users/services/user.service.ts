@@ -11,7 +11,9 @@ import type {
   MembershipPermissionsResponse,
   MembershipPermissionOverride,
   CreateUserRequest,
+  CreateCompanyUserRequest,
   UpdateUserRequest,
+  UpdateCompanyUserRequest,
   CreateMembershipRequest,
   UpdateMembershipRequest,
   LoginRequest,
@@ -37,7 +39,9 @@ export type {
   MembershipsResponse,
   MembershipResponse,
   CreateUserRequest,
+  CreateCompanyUserRequest,
   UpdateUserRequest,
+  UpdateCompanyUserRequest,
   CreateMembershipRequest,
   UpdateMembershipRequest,
   PermissionAction,
@@ -97,11 +101,42 @@ export const deleteUser = async (id: string): Promise<void> => {
   await apiClient.delete(`/users/${id}`);
 };
 
+// ── Usuarios de la empresa activa ───────────────────────────────────────────
+
+export const getCompanyUsers = async (): Promise<UsersResponse> => {
+  const response = await apiClient.get("/users/company");
+  return response.data;
+};
+
+export const createCompanyUser = async (
+  data: CreateCompanyUserRequest,
+): Promise<User> => {
+  const response = await apiClient.post("/users/company", data);
+  return response.data;
+};
+
+export const updateCompanyUser = async (
+  id: string,
+  data: UpdateCompanyUserRequest,
+): Promise<User> => {
+  const response = await apiClient.put(`/users/company/${id}`, data);
+  return response.data;
+};
+
+export const deleteCompanyUser = async (id: string): Promise<void> => {
+  await apiClient.delete(`/users/company/${id}`);
+};
+
 export const getAuditLogsForUser = async (
   id: string,
 ): Promise<AuditLogsResponse> => {
-  const response = await apiClient.get(`/users/${id}/audit-logs`);
-  return response.data;
+  const response = await apiClient.get("/audit-logs", {
+    params: { userId: id, limit: 100 },
+  });
+  return {
+    auditLogs: response.data?.data ?? [],
+    total: response.data?.meta?.total ?? 0,
+  };
 };
 
 // ── Memberships ─────────────────────────────────────────────────────────────
@@ -121,7 +156,7 @@ export const getMembershipsByUser = async (
 
 export const getMembershipEmpresas =
   async (): Promise<MembershipEmpresasResponse> => {
-    const response = await apiClient.get("/empresas");
+    const response = await apiClient.get("/empresas/my");
     return response.data;
   };
 

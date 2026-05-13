@@ -261,9 +261,9 @@ Usuario → Page → List Component → Service → Backend API
 ## Autenticación y Autorización
 
 - **JWT** requerido para todas las operaciones
-- **SuperAdmin** requerido para operaciones POST/PUT/DELETE
-- Roles manejados en `/lib/roles.ts`
-- Hook personalizado: `useUserRoles()`
+- **Permisos efectivos** requeridos para operaciones POST/PUT/DELETE
+- Roles de empresa manejados como plantillas dinámicas de permisos
+- Hook personalizado: `useUserPermissions()`
 
 ## Convenciones de Nombres
 

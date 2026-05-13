@@ -113,10 +113,6 @@
  *                 items:
  *                   type: string
  *                 example: ["ventas", "inventario"]
- *               rol:
- *                 type: string
- *                 enum: [SUPER_ADMIN, ADMIN, GERENTE, VENDEDOR, ALMACENISTA, MECANICO, CAJERO, CONTADOR, ASESOR, VIEWER]
- *                 default: VIEWER
  *               acceso:
  *                 type: string
  *                 enum: [limitado, completo, ninguno]
@@ -177,8 +173,6 @@
  *                     nombre:
  *                       type: string
  *                     correo:
- *                       type: string
- *                     rol:
  *                       type: string
  *                     estado:
  *                       type: string

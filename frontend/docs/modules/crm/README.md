@@ -505,18 +505,18 @@ CRM
 
 ## Permisos Requeridos
 
-- **Lectura (GET):** Usuario autenticado con JWT
-- **Escritura (POST/PUT/DELETE):** SuperAdmin
+- **Lectura (GET):** Usuario autenticado con JWT y permiso `crm.*.view`
+- **Escritura (POST/PUT/DELETE):** permisos efectivos `crm.*.create`, `crm.*.update` o `crm.*.delete`
 
-Para verificar permisos, usar el hook `useUserRoles()`:
+Para verificar permisos en UI, usar el hook `useUserPermissions()`:
 
 ```typescript
-import { useUserRoles } from "@/hooks/useUserRoles";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 export function VehicleActions() {
-  const { isSuperAdmin } = useUserRoles();
+  const { hasPermission } = useUserPermissions();
 
-  return <div>{isSuperAdmin && <button>Crear Vehículo</button>}</div>;
+  return <div>{hasPermission("crm.vehicles.create") && <button>Crear Vehículo</button>}</div>;
 }
 ```
 

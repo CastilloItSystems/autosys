@@ -27,6 +27,11 @@ export const getEmpresas = async (): Promise<EmpresasResponse> => {
   return response.data;
 };
 
+export const getMyEmpresas = async (): Promise<EmpresasResponse> => {
+  const response = await apiClient.get("/empresas/my");
+  return response.data;
+};
+
 export const getEmpresaPredeterminada = async (): Promise<Empresa> => {
   const response = await apiClient.get("/empresas/predeterminada");
   return response.data;

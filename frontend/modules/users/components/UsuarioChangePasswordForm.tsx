@@ -5,8 +5,11 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Password } from "primereact/password";
 import { classNames } from "primereact/utils";
 
-import { updateUser } from "@/modules/users/services/user.service";
-import type { User } from "../interfaces/user.interface";
+import {
+  updateCompanyUser,
+  updateUser,
+} from "@/modules/users/services/user.service";
+import type { User, UserScope } from "../interfaces/user.interface";
 import { handleFormError } from "@/utils/errorHandlers";
 import { PasswordRequirements } from "./PasswordRequirements";
 import { passwordSchema } from "../schemas/user.schema";
@@ -19,6 +22,7 @@ interface UsuarioChangePasswordFormProps {
   toast: React.RefObject<any>;
   formId?: string;
   onSubmittingChange?: (isSubmitting: boolean) => void;
+  scope?: UserScope;
 }
 
 const UsuarioChangePasswordForm = ({
@@ -28,6 +32,7 @@ const UsuarioChangePasswordForm = ({
   toast,
   formId = "password-form",
   onSubmittingChange,
+  scope = "global",
 }: UsuarioChangePasswordFormProps) => {
   const {
     control,
@@ -57,9 +62,15 @@ const UsuarioChangePasswordForm = ({
     if (onSubmittingChange) onSubmittingChange(true);
 
     try {
-      await updateUser(usuario.id, {
-        password: data.newPassword,
-      });
+      if (scope === "company") {
+        await updateCompanyUser(usuario.id, {
+          password: data.newPassword,
+        });
+      } else {
+        await updateUser(usuario.id, {
+          password: data.newPassword,
+        });
+      }
 
       toast.current?.show({
         severity: "success",

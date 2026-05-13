@@ -15,6 +15,8 @@ import { deleteMembership } from "@/modules/users/services/user.service";
 import { useUserMembershipsData } from "../hooks/useUsersData";
 import type { Membership } from "../interfaces/user.interface";
 import CreateButton from "../../../components/common/CreateButton";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 const statusSeverity: Record<
   string,
@@ -46,6 +48,8 @@ const UsuarioMemberships = ({
   userName,
   toast,
 }: UsuarioMembershipsProps) => {
+  const { hasPermission } = useUserPermissions();
+  const refreshAuthContext = useRefreshAuthContext();
   const [formDialogVisible, setFormDialogVisible] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
   const [deleteDialogVisible, setDeleteDialogVisible] = useState(false);
@@ -99,6 +103,7 @@ const UsuarioMemberships = ({
       });
       setDeleteDialogVisible(false);
       setSelectedMembership(null);
+      await refreshAuthContext();
       await mutate();
     } catch {
       toast.current?.show({
@@ -139,30 +144,36 @@ const UsuarioMemberships = ({
 
   const actionsTemplate = (rowData: Membership) => (
     <div className="flex gap-2">
-      <Button
-        icon="pi pi-lock"
-        rounded
-        outlined
-        severity="info"
-        tooltip="Permisos individuales"
-        onClick={() => handleManagePermissions(rowData)}
-      />
-      <Button
-        icon="pi pi-pencil"
-        rounded
-        outlined
-        severity="success"
-        tooltip="Editar"
-        onClick={() => handleEdit(rowData)}
-      />
-      <Button
-        icon="pi pi-trash"
-        rounded
-        outlined
-        severity="danger"
-        tooltip="Eliminar"
-        onClick={() => handleConfirmDelete(rowData)}
-      />
+      {hasPermission("users.view") ? (
+        <Button
+          icon="pi pi-lock"
+          rounded
+          outlined
+          severity="info"
+          tooltip="Permisos individuales"
+          onClick={() => handleManagePermissions(rowData)}
+        />
+      ) : null}
+      {hasPermission("users.update") ? (
+        <Button
+          icon="pi pi-pencil"
+          rounded
+          outlined
+          severity="success"
+          tooltip="Editar"
+          onClick={() => handleEdit(rowData)}
+        />
+      ) : null}
+      {hasPermission("users.delete") ? (
+        <Button
+          icon="pi pi-trash"
+          rounded
+          outlined
+          severity="danger"
+          tooltip="Eliminar"
+          onClick={() => handleConfirmDelete(rowData)}
+        />
+      ) : null}
     </div>
   );
 
@@ -194,6 +205,7 @@ const UsuarioMemberships = ({
         label="Crear Membership"
         onClick={handleNew}
         tooltip="Agregar Nueva Membership"
+        permission="users.update"
       />
     </div>
   );

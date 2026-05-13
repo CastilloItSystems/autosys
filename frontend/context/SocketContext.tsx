@@ -28,6 +28,8 @@ export interface UseSocketReturn {
   conectarSocket: () => void;
   desconectarSocket: () => void;
   notification: NotificationItem | null;
+  membershipChanged: boolean;
+  clearMembershipChanged: () => void;
 }
 
 export const SocketContext = createContext<UseSocketReturn | undefined>(
@@ -35,7 +37,7 @@ export const SocketContext = createContext<UseSocketReturn | undefined>(
 );
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
-  const { data: session, status } = useSession();
+  const { data: session, status, update } = useSession();
   const activeEmpresa = useEmpresasStore((state) => state.activeEmpresa);
   const activeEmpresaId = activeEmpresa?.id_empresa;
   const sessionToken = (session?.user as ExtendedUser | undefined)?.token;
@@ -44,6 +46,9 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const [notification, setNotification] = useState<NotificationItem | null>(
     null,
   );
+  const [membershipChanged, setMembershipChanged] = useState(false);
+
+  const clearMembershipChanged = useCallback(() => setMembershipChanged(false), []);
 
   const conectarSocket = useCallback(() => {
     if (status !== "authenticated" || !session) {
@@ -97,6 +102,10 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     socketTemp.on("inventory:alert", (data) =>
       console.log("Alerta de inventario:", data),
     );
+    socketTemp.on("membership:permissions-changed", async () => {
+      await update({ forcePermissionsRefresh: true });
+      setMembershipChanged(true);
+    });
 
     setSocket(socketTemp);
   }, [session, sessionToken, status, activeEmpresaId]);
@@ -167,6 +176,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         conectarSocket,
         desconectarSocket,
         notification,
+        membershipChanged,
+        clearMembershipChanged,
       }}
     >
       {children}

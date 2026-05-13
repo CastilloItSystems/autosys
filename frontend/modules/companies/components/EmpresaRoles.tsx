@@ -23,6 +23,8 @@ import {
   ALL_PERMISSIONS,
 } from "@/lib/permissions";
 import CreateButton from "@/shared/components/CreateButton";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 type ViewMode = "list" | "create" | "edit";
 
@@ -41,6 +43,8 @@ const EmpresaRoles = ({
   empresaNombre,
   toast,
 }: EmpresaRolesProps) => {
+  const { hasPermissionInAnyEmpresa } = useUserPermissions();
+  const refreshAuthContext = useRefreshAuthContext();
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<ViewMode>("list");
@@ -139,6 +143,7 @@ const EmpresaRoles = ({
         });
       }
       await mutate();
+      await refreshAuthContext();
       setViewMode("list");
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo guardar el rol";
@@ -173,6 +178,7 @@ const EmpresaRoles = ({
         life: 3000,
       });
       await mutate();
+      await refreshAuthContext();
     } catch (err: any) {
       const msg = err?.response?.data?.error || "No se pudo eliminar el rol";
       toast.current?.show({
@@ -406,6 +412,8 @@ const EmpresaRoles = ({
                 label="Nuevo Rol"
                 onClick={openCreate}
                 tooltip="Agregar Nuevo Rol"
+                permission="company_roles.create"
+                permissionScope="any"
               />
             </div>
 
@@ -458,30 +466,34 @@ const EmpresaRoles = ({
                 header="Acciones"
                 body={(row: CompanyRole) => (
                   <div className="flex gap-1">
-                    <Button
-                      icon="pi pi-pencil"
-                      className="p-button-rounded p-button-text p-button-primary"
-                      tooltip="Editar permisos"
-                      tooltipOptions={{ position: "top" }}
-                      onClick={() => openEdit(row)}
-                      size="small"
-                    />
-                    <Button
-                      icon="pi pi-trash"
-                      className="p-button-rounded p-button-text p-button-danger"
-                      tooltip={
-                        row.isSystem
-                          ? "No se puede eliminar un rol de sistema"
-                          : "Eliminar rol"
-                      }
-                      tooltipOptions={{ position: "top" }}
-                      onClick={() => handleDelete(row)}
-                      loading={deleting === row.id}
-                      disabled={
-                        row.isSystem || (row._count?.memberships ?? 0) > 0
-                      }
-                      size="small"
-                    />
+                    {hasPermissionInAnyEmpresa("company_roles.update") ? (
+                      <Button
+                        icon="pi pi-pencil"
+                        className="p-button-rounded p-button-text p-button-primary"
+                        tooltip="Editar permisos"
+                        tooltipOptions={{ position: "top" }}
+                        onClick={() => openEdit(row)}
+                        size="small"
+                      />
+                    ) : null}
+                    {hasPermissionInAnyEmpresa("company_roles.delete") ? (
+                      <Button
+                        icon="pi pi-trash"
+                        className="p-button-rounded p-button-text p-button-danger"
+                        tooltip={
+                          row.isSystem
+                            ? "No se puede eliminar un rol de sistema"
+                            : "Eliminar rol"
+                        }
+                        tooltipOptions={{ position: "top" }}
+                        onClick={() => handleDelete(row)}
+                        loading={deleting === row.id}
+                        disabled={
+                          row.isSystem || (row._count?.memberships ?? 0) > 0
+                        }
+                        size="small"
+                      />
+                    ) : null}
                   </div>
                 )}
               />

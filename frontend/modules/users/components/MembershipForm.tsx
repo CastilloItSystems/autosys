@@ -19,8 +19,9 @@ import { membershipSchema } from "../schemas/user.schema";
 import type { MembershipFormData } from "../schemas/user.schema";
 import {
   useMembershipCompanyRolesData,
-  useMembershipEmpresasData,
 } from "../hooks/useUsersData";
+import { useEmpresasStore } from "@/store/empresasStore";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 const statusOptions = [
   { label: "Activo", value: "active" },
@@ -47,6 +48,17 @@ const MembershipForm = ({
   formId = "membership-form",
   onSubmittingChange,
 }: MembershipFormProps) => {
+  const activeEmpresa = useEmpresasStore((state) => state.activeEmpresa);
+  const refreshAuthContext = useRefreshAuthContext();
+  const activeEmpresaId = membership?.empresaId ?? activeEmpresa?.id_empresa ?? "";
+  const empresaOptions = activeEmpresaId
+    ? [
+        {
+          label: membership?.empresa?.nombre ?? activeEmpresa?.nombre ?? activeEmpresaId,
+          value: activeEmpresaId,
+        },
+      ]
+    : [];
   const {
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -56,33 +68,18 @@ const MembershipForm = ({
   } = useForm<MembershipFormData>({
     resolver: zodResolver(membershipSchema),
     defaultValues: {
-      empresaId: membership?.empresaId ?? "",
+      empresaId: activeEmpresaId,
       roleId: membership?.roleId ?? "",
       status: (membership?.status as MembershipStatus) ?? "active",
     },
   });
 
-  const watchedEmpresaId = watch("empresaId");
-  const {
-    empresaOptions,
-    error: empresasError,
-  } = useMembershipEmpresasData();
+  const watchedEmpresaId = watch("empresaId") || activeEmpresaId;
   const {
     roleOptions,
     loading: loadingRoles,
     error: rolesError,
   } = useMembershipCompanyRolesData(watchedEmpresaId);
-
-  useEffect(() => {
-    if (empresasError) {
-      toast.current?.show({
-        severity: "error",
-        summary: "Error",
-        detail: "No se pudieron cargar las empresas",
-        life: 3000,
-      });
-    }
-  }, [empresasError, toast]);
 
   useEffect(() => {
     if (rolesError) {
@@ -95,7 +92,7 @@ const MembershipForm = ({
     }
   }, [rolesError, toast]);
 
-  // Si estamos editando, resetear al recibir la membership
+  // La pantalla de empresa solo administra memberships de la empresa activa.
   useEffect(() => {
     if (membership) {
       reset({
@@ -103,8 +100,14 @@ const MembershipForm = ({
         roleId: membership.roleId,
         status: membership.status,
       });
+    } else if (activeEmpresaId) {
+      reset({
+        empresaId: activeEmpresaId,
+        roleId: "",
+        status: "active",
+      });
     }
-  }, [membership, reset]);
+  }, [activeEmpresaId, membership, reset]);
 
   const onSubmit = async (data: MembershipFormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
@@ -134,6 +137,7 @@ const MembershipForm = ({
           life: 3000,
         });
       }
+      await refreshAuthContext();
       onSave();
     } catch (error: any) {
       const detail =
@@ -166,9 +170,8 @@ const MembershipForm = ({
                   {...field}
                   options={empresaOptions}
                   placeholder="Seleccionar empresa"
-                  disabled={!!membership}
+                  disabled
                   className={classNames({ "p-invalid": errors.empresaId })}
-                  filter
                 />
               )}
             />

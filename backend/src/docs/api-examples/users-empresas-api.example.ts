@@ -22,11 +22,6 @@
  *           type: integer
  *           default: 20
  *       - in: query
- *         name: rol
- *         schema:
- *           type: string
- *           enum: [SUPER_ADMIN, ADMIN, GERENTE, VENDEDOR, ALMACENISTA, MECANICO, CAJERO, CONTADOR, ASESOR, VIEWER]
- *       - in: query
  *         name: estado
  *         schema:
  *           type: string
@@ -62,9 +57,6 @@
  *                 format: email
  *               password:
  *                 type: string
- *               rol:
- *                 type: string
- *                 enum: [SUPER_ADMIN, ADMIN, GERENTE, VENDEDOR, ALMACENISTA, MECANICO, CAJERO, CONTADOR, ASESOR, VIEWER]
  *               estado:
  *                 type: string
  *                 enum: [activo, suspendido, pendiente]

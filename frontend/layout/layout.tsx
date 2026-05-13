@@ -15,6 +15,7 @@ import AppTopbar from "./AppTopbar";
 import { LayoutContext } from "./context/layoutcontext";
 import AppBreadcrumb from "./AppBreadCrumb";
 import AppFooter from "./AppFooter";
+import PermissionGuard from "@/components/auth/PermissionGuard";
 import type { AppTopbarRef, ChildContainerProps } from "@/types";
 
 const Layout = (props: ChildContainerProps) => {
@@ -207,7 +208,7 @@ const Layout = (props: ChildContainerProps) => {
           <div className="layout-content">
             <div className="layout-content-inner">
               <AppBreadcrumb></AppBreadcrumb>
-              {props.children}
+              <PermissionGuard>{props.children}</PermissionGuard>
               <AppFooter></AppFooter>
             </div>
           </div>

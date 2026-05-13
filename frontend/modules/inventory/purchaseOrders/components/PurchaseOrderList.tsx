@@ -39,6 +39,7 @@ import {
 } from "@/components/common/ConfirmAction";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import dynamic from "next/dynamic";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 const PurchaseOrderPDFPreview = dynamic(
   () => import("./PurchaseOrderPDFPreview"),
@@ -78,6 +79,11 @@ const PurchaseOrderList = () => {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const [pdfItem, setPdfItem] = useState<PurchaseOrder | null>(null);
   const dt = useRef(null);
+  const { hasPermission } = useUserPermissions();
+  const canUpdatePurchaseOrders = hasPermission("purchases.orders.update");
+  const canApprovePurchaseOrders = hasPermission("purchases.orders.approve");
+  const canReceivePurchaseOrders = hasPermission("purchases.orders.receive");
+  const canDeletePurchaseOrders = hasPermission("purchases.orders.delete");
   const toast = useRef<Toast | null>(null);
   const menuRef = useRef<Menu>(null);
 
@@ -391,7 +397,8 @@ const PurchaseOrderList = () => {
     return (
       <div className="flex gap-1 flex-nowrap">
         {/* DRAFT / REJECTED → Enviar para aprobación */}
-        {(status === "DRAFT" || status === "REJECTED") && (
+        {canUpdatePurchaseOrders &&
+        (status === "DRAFT" || status === "REJECTED") ? (
           <Button
             icon="pi pi-send"
             className="p-button-rounded p-button-info p-button-sm"
@@ -409,122 +416,136 @@ const PurchaseOrderList = () => {
               })
             }
           />
-        )}
+        ) : null}
 
         {/* PENDING_APPROVAL → Aprobar / Rechazar / Cancelar */}
         {status === "PENDING_APPROVAL" && (
           <>
-            <Button
-              icon="pi pi-check"
-              className="p-button-rounded p-button-success p-button-sm"
-              tooltip="Aprobar"
-              tooltipOptions={{ position: "top" }}
-              onClick={(e) =>
-                confirmAction({
-                  target: e.currentTarget as EventTarget & HTMLElement,
-                  message: `¿Aprobar la orden ${rowData.orderNumber}?`,
-                  icon: "pi pi-check",
-                  iconClass: "text-green-500",
-                  acceptLabel: "Aprobar",
-                  acceptSeverity: "success",
-                  onAccept: () => handleApprove(rowData),
-                })
-              }
-            />
-            <Button
-              icon="pi pi-ban"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Rechazar"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => openRejectDialog(rowData)}
-            />
-            <Button
-              icon="pi pi-times"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Cancelar Orden"
-              tooltipOptions={{ position: "top" }}
-              onClick={(e) =>
-                confirmAction({
-                  target: e.currentTarget as EventTarget & HTMLElement,
-                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
-                  icon: "pi pi-ban",
-                  iconClass: "text-red-500",
-                  acceptLabel: "Sí, Cancelar",
-                  acceptSeverity: "danger",
-                  onAccept: () => handleCancel(rowData),
-                })
-              }
-            />
+            {canApprovePurchaseOrders ? (
+              <>
+                <Button
+                  icon="pi pi-check"
+                  className="p-button-rounded p-button-success p-button-sm"
+                  tooltip="Aprobar"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={(e) =>
+                    confirmAction({
+                      target: e.currentTarget as EventTarget & HTMLElement,
+                      message: `¿Aprobar la orden ${rowData.orderNumber}?`,
+                      icon: "pi pi-check",
+                      iconClass: "text-green-500",
+                      acceptLabel: "Aprobar",
+                      acceptSeverity: "success",
+                      onAccept: () => handleApprove(rowData),
+                    })
+                  }
+                />
+                <Button
+                  icon="pi pi-ban"
+                  className="p-button-rounded p-button-danger p-button-sm"
+                  tooltip="Rechazar"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={() => openRejectDialog(rowData)}
+                />
+              </>
+            ) : null}
+            {canUpdatePurchaseOrders ? (
+              <Button
+                icon="pi pi-times"
+                className="p-button-rounded p-button-danger p-button-sm"
+                tooltip="Cancelar Orden"
+                tooltipOptions={{ position: "top" }}
+                onClick={(e) =>
+                  confirmAction({
+                    target: e.currentTarget as EventTarget & HTMLElement,
+                    message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                    icon: "pi pi-ban",
+                    iconClass: "text-red-500",
+                    acceptLabel: "Sí, Cancelar",
+                    acceptSeverity: "danger",
+                    onAccept: () => handleCancel(rowData),
+                  })
+                }
+              />
+            ) : null}
           </>
         )}
 
         {/* APPROVED → Enviar al proveedor / Cancelar */}
         {status === "APPROVED" && (
           <>
-            <Button
-              icon="pi pi-truck"
-              className="p-button-rounded p-button-warning p-button-sm"
-              tooltip="Enviar al proveedor"
-              tooltipOptions={{ position: "top" }}
-              onClick={(e) =>
-                confirmAction({
-                  target: e.currentTarget as EventTarget & HTMLElement,
-                  message: `¿Enviar la orden ${rowData.orderNumber} al proveedor?`,
-                  icon: "pi pi-truck",
-                  iconClass: "text-orange-500",
-                  acceptLabel: "Enviar",
-                  acceptSeverity: "warning",
-                  onAccept: () => handleSend(rowData),
-                })
-              }
-            />
-            <Button
-              icon="pi pi-times"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Cancelar Orden"
-              tooltipOptions={{ position: "top" }}
-              onClick={(e) =>
-                confirmAction({
-                  target: e.currentTarget as EventTarget & HTMLElement,
-                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
-                  icon: "pi pi-ban",
-                  iconClass: "text-red-500",
-                  acceptLabel: "Sí, Cancelar",
-                  acceptSeverity: "danger",
-                  onAccept: () => handleCancel(rowData),
-                })
-              }
-            />
+            {canUpdatePurchaseOrders ? (
+              <>
+                <Button
+                  icon="pi pi-truck"
+                  className="p-button-rounded p-button-warning p-button-sm"
+                  tooltip="Enviar al proveedor"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={(e) =>
+                    confirmAction({
+                      target: e.currentTarget as EventTarget & HTMLElement,
+                      message: `¿Enviar la orden ${rowData.orderNumber} al proveedor?`,
+                      icon: "pi pi-truck",
+                      iconClass: "text-orange-500",
+                      acceptLabel: "Enviar",
+                      acceptSeverity: "warning",
+                      onAccept: () => handleSend(rowData),
+                    })
+                  }
+                />
+                <Button
+                  icon="pi pi-times"
+                  className="p-button-rounded p-button-danger p-button-sm"
+                  tooltip="Cancelar Orden"
+                  tooltipOptions={{ position: "top" }}
+                  onClick={(e) =>
+                    confirmAction({
+                      target: e.currentTarget as EventTarget & HTMLElement,
+                      message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                      icon: "pi pi-ban",
+                      iconClass: "text-red-500",
+                      acceptLabel: "Sí, Cancelar",
+                      acceptSeverity: "danger",
+                      onAccept: () => handleCancel(rowData),
+                    })
+                  }
+                />
+              </>
+            ) : null}
           </>
         )}
 
         {/* SENT / PARTIAL → Recepcionar / Cancelar */}
         {(status === "SENT" || status === "PARTIAL") && (
           <>
-            <Button
-              icon="pi pi-inbox"
-              className="p-button-rounded p-button-success p-button-sm"
-              tooltip="Recepcionar en Nota de Entrada"
-              tooltipOptions={{ position: "top" }}
-              onClick={() => handleReceiveInEntryNote(rowData)}
-            />
-            <Button
-              icon="pi pi-times"
-              className="p-button-rounded p-button-danger p-button-sm"
-              tooltip="Cancelar Orden"
-              tooltipOptions={{ position: "top" }}
-              onClick={(e) =>
-                confirmAction({
-                  target: e.currentTarget as EventTarget & HTMLElement,
-                  message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
-                  icon: "pi pi-ban",
-                  iconClass: "text-red-500",
-                  acceptLabel: "Sí, Cancelar",
-                  acceptSeverity: "danger",
-                  onAccept: () => handleCancel(rowData),
-                })
-              }
-            />
+            {canReceivePurchaseOrders ? (
+              <Button
+                icon="pi pi-inbox"
+                className="p-button-rounded p-button-success p-button-sm"
+                tooltip="Recepcionar en Nota de Entrada"
+                tooltipOptions={{ position: "top" }}
+                onClick={() => handleReceiveInEntryNote(rowData)}
+              />
+            ) : null}
+            {canUpdatePurchaseOrders ? (
+              <Button
+                icon="pi pi-times"
+                className="p-button-rounded p-button-danger p-button-sm"
+                tooltip="Cancelar Orden"
+                tooltipOptions={{ position: "top" }}
+                onClick={(e) =>
+                  confirmAction({
+                    target: e.currentTarget as EventTarget & HTMLElement,
+                    message: `¿Cancelar la orden ${rowData.orderNumber}? Esta acción no se puede deshacer.`,
+                    icon: "pi pi-ban",
+                    iconClass: "text-red-500",
+                    acceptLabel: "Sí, Cancelar",
+                    acceptSeverity: "danger",
+                    onAccept: () => handleCancel(rowData),
+                  })
+                }
+              />
+            ) : null}
           </>
         )}
 
@@ -549,7 +570,7 @@ const PurchaseOrderList = () => {
   const getMenuItems = (po: PurchaseOrder | null): MenuItem[] => {
     if (!po) return [];
 
-    const editable = isEditableOrder(po);
+    const editable = isEditableOrder(po) && canUpdatePurchaseOrders;
     const items: MenuItem[] = [
       {
         label: "Imprimir PDF",
@@ -573,7 +594,7 @@ const PurchaseOrderList = () => {
       },
     ];
 
-    if (!editable) return items;
+    if (!editable || !canDeletePurchaseOrders) return items;
 
     items.push(
       { separator: true },

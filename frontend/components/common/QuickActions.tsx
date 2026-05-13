@@ -3,8 +3,14 @@
 import { useRouter } from "next/navigation";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
+import { useMemo } from "react";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import {
+  getPermissionGateForPath,
+  type PermissionGate,
+} from "@/lib/permissionGates";
 
-export interface QuickAction {
+export interface QuickAction extends PermissionGate {
   label: string;
   icon: string;
   to: string;
@@ -16,24 +22,50 @@ interface QuickActionsProps {
   actions: QuickAction[];
   title?: string;
   icon?: string;
+  showTitle?: boolean;
 }
 
 export default function QuickActions({
   actions,
   title = "Accesos Rápidos",
   icon = "pi pi-bolt",
+  showTitle = true,
 }: QuickActionsProps) {
   const router = useRouter();
+  const { canAccessGate } = useUserPermissions();
+  const visibleActions = useMemo(
+    () =>
+      actions.filter((action) => {
+        const hasExplicitGate = Boolean(
+          action.permission || action.permissionsAny || action.permissionsAll,
+        );
+        const gate = hasExplicitGate
+          ? {
+              permission: action.permission,
+              permissionsAny: action.permissionsAny,
+              permissionsAll: action.permissionsAll,
+              scope: action.scope,
+            }
+          : getPermissionGateForPath(action.to);
+
+        return canAccessGate(gate);
+      }),
+    [actions, canAccessGate],
+  );
+
+  if (visibleActions.length === 0) return null;
 
   return (
     <div className="mb-0">
-      <h5 className="mb-3">
-        <i className={`${icon} mr-2 text-primary`} />
-        {title}
-      </h5>
+      {showTitle ? (
+        <h5 className="mb-3">
+          <i className={`${icon} mr-2 text-primary`} />
+          {title}
+        </h5>
+      ) : null}
       <div className="grid">
-        {actions.map((action, idx) => (
-          <div key={idx} className="col-6 md:col-3 lg:col-3 xl:col-2">
+        {visibleActions.map((action) => (
+          <div key={action.to} className="col-6 md:col-3 lg:col-3 xl:col-2">
             <motion.div
               whileHover={{ scale: 1.03 }}
               whileTap={{ scale: 0.97 }}

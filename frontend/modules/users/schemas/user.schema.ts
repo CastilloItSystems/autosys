@@ -55,6 +55,8 @@ const baseUsuarioSchema = {
   acceso: z.enum(["completo", "limitado", "ninguno"]),
   estado: z.enum(["activo", "pendiente", "suspendido"]),
   isTechnician: z.boolean().optional(),
+  roleId: z.string().optional(),
+  membershipStatus: z.enum(["active", "invited", "suspended"]).optional(),
 };
 
 export const createUserSchema = z

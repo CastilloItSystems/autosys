@@ -1,46 +1,43 @@
 "use client";
-import React from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { Button } from "primereact/button";
 import { motion } from "framer-motion";
 import Image from "next/image";
-import useSWR from "swr";
 import { useEmpresaDataFull } from "@/hooks/useEmpresasDataFull";
 import { useEmpresasStore } from "@/store/empresasStore";
+import type { Empresa } from "@/modules/companies/interfaces/empresa.interface";
 
 const DashboardMain = () => {
   const router = useRouter();
-  const { data: session, status } = useSession();
-  const user = session?.user;
-  const { empresas = [], loading } = useEmpresaDataFull();
+  const { status } = useSession();
+  const {
+    empresas = [],
+    loading,
+    mutateEmpresaDataFull,
+  } = useEmpresaDataFull();
 
-  // Para refrescar datos globales con SWR
-  const { mutate } = useSWR("empresa-data-global");
-  const { setActiveEmpresa } = useEmpresasStore();
+  const activeEmpresaId = useEmpresasStore(
+    (state) => state.activeEmpresa?.id_empresa,
+  );
+  const setActiveEmpresa = useEmpresasStore((state) => state.setActiveEmpresa);
+  const clearActiveEmpresa = useEmpresasStore(
+    (state) => state.clearActiveEmpresa,
+  );
 
-  // Filtrar empresas según el acceso del usuario
-  const empresasFilter = React.useMemo(() => {
-    if (!Array.isArray(empresas)) return [];
+  useEffect(() => {
+    if (loading || !activeEmpresaId) return;
 
-    // Ajuste: Accedemos directamente a las propiedades del objeto user, ya que no tiene una propiedad 'usuario' anidada según tu log.
-    const acceso = user?.acceso;
-    const userEmpresas = user?.empresas;
-
-    if (acceso === "completo") {
-      return empresas;
-    } else if (acceso === "limitado" && Array.isArray(userEmpresas)) {
-      return empresas.filter((w: any) =>
-        userEmpresas.some(
-          (userEmpresa: any) => userEmpresa.id_empresa === w.id_empresa,
-        ),
-      );
-    } else {
-      return [];
+    const activeEmpresaStillAvailable = empresas.some(
+      (empresa) => empresa.id_empresa === activeEmpresaId,
+    );
+    if (!activeEmpresaStillAvailable) {
+      clearActiveEmpresa();
     }
-  }, [user, empresas]);
-  console.log(empresas);
+  }, [activeEmpresaId, clearActiveEmpresa, empresas, loading]);
+
   // Evitar problemas de hidratación: solo renderizar cuando la sesión esté lista
   if (status === "loading" || loading) {
     return (
@@ -53,22 +50,10 @@ const DashboardMain = () => {
     );
   }
 
-  const handleDivClick = (empresa: any) => {
+  const handleDivClick = (empresa: Empresa) => {
     setActiveEmpresa(empresa);
     router.push("/empresa/");
   };
-
-  // show spinner while loading
-  if (loading) {
-    return (
-      <div
-        className="flex justify-content-center align-items-center"
-        style={{ height: "300px" }}
-      >
-        <ProgressSpinner />
-      </div>
-    );
-  }
 
   // empty state if no autoSyss
   if (!loading && empresas.length === 0) {
@@ -90,7 +75,7 @@ const DashboardMain = () => {
         <Button
           label="Recargar"
           icon="pi pi-refresh"
-          onClick={() => mutate()}
+          onClick={() => mutateEmpresaDataFull()}
           className="mt-2"
         />
       </div>
@@ -99,9 +84,9 @@ const DashboardMain = () => {
   return (
     <>
       <div className="grid">
-        {Array.isArray(empresasFilter) &&
-          empresasFilter.length > 0 &&
-          empresasFilter.map((empresa, idx) => (
+        {Array.isArray(empresas) &&
+          empresas.length > 0 &&
+          empresas.map((empresa, idx) => (
             <motion.div
               key={empresa.id_empresa}
               className="col-12 md:col-6 lg:col-4 xl:col-4 p-2 clickable"

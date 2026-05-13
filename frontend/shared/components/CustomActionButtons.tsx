@@ -1,16 +1,13 @@
 import React, { useRef } from "react";
-import { useUserRoles } from "../../hooks/useUserRoles";
+import { usePathname } from "next/navigation";
 import { Button } from "primereact/button";
 import { Menu } from "primereact/menu";
 import PDFGenerator from "@/components/pdf/PDFGenerator";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
-  infoAllowedRoles,
-  editAllowedRoles,
-  deleteAllowedRoles,
-  duplicateAllowedRoles,
-  pdfAllowedRoles,
-  hasRole,
-} from "../../lib/roles";
+  getPermissionGateForPath,
+  type PermissionAction,
+} from "@/lib/permissionGates";
 
 interface CustomActionButtonsProps<T> {
   rowData: T; // Datos de la fila
@@ -26,8 +23,13 @@ interface CustomActionButtonsProps<T> {
   pdfFileName?: string;
   /** Texto del botón de descarga */
   pdfDownloadText?: string;
-  /** Roles permitidos para mostrar acciones (opcional, por defecto ["admin"]) */
-  allowedRoles?: string[];
+  infoPermission?: string;
+  editPermission?: string;
+  deletePermission?: string;
+  duplicatePermission?: string;
+  pdfPermission?: string;
+  viewPaymentsPermission?: string;
+  addPaymentPermission?: string;
 }
 
 function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
@@ -42,9 +44,31 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
     pdfTemplate: Template,
     pdfFileName = "documento.pdf",
     pdfDownloadText = "Descargar PDF",
+    infoPermission,
+    editPermission,
+    deletePermission,
+    duplicatePermission,
+    pdfPermission,
+    viewPaymentsPermission,
+    addPaymentPermission,
   } = props;
-  // Obtener roles del usuario con hook reutilizable
-  const userRoles = useUserRoles();
+  const pathname = usePathname();
+  const { canAccessGate } = useUserPermissions();
+  const can = (action: PermissionAction, permission?: string) =>
+    canAccessGate(
+      permission ? { permission } : getPermissionGateForPath(pathname, action),
+    );
+  const canInfo = can("view", infoPermission);
+  const canEdit = can("update", editPermission);
+  const canDelete = can("delete", deletePermission);
+  const canDuplicate = can("create", duplicatePermission);
+  const canPdf = canAccessGate({ permission: pdfPermission ?? "reports.export" });
+  const canViewPayments = canAccessGate({
+    permission: viewPaymentsPermission ?? "payments.view",
+  });
+  const canAddPayment = canAccessGate({
+    permission: addPaymentPermission ?? "payments.create",
+  });
 
   // Hook para detectar sm o md (menos de 1024px)
   const [isMobile, setIsMobile] = React.useState(false);
@@ -61,71 +85,59 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
 
   const menuRef = useRef<any>(null);
 
-  // Usar función y arrays reutilizables
-  const can = (allowed: string[]) => hasRole(allowed, userRoles);
-
-  // Si el usuario no tiene acceso a ningún botón, no renderizar nada
-  if (
-    !can(infoAllowedRoles) &&
-    !can(editAllowedRoles) &&
-    !can(deleteAllowedRoles) &&
-    !can(duplicateAllowedRoles) &&
-    !can(pdfAllowedRoles)
-  ) {
-    return null;
-  }
-
   // Crear items del menú
   const menuItems = [];
-  if (onInfo && can(infoAllowedRoles)) {
+  if (onInfo && canInfo) {
     menuItems.push({
       label: "Ver Historial",
       icon: "pi pi-info-circle",
       command: () => onInfo(rowData),
     });
   }
-  if (onEdit && can(editAllowedRoles)) {
+  if (onEdit && canEdit) {
     menuItems.push({
       label: "Editar",
       icon: "pi pi-pencil",
       command: () => onEdit(rowData),
     });
   }
-  if (onDelete && can(deleteAllowedRoles)) {
+  if (onDelete && canDelete) {
     menuItems.push({
       label: "Eliminar",
       icon: "pi pi-trash",
       command: () => onDelete(rowData),
     });
   }
-  if (onDuplicate && can(duplicateAllowedRoles)) {
+  if (onDuplicate && canDuplicate) {
     menuItems.push({
       label: "Copiar Información",
       icon: "pi pi-copy",
       command: () => onDuplicate(rowData),
     });
   }
-  if (onViewPayments && can(editAllowedRoles)) {
+  if (onViewPayments && canViewPayments) {
     menuItems.push({
       label: "Ver Pagos",
       icon: "pi pi-dollar",
       command: () => onViewPayments(rowData),
     });
   }
-  if (onAddPayment && can(editAllowedRoles)) {
+  if (onAddPayment && canAddPayment) {
     menuItems.push({
       label: "Agregar Pago",
       icon: "pi pi-plus",
       command: () => onAddPayment(rowData),
     });
   }
-  if (Template && can(pdfAllowedRoles)) {
+  if (Template && canPdf) {
     menuItems.push({
       label: pdfDownloadText,
       icon: "pi pi-file-pdf",
       command: () => {}, // El PDFGenerator se muestra oculto
     });
   }
+
+  if (menuItems.length === 0) return null;
 
   if (isMobile) {
     return (
@@ -140,7 +152,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
         />
         <Menu model={menuItems} popup ref={menuRef} />
         {/* PDFGenerator solo visible en desktop, para móvil solo icono oculto */}
-        {Template && can(pdfAllowedRoles) && (
+        {Template && canPdf && (
           <span style={{ display: "none" }}>
             <PDFGenerator
               template={Template}
@@ -157,7 +169,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
   // Desktop: mostrar botones individuales
   return (
     <div className="flex gap-1 flex-column justify-content-center align-items-center sm:flex-row ">
-      {onInfo && can(infoAllowedRoles) && (
+      {onInfo && canInfo && (
         <Button
           icon="pi pi-info-circle"
           rounded
@@ -169,7 +181,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           onClick={() => onInfo(rowData)}
         />
       )}
-      {onEdit && can(editAllowedRoles) && (
+      {onEdit && canEdit && (
         <Button
           icon="pi pi-pencil"
           rounded
@@ -181,7 +193,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           onClick={() => onEdit(rowData)}
         />
       )}
-      {onDelete && can(deleteAllowedRoles) && (
+      {onDelete && canDelete && (
         <Button
           icon="pi pi-trash"
           rounded
@@ -193,7 +205,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           onClick={() => onDelete(rowData)}
         />
       )}
-      {onDuplicate && can(duplicateAllowedRoles) && (
+      {onDuplicate && canDuplicate && (
         <Button
           icon="pi pi-copy"
           rounded
@@ -207,7 +219,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           }}
         />
       )}
-      {onViewPayments && can(editAllowedRoles) && (
+      {onViewPayments && canViewPayments && (
         <Button
           icon="pi pi-dollar"
           rounded
@@ -219,7 +231,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           onClick={() => onViewPayments(rowData)}
         />
       )}
-      {onAddPayment && can(editAllowedRoles) && (
+      {onAddPayment && canAddPayment && (
         <Button
           icon="pi pi-plus"
           rounded
@@ -231,7 +243,7 @@ function CustomActionButtons<T>(props: CustomActionButtonsProps<T>) {
           onClick={() => onAddPayment(rowData)}
         />
       )}
-      {Template && can(pdfAllowedRoles) && (
+      {Template && canPdf && (
         <PDFGenerator
           template={Template}
           data={rowData}

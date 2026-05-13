@@ -7,7 +7,6 @@ import {
   type SessionExpiredEventDetail,
 } from "@/lib/sessionExpiration";
 import { useEmpresasStore } from "@/store/empresasStore";
-import { useEmpresasStore as useLegacyEmpresasStore } from "@/modules/companies/store/empresasStore";
 
 export const BACKEND_TOKEN_REFRESH_SKEW_MS = 2 * 60 * 1000;
 
@@ -132,7 +131,6 @@ export async function expireBackendSession(
 
   clearBackendAuthSessionState();
   useEmpresasStore.getState().clearActiveEmpresa();
-  useLegacyEmpresasStore.getState().clearActiveEmpresa();
   notifySessionExpired(detail);
 
   if (!expirePromise) {

@@ -20,6 +20,7 @@ import { User } from "next-auth";
 import { useSocket } from "@/hooks/useSocket";
 import AppNotificationDropdown from "./AppNotificationDropdown";
 import { Dialog } from "primereact/dialog";
+import { Toast } from "primereact/toast";
 import { useEmpresasStore } from "@/store/empresasStore";
 
 interface ExtendedUser extends User {
@@ -34,7 +35,21 @@ interface ExtendedUser extends User {
 const AppTopbar = forwardRef<AppTopbarRef>((props, ref) => {
   const { data: session } = useSession();
   const { activeEmpresa, clearActiveEmpresa } = useEmpresasStore();
-const { online, desconectarSocket } = useSocket();
+const { online, desconectarSocket, membershipChanged, clearMembershipChanged } = useSocket();
+  const toastRef = useRef<Toast>(null);
+
+  useEffect(() => {
+    if (membershipChanged) {
+      toastRef.current?.show({
+        severity: "warn",
+        summary: "Permisos actualizados",
+        detail:
+          "Tu administrador modificó tus permisos. La interfaz ha sido actualizada.",
+        life: 6000,
+      });
+      clearMembershipChanged();
+    }
+  }, [membershipChanged, clearMembershipChanged]);
 
   const handleSignOut = async () => {
     // Revoca el token de Google si existe
@@ -118,6 +133,7 @@ const { online, desconectarSocket } = useSocket();
 
   return (
     <div className="layout-topbar">
+      <Toast ref={toastRef} position="top-right" />
       <Link href={"/"} className="app-logo">
         <Image alt="app logo" src={logo()} width={32} height={32} />
         <span className="app-name">AutoSys</span>

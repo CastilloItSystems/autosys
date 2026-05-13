@@ -1,6 +1,7 @@
 import { Request, Response } from 'express'
 import prisma from '../services/prisma.service.js'
 import { invalidateMembershipsCache } from '../features/notifications/memberships-permissions.cache.js'
+import { getIO } from '../socket/index.js'
 
 export const getMembershipsByEmpresa = async (req: Request, res: Response) => {
   try {
@@ -52,9 +53,14 @@ export const getMembershipsByUser = async (req: Request, res: Response) => {
   const { id } = req.params
 
   try {
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Empresa no especificada.' })
+    }
+
     const memberships = await prisma.membership.findMany({
       where: {
         userId: String(id),
+        empresaId: req.empresaId,
       },
       include: {
         empresa: {
@@ -90,12 +96,23 @@ export const getMembershipsByUser = async (req: Request, res: Response) => {
 
 export const createMembership = async (req: Request, res: Response) => {
   try {
-    const { userId, empresaId, roleId, status } = req.body
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Empresa no especificada.' })
+    }
+
+    const { userId, empresaId: requestedEmpresaId, roleId, status } = req.body
+    const empresaId = req.empresaId
     const assignedBy = req.user?.userId || null
 
-    if (!userId || !empresaId || !roleId) {
+    if (!userId || !roleId) {
       return res.status(400).json({
-        error: 'userId, empresaId y roleId son requeridos.',
+        error: 'userId y roleId son requeridos.',
+      })
+    }
+
+    if (requestedEmpresaId && requestedEmpresaId !== empresaId) {
+      return res.status(403).json({
+        error: 'No tienes permisos para crear memberships en otra empresa.',
       })
     }
 
@@ -194,6 +211,10 @@ export const updateMembership = async (req: Request, res: Response) => {
   const { id } = req.params
 
   try {
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Empresa no especificada.' })
+    }
+
     const { roleId, status } = req.body
     const assignedBy = req.user?.userId || null
 
@@ -204,6 +225,12 @@ export const updateMembership = async (req: Request, res: Response) => {
     if (!existingMembership) {
       return res.status(404).json({
         error: 'Membership no encontrada.',
+      })
+    }
+
+    if (existingMembership.empresaId !== req.empresaId) {
+      return res.status(403).json({
+        error: 'No tienes permisos para actualizar esta membership.',
       })
     }
 
@@ -268,6 +295,10 @@ export const deleteMembership = async (req: Request, res: Response) => {
   const { id } = req.params
 
   try {
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Empresa no especificada.' })
+    }
+
     const existingMembership = await prisma.membership.findUnique({
       where: { id: String(id) },
     })
@@ -275,6 +306,12 @@ export const deleteMembership = async (req: Request, res: Response) => {
     if (!existingMembership) {
       return res.status(404).json({
         error: 'Membership no encontrada.',
+      })
+    }
+
+    if (existingMembership.empresaId !== req.empresaId) {
+      return res.status(403).json({
+        error: 'No tienes permisos para eliminar esta membership.',
       })
     }
 
@@ -321,6 +358,12 @@ export const getMembershipPermissions = async (req: Request, res: Response) => {
 
     if (!membership) {
       return res.status(404).json({ error: 'Membership no encontrada.' })
+    }
+
+    if (req.empresaId && membership.empresaId !== req.empresaId) {
+      return res.status(403).json({
+        error: 'No tienes permisos para consultar esta membership.',
+      })
     }
 
     const rolePermissions = membership.role.permissions.map(
@@ -391,6 +434,12 @@ export const setMembershipPermissions = async (req: Request, res: Response) => {
       return res.status(404).json({ error: 'Membership no encontrada.' })
     }
 
+    if (req.empresaId && membership.empresaId !== req.empresaId) {
+      return res.status(403).json({
+        error: 'No tienes permisos para actualizar esta membership.',
+      })
+    }
+
     // Resolver Permission IDs a partir de los códigos
     const codes: string[] = overrides.map((o: any) => o.permissionCode)
     const found =
@@ -423,6 +472,9 @@ export const setMembershipPermissions = async (req: Request, res: Response) => {
     })
 
     invalidateMembershipsCache(membership.empresaId)
+    getIO()
+      .to(`user-${membership.userId}`)
+      .emit('membership:permissions-changed', { empresaId: membership.empresaId })
     return res.json({ message: 'Permisos actualizados exitosamente.' })
   } catch (error) {
     console.error('Error actualizando permisos de membership:', error)

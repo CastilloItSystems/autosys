@@ -6,6 +6,16 @@ const USER_ROLE_ASSIGNMENTS = [
   { correo: 'gerente@test.com', roleName: 'GERENTE' },
   { correo: 'vendedor@test.com', roleName: 'VENDEDOR' },
   { correo: 'almacenista@test.com', roleName: 'ALMACENISTA' },
+  { correo: 'comprador@test.com', roleName: 'COMPRADOR' },
+  { correo: 'jefe.compras@test.com', roleName: 'JEFE_COMPRAS' },
+  { correo: 'administracion@test.com', roleName: 'ADMINISTRACION' },
+  { correo: 'cajero@test.com', roleName: 'CAJERO' },
+  { correo: 'contador@test.com', roleName: 'CONTADOR' },
+  { correo: 'tecnico.taller@test.com', roleName: 'TECNICO_TALLER' },
+  { correo: 'jefe.taller@test.com', roleName: 'JEFE_TALLER' },
+  { correo: 'asesor.servicio@test.com', roleName: 'ASESOR_SERVICIO' },
+  { correo: 'crm.marketing@test.com', roleName: 'CRM_MARKETING' },
+  { correo: 'concesionario@test.com', roleName: 'CONCESIONARIO' },
   { correo: 'viewer@test.com', roleName: 'VIEWER' },
 ]
 

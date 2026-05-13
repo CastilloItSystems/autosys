@@ -11,12 +11,42 @@ export const PERMISSIONS = {
   USERS_DELETE: 'users.delete',
   USERS_APPROVE: 'users.approve',
 
+  // ── Usuarios globales SaaS ──────────────────────────────────────────────
+  PLATFORM_USERS_VIEW: 'platform_users.view',
+  PLATFORM_USERS_CREATE: 'platform_users.create',
+  PLATFORM_USERS_UPDATE: 'platform_users.update',
+  PLATFORM_USERS_DELETE: 'platform_users.delete',
+
+  // ── Empresas ────────────────────────────────────────────────────────────
+  COMPANIES_VIEW: 'companies.view',
+  COMPANIES_CREATE: 'companies.create',
+  COMPANIES_UPDATE: 'companies.update',
+  COMPANIES_DELETE: 'companies.delete',
+
+  // ── Roles dinámicos de empresa ──────────────────────────────────────────
+  COMPANY_ROLES_VIEW: 'company_roles.view',
+  COMPANY_ROLES_CREATE: 'company_roles.create',
+  COMPANY_ROLES_UPDATE: 'company_roles.update',
+  COMPANY_ROLES_DELETE: 'company_roles.delete',
+
   // ── Inventario general (catálogos, notas entrada/salida, ajustes, conteos)
   INVENTORY_VIEW: 'inventory.view',
   INVENTORY_CREATE: 'inventory.create',
   INVENTORY_UPDATE: 'inventory.update',
   INVENTORY_DELETE: 'inventory.delete',
   INVENTORY_APPROVE: 'inventory.approve',
+
+  // ── Compras: ordenes y proveedores ─────────────────────────────────────
+  PURCHASES_ORDERS_VIEW: 'purchases.orders.view',
+  PURCHASES_ORDERS_CREATE: 'purchases.orders.create',
+  PURCHASES_ORDERS_UPDATE: 'purchases.orders.update',
+  PURCHASES_ORDERS_DELETE: 'purchases.orders.delete',
+  PURCHASES_ORDERS_APPROVE: 'purchases.orders.approve',
+  PURCHASES_ORDERS_RECEIVE: 'purchases.orders.receive',
+  PURCHASES_SUPPLIERS_VIEW: 'purchases.suppliers.view',
+  PURCHASES_SUPPLIERS_CREATE: 'purchases.suppliers.create',
+  PURCHASES_SUPPLIERS_UPDATE: 'purchases.suppliers.update',
+  PURCHASES_SUPPLIERS_DELETE: 'purchases.suppliers.delete',
 
   // ── Artículos (items CRUD, imágenes, bulk) ───────────────────────────────
   ITEMS_VIEW: 'items.view',

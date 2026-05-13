@@ -19,11 +19,41 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "../../../components/common/CreateButton";
 import DeleteConfirmDialog from "../../../components/common/DeleteConfirmDialog";
 
-import { deleteUser } from "@/modules/users/services/user.service";
-import type { User } from "../interfaces/user.interface";
+import {
+  deleteCompanyUser,
+  deleteUser,
+} from "@/modules/users/services/user.service";
+import type { User, UserScope } from "../interfaces/user.interface";
 import { useUserAuditLogsData, useUsersData } from "../hooks/useUsersData";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
-const UsuarioListContent = () => {
+interface UsuarioListContentProps {
+  scope?: UserScope;
+}
+
+const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
+  const isCompanyScope = scope === "company";
+  const {
+    hasPermission,
+    hasAnyPermission,
+    hasPermissionInAnyEmpresa,
+  } = useUserPermissions();
+  const refreshAuthContext = useRefreshAuthContext();
+  const canEdit = isCompanyScope
+    ? hasPermission("users.update")
+    : hasPermissionInAnyEmpresa("platform_users.update");
+  const canDelete = isCompanyScope
+    ? hasPermission("users.delete")
+    : hasPermissionInAnyEmpresa("platform_users.delete");
+  const canManageMemberships = isCompanyScope
+    ? hasAnyPermission(["users.view", "users.update"])
+    : false;
+  const canViewAudit = isCompanyScope && hasPermission("audit.view");
+  const createPermission = isCompanyScope
+    ? "users.create"
+    : "platform_users.create";
+
   const [usuario, setUsuario] = useState<User | null>(null);
   const [globalFilterValue, setGlobalFilterValue] = useState("");
 
@@ -54,7 +84,7 @@ const UsuarioListContent = () => {
     loading,
     error: usersError,
     mutate: mutateUsuarios,
-  } = useUsersData();
+  } = useUsersData(scope);
   const {
     auditLogs,
     loading: auditLogsLoading,
@@ -158,8 +188,19 @@ const UsuarioListContent = () => {
 
     setIsDeleting(true);
     try {
-      await deleteUser(usuario.id);
-      showToast("success", "Éxito", "Usuario eliminado correctamente");
+      if (isCompanyScope) {
+        await deleteCompanyUser(usuario.id);
+      } else {
+        await deleteUser(usuario.id);
+      }
+      showToast(
+        "success",
+        "Éxito",
+        isCompanyScope
+          ? "Usuario removido de la empresa correctamente"
+          : "Usuario eliminado correctamente",
+      );
+      await refreshAuthContext();
       await mutateUsuarios();
       setDeleteUsuarioDialog(false);
       setUsuario(null);
@@ -223,7 +264,11 @@ const UsuarioListContent = () => {
     const memberships = rowData.memberships ?? [];
 
     if (memberships.length === 0) {
-      return <span className="text-500">Sin empresas</span>;
+      return (
+        <span className="text-500">
+          {isCompanyScope ? "Sin rol" : "Sin empresas"}
+        </span>
+      );
     }
 
     return (
@@ -231,9 +276,15 @@ const UsuarioListContent = () => {
         {memberships.map((membership) => (
           <div key={membership.id} className="text-sm">
             <strong>
-              {membership.empresa?.nombre ?? membership.empresaId}
+              {isCompanyScope
+                ? membership.role?.name ?? membership.roleId
+                : membership.empresa?.nombre ?? membership.empresaId}
             </strong>
-            {membership.role?.name ? ` — ${membership.role.name}` : ""}
+            {isCompanyScope
+              ? ` — ${membership.status}`
+              : membership.role?.name
+                ? ` — ${membership.role.name}`
+                : ""}
           </div>
         ))}
       </div>
@@ -242,40 +293,56 @@ const UsuarioListContent = () => {
 
   const getMenuItems = (user: User | null): MenuItem[] => {
     if (!user) return [];
-    return [
-      {
+    const items: MenuItem[] = [];
+
+    if (canEdit) {
+      items.push({
         label: "Editar",
         icon: "pi pi-pencil",
         command: () => editUsuario(user),
-      },
-      {
+      });
+      items.push({
         label: "Cambiar contraseña",
         icon: "pi pi-key",
         command: () => confirmChangePassword(user),
-      },
-      {
+      });
+    }
+
+    if (canManageMemberships) {
+      items.push({
         label: "Memberships",
         icon: "pi pi-sitemap",
         command: () => handleManageMemberships(user),
-      },
-      {
+      });
+    }
+
+    if (canViewAudit) {
+      items.push({
         label: "Ver auditoría",
         icon: "pi pi-history",
         command: () => handleViewAudit(user),
-      },
-      {
-        separator: true,
-      },
-      {
-        label: "Eliminar",
+      });
+    }
+
+    if (canDelete) {
+      if (items.length > 0) {
+        items.push({ separator: true });
+      }
+
+      items.push({
+        label: isCompanyScope ? "Quitar de empresa" : "Eliminar",
         icon: "pi pi-trash",
         className: "p-error",
         command: () => confirmDeleteUsuario(user),
-      },
-    ];
+      });
+    }
+
+    return items;
   };
 
   const actionBodyTemplate = (rowData: User) => {
+    if (getMenuItems(rowData).length === 0) return null;
+
     return (
       <div className="flex justify-content-center">
         <Button
@@ -298,7 +365,9 @@ const UsuarioListContent = () => {
 
   const header = (
     <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center gap-3">
-      <h4 className="m-0">Usuarios</h4>
+      <h4 className="m-0">
+        {isCompanyScope ? "Usuarios y Permisos" : "Usuarios Plataforma"}
+      </h4>
       <div className="flex gap-2">
         <span className="p-input-icon-left">
           <i className="pi pi-search" />
@@ -312,6 +381,8 @@ const UsuarioListContent = () => {
           label="Nuevo Usuario"
           onClick={openNew}
           tooltip="Agregar Nuevo Usuario"
+          permission={createPermission}
+          permissionScope={isCompanyScope ? "active" : "any"}
         />
       </div>
     </div>
@@ -348,7 +419,10 @@ const UsuarioListContent = () => {
           />
           <Column field="acceso" header="Acceso" body={accesoBodyTemplate} />
           <Column field="estado" header="Estado" body={estadoBodyTemplate} />
-          <Column header="Empresas" body={empresasBodyTemplate} />
+          <Column
+            header={isCompanyScope ? "Rol en empresa" : "Empresas"}
+            body={empresasBodyTemplate}
+          />
           <Column
             header="Acciones"
             body={actionBodyTemplate}
@@ -386,6 +460,7 @@ const UsuarioListContent = () => {
           toast={toast}
           formId="usuario-form"
           onSubmittingChange={setIsSubmitting}
+          scope={scope}
         />
       </Dialog>
 
@@ -413,6 +488,7 @@ const UsuarioListContent = () => {
           toast={toast}
           formId="password-form"
           onSubmittingChange={setIsPasswordSubmitting}
+          scope={scope}
         />
       </Dialog>
 

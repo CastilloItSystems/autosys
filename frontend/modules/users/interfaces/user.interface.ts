@@ -27,6 +27,19 @@ export interface MembershipCompanyRole {
   _count?: { userEmpresaRoles?: number; memberships?: number };
 }
 
+export interface UserEmpresaPermission {
+  membershipId: string;
+  empresaId: string;
+  nombre: string;
+  status?: MembershipStatus;
+  role: {
+    id: string;
+    name: string;
+    description?: string | null;
+  };
+  permissions: string[];
+}
+
 export interface Membership {
   id: string;
   userId: string;
@@ -57,9 +70,7 @@ export interface User {
   createdAt: string;
   updatedAt: string;
   memberships?: Membership[];
-  // Legacy compatibility fields (from API response)
-  empresas?: Membership[];
-  rol?: string;
+  empresas?: UserEmpresaPermission[];
 }
 
 export interface AuditUser {
@@ -123,6 +134,7 @@ export interface CreateUserRequest {
   acceso?: AccessType;
   estado?: UserStatus;
   img?: string | null;
+  isTechnician?: boolean;
 }
 
 export interface UpdateUserRequest {
@@ -136,6 +148,18 @@ export interface UpdateUserRequest {
   img?: string | null;
   online?: boolean;
   isTechnician?: boolean;
+}
+
+export type UserScope = "global" | "company";
+
+export interface CreateCompanyUserRequest extends CreateUserRequest {
+  roleId: string;
+  membershipStatus?: MembershipStatus;
+}
+
+export interface UpdateCompanyUserRequest extends UpdateUserRequest {
+  roleId?: string;
+  membershipStatus?: MembershipStatus;
 }
 
 // ── DTOs Memberships ────────────────────────────────────────────────────────
@@ -179,17 +203,7 @@ export interface LoginRequest {
   password: string;
 }
 
-export interface LoginEmpresa {
-  membershipId: string;
-  empresaId: string;
-  nombre: string;
-  role: {
-    id: string;
-    name: string;
-    description?: string | null;
-  };
-  permissions: string[];
-}
+export type LoginEmpresa = UserEmpresaPermission;
 
 export interface LoginUser {
   id: string;

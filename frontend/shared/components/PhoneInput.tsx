@@ -17,10 +17,12 @@ interface PhoneInputProps {
 const AREA_CODES = [
   // Móviles
   { label: "0412", value: "0412" },
+  { label: "0422", value: "0422" },
   { label: "0414", value: "0414" },
   { label: "0424", value: "0424" },
   { label: "0416", value: "0416" },
   { label: "0426", value: "0426" },
+
   // Fijos Principales
   { label: "0212", value: "0212" },
   { label: "0239", value: "0239" },
@@ -48,7 +50,7 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
   type = "all",
 }) => {
   const availableCodes = React.useMemo(() => {
-    const mobileCodes = ["0412", "0414", "0424", "0416", "0426"];
+    const mobileCodes = ["0412", "0422", "0414", "0424", "0416", "0426"];
     if (type === "mobile") {
       return AREA_CODES.filter((c) => mobileCodes.includes(c.value));
     }
@@ -58,12 +60,16 @@ const PhoneInput: React.FC<PhoneInputProps> = ({
     return AREA_CODES;
   }, [type]);
 
-  const defaultAreaCode = availableCodes.length > 0 ? availableCodes[0].value : "0414";
+  const defaultAreaCode =
+    availableCodes.length > 0 ? availableCodes[0].value : "0414";
   const [areaCode, setAreaCode] = useState<string>(defaultAreaCode);
   const [phoneNumber, setPhoneNumber] = useState<string>("");
 
   useEffect(() => {
-    if (availableCodes.length > 0 && !availableCodes.some((c) => c.value === areaCode)) {
+    if (
+      availableCodes.length > 0 &&
+      !availableCodes.some((c) => c.value === areaCode)
+    ) {
       setAreaCode(availableCodes[0].value);
     }
   }, [availableCodes, areaCode]);

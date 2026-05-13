@@ -1,7 +1,12 @@
 // Catálogo de permisos compartido — alineado con PERMISSIONS en backend
 
+import { ROUTE_PERMISSION_CODES } from "@/lib/permissionGates";
+
 export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[] = [
   { label: "Usuarios", icon: "pi pi-users", prefix: "users" },
+  { label: "Usuarios Plataforma", icon: "pi pi-shield", prefix: "platform_users" },
+  { label: "Empresas", icon: "pi pi-building", prefix: "companies" },
+  { label: "Roles de Empresa", icon: "pi pi-id-card", prefix: "company_roles" },
   { label: "Inventario", icon: "pi pi-box", prefix: "inventory" },
   { label: "Artículos", icon: "pi pi-tag", prefix: "items" },
   { label: "Almacenes", icon: "pi pi-database", prefix: "warehouses" },
@@ -28,6 +33,8 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
     icon: "pi pi-bell",
     prefix: "purchases.notifications",
   },
+  { label: "Compras: Órdenes", icon: "pi pi-shopping-bag", prefix: "purchases.orders" },
+  { label: "Compras: Proveedores", icon: "pi pi-truck", prefix: "purchases.suppliers" },
   {
     label: "Notif: Taller",
     icon: "pi pi-bell",
@@ -84,12 +91,39 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "users.update": "Editar",
   "users.delete": "Eliminar",
   "users.approve": "Aprobar",
+  // Usuarios globales SaaS
+  "platform_users.view": "Ver",
+  "platform_users.create": "Crear",
+  "platform_users.update": "Editar",
+  "platform_users.delete": "Eliminar",
+  // Empresas
+  "companies.view": "Ver",
+  "companies.create": "Crear",
+  "companies.update": "Editar",
+  "companies.delete": "Eliminar",
+  // Roles de Empresa
+  "company_roles.view": "Ver",
+  "company_roles.create": "Crear",
+  "company_roles.update": "Editar",
+  "company_roles.delete": "Eliminar",
   // Inventario
   "inventory.view": "Ver",
   "inventory.create": "Crear",
   "inventory.update": "Editar",
   "inventory.delete": "Eliminar",
   "inventory.approve": "Aprobar",
+  // Compras: Órdenes
+  "purchases.orders.view": "Ver",
+  "purchases.orders.create": "Crear",
+  "purchases.orders.update": "Editar",
+  "purchases.orders.delete": "Eliminar",
+  "purchases.orders.approve": "Aprobar",
+  "purchases.orders.receive": "Recibir",
+  // Compras: Proveedores
+  "purchases.suppliers.view": "Ver",
+  "purchases.suppliers.create": "Crear",
+  "purchases.suppliers.update": "Editar",
+  "purchases.suppliers.delete": "Eliminar",
   // Artículos
   "items.view": "Ver",
   "items.create": "Crear",
@@ -263,3 +297,13 @@ export const PERMISSION_LABELS: Record<string, string> = {
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)
+
+const MISSING_ROUTE_PERMISSION_LABELS = ROUTE_PERMISSION_CODES.filter(
+  (permission) => !PERMISSION_LABELS[permission],
+);
+
+if (MISSING_ROUTE_PERMISSION_LABELS.length > 0) {
+  throw new Error(
+    `Faltan etiquetas frontend para permisos usados en rutas: ${MISSING_ROUTE_PERMISSION_LABELS.join(", ")}`,
+  );
+}

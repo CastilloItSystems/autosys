@@ -24,8 +24,10 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/shared/components/CreateButton";
 import AuditHistoryDialog from "@/shared/components/AuditHistoryDialog";
 import DeleteConfirmDialog from "@/shared/components/DeleteConfirmDialog";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 const EmpresasListContent = () => {
+  const { hasPermissionInAnyEmpresa } = useUserPermissions();
   const [empresa, setEmpresa] = useState<Empresa | null>(null);
 
   const [filters, setFilters] = useState<DataTableFilterMeta>({
@@ -187,41 +189,57 @@ const EmpresasListContent = () => {
 
   const getMenuItems = (empresaItem: Empresa | null): MenuItem[] => {
     if (!empresaItem) return [];
-    return [
-      {
+    const items: MenuItem[] = [];
+
+    if (hasPermissionInAnyEmpresa("companies.update")) {
+      items.push({
         label: "Editar",
         icon: "pi pi-pencil",
         command: () => editEmpresa(empresaItem),
-      },
-      {
+      });
+    }
+
+    if (hasPermissionInAnyEmpresa("company_roles.view")) {
+      items.push({
         label: "Gestionar Roles",
         icon: "pi pi-shield",
         command: () => {
           setSelectedRolesEmpresa(empresaItem);
           setRolesDialogVisible(true);
         },
-      },
-      {
+      });
+    }
+
+    if (hasPermissionInAnyEmpresa("audit.view")) {
+      items.push({
         label: "Ver auditoría",
         icon: "pi pi-history",
         command: () => {
           setSelectedAuditEmpresa(empresaItem);
           setAuditDialogVisible(true);
         },
-      },
-      {
-        separator: true,
-      },
-      {
+      });
+    }
+
+    if (hasPermissionInAnyEmpresa("companies.delete")) {
+      if (items.length > 0) {
+        items.push({ separator: true });
+      }
+
+      items.push({
         label: "Eliminar",
         icon: "pi pi-trash",
         className: "p-error",
         command: () => confirmDeleteEmpresa(empresaItem),
-      },
-    ];
+      });
+    }
+
+    return items;
   };
 
   const actionBodyTemplate = (rowData: Empresa) => {
+    if (getMenuItems(rowData).length === 0) return null;
+
     return (
       <div className="flex justify-content-center">
         <Button

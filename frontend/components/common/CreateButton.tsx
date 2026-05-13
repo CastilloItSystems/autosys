@@ -1,7 +1,8 @@
 import React from "react";
+import { usePathname } from "next/navigation";
 import { Button } from "primereact/button";
-import { useUserRoles } from "@/hooks/useUserRoles";
-import { createAllowedRoles, hasRole } from "@/lib/roles";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { getPermissionGateForPath } from "@/lib/permissionGates";
 
 interface CreateButtonProps {
   label?: string; // Texto del botón
@@ -13,11 +14,14 @@ interface CreateButtonProps {
   tooltip?: string; // Tooltip opcional
   tooltipOptions?: any; // Opciones de tooltip
   disabled?: boolean; // Forzar disabled
+  permission?: string;
+  permissionsAny?: string[];
+  permissionsAll?: string[];
+  permissionScope?: "active" | "any";
 }
 
 /**
- * Botón reutilizable controlado por permisos de rol definidos en createAllowedRoles.
- * Muestra null si el usuario no tiene roles permitidos.
+ * Botón reutilizable controlado por permisos efectivos de la empresa activa.
  */
 const CreateButton: React.FC<CreateButtonProps> = ({
   label = "Agregar Nuevo",
@@ -29,10 +33,19 @@ const CreateButton: React.FC<CreateButtonProps> = ({
   tooltip = "Agregar Nuevo",
   tooltipOptions,
   disabled = false,
+  permission,
+  permissionsAny,
+  permissionsAll,
+  permissionScope = "active",
 }) => {
-  const roles = useUserRoles();
-  const canCreate = hasRole(createAllowedRoles, roles);
-  // if (!canCreate) return null;
+  const pathname = usePathname();
+  const { canAccessGate } = useUserPermissions();
+  const hasExplicitGate = Boolean(permission || permissionsAny || permissionsAll);
+  const gate = hasExplicitGate
+    ? { permission, permissionsAny, permissionsAll, scope: permissionScope }
+    : getPermissionGateForPath(pathname, "create");
+
+  if (!canAccessGate(gate)) return null;
 
   return (
     <Button

@@ -22,6 +22,8 @@ import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
 import EventService from '../shared/events/event.service.js'
 import { EventType } from '../shared/events/event.types.js'
 import { v4 as uuidv4 } from 'uuid'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import { userHasPermissionsInEmpresa } from '../../../shared/utils/resolvePermissions.js'
 
 export class CycleCountService {
   /**
@@ -356,7 +358,14 @@ export class CycleCountService {
     try {
       const cycleCount = await prisma.cycleCount.findUnique({
         where: { id },
-        include: { items: true },
+        include: {
+          items: true,
+          warehouse: {
+            select: {
+              empresaId: true,
+            },
+          },
+        },
       })
 
       if (!cycleCount) {
@@ -425,7 +434,14 @@ export class CycleCountService {
     try {
       const cycleCount = await prisma.cycleCount.findUnique({
         where: { id },
-        include: { items: true },
+        include: {
+          items: true,
+          warehouse: {
+            select: {
+              empresaId: true,
+            },
+          },
+        },
       })
 
       if (!cycleCount) {
@@ -456,11 +472,15 @@ export class CycleCountService {
           throw new NotFoundError('Usuario aprobador no encontrado')
         }
 
-        const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'GERENTE']
-        // @ts-ignore: rol is likely an enum string
-        if (!allowedRoles.includes(approver.rol)) {
+        const canApproveHighVariance = await userHasPermissionsInEmpresa(
+          approvedBy,
+          cycleCount.warehouse.empresaId,
+          [PERMISSIONS.STOCK_APPROVE]
+        )
+
+        if (!canApproveHighVariance) {
           throw new ForbiddenError(
-            `Se requiere rol de supervisor (ADMIN/GERENTE) para aprobar conteos con varianza > ${HIGH_VARIANCE_THRESHOLD} unidades.`
+            `Se requiere permiso ${PERMISSIONS.STOCK_APPROVE} para aprobar conteos con varianza > ${HIGH_VARIANCE_THRESHOLD} unidades.`
           )
         }
       }

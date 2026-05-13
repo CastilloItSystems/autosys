@@ -228,7 +228,14 @@ export default function QuotationForm({
         reconvertItems(watchCurrency, usdVesRate, currencyVesRate);
       }
     }
-  }, [effectiveRate, setValue, reconvertItems, watchCurrency, usdVesRate, currencyVesRate]);
+  }, [
+    effectiveRate,
+    setValue,
+    reconvertItems,
+    watchCurrency,
+    usdVesRate,
+    currencyVesRate,
+  ]);
 
   React.useEffect(() => {
     const prev = prevCurrencyRef.current;

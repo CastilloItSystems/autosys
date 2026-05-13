@@ -60,11 +60,6 @@ export default function CycleCountList() {
   });
 
   const canCreate = true;
-  /* session?.user?.rol
-    ? Object.values(CycleCountCreateAllowedRoles).includes(
-        session.user.rol as CycleCountCreateAllowedRoles,
-      )
-    : false; */
 
   useEffect(() => {
     (async () => {

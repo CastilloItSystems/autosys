@@ -129,7 +129,8 @@ export default function ItemRow({
   identityLocked = false,
   costLocked = false,
 }: ItemRowProps) {
-  const currencyPrefix = currency === "VES" ? "Bs. " : currency === "EUR" ? "€ " : "$ ";
+  const currencyPrefix =
+    currency === "VES" ? "Bs. " : currency === "EUR" ? "€ " : "$ ";
   const [mounted, setMounted] = useState(false);
   const autoCompleteRef = useRef<any>(null);
 
@@ -141,7 +142,7 @@ export default function ItemRow({
     if (autoFocus && autoCompleteRef.current) {
       autoCompleteRef.current.focus();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const itemIdKey = leafKey(fieldPaths.itemId);

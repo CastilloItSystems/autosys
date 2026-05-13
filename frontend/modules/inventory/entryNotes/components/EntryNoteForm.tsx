@@ -116,15 +116,19 @@ export default function EntryNoteForm({
           reason: entryNote.reason || undefined,
           reference: entryNote.reference || undefined,
           notes: entryNote.notes || undefined,
-          receivedBy: entryNote.receivedByName || entryNote.receivedBy || undefined,
-          authorizedBy: entryNote.authorizedByName || entryNote.authorizedBy || undefined,
+          receivedBy:
+            entryNote.receivedByName || entryNote.receivedBy || undefined,
+          authorizedBy:
+            entryNote.authorizedByName || entryNote.authorizedBy || undefined,
           items: Array.isArray(entryNote.items)
             ? entryNote.items.map((i) => ({
                 itemId: i.itemId,
                 itemName: i.itemName || "",
                 quantityReceived: i.quantityReceived,
                 _maxQuantity:
-                  entryNote.type === "PURCHASE" ? i.quantityReceived : undefined,
+                  entryNote.type === "PURCHASE"
+                    ? i.quantityReceived
+                    : undefined,
                 unitCost: Number(i.unitCost),
                 storedToLocation: i.storedToLocation || undefined,
                 batchNumber: i.batchNumber || undefined,
@@ -380,7 +384,9 @@ export default function EntryNoteForm({
             unitCost: item.unitCost,
             storedToLocation: item.storedToLocation || null,
             batchNumber: item.batchNumber || null,
-            expiryDate: item.expiryDate ? new Date(item.expiryDate as any).toISOString() : null,
+            expiryDate: item.expiryDate
+              ? new Date(item.expiryDate as any).toISOString()
+              : null,
             notes: item.notes || null,
           })),
         } as any);
@@ -414,7 +420,9 @@ export default function EntryNoteForm({
             unitCost: item.unitCost,
             storedToLocation: item.storedToLocation || null,
             batchNumber: item.batchNumber || null,
-            expiryDate: item.expiryDate ? new Date(item.expiryDate as any).toISOString() : null,
+            expiryDate: item.expiryDate
+              ? new Date(item.expiryDate as any).toISOString()
+              : null,
             notes: item.notes || null,
           });
         }
@@ -656,8 +664,14 @@ export default function EntryNoteForm({
             { label: "Vencimiento", style: COLS.expiryDate! },
             { label: "", style: COLS.remove },
           ]}
-          renderRow={({ index, onAddRow, dragHandleProps, isDragging, autoFocus }) => (
-              <ItemRow
+          renderRow={({
+            index,
+            onAddRow,
+            dragHandleProps,
+            isDragging,
+            autoFocus,
+          }) => (
+            <ItemRow
               control={control as Control<any, any, any>}
               register={register}
               autoFocus={autoFocus}

@@ -1,8 +1,15 @@
+"use client";
+
 import AppSubMenu from "./AppSubMenu";
 import type { MenuModel } from "@/types";
+import { useMemo } from "react";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
+import { filterMenuByPermissions } from "@/lib/menuPermissions";
 
 const AppMenu = () => {
-  const model: MenuModel[] = [
+  const { canAccessGate } = useUserPermissions();
+
+  const model: MenuModel[] = useMemo(() => [
     {
       label: "Dashboards",
       icon: "pi pi-home",
@@ -36,9 +43,14 @@ const AppMenu = () => {
         },
       ],
     },
-  ];
+  ], []);
 
-  return <AppSubMenu model={model} />;
+  const filteredModel = useMemo(
+    () => filterMenuByPermissions(model, canAccessGate),
+    [canAccessGate, model],
+  );
+
+  return <AppSubMenu model={filteredModel} />;
 };
 
 export default AppMenu;

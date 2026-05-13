@@ -26,7 +26,7 @@ export const DATE_FORMATS = {
 export const REGEX_PATTERNS = {
   UUID: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i,
   EMAIL: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  PHONE_VE: /^(0414|0424|0412|0416|0426)\d{7}$/,
+  PHONE_VE: /^(0414|0424|0412|0422|0416|0426)\d{7}$/,
   RIF: /^[VEJPG]-\d{8}-\d$/,
   CEDULA: /^[VE]-\d{7,8}$/,
   SKU: /^[A-Z0-9-]+$/,

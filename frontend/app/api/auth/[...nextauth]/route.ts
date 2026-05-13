@@ -181,6 +181,45 @@ const handler = NextAuth({
         };
       }
 
+      if (trigger === "update" && session?.forcePermissionsRefresh === true) {
+        const apiBaseUrl =
+          process.env.NEXT_PUBLIC_API_BASE_URL ||
+          "https://api-autosys.castilloitsystems.com/api";
+        const backendToken =
+          typeof token.backendAccessToken === "string"
+            ? token.backendAccessToken
+            : "";
+        if (backendToken) {
+          try {
+            const profileRes = await fetch(`${apiBaseUrl}/auth/profile`, {
+              headers: { Authorization: `Bearer ${backendToken}` },
+            });
+            if (profileRes.ok) {
+              const profileJson = await profileRes.json();
+              const freshEmpresas = profileJson?.data?.empresas;
+              if (Array.isArray(freshEmpresas)) {
+                const mappedEmpresas = freshEmpresas.map((e: any) => ({
+                  membershipId: e.membershipId,
+                  empresaId: e.empresa?.id_empresa ?? e.empresaId,
+                  nombre: e.empresa?.nombre ?? e.nombre,
+                  status: e.status,
+                  role: e.role,
+                  permissions: e.permissions,
+                }));
+                token.user = {
+                  ...(typeof token.user === "object" && token.user !== null
+                    ? token.user
+                    : {}),
+                  empresas: mappedEmpresas,
+                };
+              }
+            }
+          } catch (error) {
+            console.error("Error refreshing permissions from profile:", error);
+          }
+        }
+      }
+
       const forceBackendTokenRefresh =
         trigger === "update" && session?.forceBackendTokenRefresh === true;
 
