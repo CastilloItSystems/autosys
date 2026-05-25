@@ -26,8 +26,9 @@ const nextConfig = {
   },
   images: {
     remotePatterns: [
-      { protocol: 'https', hostname: 'castilloitsystems.com' },
-      { protocol: 'http', hostname: 'localhost' },
+      { protocol: "https", hostname: "castilloitsystems.com" },
+      { protocol: "https", hostname: "r2.castilloitsystems.com" },
+      { protocol: "http", hostname: "localhost" },
     ],
   },
   // Configuración necesaria para NextAuth
