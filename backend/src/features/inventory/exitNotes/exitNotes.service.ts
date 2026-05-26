@@ -8,6 +8,7 @@ import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator
 import {
   NotFoundError,
   BadRequestError,
+  ConflictError,
 } from '../../../shared/utils/apiError.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
@@ -839,6 +840,17 @@ class ExitNotesService {
       throw new BadRequestError(MSG.cannotDeliver)
     }
 
+    // Optimistic lock
+    if (
+      dto?.version !== undefined &&
+      (exitNote as any).version !== undefined &&
+      (exitNote as any).version !== dto.version
+    ) {
+      throw new ConflictError(
+        'La nota fue modificada por otro usuario. Recarga la página e intenta de nuevo.'
+      )
+    }
+
     const effectiveDeliveredAt = dto?.deliveredAt ?? new Date()
 
     const updated = await (db as PrismaClient).$transaction(async (tx) => {
@@ -848,6 +860,7 @@ class ExitNotesService {
           status: ExitNoteStatus.DELIVERED,
           deliveredAt: effectiveDeliveredAt,
           deliveredBy: userId,
+          version: { increment: 1 },
         },
         include: EXIT_NOTE_INCLUDE,
       })
@@ -876,6 +889,9 @@ class ExitNotesService {
             notes: note.notes ?? '',
             createdBy: userId,
             exitNoteId: note.id,
+            ...(dto?.deliveredAt
+              ? { movementDate: dto.deliveredAt }
+              : {}),
           },
         })
 

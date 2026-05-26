@@ -344,6 +344,17 @@ const VIEW_FINANCE = [
   P.FINANCE_CASH_FLOW_VIEW,
 ] as const
 
+const ALL_BACKUPS = [
+  P.BACKUPS_VIEW,
+  P.BACKUPS_CREATE,
+  P.BACKUPS_RESTORE,
+  P.BACKUPS_DELETE,
+] as const
+
+const OPERATE_BACKUPS = [P.BACKUPS_VIEW, P.BACKUPS_CREATE] as const
+
+const VIEW_BACKUPS = [P.BACKUPS_VIEW] as const
+
 const NOTIFICATIONS_VIEW = [P.NOTIFICATIONS_VIEW] as const
 
 const NOTIFICATIONS_MODULES_ALL = [
@@ -413,7 +424,8 @@ export const DEFAULT_SYSTEM_PERMISSIONS_BY_ROLE: Record<string, string[]> = {
     ALL_WORKSHOP,
     ALL_DEALER,
     ALL_EXCHANGE_RATES,
-    ALL_FINANCE
+    ALL_FINANCE,
+    ALL_BACKUPS
   ),
   ADMIN: uniquePermissions(
     [P.USERS_VIEW, P.USERS_CREATE, P.USERS_UPDATE, P.USERS_APPROVE],
@@ -442,7 +454,8 @@ export const DEFAULT_SYSTEM_PERMISSIONS_BY_ROLE: Record<string, string[]> = {
     ALL_WORKSHOP,
     ALL_DEALER,
     ALL_EXCHANGE_RATES,
-    ALL_FINANCE
+    ALL_FINANCE,
+    ALL_BACKUPS
   ),
   GERENTE: uniquePermissions(
     [P.USERS_VIEW],
@@ -473,7 +486,8 @@ export const DEFAULT_SYSTEM_PERMISSIONS_BY_ROLE: Record<string, string[]> = {
     ALL_WORKSHOP,
     ALL_DEALER,
     ALL_EXCHANGE_RATES,
-    ALL_FINANCE
+    ALL_FINANCE,
+    OPERATE_BACKUPS
   ),
   ALMACENISTA: uniquePermissions(
     [
@@ -559,6 +573,7 @@ export const DEFAULT_SYSTEM_PERMISSIONS_BY_ROLE: Record<string, string[]> = {
     VIEW_PURCHASE_SUPPLIERS,
     VIEW_CRM,
     VIEW_FINANCE,
+    VIEW_BACKUPS,
     NOTIFICATIONS_VIEW,
     NOTIFICATIONS_MODULES_NO_SYSTEM
   ),

@@ -104,6 +104,48 @@ export const completeEntryNoteSchema = Joi.object({
     'date.max': 'verifiedAt no puede ser una fecha futura',
     'date.base': 'verifiedAt debe ser una fecha válida',
   }),
+  version: Joi.number().integer().min(0).optional(),
+  notes: Joi.string().max(2000).optional().allow(null, ''),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string().required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityReceived: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().min(0).required(),
+        storedToLocation: Joi.string().max(100).optional().allow(null, ''),
+        batchNumber: Joi.string().optional().allow(null, ''),
+        expiryDate: Joi.date().iso().optional().allow(null),
+        notes: Joi.string().max(2000).optional().allow(null, ''),
+      })
+    )
+    .optional(),
+})
+
+export const receiveEntryNoteSchema = Joi.object({
+  receivedAt: Joi.date().iso().max('now').optional().allow(null).messages({
+    'date.max': 'receivedAt no puede ser una fecha futura',
+  }),
+  verifiedAt: Joi.date().iso().max('now').optional().allow(null).messages({
+    'date.max': 'verifiedAt no puede ser una fecha futura',
+  }),
+  version: Joi.number().integer().min(0).optional(),
+  notes: Joi.string().max(2000).optional().allow(null, ''),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string().required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityReceived: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().min(0).required(),
+        storedToLocation: Joi.string().max(100).optional().allow(null, ''),
+        batchNumber: Joi.string().optional().allow(null, ''),
+        expiryDate: Joi.date().iso().optional().allow(null),
+        notes: Joi.string().max(2000).optional().allow(null, ''),
+      })
+    )
+    .min(1)
+    .required(),
 })
 
 export const addEntryNoteItemSchema = Joi.object({

@@ -265,4 +265,10 @@ export const PERMISSION_CATALOG = [
   { code: 'finance.expenses.manage', description: 'Gestionar gastos operativos' },
   { code: 'finance.recurring_rules.manage', description: 'Gestionar reglas de gastos recurrentes' },
   { code: 'finance.cash_flow.view', description: 'Ver flujo de caja' },
+
+  // Respaldos de base de datos
+  { code: 'backups.view', description: 'Ver respaldos de base de datos' },
+  { code: 'backups.create', description: 'Generar respaldos de base de datos' },
+  { code: 'backups.restore', description: 'Restaurar respaldos de base de datos' },
+  { code: 'backups.delete', description: 'Eliminar respaldos de base de datos' },
 ] as const

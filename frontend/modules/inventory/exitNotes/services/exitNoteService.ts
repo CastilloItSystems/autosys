@@ -104,7 +104,7 @@ const exitNoteService = {
 
   async deliver(
     id: string,
-    payload?: { deliveredAt?: string | null },
+    payload?: { deliveredAt?: string | null; version?: number },
   ): Promise<ApiResponse<ExitNote>> {
     const res = await apiClient.patch(
       `/inventory/exit-notes/${id}/deliver`,

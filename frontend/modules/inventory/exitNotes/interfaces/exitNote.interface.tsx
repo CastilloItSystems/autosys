@@ -68,6 +68,7 @@ export interface ExitNote {
   reservedAt?: string | null;
   preparedAt?: string | null;
   deliveredAt?: string | null;
+  version?: number;
   createdAt: string;
   updatedAt: string;
   items?: ExitNoteItem[];

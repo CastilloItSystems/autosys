@@ -14,7 +14,11 @@ import {
 } from "@/modules/inventory/exitNotes/interfaces/exitNote.interface";
 import { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
 import exitNoteService from "@/modules/inventory/exitNotes/services/exitNoteService";
+import stockService, {
+  Stock,
+} from "@/modules/inventory/stocks/services/stockService";
 import { Toast } from "primereact/toast";
+import { Message } from "primereact/message";
 import { handleFormError } from "@/utils/errorHandlers";
 import ExitNoteStepper from "./ExitNoteStepper";
 import BackdateField from "@/components/common/BackdateField";
@@ -43,11 +47,40 @@ const ExitNoteDetailDialog = ({
   const [deliverEffectiveDate, setDeliverEffectiveDate] = useState<Date | null>(
     null,
   );
+  const [stockByItem, setStockByItem] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (exitNote) {
       setPickedItems({});
       setDeliverEffectiveDate(null);
+      setStockByItem({});
+
+      if (
+        exitNote.status === ExitNoteStatus.READY &&
+        exitNote.items &&
+        exitNote.warehouseId
+      ) {
+        (async () => {
+          const uniqueIds = Array.from(
+            new Set(exitNote.items!.map((i) => i.itemId)),
+          );
+          const map: Record<string, number> = {};
+          await Promise.all(
+            uniqueIds.map(async (itemId) => {
+              try {
+                const res = await stockService.getByItem(itemId, 1, 50);
+                const stock = res.data.find(
+                  (s: Stock) => s.warehouseId === exitNote.warehouseId,
+                );
+                map[itemId] = stock?.quantityAvailable ?? 0;
+              } catch {
+                map[itemId] = 0;
+              }
+            }),
+          );
+          setStockByItem(map);
+        })();
+      }
     }
   }, [exitNote]);
 
@@ -97,12 +130,12 @@ const ExitNoteDetailDialog = ({
   const handleDeliver = async () => {
     setLoading(true);
     try {
-      await exitNoteService.deliver(
-        exitNote.id,
-        deliverEffectiveDate
+      await exitNoteService.deliver(exitNote.id, {
+        version: exitNote.version,
+        ...(deliverEffectiveDate
           ? { deliveredAt: deliverEffectiveDate.toISOString() }
-          : undefined,
-      );
+          : {}),
+      });
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -248,18 +281,62 @@ const ExitNoteDetailDialog = ({
           <ExitNoteStepper currentStatus={exitNote.status} />
         </div>
 
-        {/* ── Backdate (solo al confirmar entrega) ── */}
+        {/* ── Backdate + Stock preview (solo al confirmar entrega) ── */}
         {exitNote.status === ExitNoteStatus.READY && (
-          <div className="mb-3 surface-50 border-round p-3">
-            <BackdateField
-              value={deliverEffectiveDate}
-              onChange={setDeliverEffectiveDate}
-              label="Fecha de entrega efectiva (opcional)"
-              placeholder="Vacío = ahora"
-              warningText="Está registrando una entrega con fecha pasada. La fecha de creación del sistema queda intacta para auditoría."
-              disabled={loading}
-            />
-          </div>
+          <>
+            <div className="mb-3 surface-50 border-round p-3">
+              <BackdateField
+                value={deliverEffectiveDate}
+                onChange={setDeliverEffectiveDate}
+                label="Fecha de entrega efectiva (opcional)"
+                placeholder="Vacío = ahora"
+                warningText="Está registrando una entrega con fecha pasada. La fecha de creación del sistema queda intacta para auditoría."
+                disabled={loading}
+              />
+            </div>
+
+            <div className="mb-3 border-round p-3" style={{ border: "1px solid var(--surface-300)" }}>
+              <div className="font-bold text-900 text-sm mb-2 flex align-items-center gap-2">
+                <i className="pi pi-box text-primary" />
+                Impacto en stock
+              </div>
+              {noteItems.some(
+                (it) => (stockByItem[it.itemId] ?? 0) < it.quantity,
+              ) && (
+                <div className="mb-2">
+                  <Message
+                    severity="warn"
+                    text="Algún artículo tiene stock disponible menor a la cantidad a entregar. La reserva creada al inicio del flujo debería cubrirlo, pero verifica antes de confirmar."
+                  />
+                </div>
+              )}
+              {noteItems.map((line) => {
+                const current = stockByItem[line.itemId] ?? 0;
+                const after = current - line.quantity;
+                return (
+                  <div
+                    key={line.id}
+                    className="flex justify-content-between align-items-center py-1 border-bottom-1 surface-border"
+                    style={{ fontSize: "0.8rem" }}
+                  >
+                    <span className="text-900">
+                      {line.itemName || line.item?.name || line.itemId}
+                    </span>
+                    <span className="text-600">
+                      <span className="text-500">Actual:</span> {current}
+                      {" → "}
+                      <span
+                        className={after < 0 ? "text-red-500 font-bold" : "text-green-600 font-bold"}
+                      >
+                        {after}
+                      </span>
+                      <span className="text-500 ml-2">(-{line.quantity})</span>
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </>
         )}
 
         {/* ── Info cards ── */}

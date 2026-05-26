@@ -12,6 +12,7 @@ export class SearchController {
     const { query, filters, sortBy, sortOrder, page = 1, limit = 10 } = req.body
     const result = await searchService.search({
       query,
+      empresaId: req.empresaId,
       filters,
       sortBy,
       sortOrder,
@@ -40,6 +41,7 @@ export class SearchController {
       } = req.body
       const result = await searchService.advancedSearch({
         query,
+        empresaId: req.empresaId,
         filters,
         sortBy,
         sortOrder,
@@ -60,7 +62,10 @@ export class SearchController {
   getAggregations = asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
       const { query } = req.query
-      const aggregations = await searchService.getAggregations(query as string)
+      const aggregations = await searchService.getAggregations(
+        query as string,
+        req.empresaId
+      )
       ApiResponse.success(res, aggregations, 'Agregaciones obtenidas')
     }
   )
@@ -70,7 +75,8 @@ export class SearchController {
       const { query, limit = 10 } = req.query
       const suggestions = await searchService.getSuggestions(
         query as string,
-        Number(limit)
+        Number(limit),
+        req.empresaId
       )
       ApiResponse.success(res, suggestions, 'Sugerencias obtenidas')
     }

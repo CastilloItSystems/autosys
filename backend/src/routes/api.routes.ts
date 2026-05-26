@@ -15,6 +15,7 @@ import workshopRoutes from '../features/workshop/index.js'
 import dealerRoutes from '../features/dealer/index.js'
 import exchangeRateRoutes from '../features/exchangeRates/index.js'
 import auditLogRoutes from '../features/audit/auditLog.routes.js'
+import backupsRoutes from '../features/system/backups/backups.routes.js'
 
 // Middlewares
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
@@ -42,6 +43,9 @@ router.use('/notifications', authenticate, extractEmpresa, notificationRoutes)
 
 // Auditoría global por empresa
 router.use('/audit-logs', authenticate, extractEmpresa, auditLogRoutes)
+
+// Respaldos de base de datos (sistema)
+router.use('/system/backups', backupsRoutes)
 
 // Módulo Inventario
 router.use('/inventory', authenticate, extractEmpresa, inventoryRoutes)

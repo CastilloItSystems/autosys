@@ -81,6 +81,14 @@ const purchaseSupplierActions: RoutePermissionRule["actions"] = {
 export const APP_ACCESS_RULES: RoutePermissionRule[] = [
   { prefix: "/users", actions: crud("platform_users", "any") },
   { prefix: "/empresas", actions: crud("companies", "any") },
+  {
+    prefix: "/respaldos",
+    actions: {
+      view: gate("backups.view", "any"),
+      create: gate("backups.create", "any"),
+      delete: gate("backups.delete", "any"),
+    },
+  },
   { prefix: "/profile/list", actions: crud("platform_users", "any") },
   {
     prefix: "/profile/create",

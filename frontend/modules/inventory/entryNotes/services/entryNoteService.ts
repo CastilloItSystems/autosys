@@ -158,7 +158,22 @@ const entryNoteService = {
 
   async complete(
     id: string,
-    payload?: { receivedAt?: string | null; verifiedAt?: string | null },
+    payload?: {
+      receivedAt?: string | null;
+      verifiedAt?: string | null;
+      version?: number;
+      notes?: string | null;
+      items?: {
+        itemId: string;
+        itemName?: string | null;
+        quantityReceived: number;
+        unitCost: number;
+        storedToLocation?: string | null;
+        batchNumber?: string | null;
+        expiryDate?: string | null;
+        notes?: string | null;
+      }[];
+    },
   ): Promise<ApiResponse<EntryNote>> {
     const res = await apiClient.post(
       `/inventory/entry-notes/${id}/complete`,

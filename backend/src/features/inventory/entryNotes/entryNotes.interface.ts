@@ -55,6 +55,7 @@ export interface IEntryNote {
   receivedBy?: string | null
   verifiedBy?: string | null
   authorizedBy?: string | null
+  version?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -137,6 +138,35 @@ export interface IEntryNoteFilters {
 export interface ICompleteEntryNoteInput {
   receivedAt?: Date | null
   verifiedAt?: Date | null
+  version?: number
+  notes?: string | null
+  items?: {
+    itemId: string
+    itemName?: string | null
+    quantityReceived: number
+    unitCost: number
+    storedToLocation?: string | null
+    batchNumber?: string | null
+    expiryDate?: Date | null
+    notes?: string | null
+  }[]
+}
+
+export interface IReceiveEntryNoteInput {
+  receivedAt?: Date | null
+  verifiedAt?: Date | null
+  version?: number
+  notes?: string | null
+  items: {
+    itemId: string
+    itemName?: string | null
+    quantityReceived: number
+    unitCost: number
+    storedToLocation?: string | null
+    batchNumber?: string | null
+    expiryDate?: Date | null
+    notes?: string | null
+  }[]
 }
 
 export interface ICreateEntryNoteItemInput {

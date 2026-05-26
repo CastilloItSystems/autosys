@@ -103,10 +103,13 @@ export class UpdateExitNoteDTO {
 
 export class DeliverExitNoteDTO {
   deliveredAt?: Date | null
+  version?: number
 
   constructor(data: Record<string, unknown>) {
     if (data.deliveredAt !== undefined && data.deliveredAt !== null)
       this.deliveredAt = new Date(data.deliveredAt as string)
+    if (data.version !== undefined && data.version !== null)
+      this.version = Number(data.version)
   }
 }
 
@@ -141,6 +144,7 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
   deliveredByName?: string | null
   authorizedBy?: string
   authorizedByName?: string | null
+  version?: number
   createdAt: Date
   updatedAt: Date
 
@@ -178,5 +182,6 @@ export class ExitNoteResponseDTO implements IExitNoteResponse {
     if ((data as any).deliveredByName !== undefined) this.deliveredByName = (data as any).deliveredByName
     if (data.authorizedBy !== undefined) this.authorizedBy = data.authorizedBy
     if ((data as any).authorizedByName !== undefined) this.authorizedByName = (data as any).authorizedByName
+    if ((data as any).version !== undefined) this.version = (data as any).version
   }
 }

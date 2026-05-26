@@ -41,6 +41,11 @@ const AppMenu = () => {
           icon: "pi pi-fw pi-users",
           to: "/users",
         },
+        {
+          label: "Respaldos",
+          icon: "pi pi-fw pi-database",
+          to: "/respaldos",
+        },
       ],
     },
   ], []);

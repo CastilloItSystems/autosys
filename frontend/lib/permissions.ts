@@ -82,6 +82,8 @@ export const PERMISSION_GROUPS: { label: string; icon: string; prefix: string }[
   { label: "Finanzas: Gastos", icon: "pi pi-receipt", prefix: "finance.expenses" },
   { label: "Finanzas: Gastos Recurrentes", icon: "pi pi-sync", prefix: "finance.recurring_rules" },
   { label: "Finanzas: Flujo de Caja", icon: "pi pi-chart-line", prefix: "finance.cash_flow" },
+  // Respaldos de base de datos
+  { label: "Respaldos", icon: "pi pi-database", prefix: "backups" },
 ]
 
 export const PERMISSION_LABELS: Record<string, string> = {
@@ -294,6 +296,11 @@ export const PERMISSION_LABELS: Record<string, string> = {
   "finance.recurring_rules.manage": "Gestionar",
   // Flujo de Caja
   "finance.cash_flow.view": "Ver",
+  // Respaldos
+  "backups.view": "Ver",
+  "backups.create": "Generar",
+  "backups.restore": "Restaurar",
+  "backups.delete": "Eliminar",
 }
 
 export const ALL_PERMISSIONS = Object.keys(PERMISSION_LABELS)

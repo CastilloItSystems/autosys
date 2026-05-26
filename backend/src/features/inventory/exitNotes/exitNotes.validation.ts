@@ -161,6 +161,7 @@ export const deliverActionSchema = Joi.object({
     'date.max': 'deliveredAt no puede ser una fecha futura',
     'date.base': 'deliveredAt debe ser una fecha válida',
   }),
+  version: Joi.number().integer().min(0).optional(),
 })
 
 /**

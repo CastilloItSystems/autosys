@@ -65,6 +65,9 @@ model EntryNote {
   verifiedBy       String?
   authorizedBy     String?         // Quien autorizó entrada sin OC
   
+  // Optimistic lock — incrementado en cada transición o edición concurrente
+  version          Int             @default(0)
+
   createdAt        DateTime        @default(now())
   updatedAt        DateTime        @updatedAt
 

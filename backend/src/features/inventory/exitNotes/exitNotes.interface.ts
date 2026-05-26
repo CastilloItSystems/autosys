@@ -153,6 +153,7 @@ export interface IExitNoteResponse {
   preparedBy?: string
   deliveredBy?: string
   authorizedBy?: string
+  version?: number
   createdAt: Date
   updatedAt: Date
 }
@@ -233,4 +234,5 @@ export interface IUpdateExitNoteInput {
  */
 export interface IDeliverExitNoteInput {
   deliveredAt?: Date | null
+  version?: number
 }

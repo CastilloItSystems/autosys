@@ -223,12 +223,12 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const handleDeliver = async () => {
     if (!selectedExitNote) return;
     try {
-      await exitNoteService.deliver(
-        selectedExitNote.id,
-        deliverEffectiveDate
+      await exitNoteService.deliver(selectedExitNote.id, {
+        version: selectedExitNote.version,
+        ...(deliverEffectiveDate
           ? { deliveredAt: deliverEffectiveDate.toISOString() }
-          : undefined,
-      );
+          : {}),
+      });
       mutate();
       toast.current?.show({
         severity: "success",

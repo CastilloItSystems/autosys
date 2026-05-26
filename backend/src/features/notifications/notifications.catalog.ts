@@ -1692,6 +1692,21 @@ const CATALOG_INTERNAL: NotificationCatalogInternalItem[] = [
     active: true,
     visibleInCatalog: true,
   },
+  {
+    eventCode: 'system.backup.failed',
+    module: 'system',
+    title: 'Respaldo de BD fallido',
+    description: 'Un job de respaldo de base de datos falló',
+    defaultEnabled: true,
+    defaultMandatory: true,
+    defaultPriority: 'CRITICAL',
+    defaultSeverity: 'ERROR',
+    defaultDedupWindowSec: 600,
+    requiredPermissionsAny: ['backups.view'],
+    channels: ['IN_APP'],
+    active: true,
+    visibleInCatalog: true,
+  },
 ]
 
 const CATALOG = CATALOG_INTERNAL.filter((item) => item.active !== false)

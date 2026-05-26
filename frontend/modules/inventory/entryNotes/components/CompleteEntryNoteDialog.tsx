@@ -8,7 +8,11 @@ import { Calendar } from "primereact/calendar";
 import { Divider } from "primereact/divider";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
+import { Message } from "primereact/message";
 import entryNoteService from "@/modules/inventory/entryNotes/services/entryNoteService";
+import stockService, {
+  Stock,
+} from "@/modules/inventory/stocks/services/stockService";
 import BackdateField from "@/components/common/BackdateField";
 import { handleFormError } from "@/utils/errorHandlers";
 import type { EntryNote } from "@/modules/inventory/entryNotes/interfaces/entryNote.interface";
@@ -46,10 +50,12 @@ interface CompleteLine {
 
 const COL = {
   product:      { width: "13rem", flexShrink: 0 } as React.CSSProperties,
+  stockNow:     { width: "5rem",  flexShrink: 0 } as React.CSSProperties,
   ordered:      { width: "4rem",  flexShrink: 0 } as React.CSSProperties,
   received:     { width: "4rem",  flexShrink: 0 } as React.CSSProperties,
   pending:      { width: "4rem",  flexShrink: 0 } as React.CSSProperties,
   qtyToReceive: { width: "7rem",  flexShrink: 0 } as React.CSSProperties,
+  stockAfter:   { width: "5rem",  flexShrink: 0 } as React.CSSProperties,
   unitCost:     { width: "7.5rem",flexShrink: 0 } as React.CSSProperties,
   location:     { width: "6.5rem",flexShrink: 0 } as React.CSSProperties,
   batch:        { width: "6.5rem",flexShrink: 0 } as React.CSSProperties,
@@ -59,10 +65,12 @@ const COL = {
 
 const COLUMNS = [
   { label: "Producto",    style: COL.product },
+  { label: "Stock",       style: COL.stockNow },
   { label: "Ord.",        style: COL.ordered },
   { label: "Rec.",        style: COL.received },
   { label: "Pend.",       style: COL.pending },
   { label: "A Recibir",   style: COL.qtyToReceive },
+  { label: "Después",     style: COL.stockAfter },
   { label: "Costo Unit.", style: COL.unitCost },
   { label: "Ubicación",   style: COL.location },
   { label: "Lote",        style: COL.batch },
@@ -93,6 +101,7 @@ const CompleteEntryNoteDialog = ({
   const [submitting, setSubmitting] = useState(false);
   const [receiveNotes, setReceiveNotes] = useState("");
   const [effectiveDate, setEffectiveDate] = useState<Date | null>(null);
+  const [stockByItem, setStockByItem] = useState<Record<string, number>>({});
 
   const currency = note?.purchaseOrder?.currency ?? "USD";
   const exchangeRate = note?.purchaseOrder?.exchangeRate;
@@ -129,6 +138,30 @@ const CompleteEntryNoteDialog = ({
       initializeLines();
       setReceiveNotes("");
       setEffectiveDate(null);
+      setStockByItem({});
+
+      // Cargar stock actual por item en este almacén (preview)
+      (async () => {
+        if (!note.items || !note.warehouseId) return;
+        const uniqueItemIds = Array.from(
+          new Set(note.items.map((i) => i.itemId)),
+        );
+        const map: Record<string, number> = {};
+        await Promise.all(
+          uniqueItemIds.map(async (itemId) => {
+            try {
+              const res = await stockService.getByItem(itemId, 1, 50);
+              const stock = res.data.find(
+                (s: Stock) => s.warehouseId === note.warehouseId,
+              );
+              map[itemId] = stock?.quantityAvailable ?? 0;
+            } catch {
+              map[itemId] = 0;
+            }
+          }),
+        );
+        setStockByItem(map);
+      })();
     }
   }, [visible, note, initializeLines]);
 
@@ -175,9 +208,12 @@ const CompleteEntryNoteDialog = ({
 
     setSubmitting(true);
     try {
-      await entryNoteService.update(note.id, {
+      await entryNoteService.complete(note.id, {
+        version: note.version,
         notes: receiveNotes || undefined,
-        items: lines.map((l) => ({
+        receivedAt: effectiveDate ? effectiveDate.toISOString() : undefined,
+        verifiedAt: effectiveDate ? effectiveDate.toISOString() : undefined,
+        items: toReceive.map((l) => ({
           itemId: l.itemId,
           itemName: l.itemName,
           quantityReceived: l.qtyToReceive,
@@ -187,15 +223,6 @@ const CompleteEntryNoteDialog = ({
           expiryDate: l.expiryDate ? l.expiryDate.toISOString() : null,
         })),
       });
-      await entryNoteService.complete(
-        note.id,
-        effectiveDate
-          ? {
-              receivedAt: effectiveDate.toISOString(),
-              verifiedAt: effectiveDate.toISOString(),
-            }
-          : undefined,
-      );
 
       toast?.current?.show({
         severity: "success",
@@ -333,6 +360,17 @@ const CompleteEntryNoteDialog = ({
           </div>
         )}
 
+        {/* ── Warning costo 0 en PURCHASE ── */}
+        {note?.type === "PURCHASE" &&
+          lines.some((l) => l.qtyToReceive > 0 && l.unitCost === 0) && (
+            <div className="mb-3">
+              <Message
+                severity="warn"
+                text="Uno o más artículos tienen costo unitario 0. En recepciones de compra esto distorsiona el costo promedio del stock."
+              />
+            </div>
+          )}
+
         {/* ── Fecha efectiva (backdate) ── */}
         <BackdateField
           value={effectiveDate}
@@ -428,6 +466,13 @@ const CompleteEntryNoteDialog = ({
                   </div>
                 </div>
 
+                {/* Stock actual */}
+                <div style={{ ...COL.stockNow, textAlign: "center", fontSize: "0.8rem" }}>
+                  <span className="text-600">
+                    {stockByItem[line.itemId] ?? "—"}
+                  </span>
+                </div>
+
                 {/* Ord. */}
                 <div style={{ ...COL.ordered, textAlign: "center", fontSize: "0.8rem" }}>
                   {line.quantityInNote}
@@ -459,6 +504,13 @@ const CompleteEntryNoteDialog = ({
                   />
                 </div>
 
+                {/* Stock después */}
+                <div style={{ ...COL.stockAfter, textAlign: "center", fontSize: "0.8rem" }}>
+                  <span className="text-green-600 font-bold">
+                    {(stockByItem[line.itemId] ?? 0) + line.qtyToReceive}
+                  </span>
+                </div>
+
                 {/* Costo Unit. */}
                 <div style={COL.unitCost}>
                   <InputNumber
@@ -468,10 +520,21 @@ const CompleteEntryNoteDialog = ({
                     prefix={`${getCurrencySymbol(currency)} `}
                     minFractionDigits={2}
                     maxFractionDigits={2}
-                    className="w-full"
+                    min={0}
+                    className={
+                      line.unitCost === 0 && note?.type === "PURCHASE"
+                        ? "w-full p-invalid"
+                        : "w-full"
+                    }
                     inputClassName="w-full text-right"
                     inputStyle={{ padding: "0.25rem 0.4rem", height: "30px", fontSize: "0.8rem" }}
                     style={{ height: "30px" }}
+                    tooltip={
+                      line.unitCost === 0 && note?.type === "PURCHASE"
+                        ? "Costo 0 en compra distorsiona el costo promedio"
+                        : undefined
+                    }
+                    tooltipOptions={{ position: "top" }}
                   />
                 </div>
 
@@ -504,6 +567,7 @@ const CompleteEntryNoteDialog = ({
                     onChange={(e) => updateField(index, "expiryDate", e.value as Date | null)}
                     dateFormat="dd/mm/yy"
                     showIcon
+                    minDate={new Date()}
                     className="w-full"
                     placeholder="Fecha"
                     inputStyle={{ padding: "0.25rem 0.4rem", height: "30px", fontSize: "0.75rem" }}

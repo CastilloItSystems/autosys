@@ -73,6 +73,9 @@ model ExitNote {
   deliveredBy     String?
   authorizedBy    String?        // Quien autorizó salida sin factura
 
+  // Optimistic lock — incrementado en cada transición concurrente
+  version         Int            @default(0)
+
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 

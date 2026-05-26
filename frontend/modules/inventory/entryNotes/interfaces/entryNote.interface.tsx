@@ -119,6 +119,7 @@ export interface EntryNote {
   verifiedByName?: string | null;
   authorizedBy?: string | null;
   authorizedByName?: string | null;
+  version?: number;
   createdAt?: string;
   updatedAt?: string;
   purchaseOrder?: {

@@ -41,6 +41,7 @@ export class SearchService {
         { description: { contains: searchQuery.query, mode: 'insensitive' } },
       ],
       isActive: true,
+      ...(searchQuery.empresaId ? { empresaId: searchQuery.empresaId } : {}),
     }
 
     // Aplicar filtros
@@ -197,8 +198,14 @@ export class SearchService {
     return this.search(searchQuery)
   }
 
-  async getAggregations(query?: string): Promise<ISearchAggregation> {
-    const where: any = { isActive: true }
+  async getAggregations(
+    query?: string,
+    empresaId?: string
+  ): Promise<ISearchAggregation> {
+    const where: any = {
+      isActive: true,
+      ...(empresaId ? { empresaId } : {}),
+    }
 
     if (query && query.trim().length > 0) {
       where.OR = [
@@ -323,7 +330,8 @@ export class SearchService {
 
   async getSuggestions(
     query: string,
-    limit = 10
+    limit = 10,
+    empresaId?: string
   ): Promise<ISearchSuggestion[]> {
     if (!query || query.trim().length < 2) {
       return []
@@ -337,6 +345,7 @@ export class SearchService {
           { name: { contains: query, mode: 'insensitive' } },
         ],
         isActive: true,
+        ...(empresaId ? { empresaId } : {}),
       },
       select: {
         name: true,

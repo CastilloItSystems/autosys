@@ -18,6 +18,7 @@ import { startCrmAutomationScheduler } from './features/crm/automations/crm-auto
 import { initBcvFetchJob } from './features/exchangeRates/bcv/bcvFetch.job.js'
 import { initNotificationsCleanupJob } from './features/notifications/notifications.cleanup.job.js'
 import { initRecurringExpensesJob } from './features/finance/expenses/recurringExpenses.job.js'
+import { initDatabaseBackupJobs } from './features/system/backups/backups.job.js'
 
 const port = Number(process.env.PORT) || 4000
 
@@ -96,6 +97,10 @@ export const startServer = async (): Promise<void> => {
     logger.info('💰 Recurring expenses job inicializado')
 
     initNotificationsCleanupJob()
+
+    initDatabaseBackupJobs()
+    logger.info('💾 Database backup jobs inicializados')
+
     logger.info('📦 Módulos disponibles:')
     logger.info('   • Inventory: /api/inventory')
     logger.info('   • Sales: /api/sales')

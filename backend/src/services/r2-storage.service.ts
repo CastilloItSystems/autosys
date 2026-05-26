@@ -3,7 +3,9 @@ import {
   S3Client,
   PutObjectCommand,
   DeleteObjectCommand,
+  GetObjectCommand,
 } from '@aws-sdk/client-s3'
+import type { Readable } from 'stream'
 import { Upload } from '@aws-sdk/lib-storage'
 import { CLOUDFLARE_R2 } from '../config/constants.js'
 import { logger } from '../shared/utils/logger.js'
@@ -87,6 +89,59 @@ class R2StorageService {
     } catch (error) {
       logger.error('Error deleting file from R2:', error)
       // No lanzamos error para evitar romper flujos si el archivo ya no existe
+    }
+  }
+
+  /**
+   * Sube un archivo con una key exacta (sin generar hash).
+   * Útil para respaldos donde el key debe ser predecible.
+   */
+  async uploadWithKey(
+    body: Buffer | Readable,
+    key: string,
+    contentType: string
+  ): Promise<string> {
+    const parallelUploads3 = new Upload({
+      client: this.client,
+      params: {
+        Bucket: CLOUDFLARE_R2.BUCKET_NAME,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+      },
+    })
+    await parallelUploads3.done()
+    return this.getPublicUrl(key)
+  }
+
+  /**
+   * Descarga un objeto de R2 como stream.
+   */
+  async downloadStream(key: string): Promise<Readable> {
+    const command = new GetObjectCommand({
+      Bucket: CLOUDFLARE_R2.BUCKET_NAME,
+      Key: key,
+    })
+    const response = await this.client.send(command)
+    if (!response.Body) {
+      throw new Error(`Objeto no encontrado en R2: ${key}`)
+    }
+    return response.Body as Readable
+  }
+
+  /**
+   * Elimina un archivo de R2 usando su key directamente.
+   */
+  async deleteByKey(key: string): Promise<void> {
+    try {
+      await this.client.send(
+        new DeleteObjectCommand({
+          Bucket: CLOUDFLARE_R2.BUCKET_NAME,
+          Key: key,
+        })
+      )
+    } catch (error) {
+      logger.error('Error deleting file from R2 by key:', error)
     }
   }
 

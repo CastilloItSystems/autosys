@@ -18,8 +18,6 @@ const COLS: ItemRowColWidths = {
   quantity: { width: "5.5rem", flexShrink: 0 },
   unitCost: { width: "8rem", flexShrink: 0 },
   location: { width: "6rem", flexShrink: 0 },
-  batch: { width: "5.5rem", flexShrink: 0 },
-  expiryDate: { width: "8rem", flexShrink: 0 },
   remove: { width: "1.75rem", flexShrink: 0 },
 };
 
@@ -657,8 +655,6 @@ export default function EntryNoteForm({
             { label: "Cant.", style: COLS.quantity },
             { label: "Costo Unit.", style: COLS.unitCost! },
             { label: "Ubicación", style: COLS.location! },
-            { label: "Lote", style: COLS.batch! },
-            { label: "Vencimiento", style: COLS.expiryDate! },
             { label: "", style: COLS.remove },
           ]}
           renderRow={({
@@ -680,8 +676,6 @@ export default function EntryNoteForm({
                 quantity: `items.${index}.quantityReceived`,
                 unitCost: `items.${index}.unitCost`,
                 location: `items.${index}.storedToLocation`,
-                batch: `items.${index}.batchNumber`,
-                expiryDate: `items.${index}.expiryDate`,
               }}
               colWidths={COLS}
               onRemove={() => remove(index)}
@@ -699,6 +693,23 @@ export default function EntryNoteForm({
               identityLocked={isPurchaseFromPO}
               costLocked={isPurchaseFromPO}
               onItemChange={(itemId) => {
+                // Prevent duplicate items
+                const alreadyUsed = watchedItems.some(
+                  (row, i) => i !== index && row.itemId === itemId,
+                );
+                if (alreadyUsed) {
+                  setValue(`items.${index}.itemId`, "");
+                  setValue(`items.${index}.itemName`, "");
+                  if (toast?.current) {
+                    toast.current.show({
+                      severity: "warn",
+                      summary: "Artículo duplicado",
+                      detail: "Este artículo ya fue agregado en otra fila.",
+                      life: 3000,
+                    });
+                  }
+                  return;
+                }
                 const item =
                   itemSuggestions.find((i) => i.id === itemId) ||
                   items.find((i) => i.id === itemId);
@@ -708,7 +719,6 @@ export default function EntryNoteForm({
                     `items.${index}.storedToLocation`,
                     item.location || "",
                   );
-
                   setValue(`items.${index}.itemName`, item.name);
                   // Persist the selected item so it can be resolved even after suggestions change
                   setSelectedItemsMap((prev) => ({ ...prev, [itemId]: item }));

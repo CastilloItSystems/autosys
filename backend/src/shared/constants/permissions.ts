@@ -240,6 +240,12 @@ export const PERMISSIONS = {
   FINANCE_EXPENSE_MANAGE: 'finance.expenses.manage',
   FINANCE_RECURRING_RULE_MANAGE: 'finance.recurring_rules.manage',
   FINANCE_CASH_FLOW_VIEW: 'finance.cash_flow.view',
+
+  // ── Respaldos de Base de Datos ───────────────────────────────────────────
+  BACKUPS_VIEW: 'backups.view',
+  BACKUPS_CREATE: 'backups.create',
+  BACKUPS_RESTORE: 'backups.restore',
+  BACKUPS_DELETE: 'backups.delete',
 } as const
 
 export type Permission = (typeof PERMISSIONS)[keyof typeof PERMISSIONS]

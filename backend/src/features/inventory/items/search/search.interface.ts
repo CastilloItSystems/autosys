@@ -2,6 +2,7 @@
 
 export interface ISearchQuery {
   query: string
+  empresaId?: string
   filters?: ISearchFilters
   sortBy?: string
   sortOrder?: 'asc' | 'desc'

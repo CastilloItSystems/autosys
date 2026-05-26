@@ -7,6 +7,7 @@ import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import {
   NotFoundError,
   BadRequestError,
+  ConflictError,
 } from '../../../shared/utils/apiError.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
@@ -74,7 +75,7 @@ const MOVEMENT_TYPE_MAP: Record<EntryType, string> = {
 }
 
 const VALID_STATUS_TRANSITIONS: Record<EntryNoteStatus, EntryNoteStatus[]> = {
-  PENDING: ['IN_PROGRESS', 'CANCELLED'],
+  PENDING: ['IN_PROGRESS', 'COMPLETED', 'CANCELLED'],
   IN_PROGRESS: ['COMPLETED', 'CANCELLED'],
   COMPLETED: [],
   CANCELLED: [],
@@ -937,7 +938,7 @@ export class EntryNoteService {
     db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
     // TENANT-SAFE: verify via warehouse — load full data before transaction
-    const entryNote = await db.entryNote.findFirst({
+    let entryNote = await db.entryNote.findFirst({
       where: { id, warehouse: { empresaId } },
       include: {
         ...ENTRY_NOTE_INCLUDE,
@@ -955,7 +956,76 @@ export class EntryNoteService {
       throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
     }
 
+    // Optimistic lock: si el cliente envía version, debe coincidir con la DB
+    if (
+      dto?.version !== undefined &&
+      (entryNote as any).version !== undefined &&
+      (entryNote as any).version !== dto.version
+    ) {
+      throw new ConflictError(
+        'La nota fue modificada por otro usuario. Recarga la página e intenta de nuevo.'
+      )
+    }
+
     validateStatusTransition(entryNote.status as EntryNoteStatus, 'COMPLETED')
+
+    // Replace items si el cliente envía items (combina update + complete)
+    if (dto?.items && dto.items.length > 0) {
+      const itemIds = dto.items.map((i) => i.itemId)
+      const existingItems = await db.item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== new Set(itemIds).size) {
+        const foundIds = new Set(existingItems.map((i) => i.id))
+        const missing = itemIds.filter((id) => !foundIds.has(id))
+        throw new BadRequestError(
+          `Uno o más artículos no existen o no pertenecen a esta empresa: ${missing.join(', ')}`
+        )
+      }
+      const nameMap = new Map(existingItems.map((i) => [i.id, i.name]))
+
+      await (db as PrismaClient).$transaction(async (tx) => {
+        await tx.entryNoteItem.deleteMany({ where: { entryNoteId: id } })
+        await tx.entryNoteItem.createMany({
+          data: dto.items!.map((item) => ({
+            entryNoteId: id,
+            itemId: item.itemId,
+            itemName: item.itemName || nameMap.get(item.itemId) || null,
+            quantityReceived: item.quantityReceived,
+            unitCost: item.unitCost,
+            storedToLocation: item.storedToLocation ?? null,
+            batchNumber: item.batchNumber ?? null,
+            expiryDate: item.expiryDate ?? null,
+            notes: item.notes ?? null,
+          })),
+        })
+        if (dto.notes !== undefined) {
+          await tx.entryNote.update({
+            where: { id },
+            data: { notes: dto.notes ?? null },
+          })
+        }
+      })
+
+      // Recargar con los items nuevos
+      entryNote = await db.entryNote.findFirst({
+        where: { id, warehouse: { empresaId } },
+        include: {
+          ...ENTRY_NOTE_INCLUDE,
+          items: {
+            include: {
+              item: {
+                select: { id: true, sku: true, name: true, location: true },
+              },
+            },
+          },
+        },
+      })
+      if (!entryNote) {
+        throw new NotFoundError(INVENTORY_MESSAGES.entryNote.notFound)
+      }
+    }
 
     if (!entryNote.items || entryNote.items.length === 0) {
       throw new BadRequestError(
@@ -1049,6 +1119,7 @@ export class EntryNoteService {
         status: 'COMPLETED',
         verifiedAt: effectiveVerifiedAt,
         verifiedBy: userId ?? null,
+        version: { increment: 1 },
       }
       if (dto?.receivedAt) {
         updateData.receivedAt = dto.receivedAt
@@ -1132,6 +1203,9 @@ export class EntryNoteService {
             totalCost: noteItem.quantityReceived * unitCost,
             reference: entryNote.entryNoteNumber,
             entryNoteId: entryNote.id,
+            ...(dto?.receivedAt
+              ? { movementDate: dto.receivedAt }
+              : {}),
             ...(entryNote.purchaseOrderId
               ? { purchaseOrderId: entryNote.purchaseOrderId }
               : {}),
