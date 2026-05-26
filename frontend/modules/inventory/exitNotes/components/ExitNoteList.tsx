@@ -32,6 +32,7 @@ import ExitNoteForm from "./ExitNoteForm";
 import ExitNoteDetailDialog from "./ExitNoteDetailDialog";
 import ExitNoteStepper from "./ExitNoteStepper";
 import CreateButton from "@/components/common/CreateButton";
+import BackdateField from "@/components/common/BackdateField";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import {
   confirmAction,
@@ -61,6 +62,9 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const [detailDialog, setDetailDialog] = useState(false);
   const [formDialog, setFormDialog] = useState(false);
   const [deliverDialog, setDeliverDialog] = useState(false);
+  const [deliverEffectiveDate, setDeliverEffectiveDate] = useState<Date | null>(
+    null,
+  );
   const [expandedRows, setExpandedRows] = useState<any>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -219,7 +223,12 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
   const handleDeliver = async () => {
     if (!selectedExitNote) return;
     try {
-      await exitNoteService.deliver(selectedExitNote.id);
+      await exitNoteService.deliver(
+        selectedExitNote.id,
+        deliverEffectiveDate
+          ? { deliveredAt: deliverEffectiveDate.toISOString() }
+          : undefined,
+      );
       mutate();
       toast.current?.show({
         severity: "success",
@@ -232,6 +241,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
     } finally {
       setSelectedExitNote(null);
       setDeliverDialog(false);
+      setDeliverEffectiveDate(null);
     }
   };
 
@@ -357,6 +367,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
               tooltipOptions={{ position: "top" }}
               onClick={() => {
                 setSelectedExitNote(rowData);
+                setDeliverEffectiveDate(null);
                 setDeliverDialog(true);
               }}
             />
@@ -856,6 +867,7 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
                 onClick={() => {
                   setSelectedExitNote(null);
                   setDeliverDialog(false);
+                  setDeliverEffectiveDate(null);
                 }}
                 type="button"
                 className="flex-1"
@@ -872,10 +884,18 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
           onHide={() => {
             setSelectedExitNote(null);
             setDeliverDialog(false);
+            setDeliverEffectiveDate(null);
           }}
         >
           {selectedExitNote && (
             <div className="flex flex-column gap-3">
+              <BackdateField
+                value={deliverEffectiveDate}
+                onChange={setDeliverEffectiveDate}
+                label="Fecha de entrega efectiva (opcional)"
+                placeholder="Vacío = ahora"
+                warningText="Está registrando una entrega con fecha pasada. La fecha de creación del sistema queda intacta para auditoría."
+              />
               <div className="flex align-items-center gap-3 p-2 surface-100 border-round">
                 <i className="pi pi-exclamation-triangle text-orange-500 text-2xl" />
                 <div>

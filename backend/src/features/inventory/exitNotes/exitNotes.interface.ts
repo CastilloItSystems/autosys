@@ -227,3 +227,10 @@ export interface IUpdateExitNoteInput {
   expectedReturnDate?: Date
   items?: ICreateExitNoteItemInput[]
 }
+
+/**
+ * Input for delivering an exit note (allows backdating deliveredAt)
+ */
+export interface IDeliverExitNoteInput {
+  deliveredAt?: Date | null
+}

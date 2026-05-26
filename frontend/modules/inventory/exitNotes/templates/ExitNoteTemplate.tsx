@@ -163,7 +163,7 @@ const ExitNoteTemplate = ({ data, company }: { data: ExitNote; company?: PdfComp
           company={company}
           title="Nota de Salida"
           documentNumber={data.exitNoteNumber}
-          date={formatDate(data.createdAt)}
+          date={formatDate(data.deliveredAt || data.createdAt)}
           status={cfg?.label || data.status}
           statusColor={badgeColor}
           type={typeCfg?.label || data.type}
@@ -244,6 +244,31 @@ const ExitNoteTemplate = ({ data, company }: { data: ExitNote; company?: PdfComp
             </View>
           </View>
         )}
+
+        {/* Fechas */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fechas</Text>
+          <View style={styles.grid2Col}>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Fecha de entrega:</Text>
+                <Text style={styles.value}>{formatDate(data.deliveredAt)}</Text>
+              </View>
+              {data.preparedAt && (
+                <View style={styles.row}>
+                  <Text style={styles.label}>Fecha preparación:</Text>
+                  <Text style={styles.value}>{formatDate(data.preparedAt)}</Text>
+                </View>
+              )}
+            </View>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Registrado en sistema:</Text>
+                <Text style={styles.value}>{formatDate(data.createdAt)}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
 
         {/* Responsables */}
         <View style={styles.section}>

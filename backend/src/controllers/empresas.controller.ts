@@ -195,6 +195,36 @@ export const createEmpresa = async (req: Request, res: Response) => {
     await seedDefaultNotificationPoliciesForEmpresa(newEmpresa.id_empresa)
     await seedDefaultBankAccountForEmpresa(newEmpresa.id_empresa)
 
+    if (currentUserId) {
+      const ownerRole = await prisma.companyRole.findFirst({
+        where: { empresaId: newEmpresa.id_empresa, name: 'OWNER' },
+        select: { id: true },
+      })
+
+      if (ownerRole) {
+        await prisma.membership.upsert({
+          where: {
+            userId_empresaId: {
+              userId: currentUserId,
+              empresaId: newEmpresa.id_empresa,
+            },
+          },
+          update: { roleId: ownerRole.id, status: 'active' },
+          create: {
+            userId: currentUserId,
+            empresaId: newEmpresa.id_empresa,
+            roleId: ownerRole.id,
+            status: 'active',
+            assignedBy: currentUserId,
+          },
+        })
+      } else {
+        console.warn(
+          `⚠️ OWNER role not found for empresa ${newEmpresa.id_empresa}; creator membership skipped`
+        )
+      }
+    }
+
     return res.status(201).json(newEmpresa)
   } catch (error) {
     console.error('Error creando empresa:', error)

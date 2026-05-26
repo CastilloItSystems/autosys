@@ -11,6 +11,7 @@ import {
   createExitNoteSchema,
   updateExitNoteSchema,
   cancelExitNoteSchema,
+  deliverActionSchema,
   exitNoteFiltersSchema,
 } from './exitNotes.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
@@ -54,6 +55,7 @@ router.patch(
 router.patch(
   '/:id/deliver',
   authorize(PERMISSIONS.INVENTORY_UPDATE),
+  validateBody(deliverActionSchema),
   exitNotesController.deliver
 )
 router.patch(

@@ -9,6 +9,7 @@ import { Divider } from "primereact/divider";
 import { Tag } from "primereact/tag";
 import { Toast } from "primereact/toast";
 import entryNoteService from "@/modules/inventory/entryNotes/services/entryNoteService";
+import BackdateField from "@/components/common/BackdateField";
 import { handleFormError } from "@/utils/errorHandlers";
 import type { EntryNote } from "@/modules/inventory/entryNotes/interfaces/entryNote.interface";
 import {
@@ -91,6 +92,7 @@ const CompleteEntryNoteDialog = ({
   const [lines, setLines] = useState<CompleteLine[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [receiveNotes, setReceiveNotes] = useState("");
+  const [effectiveDate, setEffectiveDate] = useState<Date | null>(null);
 
   const currency = note?.purchaseOrder?.currency ?? "USD";
   const exchangeRate = note?.purchaseOrder?.exchangeRate;
@@ -126,6 +128,7 @@ const CompleteEntryNoteDialog = ({
     if (visible && note) {
       initializeLines();
       setReceiveNotes("");
+      setEffectiveDate(null);
     }
   }, [visible, note, initializeLines]);
 
@@ -184,7 +187,15 @@ const CompleteEntryNoteDialog = ({
           expiryDate: l.expiryDate ? l.expiryDate.toISOString() : null,
         })),
       });
-      await entryNoteService.complete(note.id);
+      await entryNoteService.complete(
+        note.id,
+        effectiveDate
+          ? {
+              receivedAt: effectiveDate.toISOString(),
+              verifiedAt: effectiveDate.toISOString(),
+            }
+          : undefined,
+      );
 
       toast?.current?.show({
         severity: "success",
@@ -321,6 +332,16 @@ const CompleteEntryNoteDialog = ({
             </div>
           </div>
         )}
+
+        {/* ── Fecha efectiva (backdate) ── */}
+        <BackdateField
+          value={effectiveDate}
+          onChange={setEffectiveDate}
+          label="Fecha de recepción efectiva (opcional)"
+          placeholder="Vacío = ahora"
+          warningText="Está registrando una recepción con fecha pasada. La fecha de creación del sistema queda intacta para auditoría."
+          disabled={submitting}
+        />
 
         {/* ── Notas de recepción ── */}
         <div className="field mb-3">

@@ -154,6 +154,16 @@ export const updateExitNoteSchema = Joi.object({
 })
 
 /**
+ * Deliver action schema (backdate allowed)
+ */
+export const deliverActionSchema = Joi.object({
+  deliveredAt: Joi.date().iso().max('now').optional().allow(null).messages({
+    'date.max': 'deliveredAt no puede ser una fecha futura',
+    'date.base': 'deliveredAt debe ser una fecha válida',
+  }),
+})
+
+/**
  * Mark As Ready Schema
  * Transition to READY status
  */

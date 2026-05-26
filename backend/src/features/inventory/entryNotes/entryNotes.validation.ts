@@ -39,6 +39,20 @@ export const createEntryNoteSchema = Joi.object({
   notes: Joi.string().max(2000).optional().allow(null),
   receivedBy: Joi.string().optional().allow(null),
   authorizedBy: Joi.string().optional().allow(null),
+  items: Joi.array()
+    .items(
+      Joi.object({
+        itemId: Joi.string().required(),
+        itemName: Joi.string().max(255).optional().allow(null, ''),
+        quantityReceived: Joi.number().integer().positive().required(),
+        unitCost: Joi.number().min(0).required(),
+        storedToLocation: Joi.string().max(100).optional().allow(null, ''),
+        batchNumber: Joi.string().optional().allow(null, ''),
+        expiryDate: Joi.date().iso().optional().allow(null),
+        notes: Joi.string().max(2000).optional().allow(null, ''),
+      })
+    )
+    .optional(),
 })
 
 export const updateEntryNoteSchema = Joi.object({
@@ -70,7 +84,7 @@ export const updateEntryNoteSchema = Joi.object({
         itemId: Joi.string().required(),
         itemName: Joi.string().max(255).optional().allow(null, ''),
         quantityReceived: Joi.number().integer().positive().required(),
-        unitCost: Joi.number().positive().required(),
+        unitCost: Joi.number().min(0).required(),
         storedToLocation: Joi.string().max(100).optional().allow(null),
         batchNumber: Joi.string().optional().allow(null),
         expiryDate: Joi.date().iso().optional().allow(null),
@@ -81,6 +95,17 @@ export const updateEntryNoteSchema = Joi.object({
     .optional(),
 }).min(1)
 
+export const completeEntryNoteSchema = Joi.object({
+  receivedAt: Joi.date().iso().max('now').optional().allow(null).messages({
+    'date.max': 'receivedAt no puede ser una fecha futura',
+    'date.base': 'receivedAt debe ser una fecha válida',
+  }),
+  verifiedAt: Joi.date().iso().max('now').optional().allow(null).messages({
+    'date.max': 'verifiedAt no puede ser una fecha futura',
+    'date.base': 'verifiedAt debe ser una fecha válida',
+  }),
+})
+
 export const addEntryNoteItemSchema = Joi.object({
   itemId: Joi.string().required().messages({
     'any.required': 'itemId es requerido',
@@ -90,8 +115,8 @@ export const addEntryNoteItemSchema = Joi.object({
     'number.integer': 'quantityReceived debe ser un número entero',
     'any.required': 'quantityReceived es requerido',
   }),
-  unitCost: Joi.number().positive().required().messages({
-    'number.positive': 'unitCost debe ser mayor a 0',
+  unitCost: Joi.number().min(0).required().messages({
+    'number.min': 'unitCost debe ser mayor o igual a 0',
     'any.required': 'unitCost es requerido',
   }),
   storedToLocation: Joi.string().max(100).optional().allow(null),

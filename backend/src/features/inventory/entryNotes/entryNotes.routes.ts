@@ -11,6 +11,7 @@ import {
 import {
   createEntryNoteSchema,
   updateEntryNoteSchema,
+  completeEntryNoteSchema,
   addEntryNoteItemSchema,
   entryNoteIdSchema,
   purchaseOrderIdParamSchema,
@@ -69,6 +70,7 @@ router.post(
   '/:id/complete',
   authorize(PERMISSIONS.INVENTORY_UPDATE),
   validateParams(entryNoteIdSchema),
+  validateBody(completeEntryNoteSchema),
   entryNoteController.complete
 )
 

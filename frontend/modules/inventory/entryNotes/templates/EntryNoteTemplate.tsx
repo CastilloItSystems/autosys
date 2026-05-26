@@ -246,6 +246,29 @@ const EntryNoteTemplate = ({ data, company }: { data: EntryNote; company?: PdfCo
           </View>
         )}
 
+        {/* Fechas */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Fechas</Text>
+          <View style={styles.grid2Col}>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Fecha de recepción:</Text>
+                <Text style={styles.value}>{formatDate(data.receivedAt)}</Text>
+              </View>
+              <View style={styles.row}>
+                <Text style={styles.label}>Fecha de verificación:</Text>
+                <Text style={styles.value}>{formatDate(data.verifiedAt)}</Text>
+              </View>
+            </View>
+            <View style={styles.col}>
+              <View style={styles.row}>
+                <Text style={styles.label}>Registrado en sistema:</Text>
+                <Text style={styles.value}>{formatDate(data.createdAt)}</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+
         {/* Responsables */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Responsables</Text>

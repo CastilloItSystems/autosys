@@ -20,6 +20,7 @@ import {
   IEntryNoteItem,
   ICreateEntryNoteInput,
   IUpdateEntryNoteInput,
+  ICompleteEntryNoteInput,
   IEntryNoteFilters,
   ICreateEntryNoteItemInput,
   IEntryNoteListResult,
@@ -212,24 +213,61 @@ export class EntryNoteService {
       }
     }
 
-    const entryNote = await db.entryNote.create({
-      data: {
-        entryNoteNumber: generateEntryNoteNumber(),
-        type: data.type ?? 'PURCHASE',
-        status: 'PENDING',
-        purchaseOrderId: data.purchaseOrderId ?? null,
-        warehouseId: data.warehouseId,
-        catalogSupplierId: data.catalogSupplierId ?? null,
-        supplierName: data.supplierName ?? null,
-        supplierId: data.supplierId ?? null,
-        supplierPhone: data.supplierPhone ?? null,
-        reason: data.reason ?? null,
-        reference: data.reference ?? null,
-        notes: data.notes ?? null,
-        receivedBy: data.receivedBy ?? userId ?? null,
-        authorizedBy: data.authorizedBy ?? null,
-      },
-      include: ENTRY_NOTE_INCLUDE,
+    // Pre-validate items (before any DB write) so a bad item never leaves an orphan note
+    const itemNameMap = new Map<string, string>()
+    if (data.items && data.items.length > 0) {
+      const itemIds = data.items.map((i) => i.itemId)
+      const existingItems = await db.item.findMany({
+        where: { id: { in: itemIds }, empresaId },
+        select: { id: true, name: true },
+      })
+      if (existingItems.length !== new Set(itemIds).size) {
+        const foundIds = new Set(existingItems.map((i) => i.id))
+        const missing = itemIds.filter((id) => !foundIds.has(id))
+        throw new BadRequestError(
+          `Uno o más artículos no existen o no pertenecen a esta empresa: ${missing.join(', ')}`
+        )
+      }
+      existingItems.forEach((i) => itemNameMap.set(i.id, i.name))
+    }
+
+    const entryNote = await (db as PrismaClient).$transaction(async (tx) => {
+      return tx.entryNote.create({
+        data: {
+          entryNoteNumber: generateEntryNoteNumber(),
+          type: data.type ?? 'PURCHASE',
+          status: 'PENDING',
+          purchaseOrderId: data.purchaseOrderId ?? null,
+          warehouseId: data.warehouseId,
+          catalogSupplierId: data.catalogSupplierId ?? null,
+          supplierName: data.supplierName ?? null,
+          supplierId: data.supplierId ?? null,
+          supplierPhone: data.supplierPhone ?? null,
+          reason: data.reason ?? null,
+          reference: data.reference ?? null,
+          notes: data.notes ?? null,
+          receivedBy: data.receivedBy ?? userId ?? null,
+          authorizedBy: data.authorizedBy ?? null,
+          ...(data.items && data.items.length > 0
+            ? {
+                items: {
+                  create: data.items.map((item) => ({
+                    itemId: item.itemId,
+                    itemName:
+                      item.itemName || itemNameMap.get(item.itemId) || null,
+                    quantityReceived: item.quantityReceived,
+                    unitCost: item.unitCost,
+                    storedToLocation: item.storedToLocation ?? null,
+                    batchNumber: item.batchNumber ?? null,
+                    expiryDate: item.expiryDate ?? null,
+                    notes: item.notes ?? null,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: ENTRY_NOTE_INCLUDE,
+      })
     })
 
     logger.info('Nota de entrada creada', {
@@ -895,6 +933,7 @@ export class EntryNoteService {
     id: string,
     empresaId: string,
     userId?: string,
+    dto?: ICompleteEntryNoteInput,
     db: PrismaClientType = prisma
   ): Promise<IEntryNoteWithRelations> {
     // TENANT-SAFE: verify via warehouse — load full data before transaction
@@ -1005,13 +1044,18 @@ export class EntryNoteService {
     // Atomic transaction: update status + upsert stock + create movements
     // Timeout: 30s — touches stock × N items, movements × N items, PO items, SupplierBill sync
     const result = await (db as PrismaClient).$transaction(async (tx) => {
+      const effectiveVerifiedAt = dto?.verifiedAt ?? new Date()
+      const updateData: Record<string, unknown> = {
+        status: 'COMPLETED',
+        verifiedAt: effectiveVerifiedAt,
+        verifiedBy: userId ?? null,
+      }
+      if (dto?.receivedAt) {
+        updateData.receivedAt = dto.receivedAt
+      }
       await tx.entryNote.update({
         where: { id },
-        data: {
-          status: 'COMPLETED',
-          verifiedAt: new Date(),
-          verifiedBy: userId ?? null,
-        },
+        data: updateData,
       })
 
       for (const noteItem of entryNote.items) {
@@ -1370,7 +1414,7 @@ export class EntryNoteService {
       await this.startEntryNote(note.id, empresaId, userId, db)
     }
 
-    return this.completeEntryNote(note.id, empresaId, userId, db)
+    return this.completeEntryNote(note.id, empresaId, userId, undefined, db)
   }
 
   /**

@@ -5,6 +5,7 @@ import exitNotesService from './exitNotes.service.js'
 import {
   CreateExitNoteDTO,
   UpdateExitNoteDTO,
+  DeliverExitNoteDTO,
   ExitNoteResponseDTO,
 } from './exitNotes.dto.js'
 import { ExitNoteStatus, ExitNoteType } from './exitNotes.interface.js'
@@ -323,11 +324,14 @@ class ExitNotesController {
     const userId = req.user?.userId
     const { id } = req.params as { id: string }
 
+    const dto = new DeliverExitNoteDTO(req.body ?? {})
+
     const exitNote = await exitNotesService.deliver(
       id,
       empresaId,
       userId,
-      req.prisma
+      req.prisma,
+      dto
     )
 
     return ApiResponse.success(

@@ -409,23 +409,20 @@ export default function EntryNoteForm({
           authorizedBy: headerData.authorizedBy || null,
         };
 
-        const result = await entryNoteService.create(payload);
-        const createdNote = result.data;
+        payload.items = itemsData.map((item) => ({
+          itemId: item.itemId,
+          itemName: item.itemName,
+          quantityReceived: item.quantityReceived,
+          unitCost: item.unitCost,
+          storedToLocation: item.storedToLocation || null,
+          batchNumber: item.batchNumber || null,
+          expiryDate: item.expiryDate
+            ? new Date(item.expiryDate as any).toISOString()
+            : null,
+          notes: item.notes || null,
+        }));
 
-        for (const item of itemsData) {
-          await entryNoteService.addItem(createdNote.id, {
-            itemId: item.itemId,
-            itemName: item.itemName,
-            quantityReceived: item.quantityReceived,
-            unitCost: item.unitCost,
-            storedToLocation: item.storedToLocation || null,
-            batchNumber: item.batchNumber || null,
-            expiryDate: item.expiryDate
-              ? new Date(item.expiryDate as any).toISOString()
-              : null,
-            notes: item.notes || null,
-          });
-        }
+        await entryNoteService.create(payload);
       }
 
       await onSave();

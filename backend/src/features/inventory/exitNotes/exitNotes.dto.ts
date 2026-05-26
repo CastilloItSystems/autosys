@@ -101,6 +101,15 @@ export class UpdateExitNoteDTO {
   }
 }
 
+export class DeliverExitNoteDTO {
+  deliveredAt?: Date | null
+
+  constructor(data: Record<string, unknown>) {
+    if (data.deliveredAt !== undefined && data.deliveredAt !== null)
+      this.deliveredAt = new Date(data.deliveredAt as string)
+  }
+}
+
 export class ExitNoteResponseDTO implements IExitNoteResponse {
   id: string
   exitNoteNumber: string

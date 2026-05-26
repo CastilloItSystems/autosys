@@ -102,8 +102,14 @@ const exitNoteService = {
     return res.data;
   },
 
-  async deliver(id: string): Promise<ApiResponse<ExitNote>> {
-    const res = await apiClient.patch(`/inventory/exit-notes/${id}/deliver`);
+  async deliver(
+    id: string,
+    payload?: { deliveredAt?: string | null },
+  ): Promise<ApiResponse<ExitNote>> {
+    const res = await apiClient.patch(
+      `/inventory/exit-notes/${id}/deliver`,
+      payload ?? {},
+    );
     return res.data;
   },
 

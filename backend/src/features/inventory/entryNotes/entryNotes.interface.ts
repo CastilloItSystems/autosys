@@ -100,6 +100,7 @@ export interface ICreateEntryNoteInput {
   notes?: string | null
   receivedBy?: string | null
   authorizedBy?: string | null
+  items?: ICreateEntryNoteItemInput[]
 }
 
 export interface IUpdateEntryNoteInput {
@@ -131,6 +132,11 @@ export interface IEntryNoteFilters {
   sortBy?: string
   sortOrder?: 'asc' | 'desc'
   search?: string
+}
+
+export interface ICompleteEntryNoteInput {
+  receivedAt?: Date | null
+  verifiedAt?: Date | null
 }
 
 export interface ICreateEntryNoteItemInput {

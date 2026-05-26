@@ -5,6 +5,7 @@ import entryNoteService from './entryNotes.service.js'
 import {
   CreateEntryNoteDTO,
   UpdateEntryNoteDTO,
+  CompleteEntryNoteDTO,
   CreateEntryNoteItemDTO,
   EntryNoteResponseDTO,
   EntryNoteItemResponseDTO,
@@ -261,10 +262,13 @@ export class EntryNoteController {
     const userId = req.user?.userId
     const { id } = req.params as { id: string }
 
+    const dto = new CompleteEntryNoteDTO(req.body ?? {})
+
     const result = await entryNoteService.completeEntryNote(
       id,
       empresaId,
       userId,
+      dto,
       req.prisma
     )
 

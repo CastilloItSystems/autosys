@@ -17,6 +17,7 @@ import exitNoteService from "@/modules/inventory/exitNotes/services/exitNoteServ
 import { Toast } from "primereact/toast";
 import { handleFormError } from "@/utils/errorHandlers";
 import ExitNoteStepper from "./ExitNoteStepper";
+import BackdateField from "@/components/common/BackdateField";
 
 interface ExitNoteDetailDialogProps {
   visible: boolean;
@@ -39,9 +40,15 @@ const ExitNoteDetailDialog = ({
   const [pickedItems, setPickedItems] = useState<Record<string, boolean>>({});
   const [cancelDialog, setCancelDialog] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+  const [deliverEffectiveDate, setDeliverEffectiveDate] = useState<Date | null>(
+    null,
+  );
 
   useEffect(() => {
-    if (exitNote) setPickedItems({});
+    if (exitNote) {
+      setPickedItems({});
+      setDeliverEffectiveDate(null);
+    }
   }, [exitNote]);
 
   if (!exitNote) return null;
@@ -90,7 +97,12 @@ const ExitNoteDetailDialog = ({
   const handleDeliver = async () => {
     setLoading(true);
     try {
-      await exitNoteService.deliver(exitNote.id);
+      await exitNoteService.deliver(
+        exitNote.id,
+        deliverEffectiveDate
+          ? { deliveredAt: deliverEffectiveDate.toISOString() }
+          : undefined,
+      );
       toast.current?.show({
         severity: "success",
         summary: "Éxito",
@@ -235,6 +247,20 @@ const ExitNoteDetailDialog = ({
         <div className="mb-4">
           <ExitNoteStepper currentStatus={exitNote.status} />
         </div>
+
+        {/* ── Backdate (solo al confirmar entrega) ── */}
+        {exitNote.status === ExitNoteStatus.READY && (
+          <div className="mb-3 surface-50 border-round p-3">
+            <BackdateField
+              value={deliverEffectiveDate}
+              onChange={setDeliverEffectiveDate}
+              label="Fecha de entrega efectiva (opcional)"
+              placeholder="Vacío = ahora"
+              warningText="Está registrando una entrega con fecha pasada. La fecha de creación del sistema queda intacta para auditoría."
+              disabled={loading}
+            />
+          </div>
+        )}
 
         {/* ── Info cards ── */}
         <div className="grid mb-3">

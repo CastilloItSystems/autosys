@@ -22,6 +22,16 @@ export interface CreateEntryNotePayload {
   notes?: string | null;
   receivedBy?: string | null;
   authorizedBy?: string | null;
+  items?: {
+    itemId: string;
+    itemName?: string | null;
+    quantityReceived: number;
+    unitCost: number;
+    storedToLocation?: string | null;
+    batchNumber?: string | null;
+    expiryDate?: string | null;
+    notes?: string | null;
+  }[];
 }
 
 export interface UpdateEntryNotePayload {
@@ -146,8 +156,14 @@ const entryNoteService = {
     return res.data;
   },
 
-  async complete(id: string): Promise<ApiResponse<EntryNote>> {
-    const res = await apiClient.post(`/inventory/entry-notes/${id}/complete`);
+  async complete(
+    id: string,
+    payload?: { receivedAt?: string | null; verifiedAt?: string | null },
+  ): Promise<ApiResponse<EntryNote>> {
+    const res = await apiClient.post(
+      `/inventory/entry-notes/${id}/complete`,
+      payload ?? {},
+    );
     return res.data;
   },
 

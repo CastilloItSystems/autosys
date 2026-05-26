@@ -25,6 +25,16 @@ export class CreateEntryNoteDTO {
   notes?: string | null
   receivedBy?: string | null
   authorizedBy?: string | null
+  items?: {
+    itemId: string
+    itemName?: string | null
+    quantityReceived: number
+    unitCost: number
+    storedToLocation?: string | null
+    batchNumber?: string | null
+    expiryDate?: Date | null
+    notes?: string | null
+  }[]
 
   constructor(data: Record<string, unknown>) {
     this.type = (data.type as EntryType) ?? 'PURCHASE'
@@ -43,6 +53,22 @@ export class CreateEntryNoteDTO {
     this.notes = data.notes ? String(data.notes) : null
     this.receivedBy = data.receivedBy ? String(data.receivedBy) : null
     this.authorizedBy = data.authorizedBy ? String(data.authorizedBy) : null
+    if (Array.isArray(data.items)) {
+      this.items = (data.items as Record<string, unknown>[]).map((item) => ({
+        itemId: String(item.itemId),
+        itemName: item.itemName ? String(item.itemName) : null,
+        quantityReceived: Number(item.quantityReceived),
+        unitCost: Number(item.unitCost),
+        storedToLocation: item.storedToLocation
+          ? String(item.storedToLocation)
+          : null,
+        batchNumber: item.batchNumber ? String(item.batchNumber) : null,
+        expiryDate: item.expiryDate
+          ? new Date(item.expiryDate as string)
+          : null,
+        notes: item.notes ? String(item.notes) : null,
+      }))
+    }
   }
 }
 
@@ -111,6 +137,18 @@ export class UpdateEntryNoteDTO {
         notes: item.notes ? String(item.notes) : null,
       }))
     }
+  }
+}
+
+export class CompleteEntryNoteDTO {
+  receivedAt?: Date | null
+  verifiedAt?: Date | null
+
+  constructor(data: Record<string, unknown>) {
+    if (data.receivedAt !== undefined && data.receivedAt !== null)
+      this.receivedAt = new Date(data.receivedAt as string)
+    if (data.verifiedAt !== undefined && data.verifiedAt !== null)
+      this.verifiedAt = new Date(data.verifiedAt as string)
   }
 }
 

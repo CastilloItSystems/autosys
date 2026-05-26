@@ -19,6 +19,7 @@ import {
   ExitNoteType,
   IExitNoteStatusInfo,
   IExitNoteSummary,
+  IDeliverExitNoteInput,
 } from './exitNotes.interface.js'
 import { dispatchMaterialFromExitNote } from '../../workshop/serviceOrderMaterials/internal/dispatchMaterial.js'
 import inventoryNotificationTriggerService from '../shared/notifications/inventory-notification-trigger.service.js'
@@ -829,7 +830,8 @@ class ExitNotesService {
     id: string,
     empresaId: string,
     userId: string,
-    db: PrismaClientType
+    db: PrismaClientType,
+    dto?: IDeliverExitNoteInput
   ): Promise<IExitNote> {
     const exitNote = await this.findById(id, empresaId, db)
 
@@ -837,12 +839,14 @@ class ExitNotesService {
       throw new BadRequestError(MSG.cannotDeliver)
     }
 
+    const effectiveDeliveredAt = dto?.deliveredAt ?? new Date()
+
     const updated = await (db as PrismaClient).$transaction(async (tx) => {
       const note = await tx.exitNote.update({
         where: { id },
         data: {
           status: ExitNoteStatus.DELIVERED,
-          deliveredAt: new Date(),
+          deliveredAt: effectiveDeliveredAt,
           deliveredBy: userId,
         },
         include: EXIT_NOTE_INCLUDE,
@@ -890,7 +894,7 @@ class ExitNotesService {
         },
         data: {
           status: 'CONSUMED',
-          deliveredAt: new Date(),
+          deliveredAt: effectiveDeliveredAt,
           deliveredBy: userId,
         },
       })

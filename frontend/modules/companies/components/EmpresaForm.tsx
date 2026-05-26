@@ -22,6 +22,8 @@ import {
 import type { Empresa } from "../interfaces/empresa.interface";
 import RifInput from "@/shared/components/RifInput";
 import PhoneInput from "@/shared/components/PhoneInput";
+import { useEmpresasStore } from "@/store/empresasStore";
+import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
 interface EmpresaFormProps {
   empresa?: Empresa | null;
@@ -43,6 +45,8 @@ const EmpresaForm = ({
   const [isLoading, setIsLoading] = useState(true);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const setActiveEmpresa = useEmpresasStore((state) => state.setActiveEmpresa);
+  const refreshAuthContext = useRefreshAuthContext();
 
   const {
     register,
@@ -200,6 +204,11 @@ const EmpresaForm = ({
             life: 5000,
           });
         }
+      }
+
+      if (!empresa) {
+        await refreshAuthContext();
+        setActiveEmpresa(savedEmpresa);
       }
 
       onSave();
