@@ -1,0 +1,80 @@
+// backend/prisma/models/workshop/roadTest.prisma
+// Prueba de Carretera (§20). Requiere autorización triple:
+// Gerente de Servicio + Asesor + Jefe de Taller, además de autorización del cliente.
+
+enum RoadTestStatus {
+  DRAFT          // Borrador, sin todas las autorizaciones
+  AUTHORIZED     // 3 firmas + cliente, listo para salida
+  IN_PROGRESS    // Vehículo en circulación
+  COMPLETED      // Reingresó OK
+  FAILED         // Resultado negativo (fugas, fallas)
+  CANCELLED
+}
+
+enum RoadTestResult {
+  PASS
+  FAIL
+  WITH_OBSERVATIONS
+}
+
+model RoadTest {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  exitPassRef String?  // Referencia de la orden de salida firmada
+
+  motive  String  @db.Text  // Motivo de la prueba
+  notes   String? @db.Text
+
+  // Tripulación
+  driverId     String   // userId del chófer especializado
+  driverName   String?
+  technicianId String   // userId del técnico que acompaña
+  technicianName String?
+
+  // Autorización triple (§20.3) — obligatorias para pasar de DRAFT a AUTHORIZED
+  authManagerId      String?  // Gerente de Servicio
+  authManagerAt      DateTime?
+  authAdvisorId      String?  // Asesor de Servicio
+  authAdvisorAt      DateTime?
+  authShopForemanId  String?  // Jefe de Taller
+  authShopForemanAt  DateTime?
+
+  // Autorización del cliente para circulación legal
+  clientAuthorized   Boolean   @default(false)
+  clientAuthorizedAt DateTime?
+  clientAuthName     String?
+  clientAuthSignature String?
+
+  // Kilometraje
+  kmDeparture Int?
+  kmReturn    Int?
+
+  // Tiempos del evento
+  departedAt   DateTime?
+  returnedAt   DateTime?
+
+  // Resultados (§20.3)
+  result            RoadTestResult?
+  leaksDetected     Boolean? @default(false)
+  integrityVerified Boolean? @default(false)
+  observations      String?  @db.Text
+
+  status RoadTestStatus @default(DRAFT)
+
+  // Vinculación con garita (cada salida/reingreso genera evento)
+  garitaOutId String?
+  garitaInId  String?
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@index([status])
+  @@map("workshop_road_tests")
+}

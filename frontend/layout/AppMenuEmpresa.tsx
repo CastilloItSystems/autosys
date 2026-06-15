@@ -622,6 +622,16 @@ const AppMenuEmpresa = () => {
               icon: "pi pi-fw pi-history",
               to: "/empresa/concesionario/history",
             },
+            {
+              label: "Comisiones",
+              icon: "pi pi-fw pi-percentage",
+              to: "/empresa/concesionario/commissions",
+            },
+            {
+              label: "Configuración",
+              icon: "pi pi-fw pi-cog",
+              to: "/empresa/concesionario/config",
+            },
           ],
         },
         {

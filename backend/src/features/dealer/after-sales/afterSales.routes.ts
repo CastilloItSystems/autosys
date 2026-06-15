@@ -11,6 +11,7 @@ router.get('/', authorize(PERMISSIONS.DEALER_VIEW), validateQuery(dealerAfterSal
 router.post('/', authorize(PERMISSIONS.DEALER_CREATE), validateBody(createDealerAfterSaleSchema), controller.create)
 router.get('/:id', authorize(PERMISSIONS.DEALER_VIEW), controller.getOne)
 router.put('/:id', authorize(PERMISSIONS.DEALER_UPDATE), validateBody(updateDealerAfterSaleSchema), controller.update)
+router.post('/:id/derive-to-workshop', authorize(PERMISSIONS.DEALER_UPDATE), controller.deriveToWorkshop)
 router.delete('/:id', authorize(PERMISSIONS.DEALER_DELETE), controller.delete)
 
 export default router

@@ -14,6 +14,7 @@ import { changeServiceOrderStatusWithHistory } from '../serviceOrders/serviceOrd
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { resolveUserNames } from '../../sales/shared/userNameResolver.js'
+import { assertReturnedPartsBeforeClose } from '../deliveryReturnedParts/deliveryReturnedParts.service.js'
 
 type Db =
   | PrismaClient
@@ -214,6 +215,26 @@ export async function updateDelivery(
     ...updated,
     deliveredByName: updated.deliveredBy ? (userMap.get(updated.deliveredBy) ?? null) : null,
   }
+}
+
+// §23.3 — marcar entrega de repuestos sustituidos al cliente.
+// Bloquea si no hay al menos 1 registro acknowledged en DeliveryReturnedPart.
+export async function markSubstitutedPartsReturned(
+  db: Db,
+  id: string,
+  empresaId: string
+) {
+  const delivery = await (db as PrismaClient).vehicleDelivery.findFirst({
+    where: { id, empresaId },
+  })
+  if (!delivery) throw new NotFoundError('Entrega no encontrada')
+
+  await assertReturnedPartsBeforeClose(db as PrismaClient, id)
+
+  return (db as PrismaClient).vehicleDelivery.update({
+    where: { id },
+    data: { substitutedPartsReturned: true },
+  })
 }
 
 // FASE 1.3: Delete delivery

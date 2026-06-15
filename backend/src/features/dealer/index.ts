@@ -14,6 +14,8 @@ import automationsRoutes from './automations/automations.routes.js'
 import documentsRoutes from './documents/documents.routes.js'
 import approvalsRoutes from './approvals/approvals.routes.js'
 import afterSalesRoutes from './after-sales/afterSales.routes.js'
+import configRoutes from './config/config.routes.js'
+import commissionsRoutes from './commissions/commissions.routes.js'
 
 const router = Router()
 
@@ -36,5 +38,7 @@ router.use('/automations', automationsRoutes)
 router.use('/documents', documentsRoutes)
 router.use('/approvals', approvalsRoutes)
 router.use('/after-sales', afterSalesRoutes)
+router.use('/config', configRoutes)
+router.use('/commissions', commissionsRoutes)
 
 export default router

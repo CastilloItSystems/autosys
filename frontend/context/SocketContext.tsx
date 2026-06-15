@@ -4,6 +4,7 @@ import React, {
   createContext,
   useCallback,
   useEffect,
+  useMemo,
   useState,
   ReactNode,
 } from "react";
@@ -168,19 +169,28 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     };
   }, [socket]);
 
+  const value = useMemo<UseSocketReturn>(
+    () => ({
+      socket,
+      online,
+      conectarSocket,
+      desconectarSocket,
+      notification,
+      membershipChanged,
+      clearMembershipChanged,
+    }),
+    [
+      socket,
+      online,
+      conectarSocket,
+      desconectarSocket,
+      notification,
+      membershipChanged,
+      clearMembershipChanged,
+    ],
+  );
+
   return (
-    <SocketContext.Provider
-      value={{
-        socket,
-        online,
-        conectarSocket,
-        desconectarSocket,
-        notification,
-        membershipChanged,
-        clearMembershipChanged,
-      }}
-    >
-      {children}
-    </SocketContext.Provider>
+    <SocketContext.Provider value={value}>{children}</SocketContext.Provider>
   );
 };

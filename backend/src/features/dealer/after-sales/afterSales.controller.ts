@@ -64,6 +64,16 @@ class DealerAfterSalesController {
     const result = await service.delete(id, getEmpresaId(req), getUserId(req), req.prisma)
     return ApiResponse.success(res, result, 'Caso de postventa desactivado exitosamente')
   })
+
+  deriveToWorkshop = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params as { id: string }
+    const result = await service.deriveToWorkshop(id, getEmpresaId(req), getUserId(req), req.prisma)
+    return ApiResponse.success(
+      res,
+      { ...result, afterSale: new DealerAfterSaleResponseDTO(result.afterSale) },
+      'Caso derivado a taller exitosamente'
+    )
+  })
 }
 
 export default new DealerAfterSalesController()

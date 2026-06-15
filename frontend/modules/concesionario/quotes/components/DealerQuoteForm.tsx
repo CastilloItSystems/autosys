@@ -1,13 +1,20 @@
 "use client";
 
 import React from "react";
-import { Controller, useForm, useWatch } from "react-hook-form";
+import { Controller, useFieldArray, useForm, useWatch } from "react-hook-form";
 import { Calendar } from "primereact/calendar";
 import { Button } from "primereact/button";
 import { Dropdown } from "primereact/dropdown";
 import { InputNumber } from "primereact/inputnumber";
 import { InputText } from "primereact/inputtext";
+import { Checkbox } from "primereact/checkbox";
 import { Toast } from "primereact/toast";
+
+const ACCESSORY_TYPE_OPTIONS = [
+  { label: "Facturable", value: "FACTURABLE" },
+  { label: "Bonificado", value: "BONIFICADO" },
+  { label: "Promocional", value: "PROMOCIONAL" },
+];
 import CustomerSelector from "@/components/common/CustomerSelector";
 import { useCustomerDetailData } from "@/modules/crm/customer/hooks/useCustomerCrmData";
 import { useBcvRate } from "@/hooks/useBcvRate";
@@ -57,6 +64,11 @@ export default function DealerQuoteForm({
       offeredPrice:
         quote?.offeredPrice != null ? Number(quote.offeredPrice) : undefined,
       taxPct: quote?.taxPct != null ? Number(quote.taxPct) : 16,
+      adminFees: quote?.adminFees != null ? Number(quote.adminFees) : undefined,
+      tradeInValue:
+        quote?.tradeInValue != null ? Number(quote.tradeInValue) : undefined,
+      requiredDeposit:
+        quote?.requiredDeposit != null ? Number(quote.requiredDeposit) : undefined,
       currency: quote?.currency || "USD",
       exchangeRate:
         quote?.exchangeRate != null ? Number(quote.exchangeRate) : undefined,
@@ -67,8 +79,24 @@ export default function DealerQuoteForm({
       notes: quote?.notes || "",
       status: quote?.status || "DRAFT",
       isActive: quote?.isActive ?? true,
+      accessories:
+        quote?.accessories?.map((a) => ({
+          itemId: a.itemId ?? null,
+          name: a.name,
+          type: a.type,
+          quantity: Number(a.quantity ?? 1),
+          unitPrice: Number(a.unitPrice ?? 0),
+          installed: Boolean(a.installed),
+          notes: a.notes ?? "",
+        })) ?? [],
     },
   });
+
+  const {
+    fields: accessoryFields,
+    append: appendAccessory,
+    remove: removeAccessory,
+  } = useFieldArray({ control, name: "accessories" });
 
   const watchCurrency = useWatch({ control, name: "currency" }) || "USD";
   const watchFxSource = useWatch({ control, name: "exchangeRateSource" });
@@ -146,6 +174,20 @@ export default function DealerQuoteForm({
         discountPct: data.discountPct ?? null,
         offeredPrice: data.offeredPrice ?? null,
         taxPct: data.taxPct ?? null,
+        adminFees: data.adminFees ?? null,
+        tradeInValue: data.tradeInValue ?? null,
+        requiredDeposit: data.requiredDeposit ?? null,
+        accessories: (data.accessories ?? [])
+          .filter((a) => a.name && a.name.trim() !== "")
+          .map((a) => ({
+            itemId: a.itemId ?? null,
+            name: a.name.trim(),
+            type: a.type,
+            quantity: Number(a.quantity ?? 1),
+            unitPrice: Number(a.unitPrice ?? 0),
+            installed: Boolean(a.installed),
+            notes: a.notes || null,
+          })),
         currency: data.currency || "USD",
         exchangeRate: data.exchangeRate ?? null,
         exchangeRateSource: data.exchangeRateSource || "BCV_AUTO",
@@ -469,6 +511,63 @@ export default function DealerQuoteForm({
           />
         </div>
 
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Gastos administrativos</label>
+          <Controller
+            name="adminFees"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                prefix={currencyPrefix}
+                min={0}
+                minFractionDigits={2}
+                maxFractionDigits={2}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Valor de retoma</label>
+          <Controller
+            name="tradeInValue"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                prefix={currencyPrefix}
+                min={0}
+                minFractionDigits={2}
+                maxFractionDigits={2}
+              />
+            )}
+          />
+        </div>
+
+        <div className="col-12 md:col-4 field">
+          <label className="font-semibold">Anticipo requerido</label>
+          <Controller
+            name="requiredDeposit"
+            control={control}
+            render={({ field }) => (
+              <InputNumber
+                value={field.value ?? null}
+                onValueChange={(e) => field.onChange(e.value ?? undefined)}
+                mode="decimal"
+                prefix={currencyPrefix}
+                min={0}
+                minFractionDigits={2}
+                maxFractionDigits={2}
+              />
+            )}
+          />
+        </div>
+
         <div className="col-12 md:col-6 field">
           <label className="font-semibold">Términos de pago</label>
           <Controller
@@ -489,6 +588,127 @@ export default function DealerQuoteForm({
               <InputText {...field} value={field.value || ""} />
             )}
           />
+        </div>
+
+        {/* ── Accesorios y paquetes comerciales (Doc §10.2 / §15) ── */}
+        <div className="col-12 field">
+          <div className="flex align-items-center justify-content-between mb-2 border-bottom-1 surface-border pb-2">
+            <label className="font-semibold m-0">
+              <i className="pi pi-box mr-2 text-primary" />
+              Accesorios y paquetes
+            </label>
+            <Button
+              type="button"
+              label="Agregar accesorio"
+              icon="pi pi-plus"
+              size="small"
+              outlined
+              onClick={() =>
+                appendAccessory({
+                  itemId: null,
+                  name: "",
+                  type: "FACTURABLE",
+                  quantity: 1,
+                  unitPrice: 0,
+                  installed: false,
+                  notes: "",
+                })
+              }
+            />
+          </div>
+
+          {accessoryFields.length === 0 && (
+            <small className="text-500">Sin accesorios agregados.</small>
+          )}
+
+          {accessoryFields.map((row, index) => (
+            <div key={row.id} className="grid formgrid align-items-end mb-2">
+              <div className="col-12 md:col-4 field mb-0">
+                {index === 0 && <label className="text-xs text-500">Nombre</label>}
+                <Controller
+                  name={`accessories.${index}.name`}
+                  control={control}
+                  render={({ field }) => (
+                    <InputText {...field} value={field.value || ""} placeholder="Accesorio" />
+                  )}
+                />
+              </div>
+              <div className="col-6 md:col-2 field mb-0">
+                {index === 0 && <label className="text-xs text-500">Tipo</label>}
+                <Controller
+                  name={`accessories.${index}.type`}
+                  control={control}
+                  render={({ field }) => (
+                    <Dropdown
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.value)}
+                      options={ACCESSORY_TYPE_OPTIONS}
+                    />
+                  )}
+                />
+              </div>
+              <div className="col-6 md:col-2 field mb-0">
+                {index === 0 && <label className="text-xs text-500">Cant.</label>}
+                <Controller
+                  name={`accessories.${index}.quantity`}
+                  control={control}
+                  render={({ field }) => (
+                    <InputNumber
+                      value={field.value ?? 1}
+                      onValueChange={(e) => field.onChange(e.value ?? 1)}
+                      min={1}
+                      showButtons
+                    />
+                  )}
+                />
+              </div>
+              <div className="col-6 md:col-2 field mb-0">
+                {index === 0 && <label className="text-xs text-500">P. Unit.</label>}
+                <Controller
+                  name={`accessories.${index}.unitPrice`}
+                  control={control}
+                  render={({ field }) => (
+                    <InputNumber
+                      value={field.value ?? 0}
+                      onValueChange={(e) => field.onChange(e.value ?? 0)}
+                      mode="decimal"
+                      prefix={currencyPrefix}
+                      min={0}
+                      minFractionDigits={2}
+                      maxFractionDigits={2}
+                    />
+                  )}
+                />
+              </div>
+              <div className="col-4 md:col-1 field mb-0 flex flex-column align-items-center">
+                {index === 0 && <label className="text-xs text-500">Inst.</label>}
+                <Controller
+                  name={`accessories.${index}.installed`}
+                  control={control}
+                  render={({ field }) => (
+                    <Checkbox
+                      checked={Boolean(field.value)}
+                      onChange={(e) => field.onChange(e.checked)}
+                    />
+                  )}
+                />
+              </div>
+              <div className="col-2 md:col-1 field mb-0">
+                <Button
+                  type="button"
+                  icon="pi pi-trash"
+                  severity="danger"
+                  text
+                  rounded
+                  onClick={() => removeAccessory(index)}
+                  tooltip="Quitar"
+                />
+              </div>
+            </div>
+          ))}
+          <small className="text-500">
+            Solo las líneas <b>Facturable</b> suman al total; bonificadas y promocionales se entregan sin costo.
+          </small>
         </div>
 
         {quote?.id && (

@@ -40,6 +40,8 @@ model WorkshopAuditLog {
   description String? @db.Text  // Descripción legible del cambio
   userId      String             // Quien ejecutó la acción
   userIp      String?            // IP del usuario
+  // §18 — nivel jerárquico de autorización del cambio
+  authorizationLevel Int?
 
   empresaId   String
   empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)

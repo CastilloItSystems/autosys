@@ -1,5 +1,15 @@
 import Joi from 'joi'
 
+const accessorySchema = Joi.object({
+  itemId: Joi.string().optional().allow(null, ''),
+  name: Joi.string().max(180).required().messages({ 'any.required': 'El nombre del accesorio es requerido' }),
+  type: Joi.string().valid('FACTURABLE', 'BONIFICADO', 'PROMOCIONAL').optional(),
+  quantity: Joi.number().integer().min(1).optional(),
+  unitPrice: Joi.number().min(0).optional(),
+  installed: Joi.boolean().optional(),
+  notes: Joi.string().max(500).optional().allow(null, ''),
+})
+
 export const createDealerQuoteSchema = Joi.object({
   dealerUnitId: Joi.string().required().messages({
     'any.required': 'La unidad es requerida',
@@ -25,6 +35,10 @@ export const createDealerQuoteSchema = Joi.object({
   financingRequired: Joi.boolean().optional(),
   notes: Joi.string().optional().allow(null, ''),
   status: Joi.string().valid('DRAFT', 'SENT', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CONVERTED').optional(),
+  adminFees: Joi.number().min(0).optional().allow(null),
+  tradeInValue: Joi.number().min(0).optional().allow(null),
+  requiredDeposit: Joi.number().min(0).optional().allow(null),
+  accessories: Joi.array().items(accessorySchema).optional(),
 })
 
 export const updateDealerQuoteSchema = Joi.object({
@@ -46,6 +60,10 @@ export const updateDealerQuoteSchema = Joi.object({
   notes: Joi.string().optional().allow(null, ''),
   status: Joi.string().valid('DRAFT', 'SENT', 'NEGOTIATING', 'APPROVED', 'REJECTED', 'EXPIRED', 'CONVERTED').optional(),
   isActive: Joi.boolean().optional(),
+  adminFees: Joi.number().min(0).optional().allow(null),
+  tradeInValue: Joi.number().min(0).optional().allow(null),
+  requiredDeposit: Joi.number().min(0).optional().allow(null),
+  accessories: Joi.array().items(accessorySchema).optional(),
 })
 
 export const dealerQuoteFiltersSchema = Joi.object({

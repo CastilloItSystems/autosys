@@ -1,0 +1,40 @@
+// backend/prisma/models/workshop/deliveryReturnedPart.prisma
+// Devolución de repuestos sustituidos al cliente en la entrega (§23.3, regla #11).
+// SIEMPRE se devuelven al cliente las piezas reemplazadas.
+
+enum ReturnedPartCondition {
+  WHOLE        // Pieza completa
+  DAMAGED      // Pieza dañada / inservible
+  IN_PIECES    // En piezas/fragmentada
+  REPLACED     // Reemplazada por equivalente
+  OTHER
+}
+
+model DeliveryReturnedPart {
+  id         String          @id @default(cuid())
+  deliveryId String
+  delivery   VehicleDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  // Material origen (opcional, si proviene de un ServiceOrderMaterial)
+  materialId String?
+
+  description String  @db.Text
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+  condition   ReturnedPartCondition @default(WHOLE)
+
+  // Conformidad del cliente con la devolución
+  clientAcknowledged   Boolean   @default(false)
+  clientAcknowledgedAt DateTime?
+  clientSignature      String?
+
+  photoUrl String?
+  notes    String? @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([deliveryId])
+  @@index([empresaId])
+  @@map("workshop_delivery_returned_parts")
+}

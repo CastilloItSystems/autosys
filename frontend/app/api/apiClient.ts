@@ -18,6 +18,8 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  // Evita que una petición colgada bloquee la UI indefinidamente.
+  timeout: 30000,
 });
 
 function isAuthlessRequest(config: InternalAxiosRequestConfig) {

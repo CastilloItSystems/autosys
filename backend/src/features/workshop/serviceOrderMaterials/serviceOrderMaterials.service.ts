@@ -12,6 +12,7 @@ import {
 import { MovementNumberGenerator } from '../../inventory/shared/utils/movementNumberGenerator.js'
 import stockService from '../../inventory/stock/stock.service.js'
 import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
+import { assertSignaturesBeforeConsume } from '../materialSignatures/materialSignatures.service.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
@@ -708,6 +709,11 @@ async function changeStatusInternal(
     throw new BadRequestError(
       'El material debe estar aprobado por el cliente para avanzar a este estado'
     )
+  }
+
+  // §15.5 — bloquear CONSUMED sin protocolo de firmas completo
+  if (status === 'CONSUMED') {
+    await assertSignaturesBeforeConsume(db, id)
   }
 
   const { warehouseId, quantityReturned, userId = 'system' } = context ?? {}

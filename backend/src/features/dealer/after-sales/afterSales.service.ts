@@ -4,6 +4,8 @@ import { logger } from '../../../shared/utils/logger.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { CreateDealerAfterSaleDTO, UpdateDealerAfterSaleDTO } from './afterSales.dto.js'
 import { IDealerAfterSale, IDealerAfterSaleFilters } from './afterSales.interface.js'
+import { createServiceOrder } from '../../workshop/serviceOrders/serviceOrders.service.js'
+import { CreateServiceOrderDTO } from '../../workshop/serviceOrders/serviceOrders.dto.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -221,6 +223,61 @@ class DealerAfterSalesService {
     await (db as PrismaClient).dealerAfterSale.update({ where: { id }, data: { isActive: false } })
     logger.info('Dealer after-sale desactivado', { id, empresaId, userId })
     return { success: true, id }
+  }
+
+  /**
+   * Doc §20.3/§24.5 — Deriva un caso de postventa (garantía/primer servicio/reclamo)
+   * al módulo de taller creando una Orden de Servicio y vinculándola al caso.
+   */
+  async deriveToWorkshop(
+    id: string,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<{ afterSale: IDealerAfterSale; serviceOrderId: string; folio: string }> {
+    const current = (await this.findById(id, empresaId, db)) as any
+
+    const derivableTypes: DealerAfterSaleType[] = [
+      DealerAfterSaleType.WARRANTY_CHECK,
+      DealerAfterSaleType.FIRST_SERVICE,
+      DealerAfterSaleType.CLAIM,
+    ]
+    if (!derivableTypes.includes(current.type)) {
+      throw new BadRequestError('Solo se derivan a taller casos de garantía, primer servicio o reclamo')
+    }
+    if (current.referenceType === 'WORKSHOP_SERVICE_ORDER' && current.referenceId) {
+      throw new BadRequestError(`Este caso ya fue derivado a la OT ${current.referenceId}`)
+    }
+
+    const unit = current.dealerUnit
+    const vehicleDesc = unit
+      ? [unit.brand?.name, unit.model?.name, unit.model?.year, unit.vin].filter(Boolean).join(' ')
+      : undefined
+
+    const dto = new CreateServiceOrderDTO({
+      customerId: current.customerId,
+      vehicleDesc: vehicleDesc || current.title,
+      observations: `Derivado de postventa concesionario ${current.caseNumber}: ${current.title}`,
+      diagnosisNotes: current.description ?? undefined,
+      items: [],
+    })
+
+    const order = await createServiceOrder(db, empresaId, userId, dto)
+    const orderId = (order as any).id as string
+    const folio = ((order as any).folio as string) ?? orderId
+
+    const updated = await (db as PrismaClient).dealerAfterSale.update({
+      where: { id },
+      data: {
+        referenceType: 'WORKSHOP_SERVICE_ORDER',
+        referenceId: orderId,
+        ...(current.status === DealerAfterSaleStatus.OPEN ? { status: DealerAfterSaleStatus.IN_PROGRESS } : {}),
+      },
+      include: AFTER_SALE_INCLUDE,
+    })
+
+    logger.info('Dealer after-sale derivado a taller', { id, empresaId, userId, serviceOrderId: orderId, folio })
+    return { afterSale: updated as unknown as IDealerAfterSale, serviceOrderId: orderId, folio }
   }
 }
 

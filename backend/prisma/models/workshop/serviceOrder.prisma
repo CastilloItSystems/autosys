@@ -151,6 +151,10 @@ model ServiceOrder {
   statusHistory  ServiceOrderStatusHistory[]
   delivery       VehicleDelivery?
 
+  // Validaciones dinámicas (§19, §20)
+  postRepairScans PostRepairScan[]
+  roadTests       RoadTest[]
+
   // Diagnóstico desacoplado
   serviceDiagnosis ServiceDiagnosis?
 
@@ -286,6 +290,9 @@ model ServiceOrderMaterial {
 
   // Historial de movimientos
   movements ServiceOrderMaterialMovement[]
+
+  // Firmas de protocolo de entrega física (§15.5)
+  signatures ServiceOrderMaterialSignature[]
 
   // Back-reference: nota de salida creada por almacén para este material
   exitNote ExitNote?

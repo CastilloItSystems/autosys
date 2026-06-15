@@ -6,5 +6,6 @@ import controller from './dashboard.controller.js'
 const router = Router()
 
 router.get('/overview', authorize(PERMISSIONS.DEALER_VIEW), controller.getOverview)
+router.get('/kpis', authorize(PERMISSIONS.DEALER_VIEW), controller.getKpis)
 
 export default router

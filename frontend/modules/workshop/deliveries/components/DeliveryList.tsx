@@ -17,6 +17,7 @@ import deliveryService from '@/modules/workshop/deliveries/services/deliveryServ
 import { ServiceOrderStatusBadge } from "@/modules/workshop/shared/components/ServiceOrderStatusBadge";
 import { useDeliveriesData } from "../hooks/useDeliveriesData";
 import DeliveryForm from "./DeliveryForm";
+import { ReturnedPartsPanel } from "@/modules/workshop/deliveryReturnedParts";
 import dynamic from "next/dynamic";
 
 const DeliveryPDFPreview = dynamic(() => import("./DeliveryPDFPreview"), { ssr: false });
@@ -25,6 +26,7 @@ import { VehicleDelivery } from "@/modules/workshop/deliveries/interfaces/delive
 export default function DeliveryList() {
   const [selected, setSelected] = useState<VehicleDelivery | null>(null);
   const [actionItem, setActionItem] = useState<VehicleDelivery | null>(null);
+  const [returnedPartsDialog, setReturnedPartsDialog] = useState<VehicleDelivery | null>(null);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [page, setPage] = useState(0);
@@ -305,9 +307,9 @@ export default function DeliveryList() {
                   command: () => editItem(actionItem),
                 },
                 {
-                  label: "Imprimir PDF",
-                  icon: "pi pi-print",
-                  command: () => setPdfItem(actionItem),
+                  label: "Repuestos devueltos (§23.3)",
+                  icon: "pi pi-box",
+                  command: () => setReturnedPartsDialog(actionItem),
                 },
                 {
                   label: "Imprimir PDF",
@@ -328,6 +330,28 @@ export default function DeliveryList() {
         ref={menuRef}
         id="delivery-menu"
       />
+
+      {/* Repuestos sustituidos dialog (§23.3) */}
+      <Dialog
+        header="Devolución de Repuestos Sustituidos"
+        visible={!!returnedPartsDialog}
+        onHide={() => setReturnedPartsDialog(null)}
+        style={{ width: "780px" }}
+        modal
+      >
+        {returnedPartsDialog && (
+          <ReturnedPartsPanel
+            deliveryId={returnedPartsDialog.id}
+            substitutedPartsReturned={
+              (returnedPartsDialog as any).substitutedPartsReturned ?? false
+            }
+            onMarkedComplete={() => {
+              mutate();
+              setReturnedPartsDialog(null);
+            }}
+          />
+        )}
+      </Dialog>
 
       {/* FASE 1.3: Delete confirmation dialog */}
       <DeleteConfirmDialog

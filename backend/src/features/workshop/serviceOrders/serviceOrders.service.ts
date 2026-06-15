@@ -179,6 +179,26 @@ export async function createServiceOrder(
 
   const folio = await generateFolio(prisma, empresaId)
 
+  // §13.3 — Bahía no debe estar duplicada en OT activa (validación simplificada
+  // sin ventana horaria explícita; bloquea si bahía ya está ocupada).
+  if (dto.bayId) {
+    const busy = await (prisma as PrismaClient).serviceOrder.findFirst({
+      where: {
+        empresaId,
+        bayId: dto.bayId,
+        status: {
+          in: ['OPEN', 'IN_PROGRESS', 'PAUSED', 'QUALITY_CHECK'] as any,
+        },
+      },
+      select: { id: true, folio: true },
+    })
+    if (busy) {
+      throw new BadRequestError(
+        `La bahía ya está asignada a OT ${busy.folio} en estado activo`
+      )
+    }
+  }
+
   // M2: Para items tipo PART con itemId, tomar snapshot del nombre del catálogo
   const enrichedItems = await Promise.all(
     (dto.items ?? []).map(async (i) => {

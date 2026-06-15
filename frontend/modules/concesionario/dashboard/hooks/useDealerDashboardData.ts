@@ -7,8 +7,9 @@ export const useDealerDashboardData = (historySearch?: string) => {
   const { data, error, isLoading, mutate } = useSWR(
     ["dealer-dashboard", historySearch],
     async () => {
-      const [overviewRes, historyRes, integrationsRes] = await Promise.all([
+      const [overviewRes, kpisRes, historyRes, integrationsRes] = await Promise.all([
         dealerDashboardService.getOverview(),
+        dealerDashboardService.getKpis(),
         dealerDashboardService.getHistory({
           page: 1,
           limit: 20,
@@ -19,6 +20,7 @@ export const useDealerDashboardData = (historySearch?: string) => {
 
       return {
         overview: overviewRes.data,
+        kpis: kpisRes.data,
         history: historyRes.data ?? [],
         integrations: integrationsRes.data,
       };
@@ -35,6 +37,7 @@ export const useDealerDashboardData = (historySearch?: string) => {
 
   return {
     overview: data?.overview ?? null,
+    kpis: data?.kpis ?? null,
     history: data?.history ?? [],
     integrations: data?.integrations ?? null,
     lastUpdated,

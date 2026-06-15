@@ -29,6 +29,10 @@ import quotationRoutes from './workshopQuotations/workshopQuotations.routes.js'
 import totRoutes from './workshopTOT/workshopTOT.routes.js'
 import garitaRoutes from './workshopGarita/workshopGarita.routes.js'
 import catalogsRoutes from './catalogs/catalogs.routes.js'
+import materialSignaturesRoutes from './materialSignatures/materialSignatures.routes.js'
+import roadTestsRoutes from './roadTests/roadTests.routes.js'
+import postRepairScansRoutes from './postRepairScans/postRepairScans.routes.js'
+import deliveryReturnedPartsRoutes from './deliveryReturnedParts/deliveryReturnedParts.routes.js'
 
 const router = Router()
 
@@ -78,5 +82,11 @@ router.use('/audit-log', auditLogRoutes)
 router.use('/quotations', quotationRoutes)
 router.use('/tot', totRoutes)
 router.use('/garita', garitaRoutes)
+
+// Workshop spec v2 (P0)
+router.use('/material-signatures', materialSignaturesRoutes)
+router.use('/road-tests', roadTestsRoutes)
+router.use('/post-repair-scans', postRepairScansRoutes)
+router.use('/delivery-returned-parts', deliveryReturnedPartsRoutes)
 
 export default router

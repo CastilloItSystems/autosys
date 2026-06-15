@@ -7,6 +7,8 @@ model WorkshopBay {
   code        String
   name        String
   description String?
+  // §6.2 — tipo de bahía: GENERAL, ELECTRICA, MECANICA, ALINEACION, PINTURA, etc.
+  bayType     String?
 
   isActive  Boolean @default(true)
 

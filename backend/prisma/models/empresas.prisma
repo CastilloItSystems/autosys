@@ -53,6 +53,8 @@ model Empresa {
   dealerDocuments DealerDocument[]
   dealerApprovals DealerApproval[]
   dealerAfterSales DealerAfterSale[]
+  dealerPolicy    DealerPolicy?
+  dealerCommissions DealerCommission[]
 
   // Sales
   customers       Customer[]
@@ -125,6 +127,12 @@ model Empresa {
   workshopQuotations          WorkshopQuotation[]
   workshopTOTs                WorkshopTOT[]
   workshopGarita              WorkshopGarita[]
+
+  // Workshop spec v2 (firmas, road test, post-scan, devolución repuestos)
+  materialSignatures          ServiceOrderMaterialSignature[]
+  roadTests                   RoadTest[]
+  postRepairScans             PostRepairScan[]
+  deliveryReturnedParts       DeliveryReturnedPart[]
 
   // Configuración de moneda
   defaultCurrency             CurrencyCode?  @default(USD)

@@ -325,6 +325,75 @@ export async function checkPendingQualityChecks(
 }
 
 /**
+ * §16 — Piezas en TOT que no han reingresado vs. fecha estimada.
+ */
+export async function checkTotNotReturned(
+  prisma: PrismaClient,
+  empresaId: string
+) {
+  const alerts: AutomationAlert[] = []
+  const now = new Date()
+  try {
+    const tots = await prisma.workshopTOT.findMany({
+      where: {
+        empresaId,
+        status: { in: ['DEPARTED', 'IN_PROGRESS'] as any },
+        expectedReturnDate: { lt: now } as any,
+      } as any,
+    } as any)
+    for (const tot of tots as any[]) {
+      alerts.push({
+        id: `tot-not-returned-${tot.id}`,
+        type: 'warning',
+        title: `Pieza TOT sin reingreso: ${tot.totNumber ?? tot.id}`,
+        message: `La pieza no ha reingresado al taller. Fecha estimada: ${tot.expectedReturnDate ?? '-'}`,
+        relatedEntityId: tot.id,
+        relatedEntityType: 'serviceOrder',
+        createdAt: new Date(),
+      })
+    }
+  } catch (e) {
+    console.error('checkTotNotReturned error', e)
+  }
+  return alerts
+}
+
+/**
+ * §8 — Irregularidades reportadas por garita (hasIrregularity=true sin resolver).
+ */
+export async function checkGaritaIrregularities(
+  prisma: PrismaClient,
+  empresaId: string
+) {
+  const alerts: AutomationAlert[] = []
+  try {
+    const flagged = await prisma.workshopGarita.findMany({
+      where: {
+        empresaId,
+        hasIrregularity: true,
+        status: { in: ['PENDING', 'FLAGGED'] as any },
+      } as any,
+    } as any)
+    for (const ev of flagged as any[]) {
+      alerts.push({
+        id: `garita-irregularity-${ev.id}`,
+        type: 'critical',
+        title: `Irregularidad garita: ${ev.plateNumber ?? ev.type}`,
+        message:
+          ev.irregularityNotes ??
+          'Vigilancia detectó irregularidad — reportar a Gerencia General',
+        relatedEntityId: ev.id,
+        relatedEntityType: 'serviceOrder',
+        createdAt: new Date(),
+      })
+    }
+  } catch (e) {
+    console.error('checkGaritaIrregularities error', e)
+  }
+  return alerts
+}
+
+/**
  * Execute all automation checks
  * Should be called by a scheduled task (e.g., every 30 minutes)
  */
@@ -335,15 +404,25 @@ export async function executeAllAutomationChecks(
   const allAlerts: AutomationAlert[] = []
 
   try {
-    const [delayed, materials, appointments, stagnant, ready, qc] =
-      await Promise.all([
-        checkDelayedOrders(prisma, empresaId),
-        checkPendingMaterials(prisma, empresaId),
-        checkUpcomingAppointments(prisma, empresaId),
-        checkStagnantOrders(prisma, empresaId),
-        checkReadyForDelivery(prisma, empresaId),
-        checkPendingQualityChecks(prisma, empresaId),
-      ])
+    const [
+      delayed,
+      materials,
+      appointments,
+      stagnant,
+      ready,
+      qc,
+      totLate,
+      garitaFlags,
+    ] = await Promise.all([
+      checkDelayedOrders(prisma, empresaId),
+      checkPendingMaterials(prisma, empresaId),
+      checkUpcomingAppointments(prisma, empresaId),
+      checkStagnantOrders(prisma, empresaId),
+      checkReadyForDelivery(prisma, empresaId),
+      checkPendingQualityChecks(prisma, empresaId),
+      checkTotNotReturned(prisma, empresaId),
+      checkGaritaIrregularities(prisma, empresaId),
+    ])
 
     allAlerts.push(
       ...delayed,
@@ -351,7 +430,9 @@ export async function executeAllAutomationChecks(
       ...appointments,
       ...stagnant,
       ...ready,
-      ...qc
+      ...qc,
+      ...totLate,
+      ...garitaFlags
     )
 
     console.log(

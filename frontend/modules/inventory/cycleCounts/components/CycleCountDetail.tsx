@@ -18,10 +18,28 @@ import { SplitButton } from "primereact/splitbutton";
 import { Message } from "primereact/message";
 import { Tag } from "primereact/tag";
 import { ProgressSpinner } from "primereact/progressspinner";
-import { PDFDownloadLink } from "@react-pdf/renderer";
+import dynamic from "next/dynamic";
 import cycleCountService from "@/modules/inventory/cycleCounts/services/cycleCountService";
-import CycleCountRouteSheetPDF from "./CycleCountRouteSheetPDF";
-import { usePdfCompanyInfo } from "@/components/pdf/pdfCompany";
+
+// Carga diferida: mantiene @react-pdf/renderer fuera del bundle de esta ruta;
+// solo se descarga cuando se muestra el detalle del conteo.
+const CycleCountRouteSheetDownload = dynamic(
+  () => import("./CycleCountRouteSheetDownload"),
+  {
+    ssr: false,
+    loading: () => (
+      <Button
+        label="PDF"
+        icon="pi pi-file-pdf"
+        severity="danger"
+        outlined
+        size="small"
+        loading
+        disabled
+      />
+    ),
+  },
+);
 
 interface CycleCountDetailProps {
   cycleCount: CycleCount;
@@ -41,7 +59,6 @@ export default function CycleCountDetail({
 }: CycleCountDetailProps) {
   const statusConfig = CYCLE_COUNT_STATUS_CONFIG[cycleCount.status];
   const toast = useRef<Toast>(null);
-  const { company } = usePdfCompanyInfo();
   const isInProgress = cycleCount.status === CycleCountStatus.IN_PROGRESS;
   const [isExporting, setIsExporting] = useState(false);
 
@@ -371,29 +388,11 @@ export default function CycleCountDetail({
 
         {/* Export */}
         <div className="col-12 md:col-3 flex align-items-end justify-content-end gap-2">
-          <PDFDownloadLink
-            document={
-              <CycleCountRouteSheetPDF
-                cycleCount={cycleCount as any}
-                warehouseName={cycleCount.warehouse?.name}
-                company={company}
-              />
-            }
-            fileName={`hoja-ruta-${cycleCount.cycleCountNumber}.pdf`}
-          >
-            {({ loading }) => (
-              <Button
-                label="PDF"
-                icon="pi pi-file-pdf"
-                severity="danger"
-                outlined
-                size="small"
-                loading={loading}
-                tooltip="Descargar hoja de ruta PDF"
-                tooltipOptions={{ position: "left" }}
-              />
-            )}
-          </PDFDownloadLink>
+          <CycleCountRouteSheetDownload
+            cycleCount={cycleCount}
+            warehouseName={cycleCount.warehouse?.name}
+            cycleCountNumber={cycleCount.cycleCountNumber}
+          />
           <SplitButton
             label="Excel"
             icon="pi pi-file-excel"

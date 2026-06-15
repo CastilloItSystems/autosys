@@ -1,5 +1,17 @@
 import type { DealerUnit } from "@/modules/concesionario/vehicles/interfaces/dealerUnit.interface";
 
+export interface DealerQuoteAccessory {
+  id: string;
+  itemId?: string | null;
+  name: string;
+  type: "FACTURABLE" | "BONIFICADO" | "PROMOCIONAL";
+  quantity: number;
+  unitPrice: string | number;
+  totalPrice: string | number;
+  installed: boolean;
+  notes?: string | null;
+}
+
 export type DealerQuoteStatus =
   | "DRAFT"
   | "SENT"
@@ -27,6 +39,13 @@ export interface DealerQuote {
   taxPct?: string | number | null;
   taxAmount?: string | number | null;
   totalAmount?: string | number | null;
+  accessoriesTotal?: string | number | null;
+  adminFees?: string | number | null;
+  tradeInValue?: string | number | null;
+  requiredDeposit?: string | number | null;
+  grandTotal?: string | number | null;
+  currentVersion?: number;
+  accessories?: DealerQuoteAccessory[];
   currency: "USD" | "VES" | "EUR";
   exchangeRate?: string | number | null;
   exchangeRateSource?: "BCV_AUTO" | "MANUAL" | null;

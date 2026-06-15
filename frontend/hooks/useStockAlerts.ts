@@ -3,7 +3,8 @@
  * Manages stock alerts (low stock, dead stock, etc.)
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useMemo } from "react";
+import useSWR from "swr";
 import stockService, { StockAlert } from "@/modules/inventory/stocks/services/stockService";
 
 export interface StockAlertsState {
@@ -14,79 +15,57 @@ export interface StockAlertsState {
   alerts: StockAlert[];
 }
 
+const STOCK_ALERTS_KEY = "stock-alerts-unread";
+
+const EMPTY_ALERTS: StockAlertsState = {
+  total: 0,
+  critical: 0,
+  warning: 0,
+  info: 0,
+  alerts: [],
+};
+
 export const useStockAlerts = (enabled: boolean = true) => {
-  const [loading, setLoading] = useState(false);
-  const [alerts, setAlerts] = useState<StockAlertsState>({
-    total: 0,
-    critical: 0,
-    warning: 0,
-    info: 0,
-    alerts: [],
-  });
+  // SWR maneja el polling (refreshInterval) y la deduplicación entre los
+  // múltiples consumidores que comparten esta misma key.
+  const { data, isLoading, mutate } = useSWR(
+    enabled ? STOCK_ALERTS_KEY : null,
+    () => stockService.getAlerts(1, 50, { isRead: false }),
+    {
+      refreshInterval: 30000,
+      revalidateOnFocus: false,
+      dedupingInterval: 5000,
+    },
+  );
 
-  const fetchAlerts = useCallback(async () => {
-    if (!enabled) return;
+  const alerts = useMemo<StockAlertsState>(() => {
+    const alertList = data?.data;
+    if (!alertList) return EMPTY_ALERTS;
+    return {
+      total: alertList.length,
+      critical: alertList.filter((a) => a.severity === "CRITICAL").length,
+      warning: alertList.filter((a) => a.severity === "MEDIUM").length,
+      info: alertList.filter((a) => a.severity === "LOW").length,
+      alerts: alertList,
+    };
+  }, [data]);
 
-    setLoading(true);
-    try {
-      const response = await stockService.getAlerts(1, 50, {
-        isRead: false, // Only unread alerts
-      });
-
-      if (response?.data) {
-        const alertList = response.data;
-
-        // Count by severity
-        const counts = {
-          total: alertList.length,
-          critical: alertList.filter((a) => a.severity === "CRITICAL").length,
-          warning: alertList.filter((a) => a.severity === "MEDIUM").length,
-          info: alertList.filter((a) => a.severity === "LOW").length,
-        };
-
-        setAlerts({
-          ...counts,
-          alerts: alertList,
-        });
+  const handleMarkAsRead = useCallback(
+    async (alertId: string) => {
+      try {
+        await stockService.markAlertAsRead(alertId);
+        await mutate();
+      } catch (error) {
+        console.error("Error marking alert as read:", error);
       }
-    } catch (error) {
-      console.error("Error fetching stock alerts:", error);
-    } finally {
-      setLoading(false);
-    }
-  }, [enabled]);
-
-  // Fetch alerts on mount and periodically refresh
-  useEffect(() => {
-    if (enabled) {
-      fetchAlerts();
-
-      // Refresh every 30 seconds
-      const interval = setInterval(fetchAlerts, 30000);
-      return () => clearInterval(interval);
-    }
-  }, [enabled, fetchAlerts]);
-
-  // Mark alert as read
-  const handleMarkAsRead = useCallback(async (alertId: string) => {
-    try {
-      await stockService.markAlertAsRead(alertId);
-
-      // Remove from local state
-      setAlerts((prev) => ({
-        ...prev,
-        total: Math.max(0, prev.total - 1),
-        alerts: prev.alerts.filter((a) => a.id !== alertId),
-      }));
-    } catch (error) {
-      console.error("Error marking alert as read:", error);
-    }
-  }, []);
+    },
+    [mutate],
+  );
 
   return {
-    loading,
+    loading: isLoading,
     alerts,
-    fetchAlerts,
+    fetchAlerts: mutate,
     handleMarkAsRead,
   };
 };

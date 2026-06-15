@@ -8,6 +8,8 @@ import ordersService from '../../sales/orders/orders.service.js'
 import { CreateOrderDTO } from '../../sales/orders/orders.dto.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
+import dealerConfigService from '../config/config.service.js'
+import dealerCommissionsService from '../commissions/commissions.service.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -35,6 +37,20 @@ const QUOTE_INCLUDE = {
       status: true,
       brand: { select: { id: true, code: true, name: true } },
       model: { select: { id: true, name: true, year: true } },
+    },
+  },
+  accessories: {
+    orderBy: { createdAt: 'asc' },
+    select: {
+      id: true,
+      itemId: true,
+      name: true,
+      type: true,
+      quantity: true,
+      unitPrice: true,
+      totalPrice: true,
+      installed: true,
+      notes: true,
     },
   },
 } as const
@@ -147,11 +163,17 @@ class DealerQuotesService {
     discountPct?: number | null
     offeredPrice?: number | null
     taxPct?: number | null
+    accessoriesTotal?: number | null
+    adminFees?: number | null
+    tradeInValue?: number | null
   }) {
     const listPrice = input.listPrice != null ? Number(input.listPrice) : null
     const offeredPrice = input.offeredPrice != null ? Number(input.offeredPrice) : listPrice
     const discountPct = input.discountPct != null ? Number(input.discountPct) : 0
     const taxPct = input.taxPct != null ? Number(input.taxPct) : 0
+    const accessoriesTotal = input.accessoriesTotal != null ? Number(input.accessoriesTotal) : 0
+    const adminFees = input.adminFees != null ? Number(input.adminFees) : 0
+    const tradeInValue = input.tradeInValue != null ? Number(input.tradeInValue) : 0
 
     let discountAmount = null as number | null
     if (listPrice != null && offeredPrice != null) {
@@ -164,6 +186,12 @@ class DealerQuotesService {
     const taxAmount = taxable != null ? taxable * (taxPct / 100) : null
     const totalAmount = taxable != null ? taxable + (taxAmount ?? 0) : null
 
+    // Total general del negocio: unidad + accesorios facturables + gastos admin - retoma (Doc §10.2)
+    const grandTotal =
+      totalAmount != null
+        ? Math.max(totalAmount + accessoriesTotal + adminFees - tradeInValue, 0)
+        : null
+
     return {
       listPrice,
       offeredPrice,
@@ -172,7 +200,64 @@ class DealerQuotesService {
       taxPct,
       taxAmount,
       totalAmount,
+      accessoriesTotal,
+      adminFees,
+      tradeInValue,
+      grandTotal,
     }
+  }
+
+  /** Suma facturable de accesorios (BONIFICADO/PROMOCIONAL no cobran al cliente). */
+  private accessoriesFacturableTotal(accessories?: { type: string; quantity: number; unitPrice: number }[]): number {
+    if (!accessories?.length) return 0
+    return accessories
+      .filter((a) => a.type === 'FACTURABLE')
+      .reduce((sum, a) => sum + Number(a.quantity || 1) * Number(a.unitPrice || 0), 0)
+  }
+
+  /** Normaliza líneas de accesorio para persistir (calcula totalPrice por línea). */
+  private buildAccessoryLines(accessories?: { itemId?: string | null; name: string; type: string; quantity: number; unitPrice: number; installed?: boolean; notes?: string | null }[]) {
+    if (!accessories?.length) return []
+    return accessories
+      .filter((a) => a.name && a.name.trim() !== '')
+      .map((a) => {
+        const quantity = Number(a.quantity || 1)
+        const unitPrice = Number(a.unitPrice || 0)
+        return {
+          itemId: a.itemId ?? null,
+          name: a.name.trim(),
+          type: a.type as any,
+          quantity,
+          unitPrice,
+          totalPrice: Number((quantity * unitPrice).toFixed(2)),
+          installed: a.installed ?? false,
+          notes: a.notes ?? null,
+        }
+      })
+  }
+
+  /** Crea un snapshot de versión de la cotización (Doc §10.6). */
+  private async snapshotVersion(
+    quoteId: string,
+    version: number,
+    userId: string | null,
+    db: PrismaClientType
+  ): Promise<void> {
+    const quote = await (db as PrismaClient).dealerQuote.findUnique({
+      where: { id: quoteId },
+      include: { accessories: true },
+    })
+    if (!quote) return
+    await (db as PrismaClient).dealerQuoteVersion.create({
+      data: {
+        dealerQuoteId: quoteId,
+        version,
+        createdById: userId,
+        totalAmount: quote.totalAmount,
+        grandTotal: quote.grandTotal,
+        snapshot: JSON.parse(JSON.stringify(quote)),
+      },
+    })
   }
 
   private validateTransition(currentStatus: DealerQuoteStatus, newStatus: DealerQuoteStatus) {
@@ -183,18 +268,86 @@ class DealerQuotesService {
     }
   }
 
+  /**
+   * Doc §14/§26: un descuento que supere el tope autorizable de la política
+   * comercial no puede aprobarse sin una aprobación de excepción (DISCOUNT_EXCEPTION)
+   * aprobada y vinculada a la cotización.
+   */
+  private async assertDiscountAuthorized(
+    quoteId: string | null,
+    discountPct: number,
+    empresaId: string,
+    db: PrismaClientType
+  ): Promise<void> {
+    const policy = await dealerConfigService.resolve(empresaId, db)
+    const ceiling = Math.max(
+      policy.maxDiscountPctAdvisor,
+      policy.maxDiscountPctSupervisor,
+      policy.maxDiscountPctManager
+    )
+    if (!Number.isFinite(discountPct) || discountPct <= ceiling) return
+
+    if (!quoteId) {
+      throw new BadRequestError(
+        `El descuento (${discountPct}%) supera el tope autorizable (${ceiling}%). Cree la cotización y solicite una aprobación de excepción antes de aprobarla.`
+      )
+    }
+
+    const approval = await (db as PrismaClient).dealerApproval.findFirst({
+      where: {
+        empresaId,
+        type: 'DISCOUNT_EXCEPTION',
+        status: 'APPROVED',
+        referenceType: 'DEALER_QUOTE',
+        referenceId: quoteId,
+        isActive: true,
+      },
+      orderBy: { resolvedAt: 'desc' },
+    })
+
+    if (!approval) {
+      throw new BadRequestError(
+        `El descuento (${discountPct}%) supera el tope autorizable (${ceiling}%) y requiere una aprobación de excepción (DISCOUNT_EXCEPTION) aprobada para esta cotización.`
+      )
+    }
+
+    if (approval.requestedPct != null && Number(approval.requestedPct) < discountPct) {
+      throw new BadRequestError(
+        `La aprobación vigente cubre hasta ${Number(approval.requestedPct)}%, pero el descuento aplicado es ${discountPct}%.`
+      )
+    }
+  }
+
+  /** Genera la comisión de la venta sin interrumpir la fiscalización si falla. */
+  private async generateCommissionSafe(quoteId: string, empresaId: string, db: PrismaClientType): Promise<void> {
+    try {
+      await dealerCommissionsService.generateForQuote(quoteId, empresaId, db)
+    } catch (commissionError) {
+      logger.error('Error generando comisión dealer', { quoteId, empresaId, error: commissionError })
+    }
+  }
+
   async create(data: CreateDealerQuoteDTO, empresaId: string, userId: string, db: PrismaClientType): Promise<IDealerQuote> {
     const unit = await this.assertUnitValid(data.dealerUnitId, empresaId, db)
     const customer = await this.assertCustomerValid(data.customerId, empresaId, db)
 
     const status = (data.status as DealerQuoteStatus) || DealerQuoteStatus.DRAFT
     const quoteNumber = await this.generateQuoteNumber(empresaId, db)
+    const accessoryLines = this.buildAccessoryLines(data.accessories)
+    const accessoriesTotal = this.accessoriesFacturableTotal(accessoryLines)
     const totals = this.calculateTotals({
       listPrice: data.listPrice ?? (unit.listPrice as unknown as number | null),
       discountPct: data.discountPct,
       offeredPrice: data.offeredPrice,
       taxPct: data.taxPct,
+      accessoriesTotal,
+      adminFees: data.adminFees,
+      tradeInValue: data.tradeInValue,
     })
+
+    if (status === DealerQuoteStatus.APPROVED) {
+      await this.assertDiscountAuthorized(null, Number(totals.discountPct ?? 0), empresaId, db)
+    }
 
     const created = await (db as PrismaClient).dealerQuote.create({
       data: {
@@ -214,6 +367,12 @@ class DealerQuotesService {
         taxPct: totals.taxPct,
         taxAmount: totals.taxAmount,
         totalAmount: totals.totalAmount,
+        accessoriesTotal: totals.accessoriesTotal,
+        adminFees: data.adminFees ?? null,
+        tradeInValue: data.tradeInValue ?? null,
+        requiredDeposit: data.requiredDeposit ?? null,
+        grandTotal: totals.grandTotal,
+        currentVersion: 1,
         currency: this.normalizeCurrency(data.currency),
         exchangeRate: data.exchangeRate ?? null,
         exchangeRateSource: (data.exchangeRateSource as any) ?? null,
@@ -222,12 +381,15 @@ class DealerQuotesService {
         financingRequired: data.financingRequired ?? false,
         notes: data.notes ?? null,
         fiscalStatus: 'NOT_REQUESTED',
+        ...(accessoryLines.length ? { accessories: { create: accessoryLines } } : {}),
         ...(status === DealerQuoteStatus.SENT ? { sentAt: new Date() } : {}),
         ...(status === DealerQuoteStatus.APPROVED ? { approvedAt: new Date() } : {}),
         ...(status === DealerQuoteStatus.REJECTED ? { rejectedAt: new Date() } : {}),
       },
       include: QUOTE_INCLUDE,
     })
+
+    await this.snapshotVersion(created.id, 1, userId, db)
 
     logger.info('Dealer quote creada', { id: created.id, quoteNumber, empresaId, userId })
 
@@ -340,7 +502,20 @@ class DealerQuotesService {
     const offeredPrice = data.offeredPrice !== undefined ? data.offeredPrice : ((current.offeredPrice as unknown as number | null) ?? null)
     const discountPct = data.discountPct !== undefined ? data.discountPct : ((current.discountPct as unknown as number | null) ?? null)
     const taxPct = data.taxPct !== undefined ? data.taxPct : ((current.taxPct as unknown as number | null) ?? null)
-    const totals = this.calculateTotals({ listPrice, offeredPrice, discountPct, taxPct })
+
+    const accessoriesProvided = data.accessories !== undefined
+    const accessoryLines = accessoriesProvided ? this.buildAccessoryLines(data.accessories) : []
+    const accessoriesTotal = accessoriesProvided
+      ? this.accessoriesFacturableTotal(accessoryLines)
+      : Number((current.accessoriesTotal as unknown as number | null) ?? 0)
+    const adminFees = data.adminFees !== undefined ? data.adminFees : ((current.adminFees as unknown as number | null) ?? null)
+    const tradeInValue = data.tradeInValue !== undefined ? data.tradeInValue : ((current.tradeInValue as unknown as number | null) ?? null)
+
+    const totals = this.calculateTotals({ listPrice, offeredPrice, discountPct, taxPct, accessoriesTotal, adminFees, tradeInValue })
+
+    if (current.status !== newStatus && newStatus === DealerQuoteStatus.APPROVED) {
+      await this.assertDiscountAuthorized(id, Number(totals.discountPct ?? 0), empresaId, db)
+    }
 
     const updateData: Prisma.DealerQuoteUpdateInput = {
       listPrice: totals.listPrice,
@@ -350,6 +525,13 @@ class DealerQuotesService {
       taxPct: totals.taxPct,
       taxAmount: totals.taxAmount,
       totalAmount: totals.totalAmount,
+      accessoriesTotal: totals.accessoriesTotal,
+      grandTotal: totals.grandTotal,
+      currentVersion: (current.currentVersion ?? 1) + 1,
+      ...(data.adminFees !== undefined ? { adminFees: data.adminFees } : {}),
+      ...(data.tradeInValue !== undefined ? { tradeInValue: data.tradeInValue } : {}),
+      ...(data.requiredDeposit !== undefined ? { requiredDeposit: data.requiredDeposit } : {}),
+      ...(accessoriesProvided ? { accessories: { deleteMany: {}, ...(accessoryLines.length ? { create: accessoryLines } : {}) } } : {}),
     }
 
     if (data.customerId !== undefined) {
@@ -384,6 +566,8 @@ class DealerQuotesService {
       data: updateData,
       include: QUOTE_INCLUDE,
     })
+    await this.snapshotVersion(id, (updated as any).currentVersion ?? (current.currentVersion ?? 1) + 1, userId, db)
+
     logger.info('Dealer quote actualizada', { id, empresaId, userId, status: newStatus })
 
     if (current.status !== newStatus) {
@@ -522,6 +706,8 @@ class DealerQuotesService {
           })
         }
 
+        await this.generateCommissionSafe(synced.id, empresaId, db)
+
         return synced as unknown as IDealerQuote
       }
     }
@@ -650,6 +836,8 @@ class DealerQuotesService {
         })
       }
 
+      await this.generateCommissionSafe(updated.id, empresaId, db)
+
       return updated as unknown as IDealerQuote
     } catch (error: any) {
       const message = error?.message ? String(error.message).slice(0, 600) : 'Error de fiscalización'
@@ -662,6 +850,14 @@ class DealerQuotesService {
       })
       throw error
     }
+  }
+
+  async getVersions(id: string, empresaId: string, db: PrismaClientType) {
+    await this.findById(id, empresaId, db)
+    return (db as PrismaClient).dealerQuoteVersion.findMany({
+      where: { dealerQuoteId: id },
+      orderBy: { version: 'desc' },
+    })
   }
 
   async delete(id: string, empresaId: string, userId: string, db: PrismaClientType): Promise<{ success: boolean; id: string }> {

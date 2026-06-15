@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef, useContext } from "react";
+import { useState, useEffect, useMemo, useRef, useContext } from "react";
 import { DataTable, DataTablePageEvent } from "primereact/datatable";
 import { Column } from "primereact/column";
 import { Card } from "primereact/card";
@@ -51,6 +51,88 @@ const FILTER_OPTIONS = [
   { label: "Clase C (resto)", value: "C" },
 ];
 
+/** Pure builder for the Pareto chart — derived during render, not stored in state. */
+const buildParetoChart = (paretoData: any[], isDark: boolean) => {
+  const textColor = isDark ? "#cbd5e1" : "#475569";
+  const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+
+  const data = {
+    labels: paretoData.map((i: any) =>
+      i.itemName.length > 16 ? i.itemName.substring(0, 16) + "…" : i.itemName
+    ),
+    datasets: [
+      {
+        type: "bar" as const,
+        label: "Valor ($)",
+        data: paretoData.map((i: any) => i.totalMovementValue),
+        backgroundColor: paretoData.map((i: any) => CLASS_COLORS[i.classification as ABCClassification] + "cc"),
+        borderColor: paretoData.map((i: any) => CLASS_COLORS[i.classification as ABCClassification]),
+        borderWidth: 1,
+        yAxisID: "y",
+        order: 2,
+      },
+      {
+        type: "line" as const,
+        label: "% Acumulado",
+        data: paretoData.map((i: any) => i.cumulativePercentage * 100),
+        borderColor: "#3B82F6",
+        backgroundColor: "transparent",
+        borderWidth: 2,
+        fill: false,
+        tension: 0.3,
+        pointRadius: 3,
+        pointBackgroundColor: "#3B82F6",
+        yAxisID: "y1",
+        order: 1,
+      },
+    ],
+  };
+
+  const options = {
+    maintainAspectRatio: false,
+    responsive: true,
+    plugins: {
+      legend: {
+        position: "top" as const,
+        labels: { color: textColor, padding: 14, font: { size: 12 } },
+      },
+      tooltip: {
+        callbacks: {
+          label: (ctx: any) => {
+            if (ctx.datasetIndex === 0) return ` Valor: ${fmtCompact(ctx.raw)}`;
+            return ` Acumulado: ${Number(ctx.raw).toFixed(1)}%`;
+          },
+        },
+      },
+    },
+    scales: {
+      x: { ticks: { color: textColor, maxRotation: 45 }, grid: { color: gridColor } },
+      y: {
+        type: "linear" as const,
+        position: "left" as const,
+        ticks: {
+          color: textColor,
+          callback: (v: any) => fmtCompact(v),
+        },
+        grid: { color: gridColor },
+      },
+      y1: {
+        type: "linear" as const,
+        position: "right" as const,
+        min: 0,
+        max: 100,
+        ticks: {
+          color: textColor,
+          callback: (v: any) => v + "%",
+        },
+        grid: { drawOnChartArea: false },
+      },
+    },
+  };
+
+  return { data, options };
+};
+
 const ABCAnalysis = () => {
   const toast = useRef<Toast>(null);
   const { layoutConfig } = useContext(LayoutContext);
@@ -61,8 +143,6 @@ const ABCAnalysis = () => {
   const [page, setPage] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
   const [rows, setRows] = useState(20);
-  const [chartData, setChartData] = useState<any>(null);
-  const [chartOptions, setChartOptions] = useState<any>(null);
   const [summary, setSummary] = useState<any>(null);
   const [filterClass, setFilterClass] = useState<string>("");
 
@@ -71,11 +151,12 @@ const ABCAnalysis = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, rows]);
 
-  useEffect(() => {
-    if (summary?.paretoData?.length > 0) {
-      buildParetoChart(summary.paretoData);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+  // Chart derivado durante el render (antes era useEffect→setState, lo que
+  // forzaba un render extra cada vez que cambiaba summary o el tema).
+  const { chartData, chartOptions } = useMemo(() => {
+    if (!summary?.paretoData?.length) return { chartData: null, chartOptions: null };
+    const { data, options } = buildParetoChart(summary.paretoData, isDark);
+    return { chartData: data, chartOptions: options };
   }, [summary, isDark]);
 
   const loadABCAnalysis = async () => {
@@ -97,91 +178,18 @@ const ABCAnalysis = () => {
     }
   };
 
-  const buildParetoChart = (paretoData: any[]) => {
-    const textColor = isDark ? "#cbd5e1" : "#475569";
-    const gridColor = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-
-    setChartData({
-      labels: paretoData.map((i: any) =>
-        i.itemName.length > 16 ? i.itemName.substring(0, 16) + "…" : i.itemName
-      ),
-      datasets: [
-        {
-          type: "bar" as const,
-          label: "Valor ($)",
-          data: paretoData.map((i: any) => i.totalMovementValue),
-          backgroundColor: paretoData.map((i: any) => CLASS_COLORS[i.classification as ABCClassification] + "cc"),
-          borderColor: paretoData.map((i: any) => CLASS_COLORS[i.classification as ABCClassification]),
-          borderWidth: 1,
-          yAxisID: "y",
-          order: 2,
-        },
-        {
-          type: "line" as const,
-          label: "% Acumulado",
-          data: paretoData.map((i: any) => i.cumulativePercentage * 100),
-          borderColor: "#3B82F6",
-          backgroundColor: "transparent",
-          borderWidth: 2,
-          fill: false,
-          tension: 0.3,
-          pointRadius: 3,
-          pointBackgroundColor: "#3B82F6",
-          yAxisID: "y1",
-          order: 1,
-        },
-      ],
-    });
-
-    setChartOptions({
-      maintainAspectRatio: false,
-      responsive: true,
-      plugins: {
-        legend: {
-          position: "top" as const,
-          labels: { color: textColor, padding: 14, font: { size: 12 } },
-        },
-        tooltip: {
-          callbacks: {
-            label: (ctx: any) => {
-              if (ctx.datasetIndex === 0) return ` Valor: ${fmtCompact(ctx.raw)}`;
-              return ` Acumulado: ${Number(ctx.raw).toFixed(1)}%`;
-            },
-          },
-        },
-      },
-      scales: {
-        x: { ticks: { color: textColor, maxRotation: 45 }, grid: { color: gridColor } },
-        y: {
-          type: "linear" as const,
-          position: "left" as const,
-          ticks: {
-            color: textColor,
-            callback: (v: any) => fmtCompact(v),
-          },
-          grid: { color: gridColor },
-        },
-        y1: {
-          type: "linear" as const,
-          position: "right" as const,
-          min: 0,
-          max: 100,
-          ticks: {
-            color: textColor,
-            callback: (v: any) => v + "%",
-          },
-          grid: { drawOnChartArea: false },
-        },
-      },
-    });
-  };
-
   // Client-side filter by class
-  const filteredItems = filterClass
-    ? allItems.filter((i) => i.classification === filterClass)
-    : allItems;
+  const filteredItems = useMemo(
+    () =>
+      filterClass
+        ? allItems.filter((i) => i.classification === filterClass)
+        : allItems,
+    [allItems, filterClass],
+  );
 
-  const summaryCards = summary
+  const summaryCards = useMemo(
+    () =>
+      summary
     ? [
         {
           label: "Total Artículos",
@@ -216,7 +224,9 @@ const ABCAnalysis = () => {
           bg: "#FEF2F2",
         },
       ]
-    : [];
+        : [],
+    [summary],
+  );
 
   if (loading && !summary) {
     return (

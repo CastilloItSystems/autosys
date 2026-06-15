@@ -1,0 +1,32 @@
+// backend/prisma/models/workshop/materialSignature.prisma
+// Protocolo de firmas en entrega física de repuestos a OT (§15.5).
+// Spec exige firmas de: Almacenista + (Jefe Taller o Asesor) + Técnico asignado.
+
+enum MaterialSignerRole {
+  STOREKEEPER   // Almacenista
+  SHOP_FOREMAN  // Jefe de Taller
+  ADVISOR       // Asesor de Servicio
+  TECHNICIAN    // Técnico asignado
+}
+
+model ServiceOrderMaterialSignature {
+  id         String @id @default(cuid())
+  materialId String
+  material   ServiceOrderMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  signerRole   MaterialSignerRole
+  signerId     String   // userId
+  signerName   String?  // Snapshot del nombre
+  signatureUrl String?  // URL de imagen de firma (opcional)
+  signedAt     DateTime @default(now())
+  notes        String?  @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@unique([materialId, signerRole])
+  @@index([materialId])
+  @@index([empresaId])
+  @@map("workshop_material_signatures")
+}

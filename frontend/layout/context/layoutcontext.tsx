@@ -1,6 +1,6 @@
 "use client";
 import Head from "next/head";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import type {
   ChildContainerProps,
   LayoutContextProps,
@@ -176,26 +176,33 @@ export const LayoutProvider = (props: ChildContainerProps) => {
     setTabs(newTabs);
   };
 
-  const value = {
-    layoutConfig,
-    setLayoutConfig,
-    layoutState,
-    setLayoutState,
-    onMenuToggle,
-    isSlim,
-    isSlimPlus,
-    isHorizontal,
-    isDesktop,
-    isSidebarActive,
-    breadcrumbs,
-    setBreadcrumbs,
-    onMenuProfileToggle,
-    onTopbarMenuToggle,
-    showRightSidebar,
-    tabs,
-    closeTab,
-    openTab,
-  };
+  // Memoizado para no re-renderizar a TODOS los consumidores del contexto en
+  // cada render del provider. Los handlers se redefinen en cada render pero
+  // solo cierran sobre estos 4 estados, así que las deps cubren sus closures.
+  const value = useMemo(
+    () => ({
+      layoutConfig,
+      setLayoutConfig,
+      layoutState,
+      setLayoutState,
+      onMenuToggle,
+      isSlim,
+      isSlimPlus,
+      isHorizontal,
+      isDesktop,
+      isSidebarActive,
+      breadcrumbs,
+      setBreadcrumbs,
+      onMenuProfileToggle,
+      onTopbarMenuToggle,
+      showRightSidebar,
+      tabs,
+      closeTab,
+      openTab,
+    }),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [layoutConfig, layoutState, breadcrumbs, tabs],
+  );
 
   return (
     <LayoutContext.Provider value={value as any}>

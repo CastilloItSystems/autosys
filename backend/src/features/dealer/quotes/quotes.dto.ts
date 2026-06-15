@@ -1,4 +1,21 @@
-import { IDealerQuote } from './quotes.interface.js'
+import { IDealerQuote, IDealerQuoteAccessoryInput } from './quotes.interface.js'
+
+function parseAccessories(raw: unknown): IDealerQuoteAccessoryInput[] | undefined {
+  if (raw === undefined) return undefined
+  if (!Array.isArray(raw)) return []
+  return raw.map((entry) => {
+    const a = (entry ?? {}) as Record<string, unknown>
+    return {
+      itemId: a.itemId != null && String(a.itemId).trim() !== '' ? String(a.itemId).trim() : null,
+      name: String(a.name ?? '').trim(),
+      type: a.type != null && String(a.type).trim() !== '' ? String(a.type).trim() : 'FACTURABLE',
+      quantity: a.quantity != null ? Number(a.quantity) : 1,
+      unitPrice: a.unitPrice != null ? Number(a.unitPrice) : 0,
+      installed: a.installed !== undefined ? Boolean(a.installed) : false,
+      notes: a.notes != null && String(a.notes).trim() !== '' ? String(a.notes).trim() : null,
+    }
+  })
+}
 
 export class CreateDealerQuoteDTO {
   dealerUnitId: string
@@ -19,6 +36,10 @@ export class CreateDealerQuoteDTO {
   financingRequired?: boolean
   notes?: string
   status?: string
+  adminFees?: number | null
+  tradeInValue?: number | null
+  requiredDeposit?: number | null
+  accessories?: IDealerQuoteAccessoryInput[]
 
   constructor(data: Record<string, unknown>) {
     this.dealerUnitId = String(data.dealerUnitId).trim()
@@ -44,6 +65,10 @@ export class CreateDealerQuoteDTO {
     if (data.financingRequired !== undefined) this.financingRequired = Boolean(data.financingRequired)
     if (data.notes != null && String(data.notes).trim() !== '') this.notes = String(data.notes).trim()
     if (data.status != null && String(data.status).trim() !== '') this.status = String(data.status).trim()
+    if (data.adminFees !== undefined) this.adminFees = data.adminFees !== null ? Number(data.adminFees) : null
+    if (data.tradeInValue !== undefined) this.tradeInValue = data.tradeInValue !== null ? Number(data.tradeInValue) : null
+    if (data.requiredDeposit !== undefined) this.requiredDeposit = data.requiredDeposit !== null ? Number(data.requiredDeposit) : null
+    this.accessories = parseAccessories(data.accessories)
   }
 }
 
@@ -66,6 +91,10 @@ export class UpdateDealerQuoteDTO {
   notes?: string | null
   status?: string
   isActive?: boolean
+  adminFees?: number | null
+  tradeInValue?: number | null
+  requiredDeposit?: number | null
+  accessories?: IDealerQuoteAccessoryInput[]
 
   constructor(data: Record<string, unknown>) {
     if (data.customerId !== undefined) this.customerId = String(data.customerId).trim()
@@ -87,6 +116,10 @@ export class UpdateDealerQuoteDTO {
     if (data.notes !== undefined) this.notes = data.notes ? String(data.notes).trim() : null
     if (data.status !== undefined) this.status = String(data.status).trim()
     if (data.isActive !== undefined) this.isActive = Boolean(data.isActive)
+    if (data.adminFees !== undefined) this.adminFees = data.adminFees !== null ? Number(data.adminFees) : null
+    if (data.tradeInValue !== undefined) this.tradeInValue = data.tradeInValue !== null ? Number(data.tradeInValue) : null
+    if (data.requiredDeposit !== undefined) this.requiredDeposit = data.requiredDeposit !== null ? Number(data.requiredDeposit) : null
+    this.accessories = parseAccessories(data.accessories)
   }
 }
 
@@ -108,6 +141,13 @@ export class DealerQuoteResponseDTO {
   taxPct?: any | null
   taxAmount?: any | null
   totalAmount?: any | null
+  accessoriesTotal?: any | null
+  adminFees?: any | null
+  tradeInValue?: any | null
+  requiredDeposit?: any | null
+  grandTotal?: any | null
+  currentVersion?: number
+  accessories?: IDealerQuote['accessories']
   currency: string
   exchangeRate?: number | null
   exchangeRateSource?: string | null
@@ -154,6 +194,13 @@ export class DealerQuoteResponseDTO {
     if (data.taxPct != null) this.taxPct = data.taxPct
     if (data.taxAmount != null) this.taxAmount = data.taxAmount
     if (data.totalAmount != null) this.totalAmount = data.totalAmount
+    if (data.accessoriesTotal != null) this.accessoriesTotal = data.accessoriesTotal
+    if (data.adminFees != null) this.adminFees = data.adminFees
+    if (data.tradeInValue != null) this.tradeInValue = data.tradeInValue
+    if (data.requiredDeposit != null) this.requiredDeposit = data.requiredDeposit
+    if (data.grandTotal != null) this.grandTotal = data.grandTotal
+    if (data.currentVersion != null) this.currentVersion = data.currentVersion
+    if (data.accessories !== undefined) this.accessories = data.accessories
     this.currency = String(data.currency)
     if (data.exchangeRate != null) this.exchangeRate = Number(data.exchangeRate)
     if (data.exchangeRateSource != null) this.exchangeRateSource = String(data.exchangeRateSource)

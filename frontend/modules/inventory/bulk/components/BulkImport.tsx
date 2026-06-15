@@ -15,7 +15,6 @@ import { Checkbox } from "primereact/checkbox";
 import { Card } from "primereact/card";
 import { Dropdown } from "primereact/dropdown";
 import { Tag } from "primereact/tag";
-import * as XLSX from "xlsx";
 import bulkService from "@/modules/inventory/bulk/services/bulkService";
 import type {
   IBulkValidationError,
@@ -67,6 +66,10 @@ type FieldMapping = Record<string, string>;
 // ============================================================================
 // HELPERS
 // ============================================================================
+
+/** Lazy-load the heavy `xlsx` library only when the user touches an Excel file. */
+let xlsxPromise: Promise<typeof import("xlsx")> | null = null;
+const loadXLSX = () => (xlsxPromise ??= import("xlsx"));
 
 type UploadStage = "idle" | "converting" | "processing";
 
@@ -185,7 +188,8 @@ function parseCSVString(content: string): { headers: string[]; rows: PreviewRow[
 }
 
 /** Parse an Excel file buffer and return headers + preview rows */
-function parseExcelBuffer(buffer: ArrayBuffer): { headers: string[]; rows: PreviewRow[]; totalRows: number } {
+async function parseExcelBuffer(buffer: ArrayBuffer): Promise<{ headers: string[]; rows: PreviewRow[]; totalRows: number }> {
+  const XLSX = await loadXLSX();
   const wb = XLSX.read(buffer, { type: "array" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return { headers: [], rows: [], totalRows: 0 };
@@ -203,7 +207,8 @@ function parseExcelBuffer(buffer: ArrayBuffer): { headers: string[]; rows: Previ
 }
 
 /** Convert Excel buffer → CSV string (applying column mapping) */
-function excelBufferToCSV(buffer: ArrayBuffer, mapping: FieldMapping): string {
+async function excelBufferToCSV(buffer: ArrayBuffer, mapping: FieldMapping): Promise<string> {
+  const XLSX = await loadXLSX();
   const wb = XLSX.read(buffer, { type: "array" });
   const sheet = wb.Sheets[wb.SheetNames[0]];
   if (!sheet) return "";
@@ -370,10 +375,10 @@ export const BulkImport = ({ onComplete, onGoToHistory }: BulkImportProps) => {
     const reader = new FileReader();
 
     if (isXlsx) {
-      reader.onload = (ev) => {
+      reader.onload = async (ev) => {
         const buf = ev.target?.result as ArrayBuffer;
         setXlsxBuffer(buf);
-        const { headers, rows, totalRows: total } = parseExcelBuffer(buf);
+        const { headers, rows, totalRows: total } = await parseExcelBuffer(buf);
         setFileHeaders(headers);
         setPreviewRows(rows);
         setTotalRows(total);
@@ -456,7 +461,7 @@ export const BulkImport = ({ onComplete, onGoToHistory }: BulkImportProps) => {
 
   // ---- Import --------------------------------------------------------------
 
-  const buildFinalCSV = (): string => {
+  const buildFinalCSV = async (): Promise<string> => {
     if (fileType === "xlsx" && xlsxBuffer) {
       return excelBufferToCSV(xlsxBuffer, mapping);
     }
@@ -476,7 +481,7 @@ export const BulkImport = ({ onComplete, onGoToHistory }: BulkImportProps) => {
     try {
       // Stage 1: convert + split into chunks
       setUploadStage("converting");
-      const finalCSV = buildFinalCSV();
+      const finalCSV = await buildFinalCSV();
       const chunks = splitCSVIntoChunks(finalCSV, CHUNK_SIZE);
       const finalFileName = fileType === "xlsx"
         ? file.name.replace(/\.xlsx?$/, ".csv")

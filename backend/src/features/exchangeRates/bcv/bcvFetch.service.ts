@@ -27,14 +27,25 @@ class BcvFetchService {
    * El BCV usa coma como separador decimal: "36,5874" → 36.5874
    */
   private parseRate(html: string, currencyId: string): number | null {
+    // Mapa de id interno al código ISO (para los nuevos patrones del BCV)
+    const isoCodeMap: Record<string, string> = {
+      dolar: 'USD',
+      euro: 'EUR',
+    }
+    const isoCode = isoCodeMap[currencyId] ?? currencyId.toUpperCase()
+
     // Intenta múltiples patrones para el HTML del BCV
     const patterns = [
-      // BCV actual: <div id="dolar"...>...<strong> 481,21770000 </strong>
-      new RegExp(`id=["']${currencyId}["'][^>]*>[\\s\\S]{0,1200}?<strong>\\s*([\\d,.]+)\\s*<\\/strong>`, 'i'),
+      // BCV actual: <div id="dolar"...>...<strong class="strong-tb"> 535,38530000 </strong>
+      new RegExp(`id=["']${currencyId}["'][^>]*>[\\s\\S]{0,1200}?<strong[^>]*>\\s*([\\d,.]+)\\s*<\\/strong>`, 'i'),
       // Fallback: class contiene el id
-      new RegExp(`class=["'][^"']*${currencyId}[^"']*["'][^>]*>[\\s\\S]{0,1200}?<strong>\\s*([\\d,.]+)\\s*<\\/strong>`, 'i'),
-      // Fallback span
+      new RegExp(`class=["'][^"']*${currencyId}[^"']*["'][^>]*>[\\s\\S]{0,1200}?<strong[^>]*>\\s*([\\d,.]+)\\s*<\\/strong>`, 'i'),
+      // Fallback span con id
       new RegExp(`id=["']${currencyId}["'][^>]*>[\\s\\S]{0,1200}?<span[^>]*>\\s*([\\d,.]+)\\s*<\\/span>`, 'i'),
+      // BCV (fallback texto): código ISO seguido directamente por la tasa (e.g. "USD 535,38530000")
+      new RegExp(`\\b${isoCode}\\s+([\\d]{2,}[,.]\\d+)`, 'i'),
+      // Variante: imágenes o elementos intermedios entre el código y el valor
+      new RegExp(`${isoCode}[^\\d<]{0,80}([\\d]{2,}[,.]\\d{4,})`, 'i'),
     ]
 
     for (const regex of patterns) {

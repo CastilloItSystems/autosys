@@ -57,6 +57,13 @@ class DealerQuotesController {
     return ApiResponse.success(res, new DealerQuoteResponseDTO(quote), 'Cotización obtenida exitosamente')
   })
 
+  getVersions = asyncHandler(async (req: Request, res: Response) => {
+    const empresaId = getEmpresaId(req)
+    const { id } = req.params as { id: string }
+    const versions = await dealerQuotesService.getVersions(id, empresaId, req.prisma)
+    return ApiResponse.success(res, versions, 'Historial de versiones obtenido exitosamente')
+  })
+
   create = asyncHandler(async (req: Request, res: Response) => {
     const empresaId = getEmpresaId(req)
     const userId = getUserId(req)

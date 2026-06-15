@@ -31,6 +31,28 @@ export interface IDealerQuoteUnit {
   } | null
 }
 
+export interface IDealerQuoteAccessoryInput {
+  itemId?: string | null
+  name: string
+  type: string
+  quantity: number
+  unitPrice: number
+  installed?: boolean
+  notes?: string | null
+}
+
+export interface IDealerQuoteAccessory {
+  id: string
+  itemId?: string | null
+  name: string
+  type: string
+  quantity: number
+  unitPrice: any
+  totalPrice: any
+  installed: boolean
+  notes?: string | null
+}
+
 export interface IDealerQuote {
   id: string
   empresaId: string
@@ -49,6 +71,13 @@ export interface IDealerQuote {
   taxPct?: any | null
   taxAmount?: any | null
   totalAmount?: any | null
+  accessoriesTotal?: any | null
+  adminFees?: any | null
+  tradeInValue?: any | null
+  requiredDeposit?: any | null
+  grandTotal?: any | null
+  currentVersion?: number
+  accessories?: IDealerQuoteAccessory[]
   currency: 'USD' | 'VES' | 'EUR'
   exchangeRate?: any | null
   exchangeRateSource?: 'BCV_AUTO' | 'MANUAL' | null

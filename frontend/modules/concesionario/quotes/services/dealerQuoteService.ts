@@ -50,6 +50,18 @@ export interface SaveDealerQuoteRequest {
   notes?: string | null;
   status?: string;
   isActive?: boolean;
+  adminFees?: number | null;
+  tradeInValue?: number | null;
+  requiredDeposit?: number | null;
+  accessories?: Array<{
+    itemId?: string | null;
+    name: string;
+    type: "FACTURABLE" | "BONIFICADO" | "PROMOCIONAL";
+    quantity: number;
+    unitPrice: number;
+    installed?: boolean;
+    notes?: string | null;
+  }>;
 }
 
 const BASE_ROUTE = "/dealer/quotes";

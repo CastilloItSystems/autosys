@@ -1208,6 +1208,52 @@ model DealerApproval {
 }
 
 
+enum DealerCommissionStatus {
+  PENDING
+  APPROVED
+  PAID
+  CANCELLED
+}
+
+/// Comisión comercial por venta de vehículo (Doc §23.2 / §27).
+/// Se genera al cerrar/convertir la venta, usando la comisión base de DealerPolicy
+/// (o un porcentaje específico). Permite calcular el KPI de comisiones y desempeño.
+model DealerCommission {
+  id            String   @id @default(uuid())
+
+  empresaId     String
+  empresa       Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+
+  dealerQuoteId String?
+  dealerQuote   DealerQuote? @relation(fields: [dealerQuoteId], references: [id], onDelete: SetNull)
+
+  salesOrderId  String?
+
+  sellerId      String?
+  sellerName    String?
+
+  baseAmount    Decimal  @db.Decimal(14, 2)
+  commissionPct Decimal  @db.Decimal(6, 2)
+  commissionAmount Decimal @db.Decimal(14, 2)
+  currency      OrderCurrency @default(USD)
+
+  status        DealerCommissionStatus @default(PENDING)
+  paidAt        DateTime?
+  notes         String?
+  isActive      Boolean  @default(true)
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("dealer_commissions")
+  @@index([empresaId])
+  @@index([dealerQuoteId])
+  @@index([sellerId])
+  @@index([status])
+  @@index([isActive])
+}
+
+
 enum DealerDeliveryStatus {
   SCHEDULED
   READY
@@ -1376,6 +1422,53 @@ model DealerFinancing {
 }
 
 
+/// Configuración comercial del concesionario (Maestros y políticas — Doc §6).
+/// Una sola fila por empresa. Centraliza vigencias, topes de descuento por nivel
+/// jerárquico, monto mínimo de anticipo, obligatoriedades, SLA y comisión base.
+model DealerPolicy {
+  id          String   @id @default(uuid())
+
+  empresaId   String   @unique
+  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  // Vigencias (días)
+  quoteValidityDays       Int      @default(15)
+  reservationValidityDays Int      @default(7)
+
+  // Anticipo mínimo para reservar
+  minDepositAmount        Decimal? @db.Decimal(14, 2)
+  minDepositPct           Decimal? @db.Decimal(6, 2)
+
+  // Topes de descuento (%) por nivel jerárquico (Doc §6.3 / §14 / §27)
+  maxDiscountPctAdvisor    Decimal  @default(0) @db.Decimal(6, 2)
+  maxDiscountPctSupervisor Decimal  @default(5) @db.Decimal(6, 2)
+  maxDiscountPctManager    Decimal  @default(10) @db.Decimal(6, 2)
+
+  // Obligatoriedades
+  requireTestDrive         Boolean  @default(false)
+  requireAppraisalForTradeIn Boolean @default(true)
+  requireDepositForReservation Boolean @default(true)
+
+  // SLA seguimiento de leads/oportunidades (horas)
+  leadFollowUpSlaHours     Int      @default(48)
+
+  // Comisión base por venta (%)
+  commissionPctDefault     Decimal  @default(0) @db.Decimal(6, 2)
+
+  // Ventana de alertas para automatizaciones (horas)
+  alertWindowHours         Int      @default(48)
+
+  notes        String?
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("dealer_policies")
+  @@index([empresaId])
+}
+
+
 enum DealerQuoteStatus {
   DRAFT
   SENT
@@ -1428,6 +1521,13 @@ model DealerQuote {
   taxPct             Decimal?           @db.Decimal(6, 2)
   taxAmount          Decimal?           @db.Decimal(14, 2)
   totalAmount        Decimal?           @db.Decimal(14, 2)
+  // Componentes adicionales del negocio (Doc §10.2)
+  accessoriesTotal   Decimal?           @db.Decimal(14, 2)
+  adminFees          Decimal?           @db.Decimal(14, 2)
+  tradeInValue       Decimal?           @db.Decimal(14, 2)
+  requiredDeposit    Decimal?           @db.Decimal(14, 2)
+  grandTotal         Decimal?           @db.Decimal(14, 2)
+  currentVersion     Int                @default(1)
   currency           OrderCurrency      @default(USD)
   exchangeRate       Decimal?           @db.Decimal(14, 4)
   exchangeRateSource DealerExchangeRateSource?
@@ -1451,6 +1551,10 @@ model DealerQuote {
   rejectedAt         DateTime?
   convertedAt        DateTime?
 
+  commissions        DealerCommission[]
+  accessories        DealerQuoteAccessory[]
+  versions           DealerQuoteVersion[]
+
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt
 
@@ -1466,6 +1570,61 @@ model DealerQuote {
   @@index([isActive])
   @@index([createdAt])
   @@unique([empresaId, quoteNumber])
+}
+
+
+enum DealerAccessoryType {
+  FACTURABLE
+  BONIFICADO
+  PROMOCIONAL
+}
+
+/// Línea de accesorio/paquete comercial dentro de una cotización (Doc §10.2 / §15).
+/// Solo las líneas FACTURABLE suman al total que paga el cliente; BONIFICADO y
+/// PROMOCIONAL se entregan sin costo pero deben quedar autorizadas y trazadas.
+model DealerQuoteAccessory {
+  id            String   @id @default(uuid())
+
+  dealerQuoteId String
+  dealerQuote   DealerQuote @relation(fields: [dealerQuoteId], references: [id], onDelete: Cascade)
+
+  itemId        String?
+  name          String
+  type          DealerAccessoryType @default(FACTURABLE)
+  quantity      Int      @default(1)
+  unitPrice     Decimal  @default(0) @db.Decimal(14, 2)
+  totalPrice    Decimal  @default(0) @db.Decimal(14, 2)
+  installed     Boolean  @default(false)
+  notes         String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("dealer_quote_accessories")
+  @@index([dealerQuoteId])
+  @@index([type])
+}
+
+
+/// Historial de versiones de una cotización (Doc §10.6). Cada cambio relevante
+/// guarda un snapshot inmutable de los componentes económicos del negocio.
+model DealerQuoteVersion {
+  id            String   @id @default(uuid())
+
+  dealerQuoteId String
+  dealerQuote   DealerQuote @relation(fields: [dealerQuoteId], references: [id], onDelete: Cascade)
+
+  version       Int
+  snapshot      Json
+  totalAmount   Decimal? @db.Decimal(14, 2)
+  grandTotal    Decimal? @db.Decimal(14, 2)
+  createdById   String?
+
+  createdAt     DateTime @default(now())
+
+  @@map("dealer_quote_versions")
+  @@unique([dealerQuoteId, version])
+  @@index([dealerQuoteId])
 }
 
 
@@ -1783,6 +1942,8 @@ model Empresa {
   dealerDocuments DealerDocument[]
   dealerApprovals DealerApproval[]
   dealerAfterSales DealerAfterSale[]
+  dealerPolicy    DealerPolicy?
+  dealerCommissions DealerCommission[]
 
   // Sales
   customers       Customer[]
@@ -1855,6 +2016,12 @@ model Empresa {
   workshopQuotations          WorkshopQuotation[]
   workshopTOTs                WorkshopTOT[]
   workshopGarita              WorkshopGarita[]
+
+  // Workshop spec v2 (firmas, road test, post-scan, devolución repuestos)
+  materialSignatures          ServiceOrderMaterialSignature[]
+  roadTests                   RoadTest[]
+  postRepairScans             PostRepairScan[]
+  deliveryReturnedParts       DeliveryReturnedPart[]
 
   // Configuración de moneda
   defaultCurrency             CurrencyCode?  @default(USD)
@@ -5068,6 +5235,48 @@ model ChecklistResponse {
 }
 
 
+// backend/prisma/models/workshop/deliveryReturnedPart.prisma
+// Devolución de repuestos sustituidos al cliente en la entrega (§23.3, regla #11).
+// SIEMPRE se devuelven al cliente las piezas reemplazadas.
+
+enum ReturnedPartCondition {
+  WHOLE        // Pieza completa
+  DAMAGED      // Pieza dañada / inservible
+  IN_PIECES    // En piezas/fragmentada
+  REPLACED     // Reemplazada por equivalente
+  OTHER
+}
+
+model DeliveryReturnedPart {
+  id         String          @id @default(cuid())
+  deliveryId String
+  delivery   VehicleDelivery @relation(fields: [deliveryId], references: [id], onDelete: Cascade)
+
+  // Material origen (opcional, si proviene de un ServiceOrderMaterial)
+  materialId String?
+
+  description String  @db.Text
+  quantity    Decimal @default(1) @db.Decimal(12, 2)
+  condition   ReturnedPartCondition @default(WHOLE)
+
+  // Conformidad del cliente con la devolución
+  clientAcknowledged   Boolean   @default(false)
+  clientAcknowledgedAt DateTime?
+  clientSignature      String?
+
+  photoUrl String?
+  notes    String? @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@index([deliveryId])
+  @@index([empresaId])
+  @@map("workshop_delivery_returned_parts")
+}
+
+
 // backend/prisma/models/workshop/ingressMotive.prisma
 // Motivos de ingreso al taller.
 
@@ -5215,6 +5424,83 @@ model ServiceOrderMaterialMovement {
 }
 
 
+// backend/prisma/models/workshop/materialSignature.prisma
+// Protocolo de firmas en entrega física de repuestos a OT (§15.5).
+// Spec exige firmas de: Almacenista + (Jefe Taller o Asesor) + Técnico asignado.
+
+enum MaterialSignerRole {
+  STOREKEEPER   // Almacenista
+  SHOP_FOREMAN  // Jefe de Taller
+  ADVISOR       // Asesor de Servicio
+  TECHNICIAN    // Técnico asignado
+}
+
+model ServiceOrderMaterialSignature {
+  id         String @id @default(cuid())
+  materialId String
+  material   ServiceOrderMaterial @relation(fields: [materialId], references: [id], onDelete: Cascade)
+
+  signerRole   MaterialSignerRole
+  signerId     String   // userId
+  signerName   String?  // Snapshot del nombre
+  signatureUrl String?  // URL de imagen de firma (opcional)
+  signedAt     DateTime @default(now())
+  notes        String?  @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdAt DateTime @default(now())
+
+  @@unique([materialId, signerRole])
+  @@index([materialId])
+  @@index([empresaId])
+  @@map("workshop_material_signatures")
+}
+
+
+// backend/prisma/models/workshop/postRepairScan.prisma
+// Escaneo electrónico post-reparación (§19).
+// Obligatorio para vehículos electrónicos. Verifica parámetros, borra DTC.
+
+enum PostRepairScanResult {
+  PASS
+  FAIL
+  WITH_OBSERVATIONS
+}
+
+model PostRepairScan {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  technicianId   String   // userId
+  technicianName String?
+  performedAt    DateTime @default(now())
+
+  // DTC borrados (lista de códigos)
+  dtcCodesCleared Json? // ej: ["P0301", "P0420"]
+  // Parámetros verificados (snapshot estructurado)
+  parametersVerified Json?
+
+  result       PostRepairScanResult
+  reportUrl    String?  // URL del reporte adjunto en sistema
+  reportPrinted Boolean @default(false) // Reporte impreso y anexado físicamente a OT
+
+  observations String? @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@index([result])
+  @@map("workshop_post_repair_scans")
+}
+
+
 // backend/prisma/models/workshop/qualityCheck.prisma
 // Control de calidad pre-entrega del vehículo.
 // Se ejecuta antes de mover la OT a READY.
@@ -5323,6 +5609,88 @@ model ReceptionPhoto {
   @@index([receptionId])
   @@index([empresaId])
   @@map("workshop_reception_photos")
+}
+
+
+// backend/prisma/models/workshop/roadTest.prisma
+// Prueba de Carretera (§20). Requiere autorización triple:
+// Gerente de Servicio + Asesor + Jefe de Taller, además de autorización del cliente.
+
+enum RoadTestStatus {
+  DRAFT          // Borrador, sin todas las autorizaciones
+  AUTHORIZED     // 3 firmas + cliente, listo para salida
+  IN_PROGRESS    // Vehículo en circulación
+  COMPLETED      // Reingresó OK
+  FAILED         // Resultado negativo (fugas, fallas)
+  CANCELLED
+}
+
+enum RoadTestResult {
+  PASS
+  FAIL
+  WITH_OBSERVATIONS
+}
+
+model RoadTest {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  exitPassRef String?  // Referencia de la orden de salida firmada
+
+  motive  String  @db.Text  // Motivo de la prueba
+  notes   String? @db.Text
+
+  // Tripulación
+  driverId     String   // userId del chófer especializado
+  driverName   String?
+  technicianId String   // userId del técnico que acompaña
+  technicianName String?
+
+  // Autorización triple (§20.3) — obligatorias para pasar de DRAFT a AUTHORIZED
+  authManagerId      String?  // Gerente de Servicio
+  authManagerAt      DateTime?
+  authAdvisorId      String?  // Asesor de Servicio
+  authAdvisorAt      DateTime?
+  authShopForemanId  String?  // Jefe de Taller
+  authShopForemanAt  DateTime?
+
+  // Autorización del cliente para circulación legal
+  clientAuthorized   Boolean   @default(false)
+  clientAuthorizedAt DateTime?
+  clientAuthName     String?
+  clientAuthSignature String?
+
+  // Kilometraje
+  kmDeparture Int?
+  kmReturn    Int?
+
+  // Tiempos del evento
+  departedAt   DateTime?
+  returnedAt   DateTime?
+
+  // Resultados (§20.3)
+  result            RoadTestResult?
+  leaksDetected     Boolean? @default(false)
+  integrityVerified Boolean? @default(false)
+  observations      String?  @db.Text
+
+  status RoadTestStatus @default(DRAFT)
+
+  // Vinculación con garita (cada salida/reingreso genera evento)
+  garitaOutId String?
+  garitaInId  String?
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@index([status])
+  @@map("workshop_road_tests")
 }
 
 
@@ -5695,6 +6063,10 @@ model ServiceOrder {
   statusHistory  ServiceOrderStatusHistory[]
   delivery       VehicleDelivery?
 
+  // Validaciones dinámicas (§19, §20)
+  postRepairScans PostRepairScan[]
+  roadTests       RoadTest[]
+
   // Diagnóstico desacoplado
   serviceDiagnosis ServiceDiagnosis?
 
@@ -5831,6 +6203,9 @@ model ServiceOrderMaterial {
   // Historial de movimientos
   movements ServiceOrderMaterialMovement[]
 
+  // Firmas de protocolo de entrega física (§15.5)
+  signatures ServiceOrderMaterialSignature[]
+
   // Back-reference: nota de salida creada por almacén para este material
   exitNote ExitNote?
 
@@ -5958,6 +6333,8 @@ model ServiceOrderStatusHistory {
   newStatus      ServiceOrderStatus
   comment        String?            @db.Text
   userId         String             // Usuario que hizo el cambio
+  // §18 — nivel jerárquico de autorización: 1=Jefe Taller, 2=Gerente Servicio, 3=Admin, 4=Gerencia General
+  authorizationLevel Int?
 
   empresaId      String
   empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -5998,6 +6375,11 @@ model ServiceType {
   description String? @db.Text
 
   isActive  Boolean @default(true)
+
+  // §6.3 — Reglas configurables: si requiere control de calidad obligatorio.
+  requiresQualityCheck Boolean @default(false)
+  // §19 — escaneo electrónico obligatorio para este tipo de servicio.
+  requiresElectronicScan Boolean @default(false)
 
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -6054,6 +6436,12 @@ model VehicleDelivery {
   clientSignature String?     // URL de la firma si aplica
   observations   String?      @db.Text
   nextVisitDate  DateTime?
+
+  // §23.3 — SIEMPRE se devuelven repuestos sustituidos al cliente.
+  // Flag obligatorio para cierre. Default false; el frontend debe forzar marcado.
+  substitutedPartsReturned Boolean @default(false)
+
+  returnedParts DeliveryReturnedPart[]
 
   empresaId      String
   empresa        Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -6205,6 +6593,8 @@ model WorkshopAttachment {
   description String?            @db.Text
   mimeType    String?            // Ej: "image/jpeg", "application/pdf"
   sizeBytes   Int?               // Tamaño en bytes
+  // §37.5 — expediente físico escaneado (presupuesto firmado, acta, etc.)
+  isPhysicalFile Boolean @default(false)
 
   uploadedBy  String             // userId
   empresaId   String
@@ -6259,6 +6649,8 @@ model WorkshopAuditLog {
   description String? @db.Text  // Descripción legible del cambio
   userId      String             // Quien ejecutó la acción
   userIp      String?            // IP del usuario
+  // §18 — nivel jerárquico de autorización del cambio
+  authorizationLevel Int?
 
   empresaId   String
   empresa     Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
@@ -6280,6 +6672,8 @@ model WorkshopBay {
   code        String
   name        String
   description String?
+  // §6.2 — tipo de bahía: GENERAL, ELECTRICA, MECANICA, ALINEACION, PINTURA, etc.
+  bayType     String?
 
   isActive  Boolean @default(true)
 

@@ -67,6 +67,10 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
   const [detailEvent, setDetailEvent] = useState<GaritaEvent | null>(null);
   const toast = useRef<Toast>(null);
 
+  // §8 — Vista en tiempo real: refrescar lista cada 15s para mostrar
+  // movimientos recientes y alertas de garita (vía SWR refreshInterval).
+  const [autoRefresh, setAutoRefresh] = useState(true);
+
   const { events: items, total: totalRecords, loading, mutate } = useGaritaData(
     (!embedded || serviceOrderId)
       ? {
@@ -78,6 +82,7 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
           limit: rows,
         }
       : undefined,
+    { refreshInterval: autoRefresh ? 15_000 : 0 },
   );
 
   const handleSaved = () => {
@@ -255,6 +260,15 @@ export default function GaritaList({ serviceOrderId, embedded }: Props) {
               />
             </>
           )}
+          <Button
+            icon={autoRefresh ? "pi pi-pause" : "pi pi-play"}
+            label={autoRefresh ? "Auto" : "Manual"}
+            text
+            size="small"
+            severity={autoRefresh ? "success" : "secondary"}
+            tooltip={autoRefresh ? "Refresco automático cada 15s" : "Refresco manual"}
+            onClick={() => setAutoRefresh((v) => !v)}
+          />
           <CreateButton
             label="Registrar movimiento"
             onClick={() => setFormDialog(true)}

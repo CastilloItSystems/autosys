@@ -28,6 +28,131 @@ import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { AdvancedSearchPanel } from "@/modules/inventory/search/components/AdvancedSearchPanel";
 
+// Estáticos: fuera del componente para no recrearlos en cada render (evita que
+// SelectButton se re-renderice innecesariamente).
+const LAYOUT_OPTIONS = [
+  { icon: "pi pi-table", value: "table" },
+  { icon: "pi pi-list", value: "list" },
+  { icon: "pi pi-th-large", value: "grid" },
+];
+
+const layoutTemplate = (option: any) => <i className={option.icon}></i>;
+
+// Body templates / helpers puros (solo dependen de su argumento). Definidos a
+// nivel de módulo para no recrearlos en cada render del componente.
+const itemSuggestionTemplate = (item: any) => (
+  <div className="flex align-items-center justify-content-between gap-2">
+    <div className="flex flex-column">
+      <span className="font-bold text-sm">{item.name}</span>
+      <span className="text-xs text-600">
+        {item.sku || item.code ? `${item.sku || item.code} - ` : ""}
+        {item.identity ? `${item.identity} - ` : ""}
+        {item.categoryName}
+      </span>
+    </div>
+    <span className="font-semibold text-primary text-sm">
+      ${item.salePrice}
+    </span>
+  </div>
+);
+
+const statusBodyTemplate = (rowData: Item) => (
+  <Tag
+    value={rowData.isActive ? "Activo" : "Inactivo"}
+    severity={rowData.isActive ? "success" : "secondary"}
+    rounded
+  />
+);
+
+const skuBodyTemplate = (rowData: Item) => (
+  <span className="font-bold">{rowData.sku || "-"}</span>
+);
+
+const codeBodyTemplate = (rowData: Item) => (
+  <span className="font-bold text-primary">{rowData.code || "-"}</span>
+);
+
+const identityBodyTemplate = (rowData: Item) => (
+  <span>{rowData.identity || "-"}</span>
+);
+
+const locationBodyTemplate = (rowData: Item) => (
+  <div className="flex align-items-center gap-2">
+    <i className="pi pi-map-marker text-500" style={{ fontSize: "0.8rem" }}></i>
+    <span className="text-sm font-medium">{rowData.location || "-"}</span>
+  </div>
+);
+
+const quantityBodyTemplate = (rowData: Item) => {
+  const amount = rowData.quantity || 0;
+  const minStock = rowData.minStock || 0;
+  const severity =
+    amount === 0 ? "danger" : amount <= minStock ? "warning" : "success";
+  return <Tag value={amount.toString()} severity={severity} rounded />;
+};
+
+const priceBodyTemplate = (rowData: Item) => {
+  if (!rowData.salePrice) return "-";
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(rowData.salePrice);
+};
+
+const marginBodyTemplate = (rowData: Item) => {
+  if (!rowData.costPrice || !rowData.salePrice) return "-";
+  const margin =
+    ((rowData.salePrice - rowData.costPrice) / rowData.costPrice) * 100;
+  const severity = margin < 10 ? "danger" : margin < 20 ? "warning" : "success";
+  return <Tag value={`${margin.toFixed(0)}%`} severity={severity} rounded />;
+};
+
+const imagesBodyTemplate = (rowData: Item) => {
+  const count = rowData.images?.length || 0;
+  if (count === 0) return <Tag value="0" severity="info" rounded />;
+  return <Tag value={`📷 ${count}`} severity="success" rounded />;
+};
+
+const tagsBodyTemplate = (rowData: Item) => {
+  if (!rowData.tags || rowData.tags.length === 0) return "-";
+  return rowData.tags
+    .slice(0, 2)
+    .map((tag, idx) => (
+      <Tag key={idx} value={tag} style={{ marginRight: "4px" }} severity="info" />
+    ));
+};
+
+const getSeverity = (item: Item) => {
+  const amount = item.quantity || 0;
+  const minStock = item.minStock || 0;
+  if (amount === 0) return "danger";
+  if (amount <= minStock) return "warning";
+  return "success";
+};
+
+const getPrimaryImage = (item: Item) => {
+  if (!item.images || item.images.length === 0) {
+    return "/demo/images/product/product-placeholder.svg";
+  }
+  const primary = item.images.find((img) => img.isPrimary);
+  return (
+    primary?.url ||
+    item.images[0]?.url ||
+    "/demo/images/product/product-placeholder.svg"
+  );
+};
+
+const getMargin = (item: Item) => {
+  if (!item.costPrice || !item.salePrice) return null;
+  return ((item.salePrice - item.costPrice) / item.costPrice) * 100;
+};
+
+const formatPrice = (value: number | undefined | null) =>
+  new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+  }).format(value || 0);
+
 const ItemList = () => {
   // Datos
   const [items, setItems] = useState<Item[]>([]);
@@ -200,24 +325,6 @@ const ItemList = () => {
     setPage(0);
   };
 
-  const itemSuggestionTemplate = (item: any) => {
-    return (
-      <div className="flex align-items-center justify-content-between gap-2">
-        <div className="flex flex-column">
-          <span className="font-bold text-sm">{item.name}</span>
-          <span className="text-xs text-600">
-            {item.sku || item.code ? `${item.sku || item.code} - ` : ""}
-            {item.identity ? `${item.identity} - ` : ""}
-            {item.categoryName}
-          </span>
-        </div>
-        <span className="font-semibold text-primary text-sm">
-          ${item.salePrice}
-        </span>
-      </div>
-    );
-  };
-
   const openNew = () => {
     setSelectedItem(null);
     setFormDialog(true);
@@ -345,119 +452,6 @@ const ItemList = () => {
       />
     );
   };
-
-  const statusBodyTemplate = (rowData: Item) => {
-    return (
-      <Tag
-        value={rowData.isActive ? "Activo" : "Inactivo"}
-        severity={rowData.isActive ? "success" : "secondary"}
-        rounded
-      />
-    );
-  };
-
-  const skuBodyTemplate = (rowData: Item) => {
-    return <span className="font-bold">{rowData.sku || "-"}</span>;
-  };
-
-  const codeBodyTemplate = (rowData: Item) => {
-    return (
-      <span className="font-bold text-primary">{rowData.code || "-"}</span>
-    );
-  };
-
-  const identityBodyTemplate = (rowData: Item) => {
-    return <span>{rowData.identity || "-"}</span>;
-  };
-
-  const locationBodyTemplate = (rowData: Item) => {
-    return (
-      <div className="flex align-items-center gap-2">
-        <i
-          className="pi pi-map-marker text-500"
-          style={{ fontSize: "0.8rem" }}
-        ></i>
-        <span className="text-sm font-medium">{rowData.location || "-"}</span>
-      </div>
-    );
-  };
-
-  const quantityBodyTemplate = (rowData: Item) => {
-    const amount = rowData.quantity || 0;
-    const minStock = rowData.minStock || 0;
-    const severity =
-      amount === 0 ? "danger" : amount <= minStock ? "warning" : "success";
-    return <Tag value={amount.toString()} severity={severity} rounded />;
-  };
-
-  const priceBodyTemplate = (rowData: Item) => {
-    if (!rowData.salePrice) return "-";
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(rowData.salePrice);
-  };
-
-  const marginBodyTemplate = (rowData: Item) => {
-    if (!rowData.costPrice || !rowData.salePrice) return "-";
-    const margin =
-      ((rowData.salePrice - rowData.costPrice) / rowData.costPrice) * 100;
-    const severity =
-      margin < 10 ? "danger" : margin < 20 ? "warning" : "success";
-    return <Tag value={`${margin.toFixed(0)}%`} severity={severity} rounded />;
-  };
-
-  const imagesBodyTemplate = (rowData: Item) => {
-    const count = rowData.images?.length || 0;
-    if (count === 0) return <Tag value="0" severity="info" rounded />;
-    return <Tag value={`📷 ${count}`} severity="success" rounded />;
-  };
-
-  const tagsBodyTemplate = (rowData: Item) => {
-    if (!rowData.tags || rowData.tags.length === 0) return "-";
-    return rowData.tags
-      .slice(0, 2)
-      .map((tag, idx) => (
-        <Tag
-          key={idx}
-          value={tag}
-          style={{ marginRight: "4px" }}
-          severity="info"
-        />
-      ));
-  };
-
-  // Templates for DataView
-  const getSeverity = (item: Item) => {
-    const amount = item.quantity || 0;
-    const minStock = item.minStock || 0;
-    if (amount === 0) return "danger";
-    if (amount <= minStock) return "warning";
-    return "success";
-  };
-
-  const getPrimaryImage = (item: Item) => {
-    if (!item.images || item.images.length === 0) {
-      return "/demo/images/product/product-placeholder.svg";
-    }
-    const primary = item.images.find((img) => img.isPrimary);
-    return (
-      primary?.url ||
-      item.images[0]?.url ||
-      "/demo/images/product/product-placeholder.svg"
-    );
-  };
-
-  const getMargin = (item: Item) => {
-    if (!item.costPrice || !item.salePrice) return null;
-    return ((item.salePrice - item.costPrice) / item.costPrice) * 100;
-  };
-
-  const formatPrice = (value: number | undefined | null) =>
-    new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-    }).format(value || 0);
 
   const gridItem = (item: Item) => {
     const severity = getSeverity(item);
@@ -851,16 +845,6 @@ const ItemList = () => {
     );
   };
 
-  const layoutOptions = [
-    { icon: "pi pi-table", value: "table" },
-    { icon: "pi pi-list", value: "list" },
-    { icon: "pi pi-th-large", value: "grid" },
-  ];
-
-  const layoutTemplate = (option: any) => {
-    return <i className={option.icon}></i>;
-  };
-
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -875,7 +859,7 @@ const ItemList = () => {
           <SelectButton
             value={layout}
             onChange={(e) => e.value && setLayout(e.value)}
-            options={layoutOptions}
+            options={LAYOUT_OPTIONS}
             itemTemplate={layoutTemplate}
             allowEmpty={false}
           />

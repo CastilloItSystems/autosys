@@ -50,9 +50,41 @@ export interface DealerIntegrationStatus {
   }>;
 }
 
+export interface DealerKpis {
+  conversion: {
+    leadsVehiculos: number;
+    opportunities: number;
+    wonOpportunities: number;
+    convertedQuotes: number;
+    leadToOpportunityPct: number;
+    opportunityToSalePct: number;
+  };
+  financial: {
+    amountSold: number;
+    avgTicket: number;
+    soldCount: number;
+    financedCount: number;
+    cashCount: number;
+    financedVsCashPct: number;
+    commissionsTotal: number;
+  };
+  operational: {
+    availableUnits: number;
+    reservedUnits: number;
+    activeReservations: number;
+    expiredReservations: number;
+    pendingDeliveries: number;
+    incompleteDocuments: number;
+  };
+}
+
 const dealerDashboardService = {
   async getOverview(): Promise<ApiResponse<DealerOverview>> {
     const res = await apiClient.get("/dealer/dashboard/overview");
+    return res.data;
+  },
+  async getKpis(): Promise<ApiResponse<DealerKpis>> {
+    const res = await apiClient.get("/dealer/dashboard/kpis");
     return res.data;
   },
   async getHistory(params?: { page?: number; limit?: number; search?: string }): Promise<PaginatedResponse<DealerHistoryItem>> {

@@ -8,6 +8,8 @@ model ServiceOrderStatusHistory {
   newStatus      ServiceOrderStatus
   comment        String?            @db.Text
   userId         String             // Usuario que hizo el cambio
+  // §18 — nivel jerárquico de autorización: 1=Jefe Taller, 2=Gerente Servicio, 3=Admin, 4=Gerencia General
+  authorizationLevel Int?
 
   empresaId      String
   empresa        Empresa            @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)

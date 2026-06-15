@@ -115,10 +115,11 @@ export async function addDiagnosisFinding(
   db: Db,
   diagnosisId: string,
   empresaId: string,
-  data: ICreateDiagnosisFindingInput
+  data: ICreateDiagnosisFindingInput,
+  userId: string = 'system'
 ) {
   const diagnosis = await findDiagnosisById(db, diagnosisId, empresaId)
-  return (db as PrismaClient).diagnosisFinding.create({
+  const finding = await (db as PrismaClient).diagnosisFinding.create({
     data: {
       empresaId,
       diagnosisId: diagnosis.id,
@@ -126,9 +127,32 @@ export async function addDiagnosisFinding(
       description: data.description,
       severity: data.severity || 'MEDIUM',
       requiresClientAuth: data.requiresClientAuth ?? true,
+      isHiddenFinding: data.isHiddenFinding ?? false,
       observation: data.observation,
     },
   })
+
+  // §10.3 — Hallazgo oculto detectado: auto-disparar ServiceOrderAdditional
+  // (presupuesto suplementario) en estado PROPOSED. Requiere aprobación del cliente.
+  if (finding.isHiddenFinding && (diagnosis as any).serviceOrderId) {
+    try {
+      await (db as PrismaClient).serviceOrderAdditional.create({
+        data: {
+          empresaId,
+          serviceOrderId: (diagnosis as any).serviceOrderId,
+          diagnosisFindingId: finding.id,
+          description: `[Hallazgo oculto] ${finding.description}`,
+          status: 'PROPOSED',
+          createdBy: userId,
+        },
+      })
+    } catch (e) {
+      // No bloquear el flujo si el auto-disparo falla; log y seguir
+      console.error('Auto-creación de suplementaria desde hallazgo oculto falló', e)
+    }
+  }
+
+  return finding
 }
 
 export async function addDiagnosisSuggestedOp(

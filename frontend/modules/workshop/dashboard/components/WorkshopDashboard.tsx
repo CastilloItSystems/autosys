@@ -1,5 +1,6 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import apiClient from "@/app/api/apiClient";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "primereact/button";
@@ -54,6 +55,42 @@ export default function WorkshopDashboard() {
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
   const { dashboard: data, loading, mutate: swrMutate } = useWorkshopDashboardData();
+
+  // §26.4/26.5 — KPIs adicionales (avgTicket, reworkRate, TOT, garita)
+  const [extras, setExtras] = useState<{
+    avgTicket?: string;
+    reworkRate?: string;
+    totLate?: number;
+    garitaFlagged?: number;
+  }>({});
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      apiClient.get("/workshop/reports/financial").catch(() => null),
+      apiClient.get("/workshop/automations/alerts").catch(() => null),
+    ]).then(([fin, alerts]) => {
+      if (cancelled) return;
+      const next: typeof extras = {};
+      const finData = fin?.data?.data ?? fin?.data;
+      if (finData) {
+        next.avgTicket = finData.avgTicket;
+        next.reworkRate = finData.reworkRate;
+      }
+      const alertList = (alerts?.data?.data ?? alerts?.data ?? []) as any[];
+      if (Array.isArray(alertList)) {
+        next.totLate = alertList.filter((a) =>
+          (a.id ?? "").startsWith("tot-not-returned-"),
+        ).length;
+        next.garitaFlagged = alertList.filter((a) =>
+          (a.id ?? "").startsWith("garita-irregularity-"),
+        ).length;
+      }
+      setExtras(next);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleRefresh = () => {
     swrMutate();
@@ -171,6 +208,62 @@ export default function WorkshopDashboard() {
               onClick={() => router.push("/empresa/workshop/deliveries")}
             />
           </div>
+
+          {/* §26.4 Ticket Promedio */}
+          {extras.avgTicket !== undefined && (
+            <div className="col-12 md:col-6 lg:col-4 xl:col-3">
+              <KPICard
+                title="Ticket Promedio"
+                value={`$${extras.avgTicket}`}
+                icon="pi-dollar"
+                color="teal"
+                trend={null}
+                onClick={() => router.push("/empresa/workshop/reports")}
+              />
+            </div>
+          )}
+
+          {/* §26.5 % Retrabajo */}
+          {extras.reworkRate !== undefined && (
+            <div className="col-12 md:col-6 lg:col-4 xl:col-3">
+              <KPICard
+                title="% Retrabajo"
+                value={`${extras.reworkRate}%`}
+                icon="pi-replay"
+                color="orange"
+                trend={null}
+                onClick={() => router.push("/empresa/workshop/reworks")}
+              />
+            </div>
+          )}
+
+          {/* §16 TOT sin reingreso */}
+          {extras.totLate !== undefined && extras.totLate > 0 && (
+            <div className="col-12 md:col-6 lg:col-4 xl:col-3">
+              <KPICard
+                title="TOT sin reingreso"
+                value={extras.totLate}
+                icon="pi-external-link"
+                color="red"
+                trend={null}
+                onClick={() => router.push("/empresa/workshop/tot")}
+              />
+            </div>
+          )}
+
+          {/* §8 Garita irregularidades */}
+          {extras.garitaFlagged !== undefined && extras.garitaFlagged > 0 && (
+            <div className="col-12 md:col-6 lg:col-4 xl:col-3">
+              <KPICard
+                title="Irregularidades Garita"
+                value={extras.garitaFlagged}
+                icon="pi-exclamation-triangle"
+                color="red"
+                trend={null}
+                onClick={() => router.push("/empresa/workshop/garita")}
+              />
+            </div>
+          )}
         </div>
       )}
 

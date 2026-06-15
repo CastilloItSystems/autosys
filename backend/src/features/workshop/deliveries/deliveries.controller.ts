@@ -66,6 +66,20 @@ export const update = async (req: Request, res: Response) => {
   )
 }
 
+// §23.3 — marcar devolución de repuestos sustituidos al cliente
+export const markPartsReturned = async (req: Request, res: Response) => {
+  const item = await deliveriesService.markSubstitutedPartsReturned(
+    prisma,
+    req.params.id as string,
+    req.empresaId!
+  )
+  return ApiResponse.success(
+    res,
+    new DeliveryResponseDTO(item),
+    'Devolución de repuestos sustituidos registrada'
+  )
+}
+
 // FASE 1.3: Delete delivery
 export const remove = async (req: Request, res: Response) => {
   await deliveriesService.deleteDelivery(

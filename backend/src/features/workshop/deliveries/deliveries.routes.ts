@@ -31,6 +31,12 @@ router.patch(
   validateBody(updateDeliverySchema),
   asyncHandler(ctrl.update)
 )
+// §23.3 — marcar devolución repuestos sustituidos al cliente
+router.patch(
+  '/:id/parts-returned',
+  authorize(PERMISSIONS.WORKSHOP_UPDATE),
+  asyncHandler(ctrl.markPartsReturned)
+)
 // FASE 1.3: Delete delivery
 router.delete(
   '/:id',

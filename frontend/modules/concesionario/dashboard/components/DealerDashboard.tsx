@@ -27,6 +27,7 @@ export default function DealerDashboard() {
 
   const {
     overview,
+    kpis,
     history,
     integrations,
     lastUpdated,
@@ -34,6 +35,18 @@ export default function DealerDashboard() {
     error,
     mutate,
   } = useDealerDashboardData(debouncedSearch);
+
+  const fmtMoney = (v: number) => {
+    try {
+      return new Intl.NumberFormat("es-VE", {
+        style: "currency",
+        currency: "USD",
+        maximumFractionDigits: 0,
+      }).format(v || 0);
+    } catch {
+      return `$${(v || 0).toFixed(0)}`;
+    }
+  };
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(search), 400);
@@ -216,6 +229,109 @@ export default function DealerDashboard() {
           </div>
         ))}
       </div>
+
+      {/* ── KPIs Comerciales / Financieros / Operativos ── */}
+      {kpis && (
+        <div className="grid mb-4">
+          <div className="col-12 lg:col-4">
+            <div className="card mb-0 h-full">
+              <h5 className="mb-3">
+                <i className="pi pi-filter mr-2 text-primary" />
+                Conversión
+              </h5>
+              <ul className="list-none p-0 m-0 flex flex-column gap-2">
+                <li className="flex justify-content-between">
+                  <span className="text-600">Leads VEHICULOS</span>
+                  <span className="font-bold text-900">{kpis.conversion.leadsVehiculos}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Oportunidades</span>
+                  <span className="font-bold text-900">{kpis.conversion.opportunities}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Lead → Oportunidad</span>
+                  <Tag value={`${kpis.conversion.leadToOpportunityPct}%`} severity="info" />
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Oportunidad → Venta</span>
+                  <Tag value={`${kpis.conversion.opportunityToSalePct}%`} severity="success" />
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Cotizaciones convertidas</span>
+                  <span className="font-bold text-900">{kpis.conversion.convertedQuotes}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="col-12 lg:col-4">
+            <div className="card mb-0 h-full">
+              <h5 className="mb-3">
+                <i className="pi pi-dollar mr-2 text-primary" />
+                Financiero
+              </h5>
+              <ul className="list-none p-0 m-0 flex flex-column gap-2">
+                <li className="flex justify-content-between">
+                  <span className="text-600">Monto vendido</span>
+                  <span className="font-bold text-900">{fmtMoney(kpis.financial.amountSold)}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Ticket promedio</span>
+                  <span className="font-bold text-900">{fmtMoney(kpis.financial.avgTicket)}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Financiadas vs contado</span>
+                  <Tag value={`${kpis.financial.financedVsCashPct}%`} severity="warning" />
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Ventas (fin/contado)</span>
+                  <span className="font-bold text-900">
+                    {kpis.financial.financedCount} / {kpis.financial.cashCount}
+                  </span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Comisiones</span>
+                  <span className="font-bold text-900">{fmtMoney(kpis.financial.commissionsTotal)}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="col-12 lg:col-4">
+            <div className="card mb-0 h-full">
+              <h5 className="mb-3">
+                <i className="pi pi-cog mr-2 text-primary" />
+                Operativo
+              </h5>
+              <ul className="list-none p-0 m-0 flex flex-column gap-2">
+                <li className="flex justify-content-between">
+                  <span className="text-600">Unidades disponibles</span>
+                  <span className="font-bold text-900">{kpis.operational.availableUnits}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Unidades reservadas</span>
+                  <span className="font-bold text-900">{kpis.operational.reservedUnits}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Reservas activas</span>
+                  <span className="font-bold text-900">{kpis.operational.activeReservations}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Entregas pendientes</span>
+                  <span className="font-bold text-900">{kpis.operational.pendingDeliveries}</span>
+                </li>
+                <li className="flex justify-content-between">
+                  <span className="text-600">Documentos incompletos</span>
+                  <Tag
+                    value={String(kpis.operational.incompleteDocuments)}
+                    severity={kpis.operational.incompleteDocuments > 0 ? "danger" : "success"}
+                  />
+                </li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── History + Integrations ── */}
       <div className="grid">

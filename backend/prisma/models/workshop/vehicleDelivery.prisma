@@ -13,6 +13,12 @@ model VehicleDelivery {
   observations   String?      @db.Text
   nextVisitDate  DateTime?
 
+  // §23.3 — SIEMPRE se devuelven repuestos sustituidos al cliente.
+  // Flag obligatorio para cierre. Default false; el frontend debe forzar marcado.
+  substitutedPartsReturned Boolean @default(false)
+
+  returnedParts DeliveryReturnedPart[]
+
   empresaId      String
   empresa        Empresa      @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
   createdAt      DateTime     @default(now())

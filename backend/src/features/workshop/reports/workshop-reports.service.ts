@@ -293,6 +293,22 @@ export async function getFinancialSummaryReport(
     const totalCost = totalLaborCost + totalPartsCost
     const margin = totalRevenue - totalCost
 
+    // §26.4 — Ticket promedio
+    const avgTicket = orders.length > 0 ? totalRevenue / orders.length : 0
+
+    // §26.5 — % retrabajo
+    const [totalReworks, deliveredCount] = await Promise.all([
+      prisma.workshopRework.count({ where: { empresaId } }),
+      prisma.serviceOrder.count({
+        where: {
+          empresaId,
+          status: { in: ['DELIVERED', 'INVOICED', 'CLOSED'] as any },
+        },
+      }),
+    ])
+    const reworkRate =
+      deliveredCount > 0 ? (totalReworks / deliveredCount) * 100 : 0
+
     return {
       reportName: 'Reporte Financiero del Taller',
       generatedAt: new Date(),
@@ -303,6 +319,10 @@ export async function getFinancialSummaryReport(
       totalCost: totalCost.toFixed(2),
       margin: margin.toFixed(2),
       ordersCount: orders.length,
+      avgTicket: avgTicket.toFixed(2),
+      reworkRate: reworkRate.toFixed(2),
+      reworksTotal: totalReworks,
+      deliveredOrdersTotal: deliveredCount,
     }
   } catch (error) {
     console.error('Error generating financial report:', error)

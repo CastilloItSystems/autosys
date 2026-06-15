@@ -514,6 +514,7 @@ function KanbanColumn({ cfg, orders, onAction }: ColumnProps) {
 const VIEW_OPTIONS = [
   { label: "Por estado", value: "status" },
   { label: "Por bahía", value: "bay" },
+  { label: "Por técnico", value: "technician" },
 ];
 
 export default function PlanningBoard() {
@@ -617,6 +618,33 @@ export default function PlanningBoard() {
     return acc;
   }, {} as Record<string, ServiceOrder[]>);
 
+  // Group orders by assigned technician (build dynamically from orders)
+  const techIds = Array.from(
+    new Set(visibleOrders.map((o) => o.assignedTechnicianId).filter(Boolean) as string[]),
+  );
+  const techColumns: ColumnConfig[] = [
+    ...techIds.map((tid) => ({
+      id: tid,
+      label: `Téc. ${tid.slice(0, 8)}`,
+      color: "#7c3aed",
+      icon: "pi pi-user",
+    })),
+    {
+      id: "UNASSIGNED_TECH",
+      label: "Sin técnico",
+      color: "#94a3b8",
+      icon: "pi pi-user-minus",
+    },
+  ];
+  const ordersByTech = techColumns.reduce((acc, col) => {
+    acc[col.id] = visibleOrders.filter((o) =>
+      col.id === "UNASSIGNED_TECH"
+        ? !o.assignedTechnicianId
+        : o.assignedTechnicianId === col.id,
+    );
+    return acc;
+  }, {} as Record<string, ServiceOrder[]>);
+
   const onDragStart = ({ active }: DragStartEvent) => {
     setActiveId(active.id as string);
   };
@@ -642,6 +670,29 @@ export default function PlanningBoard() {
           detail: `OT ${order.folio} → ${
             newBayId ? "bahía asignada" : "sin asignar"
           }`,
+          life: 2500,
+        });
+      } catch (err) {
+        setOrders(prev);
+        handleFormError(err, toast);
+      }
+    } else if (view === "technician") {
+      const newTechId =
+        over.id === "UNASSIGNED_TECH" ? null : (over.id as string);
+      if (order.assignedTechnicianId === newTechId) return;
+      const prev = [...orders];
+      setOrders((curr) =>
+        curr.map((o) =>
+          o.id === order.id ? { ...o, assignedTechnicianId: newTechId } : o,
+        ),
+      );
+      try {
+        await serviceOrderService.update(order.id, {
+          assignedTechnicianId: newTechId,
+        });
+        toast.current?.show({
+          severity: "success",
+          summary: "Técnico actualizado",
           life: 2500,
         });
       } catch (err) {
@@ -779,11 +830,20 @@ export default function PlanningBoard() {
                     onAction={handleAction}
                   />
                 ))
-              : bayColumns.map((cfg) => (
+              : view === "bay"
+              ? bayColumns.map((cfg) => (
                   <KanbanColumn
                     key={cfg.id}
                     cfg={cfg}
                     orders={ordersByBay[cfg.id] ?? []}
+                    onAction={handleAction}
+                  />
+                ))
+              : techColumns.map((cfg) => (
+                  <KanbanColumn
+                    key={cfg.id}
+                    cfg={cfg}
+                    orders={ordersByTech[cfg.id] ?? []}
                     onAction={handleAction}
                   />
                 ))}

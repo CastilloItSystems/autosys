@@ -17,6 +17,7 @@ router.get('/', authorize(PERMISSIONS.DEALER_VIEW), validateQuery(dealerQuoteFil
 router.post('/', authorize(PERMISSIONS.DEALER_CREATE), validateBody(createDealerQuoteSchema), dealerQuotesController.create)
 
 router.get('/:id', authorize(PERMISSIONS.DEALER_VIEW), dealerQuotesController.getOne)
+router.get('/:id/versions', authorize(PERMISSIONS.DEALER_VIEW), dealerQuotesController.getVersions)
 
 router.put('/:id', authorize(PERMISSIONS.DEALER_UPDATE), validateBody(updateDealerQuoteSchema), dealerQuotesController.update)
 router.post(

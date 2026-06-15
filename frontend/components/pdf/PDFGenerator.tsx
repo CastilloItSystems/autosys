@@ -1,9 +1,28 @@
 "use client";
 import React, { useState } from "react";
+import dynamic from "next/dynamic";
 import { PDFGeneratorProps } from "@/types/pdfTypes";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
-import CompanyPDFViewer from "./CompanyPDFViewer";
+
+// Lazy-load the @react-pdf/renderer viewer: it is ~400KB and only needed once
+// the user opens the preview dialog. This keeps react-pdf out of the shared
+// chunk that CustomActionButtons (used in every list row) pulls in.
+const CompanyPDFViewer = dynamic(() => import("./CompanyPDFViewer"), {
+  ssr: false,
+  loading: () => (
+    <div
+      className="flex align-items-center justify-content-center p-4 text-center flex-column gap-3"
+      style={{ height: "100%" }}
+    >
+      <i
+        className="pi pi-spin pi-spinner"
+        style={{ fontSize: "2rem", color: "#2563eb" }}
+      />
+      <span className="text-600 font-medium">Cargando visor PDF...</span>
+    </div>
+  ),
+});
 
 const PDFGenerator = <T,>({
   template: Template,

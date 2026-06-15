@@ -1,0 +1,45 @@
+/// Configuración comercial del concesionario (Maestros y políticas — Doc §6).
+/// Una sola fila por empresa. Centraliza vigencias, topes de descuento por nivel
+/// jerárquico, monto mínimo de anticipo, obligatoriedades, SLA y comisión base.
+model DealerPolicy {
+  id          String   @id @default(uuid())
+
+  empresaId   String   @unique
+  empresa     Empresa  @relation(fields: [empresaId], references: [id_empresa], onDelete: Cascade)
+
+  // Vigencias (días)
+  quoteValidityDays       Int      @default(15)
+  reservationValidityDays Int      @default(7)
+
+  // Anticipo mínimo para reservar
+  minDepositAmount        Decimal? @db.Decimal(14, 2)
+  minDepositPct           Decimal? @db.Decimal(6, 2)
+
+  // Topes de descuento (%) por nivel jerárquico (Doc §6.3 / §14 / §27)
+  maxDiscountPctAdvisor    Decimal  @default(0) @db.Decimal(6, 2)
+  maxDiscountPctSupervisor Decimal  @default(5) @db.Decimal(6, 2)
+  maxDiscountPctManager    Decimal  @default(10) @db.Decimal(6, 2)
+
+  // Obligatoriedades
+  requireTestDrive         Boolean  @default(false)
+  requireAppraisalForTradeIn Boolean @default(true)
+  requireDepositForReservation Boolean @default(true)
+
+  // SLA seguimiento de leads/oportunidades (horas)
+  leadFollowUpSlaHours     Int      @default(48)
+
+  // Comisión base por venta (%)
+  commissionPctDefault     Decimal  @default(0) @db.Decimal(6, 2)
+
+  // Ventana de alertas para automatizaciones (horas)
+  alertWindowHours         Int      @default(48)
+
+  notes        String?
+  isActive     Boolean  @default(true)
+
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("dealer_policies")
+  @@index([empresaId])
+}

@@ -50,6 +50,13 @@ model DealerQuote {
   taxPct             Decimal?           @db.Decimal(6, 2)
   taxAmount          Decimal?           @db.Decimal(14, 2)
   totalAmount        Decimal?           @db.Decimal(14, 2)
+  // Componentes adicionales del negocio (Doc §10.2)
+  accessoriesTotal   Decimal?           @db.Decimal(14, 2)
+  adminFees          Decimal?           @db.Decimal(14, 2)
+  tradeInValue       Decimal?           @db.Decimal(14, 2)
+  requiredDeposit    Decimal?           @db.Decimal(14, 2)
+  grandTotal         Decimal?           @db.Decimal(14, 2)
+  currentVersion     Int                @default(1)
   currency           OrderCurrency      @default(USD)
   exchangeRate       Decimal?           @db.Decimal(14, 4)
   exchangeRateSource DealerExchangeRateSource?
@@ -72,6 +79,10 @@ model DealerQuote {
   approvedAt         DateTime?
   rejectedAt         DateTime?
   convertedAt        DateTime?
+
+  commissions        DealerCommission[]
+  accessories        DealerQuoteAccessory[]
+  versions           DealerQuoteVersion[]
 
   createdAt          DateTime           @default(now())
   updatedAt          DateTime           @updatedAt

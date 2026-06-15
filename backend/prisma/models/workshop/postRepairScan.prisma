@@ -1,0 +1,41 @@
+// backend/prisma/models/workshop/postRepairScan.prisma
+// Escaneo electrónico post-reparación (§19).
+// Obligatorio para vehículos electrónicos. Verifica parámetros, borra DTC.
+
+enum PostRepairScanResult {
+  PASS
+  FAIL
+  WITH_OBSERVATIONS
+}
+
+model PostRepairScan {
+  id             String       @id @default(cuid())
+  serviceOrderId String
+  serviceOrder   ServiceOrder @relation(fields: [serviceOrderId], references: [id], onDelete: Cascade)
+
+  technicianId   String   // userId
+  technicianName String?
+  performedAt    DateTime @default(now())
+
+  // DTC borrados (lista de códigos)
+  dtcCodesCleared Json? // ej: ["P0301", "P0420"]
+  // Parámetros verificados (snapshot estructurado)
+  parametersVerified Json?
+
+  result       PostRepairScanResult
+  reportUrl    String?  // URL del reporte adjunto en sistema
+  reportPrinted Boolean @default(false) // Reporte impreso y anexado físicamente a OT
+
+  observations String? @db.Text
+
+  empresaId String
+  empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
+  createdBy String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([serviceOrderId])
+  @@index([empresaId])
+  @@index([result])
+  @@map("workshop_post_repair_scans")
+}

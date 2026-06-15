@@ -30,6 +30,7 @@ import stockService, {
 import MaterialStatusBadge from "@/modules/workshop/shared/components/MaterialStatusBadge";
 import { useMaterialsData } from "../hooks/useMaterialsData";
 import MaterialForm from "./MaterialForm";
+import { MaterialSignaturesPanel } from "@/modules/workshop/materialSignatures";
 
 const MATERIAL_STATUS_OPTIONS = [
   { label: "Solicitado", value: "REQUESTED" },
@@ -80,6 +81,7 @@ export default function MaterialList({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [reserveDialog, setReserveDialog] = useState(false);
+  const [signaturesDialog, setSignaturesDialog] = useState<ServiceOrderMaterial | null>(null);
   const [reserveItem, setReserveItem] = useState<ServiceOrderMaterial | null>(
     null,
   );
@@ -438,9 +440,21 @@ export default function MaterialList({
     }
     if (item.status === "DISPATCHED") {
       items.push({
+        label: "Firmas (§15.5)",
+        icon: "pi pi-pencil",
+        command: () => setSignaturesDialog(item),
+      });
+      items.push({
         label: "Marcar Consumido",
         icon: "pi pi-check",
         command: () => handleStatusChange(item, "CONSUMED"),
+      });
+    }
+    if (["RESERVED", "CONSUMED"].includes(item.status)) {
+      items.push({
+        label: "Ver firmas",
+        icon: "pi pi-list",
+        command: () => setSignaturesDialog(item),
       });
     }
 
@@ -748,6 +762,19 @@ export default function MaterialList({
         ref={menuRef}
         id="material-menu"
       />
+
+      {/* Firmas Dialog (§15.5) */}
+      <Dialog
+        header={`Firmas — ${signaturesDialog?.description ?? ""}`}
+        visible={!!signaturesDialog}
+        onHide={() => setSignaturesDialog(null)}
+        style={{ width: "720px" }}
+        modal
+      >
+        {signaturesDialog && (
+          <MaterialSignaturesPanel materialId={signaturesDialog.id} />
+        )}
+      </Dialog>
     </motion.div>
   );
 }

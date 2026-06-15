@@ -31,6 +31,8 @@ model WorkshopAttachment {
   description String?            @db.Text
   mimeType    String?            // Ej: "image/jpeg", "application/pdf"
   sizeBytes   Int?               // Tamaño en bytes
+  // §37.5 — expediente físico escaneado (presupuesto firmado, acta, etc.)
+  isPhysicalFile Boolean @default(false)
 
   uploadedBy  String             // userId
   empresaId   String

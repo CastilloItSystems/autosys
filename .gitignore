@@ -144,3 +144,6 @@ vite.config.ts.timestamp-*
 .claude/
 
 # If you want to keep a specific skill in the repo, remove or override the above rule.
+
+# macOS
+.DS_Store

@@ -1,0 +1,31 @@
+enum DealerAccessoryType {
+  FACTURABLE
+  BONIFICADO
+  PROMOCIONAL
+}
+
+/// Línea de accesorio/paquete comercial dentro de una cotización (Doc §10.2 / §15).
+/// Solo las líneas FACTURABLE suman al total que paga el cliente; BONIFICADO y
+/// PROMOCIONAL se entregan sin costo pero deben quedar autorizadas y trazadas.
+model DealerQuoteAccessory {
+  id            String   @id @default(uuid())
+
+  dealerQuoteId String
+  dealerQuote   DealerQuote @relation(fields: [dealerQuoteId], references: [id], onDelete: Cascade)
+
+  itemId        String?
+  name          String
+  type          DealerAccessoryType @default(FACTURABLE)
+  quantity      Int      @default(1)
+  unitPrice     Decimal  @default(0) @db.Decimal(14, 2)
+  totalPrice    Decimal  @default(0) @db.Decimal(14, 2)
+  installed     Boolean  @default(false)
+  notes         String?
+
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("dealer_quote_accessories")
+  @@index([dealerQuoteId])
+  @@index([type])
+}

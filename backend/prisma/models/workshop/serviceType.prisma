@@ -10,6 +10,11 @@ model ServiceType {
 
   isActive  Boolean @default(true)
 
+  // §6.3 — Reglas configurables: si requiere control de calidad obligatorio.
+  requiresQualityCheck Boolean @default(false)
+  // §19 — escaneo electrónico obligatorio para este tipo de servicio.
+  requiresElectronicScan Boolean @default(false)
+
   empresaId String
   empresa   Empresa @relation(fields: [empresaId], references: [id_empresa], onDelete: Restrict)
 

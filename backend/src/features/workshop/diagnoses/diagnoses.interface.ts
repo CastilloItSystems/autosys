@@ -27,6 +27,7 @@ export interface ICreateDiagnosisFindingInput {
   severity?: DiagnosisFindingSeverity
   requiresClientAuth?: boolean
   observation?: string
+  isHiddenFinding?: boolean
 }
 
 export interface ICreateDiagnosisSuggestedOpInput {

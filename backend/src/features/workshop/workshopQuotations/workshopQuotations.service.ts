@@ -311,7 +311,30 @@ export async function createQuotation(
   }
 
   const quotationNumber = await generateQuotationNumber(db, empresaId)
-  const totals = calcQuotationTotals(data.items)
+
+  // §9.2 — Auto-añadir línea COURTESY de lavado de vehículo cuando la cotización
+  // se origina desde una recepción y no hay ya una línea COURTESY.
+  const items = [...data.items]
+  const isFromReception = !!data.receptionId && !data.isSupplementary
+  const alreadyHasCourtesy = items.some(
+    (it) => (it.type as any) === 'COURTESY'
+  )
+  if (isFromReception && !alreadyHasCourtesy) {
+    items.push({
+      type: 'COURTESY' as any,
+      description: 'Lavado de vehículo (cortesía)',
+      quantity: 1,
+      unitPrice: 0,
+      unitCost: 0,
+      discountPct: 0,
+      taxType: 'EXEMPT' as any,
+      taxRate: 0,
+      approved: true,
+      order: items.length,
+    } as any)
+  }
+
+  const totals = calcQuotationTotals(items)
 
   const created = await (db as PrismaClient).workshopQuotation.create({
     data: {
@@ -334,7 +357,7 @@ export async function createQuotation(
       empresaId,
       createdBy: userId,
       items: {
-        create: data.items.map((it, idx) => {
+        create: items.map((it, idx) => {
           const { subtotal, total, taxAmount } = calcItemTotals(it)
           return {
             type: it.type,

@@ -6,11 +6,14 @@ import garitaService from "@/modules/workshop/garita/services/garitaService";
 
 type GaritaFilters = Parameters<typeof garitaService.getAll>[0];
 
-export const useGaritaData = (filters?: GaritaFilters) => {
+export const useGaritaData = (
+  filters?: GaritaFilters,
+  options?: { refreshInterval?: number },
+) => {
   const { data, error, isLoading, mutate } = useSWR(
     ["workshop-garita", filters],
     () => garitaService.getAll(filters),
-    { revalidateOnFocus: false },
+    { revalidateOnFocus: false, refreshInterval: options?.refreshInterval },
   );
 
   return {

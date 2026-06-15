@@ -1,0 +1,20 @@
+/// Historial de versiones de una cotización (Doc §10.6). Cada cambio relevante
+/// guarda un snapshot inmutable de los componentes económicos del negocio.
+model DealerQuoteVersion {
+  id            String   @id @default(uuid())
+
+  dealerQuoteId String
+  dealerQuote   DealerQuote @relation(fields: [dealerQuoteId], references: [id], onDelete: Cascade)
+
+  version       Int
+  snapshot      Json
+  totalAmount   Decimal? @db.Decimal(14, 2)
+  grandTotal    Decimal? @db.Decimal(14, 2)
+  createdById   String?
+
+  createdAt     DateTime @default(now())
+
+  @@map("dealer_quote_versions")
+  @@unique([dealerQuoteId, version])
+  @@index([dealerQuoteId])
+}

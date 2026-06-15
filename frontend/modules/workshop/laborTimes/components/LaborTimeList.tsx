@@ -14,6 +14,7 @@ import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "@/components/common/CreateButton";
 import { handleFormError } from "@/utils/errorHandlers";
 import laborTimeService from "@/modules/workshop/laborTimes/services/laborTimeService";
+import LaborTimerWidget from "./LaborTimerWidget";
 import type { LaborTime } from "@/modules/workshop/laborTimes/interfaces/laborTime.interface";
 import type { LaborTimeStatus } from "@/modules/workshop/laborTimes/interfaces/laborTime.interface";
 import {
@@ -33,6 +34,7 @@ export default function LaborTimeList({
   embedded,
 }: LaborTimeListProps) {
   const [actionItem, setActionItem] = useState<LaborTime | null>(null);
+  const [timerItem, setTimerItem] = useState<LaborTime | null>(null);
 
   const [serviceOrderFilter, setServiceOrderFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState<LaborTimeStatus | "">("");
@@ -321,6 +323,12 @@ export default function LaborTimeList({
           actionItem
             ? [
                 {
+                  label: "Cronómetro",
+                  icon: "pi pi-clock",
+                  command: () => setTimerItem(actionItem),
+                },
+                { separator: true },
+                {
                   label: "Pausar",
                   icon: "pi pi-pause",
                   disabled: actionItem.status !== "ACTIVE",
@@ -353,6 +361,24 @@ export default function LaborTimeList({
         ref={menuRef}
         id="labor-time-menu"
       />
+
+      <Dialog
+        header="Cronómetro"
+        visible={!!timerItem}
+        onHide={() => setTimerItem(null)}
+        style={{ width: "520px" }}
+        modal
+      >
+        {timerItem && (
+          <LaborTimerWidget
+            laborTime={timerItem}
+            onUpdated={(lt) => {
+              setTimerItem(lt);
+              mutate();
+            }}
+          />
+        )}
+      </Dialog>
     </motion.div>
   );
 }

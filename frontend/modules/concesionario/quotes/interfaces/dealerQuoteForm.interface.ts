@@ -1,6 +1,18 @@
 import type { Toast } from "primereact/toast";
 import type { DealerQuote } from "../interfaces/dealerQuote.interface";
 
+export type DealerAccessoryType = "FACTURABLE" | "BONIFICADO" | "PROMOCIONAL";
+
+export type DealerQuoteAccessoryRow = {
+  itemId?: string | null;
+  name: string;
+  type: DealerAccessoryType;
+  quantity: number;
+  unitPrice: number;
+  installed: boolean;
+  notes?: string;
+};
+
 export type DealerQuoteFormValues = {
   dealerUnitId: string;
   customerId: string;
@@ -12,6 +24,9 @@ export type DealerQuoteFormValues = {
   discountPct?: number;
   offeredPrice?: number;
   taxPct?: number;
+  adminFees?: number;
+  tradeInValue?: number;
+  requiredDeposit?: number;
   currency: "USD" | "VES" | "EUR";
   exchangeRate?: number;
   exchangeRateSource: "BCV_AUTO" | "MANUAL";
@@ -21,6 +36,7 @@ export type DealerQuoteFormValues = {
   notes: string;
   status: string;
   isActive: boolean;
+  accessories: DealerQuoteAccessoryRow[];
 };
 
 export interface DealerQuoteFormProps {

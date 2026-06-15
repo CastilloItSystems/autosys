@@ -16,6 +16,7 @@ const nextConfig = {
       "@fullcalendar/timegrid",
       "@fullcalendar/interaction",
       "lucide-react",
+      "framer-motion",
     ],
   },
   modularizeImports: {
