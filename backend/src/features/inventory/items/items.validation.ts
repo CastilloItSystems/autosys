@@ -72,7 +72,7 @@ export const createItemSchema = Joi.object({
     .messages({
       'string.max': 'La ubicación no puede exceder 20 caracteres',
       'string.pattern.base':
-        'Formato de ubicación inválido (debe ser: M1-R01-D03)',
+        'Formato de ubicación inválido (ej: M1-R01-D03, 01-02-03, M01-01-C04)',
     }),
 
   costPrice: Joi.number().min(0).precision(2).required().messages({
@@ -241,7 +241,7 @@ export const updateItemSchema = Joi.object({
     .messages({
       'string.max': 'La ubicación no puede exceder 20 caracteres',
       'string.pattern.base':
-        'Formato de ubicación inválido (debe ser: M1-R01-D03)',
+        'Formato de ubicación inválido (ej: M1-R01-D03, 01-02-03, M01-01-C04)',
     }),
 
   costPrice: Joi.number().min(0).precision(2).optional().messages({

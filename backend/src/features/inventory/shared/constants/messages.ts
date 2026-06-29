@@ -44,7 +44,7 @@ export const INVENTORY_MESSAGES = {
     skuExists: 'El SKU ya existe',
     codeExists: 'El código de producto ya existe',
     barcodeExists: 'El código de barras ya existe',
-    invalidLocation: 'Formato de ubicación inválido (debe ser: M1-R01-D03)',
+    invalidLocation: 'Formato de ubicación inválido (ej: M1-R01-D03, 01-02-03, M01-01-C04)',
     hasStock: 'No se puede eliminar un artículo con stock',
     hasMovements: 'No se puede eliminar un artículo con movimientos',
   },

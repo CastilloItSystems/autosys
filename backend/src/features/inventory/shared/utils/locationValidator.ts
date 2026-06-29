@@ -7,8 +7,8 @@ export interface LocationParts {
 }
 
 export class LocationValidator {
-  // Patrón: M1-R01-D03 (Módulo-Rack-División)
-  static readonly LOCATION_PATTERN = /^([A-Z])(\d+)-([A-Z])(\d+)-([A-Z])(\d+)$/
+  // Patrón: tres segmentos alfanuméricos separados por guion (ej: M1-R01-D03, 01-02-03, M01-01-C04)
+  static readonly LOCATION_PATTERN = /^([A-Z0-9]+)-([A-Z0-9]+)-([A-Z0-9]+)$/i
 
   /**
    * Valida formato de ubicación
@@ -21,14 +21,14 @@ export class LocationValidator {
    * Parsea una ubicación
    */
   static parse(location: string): LocationParts | null {
-    const match = location.match(this.LOCATION_PATTERN)
+    const match = location.toUpperCase().match(this.LOCATION_PATTERN)
 
     if (!match) return null
 
     return {
-      module: `${match[1]}${match[2]}`,
-      rack: `${match[3]}${match[4]}`,
-      division: `${match[5]}${match[6]}`,
+      module: match[1],
+      rack: match[2],
+      division: match[3],
     }
   }
 
@@ -46,32 +46,32 @@ export class LocationValidator {
     const parts = this.parse(location)
     if (!parts) return []
 
+    const extractNum = (s: string) => {
+      const m = s.match(/(\d+)$/)
+      return m ? parseInt(m[1]) : null
+    }
+    const prefix = (s: string) => s.replace(/\d+$/, '')
+    const pad = (n: number, ref: string) =>
+      String(n).padStart(ref.match(/\d+$/)?.[0].length ?? 1, '0')
+
+    const mNum = extractNum(parts.module)
+    const rNum = extractNum(parts.rack)
+    const dNum = extractNum(parts.division)
+
+    if (mNum === null || rNum === null || dNum === null) return []
+
     const nearby: string[] = []
+    const upper = location.toUpperCase()
 
-    const moduleNum = parseInt(parts.module.substring(1))
-    const rackNum = parseInt(parts.rack.substring(1))
-    const divisionNum = parseInt(parts.division.substring(1))
-
-    for (
-      let m = Math.max(1, moduleNum - radius);
-      m <= moduleNum + radius;
-      m++
-    ) {
-      for (let r = Math.max(1, rackNum - radius); r <= rackNum + radius; r++) {
-        for (
-          let d = Math.max(1, divisionNum - radius);
-          d <= divisionNum + radius;
-          d++
-        ) {
+    for (let m = Math.max(1, mNum - radius); m <= mNum + radius; m++) {
+      for (let r = Math.max(1, rNum - radius); r <= rNum + radius; r++) {
+        for (let d = Math.max(1, dNum - radius); d <= dNum + radius; d++) {
           const loc = this.format(
-            `M${m}`,
-            `R${String(r).padStart(2, '0')}`,
-            `D${String(d).padStart(2, '0')}`
+            `${prefix(parts.module)}${pad(m, parts.module)}`,
+            `${prefix(parts.rack)}${pad(r, parts.rack)}`,
+            `${prefix(parts.division)}${pad(d, parts.division)}`
           )
-
-          if (loc !== location) {
-            nearby.push(loc)
-          }
+          if (loc !== upper) nearby.push(loc)
         }
       }
     }

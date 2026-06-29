@@ -326,7 +326,7 @@ export default function CycleCountDetail({
         <InputText
           value={local?.location ?? ""}
           onChange={(e) => handleLocationChange(rowData.itemId, e.target.value)}
-          placeholder="Ej: M1-R02-D01"
+          placeholder="Ej: M1-R02-D01 o 01-02-03"
           className="p-inputtext-sm w-full font-mono"
         />
         {hasChanged && (

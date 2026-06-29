@@ -170,8 +170,8 @@ export const STOCK_ALERT_TYPE_LABELS: Record<StockAlertType, string> = {
   OVERSTOCK: 'Exceso de Stock',
 }
 
-export const LOCATION_PATTERN = /^[A-Z]\d+-[A-Z]\d+-[A-Z]\d+$/
-// Ejemplo: M1-R01-D03
+export const LOCATION_PATTERN = /^[A-Z0-9]+-[A-Z0-9]+-[A-Z0-9]+$/i
+// Ejemplo: M1-R01-D03, 01-02-03, M01-01-C04
 
 export const SKU_PATTERN = /^[A-Z0-9-]+$/
 // Ejemplo: FIL-001, ACE-10W40-001

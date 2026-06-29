@@ -502,7 +502,7 @@ export default function BasicDataTab({
           name="location"
           control={control}
           render={({ field }) => (
-            <InputText id="location" {...field} placeholder="M1-R01" />
+            <InputText id="location" {...field} placeholder="M1-R01 o 01-02" />
           )}
         />
       </div>

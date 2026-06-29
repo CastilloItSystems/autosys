@@ -18,7 +18,7 @@ export const validateLocation = asyncHandler(
 
     if (!LocationValidator.isValid(location)) {
       throw new BadRequestError(
-        'Formato de ubicación inválido. Debe ser: M1-R01-D03 (Módulo-Rack-División)'
+        'Formato de ubicación inválido (ej: M1-R01-D03, 01-02-03, M01-01-C04)'
       )
     }
 
@@ -42,7 +42,7 @@ export const validateLocations = asyncHandler(
     for (const item of items) {
       if (item.location && !LocationValidator.isValid(item.location)) {
         throw new BadRequestError(
-          `Formato de ubicación inválido para el item. Debe ser: M1-R01-D03`
+          `Formato de ubicación inválido para el item (ej: M1-R01-D03, 01-02-03, M01-01-C04)`
         )
       }
 
@@ -71,7 +71,7 @@ export const validatePickingLocation = asyncHandler(
 
     if (!LocationValidator.isValid(pickedFromLocation)) {
       throw new BadRequestError(
-        'Formato de ubicación de picking inválido. Debe ser: M1-R01-D03'
+        'Formato de ubicación de picking inválido (ej: M1-R01-D03, 01-02-03, M01-01-C04)'
       )
     }
 
