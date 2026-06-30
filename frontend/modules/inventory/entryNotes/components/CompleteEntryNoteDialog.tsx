@@ -15,6 +15,7 @@ import stockService, {
 } from "@/modules/inventory/stocks/services/stockService";
 import BackdateField from "@/components/common/BackdateField";
 import { handleFormError } from "@/utils/errorHandlers";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 import type { EntryNote } from "@/modules/inventory/entryNotes/interfaces/entryNote.interface";
 import {
   ENTRY_NOTE_STATUS_CONFIG,
@@ -80,7 +81,6 @@ const COLUMNS = [
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
 const getCurrencySymbol = (c = "USD") => CURRENCY_SYMBOLS[c] ?? c;
 const fmt = (value: number, currency = "USD") =>
   `${getCurrencySymbol(currency)} ${value.toLocaleString("es-VE", {

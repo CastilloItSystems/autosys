@@ -27,6 +27,7 @@ import CreateButton from "@/components/common/CreateButton";
 import DeleteConfirmDialog from "@/components/common/DeleteConfirmDialog";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { AdvancedSearchPanel } from "@/modules/inventory/search/components/AdvancedSearchPanel";
+import { logger } from "@/utils/logger";
 
 // Estáticos: fuera del componente para no recrearlos en cada render (evita que
 // SelectButton se re-renderice innecesariamente).
@@ -197,7 +198,7 @@ const ItemList = () => {
 
       const itemsData = response.data || [];
       const total = response.meta?.total || 0;
-      console.log("items", itemsData);
+      logger.debug("items", itemsData);
       setItems(Array.isArray(itemsData) ? itemsData : []);
       setTotalRecords(total);
     } catch (error) {

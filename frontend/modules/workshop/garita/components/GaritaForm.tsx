@@ -121,7 +121,8 @@ export default function GaritaForm({
             render={({ field }) => (
               <Dropdown
                 id="type"
-                {...field}
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
                 options={TYPE_OPTIONS}
                 className={`w-full${errors.type ? " p-invalid" : ""}`}
               />

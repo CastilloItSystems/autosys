@@ -141,7 +141,13 @@ export default function AppointmentForm({
 
           const isValidShift = shifts.some((shift) => {
             if (!shift.workDays.includes(dayOfWeek)) return false;
-            return timeStr >= shift.startTime && timeStr <= shift.endTime;
+            const { startTime: start, endTime: end } = shift;
+            // Turno diurno (start <= end): hora dentro de [start, end).
+            // Turno nocturno (start > end, cruza medianoche): hora >= start o < end.
+            // Se usa "<" en el fin para no permitir agendar exactamente a la hora de cierre.
+            return start <= end
+              ? timeStr >= start && timeStr < end
+              : timeStr >= start || timeStr < end;
           });
 
           if (!isValidShift) {

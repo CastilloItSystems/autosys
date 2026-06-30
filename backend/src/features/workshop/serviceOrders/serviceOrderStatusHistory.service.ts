@@ -12,6 +12,12 @@ type Db =
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >
 
+// Cliente transaccional de Prisma (el `tx` que entrega `$transaction`).
+type PrismaTx = Omit<
+  PrismaClient,
+  '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
+>
+
 interface IChangeStatusWithHistoryInput {
   serviceOrderId: string
   empresaId: string
@@ -21,52 +27,67 @@ interface IChangeStatusWithHistoryInput {
   extraData?: Record<string, unknown>
 }
 
+interface IChangeStatusOptions {
+  // Cliente transaccional opcional. Cuando se provee, las operaciones de
+  // BD se ejecutan sobre esa transacción (sin abrir una anidada) y la
+  // publicación de eventos de dominio se difiere a la función `publishEvents`
+  // que el llamador debe invocar DESPUÉS de hacer commit de su transacción.
+  tx?: PrismaTx
+}
+
 interface IStatusHistoryFilters {
   page?: number
   limit?: number
 }
 
-export async function changeServiceOrderStatusWithHistory(
-  db: Db,
+// Ejecuta el cambio de estado + creación de history sobre un cliente
+// (transaccional o no). NO publica eventos; eso queda a cargo del llamador.
+async function applyStatusChange(
+  client: PrismaTx,
   input: IChangeStatusWithHistoryInput
 ) {
-  const prisma = db as PrismaClient
   const { serviceOrderId, empresaId, newStatus, userId, comment, extraData } =
     input
 
-  const result = await prisma.$transaction(async (tx) => {
-    const existing = await tx.serviceOrder.findFirst({
-      where: { id: serviceOrderId, empresaId },
-      select: { id: true, status: true, folio: true },
-    })
-
-    if (!existing) {
-      throw new NotFoundError('Orden de taller no encontrada')
-    }
-
-    const updated = await tx.serviceOrder.update({
-      where: { id: serviceOrderId },
-      data: { status: newStatus, ...(extraData ?? {}) },
-    })
-
-    await tx.serviceOrderStatusHistory.create({
-      data: {
-        serviceOrderId,
-        previousStatus: existing.status,
-        newStatus,
-        comment: comment?.trim() || null,
-        userId,
-        empresaId,
-      },
-    })
-
-    return {
-      updated,
-      previousStatus: existing.status,
-      folio: existing.folio,
-    }
+  const existing = await client.serviceOrder.findFirst({
+    where: { id: serviceOrderId, empresaId },
+    select: { id: true, status: true, folio: true },
   })
 
+  if (!existing) {
+    throw new NotFoundError('Orden de taller no encontrada')
+  }
+
+  const updated = await client.serviceOrder.update({
+    where: { id: serviceOrderId },
+    data: { status: newStatus, ...(extraData ?? {}) },
+  })
+
+  await client.serviceOrderStatusHistory.create({
+    data: {
+      serviceOrderId,
+      previousStatus: existing.status,
+      newStatus,
+      comment: comment?.trim() || null,
+      userId,
+      empresaId,
+    },
+  })
+
+  return {
+    updated,
+    previousStatus: existing.status,
+    folio: existing.folio,
+  }
+}
+
+// Publica los eventos de dominio asociados a un cambio de estado.
+// Diseñada para invocarse DESPUÉS del commit de la transacción.
+async function publishStatusChangeEvents(
+  input: IChangeStatusWithHistoryInput,
+  result: { previousStatus: string; folio: string }
+) {
+  const { serviceOrderId, empresaId, newStatus, userId } = input
   try {
     await domainEventBus.publish(
       toDomainEvent({
@@ -153,6 +174,47 @@ export async function changeServiceOrderStatusWithHistory(
       error: publishError,
     })
   }
+}
+
+type StatusChangeResult = Awaited<ReturnType<typeof applyStatusChange>>['updated']
+
+// Sobrecargas: con `tx` se difieren los eventos y se devuelve `publishEvents`;
+// sin `tx` se publican de inmediato y se devuelve solo la OT actualizada.
+export async function changeServiceOrderStatusWithHistory(
+  db: Db,
+  input: IChangeStatusWithHistoryInput,
+  options: IChangeStatusOptions & { tx: PrismaTx }
+): Promise<{ updated: StatusChangeResult; publishEvents: () => Promise<void> }>
+export async function changeServiceOrderStatusWithHistory(
+  db: Db,
+  input: IChangeStatusWithHistoryInput,
+  options?: IChangeStatusOptions
+): Promise<StatusChangeResult>
+export async function changeServiceOrderStatusWithHistory(
+  db: Db,
+  input: IChangeStatusWithHistoryInput,
+  options: IChangeStatusOptions = {}
+) {
+  // Caso A: se nos pasó un cliente transaccional (`tx`). Ejecutamos las
+  // operaciones de BD sobre esa transacción y diferimos los eventos: el
+  // llamador es responsable de publicarlos tras el commit usando el
+  // `publishEvents` devuelto.
+  if (options.tx) {
+    const result = await applyStatusChange(options.tx, input)
+    return {
+      updated: result.updated,
+      publishEvents: () => publishStatusChangeEvents(input, result),
+    }
+  }
+
+  // Caso B: comportamiento original. Abrimos transacción propia y publicamos
+  // los eventos de inmediato tras el commit.
+  const prisma = db as PrismaClient
+  const result = await prisma.$transaction((tx) =>
+    applyStatusChange(tx, input)
+  )
+
+  await publishStatusChangeEvents(input, result)
 
   return result.updated
 }

@@ -2,6 +2,7 @@
 import type { Request, Response } from 'express'
 import prisma from '../../../services/prisma.service.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
+import { logger } from '../../../shared/utils/logger.js'
 import {
   createServiceOrder,
   findAllServiceOrders,
@@ -71,7 +72,10 @@ export const create = async (req: Request, res: Response) => {
     const order = await createServiceOrder(prisma, empresaId, userId, dto)
     return ApiResponse.created(res, new ServiceOrderResponseDTO(order))
   } catch (error: any) {
-    console.error('Error creating service order:', error)
+    logger.error('Error al crear la orden de servicio', {
+      code: error?.code,
+      message: error?.message,
+    })
 
     // Prisma specific errors
     if (error.code === 'P2002') {
@@ -129,7 +133,10 @@ export const update = async (req: Request, res: Response) => {
     )
     return ApiResponse.success(res, new ServiceOrderResponseDTO(order))
   } catch (error: any) {
-    console.error('Error updating service order:', error)
+    logger.error('Error al actualizar la orden de servicio', {
+      code: error?.code,
+      message: error?.message,
+    })
 
     // Prisma specific errors
     if (error.code === 'P2002') {
@@ -253,6 +260,7 @@ export const generatePreInvoice = async (req: Request, res: Response) => {
   try {
     const serviceOrderId = req.params.id as string
     const userId = req.user?.userId as string
+    const empresaId = req.empresaId!
 
     if (!userId) {
       return ApiResponse.error(res, 'User not authenticated', 401)
@@ -261,7 +269,8 @@ export const generatePreInvoice = async (req: Request, res: Response) => {
     const preInvoice = await generatePreInvoiceFromServiceOrder(
       prisma,
       serviceOrderId,
-      userId
+      userId,
+      empresaId
     )
 
     return ApiResponse.success(
@@ -313,6 +322,7 @@ export const bulkGenerateInvoices = async (req: Request, res: Response) => {
   try {
     const { serviceOrderIds } = req.body as { serviceOrderIds: string[] }
     const userId = req.user?.userId as string
+    const empresaId = req.empresaId!
 
     if (!userId) {
       return ApiResponse.error(res, 'User not authenticated', 401)
@@ -329,7 +339,8 @@ export const bulkGenerateInvoices = async (req: Request, res: Response) => {
     const result = await bulkGeneratePreInvoices(
       prisma,
       serviceOrderIds,
-      userId
+      userId,
+      empresaId
     )
 
     return ApiResponse.success(

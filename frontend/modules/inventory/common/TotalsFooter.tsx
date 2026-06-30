@@ -1,5 +1,6 @@
 import React from "react";
 import { Divider } from "primereact/divider";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 export interface TotalsLine {
   label: string;
@@ -12,8 +13,6 @@ interface TotalsFooterProps {
   currency?: string;
   exchangeRate?: number | null;
 }
-
-const CURRENCY_SYMBOLS: Record<string, string> = { USD: "$", EUR: "€", VES: "Bs." };
 
 export default function TotalsFooter({
   lines,

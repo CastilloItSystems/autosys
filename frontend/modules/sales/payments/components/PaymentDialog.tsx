@@ -28,12 +28,7 @@ import {
 } from "../interfaces/payment.interface";
 import paymentService from "../services/paymentService";
 import { handleFormError } from "@/utils/errorHandlers";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const formatAmount = (value: number, currency = "USD") => {
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";

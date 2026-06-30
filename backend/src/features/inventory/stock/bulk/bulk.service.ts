@@ -608,6 +608,16 @@ export class StockBulkService {
     if (data.filters?.itemId === undefined && data.filters?.categoryId) {
       where.item = { ...where.item, categoryId: data.filters.categoryId }
     }
+    if (data.filters?.search) {
+      const term = data.filters.search.trim()
+      if (term) {
+        where.OR = [
+          { item: { sku: { contains: term, mode: 'insensitive' } } },
+          { item: { name: { contains: term, mode: 'insensitive' } } },
+          { warehouse: { name: { contains: term, mode: 'insensitive' } } },
+        ]
+      }
+    }
     if (data.filters?.outOfStock) {
       where.quantityAvailable = 0
     } else if (data.filters?.lowStock) {

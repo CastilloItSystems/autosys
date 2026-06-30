@@ -5,6 +5,7 @@ import {
   BadRequestError,
   ConflictError,
 } from '../../../shared/utils/apiError.js'
+import { assertTransition } from '../../../shared/utils/stateMachine.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
@@ -287,12 +288,12 @@ export async function updateAppointmentStatus(
   newStatus: AppointmentStatus
 ) {
   const existing = await findAppointmentById(db, id, empresaId)
-  const allowed = VALID_TRANSITIONS[existing.status as AppointmentStatus]
-  if (!allowed.includes(newStatus)) {
-    throw new BadRequestError(
-      `No se puede pasar de ${existing.status} a ${newStatus}`
-    )
-  }
+  assertTransition(
+    VALID_TRANSITIONS,
+    existing.status as AppointmentStatus,
+    newStatus,
+    { entity: 'Cita' }
+  )
   const updated = await (db as PrismaClient).serviceAppointment.update({
     where: { id },
     data: { status: newStatus },

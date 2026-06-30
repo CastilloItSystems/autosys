@@ -13,6 +13,7 @@
  * 5. Recalculates ServiceOrder totals
  */
 
+import { Prisma } from '../../../generated/prisma/client.js'
 import type {
   PrismaClient,
   ServiceOrder,
@@ -57,15 +58,20 @@ function calculateTaxAmount(
  *
  * @param prisma - Prisma client
  * @param serviceOrderId - ID of the ServiceOrder
+ * @param empresaId - Empresa scope (opcional; cuando se provee acota la carga de la SO)
  * @returns Updated ServiceOrder with refreshed totals
  */
 export async function syncServiceOrderItems(
   prisma: PrismaClientType,
-  serviceOrderId: string
+  serviceOrderId: string,
+  empresaId?: string
 ): Promise<ServiceOrder> {
-  // 1. Fetch the ServiceOrder
-  const so = await prisma.serviceOrder.findUnique({
-    where: { id: serviceOrderId },
+  // 1. Fetch the ServiceOrder (acotada por empresaId cuando se provee)
+  const so = await (prisma as PrismaClient).serviceOrder.findFirst({
+    where: {
+      id: serviceOrderId,
+      ...(empresaId ? { empresaId } : {}),
+    },
     include: {
       items: true,
       materials: { include: { item: true } },
@@ -81,6 +87,22 @@ export async function syncServiceOrderItems(
   // 2. Get manual items (sourceType: MANUAL) to preserve them
   const manualItems = so.items.filter((i) => i.sourceType === 'MANUAL')
 
+  // Todo el create/update/delete + recálculo de totales corre en una transacción
+  // para evitar estados parciales (p.ej. items borrados sin recalcular totales).
+  return (prisma as PrismaClient).$transaction(async (tx) => {
+    return syncServiceOrderItemsTx(tx, so, serviceOrderId, manualItems)
+  })
+}
+
+/**
+ * Cuerpo transaccional del sync. Recibe el client transaccional (tx) y la SO ya cargada.
+ */
+async function syncServiceOrderItemsTx(
+  tx: Prisma.TransactionClient,
+  so: any,
+  serviceOrderId: string,
+  manualItems: ServiceOrderItem[]
+): Promise<ServiceOrder> {
   // 3. Load operational items to sync
   const syncedItems: ServiceOrderItem[] = []
 
@@ -126,7 +148,7 @@ export async function syncServiceOrderItems(
 
     if (existingItem) {
       // Update existing
-      await (prisma as PrismaClient).serviceOrderItem.update({
+      await tx.serviceOrderItem.update({
         where: { id: existingItem.id },
         data: {
           quantity: billableQty,
@@ -144,7 +166,7 @@ export async function syncServiceOrderItems(
       syncedItems.push(existingItem)
     } else {
       // Create new
-      const newItem = await (prisma as PrismaClient).serviceOrderItem.create({
+      const newItem = await tx.serviceOrderItem.create({
         data: {
           serviceOrderId,
           type: 'PART',
@@ -198,7 +220,7 @@ export async function syncServiceOrderItems(
 
       if (existingItem) {
         // Update
-        await (prisma as PrismaClient).serviceOrderItem.update({
+        await tx.serviceOrderItem.update({
           where: { id: existingItem.id },
           data: {
             quantity: Number(addItem.quantity),
@@ -215,7 +237,7 @@ export async function syncServiceOrderItems(
         syncedItems.push(existingItem)
       } else {
         // Create
-        const newItem = await (prisma as PrismaClient).serviceOrderItem.create({
+        const newItem = await tx.serviceOrderItem.create({
           data: {
             serviceOrderId,
             type:
@@ -271,7 +293,7 @@ export async function syncServiceOrderItems(
 
     if (existingItem) {
       // Update
-      await (prisma as PrismaClient).serviceOrderItem.update({
+      await tx.serviceOrderItem.update({
         where: { id: existingItem.id },
         data: {
           quantity: 1,
@@ -288,7 +310,7 @@ export async function syncServiceOrderItems(
       syncedItems.push(existingItem)
     } else {
       // Create
-      const newItem = await (prisma as PrismaClient).serviceOrderItem.create({
+      const newItem = await tx.serviceOrderItem.create({
         data: {
           serviceOrderId,
           type: 'OTHER',
@@ -318,7 +340,7 @@ export async function syncServiceOrderItems(
   )
 
   for (const staleItem of staleItems) {
-    await (prisma as PrismaClient).serviceOrderItem.delete({
+    await tx.serviceOrderItem.delete({
       where: { id: staleItem.id },
     })
   }
@@ -361,7 +383,7 @@ export async function syncServiceOrderItems(
   const finalTotal = laborTotal + partsTotal + otherTotal
 
   // 6. Update ServiceOrder totals
-  const updatedSO = await (prisma as PrismaClient).serviceOrder.update({
+  const updatedSO = await tx.serviceOrder.update({
     where: { id: serviceOrderId },
     data: {
       laborTotal,
@@ -397,7 +419,7 @@ export async function syncAfterMaterialChange(
     throw new NotFoundError(`Material ${materialId} not found`)
   }
 
-  await syncServiceOrderItems(prisma, material.serviceOrderId)
+  await syncServiceOrderItems(prisma, material.serviceOrderId, material.empresaId)
 }
 
 /**
@@ -418,7 +440,7 @@ export async function syncAfterAdditionalChange(
     throw new NotFoundError(`Additional ${additionalId} not found`)
   }
 
-  await syncServiceOrderItems(prisma, additional.serviceOrderId)
+  await syncServiceOrderItems(prisma, additional.serviceOrderId, additional.empresaId)
 }
 
 /**
@@ -437,5 +459,5 @@ export async function syncAfterTOTChange(
     throw new NotFoundError(`TOT ${totId} not found`)
   }
 
-  await syncServiceOrderItems(prisma, tot.serviceOrderId)
+  await syncServiceOrderItems(prisma, tot.serviceOrderId, tot.empresaId)
 }

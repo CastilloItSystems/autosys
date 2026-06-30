@@ -3,6 +3,7 @@ import type { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import {
   NotFoundError,
   BadRequestError,
+  ConflictError,
 } from '../../../shared/utils/apiError.js'
 import type {
   ICreateRoadTest,
@@ -202,14 +203,21 @@ export async function depart(
   if (rt.status !== 'AUTHORIZED') {
     throw new BadRequestError('Solo se puede salir desde estado AUTHORIZED')
   }
-  return (db as PrismaClient).roadTest.update({
-    where: { id },
+  // Transición atómica protegida contra carrera: solo cambia si sigue en AUTHORIZED.
+  const result = await (db as PrismaClient).roadTest.updateMany({
+    where: { id, empresaId, status: 'AUTHORIZED' },
     data: {
       status: 'IN_PROGRESS',
       kmDeparture: input.kmDeparture,
       departedAt: new Date(),
     },
   })
+  if (result.count !== 1) {
+    throw new ConflictError(
+      'La prueba ya fue despachada o cambió de estado; no se puede registrar la salida'
+    )
+  }
+  return getById(db, id, empresaId)
 }
 
 export async function returnVehicle(

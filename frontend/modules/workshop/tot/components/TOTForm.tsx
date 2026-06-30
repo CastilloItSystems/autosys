@@ -260,7 +260,8 @@ export default function TOTForm({
             control={control}
             render={({ field }) => (
               <Dropdown
-                {...field}
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
                 options={supplierOptions}
                 placeholder="Seleccionar proveedor"
                 showClear
@@ -466,7 +467,8 @@ export default function TOTForm({
             control={control}
             render={({ field }) => (
               <Dropdown
-                {...field}
+                value={field.value}
+                onChange={(e) => field.onChange(e.value)}
                 options={TAX_TYPE_OPTIONS}
                 className="w-full"
               />

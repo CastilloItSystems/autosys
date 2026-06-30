@@ -141,6 +141,7 @@ export const toggleActive = asyncHandler(
  */
 export const evaluateConditionals = asyncHandler(
   async (req: Request, res: Response) => {
+    const empresaId = req.empresaId!
     const { templateId } = req.params
     const { responses } = req.body as { responses: any[] }
     const prisma =
@@ -155,7 +156,8 @@ export const evaluateConditionals = asyncHandler(
     const validation = await validateWithConditionalRules(
       prisma,
       templateId as string,
-      responses as any[]
+      responses as any[],
+      empresaId
     )
 
     return ApiResponse.success(res, {
@@ -171,6 +173,7 @@ export const evaluateConditionals = asyncHandler(
  */
 export const getValidationDetails = asyncHandler(
   async (req: Request, res: Response) => {
+    const empresaId = req.empresaId!
     const { templateId } = req.params
     const { responses } = req.body as { responses: any[] }
     const prisma =
@@ -184,7 +187,8 @@ export const getValidationDetails = asyncHandler(
     const validation = await getValidationDetailsWithConditionalRules(
       prisma,
       templateId as string,
-      responses as any[]
+      responses as any[],
+      empresaId
     )
 
     return ApiResponse.success(res, validation)

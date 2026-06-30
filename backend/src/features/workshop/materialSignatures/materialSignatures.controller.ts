@@ -36,8 +36,13 @@ export async function remove(req: Request, res: Response, next: NextFunction) {
 
 export async function status(req: Request, res: Response, next: NextFunction) {
   try {
+    const empresaId = (req as any).empresaId as string
     const { materialId } = req.params
-    const result = await service.hasCompleteSignatures(prisma, materialId as string)
+    const result = await service.hasCompleteSignatures(
+      prisma,
+      materialId as string,
+      empresaId
+    )
     res.json(result)
   } catch (err) {
     next(err)

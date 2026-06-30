@@ -15,6 +15,7 @@ import type {
 import { EXPENSE_CATEGORY_LABELS } from "../interfaces/expense";
 import expenseService from "../services/expenseService";
 import { handleFormError } from "@/utils/errorHandlers";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
 const CATEGORY_OPTIONS = Object.entries(EXPENSE_CATEGORY_LABELS).map(
@@ -29,12 +30,6 @@ const CURRENCY_OPTIONS = [
   { label: "VES - Bolívar", value: "VES" },
   { label: "EUR - Euro", value: "EUR" },
 ];
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 interface Props {
   expense?: Expense | null;

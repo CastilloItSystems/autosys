@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/utils/logger";
 import React from "react";
 import { Control, useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -280,7 +281,7 @@ export default function QuotationForm({
 
   const handleItemSelect = React.useCallback(
     (item: any, index: number) => {
-      console.log("[QuotationForm] handleItemSelect called:", { item, index });
+      logger.debug("[QuotationForm] handleItemSelect called:", { item, index });
 
       if (!item) return;
       setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
@@ -292,14 +293,14 @@ export default function QuotationForm({
           : item.type === "PART"
           ? "PART"
           : "EXTERNAL_SERVICE";
-      console.log("[QuotationForm] Setting type:", autoType);
+      logger.debug("[QuotationForm] Setting type:", autoType);
       setValue(`items.${index}.type`, autoType);
 
-      console.log("[QuotationForm] Setting referenceId:", item.id);
+      logger.debug("[QuotationForm] Setting referenceId:", item.id);
       setValue(`items.${index}.referenceId`, item.id);
 
       const descValue = item.name ?? "";
-      console.log(
+      logger.debug(
         "[QuotationForm] Setting description - raw value:",
         item.name,
         "- final:",
@@ -315,20 +316,20 @@ export default function QuotationForm({
         usdVesRate,
         currencyVesRate,
       );
-      console.log("[QuotationForm] Setting unitPrice:", convertedPrice);
+      logger.debug("[QuotationForm] Setting unitPrice:", convertedPrice);
       setValue(`items.${index}.unitPrice`, convertedPrice);
 
-      console.log("[QuotationForm] Setting unitCost:", item.cost);
+      logger.debug("[QuotationForm] Setting unitCost:", item.cost);
       setValue(`items.${index}.unitCost`, item.cost ?? 0);
 
-      console.log("[QuotationForm] Setting taxType:", item.taxType);
+      logger.debug("[QuotationForm] Setting taxType:", item.taxType);
       setValue(`items.${index}.taxType`, item.taxType ?? "IVA");
 
-      console.log("[QuotationForm] Setting taxRate:", item.taxRate);
+      logger.debug("[QuotationForm] Setting taxRate:", item.taxRate);
       setValue(`items.${index}.taxRate`, item.taxRate ?? 0.16);
 
       if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
-        console.log(
+        logger.debug(
           "[QuotationForm] Appending suggested items:",
           item.suggestedItems,
         );

@@ -1,11 +1,6 @@
 import React from "react";
 import { CalculationResult } from "../../../hooks/useOrderCalculation";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 interface OrderFinancialSummaryProps {
   totals: CalculationResult;

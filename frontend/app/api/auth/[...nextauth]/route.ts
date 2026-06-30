@@ -28,6 +28,22 @@ const refreshBackendTokenOnce = (refreshToken: string) => {
   return pending;
 };
 
+// Quita los arrays de permisos de cada empresa antes de guardarlos en el token
+// de NextAuth. Los permisos se piden aparte vía /auth/profile (usePermissionsData)
+// para no inflar la cookie de sesión (causaba HTTP 431). Se conservan
+// membershipId/empresaId/nombre/status/role para el selector de empresa y roles.
+const stripEmpresaPermissions = (user: any) => {
+  if (!user || !Array.isArray(user.empresas)) return user;
+  return {
+    ...user,
+    empresas: user.empresas.map((empresa: any) => {
+      if (!empresa || typeof empresa !== "object") return empresa;
+      const { permissions, ...rest } = empresa;
+      return rest;
+    }),
+  };
+};
+
 const stripBackendTokens = (user: any) => {
   const {
     token,
@@ -161,7 +177,7 @@ const handler = NextAuth({
     async jwt({ token, user, account, trigger, session }) {
       if (user) {
         const backendAuth = stripBackendTokens(user);
-        token.user = backendAuth.safeUser;
+        token.user = stripEmpresaPermissions(backendAuth.safeUser);
         token.backendToken = backendAuth.accessToken;
         token.backendAccessToken = backendAuth.accessToken;
         token.backendAccessTokenExpiresAt = backendAuth.accessTokenExpiresAt;
@@ -198,13 +214,13 @@ const handler = NextAuth({
               const profileJson = await profileRes.json();
               const freshEmpresas = profileJson?.data?.empresas;
               if (Array.isArray(freshEmpresas)) {
+                // Sin `permissions`: viven fuera del token (usePermissionsData).
                 const mappedEmpresas = freshEmpresas.map((e: any) => ({
                   membershipId: e.membershipId,
                   empresaId: e.empresa?.id_empresa ?? e.empresaId,
                   nombre: e.empresa?.nombre ?? e.nombre,
                   status: e.status,
                   role: e.role,
-                  permissions: e.permissions,
                 }));
                 token.user = {
                   ...(typeof token.user === "object" && token.user !== null
@@ -252,7 +268,7 @@ const handler = NextAuth({
             //   token.email = googleUser.email;
             //   token.name = googleUser.name;
             const backendAuth = stripBackendTokens(response);
-            token.user = backendAuth.safeUser;
+            token.user = stripEmpresaPermissions(backendAuth.safeUser);
             token.backendToken = backendAuth.accessToken;
             token.backendAccessToken = backendAuth.accessToken;
             token.backendAccessTokenExpiresAt = backendAuth.accessTokenExpiresAt;

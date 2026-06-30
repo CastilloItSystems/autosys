@@ -3,8 +3,8 @@
  * Handles work order material consumption and tracking
  */
 
+import { PrismaClient, Prisma } from '../../../../generated/prisma/client.js'
 import { EventType } from '../../shared/events/event.types.js'
-import { prisma } from '../../../../config/database.js'
 
 import {
   BadRequestError,
@@ -12,6 +12,10 @@ import {
 } from '../../../../shared/utils/errors.js'
 import { logger } from '../../../../shared/utils/logger.js'
 import EventService from '../../shared/events/event.service.js'
+import movementService from '../../movements/movements.service.js'
+import { MovementType } from '../../movements/movements.interface.js'
+
+type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
 interface WorkOrderMaterialConsumption {
   workOrderId: string
@@ -65,61 +69,102 @@ class WorkshopIntegrationService {
   }
 
   /**
-   * Create material consumption record for work order
+   * Create material consumption record for work order.
+   *
+   * Discounts real stock atomically and creates the corresponding inventory
+   * movement. Stock decrement is delegated to MovementService.create(), which
+   * runs inside a $transaction, validates item/warehouse by empresaId, checks
+   * availability in the SPECIFIC warehouse and decrements
+   * Stock.quantityReal/quantityAvailable accordingly.
    */
   async recordMaterialConsumption(
     workOrderId: string,
     itemId: string,
     quantity: number,
-    wasteQuantity: number = 0
+    wasteQuantity: number = 0,
+    userId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<WorkOrderMaterialConsumption> {
-    const item = await prisma.item.findUnique({
-      where: { id: itemId },
+    if (!(quantity > 0)) {
+      throw new BadRequestError('La cantidad consumida debe ser mayor a cero')
+    }
+
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id: itemId, empresaId },
       include: { stocks: true },
     })
 
-    if (!item) throw new NotFoundError('Item not found')
+    if (!item) throw new NotFoundError('Artículo no encontrado')
 
-    // Check stock availability
-    const totalStock = item.stocks.reduce(
-      (sum, s) => sum + s.quantityAvailable,
-      0
-    )
-    if (totalStock < quantity) {
+    // Pick a single warehouse that can satisfy the full consumption in ONE
+    // location (movements decrement from a single warehouseFromId). We never
+    // validate against the global sum while discounting from one warehouse.
+    const sourceStock = item.stocks
+      .filter((s) => s.quantityAvailable >= quantity)
+      .sort((a, b) => b.quantityAvailable - a.quantityAvailable)[0]
+
+    if (!sourceStock) {
+      const totalAvailable = item.stocks.reduce(
+        (sum, s) => sum + s.quantityAvailable,
+        0
+      )
       throw new BadRequestError(
-        `Insufficient stock for item ${item.sku}. Required: ${quantity}, Available: ${totalStock}`
+        `Stock insuficiente para el artículo ${item.sku}. ` +
+          `Requerido en un único almacén: ${quantity}, ` +
+          `Disponible (total entre almacenes): ${totalAvailable}`
       )
     }
 
-    // Create movement for material consumption
-    const movement = await prisma.movement.create({
-      data: {
-        type: 'ADJUSTMENT_OUT' as any,
-        itemId,
-        quantity,
-        warehouseFromId: item.stocks[0]?.warehouseId || undefined,
-        reference: workOrderId,
-        notes: `Work order ${workOrderId} material consumption`,
-      } as any,
-    })
-
-    // Calculate costs
     const unitCost = Number(item.costPrice) || 0
     const totalCost = quantity * unitCost
+
+    // Delegate the atomic stock decrement + movement creation to the canonical
+    // MovementService. It runs in its own $transaction (or joins the provided
+    // tx) and throws BadRequestError on insufficient stock in the warehouse.
+    const movement = await movementService.create(
+      {
+        type: MovementType.ADJUSTMENT_OUT,
+        itemId,
+        quantity,
+        unitCost,
+        totalCost,
+        warehouseFromId: sourceStock.warehouseId,
+        workOrderId,
+        reference: workOrderId,
+        notes: `Consumo de materiales OT ${workOrderId}`,
+      },
+      userId,
+      empresaId,
+      db
+    )
+
     const plannedQuantity = quantity + wasteQuantity
     const remainingQuantity = Math.max(0, plannedQuantity - quantity)
     const costVariance = wasteQuantity * unitCost
-
-    // Calculate efficiency (actual vs planned)
     const efficiency =
       plannedQuantity > 0 ? (quantity / plannedQuantity) * 100 : 100
 
-    // Emit material consumed event
     EventService.getInstance().emit({
       type: EventType.MATERIAL_CONSUMED,
       entityId: workOrderId,
       entityType: 'WORK_ORDER',
-      data: { workOrderId, itemId, quantity, movementId: movement.id, cost: totalCost },
+      data: {
+        workOrderId,
+        itemId,
+        quantity,
+        movementId: movement.id,
+        cost: totalCost,
+        empresaId,
+      },
+    })
+
+    logger.info(`Consumo de materiales registrado: OT ${workOrderId}`, {
+      userId,
+      empresaId,
+      itemId,
+      quantity,
+      movementId: movement.id,
     })
 
     return {
@@ -143,13 +188,16 @@ class WorkshopIntegrationService {
    * Get material summary for work order
    */
   async getWorkOrderMaterialSummary(
-    workOrderId: string
+    workOrderId: string,
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<WorkOrderMaterialSummary> {
-    // Get all movements for this work order
-    const movements = await prisma.movement.findMany({
+    // Get all consumption movements for this work order (tenant scoped via item)
+    const movements = await (db as PrismaClient).movement.findMany({
       where: {
         reference: workOrderId,
         type: 'ADJUSTMENT_OUT',
+        item: { empresaId },
       },
       include: { item: true },
     })
@@ -226,7 +274,9 @@ class WorkshopIntegrationService {
    * Check material requirements for work order
    */
   async checkMaterialRequirements(
-    materials: { itemId: string; quantity: number }[]
+    materials: { itemId: string; quantity: number }[],
+    empresaId: string,
+    db: PrismaClientType
   ): Promise<{
     isFeasible: boolean
     requirements: MaterialRequirement[]
@@ -237,13 +287,13 @@ class WorkshopIntegrationService {
 
     await Promise.all(
       materials.map(async (mat) => {
-        const item = await prisma.item.findUnique({
-          where: { id: mat.itemId },
+        const item = await (db as PrismaClient).item.findFirst({
+          where: { id: mat.itemId, empresaId },
           include: { stocks: true },
         })
 
         if (!item) {
-          throw new NotFoundError(`Item ${mat.itemId} not found`)
+          throw new NotFoundError(`Artículo ${mat.itemId} no encontrado`)
         }
 
         const availableQuantity = item.stocks.reduce(
@@ -285,31 +335,38 @@ class WorkshopIntegrationService {
    */
   async completeWorkOrder(
     workOrderId: string,
+    empresaId: string,
+    db: PrismaClientType,
     finalNotes?: string
   ): Promise<void> {
-    const movements = await prisma.movement.findMany({
+    const movements = await (db as PrismaClient).movement.findMany({
       where: {
         reference: workOrderId,
         type: 'ADJUSTMENT_OUT',
+        item: { empresaId },
       },
     })
 
-    // Mark all movements as completed
+    // Mark all movements as completed (tenant scoped by id from query above)
     await Promise.all(
       movements.map((mov) =>
-        prisma.movement.update({
+        (db as PrismaClient).movement.update({
           where: { id: mov.id },
           data: { notes: finalNotes || mov.notes },
         })
       )
     )
 
-    // Emit work order completed event
     EventService.getInstance().emit({
       type: EventType.WORK_ORDER_COMPLETED,
       entityId: workOrderId,
       entityType: 'WORK_ORDER',
-      data: { workOrderId, materialsCount: movements.length, completedAt: new Date() },
+      data: {
+        workOrderId,
+        materialsCount: movements.length,
+        completedAt: new Date(),
+        empresaId,
+      },
     })
   }
 
@@ -317,22 +374,24 @@ class WorkshopIntegrationService {
    * Get work order consumption history
    */
   async getWorkOrderConsumptionHistory(
+    empresaId: string,
+    db: PrismaClientType,
     page: number = 1,
     limit: number = 50
   ): Promise<{ data: any[]; total: number }> {
     const skip = (page - 1) * limit
+    const where = { type: 'ADJUSTMENT_OUT' as const, item: { empresaId } }
 
-    const movements = await prisma.movement.findMany({
-      where: { type: 'ADJUSTMENT_OUT' },
-      include: { item: true },
-      skip,
-      take: limit,
-      orderBy: { createdAt: 'desc' },
-    })
-
-    const total = await prisma.movement.count({
-      where: { type: 'ADJUSTMENT_OUT' },
-    })
+    const [movements, total] = await Promise.all([
+      (db as PrismaClient).movement.findMany({
+        where,
+        include: { item: true },
+        skip,
+        take: limit,
+        orderBy: { createdAt: 'desc' },
+      }),
+      (db as PrismaClient).movement.count({ where }),
+    ])
 
     return {
       data: movements.map((mov) => ({
@@ -353,33 +412,65 @@ export const recordMaterialConsumption = (
   workOrderId: string,
   itemId: string,
   quantity: number,
-  wasteQuantity?: number
+  wasteQuantity: number | undefined,
+  userId: string,
+  empresaId: string,
+  db: PrismaClientType
 ) =>
   WorkshopIntegrationService.getInstance().recordMaterialConsumption(
     workOrderId,
     itemId,
     quantity,
-    wasteQuantity
+    wasteQuantity ?? 0,
+    userId,
+    empresaId,
+    db
   )
 
-export const getWorkOrderMaterialSummary = (workOrderId: string) =>
+export const getWorkOrderMaterialSummary = (
+  workOrderId: string,
+  empresaId: string,
+  db: PrismaClientType
+) =>
   WorkshopIntegrationService.getInstance().getWorkOrderMaterialSummary(
-    workOrderId
+    workOrderId,
+    empresaId,
+    db
   )
 
 export const checkMaterialRequirements = (
-  materials: { itemId: string; quantity: number }[]
+  materials: { itemId: string; quantity: number }[],
+  empresaId: string,
+  db: PrismaClientType
 ) =>
-  WorkshopIntegrationService.getInstance().checkMaterialRequirements(materials)
+  WorkshopIntegrationService.getInstance().checkMaterialRequirements(
+    materials,
+    empresaId,
+    db
+  )
 
-export const completeWorkOrder = (workOrderId: string, finalNotes?: string) =>
+export const completeWorkOrder = (
+  workOrderId: string,
+  empresaId: string,
+  db: PrismaClientType,
+  finalNotes?: string
+) =>
   WorkshopIntegrationService.getInstance().completeWorkOrder(
     workOrderId,
+    empresaId,
+    db,
     finalNotes
   )
 
-export const getWorkOrderConsumptionHistory = (page?: number, limit?: number) =>
+export const getWorkOrderConsumptionHistory = (
+  empresaId: string,
+  db: PrismaClientType,
+  page?: number,
+  limit?: number
+) =>
   WorkshopIntegrationService.getInstance().getWorkOrderConsumptionHistory(
+    empresaId,
+    db,
     page,
     limit
   )

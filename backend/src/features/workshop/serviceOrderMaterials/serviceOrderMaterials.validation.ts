@@ -32,7 +32,7 @@ export const createServiceOrderMaterialSchema = Joi.object({
   clientApprovalAt: Joi.date().optional().allow(null),
   clientApprovedBy: Joi.string().optional().allow(null, ''),
   clientApprovalNotes: Joi.string().max(1000).optional().allow(null, ''),
-  warehouseId: Joi.string().uuid().optional().allow(null, ''),
+  warehouseId: Joi.string().optional().allow(null, ''),
   serviceOrderId: Joi.string()
     .required()
     .messages({ 'any.required': 'El ID de la orden es requerido' }),
@@ -62,7 +62,7 @@ export const updateServiceOrderMaterialSchema = Joi.object({
   clientApprovalAt: Joi.date().optional().allow(null),
   clientApprovedBy: Joi.string().optional().allow(null, ''),
   clientApprovalNotes: Joi.string().max(1000).optional().allow(null, ''),
-  warehouseId: Joi.string().uuid().optional().allow(null, ''),
+  warehouseId: Joi.string().optional().allow(null, ''),
   serviceOrderId: Joi.string().optional(),
   itemId: Joi.string().optional(),
 }).min(1)
@@ -87,7 +87,7 @@ export const changeStatusSchema = Joi.object({
     .required()
     .messages({ 'any.required': 'El estado es requerido' }),
   // Requerido para transiciones que tocan inventario (RESERVED, DISPATCHED, RETURNED, CANCELLED)
-  warehouseId: Joi.string().uuid().optional(),
+  warehouseId: Joi.string().optional(),
   // Cantidad a retornar (solo para RETURNED)
   quantityReturned: Joi.number().positive().optional(),
 })

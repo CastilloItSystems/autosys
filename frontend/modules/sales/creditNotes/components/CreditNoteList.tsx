@@ -18,16 +18,11 @@ import {
   CREDIT_NOTE_STATUS_CONFIG,
 } from "../interfaces/creditNote.interface";
 import dynamic from "next/dynamic";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const CreditNotePDFPreview = dynamic(() => import("./CreditNotePDFPreview"), {
   ssr: false,
 });
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const formatAmount = (value: number | string, currency = "USD") => {
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";

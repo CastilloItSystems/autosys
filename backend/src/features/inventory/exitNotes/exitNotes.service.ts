@@ -915,7 +915,7 @@ class ExitNotesService {
         },
       })
 
-      await this.handleTypeSpecificDelivery(tx, note, userId)
+      await this.handleTypeSpecificDelivery(tx, note, userId, empresaId)
 
       return note
     })
@@ -1095,7 +1095,8 @@ class ExitNotesService {
   private async handleTypeSpecificDelivery(
     tx: Prisma.TransactionClient,
     exitNote: Record<string, unknown>,
-    userId: string
+    userId: string,
+    empresaId: string
   ): Promise<void> {
     const type = exitNote.type as ExitNoteType
     const items = exitNote.items as Array<{
@@ -1135,7 +1136,7 @@ class ExitNotesService {
         const materialId = (exitNote as Record<string, unknown>)
           .serviceOrderMaterialId as string | undefined
         if (materialId) {
-          await dispatchMaterialFromExitNote(tx, materialId, userId)
+          await dispatchMaterialFromExitNote(tx, materialId, userId, empresaId)
         }
         break
       }

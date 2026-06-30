@@ -8,10 +8,12 @@ import {
   EMPRESAS_SWR_KEY,
   MY_EMPRESAS_SWR_KEY,
 } from "@/modules/companies/hooks/useEmpresasData";
+import { PERMISSIONS_SWR_KEY } from "@/hooks/usePermissionsData";
 
 const STRING_KEYS_TO_REVALIDATE = new Set([
   EMPRESAS_SWR_KEY,
   MY_EMPRESAS_SWR_KEY,
+  PERMISSIONS_SWR_KEY,
   "empresa-memberships",
   "membership-empresas",
   "users-list",

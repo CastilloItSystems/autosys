@@ -1,6 +1,7 @@
 // backend/src/features/workshop/workshopWarranties/workshopWarranties.service.ts
 import type { PrismaClient } from '../../../generated/prisma/client.js'
 import { NotFoundError, BadRequestError, ConflictError } from '../../../shared/utils/apiError.js'
+import { assertTransition } from '../../../shared/utils/stateMachine.js'
 import type {
   IWarrantyFilters, ICreateWarrantyInput, IUpdateWarrantyInput, WarrantyStatus,
 } from './workshopWarranties.interface.js'
@@ -64,16 +65,33 @@ export async function createWarranty(db: Db, empresaId: string, userId: string, 
   // Verificar OT original
   const so = await (db as PrismaClient).serviceOrder.findFirst({
     where: { id: data.originalOrderId, empresaId },
-    select: { id: true, status: true, customerId: true },
+    select: { id: true, status: true, customerId: true, deliveredAt: true },
   })
   if (!so) throw new NotFoundError('Orden de trabajo original no encontrada')
   if (!['DELIVERED', 'INVOICED', 'CLOSED'].includes(so.status)) {
     throw new BadRequestError('Solo se puede crear una garantía sobre una orden entregada, facturada o cerrada')
   }
 
+  // El cliente de la garantía debe coincidir con el de la OT original
+  if (so.customerId !== data.customerId) {
+    throw new BadRequestError('La garantía y la orden original deben pertenecer al mismo cliente')
+  }
+
   // Verificar cliente
   const customer = await (db as PrismaClient).customer.findFirst({ where: { id: data.customerId, empresaId } })
   if (!customer) throw new NotFoundError('Cliente no encontrado')
+
+  // Validación de vigencia: la garantía no puede crearse fuera de su período de
+  // vigencia. Si el cliente indica fecha de vencimiento (expiresAt), esta no
+  // puede ser anterior a la fecha actual. Adicionalmente, si la OT registra
+  // fecha de entrega (deliveredAt), no puede ser posterior a hoy.
+  const now = new Date()
+  if (data.expiresAt && new Date(data.expiresAt).getTime() < now.getTime()) {
+    throw new BadRequestError('No se puede crear una garantía ya vencida (fecha de vencimiento anterior a hoy)')
+  }
+  if (so.deliveredAt && new Date(so.deliveredAt).getTime() > now.getTime()) {
+    throw new BadRequestError('La fecha de entrega de la orden original es inválida (posterior a la fecha actual)')
+  }
 
   const warrantyNumber = await generateWarrantyNumber(db, empresaId)
   return (db as PrismaClient).workshopWarranty.create({
@@ -104,15 +122,21 @@ export async function updateWarranty(db: Db, id: string, empresaId: string, data
     const rework = await (db as PrismaClient).serviceOrder.findFirst({ where: { id: data.reworkOrderId, empresaId } })
     if (!rework) throw new NotFoundError('Orden de retrabajo no encontrada')
   }
-  return (db as PrismaClient).workshopWarranty.update({ where: { id }, data, include: INCLUDE })
+  // Construir updateData explícito con solo los campos permitidos para evitar
+  // mass-assignment (no se confía en el payload crudo del cliente).
+  const updateData: any = {}
+  if ('rootCause' in data) updateData.rootCause = data.rootCause
+  if ('resolution' in data) updateData.resolution = data.resolution
+  if ('technicianId' in data) updateData.technicianId = data.technicianId
+  if ('reworkOrderId' in data) updateData.reworkOrderId = data.reworkOrderId
+  return (db as PrismaClient).workshopWarranty.update({ where: { id }, data: updateData, include: INCLUDE })
 }
 
 export async function updateWarrantyStatus(db: Db, id: string, empresaId: string, newStatus: WarrantyStatus) {
   const existing = await findWarrantyById(db, id, empresaId)
-  const allowed = VALID_TRANSITIONS[existing.status as WarrantyStatus]
-  if (!allowed.includes(newStatus)) {
-    throw new BadRequestError(`No se puede pasar de ${existing.status} a ${newStatus}`)
-  }
+  assertTransition(VALID_TRANSITIONS, existing.status as WarrantyStatus, newStatus, {
+    entity: 'Garantía',
+  })
   const extra: any = {}
   if (newStatus === 'RESOLVED') extra.resolvedAt = new Date()
   return (db as PrismaClient).workshopWarranty.update({ where: { id }, data: { status: newStatus, ...extra }, include: INCLUDE })

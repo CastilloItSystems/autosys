@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSession } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 import {
   getCompanyNotificationPolicies,
   getMyNotificationPreferences,
@@ -36,31 +37,6 @@ const isHardLockedByCatalog = (item?: NotificationCatalogItem): boolean => {
   return severity === "ERROR" || priority === "CRITICAL";
 };
 
-interface EmpresaSessionInfo {
-  empresaId?: string;
-  id_empresa?: string;
-  permissions?: string[];
-}
-
-const getSessionPermissionsForEmpresa = (
-  user: any,
-  empresaId: string | null,
-): string[] => {
-  if (!empresaId) return [];
-  const empresas = Array.isArray(user?.empresas)
-    ? (user.empresas as EmpresaSessionInfo[])
-    : [];
-
-  const empresa = empresas.find(
-    (item) => item.empresaId === empresaId || item.id_empresa === empresaId,
-  );
-  const permissions = empresa?.permissions;
-
-  return Array.isArray(permissions)
-    ? permissions.filter((permission) => typeof permission === "string")
-    : [];
-};
-
 export default function NotificationSettingsPage() {
   const toast = useRef<Toast>(null);
   const { data: session, status } = useSession();
@@ -78,10 +54,8 @@ export default function NotificationSettingsPage() {
     [],
   );
 
-  const activePermissions = useMemo(
-    () => getSessionPermissionsForEmpresa(session?.user, activeEmpresaId),
-    [session?.user, activeEmpresaId],
-  );
+  // Permisos desde /auth/profile (ya no desde el token de NextAuth).
+  const { activePermissions } = useUserPermissions();
 
   const canViewNotifications = activePermissions.includes("notifications.view");
   const canManagePolicy = activePermissions.includes(

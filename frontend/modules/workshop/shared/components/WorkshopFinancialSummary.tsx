@@ -1,12 +1,7 @@
 import React from "react";
 import { Divider } from "primereact/divider";
 import type { WorkshopCalculationResult } from "@/hooks/useServiceOrderCalculation";
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const formatAmt = (value: number, currency: string) => {
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";

@@ -14,6 +14,7 @@ import { Menu } from "primereact/menu";
 import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import { handleFormError } from "@/utils/errorHandlers";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 import entryNoteService from "@/modules/inventory/entryNotes/services/entryNoteService";
 import { useEntryNotesData } from "@/modules/inventory/entryNotes/hooks/useEntryNotesData";
 import type {
@@ -208,12 +209,6 @@ const EntryNoteList = () => {
   };
 
   /* ── Helpers ── */
-  const CURRENCY_SYMBOLS: Record<string, string> = {
-    USD: "$",
-    EUR: "€",
-    VES: "Bs.",
-  };
-
   const formatAmount = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? currency;
     return `${sym} ${Number(value || 0).toLocaleString("es-VE", {

@@ -27,7 +27,9 @@ const LoginForm: Page = () => {
   React.useEffect(() => {
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get("expired") === "1") {
-      setError("Tu sesión ha finalizado. Inicia sesión nuevamente para continuar.");
+      setError(
+        "Tu sesión ha finalizado. Inicia sesión nuevamente para continuar.",
+      );
     }
   }, []);
 
@@ -99,8 +101,8 @@ const LoginForm: Page = () => {
               style={{ fontSize: "3.5rem" }}
             />
           </div>
-          <h1 className="font-bold text-3xl text-900 m-0">NomiSys</h1>
-          <p className="text-color-secondary mt-2">Bienvenido a NomiSys</p>
+          <h1 className="font-bold text-3xl text-900 m-0">AutoSys</h1>
+          <p className="text-color-secondary mt-2">Bienvenido a AutoSys</p>
         </div>
 
         <form
@@ -123,7 +125,7 @@ const LoginForm: Page = () => {
               <InputText
                 id="email"
                 type="email"
-                placeholder="usuario@NomiSys.com"
+                placeholder="usuario@AutoSys.com"
                 className={classNames("w-full", {
                   "p-invalid": errors.email,
                   "pl-5": filledInput,
@@ -234,7 +236,7 @@ const LoginForm: Page = () => {
 
         <div className="text-center text-color-secondary mt-5">
           <p className="text-sm">
-            © {new Date().getFullYear()} NomiSys
+            © {new Date().getFullYear()} AutoSys
             <br />
             <span className="text-xs">Todos los derechos reservados</span>
           </p>

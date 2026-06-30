@@ -17,6 +17,7 @@ import supplierPaymentService from "@/modules/finance/supplierPayments/services/
 import { useActiveBankAccountOptionsData } from "@/modules/finance/bankAccounts/hooks/useBankAccountsData";
 import { useSupplierPaymentsData } from "@/modules/finance/supplierPayments/hooks/useSupplierPaymentsData";
 import { handleFormError } from "@/utils/errorHandlers";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 import { useBcvRate } from "@/hooks/useBcvRate";
 
 interface PaymentDetail {
@@ -47,12 +48,6 @@ const METHOD_LABELS: Record<string, string> = {
 };
 
 const MIXED_OPTIONS = METHOD_OPTIONS.filter((o) => o.value !== "MIXED");
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 

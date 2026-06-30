@@ -31,14 +31,9 @@ import QuotationForm from "./QuotationForm";
 import QuotationApprovalDialog from "./QuotationApprovalDialog";
 import QuotationStepper from "./QuotationStepper";
 import dynamic from "next/dynamic";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const QuotationPDFPreview = dynamic(() => import("./QuotationPDFPreview"), { ssr: false });
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const formatAmount = (value: number | null | undefined, currency = "USD") => {
   if (value == null) return "—";

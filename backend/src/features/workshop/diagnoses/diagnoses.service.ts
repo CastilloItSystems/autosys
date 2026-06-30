@@ -1,6 +1,7 @@
 // backend/src/features/workshop/diagnoses/diagnoses.service.ts
 import type { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
 import { NotFoundError, ConflictError } from '../../../shared/utils/apiError.js'
+import { logger } from '../../../shared/utils/logger.js'
 import type {
   ICreateDiagnosisInput,
   IUpdateDiagnosisInput,
@@ -119,40 +120,44 @@ export async function addDiagnosisFinding(
   userId: string = 'system'
 ) {
   const diagnosis = await findDiagnosisById(db, diagnosisId, empresaId)
-  const finding = await (db as PrismaClient).diagnosisFinding.create({
-    data: {
-      empresaId,
-      diagnosisId: diagnosis.id,
-      category: data.category,
-      description: data.description,
-      severity: data.severity || 'MEDIUM',
-      requiresClientAuth: data.requiresClientAuth ?? true,
-      isHiddenFinding: data.isHiddenFinding ?? false,
-      observation: data.observation,
-    },
-  })
+  const serviceOrderId = (diagnosis as any).serviceOrderId as string | null
+  const isHidden = data.isHiddenFinding ?? false
 
-  // §10.3 — Hallazgo oculto detectado: auto-disparar ServiceOrderAdditional
-  // (presupuesto suplementario) en estado PROPOSED. Requiere aprobación del cliente.
-  if (finding.isHiddenFinding && (diagnosis as any).serviceOrderId) {
-    try {
-      await (db as PrismaClient).serviceOrderAdditional.create({
+  // §10.3 — Hallazgo oculto detectado: el finding y la auto-creación del
+  // ServiceOrderAdditional (presupuesto suplementario en estado PROPOSED)
+  // deben ser atómicos para no dejar findings huérfanos si algo falla.
+  return (db as PrismaClient).$transaction(async (tx) => {
+    const finding = await tx.diagnosisFinding.create({
+      data: {
+        empresaId,
+        diagnosisId: diagnosis.id,
+        category: data.category,
+        description: data.description,
+        severity: data.severity || 'MEDIUM',
+        requiresClientAuth: data.requiresClientAuth ?? true,
+        isHiddenFinding: isHidden,
+        observation: data.observation,
+      },
+    })
+
+    if (finding.isHiddenFinding && serviceOrderId) {
+      await tx.serviceOrderAdditional.create({
         data: {
           empresaId,
-          serviceOrderId: (diagnosis as any).serviceOrderId,
+          serviceOrderId,
           diagnosisFindingId: finding.id,
           description: `[Hallazgo oculto] ${finding.description}`,
           status: 'PROPOSED',
           createdBy: userId,
         },
       })
-    } catch (e) {
-      // No bloquear el flujo si el auto-disparo falla; log y seguir
-      console.error('Auto-creación de suplementaria desde hallazgo oculto falló', e)
+      logger.info(
+        `Suplementaria auto-creada desde hallazgo oculto (finding ${finding.id}, OS ${serviceOrderId})`
+      )
     }
-  }
 
-  return finding
+    return finding
+  })
 }
 
 export async function addDiagnosisSuggestedOp(

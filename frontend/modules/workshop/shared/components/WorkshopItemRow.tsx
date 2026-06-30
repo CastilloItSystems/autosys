@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/utils/logger";
 import React, { useState, useEffect, useRef } from "react";
 import { Controller, Control, UseFormRegister } from "react-hook-form";
 import { Dropdown } from "primereact/dropdown";
@@ -148,22 +149,22 @@ export default function WorkshopItemRow({
   }, []);
 
   const handleSearch = async (e: AutoCompleteCompleteEvent) => {
-    console.log("[WorkshopItemRow] handleSearch triggered:", e.query);
+    logger.debug("[WorkshopItemRow] handleSearch triggered:", e.query);
 
     // Always use internal search (BFF endpoint) — unified catalog search, NO type filter
     if (!e.query || e.query.length < 2) {
-      console.log("[WorkshopItemRow] Query too short, clearing suggestions");
+      logger.debug("[WorkshopItemRow] Query too short, clearing suggestions");
       setInternalSuggestions([]);
       return;
     }
 
     try {
-      console.log("[WorkshopItemRow] Searching catalog for:", e.query);
+      logger.debug("[WorkshopItemRow] Searching catalog for:", e.query);
       const res = await catalogSearchService.search(e.query);
-      console.log("[WorkshopItemRow] Search response:", res);
+      logger.debug("[WorkshopItemRow] Search response:", res);
       // Show all results (LABOR + PART mixed) — type will be auto-detected on selection
       setInternalSuggestions(res.data || []);
-      console.log("[WorkshopItemRow] Updated suggestions:", res.data);
+      logger.debug("[WorkshopItemRow] Updated suggestions:", res.data);
     } catch (err) {
       console.error("[WorkshopItemRow] Search error:", err);
       setInternalSuggestions([]);
@@ -313,10 +314,10 @@ export default function WorkshopItemRow({
                 style={{ height: "30px", width: "100%" }}
                 onSelect={(e) => {
                   const item = e.value;
-                  console.log("[WorkshopItemRow] AutoComplete onSelect:", item);
+                  logger.debug("[WorkshopItemRow] AutoComplete onSelect:", item);
                   f.onChange(item.id);
                   if (onItemSelect) {
-                    console.log(
+                    logger.debug(
                       "[WorkshopItemRow] Calling onItemSelect with item:",
                       item,
                     );

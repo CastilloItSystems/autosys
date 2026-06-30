@@ -44,13 +44,13 @@ export default function DeliveryList() {
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu | null>(null);
 
-  const { deliveries: items, loading, mutate } = useDeliveriesData({
+  const { deliveries: items, total, loading, mutate } = useDeliveriesData({
     page: page + 1,
     limit: rows,
     sortBy: "createdAt",
     sortOrder: "desc",
   });
-  const totalRecords = items.length;
+  const totalRecords = total;
 
   const openNew = () => {
     setSelected(null);
@@ -367,19 +367,6 @@ export default function DeliveryList() {
             : ""
         }`}
       />
-      {/* PDF Preview Dialog */}
-      {pdfItem && (
-        <Dialog
-          visible
-          onHide={() => setPdfItem(null)}
-          header="Vista Previa — Entrega de Vehículo"
-          style={{ width: "85%", height: "90vh" }}
-          contentStyle={{ padding: 0, height: "100%" }}
-          modal
-        >
-          <DeliveryPDFPreview data={pdfItem} />
-        </Dialog>
-      )}
       {/* PDF Preview Dialog */}
       {pdfItem && (
         <Dialog

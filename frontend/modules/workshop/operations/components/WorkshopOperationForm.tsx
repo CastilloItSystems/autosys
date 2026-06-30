@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/utils/logger";
 import React, { useEffect, useState } from "react";
 import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -691,7 +692,7 @@ export default function WorkshopOperationForm({
             itemSuggestions={itemSuggestions}
             onItemSearch={(e) => searchItems(e.query)}
             onItemSelect={(item, index) => {
-              console.log(
+              logger.debug(
                 "[WorkshopOperationForm] handleItemSelect for suggestedMaterials:",
                 { item, index },
               );
@@ -700,11 +701,11 @@ export default function WorkshopOperationForm({
                 [item.id]: item,
               }));
 
-              console.log("[WorkshopOperationForm] Setting itemId:", item.id);
+              logger.debug("[WorkshopOperationForm] Setting itemId:", item.id);
               setValue(`suggestedMaterials.${index}.itemId` as any, item.id);
 
               const descValue = item.name ?? "";
-              console.log(
+              logger.debug(
                 "[WorkshopOperationForm] Setting description:",
                 descValue,
               );

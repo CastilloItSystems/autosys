@@ -62,6 +62,7 @@ export interface IStockExportInput {
     maxQuantity?: number
     lowStock?: boolean
     outOfStock?: boolean
+    search?: string
   }
   columns?: string[]
   format?: 'csv' | 'json' | 'xlsx'

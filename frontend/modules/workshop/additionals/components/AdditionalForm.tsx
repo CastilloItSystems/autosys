@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/utils/logger";
 import React, { useEffect } from "react";
 import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -71,7 +72,7 @@ export default function AdditionalForm({
 
   const handleItemSelect = React.useCallback(
     (item: any, index: number) => {
-      console.log("[AdditionalForm] handleItemSelect called:", { item, index });
+      logger.debug("[AdditionalForm] handleItemSelect called:", { item, index });
       if (!item) return;
       setSelectedItemsMap((prev) => ({ ...prev, [item.id]: item }));
 
@@ -82,32 +83,32 @@ export default function AdditionalForm({
           : item.type === "PART"
           ? "PART"
           : "OTHER";
-      console.log("[AdditionalForm] Setting type:", autoType);
+      logger.debug("[AdditionalForm] Setting type:", autoType);
       setValue(`items.${index}.type`, autoType);
 
       // Update form values
-      console.log("[AdditionalForm] Setting referenceId:", item.id);
+      logger.debug("[AdditionalForm] Setting referenceId:", item.id);
       setValue(`items.${index}.referenceId`, item.id);
 
       const descValue = item.name ?? "";
-      console.log("[AdditionalForm] Setting description:", descValue);
+      logger.debug("[AdditionalForm] Setting description:", descValue);
       setValue(`items.${index}.description`, descValue);
 
-      console.log("[AdditionalForm] Setting unitPrice:", item.price);
+      logger.debug("[AdditionalForm] Setting unitPrice:", item.price);
       setValue(`items.${index}.unitPrice`, item.price ?? 0);
 
-      console.log("[AdditionalForm] Setting unitCost:", item.cost);
+      logger.debug("[AdditionalForm] Setting unitCost:", item.cost);
       setValue(`items.${index}.unitCost`, item.cost ?? 0);
 
-      console.log("[AdditionalForm] Setting taxType:", item.taxType);
+      logger.debug("[AdditionalForm] Setting taxType:", item.taxType);
       setValue(`items.${index}.taxType`, item.taxType ?? "IVA");
 
-      console.log("[AdditionalForm] Setting taxRate:", item.taxRate);
+      logger.debug("[AdditionalForm] Setting taxRate:", item.taxRate);
       setValue(`items.${index}.taxRate`, item.taxRate ?? 0.16);
 
       // Add suggested items if they exist and it's a LABOR item
       if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
-        console.log(
+        logger.debug(
           "[AdditionalForm] Appending suggested items:",
           item.suggestedItems,
         );

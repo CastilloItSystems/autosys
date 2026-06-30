@@ -72,6 +72,7 @@ export interface IStockExportRequest {
     maxQuantity?: number;
     lowStock?: boolean;
     outOfStock?: boolean;
+    search?: string;
   };
   columns?: string[];
 }

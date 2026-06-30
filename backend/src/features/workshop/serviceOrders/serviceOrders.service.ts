@@ -5,6 +5,13 @@ import {
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
 import { logger } from '../../../shared/utils/logger.js'
+import { Money } from '../../../shared/utils/money.js'
+import { assertTransition } from '../../../shared/utils/stateMachine.js'
+import {
+  generateFolio,
+  calcTotals,
+  generateWorkshopQuotationNumber,
+} from './serviceOrders.calc.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
@@ -64,76 +71,9 @@ const SERVICE_ORDER_ITEM_INCLUDE = {
   },
 } as const
 
-// Genera folio SO-XXXX por empresa usando SELECT FOR UPDATE para evitar duplicados
-export async function generateFolio(
-  prisma: PrismaClientType,
-  empresaId: string
-): Promise<string> {
-  // Raw query con lock para evitar race condition en creaciones concurrentes
-  const result = await (prisma as PrismaClient).$queryRaw<{ folio: string }[]>`
-    SELECT folio FROM service_orders
-    WHERE "empresaId" = ${empresaId}
-    ORDER BY "createdAt" DESC
-    LIMIT 1
-    FOR UPDATE SKIP LOCKED
-  `
-  const last = result[0]
-  const lastNum = last ? parseInt(last.folio.replace('SO-', ''), 10) : 0
-  const next = lastNum + 1
-  return `SO-${String(next).padStart(4, '0')}`
-}
-
-async function generateWorkshopQuotationNumber(
-  prisma: PrismaClientType,
-  empresaId: string
-): Promise<string> {
-  const result = await (prisma as PrismaClient).$queryRaw<{ num: bigint }[]>`
-    SELECT COUNT(*) AS num FROM workshop_quotations WHERE "empresaId" = ${empresaId}
-  `
-  const next = Number(result[0]?.num ?? 0) + 1
-  return `COT-${String(next).padStart(4, '0')}`
-}
-
-function calcTotals(
-  items: {
-    type: string
-    quantity: number
-    unitPrice: number
-    discountPct?: number
-    taxRate?: number
-    taxType?: string
-  }[]
-) {
-  let laborTotal = 0
-  let partsTotal = 0
-  let otherTotal = 0
-  let subtotal = 0
-  let taxAmt = 0
-
-  for (const item of items) {
-    const gross = item.quantity * item.unitPrice
-    const discount = ((item.discountPct ?? 0) * gross) / 100
-    const base = gross - discount
-    const rate = item.taxType === 'EXEMPT' ? 0 : (item.taxRate ?? 0.16)
-    const tax = base * rate
-
-    subtotal += base
-    taxAmt += tax
-
-    if (item.type === 'LABOR') laborTotal += base
-    else if (item.type === 'PART') partsTotal += base
-    else otherTotal += base
-  }
-
-  return {
-    laborTotal,
-    partsTotal,
-    otherTotal,
-    subtotal,
-    taxAmt,
-    total: subtotal + taxAmt,
-  }
-}
+// Helpers de cálculo y generación de números extraídos a serviceOrders.calc.ts.
+// Se re-exportan calcTotals y generateFolio para preservar la API pública.
+export { generateFolio, calcTotals }
 
 export async function createServiceOrder(
   prisma: PrismaClientType,
@@ -148,12 +88,41 @@ export async function createServiceOrder(
   })
   if (!customer) throw new NotFoundError('Cliente no encontrado')
 
+  // Validar que cada FK presente pertenezca a la empresa
+  if (dto.serviceTypeId) {
+    const serviceType = await (prisma as PrismaClient).serviceType.findFirst({
+      where: { id: dto.serviceTypeId, empresaId },
+      select: { id: true },
+    })
+    if (!serviceType) throw new NotFoundError('Tipo de servicio no encontrado')
+  }
+
+  if (dto.bayId) {
+    const bay = await (prisma as PrismaClient).workshopBay.findFirst({
+      where: { id: dto.bayId, empresaId },
+      select: { id: true },
+    })
+    if (!bay) throw new NotFoundError('Bahía no encontrada')
+  }
+
+  // User es global; su pertenencia a la empresa se valida vía Membership
+  if (dto.assignedTechnicianId) {
+    const membership = await (prisma as PrismaClient).membership.findFirst({
+      where: { userId: dto.assignedTechnicianId, empresaId },
+      select: { id: true },
+    })
+    if (!membership)
+      throw new NotFoundError(
+        'Técnico asignado no encontrado o no pertenece a la empresa'
+      )
+  }
+
   // Snapshot de vehículo si se proveyó
   let vehiclePlate = dto.vehiclePlate
   let vehicleDesc = dto.vehicleDesc
   if (dto.customerVehicleId) {
     const vehicle = await (prisma as PrismaClient).customerVehicle.findFirst({
-      where: { id: dto.customerVehicleId, customerId: dto.customerId },
+      where: { id: dto.customerVehicleId, customerId: dto.customerId, empresaId },
       select: {
         plate: true,
         vehicleModel: { select: { name: true } },
@@ -216,24 +185,27 @@ export async function createServiceOrder(
   )
 
   // M3: Calcular totales ANTES de hacer string conversion
-  const { laborTotal, partsTotal, otherTotal, subtotal, taxAmt, total } =
+  const { laborTotal, partsTotal, otherTotal, subtotal, discount, taxAmt, total } =
     calcTotals(enrichedItems as any)
 
   // M4: Convertir items para Prisma (todos los Decimals como strings)
   const itemsWithTotals = enrichedItems.map((i) => {
     const qty = Number(i.quantity) || 1
     const price = Number(i.unitPrice) || 0
-    const discount = Number((i as any).discountPct ?? 0) / 100
+    const discountPct = Number((i as any).discountPct ?? 0)
     const taxRate =
       (i as any).taxType === 'EXEMPT' ? 0 : Number((i as any).taxRate ?? 0.16)
-    const total = qty * price * (1 - discount) * (1 + taxRate)
+    // base = qty * price * (1 - discount) ; total = base * (1 + taxRate)
+    const base = Money.of(qty).mul(price)
+    const net = base.sub(base.percent(discountPct))
+    const total = net.add(net.mul(taxRate))
 
     return {
       ...i,
       quantity: qty.toString(),
       unitPrice: price.toString(),
       unitCost: Number((i as any).unitCost ?? 0).toString(),
-      discountPct: Number((i as any).discountPct ?? 0).toString(),
+      discountPct: discountPct.toString(),
       taxRate: taxRate.toString(),
       total: total.toString(),
     }
@@ -265,6 +237,7 @@ export async function createServiceOrder(
     partsTotal: partsTotal.toString(),
     otherTotal: otherTotal.toString(),
     subtotal: subtotal.toString(),
+    discount: discount.toString(),
     taxAmt: taxAmt.toString(),
     total: total.toString(),
     createdBy: userId,
@@ -272,11 +245,6 @@ export async function createServiceOrder(
       create: itemsWithTotals,
     },
   }
-
-  console.log(
-    'Creating service order with data:',
-    JSON.stringify(createData, null, 2)
-  )
 
   const includeConfig = {
     customer: { select: { id: true, name: true, code: true } },
@@ -563,13 +531,14 @@ export async function createWorkshopQuotationFromServiceOrder(
 
   const quotationNumber = await generateWorkshopQuotationNumber(prisma, empresaId)
 
-  let laborTotal = 0
-  let partsTotal = 0
-  let otherTotal = 0
-  let subtotal = 0
-  let discount = 0
-  let taxAmt = 0
-  let total = 0
+  // Acumuladores con precisión decimal exacta.
+  let laborTotal = Money.zero()
+  let partsTotal = Money.zero()
+  let otherTotal = Money.zero()
+  let subtotal = Money.zero()
+  let discount = Money.zero()
+  let taxAmt = Money.zero()
+  let total = Money.zero()
 
   const quotationItems = serviceOrder.items.map((item, idx) => {
     const quantity = Number(item.quantity)
@@ -578,12 +547,18 @@ export async function createWorkshopQuotationFromServiceOrder(
     const taxType = (item.taxType as any) ?? 'IVA'
     const taxRate = Number(item.taxRate ?? 0.16)
 
-    const lineSubtotal = quantity * unitPrice
-    const lineDiscount = (discountPct / 100) * lineSubtotal
-    const lineBase = lineSubtotal - lineDiscount
-    const lineTax =
-      taxType === 'EXEMPT' ? 0 : Number(item.taxAmount ?? lineBase * taxRate)
-    const lineTotal = Number(item.total ?? lineBase + lineTax)
+    const lineSubtotalM = Money.of(quantity).mul(unitPrice)
+    const lineDiscountM = lineSubtotalM.percent(discountPct)
+    const lineBaseM = lineSubtotalM.sub(lineDiscountM)
+    const lineTaxM =
+      taxType === 'EXEMPT'
+        ? Money.zero()
+        : Money.of(item.taxAmount ?? lineBaseM.mul(taxRate).toNumber())
+    const lineTotalM = Money.of(item.total ?? lineBaseM.add(lineTaxM).toNumber())
+
+    const lineSubtotal = lineSubtotalM.toNumber()
+    const lineTax = lineTaxM.toNumber()
+    const lineTotal = lineTotalM.toNumber()
 
     const quotationType: 'LABOR' | 'PART' | 'EXTERNAL_SERVICE' =
       item.type === 'LABOR'
@@ -592,14 +567,14 @@ export async function createWorkshopQuotationFromServiceOrder(
           ? 'PART'
           : 'EXTERNAL_SERVICE'
 
-    if (quotationType === 'LABOR') laborTotal += lineBase
-    else if (quotationType === 'PART') partsTotal += lineBase
-    else otherTotal += lineBase
+    if (quotationType === 'LABOR') laborTotal = laborTotal.add(lineBaseM)
+    else if (quotationType === 'PART') partsTotal = partsTotal.add(lineBaseM)
+    else otherTotal = otherTotal.add(lineBaseM)
 
-    subtotal += lineSubtotal
-    discount += lineDiscount
-    taxAmt += lineTax
-    total += lineTotal
+    subtotal = subtotal.add(lineSubtotalM)
+    discount = discount.add(lineDiscountM)
+    taxAmt = taxAmt.add(lineTaxM)
+    total = total.add(lineTotalM)
 
     return {
       type: quotationType,
@@ -636,13 +611,13 @@ export async function createWorkshopQuotationFromServiceOrder(
       validUntil: serviceOrder.estimatedDelivery ?? null,
       notes: serviceOrder.diagnosisNotes ?? null,
       internalNotes: serviceOrder.internalNotes ?? null,
-      laborTotal,
-      partsTotal,
-      otherTotal,
-      subtotal,
-      discount,
-      taxAmt,
-      total,
+      laborTotal: laborTotal.toNumber(),
+      partsTotal: partsTotal.toNumber(),
+      otherTotal: otherTotal.toNumber(),
+      subtotal: subtotal.toNumber(),
+      discount: discount.toNumber(),
+      taxAmt: taxAmt.toNumber(),
+      total: total.toNumber(),
       empresaId,
       createdBy: userId,
       items: {
@@ -687,8 +662,21 @@ export async function updateServiceOrder(
   }
 
   const { items, observations, ...fields } = dto
-  let totalsUpdate = {}
 
+  // Map observations to internalNotes (Prisma schema naming)
+  const updateData: any = { ...(fields as any) }
+  if (observations !== undefined) {
+    updateData.internalNotes = observations
+  }
+
+  const includeConfig = {
+    customer: { select: { id: true, name: true, code: true } },
+    customerVehicle: { select: { id: true, plate: true } },
+    items: SERVICE_ORDER_ITEM_INCLUDE,
+  }
+
+  // Si se reemplazan items, todo (deleteMany + createMany + update de totales)
+  // debe ir en una sola transacción para mantener la atomicidad.
   if (items !== undefined) {
     const itemsWithTotals = items.map((i) => ({
       ...i,
@@ -698,42 +686,46 @@ export async function updateServiceOrder(
         (1 - (i.discountPct ?? 0) / 100) *
         (1 + (i.taxType === 'EXEMPT' ? 0 : (i.taxRate ?? 0.16))),
     }))
-    const { laborTotal, partsTotal, otherTotal, subtotal, taxAmt, total } =
-      calcTotals(itemsWithTotals)
-    totalsUpdate = {
+    const {
       laborTotal,
       partsTotal,
       otherTotal,
       subtotal,
+      discount,
       taxAmt,
       total,
-    }
+    } = calcTotals(itemsWithTotals)
 
-    // Reemplazar items en transacción para evitar pérdida de datos si createMany falla
-    await (prisma as PrismaClient).$transaction([
+    const [, , updated] = await (prisma as PrismaClient).$transaction([
       (prisma as PrismaClient).serviceOrderItem.deleteMany({
         where: { serviceOrderId: id },
       }),
       (prisma as PrismaClient).serviceOrderItem.createMany({
         data: itemsWithTotals.map((i) => ({ ...i, serviceOrderId: id })) as any,
       }),
+      (prisma as PrismaClient).serviceOrder.update({
+        where: { id },
+        data: {
+          ...updateData,
+          laborTotal,
+          partsTotal,
+          otherTotal,
+          subtotal,
+          discount,
+          taxAmt,
+          total,
+        },
+        include: includeConfig,
+      }),
     ])
-  }
 
-  // Map observations to internalNotes (Prisma schema naming)
-  const updateData = { ...(fields as any), ...totalsUpdate }
-  if (observations !== undefined) {
-    updateData.internalNotes = observations
+    return updated
   }
 
   const updated = await (prisma as PrismaClient).serviceOrder.update({
     where: { id },
     data: updateData,
-    include: {
-      customer: { select: { id: true, name: true, code: true } },
-      customerVehicle: { select: { id: true, plate: true } },
-      items: SERVICE_ORDER_ITEM_INCLUDE,
-    },
+    include: includeConfig,
   })
 
   return updated
@@ -747,12 +739,12 @@ export async function updateServiceOrderStatus(
   userId: string
 ) {
   const existing = await findServiceOrderById(prisma, id, empresaId)
-  const allowed = VALID_TRANSITIONS[existing.status as ServiceOrderStatus]
-  if (!allowed.includes(dto.status)) {
-    throw new BadRequestError(
-      `No se puede pasar de ${existing.status} a ${dto.status}`
-    )
-  }
+  assertTransition(
+    VALID_TRANSITIONS,
+    existing.status as ServiceOrderStatus,
+    dto.status,
+    { entity: 'Orden de servicio' }
+  )
 
   // FASE 1.5: Validate that SO cannot advance past certain states without quote approval
   await validateSOQuoteApproval(prisma, id, dto.status)

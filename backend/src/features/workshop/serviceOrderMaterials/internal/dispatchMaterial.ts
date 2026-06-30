@@ -16,11 +16,12 @@ type DbType = PrismaClient | Prisma.TransactionClient
 export async function dispatchMaterialFromExitNote(
   tx: DbType,
   materialId: string,
-  userId: string
+  userId: string,
+  empresaId: string
 ): Promise<void> {
-  // Fetch the material with its relations
-  const material = await (tx as PrismaClient).serviceOrderMaterial.findUnique({
-    where: { id: materialId },
+  // Fetch the material with its relations (empresa-scoped to prevent cross-tenant dispatch)
+  const material = await (tx as PrismaClient).serviceOrderMaterial.findFirst({
+    where: { id: materialId, empresaId },
     include: {
       serviceOrder: { select: { folio: true, empresaId: true } },
       item: { select: { name: true } },

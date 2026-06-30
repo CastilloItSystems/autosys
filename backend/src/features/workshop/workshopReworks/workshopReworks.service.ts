@@ -99,7 +99,12 @@ export async function createRework(db: Db, empresaId: string, data: ICreateRewor
 }
 
 export async function updateRework(db: Db, id: string, empresaId: string, data: IUpdateReworkInput) {
-  await findReworkById(db, id, empresaId)
+  const existing = await findReworkById(db, id, empresaId)
+  // No se permite editar retrabajos cerrados o resueltos (alineado con
+  // garantías y cotizaciones).
+  if (['CLOSED', 'RESOLVED'].includes(existing.status)) {
+    throw new BadRequestError('No se puede editar un retrabajo cerrado o resuelto')
+  }
   if (data.reworkOrderId) {
     const reworkOrder = await (db as PrismaClient).serviceOrder.findFirst({ where: { id: data.reworkOrderId, empresaId } })
     if (!reworkOrder) throw new NotFoundError('Orden de retrabajo no encontrada')

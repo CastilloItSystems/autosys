@@ -23,17 +23,12 @@ import {
 } from "@/components/common/ConfirmAction";
 import dynamic from "next/dynamic";
 import { Dialog } from "primereact/dialog";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const PaymentReceiptPDFPreview = dynamic(
   () => import("./PaymentReceiptPDFPreview"),
   { ssr: false }
 );
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const formatAmount = (value: number | string, currency = "USD") => {
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";

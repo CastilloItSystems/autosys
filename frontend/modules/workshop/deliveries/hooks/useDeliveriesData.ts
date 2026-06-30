@@ -15,6 +15,7 @@ export const useDeliveriesData = (filters?: DeliveryFilters) => {
 
   return {
     deliveries: data?.data ?? [],
+    total: (data as any)?.meta?.total ?? 0,
     loading: isLoading,
     error,
     mutate: useCallback(() => mutate(), [mutate]),

@@ -121,7 +121,10 @@ export async function createQualityCheck(
 
   // Verificar que el inspector existe, es técnico y está activo
   const inspector = await (db as PrismaClient).user.findFirst({
-    where: { id: data.inspectorId },
+    where: {
+      id: data.inspectorId,
+      memberships: { some: { empresaId } },
+    },
     select: { id: true, isTechnician: true, estado: true, eliminado: true },
   })
   if (!inspector) throw new NotFoundError('Inspector no encontrado')
@@ -134,36 +137,58 @@ export async function createQualityCheck(
 
   // Verificar que no exista ya uno (1:1)
   const existing = await (db as PrismaClient).qualityCheck.findFirst({
-    where: { serviceOrderId: data.serviceOrderId },
+    where: {
+      serviceOrderId: data.serviceOrderId,
+      serviceOrder: { empresaId },
+    },
   })
   if (existing)
     throw new ConflictError(
       'Ya existe un control de calidad para esta orden. Use el endpoint de actualización.'
     )
 
-  // Mover OT a QUALITY_CHECK si estaba en IN_PROGRESS
-  if (so.status === 'IN_PROGRESS') {
-    await changeServiceOrderStatusWithHistory(db, {
-      serviceOrderId: data.serviceOrderId,
-      empresaId,
-      newStatus: 'QUALITY_CHECK',
-      userId,
-      comment: 'Control de calidad iniciado',
-    })
-  }
+  // Mover OT a QUALITY_CHECK si estaba en IN_PROGRESS y crear el QC deben ser
+  // atómicos. Diferimos los eventos del cambio de estado al commit.
+  const { created, publishStatusEvents } = await (
+    db as PrismaClient
+  ).$transaction(async (tx) => {
+    let publishStatusEvents: (() => Promise<void>) | null = null
 
-  const created = await (db as PrismaClient).qualityCheck.create({
-    data: {
-      serviceOrderId: data.serviceOrderId,
-      inspectorId: data.inspectorId,
-      status: 'IN_PROGRESS',
-      checklistItems: (data.checklistItems as any) ?? [],
-      startedAt: new Date(),
-      notes: data.notes ?? null,
-      createdBy: userId,
-    },
-    include: INCLUDE,
+    if (so.status === 'IN_PROGRESS') {
+      const { publishEvents } = await changeServiceOrderStatusWithHistory(
+        tx,
+        {
+          serviceOrderId: data.serviceOrderId,
+          empresaId,
+          newStatus: 'QUALITY_CHECK',
+          userId,
+          comment: 'Control de calidad iniciado',
+        },
+        { tx }
+      )
+      publishStatusEvents = publishEvents
+    }
+
+    const created = await tx.qualityCheck.create({
+      data: {
+        serviceOrderId: data.serviceOrderId,
+        inspectorId: data.inspectorId,
+        status: 'IN_PROGRESS',
+        checklistItems: (data.checklistItems as any) ?? [],
+        startedAt: new Date(),
+        notes: data.notes ?? null,
+        createdBy: userId,
+      },
+      include: INCLUDE,
+    })
+
+    return { created, publishStatusEvents }
   })
+
+  // Eventos de cambio de estado de la OT: publicados tras el commit.
+  if (publishStatusEvents) {
+    await publishStatusEvents()
+  }
 
   try {
     await domainEventBus.publish(
@@ -235,29 +260,46 @@ export async function submitQualityCheck(
   const newStatus = allPassed ? 'PASSED' : 'FAILED'
   const targetStatus = allPassed ? 'READY' : 'IN_PROGRESS'
 
-  // Si aprueba → mover OT a READY; si falla → regresar a IN_PROGRESS
-  await changeServiceOrderStatusWithHistory(db, {
-    serviceOrderId: item.serviceOrderId,
-    empresaId,
-    newStatus: targetStatus,
-    userId,
-    comment: allPassed
-      ? 'Control de calidad aprobado'
-      : 'Control de calidad rechazado',
+  // Cambio de estado de la OT (+ history) y actualización del QC deben ser
+  // atómicos: si una falla, la otra revierte. Envolvemos ambas en una sola
+  // transacción y diferimos los eventos de dominio al commit.
+  const { updated, publishStatusEvents } = await (
+    db as PrismaClient
+  ).$transaction(async (tx) => {
+    // Si aprueba → mover OT a READY; si falla → regresar a IN_PROGRESS
+    const { publishEvents: publishStatusEvents } =
+      await changeServiceOrderStatusWithHistory(
+        tx,
+        {
+          serviceOrderId: item.serviceOrderId,
+          empresaId,
+          newStatus: targetStatus,
+          userId,
+          comment: allPassed
+            ? 'Control de calidad aprobado'
+            : 'Control de calidad rechazado',
+        },
+        { tx }
+      )
+
+    const updated = await tx.qualityCheck.update({
+      where: { id },
+      data: {
+        status: newStatus,
+        checklistItems: data.checklistItems as any,
+        failureNotes: data.failureNotes ?? null,
+        completedAt: new Date(),
+        retryCount: allPassed ? item.retryCount : item.retryCount + 1,
+        notes: data.notes ?? item.notes,
+      },
+      include: INCLUDE,
+    })
+
+    return { updated, publishStatusEvents }
   })
 
-  const updated = await (db as PrismaClient).qualityCheck.update({
-    where: { id },
-    data: {
-      status: newStatus,
-      checklistItems: data.checklistItems as any,
-      failureNotes: data.failureNotes ?? null,
-      completedAt: new Date(),
-      retryCount: allPassed ? item.retryCount : item.retryCount + 1,
-      notes: data.notes ?? item.notes,
-    },
-    include: INCLUDE,
-  })
+  // Eventos de cambio de estado de la OT: publicados tras el commit.
+  await publishStatusEvents()
 
   const eventCode =
     newStatus === 'PASSED'

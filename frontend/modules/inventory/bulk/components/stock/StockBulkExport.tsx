@@ -63,7 +63,7 @@ export const StockBulkExport = ({ warehouseOptions = [], onComplete }: Props) =>
         },
       });
 
-      const ext = format === "xlsx" ? "xlsx" : format === "json" ? "json" : "csv";
+      const ext = format;
       stockBulkService.downloadBlob(blob, `stock_export_${Date.now()}.${ext}`);
       onComplete?.();
       toast.current?.show({ severity: "success", summary: "Exportación completada" });

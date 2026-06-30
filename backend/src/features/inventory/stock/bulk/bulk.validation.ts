@@ -29,6 +29,7 @@ export const stockBulkExportSchema = Joi.object({
     maxQuantity: Joi.number().min(0).optional(),
     lowStock: Joi.boolean().optional(),
     outOfStock: Joi.boolean().optional(),
+    search: Joi.string().allow('').optional(),
   }).optional(),
   columns: Joi.array().items(Joi.string()).optional(),
   format: Joi.string().valid('csv', 'json', 'xlsx').optional().default('csv'),

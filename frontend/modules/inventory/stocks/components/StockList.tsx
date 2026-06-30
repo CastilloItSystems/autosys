@@ -35,6 +35,11 @@ import movementService, {
 import MovementDetailForm from "@/modules/inventory/movements/components/MovementDetailForm";
 import StockForm from "./StockForm";
 import StockAdjustDialog from "./StockAdjustDialog";
+import stockBulkService, {
+  IStockExportRequest,
+} from "@/modules/inventory/bulk/services/stockBulkService";
+import { StockBulkExport } from "@/modules/inventory/bulk/components/stock/StockBulkExport";
+import StockPdfPreviewDialog from "./StockPdfPreviewDialog";
 
 type StockFilter = "all" | "lowStock" | "outOfStock";
 
@@ -73,6 +78,13 @@ export default function StockList() {
   const [isAdjustSubmitting, setIsAdjustSubmitting] = useState<boolean>(false);
   const [deleteDialog, setDeleteDialog] = useState<boolean>(false);
   const [isDeleting, setIsDeleting] = useState<boolean>(false);
+  const [exporting, setExporting] = useState<boolean>(false);
+  const [showExportDialog, setShowExportDialog] = useState<boolean>(false);
+  const [showPdfPreview, setShowPdfPreview] = useState<boolean>(false);
+  const [pdfFilters, setPdfFilters] = useState<
+    IStockExportRequest["filters"]
+  >({});
+  const [pdfFiltersSummary, setPdfFiltersSummary] = useState<string>("Todos");
   const [actionItem, setActionItem] = useState<Stock | null>(null);
   const menuRef = useRef<Menu>(null);
   const toast = useRef<Toast>(null);
@@ -892,6 +904,56 @@ export default function StockList() {
     ...warehouses.map((w) => ({ label: w.name, value: w.id })),
   ];
 
+  // ── Exportación ───────────────────────────────────────────────────────
+
+  // Filtros activos del listado, mapeados al request de exportación.
+  const buildExportFilters = (): IStockExportRequest["filters"] => ({
+    ...(warehouseFilter ? { warehouseId: warehouseFilter } : {}),
+    ...(stockFilter === "lowStock" ? { lowStock: true } : {}),
+    ...(stockFilter === "outOfStock" ? { outOfStock: true } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+  });
+
+  // Resumen legible de los filtros activos (para el encabezado del PDF).
+  const buildFiltersSummary = (): string => {
+    const parts: string[] = [];
+    if (warehouseFilter) {
+      const wh = warehouses.find((w) => w.id === warehouseFilter);
+      parts.push(`Almacén: ${wh?.name ?? warehouseFilter}`);
+    }
+    if (stockFilter === "lowStock") parts.push("Stock bajo");
+    if (stockFilter === "outOfStock") parts.push("Agotado");
+    if (debouncedSearch) parts.push(`Búsqueda: "${debouncedSearch}"`);
+    return parts.length ? parts.join(" · ") : "Todos";
+  };
+
+  // Excel: descarga directa usando los filtros activos.
+  const handleExcelExport = async () => {
+    setExporting(true);
+    try {
+      const blob = await stockBulkService.exportStock({
+        format: "xlsx",
+        filters: buildExportFilters(),
+      });
+      stockBulkService.downloadBlob(blob, `stock_export_${Date.now()}.xlsx`);
+      toast.current?.show({
+        severity: "success",
+        summary: "Exportación completada",
+        detail: "Stock exportado a Excel",
+        life: 3000,
+      });
+    } catch (err: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error al exportar",
+        detail: err?.message ?? "No se pudo generar el archivo",
+        life: 4000,
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
   // ── Dashboard KPI Cards ───────────────────────────────────────────────
 
   const renderDashboard = () => {
@@ -1056,6 +1118,46 @@ export default function StockList() {
           placeholder="Almacén"
           className="w-12rem"
         />
+
+        {/* Exportar / Imprimir */}
+        <div className="flex gap-2 align-items-center">
+          <Button
+            icon={exporting ? "pi pi-spin pi-spinner" : "pi pi-file-excel"}
+            label="Excel"
+            severity="success"
+            size="small"
+            outlined
+            onClick={handleExcelExport}
+            disabled={exporting || totalRecords === 0}
+            tooltip="Exportar a Excel con los filtros actuales"
+            tooltipOptions={{ position: "top" }}
+          />
+          <Button
+            icon="pi pi-file-pdf"
+            label="PDF"
+            severity="danger"
+            size="small"
+            outlined
+            onClick={() => {
+              setPdfFilters(buildExportFilters());
+              setPdfFiltersSummary(buildFiltersSummary());
+              setShowPdfPreview(true);
+            }}
+            disabled={totalRecords === 0}
+            tooltip="Ver/Imprimir el listado en PDF con los filtros actuales"
+            tooltipOptions={{ position: "top" }}
+          />
+          <Button
+            icon="pi pi-cog"
+            label="Más opciones"
+            severity="secondary"
+            size="small"
+            text
+            onClick={() => setShowExportDialog(true)}
+            tooltip="Exportación avanzada (formato, columnas, filtros)"
+            tooltipOptions={{ position: "top" }}
+          />
+        </div>
       </div>
     </div>
   );
@@ -1249,6 +1351,40 @@ export default function StockList() {
           toast={toast}
         />
       </Dialog>
+
+      {/* ── Exportación avanzada Dialog ──────────────────────────────── */}
+      <Dialog
+        visible={showExportDialog}
+        style={{ width: "640px" }}
+        header={
+          <div className="mb-2 text-center md:text-left">
+            <div className="border-bottom-2 border-primary pb-2">
+              <h2 className="text-2xl font-bold text-900 mb-2 flex align-items-center justify-content-center md:justify-content-start">
+                <i className="pi pi-download mr-3 text-primary text-3xl"></i>
+                Exportar Stock
+              </h2>
+            </div>
+          </div>
+        }
+        modal
+        onHide={() => setShowExportDialog(false)}
+      >
+        <StockBulkExport
+          warehouseOptions={warehouses.map((w) => ({
+            label: w.name,
+            value: w.id,
+          }))}
+          onComplete={() => setShowExportDialog(false)}
+        />
+      </Dialog>
+
+      {/* ── Vista previa PDF del listado ─────────────────────────────── */}
+      <StockPdfPreviewDialog
+        visible={showPdfPreview}
+        onHide={() => setShowPdfPreview(false)}
+        filters={pdfFilters}
+        filtersSummary={pdfFiltersSummary}
+      />
 
       {/* Adjust Dialog */}
       <StockAdjustDialog

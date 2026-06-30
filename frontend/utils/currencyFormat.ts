@@ -6,6 +6,20 @@
 
 export type CurrencyAmount = Record<string, number>;
 
+/**
+ * Símbolos de moneda compartidos. Antes estaba duplicado en 18+ componentes;
+ * usar esta constante / `currencySymbol()` en su lugar.
+ */
+export const CURRENCY_SYMBOLS: Record<string, string> = {
+  USD: "$",
+  EUR: "€",
+  VES: "Bs.",
+};
+
+/** Símbolo de la moneda; si no se conoce, devuelve el propio código. */
+export const currencySymbol = (currency = "USD") =>
+  CURRENCY_SYMBOLS[currency] ?? currency;
+
 export const formatAmount = (value: number) =>
   new Intl.NumberFormat("es-VE", {
     minimumFractionDigits: 2,

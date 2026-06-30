@@ -9,6 +9,7 @@ import {
   Movement,
 } from "@/modules/inventory/movements/services/movementService";
 import { formatCurrency as fmtCurrencyUtil } from "@/utils/currencyFormat";
+import { logger } from "@/utils/logger";
 
 interface MovementDetailFormProps {
   movement: Movement | null;
@@ -41,7 +42,7 @@ export default function MovementDetailForm({
   toast,
 }: MovementDetailFormProps) {
   const isCancelled = movement?.notes?.includes("[CANCELADO]");
-  console.log(movement);
+  logger.debug(movement);
   if (isLoading) {
     return (
       <div className="flex flex-column align-items-center justify-content-center p-4">

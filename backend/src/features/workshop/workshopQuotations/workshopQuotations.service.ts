@@ -6,6 +6,8 @@ import {
   ConflictError,
 } from '../../../shared/utils/apiError.js'
 import { logger } from '../../../shared/utils/logger.js'
+import { nextSequentialNumber } from '../../../shared/utils/sequenceGenerator.js'
+import { assertTransition } from '../../../shared/utils/stateMachine.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import type {
@@ -147,25 +149,51 @@ async function generateQuotationNumber(
   db: Db,
   empresaId: string
 ): Promise<string> {
-  // SELECT FOR UPDATE para evitar duplicados concurrentes
-  const result = await (db as PrismaClient).$queryRaw<{ num: bigint }[]>`
-    SELECT COUNT(*) AS num FROM workshop_quotations WHERE "empresaId" = ${empresaId}
-  `
-  const next = Number(result[0]?.num ?? 0) + 1
-  return `COT-${String(next).padStart(4, '0')}`
+  // MAX + FOR UPDATE: evita duplicados por concurrencia y por borrados
+  // (a diferencia de COUNT(*) + 1).
+  return nextSequentialNumber({
+    db,
+    table: 'workshop_quotations',
+    column: 'quotationNumber',
+    empresaId,
+    prefix: 'COT-',
+  })
+}
+
+// Redondeo monetario consistente a 2 decimales (equivalente a
+// Decimal.toDecimalPlaces(2) usado por el frontend en useServiceOrderCalculation).
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100
+
+// Resuelve la tasa de impuesto (fracción 0..1) a partir de taxType, replicando
+// la convención del frontend (useServiceOrderCalculation):
+//   IVA => 16%, REDUCED => 8%, EXEMPT/otros => 0%.
+// El backend almacena taxRate como fracción (0.16 / 0.08 / 0), por lo que se
+// prioriza taxType; taxRate del payload solo se usa como respaldo cuando taxType
+// no es concluyente. El backend es AUTORITATIVO: el taxAmount del cliente se ignora.
+function resolveTaxRate(item: { taxType?: unknown; taxRate?: unknown }): number {
+  const taxType = (item.taxType as string | undefined) ?? 'IVA'
+  if (taxType === 'EXEMPT') return 0
+  if (taxType === 'REDUCED') return 0.08
+  if (taxType === 'IVA') return 0.16
+  // Tipo desconocido: respaldo en taxRate del payload (fracción) o 0
+  const raw = Number(item.taxRate)
+  return Number.isFinite(raw) && raw > 0 ? raw : 0
 }
 
 function calcItemTotals(item: IQuotationItem) {
   const quantity = Number(item.quantity || 0)
   const unitPrice = Number(item.unitPrice || 0)
   const discountPct = Number(item.discountPct || 0)
-  const taxAmount = Number(item.taxAmount || 0)
+  const taxRate = resolveTaxRate(item)
 
-  const subtotal = quantity * unitPrice
-  const discountAmt = subtotal * (discountPct / 100)
-  const total = subtotal - discountAmt + taxAmount
+  const subtotal = round2(quantity * unitPrice)
+  const discountAmt = round2(subtotal * (discountPct / 100))
+  const lineNet = round2(subtotal - discountAmt)
+  // Impuesto calculado por el backend sobre el neto (NO se confía en el cliente).
+  const taxAmount = round2(lineNet * taxRate)
+  const total = round2(lineNet + taxAmount)
 
-  return { subtotal, total, discountAmt, taxAmount }
+  return { subtotal, total, discountAmt, taxAmount, taxRate }
 }
 
 function calcQuotationTotals(items: IQuotationItem[]) {
@@ -179,12 +207,11 @@ function calcQuotationTotals(items: IQuotationItem[]) {
 
   for (const item of items) {
     const t = calcItemTotals(item)
-    const lineNet = t.subtotal - t.discountAmt
-
-    if (item.type === 'LABOR') laborTotal += lineNet
+    // El total por línea ya incluye impuesto (igual que el frontend).
+    if (item.type === 'LABOR') laborTotal += t.total
     else if (item.type === 'PART' || item.type === 'CONSUMABLE')
-      partsTotal += lineNet
-    else otherTotal += lineNet
+      partsTotal += t.total
+    else otherTotal += t.total
 
     subtotal += t.subtotal
     discount += t.discountAmt
@@ -193,13 +220,13 @@ function calcQuotationTotals(items: IQuotationItem[]) {
   }
 
   return {
-    laborTotal,
-    partsTotal,
-    otherTotal,
-    subtotal,
-    discount,
-    taxAmt,
-    total,
+    laborTotal: round2(laborTotal),
+    partsTotal: round2(partsTotal),
+    otherTotal: round2(otherTotal),
+    subtotal: round2(subtotal),
+    discount: round2(discount),
+    taxAmt: round2(taxAmt),
+    total: round2(total),
   }
 }
 
@@ -358,7 +385,7 @@ export async function createQuotation(
       createdBy: userId,
       items: {
         create: items.map((it, idx) => {
-          const { subtotal, total, taxAmount } = calcItemTotals(it)
+          const { subtotal, total, taxAmount, taxRate } = calcItemTotals(it)
           return {
             type: it.type,
             referenceId: it.referenceId ?? null,
@@ -368,7 +395,7 @@ export async function createQuotation(
             unitCost: it.unitCost ?? 0,
             discountPct: it.discountPct ?? 0,
             taxType: (it.taxType as any) ?? 'IVA',
-            taxRate: it.taxRate ?? 0.16,
+            taxRate,
             taxAmount,
             subtotal,
             total,
@@ -451,7 +478,7 @@ export async function updateQuotation(
       })
       updateData.items = {
         create: data.items.map((it, idx) => {
-          const { subtotal, total, taxAmount } = calcItemTotals(it)
+          const { subtotal, total, taxAmount, taxRate } = calcItemTotals(it)
           return {
             type: it.type,
             referenceId: it.referenceId ?? null,
@@ -461,7 +488,7 @@ export async function updateQuotation(
             unitCost: it.unitCost ?? 0,
             discountPct: it.discountPct ?? 0,
             taxType: (it.taxType as any) ?? 'IVA',
-            taxRate: it.taxRate ?? 0.16,
+            taxRate,
             taxAmount,
             subtotal,
             total,
@@ -488,12 +515,9 @@ export async function updateQuotationStatus(
   newStatus: QuotationStatus
 ) {
   const existing = await findQuotationById(db, id, empresaId)
-  const allowed = VALID_TRANSITIONS[existing.status as QuotationStatus]
-  if (!allowed.includes(newStatus)) {
-    throw new BadRequestError(
-      `No se puede pasar de ${existing.status} a ${newStatus}`
-    )
-  }
+  assertTransition(VALID_TRANSITIONS, existing.status as QuotationStatus, newStatus, {
+    entity: 'Cotización',
+  })
   const extra: any = {}
   if (newStatus === 'EXPIRED') extra.expiredAt = new Date()
   const updated = await (db as PrismaClient).workshopQuotation.update({
@@ -517,6 +541,18 @@ export async function registerApproval(
   if (!['PENDING_APPROVAL', 'SENT', 'ISSUED'].includes(existing.status)) {
     throw new BadRequestError(
       'La cotización debe estar enviada o en aprobación pendiente para registrar una respuesta'
+    )
+  }
+
+  // Para aprobación parcial es obligatorio indicar los ítems aprobados; de lo
+  // contrario la cotización quedaría con TODOS los ítems aprobados y se
+  // convertiría como total.
+  if (
+    data.type === 'PARTIAL' &&
+    (!data.approvedItemIds || data.approvedItemIds.length === 0)
+  ) {
+    throw new BadRequestError(
+      'Debe indicar al menos un ítem aprobado para una aprobación parcial'
     )
   }
 
@@ -660,6 +696,22 @@ export async function convertToServiceOrder(
       (it) => it.type !== 'PART' && it.type !== 'CONSUMABLE'
     )
 
+    // Recalcular montos por línea con la MISMA lógica autoritativa del backend
+    // (no se copian totales crudos). Cada línea recibe taxRate/taxAmount/total
+    // recomputados desde taxType + discountPct sobre el neto, redondeado a 2 dec.
+    const serviceLines = approvedServiceItems.map((it) => {
+      const t = calcItemTotals(it)
+      return { it, ...t }
+    })
+    const materialLines = approvedMaterialItems.map((it) => {
+      const t = calcItemTotals(it)
+      return { it, ...t }
+    })
+
+    // Acumulados de la OS a partir SOLO de los ítems aprobados (importante para
+    // aprobaciones parciales: la OS no debe heredar totales de líneas excluidas).
+    const soTotals = calcQuotationTotals(approvedItems as IQuotationItem[])
+
     // Crear la Orden de Servicio - Ahora los modelos están alineados
     const so = await (tx as PrismaClient).serviceOrder.create({
       data: {
@@ -673,17 +725,17 @@ export async function convertToServiceOrder(
         createdBy: userId,
         assignedAdvisorId: data.assignedAdvisorId ?? undefined,
         internalNotes: data.notes ?? null,
-        laborTotal: quotation.laborTotal,
-        partsTotal: quotation.partsTotal,
-        otherTotal: quotation.otherTotal,
-        subtotal: quotation.subtotal,
-        discount: quotation.discount,
-        taxAmt: quotation.taxAmt,
-        total: quotation.total,
-        ...(approvedServiceItems.length > 0
+        laborTotal: soTotals.laborTotal,
+        partsTotal: soTotals.partsTotal,
+        otherTotal: soTotals.otherTotal,
+        subtotal: soTotals.subtotal,
+        discount: soTotals.discount,
+        taxAmt: soTotals.taxAmt,
+        total: soTotals.total,
+        ...(serviceLines.length > 0
           ? {
               items: {
-                create: approvedServiceItems.map((it) => ({
+                create: serviceLines.map(({ it, taxRate, taxAmount, total }) => ({
                   type: it.type === 'LABOR' ? 'LABOR' : 'OTHER',
                   status: 'ASSIGNED',
                   sourceType: 'MANUAL',
@@ -693,9 +745,9 @@ export async function convertToServiceOrder(
                   unitCost: it.unitCost,
                   discountPct: it.discountPct,
                   taxType: it.taxType,
-                  taxRate: it.taxRate,
-                  taxAmount: it.taxAmount,
-                  total: it.total,
+                  taxRate,
+                  taxAmount,
+                  total,
                   notes: null,
                   operationId: it.type === 'LABOR' ? it.referenceId : null,
                   itemId: null,
@@ -708,9 +760,9 @@ export async function convertToServiceOrder(
     })
 
     // Convertir PART/CONSUMABLE aprobados en solicitudes de material automáticas
-    if (approvedMaterialItems.length > 0) {
+    if (materialLines.length > 0) {
       await Promise.all(
-        approvedMaterialItems.map((it) =>
+        materialLines.map(({ it, taxRate, taxAmount, total }) =>
           (tx as PrismaClient).serviceOrderMaterial.create({
             data: {
               serviceOrderId: so.id,
@@ -726,9 +778,9 @@ export async function convertToServiceOrder(
               unitPrice: it.unitPrice,
               discountPct: it.discountPct,
               taxType: it.taxType,
-              taxRate: it.taxRate,
-              taxAmount: 0,
-              total: 0,
+              taxRate,
+              taxAmount,
+              total,
               status: 'REQUESTED',
               clientApproved: true,
               clientApprovalAt: new Date(),

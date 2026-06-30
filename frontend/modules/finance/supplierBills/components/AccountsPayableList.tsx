@@ -17,14 +17,9 @@ import type {
 } from "../interfaces/supplierBill";
 import { useAccountsPayableData } from "../hooks/useSupplierBillsData";
 import RegisterPaymentDialog from "./RegisterPaymentDialog";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 // ── Constants ─────────────────────────────────────────────────────────────
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const STATUS_SEVERITY: Record<
   string,

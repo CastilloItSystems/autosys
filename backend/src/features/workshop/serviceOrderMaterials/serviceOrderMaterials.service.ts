@@ -12,6 +12,27 @@ import {
 import { MovementNumberGenerator } from '../../inventory/shared/utils/movementNumberGenerator.js'
 import stockService from '../../inventory/stock/stock.service.js'
 import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
+import {
+  assertTransition,
+  type TransitionMap,
+} from '../../../shared/utils/stateMachine.js'
+
+type MaterialStatus =
+  | 'REQUESTED'
+  | 'RESERVED'
+  | 'DISPATCHED'
+  | 'CONSUMED'
+  | 'RETURNED'
+  | 'CANCELLED'
+
+const MATERIAL_TRANSITIONS: TransitionMap<MaterialStatus> = {
+  REQUESTED: ['RESERVED', 'CANCELLED'],
+  RESERVED: ['DISPATCHED', 'RETURNED', 'CANCELLED'],
+  DISPATCHED: ['CONSUMED', 'RETURNED', 'CANCELLED'],
+  CONSUMED: ['RETURNED'],
+  RETURNED: [],
+  CANCELLED: [],
+}
 import { assertSignaturesBeforeConsume } from '../materialSignatures/materialSignatures.service.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
@@ -329,10 +350,11 @@ export async function findAll(
 
 export async function findById(
   db: DbType,
-  id: string
+  id: string,
+  empresaId: string
 ): Promise<IServiceOrderMaterialWithRelations> {
-  const material = await (db as PrismaClient).serviceOrderMaterial.findUnique({
-    where: { id },
+  const material = await (db as PrismaClient).serviceOrderMaterial.findFirst({
+    where: { id, empresaId },
     include: BASE_INCLUDE,
   })
 
@@ -346,11 +368,12 @@ export async function findById(
 export async function create(
   db: DbType,
   data: ICreateServiceOrderMaterial,
+  empresaId: string,
   userId = 'system'
 ): Promise<IServiceOrderMaterialWithRelations> {
-  // Verify serviceOrder exists
-  const serviceOrder = await (db as PrismaClient).serviceOrder.findUnique({
-    where: { id: data.serviceOrderId },
+  // Verify serviceOrder exists and belongs to the requesting empresa
+  const serviceOrder = await (db as PrismaClient).serviceOrder.findFirst({
+    where: { id: data.serviceOrderId, empresaId },
   })
 
   if (!serviceOrder) throw new NotFoundError('Orden de servicio no encontrada')
@@ -367,8 +390,8 @@ export async function create(
   let taxType = 'IVA'
   let taxRate = 0.16
   if (data.itemId) {
-    const item = await (db as PrismaClient).item.findUnique({
-      where: { id: data.itemId },
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id: data.itemId, empresaId },
       select: { id: true, name: true, pricing: true },
     })
     if (!item) throw new NotFoundError('Artículo no encontrado')
@@ -416,7 +439,7 @@ export async function create(
     include: BASE_INCLUDE,
   })
 
-  const enriched = await findById(db, material.id)
+  const enriched = await findById(db, material.id, empresaId)
 
   if (db instanceof PrismaClient) {
     await publishMaterialCreated(enriched, userId)
@@ -428,13 +451,14 @@ export async function create(
 export async function update(
   db: DbType,
   id: string,
-  data: IUpdateServiceOrderMaterial
+  data: IUpdateServiceOrderMaterial,
+  empresaId: string
 ): Promise<IServiceOrderMaterialWithRelations> {
-  const existing = await findById(db, id)
+  const existing = await findById(db, id, empresaId)
 
   if (data.itemId) {
-    const item = await (db as PrismaClient).item.findUnique({
-      where: { id: data.itemId },
+    const item = await (db as PrismaClient).item.findFirst({
+      where: { id: data.itemId, empresaId },
       select: { id: true, name: true, pricing: true },
     })
     if (!item) throw new NotFoundError('Artículo no encontrado')
@@ -485,8 +509,8 @@ export async function update(
 
   // If itemId changed, re-inherit tax settings
   if (data.itemId && data.itemId !== existing.itemId) {
-    const newItem = await (db as PrismaClient).item.findUnique({
-      where: { id: data.itemId },
+    const newItem = await (db as PrismaClient).item.findFirst({
+      where: { id: data.itemId, empresaId },
       select: { pricing: true },
     })
     if (newItem) {
@@ -519,17 +543,25 @@ export async function update(
     include: BASE_INCLUDE,
   })
 
-  return findById(db, material.id)
+  return findById(db, material.id, empresaId)
 }
 
-export async function remove(db: DbType, id: string): Promise<void> {
-  await findById(db, id)
+export async function remove(
+  db: DbType,
+  id: string,
+  empresaId: string
+): Promise<void> {
+  await findById(db, id, empresaId)
 
   await (db as PrismaClient).serviceOrderMaterial.delete({ where: { id } })
 }
 
-export async function findMovements(db: DbType, materialId: string) {
-  const material = await findById(db, materialId)
+export async function findMovements(
+  db: DbType,
+  materialId: string,
+  empresaId: string
+) {
+  const material = await findById(db, materialId, empresaId)
   return (db as PrismaClient).serviceOrderMaterialMovement.findMany({
     where: { materialId: material.id },
     orderBy: { createdAt: 'asc' },
@@ -557,7 +589,7 @@ export async function recordMovement(
     empresaId: string
   }
 ) {
-  await findById(db, materialId)
+  await findById(db, materialId, data.empresaId)
   return (db as PrismaClient).serviceOrderMaterialMovement.create({
     data: {
       materialId,
@@ -669,6 +701,7 @@ async function changeStatusInternal(
     | 'CONSUMED'
     | 'RETURNED'
     | 'CANCELLED',
+  empresaId: string,
   context?: {
     warehouseId?: string
     quantityReturned?: number
@@ -676,7 +709,7 @@ async function changeStatusInternal(
     userId?: string
   }
 ): Promise<IServiceOrderMaterialWithRelations> {
-  const material = await findById(db, id)
+  const material = await findById(db, id, empresaId)
 
   // Block manual DISPATCHED transition — must be done via exit note delivery
   // Block manual DISPATCHED transition — must be done via exit note delivery
@@ -687,20 +720,12 @@ async function changeStatusInternal(
     )
   }
 
-  const validTransitions: Record<string, string[]> = {
-    REQUESTED: ['RESERVED', 'CANCELLED'],
-    RESERVED: ['DISPATCHED', 'RETURNED', 'CANCELLED'],
-    DISPATCHED: ['CONSUMED', 'RETURNED', 'CANCELLED'],
-    CONSUMED: ['RETURNED'],
-    RETURNED: [],
-    CANCELLED: [],
-  }
-
-  if (!validTransitions[material.status as string]?.includes(status)) {
-    throw new BadRequestError(
-      `No se puede cambiar de estado ${material.status} a ${status}`
-    )
-  }
+  assertTransition(
+    MATERIAL_TRANSITIONS,
+    material.status as MaterialStatus,
+    status as MaterialStatus,
+    { entity: 'Material de OT' }
+  )
 
   if (
     ['RESERVED', 'DISPATCHED', 'CONSUMED'].includes(status) &&
@@ -713,7 +738,7 @@ async function changeStatusInternal(
 
   // §15.5 — bloquear CONSUMED sin protocolo de firmas completo
   if (status === 'CONSUMED') {
-    await assertSignaturesBeforeConsume(db, id)
+    await assertSignaturesBeforeConsume(db, id, empresaId)
   }
 
   const { warehouseId, quantityReturned, userId = 'system' } = context ?? {}
@@ -909,6 +934,7 @@ export async function changeStatus(
     | 'CONSUMED'
     | 'RETURNED'
     | 'CANCELLED',
+  empresaId: string,
   context?: {
     warehouseId?: string
     quantityReturned?: number
@@ -916,11 +942,17 @@ export async function changeStatus(
     userId?: string
   }
 ): Promise<IServiceOrderMaterialWithRelations> {
-  const current = await findById(db, id)
+  const current = await findById(db, id, empresaId)
 
   if (db instanceof PrismaClient) {
     const updated = await db.$transaction(async (tx) =>
-      changeStatusInternal(tx as unknown as DbType, id, status, context)
+      changeStatusInternal(
+        tx as unknown as DbType,
+        id,
+        status,
+        empresaId,
+        context
+      )
     )
 
     if (status === 'DISPATCHED' || status === 'RETURNED') {
@@ -934,7 +966,7 @@ export async function changeStatus(
       }
     }
 
-    const enriched = await findById(db, updated.id)
+    const enriched = await findById(db, updated.id, empresaId)
     await publishMaterialStatusChanged({
       material: enriched,
       previousStatus: current.status,
@@ -945,17 +977,18 @@ export async function changeStatus(
     return enriched
   }
 
-  const updated = await changeStatusInternal(db, id, status, context)
-  return findById(db, updated.id)
+  const updated = await changeStatusInternal(db, id, status, empresaId, context)
+  return findById(db, updated.id, empresaId)
 }
 
 export async function setClientApproval(
   db: DbType,
   id: string,
   clientApproved: boolean,
+  empresaId: string,
   context?: { userId?: string; notes?: string | null }
 ): Promise<IServiceOrderMaterialWithRelations> {
-  await findById(db, id)
+  await findById(db, id, empresaId)
 
   const userId = context?.userId ?? null
   const notes = context?.notes ?? null
@@ -971,7 +1004,7 @@ export async function setClientApproval(
     include: BASE_INCLUDE,
   })
 
-  const enriched = await findById(db, updated.id)
+  const enriched = await findById(db, updated.id, empresaId)
 
   if (db instanceof PrismaClient) {
     await publishMaterialApprovalUpdated({

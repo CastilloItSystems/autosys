@@ -46,7 +46,11 @@ export async function create(
   const existing = await (
     db as PrismaClient
   ).serviceOrderMaterialSignature.findFirst({
-    where: { materialId: data.materialId, signerRole: data.signerRole },
+    where: {
+      materialId: data.materialId,
+      signerRole: data.signerRole,
+      empresaId,
+    },
   })
   if (existing) {
     throw new ConflictError(
@@ -80,11 +84,12 @@ export async function remove(db: Db, id: string, empresaId: string) {
 
 export async function hasCompleteSignatures(
   db: Db,
-  materialId: string
+  materialId: string,
+  empresaId: string
 ): Promise<{ complete: boolean; missing: SignerRole[][] }> {
   const sigs = await (db as PrismaClient).serviceOrderMaterialSignature.findMany(
     {
-      where: { materialId },
+      where: { materialId, empresaId },
       select: { signerRole: true },
     }
   )
@@ -98,9 +103,14 @@ export async function hasCompleteSignatures(
 
 export async function assertSignaturesBeforeConsume(
   db: Db,
-  materialId: string
+  materialId: string,
+  empresaId: string
 ) {
-  const { complete, missing } = await hasCompleteSignatures(db, materialId)
+  const { complete, missing } = await hasCompleteSignatures(
+    db,
+    materialId,
+    empresaId
+  )
   if (!complete) {
     throw new BadRequestError(
       `Faltan firmas obligatorias para consumir el material: ${missing

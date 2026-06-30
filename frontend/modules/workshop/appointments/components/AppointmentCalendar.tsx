@@ -4,6 +4,7 @@ import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { ProgressSpinner } from "primereact/progressspinner";
 import { handleFormError } from "@/utils/errorHandlers";
+import { logger } from "@/utils/logger";
 import appointmentService from '@/modules/workshop/appointments/services/appointmentService';
 import type { ServiceAppointment, AppointmentStatus } from '@/modules/workshop/appointments/interfaces/appointment.interface';
 const STATUS_COLORS: Record<AppointmentStatus, string> = {
@@ -83,7 +84,7 @@ export default function AppointmentCalendar({
         sortBy: "scheduledDate",
         sortOrder: "asc",
       });
-      console.log(res);
+      logger.debug(res);
       setAppointments(res.data ?? []);
     } catch (err) {
       handleFormError(err, toast);

@@ -3,6 +3,7 @@
 import { useCallback, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { usePermissionsData } from "@/hooks/usePermissionsData";
 import type { UserEmpresaPermission } from "@/modules/users/interfaces/user.interface";
 import type { PermissionGate } from "@/lib/permissionGates";
 
@@ -21,6 +22,8 @@ export function useUserPermissions() {
   const activeEmpresaId = useEmpresasStore(
     (state) => state.activeEmpresa?.id_empresa,
   );
+  const { permissionsByEmpresa, isLoading: permissionsLoading } =
+    usePermissionsData();
 
   const empresas = useMemo<SessionEmpresaPermission[]>(() => {
     const sessionEmpresas = session?.user?.empresas;
@@ -42,20 +45,31 @@ export function useUserPermissions() {
     );
   }, [activeEmpresaId, activeEmpresas]);
 
+  // Permisos de una empresa: del fetch (/auth/profile); fallback a la sesión
+  // para compatibilidad durante la transición (tokens viejos aún los traen).
+  const permissionsForEmpresa = useCallback(
+    (empresa: SessionEmpresaPermission | null | undefined): string[] => {
+      if (!empresa) return [];
+      const id = getSessionEmpresaId(empresa);
+      const fetched = id ? permissionsByEmpresa[id] : undefined;
+      if (Array.isArray(fetched)) return fetched;
+      return Array.isArray(empresa.permissions) ? empresa.permissions : [];
+    },
+    [permissionsByEmpresa],
+  );
+
   const activePermissions = useMemo(
-    () => activeMembership?.permissions ?? [],
-    [activeMembership?.permissions],
+    () => permissionsForEmpresa(activeMembership),
+    [activeMembership, permissionsForEmpresa],
   );
 
   const allPermissions = useMemo(() => {
     return Array.from(
       new Set(
-        activeEmpresas.flatMap((empresa) =>
-          Array.isArray(empresa.permissions) ? empresa.permissions : [],
-        ),
+        activeEmpresas.flatMap((empresa) => permissionsForEmpresa(empresa)),
       ),
     );
-  }, [activeEmpresas]);
+  }, [activeEmpresas, permissionsForEmpresa]);
 
   const permissions = activePermissions;
 
@@ -180,6 +194,6 @@ export function useUserPermissions() {
     canAccess,
     canAccessInAnyEmpresa,
     canAccessGate,
-    isLoading: status === "loading",
+    isLoading: status === "loading" || permissionsLoading,
   };
 }

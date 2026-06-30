@@ -36,7 +36,12 @@ export async function getAll(req: Request, res: Response, next: NextFunction) {
 
 export async function getById(req: Request, res: Response, next: NextFunction) {
   try {
-    const result = await service.findById(prisma, req.params.id as string)
+    const empresaId = req.empresaId!
+    const result = await service.findById(
+      prisma,
+      req.params.id as string,
+      empresaId
+    )
     res.json(result)
   } catch (error) {
     next(error)
@@ -45,8 +50,9 @@ export async function getById(req: Request, res: Response, next: NextFunction) {
 
 export async function create(req: Request, res: Response, next: NextFunction) {
   try {
+    const empresaId = req.empresaId!
     const userId = (req as any).user?.userId as string | undefined
-    const result = await service.create(prisma, req.body, userId)
+    const result = await service.create(prisma, req.body, empresaId, userId)
     res.status(201).json(result)
   } catch (error) {
     next(error)
@@ -55,10 +61,12 @@ export async function create(req: Request, res: Response, next: NextFunction) {
 
 export async function update(req: Request, res: Response, next: NextFunction) {
   try {
+    const empresaId = req.empresaId!
     const result = await service.update(
       prisma,
       req.params.id as string,
-      req.body
+      req.body,
+      empresaId
     )
     res.json(result)
   } catch (error) {
@@ -68,7 +76,8 @@ export async function update(req: Request, res: Response, next: NextFunction) {
 
 export async function remove(req: Request, res: Response, next: NextFunction) {
   try {
-    await service.remove(prisma, req.params.id as string)
+    const empresaId = req.empresaId!
+    await service.remove(prisma, req.params.id as string, empresaId)
     res.status(204).send()
   } catch (error) {
     next(error)
@@ -82,12 +91,13 @@ export async function updateStatus(
 ) {
   try {
     const { status, warehouseId, quantityReturned } = req.body
-    const empresaId = (req as any).empresaId as string | undefined
+    const empresaId = req.empresaId!
     const userId = (req as any).user?.userId as string | undefined
     const result = await service.changeStatus(
       prisma,
       req.params.id as string,
       status,
+      empresaId,
       { warehouseId, quantityReturned, empresaId, userId }
     )
     res.json(result)
@@ -103,12 +113,14 @@ export async function updateApproval(
 ) {
   try {
     const { clientApproved, notes } = req.body
+    const empresaId = req.empresaId!
     const userId = (req as any).user?.userId as string | undefined
 
     const result = await service.setClientApproval(
       prisma,
       req.params.id as string,
       Boolean(clientApproved),
+      empresaId,
       {
         userId,
         notes,

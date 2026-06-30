@@ -9,8 +9,10 @@ import React, {
   ReactNode,
 } from "react";
 import { io, Socket } from "socket.io-client";
+import { mutate as mutateSWR } from "swr";
 import { useSession } from "next-auth/react";
 import { useEmpresasStore } from "@/store/empresasStore";
+import { PERMISSIONS_SWR_KEY } from "@/hooks/usePermissionsData";
 import { NotificationItem } from "@/shared/services/notificationService";
 import { SESSION_EXPIRED_EVENT } from "@/lib/sessionExpiration";
 
@@ -105,6 +107,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     );
     socketTemp.on("membership:permissions-changed", async () => {
       await update({ forcePermissionsRefresh: true });
+      // Los permisos ya no viven en el token: revalidar el cache de SWR.
+      await mutateSWR(PERMISSIONS_SWR_KEY);
       setMembershipChanged(true);
     });
 

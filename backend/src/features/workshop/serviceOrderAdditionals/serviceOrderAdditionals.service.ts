@@ -6,6 +6,10 @@ import {
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
 import { syncAfterAdditionalChange } from '../integrations/billing-sync.service.js'
+import {
+  assertTransition,
+  type TransitionMap,
+} from '../../../shared/utils/stateMachine.js'
 import type {
   ICreateServiceOrderAdditional,
   IUpdateServiceOrderAdditional,
@@ -15,12 +19,28 @@ import type {
 
 type DbType = PrismaClient | Prisma.TransactionClient
 
+type AdditionalStatus =
+  | 'PROPOSED'
+  | 'QUOTED'
+  | 'APPROVED'
+  | 'EXECUTED'
+  | 'REJECTED'
+
+const ADDITIONAL_TRANSITIONS: TransitionMap<AdditionalStatus> = {
+  PROPOSED: ['QUOTED', 'REJECTED'],
+  QUOTED: ['APPROVED', 'REJECTED'],
+  APPROVED: ['EXECUTED', 'REJECTED'],
+  EXECUTED: [],
+  REJECTED: [],
+}
+
 const BASE_INCLUDE = {
   serviceOrder: { select: { id: true, folio: true } },
 } as const
 
 export async function findAll(
   db: DbType,
+  empresaId: string,
   serviceOrderId: string | undefined,
   filters: IServiceOrderAdditionalFilters
 ): Promise<{
@@ -31,7 +51,7 @@ export async function findAll(
 }> {
   const { status, search, page = 1, limit = 50 } = filters
 
-  const where: any = {}
+  const where: any = { empresaId }
   if (serviceOrderId) where.serviceOrderId = serviceOrderId
 
   if (status) where.status = status
@@ -62,12 +82,13 @@ export async function findAll(
 
 export async function findById(
   db: DbType,
-  id: string
+  id: string,
+  empresaId: string
 ): Promise<IServiceOrderAdditionalWithRelations> {
   const additional = await (
     db as PrismaClient
-  ).serviceOrderAdditional.findUnique({
-    where: { id },
+  ).serviceOrderAdditional.findFirst({
+    where: { id, empresaId },
     include: BASE_INCLUDE,
   })
 
@@ -77,11 +98,13 @@ export async function findById(
 
 export async function create(
   db: DbType,
-  data: ICreateServiceOrderAdditional
+  empresaId: string,
+  data: ICreateServiceOrderAdditional,
+  createdBy?: string
 ): Promise<IServiceOrderAdditionalWithRelations> {
-  // Verify serviceOrder exists
-  const serviceOrder = await (db as PrismaClient).serviceOrder.findUnique({
-    where: { id: data.serviceOrderId },
+  // Verify serviceOrder exists and belongs to the empresa
+  const serviceOrder = await (db as PrismaClient).serviceOrder.findFirst({
+    where: { id: data.serviceOrderId, empresaId },
   })
 
   if (!serviceOrder) throw new NotFoundError('Orden de servicio no encontrada')
@@ -93,7 +116,7 @@ export async function create(
       status: (data.status || 'PROPOSED') as any,
       serviceOrderId: data.serviceOrderId,
       empresaId: serviceOrder.empresaId,
-      createdBy: 'system',
+      createdBy: createdBy ?? 'system',
     },
     include: BASE_INCLUDE,
   })
@@ -104,9 +127,10 @@ export async function create(
 export async function update(
   db: DbType,
   id: string,
+  empresaId: string,
   data: IUpdateServiceOrderAdditional
 ): Promise<IServiceOrderAdditionalWithRelations> {
-  await findById(db, id)
+  await findById(db, id, empresaId)
 
   const additional = await (db as PrismaClient).serviceOrderAdditional.update({
     where: { id },
@@ -117,16 +141,24 @@ export async function update(
   return additional as unknown as IServiceOrderAdditionalWithRelations
 }
 
-export async function remove(db: DbType, id: string): Promise<void> {
-  await findById(db, id)
+export async function remove(
+  db: DbType,
+  id: string,
+  empresaId: string
+): Promise<void> {
+  await findById(db, id, empresaId)
 
   await (db as PrismaClient).serviceOrderAdditional.delete({ where: { id } })
 }
 
 // ── Additional Items ──────────────────────────────────────────────────────────
 
-export async function findAdditionalItems(db: DbType, additionalId: string) {
-  await findById(db, additionalId)
+export async function findAdditionalItems(
+  db: DbType,
+  additionalId: string,
+  empresaId: string
+) {
+  await findById(db, additionalId, empresaId)
   return (db as PrismaClient).serviceOrderAdditionalItem.findMany({
     where: { additionalId },
     orderBy: { createdAt: 'asc' },
@@ -136,6 +168,7 @@ export async function findAdditionalItems(db: DbType, additionalId: string) {
 export async function createAdditionalItem(
   db: DbType,
   additionalId: string,
+  empresaId: string,
   data: {
     type?: 'LABOR' | 'PART' | 'OTHER'
     description: string
@@ -148,7 +181,7 @@ export async function createAdditionalItem(
     taxRate?: number
   }
 ) {
-  await findById(db, additionalId)
+  await findById(db, additionalId, empresaId)
   const qty = data.quantity ?? 1
   const price = data.unitPrice ?? 0
   const discountPct = data.discountPct ?? 0
@@ -183,6 +216,7 @@ export async function createAdditionalItem(
 export async function updateAdditionalItem(
   db: DbType,
   itemId: string,
+  empresaId: string,
   data: {
     description?: string
     quantity?: number
@@ -196,7 +230,9 @@ export async function updateAdditionalItem(
 ) {
   const existing = await (
     db as PrismaClient
-  ).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
+  ).serviceOrderAdditionalItem.findFirst({
+    where: { id: itemId, additional: { empresaId } },
+  })
   if (!existing) throw new NotFoundError('Ítem adicional no encontrado')
 
   const qty = data.quantity ?? Number(existing.quantity)
@@ -227,10 +263,16 @@ export async function updateAdditionalItem(
   })
 }
 
-export async function deleteAdditionalItem(db: DbType, itemId: string) {
+export async function deleteAdditionalItem(
+  db: DbType,
+  itemId: string,
+  empresaId: string
+) {
   const existing = await (
     db as PrismaClient
-  ).serviceOrderAdditionalItem.findUnique({ where: { id: itemId } })
+  ).serviceOrderAdditionalItem.findFirst({
+    where: { id: itemId, additional: { empresaId } },
+  })
   if (!existing) throw new NotFoundError('Ítem adicional no encontrado')
   await (db as PrismaClient).serviceOrderAdditionalItem.delete({
     where: { id: itemId },
@@ -242,24 +284,17 @@ export async function deleteAdditionalItem(db: DbType, itemId: string) {
 export async function changeStatus(
   db: DbType,
   id: string,
+  empresaId: string,
   status: 'PROPOSED' | 'QUOTED' | 'APPROVED' | 'EXECUTED' | 'REJECTED'
 ): Promise<IServiceOrderAdditionalWithRelations> {
-  const additional = await findById(db, id)
+  const additional = await findById(db, id, empresaId)
 
-  // Validate status transitions
-  const validTransitions: Record<string, string[]> = {
-    PROPOSED: ['QUOTED', 'REJECTED'],
-    QUOTED: ['APPROVED', 'REJECTED'],
-    APPROVED: ['EXECUTED', 'REJECTED'],
-    EXECUTED: [],
-    REJECTED: [],
-  }
-
-  if (!validTransitions[additional.status as string]?.includes(status)) {
-    throw new BadRequestError(
-      `No se puede cambiar de estado ${additional.status} a ${status}`
-    )
-  }
+  assertTransition(
+    ADDITIONAL_TRANSITIONS,
+    additional.status as AdditionalStatus,
+    status,
+    { entity: 'Adicional de OT' }
+  )
 
   const updated = await (db as PrismaClient).serviceOrderAdditional.update({
     where: { id },

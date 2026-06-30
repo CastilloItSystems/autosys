@@ -5,8 +5,10 @@
 import { Router, Request, Response } from 'express'
 import {
   authenticate,
+  authorize,
   asyncHandler,
 } from '../../../../shared/middleware/index.js'
+import { PERMISSIONS } from '../../../../shared/constants/permissions.js'
 import {
   recordConsumptionHandler,
   getMaterialSummaryHandler,
@@ -19,11 +21,12 @@ const router = Router()
 
 /**
  * POST /api/inventory/integrations/workshop/:workOrderId/consume
- * Record material consumption for work order
+ * Record material consumption for work order (mutates stock)
  */
 router.post(
   '/:workOrderId/consume',
   authenticate,
+  authorize(PERMISSIONS.WORKSHOP_UPDATE),
   asyncHandler(async (req: Request, res: Response) => {
     await recordConsumptionHandler(req, res)
   })
@@ -36,6 +39,7 @@ router.post(
 router.get(
   '/:workOrderId/summary',
   authenticate,
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
   asyncHandler(async (req: Request, res: Response) => {
     await getMaterialSummaryHandler(req, res)
   })
@@ -43,11 +47,12 @@ router.get(
 
 /**
  * POST /api/inventory/integrations/workshop/check-requirements
- * Check material requirements for work order
+ * Check material requirements for work order (read-only feasibility check)
  */
 router.post(
   '/check-requirements',
   authenticate,
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
   asyncHandler(async (req: Request, res: Response) => {
     await checkRequirementsHandler(req, res)
   })
@@ -60,6 +65,7 @@ router.post(
 router.post(
   '/:workOrderId/complete',
   authenticate,
+  authorize(PERMISSIONS.WORKSHOP_UPDATE),
   asyncHandler(async (req: Request, res: Response) => {
     await completeWorkOrderHandler(req, res)
   })
@@ -72,6 +78,7 @@ router.post(
 router.get(
   '/history',
   authenticate,
+  authorize(PERMISSIONS.WORKSHOP_VIEW),
   asyncHandler(async (req: Request, res: Response) => {
     await getConsumptionHistoryHandler(req, res)
   })

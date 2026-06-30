@@ -24,16 +24,11 @@ import {
 import dynamic from "next/dynamic";
 import ApprovalTrail from "@/modules/sales/shared/components/ApprovalTrail";
 import AuditTimeline from "@/modules/sales/shared/components/AuditTimeline";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const InvoicePDFPreview = dynamic(() => import("./InvoicePDFPreview"), {
   ssr: false,
 });
-
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
 
 const formatAmount = (value: number | string, currency = "USD") => {
   const sym = CURRENCY_SYMBOLS[currency] ?? "$";

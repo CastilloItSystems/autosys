@@ -33,6 +33,7 @@ import ServiceOrderStatusDialog from "./ServiceOrderStatusDialog";
 import ServiceOrderStepper from "./ServiceOrderStepper";
 import ServiceOrderDetail from "./ServiceOrderDetail";
 import dynamic from "next/dynamic";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const ServiceOrderPDFPreview = dynamic(() => import("./ServiceOrderPDFPreview"), { ssr: false });
 
@@ -437,12 +438,6 @@ export default function ServiceOrderList() {
   };
 
   // ── Row expansion ──────────────────────────────────────────────────────────
-
-  const CURRENCY_SYMBOLS: Record<string, string> = {
-    USD: "$",
-    EUR: "€",
-    VES: "Bs.",
-  };
 
   const formatAmount = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? "$";

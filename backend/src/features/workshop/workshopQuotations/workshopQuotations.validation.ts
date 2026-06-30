@@ -89,7 +89,18 @@ export const registerApprovalSchema = Joi.object({
   }),
   notes: Joi.string().trim().max(1000).optional().allow(''),
   rejectionReason: Joi.string().trim().max(1000).optional().allow(''),
-  approvedItemIds: Joi.array().items(Joi.string()).optional(),
+  approvedItemIds: Joi.array()
+    .items(Joi.string())
+    .when('type', {
+      is: 'PARTIAL',
+      then: Joi.array().items(Joi.string()).min(1).required().messages({
+        'any.required':
+          'Debe indicar al menos un ítem aprobado para una aprobación parcial',
+        'array.min':
+          'Debe indicar al menos un ítem aprobado para una aprobación parcial',
+      }),
+      otherwise: Joi.array().items(Joi.string()).optional(),
+    }),
 })
 
 export const convertToSOSchema = Joi.object({

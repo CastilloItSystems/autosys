@@ -38,6 +38,12 @@ import type { PurchaseOrder } from "@/modules/inventory/purchaseOrders/interface
 import type { Item } from "@/modules/inventory/items/services/itemService";
 import type { Supplier } from "@/modules/inventory/suppliers/services/supplierService";
 import type { Warehouse } from "@/modules/inventory/warehouses/services/warehouseService";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
+import {
+  getCurrencyVesRate,
+  convertAmountBetweenCurrencies,
+  convertCostFromUsd,
+} from "@/utils/currencyConversion";
 
 const CURRENCY_OPTIONS = [
   { label: "Dólares (USD)", value: "USD" },
@@ -45,59 +51,7 @@ const CURRENCY_OPTIONS = [
   { label: "Euros (EUR)", value: "EUR" },
 ];
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: "$",
-  EUR: "€",
-  VES: "Bs.",
-};
-
 type PurchaseOrderFormCurrency = "USD" | "VES" | "EUR";
-
-function getCurrencyVesRate(
-  currency: string,
-  usdVesRate: number | null,
-  eurVesRate: number | null,
-): number | null {
-  if (currency === "VES") return 1;
-  if (currency === "USD")
-    return usdVesRate && usdVesRate > 0 ? usdVesRate : null;
-  if (currency === "EUR")
-    return eurVesRate && eurVesRate > 0 ? eurVesRate : null;
-  return null;
-}
-
-function convertAmountBetweenCurrencies(
-  amount: number,
-  fromCurrency: string,
-  toCurrency: string,
-  usdVesRate: number | null,
-  eurVesRate: number | null,
-): number | null {
-  if (!amount) return 0;
-
-  const fromRate = getCurrencyVesRate(fromCurrency, usdVesRate, eurVesRate);
-  const toRate = getCurrencyVesRate(toCurrency, usdVesRate, eurVesRate);
-  if (!fromRate || !toRate) return null;
-
-  return Math.round(((amount * fromRate) / toRate) * 100) / 100;
-}
-
-function convertCostFromUsd(
-  costUsd: number,
-  currency: string,
-  usdVesRate: number | null,
-  eurVesRate: number | null,
-): number {
-  return (
-    convertAmountBetweenCurrencies(
-      costUsd,
-      "USD",
-      currency,
-      usdVesRate,
-      eurVesRate,
-    ) ?? costUsd
-  );
-}
 
 function getItemCostUsd(item: any): number {
   return Number(item?.costPrice ?? item?.pricing?.costPrice ?? 0);

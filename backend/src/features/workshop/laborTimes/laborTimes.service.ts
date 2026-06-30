@@ -104,7 +104,11 @@ export async function startLaborTime(
 
   // Regla: técnico no puede tener dos registros ACTIVE simultáneamente
   const activeForTech = await (db as PrismaClient).laborTime.findFirst({
-    where: { technicianId: data.technicianId, status: 'ACTIVE' },
+    where: {
+      technicianId: data.technicianId,
+      status: 'ACTIVE',
+      serviceOrder: { empresaId },
+    },
   })
   if (activeForTech) {
     throw new ConflictError(
@@ -182,7 +186,12 @@ export async function resumeLaborTime(
 
   // Verificar que el técnico no tenga otro ACTIVE
   const activeForTech = await (db as PrismaClient).laborTime.findFirst({
-    where: { technicianId: item.technicianId, status: 'ACTIVE', NOT: { id } },
+    where: {
+      technicianId: item.technicianId,
+      status: 'ACTIVE',
+      NOT: { id },
+      serviceOrder: { empresaId },
+    },
   })
   if (activeForTech)
     throw new ConflictError('El técnico ya tiene otro trabajo activo en curso')

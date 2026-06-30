@@ -1,4 +1,5 @@
 "use client";
+import { logger } from "@/utils/logger";
 import React, { useEffect, useState, useCallback, useRef } from "react";
 import { Control, useForm, Controller, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -221,7 +222,7 @@ export default function ServiceOrderForm({
 
   const handleItemSelect = useCallback(
     (item: any, index: number) => {
-      console.log("[ServiceOrderForm] handleItemSelect called:", {
+      logger.debug("[ServiceOrderForm] handleItemSelect called:", {
         item,
         index,
       });
@@ -234,15 +235,15 @@ export default function ServiceOrderForm({
           : item.type === "PART"
           ? "PART"
           : "OTHER";
-      console.log("[ServiceOrderForm] Setting type:", autoType);
+      logger.debug("[ServiceOrderForm] Setting type:", autoType);
       setValue(`items.${index}.type`, autoType);
 
       // Auto-fill fields from catalog item
-      console.log("[ServiceOrderForm] Setting itemId:", item.id);
+      logger.debug("[ServiceOrderForm] Setting itemId:", item.id);
       setValue(`items.${index}.itemId`, item.id);
 
       const descValue = item.name ?? "";
-      console.log(
+      logger.debug(
         "[ServiceOrderForm] Setting description - raw value:",
         item.name,
         "- final:",
@@ -258,21 +259,21 @@ export default function ServiceOrderForm({
         usdVesRate,
         currencyVesRate,
       );
-      console.log("[ServiceOrderForm] Setting unitPrice:", convertedPrice);
+      logger.debug("[ServiceOrderForm] Setting unitPrice:", convertedPrice);
       setValue(`items.${index}.unitPrice`, convertedPrice);
 
-      console.log("[ServiceOrderForm] Setting unitCost:", item.cost);
+      logger.debug("[ServiceOrderForm] Setting unitCost:", item.cost);
       setValue(`items.${index}.unitCost` as any, item.cost ?? 0);
 
-      console.log("[ServiceOrderForm] Setting taxType:", item.taxType);
+      logger.debug("[ServiceOrderForm] Setting taxType:", item.taxType);
       setValue(`items.${index}.taxType` as any, item.taxType ?? "IVA");
 
-      console.log("[ServiceOrderForm] Setting taxRate:", item.taxRate);
+      logger.debug("[ServiceOrderForm] Setting taxRate:", item.taxRate);
       setValue(`items.${index}.taxRate` as any, item.taxRate ?? 0.16);
 
       // Auto-append suggested items if LABOR with suggestedItems
       if (item.type === "LABOR" && item.suggestedItems?.length > 0) {
-        console.log(
+        logger.debug(
           "[ServiceOrderForm] Appending suggested items:",
           item.suggestedItems,
         );

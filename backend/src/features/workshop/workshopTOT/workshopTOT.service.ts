@@ -5,6 +5,7 @@ import {
   ConflictError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
+import { assertTransition } from '../../../shared/utils/stateMachine.js'
 import { syncAfterTOTChange } from '../integrations/billing-sync.service.js'
 import type {
   ICreateTOT,
@@ -123,6 +124,14 @@ export async function createTOT(
   }
   const totNumber = `TOT-${String(nextNum).padStart(4, '0')}`
 
+  // Cuando el tipo de impuesto es EXEMPT se fuerza taxRate y taxAmount a 0
+  const taxType = data.taxType ?? 'IVA'
+  const effectiveTaxRate = taxType === 'EXEMPT' ? 0 : (data.taxRate ?? 0.16)
+  const cp = data.clientPrice ?? 0
+  const base = cp - cp * ((data.discountPct ?? 0) / 100)
+  const taxAmount = Math.round(base * effectiveTaxRate * 100) / 100
+  const total = Math.round((base + taxAmount) * 100) / 100
+
   return (db as PrismaClient).workshopTOT.create({
     data: {
       totNumber,
@@ -138,20 +147,11 @@ export async function createTOT(
       providerQuote: data.providerQuote ?? null,
       clientPrice: data.clientPrice ?? null,
       discountPct: data.discountPct ?? 0,
-      taxType: data.taxType ?? 'IVA',
-      taxRate: data.taxRate ?? 0.16,
-      taxAmount: (() => {
-        const cp = data.clientPrice ?? 0
-        const base = cp - cp * ((data.discountPct ?? 0) / 100)
-        return Math.round(base * (data.taxRate ?? 0.16) * 100) / 100
-      })(),
+      taxType,
+      taxRate: effectiveTaxRate,
+      taxAmount,
       quantity: 1,
-      total: (() => {
-        const cp = data.clientPrice ?? 0
-        const base = cp - cp * ((data.discountPct ?? 0) / 100)
-        const tax = Math.round(base * (data.taxRate ?? 0.16) * 100) / 100
-        return Math.round((base + tax) * 100) / 100
-      })(),
+      total,
       currency: (data.currency as any) ?? 'USD',
       exchangeRate: data.exchangeRate ?? null,
       notes: data.notes || null,
@@ -226,19 +226,23 @@ export async function updateTOT(
       : Number(item.discountPct || 0)
   const taxType =
     data.taxType !== undefined ? data.taxType : item.taxType || 'IVA'
-  const taxRate =
+  const rawTaxRate =
     data.taxRate !== undefined ? data.taxRate : Number(item.taxRate || 0.16)
+  // Cuando el tipo de impuesto es EXEMPT se fuerza taxRate y taxAmount a 0
+  const taxRate = taxType === 'EXEMPT' ? 0 : rawTaxRate
 
   if (data.clientPrice !== undefined) updateData.clientPrice = clientPrice
   if (data.discountPct !== undefined) updateData.discountPct = discountPct
   if (data.taxType !== undefined) updateData.taxType = taxType
-  if (data.taxRate !== undefined) updateData.taxRate = taxRate
+  if (data.taxType !== undefined || data.taxRate !== undefined)
+    updateData.taxRate = taxRate
 
-  // Calculate taxAmount and total
+  // Calculate taxAmount and total (recalcular también cuando cambia taxType)
   if (
     data.clientPrice !== undefined ||
     data.discountPct !== undefined ||
-    data.taxRate !== undefined
+    data.taxRate !== undefined ||
+    data.taxType !== undefined
   ) {
     const subtotal = clientPrice
     const discountAmount = (discountPct / 100) * subtotal
@@ -262,12 +266,9 @@ export async function updateTOTStatus(
   newStatus: TOTStatus
 ) {
   const item = await findTOTById(db, id, empresaId)
-  const allowed = VALID_TRANSITIONS[item.status as TOTStatus]
-  if (!allowed.includes(newStatus)) {
-    throw new BadRequestError(
-      `No se puede pasar de ${item.status} a ${newStatus}`
-    )
-  }
+  assertTransition(VALID_TRANSITIONS, item.status as TOTStatus, newStatus, {
+    entity: 'Servicio de terceros',
+  })
 
   const extraData: any = {}
   if (newStatus === 'DEPARTED' && !item.departedAt)

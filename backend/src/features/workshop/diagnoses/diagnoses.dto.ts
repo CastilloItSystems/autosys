@@ -45,6 +45,7 @@ export class CreateDiagnosisFindingDTO {
   description: string
   severity?: DiagnosisFindingSeverity
   requiresClientAuth?: boolean
+  isHiddenFinding?: boolean
   observation?: string
 
   constructor(data: any) {
@@ -54,6 +55,10 @@ export class CreateDiagnosisFindingDTO {
     this.requiresClientAuth =
       data.requiresClientAuth !== undefined
         ? Boolean(data.requiresClientAuth)
+        : undefined
+    this.isHiddenFinding =
+      data.isHiddenFinding !== undefined
+        ? Boolean(data.isHiddenFinding)
         : undefined
     this.observation = data.observation?.trim() ?? undefined
   }

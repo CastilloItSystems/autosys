@@ -1,5 +1,5 @@
 "use client";
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button } from "primereact/button";
 import { Dialog } from "primereact/dialog";
 import { InputText } from "primereact/inputtext";
@@ -33,6 +33,24 @@ const ACCEPT: Record<string, string> = {
   document: ".pdf,.doc,.docx,.xls,.xlsx,.csv,.txt",
 };
 
+// Límite de tamaño por archivo (10MB)
+const MAX_FILE_SIZE = 10 * 1024 * 1024;
+
+// Lista blanca de tipos MIME permitidos por tipo de evidencia
+const ALLOWED_MIME_TYPES: Record<string, string[]> = {
+  photo: ["image/jpeg", "image/png", "image/webp", "image/gif"],
+  video: ["video/mp4", "video/quicktime", "video/webm"],
+  document: [
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "text/csv",
+    "text/plain",
+  ],
+};
+
 interface Props {
   diagnosisId: string;
   evidences: DiagnosisEvidence[];
@@ -59,20 +77,68 @@ export default function DiagnosisEvidencesTab({
   const useFileUpload =
     form.type === "photo" || form.type === "video" || form.type === "document";
 
+  // Revoca el object URL anterior y opcionalmente asigna uno nuevo.
+  const replacePreviewUrl = (next: string | null) => {
+    setPreviewUrl((prev) => {
+      if (prev) URL.revokeObjectURL(prev);
+      return next;
+    });
+  };
+
+  // Cleanup: revocar cualquier object URL pendiente al desmontar.
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
+
+    if (!file) {
+      setSelectedFile(null);
+      replacePreviewUrl(null);
+      return;
+    }
+
+    // Validación de tipo (lista blanca por tipo de evidencia)
+    const allowed = ALLOWED_MIME_TYPES[form.type] ?? [];
+    if (allowed.length > 0 && !allowed.includes(file.type)) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Tipo de archivo no permitido",
+        detail: "El formato del archivo seleccionado no es válido para este tipo de evidencia.",
+        life: 4000,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Validación de tamaño (máx. 10MB)
+    if (file.size > MAX_FILE_SIZE) {
+      toast.current?.show({
+        severity: "warn",
+        summary: "Archivo demasiado grande",
+        detail: "El archivo supera el límite de 10 MB.",
+        life: 4000,
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
     setSelectedFile(file);
-    if (file && form.type === "photo") {
-      setPreviewUrl(URL.createObjectURL(file));
+    if (form.type === "photo") {
+      replacePreviewUrl(URL.createObjectURL(file));
     } else {
-      setPreviewUrl(null);
+      replacePreviewUrl(null);
     }
   };
 
   const handleTypeChange = (type: string) => {
     setForm((f) => ({ ...f, type, url: "" }));
     setSelectedFile(null);
-    setPreviewUrl(null);
+    replacePreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -111,7 +177,7 @@ export default function DiagnosisEvidencesTab({
   const resetForm = () => {
     setForm(EMPTY);
     setSelectedFile(null);
-    setPreviewUrl(null);
+    replacePreviewUrl(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
@@ -323,7 +389,7 @@ export default function DiagnosisEvidencesTab({
                 onClick={(e) => {
                   e.stopPropagation();
                   setSelectedFile(null);
-                  setPreviewUrl(null);
+                  replacePreviewUrl(null);
                   if (fileInputRef.current) fileInputRef.current.value = "";
                 }}
               />

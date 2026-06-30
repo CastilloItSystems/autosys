@@ -17,6 +17,7 @@ import { MenuItem } from "primereact/menuitem";
 import dynamic from "next/dynamic";
 import type { SupplierBill } from "../interfaces/supplierBill";
 import { useSupplierBillsData } from "../hooks/useSupplierBillsData";
+import { CURRENCY_SYMBOLS } from "@/utils/currencyFormat";
 
 const SupplierBillPDFPreview = dynamic(() => import("./SupplierBillPDFPreview"), { ssr: false });
 import supplierBillService from "../services/supplierBillService";
@@ -312,12 +313,6 @@ function SupplierBillListContent() {
       aria-haspopup
     />
   );
-
-  const CURRENCY_SYMBOLS: Record<string, string> = {
-    USD: "$",
-    EUR: "€",
-    VES: "Bs.",
-  };
 
   const fmtAmt = (value: number | string, currency = "USD") => {
     const sym = CURRENCY_SYMBOLS[currency] ?? currency;

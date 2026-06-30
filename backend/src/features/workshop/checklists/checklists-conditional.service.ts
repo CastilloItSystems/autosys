@@ -90,10 +90,16 @@ export async function evaluateConditionalRules(
  * Extract the actual value from a ChecklistResponse based on its type
  */
 export function getResponseValue(response: ChecklistResponse): unknown {
-  if (response.boolValue !== null) return response.boolValue
-  if (response.textValue) return response.textValue
-  if (response.numValue !== null) return response.numValue
-  if (response.selectionValue) return response.selectionValue
+  // Comparaciones explícitas por tipo: usamos `!= null` (descarta null y
+  // undefined) en lugar de truthiness, para que strings vacíos (""),
+  // selecciones vacías, `false` y `0` se traten como valores legítimos
+  // presentes y no como ausencia de valor.
+  if (response.boolValue != null) return response.boolValue
+  if (response.textValue != null) return response.textValue
+  // numValue es un Prisma.Decimal; normalizar a number para que las
+  // comparaciones por igualdad con reglas numéricas funcionen.
+  if (response.numValue != null) return Number(response.numValue)
+  if (response.selectionValue != null) return response.selectionValue
   return undefined
 }
 
@@ -104,7 +110,8 @@ export function getResponseValue(response: ChecklistResponse): unknown {
 export async function validateWithConditionalRules(
   prisma: PrismaClient,
   templateId: string,
-  responses: ChecklistResponse[]
+  responses: ChecklistResponse[],
+  empresaId: string
 ): Promise<{
   isValid: boolean
   missingRequiredItems: string[]
@@ -112,8 +119,8 @@ export async function validateWithConditionalRules(
 }> {
   try {
     // Get template with items and conditional rules
-    const template = await prisma.checklistTemplate.findUnique({
-      where: { id: templateId },
+    const template = await prisma.checklistTemplate.findFirst({
+      where: { id: templateId, empresaId },
       include: {
         items: true,
       },
@@ -172,7 +179,8 @@ export async function validateWithConditionalRules(
 export async function getValidationDetailsWithConditionalRules(
   prisma: PrismaClient,
   templateId: string,
-  responses: ChecklistResponse[]
+  responses: ChecklistResponse[],
+  empresaId: string
 ): Promise<{
   isValid: boolean
   staticRequired: { id: string; name: string }[]
@@ -180,8 +188,8 @@ export async function getValidationDetailsWithConditionalRules(
   missingItems: { id: string; name: string }[]
 }> {
   try {
-    const template = await prisma.checklistTemplate.findUnique({
-      where: { id: templateId },
+    const template = await prisma.checklistTemplate.findFirst({
+      where: { id: templateId, empresaId },
       include: { items: true },
     })
 

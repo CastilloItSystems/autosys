@@ -35,8 +35,8 @@ export async function getBillableServiceOrderItems(
   billableItems: ServiceOrderItem[]
   hasApprovedQuotation: boolean
 }> {
-  // Forzar sincronización operativa antes de evaluar elegibilidad
-  await syncServiceOrderItems(prisma, serviceOrderId)
+  // Forzar sincronización operativa antes de evaluar elegibilidad (acotada por empresa)
+  await syncServiceOrderItems(prisma, serviceOrderId, empresaId)
 
   const serviceOrder = await (prisma as PrismaClient).serviceOrder.findFirst({
     where: {

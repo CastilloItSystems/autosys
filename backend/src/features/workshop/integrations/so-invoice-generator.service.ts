@@ -7,6 +7,7 @@
  */
 
 import { Decimal } from '@/generated/prisma/internal/prismaNamespace.js'
+import { Prisma } from '../../../generated/prisma/client.js'
 import type {
   PrismaClient,
   ServiceOrder,
@@ -27,6 +28,19 @@ type PrismaClientType =
       PrismaClient,
       '$connect' | '$disconnect' | '$on' | '$transaction' | '$use' | '$extends'
     >
+
+/**
+ * Detecta si un error de Prisma corresponde a violación de unique (P2002).
+ * Usado para reintentar la generación de correlativos fiscales bajo concurrencia.
+ */
+function isUniqueConstraintError(error: unknown): boolean {
+  return (
+    error instanceof Prisma.PrismaClientKnownRequestError &&
+    error.code === 'P2002'
+  )
+}
+
+const FISCAL_NUMBER_MAX_RETRIES = 5
 
 /**
  * Validate that ServiceOrder can be invoiced
@@ -53,17 +67,25 @@ function validateSOReadyForInvoicing(
  * @param prisma - Prisma client
  * @param serviceOrderId - ID of the ServiceOrder to invoice
  * @param userId - User ID performing the action (for audit)
+ * @param empresaId - Empresa scope (requerido para aislamiento multiempresa)
  * @returns Created PreInvoice
  */
 export async function generatePreInvoiceFromServiceOrder(
   prisma: PrismaClientType,
   serviceOrderId: string,
-  userId: string
+  userId: string,
+  empresaId: string
 ): Promise<PreInvoice> {
+  if (!empresaId) {
+    throw new BadRequestError('empresaId es requerido para generar la pre-factura')
+  }
+
   // 1. Sync and fetch SO + billable items using mixed authorization rules
+  //    (la carga de la SO queda acotada por empresaId)
   const { serviceOrder: so, billableItems } = await getBillableServiceOrderItems(
     prisma,
-    serviceOrderId
+    serviceOrderId,
+    empresaId
   )
 
   // 2. Validate SO is ready
@@ -137,82 +159,109 @@ export async function generatePreInvoiceFromServiceOrder(
 
   const total = baseImponible + baseExenta + taxAmount + igtfAmount
 
-  // 7. Generate PreInvoice number (format: PF-YYYYMM-{sequence})
   const now = new Date()
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const lastPreInvoice = await prisma.preInvoice.findFirst({
-    where: {
-      empresaId: so.empresaId,
-      preInvoiceNumber: { startsWith: `PF-${yearMonth}` },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-  })
-  const sequence = lastPreInvoice
-    ? parseInt(lastPreInvoice.preInvoiceNumber.split('-')[2] || '0') + 1
-    : 1
-  const preInvoiceNumber = `PF-${yearMonth}-${String(sequence).padStart(6, '0')}`
 
-  // 8. Create PreInvoice
-  const preInvoice = await prisma.preInvoice.create({
-    data: {
-      preInvoiceNumber,
-      status: 'PENDING_PREPARATION',
-      empresaId: so.empresaId,
-      serviceOrderId: so.id,
-      customerId: so.customerId,
-      // warehouseId: null for workshop (no warehouse needed)
-      currency: (so as any).currency ?? 'USD',
-      exchangeRate: (so as any).exchangeRate ?? null,
-      discountAmount: 0,
-      subtotalBruto,
-      baseImponible,
-      baseExenta,
-      taxAmount,
-      taxRate: 16, // Default IVA rate
-      igtfApplies,
-      igtfRate: 3,
-      igtfAmount,
-      total,
-      notes: `Pre-invoice from ServiceOrder ${so.folio}`,
-      preparedBy: userId,
-      preparedAt: new Date(),
-      items: {
-        create: preInvoiceItems.map((item) => {
-          const lineData: any = {
-            itemName: item.itemName,
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-            discountPercent: item.discountPercent,
-            discountAmount: item.discountAmount,
-            taxType: item.taxType,
-            taxRate: item.taxRate,
-            taxAmount: item.taxAmount,
-            subtotal: item.subtotal,
-            totalLine: item.totalLine,
-            discount: item.discount,
-          }
+  // 7-9. Generar correlativo, crear PreInvoice y vincular la SO de forma atómica.
+  //      El correlativo se calcula DENTRO de la transacción y, si otro proceso
+  //      concurrente consume el mismo número (preInvoiceNumber tiene @unique en BD),
+  //      Prisma lanza P2002 y reintentamos recapturando la secuencia.
+  const db = prisma as PrismaClient
 
-          if (item.itemId) {
-            lineData.item = { connect: { id: item.itemId } }
-          }
+  for (let attempt = 1; attempt <= FISCAL_NUMBER_MAX_RETRIES; attempt++) {
+    try {
+      const preInvoice = await db.$transaction(async (tx) => {
+        // 7. Generate PreInvoice number (format: PF-YYYYMM-{sequence})
+        const lastPreInvoice = await tx.preInvoice.findFirst({
+          where: {
+            empresaId: so.empresaId,
+            preInvoiceNumber: { startsWith: `PF-${yearMonth}` },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        })
+        const sequence = lastPreInvoice
+          ? parseInt(lastPreInvoice.preInvoiceNumber.split('-')[2] || '0') + 1
+          : 1
+        const preInvoiceNumber = `PF-${yearMonth}-${String(sequence).padStart(6, '0')}`
 
-          return lineData
-        }),
-      },
-    },
-    include: {
-      items: true,
-    },
-  })
+        // 8. Create PreInvoice
+        const created = await tx.preInvoice.create({
+          data: {
+            preInvoiceNumber,
+            status: 'PENDING_PREPARATION',
+            empresaId: so.empresaId,
+            serviceOrderId: so.id,
+            customerId: so.customerId,
+            // warehouseId: null for workshop (no warehouse needed)
+            currency: (so as any).currency ?? 'USD',
+            exchangeRate: (so as any).exchangeRate ?? null,
+            discountAmount: 0,
+            subtotalBruto,
+            baseImponible,
+            baseExenta,
+            taxAmount,
+            taxRate: 16, // Default IVA rate
+            igtfApplies,
+            igtfRate: 3,
+            igtfAmount,
+            total,
+            notes: `Pre-invoice from ServiceOrder ${so.folio}`,
+            preparedBy: userId,
+            preparedAt: new Date(),
+            items: {
+              create: preInvoiceItems.map((item) => {
+                const lineData: any = {
+                  itemName: item.itemName,
+                  quantity: item.quantity,
+                  unitPrice: item.unitPrice,
+                  discountPercent: item.discountPercent,
+                  discountAmount: item.discountAmount,
+                  taxType: item.taxType,
+                  taxRate: item.taxRate,
+                  taxAmount: item.taxAmount,
+                  subtotal: item.subtotal,
+                  totalLine: item.totalLine,
+                  discount: item.discount,
+                }
 
-  // 9. Update ServiceOrder to link PreInvoice
-  await prisma.serviceOrder.update({
-    where: { id: so.id },
-    data: { preInvoice: { connect: { id: preInvoice.id } } },
-  })
+                if (item.itemId) {
+                  lineData.item = { connect: { id: item.itemId } }
+                }
 
-  return preInvoice
+                return lineData
+              }),
+            },
+          },
+          include: {
+            items: true,
+          },
+        })
+
+        // 9. Update ServiceOrder to link PreInvoice (misma transacción: si falla,
+        //    se revierte la creación y no quedan PreInvoices huérfanas).
+        await tx.serviceOrder.update({
+          where: { id: so.id },
+          data: { preInvoice: { connect: { id: created.id } } },
+        })
+
+        return created
+      })
+
+      return preInvoice
+    } catch (error) {
+      // Reintentar solo si el choque fue por el correlativo duplicado (P2002).
+      if (isUniqueConstraintError(error) && attempt < FISCAL_NUMBER_MAX_RETRIES) {
+        continue
+      }
+      throw error
+    }
+  }
+
+  // Inalcanzable en la práctica: el loop retorna o lanza dentro de la iteración.
+  throw new ConflictError(
+    `No se pudo generar un número de pre-factura único tras ${FISCAL_NUMBER_MAX_RETRIES} intentos`
+  )
 }
 
 /**
@@ -253,96 +302,120 @@ export async function generateInvoiceFromPreInvoice(
     )
   }
 
-  // 3. Generate Invoice number with SENIAT compliance
-  // Format: FAC-YYYYMM-{sequence} per empresa
+  // 3-5. Generar correlativo SENIAT (FAC-YYYYMM-{sequence}), asegurar Payment y
+  //       crear la Invoice de forma atómica con reintento ante P2002. invoiceNumber
+  //       tiene @unique en BD, por lo que un choque concurrente recaptura la secuencia.
   const now = new Date()
   const yearMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}`
-  const lastInvoice = await prisma.invoice.findFirst({
-    where: {
-      empresaId: preInvoice.empresaId,
-      invoiceNumber: { startsWith: `FAC-${yearMonth}` },
-    },
-    orderBy: { createdAt: 'desc' },
-    take: 1,
-  })
-  const sequence = lastInvoice
-    ? parseInt(lastInvoice.invoiceNumber.split('-')[2] || '0') + 1
-    : 1
-  const invoiceNumber = `FAC-${yearMonth}-${String(sequence).padStart(6, '0')}`
+  const db = prisma as PrismaClient
 
-  // 4. Ensure Payment exists for this PreInvoice
-  let payment = await prisma.payment.findFirst({
-    where: { preInvoiceId },
-  })
+  let invoice: (Invoice & { items: unknown[] }) | undefined
 
-  if (!payment) {
-    // Create a default payment record for the PreInvoice
-    payment = await prisma.payment.create({
-      data: {
-        paymentNumber: `PAY-${invoiceNumber}`,
-        status: 'COMPLETED', // Assuming payment is completed when generating invoice
-        preInvoiceId,
-        empresaId: preInvoice.empresaId,
-        customerId: preInvoice.customerId,
-        method: 'TRANSFER', // Default method
-        amount: preInvoice.total,
-        currency: preInvoice.currency,
-        exchangeRate: preInvoice.exchangeRate || undefined,
-        igtfApplies: preInvoice.igtfApplies,
-        igtfAmount: preInvoice.igtfAmount,
-        totalWithIgtf:
-          preInvoice.total.toNumber() > 0
-            ? preInvoice.total.plus(preInvoice.igtfAmount)
-            : preInvoice.total,
-        processedBy: userId,
-        processedAt: now,
-      },
-    })
+  for (let attempt = 1; attempt <= FISCAL_NUMBER_MAX_RETRIES; attempt++) {
+    try {
+      invoice = await db.$transaction(async (tx) => {
+        // 3. Generate Invoice number with SENIAT compliance (dentro de la transacción)
+        const lastInvoice = await tx.invoice.findFirst({
+          where: {
+            empresaId: preInvoice.empresaId,
+            invoiceNumber: { startsWith: `FAC-${yearMonth}` },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        })
+        const sequence = lastInvoice
+          ? parseInt(lastInvoice.invoiceNumber.split('-')[2] || '0') + 1
+          : 1
+        const invoiceNumber = `FAC-${yearMonth}-${String(sequence).padStart(6, '0')}`
+
+        // 4. Ensure Payment exists for this PreInvoice
+        let payment = await tx.payment.findFirst({
+          where: { preInvoiceId },
+        })
+
+        if (!payment) {
+          // Create a default payment record for the PreInvoice
+          payment = await tx.payment.create({
+            data: {
+              paymentNumber: `PAY-${invoiceNumber}`,
+              status: 'COMPLETED', // Assuming payment is completed when generating invoice
+              preInvoiceId,
+              empresaId: preInvoice.empresaId,
+              customerId: preInvoice.customerId,
+              method: 'TRANSFER', // Default method
+              amount: preInvoice.total,
+              currency: preInvoice.currency,
+              exchangeRate: preInvoice.exchangeRate || undefined,
+              igtfApplies: preInvoice.igtfApplies,
+              igtfAmount: preInvoice.igtfAmount,
+              totalWithIgtf:
+                preInvoice.total.toNumber() > 0
+                  ? preInvoice.total.plus(preInvoice.igtfAmount)
+                  : preInvoice.total,
+              processedBy: userId,
+              processedAt: now,
+            },
+          })
+        }
+
+        // 5. Create Invoice from PreInvoice data
+        return tx.invoice.create({
+          data: {
+            invoiceNumber,
+            fiscalNumber: `SENIAT-${invoiceNumber}`, // Placeholder; actual SENIAT number from external system
+            status: 'ACTIVE',
+            empresaId: preInvoice.empresaId,
+            preInvoiceId: preInvoice.id,
+            paymentId: payment.id,
+            customerId: preInvoice.customerId,
+            currency: preInvoice.currency,
+            exchangeRate: preInvoice.exchangeRate,
+            discountAmount: preInvoice.discountAmount,
+            subtotalBruto: preInvoice.subtotalBruto,
+            baseImponible: preInvoice.baseImponible,
+            baseExenta: preInvoice.baseExenta,
+            taxAmount: preInvoice.taxAmount,
+            taxRate: preInvoice.taxRate,
+            igtfApplies: preInvoice.igtfApplies,
+            igtfRate: preInvoice.igtfRate,
+            igtfAmount: preInvoice.igtfAmount,
+            total: preInvoice.total,
+            notes: preInvoice.notes,
+            issuedBy: userId,
+            items: {
+              create: preInvoice.items.map((item) => ({
+                itemName: item.itemName,
+                quantity: item.quantity,
+                unitPrice: item.unitPrice,
+                discountPercent: item.discountPercent,
+                discountAmount: item.discountAmount,
+                taxType: item.taxType,
+                taxRate: item.taxRate,
+                taxAmount: item.taxAmount,
+                subtotal: item.subtotal,
+                totalLine: item.totalLine,
+              })),
+            },
+          },
+          include: {
+            items: true,
+          },
+        })
+      })
+      break
+    } catch (error) {
+      if (isUniqueConstraintError(error) && attempt < FISCAL_NUMBER_MAX_RETRIES) {
+        continue
+      }
+      throw error
+    }
   }
 
-  // 5. Create Invoice from PreInvoice data
-  const invoice = await prisma.invoice.create({
-    data: {
-      invoiceNumber,
-      fiscalNumber: `SENIAT-${invoiceNumber}`, // Placeholder; actual SENIAT number from external system
-      status: 'ACTIVE',
-      empresaId: preInvoice.empresaId,
-      preInvoiceId: preInvoice.id,
-      paymentId: payment.id,
-      customerId: preInvoice.customerId,
-      currency: preInvoice.currency,
-      exchangeRate: preInvoice.exchangeRate,
-      discountAmount: preInvoice.discountAmount,
-      subtotalBruto: preInvoice.subtotalBruto,
-      baseImponible: preInvoice.baseImponible,
-      baseExenta: preInvoice.baseExenta,
-      taxAmount: preInvoice.taxAmount,
-      taxRate: preInvoice.taxRate,
-      igtfApplies: preInvoice.igtfApplies,
-      igtfRate: preInvoice.igtfRate,
-      igtfAmount: preInvoice.igtfAmount,
-      total: preInvoice.total,
-      notes: preInvoice.notes,
-      issuedBy: userId,
-      items: {
-        create: preInvoice.items.map((item) => ({
-          itemName: item.itemName,
-          quantity: item.quantity,
-          unitPrice: item.unitPrice,
-          discountPercent: item.discountPercent,
-          discountAmount: item.discountAmount,
-          taxType: item.taxType,
-          taxRate: item.taxRate,
-          taxAmount: item.taxAmount,
-          subtotal: item.subtotal,
-          totalLine: item.totalLine,
-        })),
-      },
-    },
-    include: {
-      items: true,
-    },
-  })
+  if (!invoice) {
+    throw new ConflictError(
+      `No se pudo generar un número de factura único tras ${FISCAL_NUMBER_MAX_RETRIES} intentos`
+    )
+  }
 
   // 6. Update ServiceOrder status to INVOICED
   await changeServiceOrderStatusWithHistory(prisma, {
@@ -364,12 +437,14 @@ export async function generateInvoiceFromPreInvoice(
  * @param prisma - Prisma client
  * @param serviceOrderIds - Array of SO IDs
  * @param userId - User ID performing batch action
+ * @param empresaId - Empresa scope (requerido para aislamiento multiempresa)
  * @returns Results with succeeded and failed IDs
  */
 export async function bulkGeneratePreInvoices(
   prisma: PrismaClientType,
   serviceOrderIds: string[],
-  userId: string
+  userId: string,
+  empresaId: string
 ): Promise<{
   succeeded: string[]
   failed: Array<{ id: string; error: string }>
@@ -379,7 +454,7 @@ export async function bulkGeneratePreInvoices(
 
   for (const soId of serviceOrderIds) {
     try {
-      await generatePreInvoiceFromServiceOrder(prisma, soId, userId)
+      await generatePreInvoiceFromServiceOrder(prisma, soId, userId, empresaId)
       succeeded.push(soId)
     } catch (error: any) {
       failed.push({

@@ -21,7 +21,7 @@ export const getOne = async (req: Request, res: Response) => {
 
 export const create = async (req: Request, res: Response) => {
   const dto = new CreateWorkshopOperationDTO(req.body)
-  const item = await createWorkshopOperation(prisma, req.empresaId!, dto, (req as any).userId)
+  const item = await createWorkshopOperation(prisma, req.empresaId!, dto, (req as any).user?.userId)
   return ApiResponse.created(res, new WorkshopOperationResponseDTO(item), 'Operación creada')
 }
 
