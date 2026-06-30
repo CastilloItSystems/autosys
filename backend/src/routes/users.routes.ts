@@ -2,6 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express'
 import {
   getAllUsers,
   getCompanyUsers,
+  searchUsers,
   createUser,
   createCompanyUser,
   getUserById,
@@ -44,6 +45,13 @@ router.get(
   extractEmpresa,
   authorize(PERMISSIONS.USERS_VIEW),
   getCompanyUsers
+)
+// Buscar usuarios existentes para agregarlos a la empresa activa.
+router.get(
+  '/search',
+  extractEmpresa,
+  authorize(PERMISSIONS.USERS_UPDATE),
+  searchUsers
 )
 router.post(
   '/company',

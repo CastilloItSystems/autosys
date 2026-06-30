@@ -3,6 +3,7 @@ import {
   getMembershipsByEmpresa,
   getMembershipsByUser,
   createMembership,
+  createMembershipPlatform,
   updateMembership,
   deleteMembership,
   getMembershipPermissions,
@@ -10,7 +11,10 @@ import {
 } from '../controllers/memberships.controller.js'
 import { authenticate } from '../shared/middleware/authenticate.middleware.js'
 import { extractEmpresa } from '../shared/middleware/empresa.middleware.js'
-import { authorize } from '../shared/middleware/authorize.middleware.js'
+import {
+  authorize,
+  authorizeInAnyEmpresa,
+} from '../shared/middleware/authorize.middleware.js'
 import { PERMISSIONS } from '../shared/constants/permissions.js'
 
 const router = Router()
@@ -30,6 +34,13 @@ router.post(
   extractEmpresa,
   authorize(PERMISSIONS.USERS_UPDATE),
   createMembership
+)
+
+// Plataforma: admin global asigna usuario a cualquier empresa (empresaId en el body).
+router.post(
+  '/platform',
+  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_UPDATE),
+  createMembershipPlatform
 )
 
 router.put(

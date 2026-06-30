@@ -106,24 +106,30 @@ const DashboardMain = () => {
               style={{ cursor: "pointer" }}
             >
               <div className="card h-full flex flex-column surface-card hover:surface-hover transition-colors transition-duration-300">
-                <div className="flex flex-column md:flex-row align-items-center ">
+                <div className="flex flex-column md:flex-row align-items-center w-full">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={empresa.logo_url || "/demo/images/nature/nature1.jpg"}
                     alt={empresa.nombre}
                     width={100}
                     height={100}
-                    className="rounded-lg shadow-4 object-cover mb-3 md:mb-0 md:mr-3 card p-0"
+                    className="rounded-lg shadow-4 object-cover mb-3 md:mb-0 md:mr-3 card p-0 flex-shrink-0"
                     style={{ background: "#f4f6fa" }}
                   />
-                  <div className="ml-3">
+                  <div className="ml-3 flex-1 min-w-0 text-center md:text-left">
                     {/* <span className="text-primary block white-space-nowrap text-xs font-medium opacity-80">
                       {empresa.direccion}
                     </span> */}
-                    <span className="text-primary block text-2xl md:text-3xl font-bold mb-1">
+                    <span
+                      className="text-primary block text-2xl md:text-3xl font-bold mb-1"
+                      style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
+                    >
                       {empresa.name_prefijo}
                     </span>
-                    <span className="text-primary block white-space-nowrap text-xs opacity-70">
+                    <span
+                      className="text-primary block text-xs opacity-70"
+                      style={{ overflowWrap: "anywhere" }}
+                    >
                       {empresa.numerorif}
                     </span>
                   </div>

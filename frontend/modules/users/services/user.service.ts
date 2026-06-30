@@ -108,6 +108,19 @@ export const getCompanyUsers = async (): Promise<UsersResponse> => {
   return response.data;
 };
 
+export interface UserSearchResult {
+  id: string;
+  nombre: string;
+  correo: string;
+  img?: string | null;
+}
+
+// Busca usuarios existentes (no miembros de la empresa activa) para agregarlos.
+export const searchUsers = async (q: string): Promise<UserSearchResult[]> => {
+  const response = await apiClient.get("/users/search", { params: { q } });
+  return response.data?.users ?? [];
+};
+
 export const createCompanyUser = async (
   data: CreateCompanyUserRequest,
 ): Promise<User> => {
@@ -171,6 +184,15 @@ export const createMembership = async (
   data: CreateMembershipRequest,
 ): Promise<Membership> => {
   const response = await apiClient.post("/memberships", data);
+  return response.data;
+};
+
+// Variante de plataforma: el admin global asigna a CUALQUIER empresa
+// (empresaId en el body, sin requerir X-Empresa-Id ni ser miembro).
+export const createMembershipPlatform = async (
+  data: CreateMembershipRequest,
+): Promise<Membership> => {
+  const response = await apiClient.post("/memberships/platform", data);
   return response.data;
 };
 

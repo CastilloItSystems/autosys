@@ -94,6 +94,74 @@ export const getMembershipsByUser = async (req: Request, res: Response) => {
   }
 }
 
+// Lógica común de creación de membership. La validación de permisos (empresa
+// activa vs. plataforma) se hace en los handlers; aquí solo la lógica de datos.
+interface CreateMembershipCoreResult {
+  ok: boolean
+  code?: number
+  error?: string
+  membership?: unknown
+}
+
+const createMembershipCore = async (params: {
+  empresaId: string
+  userId: string
+  roleId: string
+  status?: string
+  assignedBy: string | null
+}): Promise<CreateMembershipCoreResult> => {
+  const { empresaId, userId, roleId, status, assignedBy } = params
+
+  const user = await prisma.user.findUnique({ where: { id: userId } })
+  if (!user || user.eliminado) {
+    return { ok: false, code: 404, error: 'Usuario no encontrado.' }
+  }
+
+  const empresa = await prisma.empresa.findUnique({
+    where: { id_empresa: empresaId },
+  })
+  if (!empresa || empresa.eliminado) {
+    return { ok: false, code: 404, error: 'Empresa no encontrada.' }
+  }
+
+  const role = await prisma.companyRole.findFirst({
+    where: { id: roleId, empresaId },
+  })
+  if (!role) {
+    return {
+      ok: false,
+      code: 400,
+      error: 'El rol no pertenece a la empresa especificada.',
+    }
+  }
+
+  const existingMembership = await prisma.membership.findUnique({
+    where: { userId_empresaId: { userId, empresaId } },
+  })
+  if (existingMembership) {
+    return { ok: false, code: 409, error: 'El usuario ya pertenece a esta empresa.' }
+  }
+
+  const membership = await prisma.membership.create({
+    data: {
+      userId,
+      empresaId,
+      roleId,
+      status: (status || 'active') as any,
+      assignedBy,
+    },
+    include: {
+      user: { select: { id: true, nombre: true, correo: true } },
+      empresa: { select: { id_empresa: true, nombre: true } },
+      role: { select: { id: true, name: true, description: true } },
+    },
+  })
+
+  invalidateMembershipsCache(empresaId)
+  return { ok: true, membership }
+}
+
+// Empresa-scoped: crea membership en la empresa activa (X-Empresa-Id).
 export const createMembership = async (req: Request, res: Response) => {
   try {
     if (!req.empresaId) {
@@ -102,12 +170,9 @@ export const createMembership = async (req: Request, res: Response) => {
 
     const { userId, empresaId: requestedEmpresaId, roleId, status } = req.body
     const empresaId = req.empresaId
-    const assignedBy = req.user?.userId || null
 
     if (!userId || !roleId) {
-      return res.status(400).json({
-        error: 'userId y roleId son requeridos.',
-      })
+      return res.status(400).json({ error: 'userId y roleId son requeridos.' })
     }
 
     if (requestedEmpresaId && requestedEmpresaId !== empresaId) {
@@ -116,90 +181,54 @@ export const createMembership = async (req: Request, res: Response) => {
       })
     }
 
-    const user = await prisma.user.findUnique({
-      where: { id: String(userId) },
+    const result = await createMembershipCore({
+      empresaId: String(empresaId),
+      userId: String(userId),
+      roleId: String(roleId),
+      status,
+      assignedBy: req.user?.userId || null,
     })
 
-    if (!user || user.eliminado) {
-      return res.status(404).json({
-        error: 'Usuario no encontrado.',
-      })
+    if (!result.ok) {
+      return res.status(result.code ?? 400).json({ error: result.error })
     }
-
-    const empresa = await prisma.empresa.findUnique({
-      where: { id_empresa: String(empresaId) },
-    })
-
-    if (!empresa || empresa.eliminado) {
-      return res.status(404).json({
-        error: 'Empresa no encontrada.',
-      })
-    }
-
-    const role = await prisma.companyRole.findFirst({
-      where: {
-        id: String(roleId),
-        empresaId: String(empresaId),
-      },
-    })
-
-    if (!role) {
-      return res.status(400).json({
-        error: 'El rol no pertenece a la empresa especificada.',
-      })
-    }
-
-    const existingMembership = await prisma.membership.findUnique({
-      where: {
-        userId_empresaId: {
-          userId: String(userId),
-          empresaId: String(empresaId),
-        },
-      },
-    })
-
-    if (existingMembership) {
-      return res.status(409).json({
-        error: 'El usuario ya pertenece a esta empresa.',
-      })
-    }
-
-    const membership = await prisma.membership.create({
-      data: {
-        userId: String(userId),
-        empresaId: String(empresaId),
-        roleId: String(roleId),
-        status: status || 'active',
-        assignedBy,
-      },
-      include: {
-        user: {
-          select: {
-            id: true,
-            nombre: true,
-            correo: true,
-          },
-        },
-        empresa: {
-          select: {
-            id_empresa: true,
-            nombre: true,
-          },
-        },
-        role: {
-          select: {
-            id: true,
-            name: true,
-            description: true,
-          },
-        },
-      },
-    })
-
-    invalidateMembershipsCache(String(empresaId))
-    return res.status(201).json(membership)
+    return res.status(201).json(result.membership)
   } catch (error) {
     console.error('Error creando membership:', error)
+    return res.status(500).json({
+      error: 'Hubo un error al crear la membership.',
+      details: error instanceof Error ? error.message : 'Error desconocido',
+    })
+  }
+}
+
+// Plataforma: un admin global (platform_users.update) asigna un usuario a
+// CUALQUIER empresa. La empresa viene en el body; no requiere X-Empresa-Id ni
+// ser miembro de la empresa destino.
+export const createMembershipPlatform = async (req: Request, res: Response) => {
+  try {
+    const { userId, empresaId, roleId, status } = req.body
+
+    if (!userId || !empresaId || !roleId) {
+      return res
+        .status(400)
+        .json({ error: 'userId, empresaId y roleId son requeridos.' })
+    }
+
+    const result = await createMembershipCore({
+      empresaId: String(empresaId),
+      userId: String(userId),
+      roleId: String(roleId),
+      status,
+      assignedBy: req.user?.userId || null,
+    })
+
+    if (!result.ok) {
+      return res.status(result.code ?? 400).json({ error: result.error })
+    }
+    return res.status(201).json(result.membership)
+  } catch (error) {
+    console.error('Error creando membership (plataforma):', error)
     return res.status(500).json({
       error: 'Hubo un error al crear la membership.',
       details: error instanceof Error ? error.message : 'Error desconocido',

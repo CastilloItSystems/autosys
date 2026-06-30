@@ -105,6 +105,48 @@ export const getAllUsers = async (_req: Request, res: Response) => {
   }
 }
 
+// Busca usuarios existentes para AGREGARLOS a la empresa activa (asignar
+// membresía). Empresa-scoped: requiere X-Empresa-Id + users.update. Excluye los
+// que ya son miembros y devuelve solo campos públicos mínimos. La creación de
+// usuarios sigue siendo exclusiva del área global (/users).
+export const searchUsers = async (req: Request, res: Response) => {
+  try {
+    if (!req.empresaId) {
+      return res.status(400).json({ error: 'Empresa no especificada.' })
+    }
+
+    const q = String(req.query.q ?? '').trim()
+    if (q.length < 2) {
+      return res.json({ users: [] })
+    }
+
+    const users = await prisma.user.findMany({
+      where: {
+        eliminado: false,
+        OR: [
+          { nombre: { contains: q, mode: 'insensitive' } },
+          { correo: { contains: q, mode: 'insensitive' } },
+        ],
+        // Solo usuarios que aún NO pertenecen a la empresa activa.
+        memberships: { none: { empresaId: req.empresaId } },
+      },
+      select: {
+        id: true,
+        nombre: true,
+        correo: true,
+        img: true,
+      },
+      take: 10,
+      orderBy: { nombre: 'asc' },
+    })
+
+    return res.json({ users })
+  } catch (error) {
+    console.error('Error buscando usuarios:', error)
+    return res.status(500).json({ error: 'Hubo un error al buscar usuarios.' })
+  }
+}
+
 export const getCompanyUsers = async (req: Request, res: Response) => {
   try {
     if (!req.empresaId) {

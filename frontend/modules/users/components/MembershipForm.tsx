@@ -9,6 +9,7 @@ import { Toast } from "primereact/toast";
 
 import {
   createMembership,
+  createMembershipPlatform,
   updateMembership,
 } from "@/modules/users/services/user.service";
 import type {
@@ -17,9 +18,8 @@ import type {
 } from "../interfaces/user.interface";
 import { membershipSchema } from "../schemas/user.schema";
 import type { MembershipFormData } from "../schemas/user.schema";
-import {
-  useMembershipCompanyRolesData,
-} from "../hooks/useUsersData";
+import { useMembershipCompanyRolesData } from "../hooks/useUsersData";
+import { useEmpresasData } from "@/modules/companies/hooks/useEmpresasData";
 import { useEmpresasStore } from "@/store/empresasStore";
 import { useRefreshAuthContext } from "@/hooks/useRefreshAuthContext";
 
@@ -37,6 +37,12 @@ interface MembershipFormProps {
   toast: React.RefObject<Toast | null>;
   formId?: string;
   onSubmittingChange?: (isSubmitting: boolean) => void;
+  /**
+   * Modo plataforma (área global de usuarios): permite elegir CUALQUIER empresa
+   * y crea la membership vía el endpoint de plataforma. Sin esto (modo empresa),
+   * la empresa queda fija en la activa.
+   */
+  platform?: boolean;
 }
 
 const MembershipForm = ({
@@ -47,18 +53,33 @@ const MembershipForm = ({
   toast,
   formId = "membership-form",
   onSubmittingChange,
+  platform = false,
 }: MembershipFormProps) => {
   const activeEmpresa = useEmpresasStore((state) => state.activeEmpresa);
   const refreshAuthContext = useRefreshAuthContext();
+  const isEditing = !!membership;
+  // En plataforma + creación, el admin elige la empresa; si no, queda la activa.
+  const usePlatformEmpresaPicker = platform && !isEditing;
   const activeEmpresaId = membership?.empresaId ?? activeEmpresa?.id_empresa ?? "";
-  const empresaOptions = activeEmpresaId
-    ? [
-        {
-          label: membership?.empresa?.nombre ?? activeEmpresa?.nombre ?? activeEmpresaId,
-          value: activeEmpresaId,
-        },
-      ]
+  // En plataforma se ofrecen TODAS las empresas (lista global); el hook solo
+  // hace fetch cuando realmente se usa el selector.
+  const { empresas: allEmpresas } = useEmpresasData();
+  const platformEmpresaOptions = usePlatformEmpresaPicker
+    ? allEmpresas.map((e) => ({ label: e.nombre, value: e.id_empresa }))
     : [];
+  const empresaOptions = usePlatformEmpresaPicker
+    ? platformEmpresaOptions
+    : activeEmpresaId
+      ? [
+          {
+            label:
+              membership?.empresa?.nombre ??
+              activeEmpresa?.nombre ??
+              activeEmpresaId,
+            value: activeEmpresaId,
+          },
+        ]
+      : [];
   const {
     handleSubmit,
     formState: { errors, isSubmitting },
@@ -68,13 +89,14 @@ const MembershipForm = ({
   } = useForm<MembershipFormData>({
     resolver: zodResolver(membershipSchema),
     defaultValues: {
-      empresaId: activeEmpresaId,
+      empresaId: usePlatformEmpresaPicker ? "" : activeEmpresaId,
       roleId: membership?.roleId ?? "",
       status: (membership?.status as MembershipStatus) ?? "active",
     },
   });
 
-  const watchedEmpresaId = watch("empresaId") || activeEmpresaId;
+  const watchedEmpresaId =
+    watch("empresaId") || (usePlatformEmpresaPicker ? "" : activeEmpresaId);
   const {
     roleOptions,
     loading: loadingRoles,
@@ -92,7 +114,6 @@ const MembershipForm = ({
     }
   }, [rolesError, toast]);
 
-  // La pantalla de empresa solo administra memberships de la empresa activa.
   useEffect(() => {
     if (membership) {
       reset({
@@ -100,14 +121,13 @@ const MembershipForm = ({
         roleId: membership.roleId,
         status: membership.status,
       });
+    } else if (usePlatformEmpresaPicker) {
+      // Plataforma: el admin elige la empresa; no forzar la activa.
+      reset({ empresaId: "", roleId: "", status: "active" });
     } else if (activeEmpresaId) {
-      reset({
-        empresaId: activeEmpresaId,
-        roleId: "",
-        status: "active",
-      });
+      reset({ empresaId: activeEmpresaId, roleId: "", status: "active" });
     }
-  }, [activeEmpresaId, membership, reset]);
+  }, [activeEmpresaId, membership, reset, usePlatformEmpresaPicker]);
 
   const onSubmit = async (data: MembershipFormData) => {
     if (onSubmittingChange) onSubmittingChange(true);
@@ -124,7 +144,8 @@ const MembershipForm = ({
           life: 3000,
         });
       } else {
-        await createMembership({
+        const createFn = platform ? createMembershipPlatform : createMembership;
+        await createFn({
           userId,
           empresaId: data.empresaId,
           roleId: data.roleId,
@@ -170,7 +191,8 @@ const MembershipForm = ({
                   {...field}
                   options={empresaOptions}
                   placeholder="Seleccionar empresa"
-                  disabled
+                  filter={usePlatformEmpresaPicker}
+                  disabled={!usePlatformEmpresaPicker}
                   className={classNames({ "p-invalid": errors.empresaId })}
                 />
               )}

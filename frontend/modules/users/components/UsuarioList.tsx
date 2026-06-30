@@ -18,6 +18,7 @@ import UsuarioMemberships from "./UsuarioMemberships";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import CreateButton from "../../../components/common/CreateButton";
 import DeleteConfirmDialog from "../../../components/common/DeleteConfirmDialog";
+import AddExistingMemberDialog from "./AddExistingMemberDialog";
 
 import {
   deleteCompanyUser,
@@ -48,7 +49,7 @@ const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
     : hasPermissionInAnyEmpresa("platform_users.delete");
   const canManageMemberships = isCompanyScope
     ? hasAnyPermission(["users.view", "users.update"])
-    : false;
+    : hasPermissionInAnyEmpresa("platform_users.update");
   const canViewAudit = isCompanyScope && hasPermission("audit.view");
   const createPermission = isCompanyScope
     ? "users.create"
@@ -67,6 +68,8 @@ const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
     useState(false);
   const [auditDialogVisible, setAuditDialogVisible] = useState(false);
 
+  const [addExistingDialogVisible, setAddExistingDialogVisible] =
+    useState(false);
   const [membershipDialogVisible, setMembershipDialogVisible] = useState(false);
   const [selectedMembershipUser, setSelectedMembershipUser] =
     useState<User | null>(null);
@@ -377,13 +380,23 @@ const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
             placeholder="Buscar..."
           />
         </span>
-        <CreateButton
-          label="Nuevo Usuario"
-          onClick={openNew}
-          tooltip="Agregar Nuevo Usuario"
-          permission={createPermission}
-          permissionScope={isCompanyScope ? "active" : "any"}
-        />
+        {isCompanyScope ? (
+          <CreateButton
+            label="Agregar usuario existente"
+            onClick={() => setAddExistingDialogVisible(true)}
+            tooltip="Agregar a esta empresa un usuario que ya existe"
+            permission="users.update"
+            permissionScope="active"
+          />
+        ) : (
+          <CreateButton
+            label="Nuevo Usuario"
+            onClick={openNew}
+            tooltip="Agregar Nuevo Usuario"
+            permission={createPermission}
+            permissionScope="any"
+          />
+        )}
       </div>
     </div>
   );
@@ -555,6 +568,23 @@ const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
         )}
       </Dialog>
 
+      {/* Agregar usuario existente a la empresa activa */}
+      {isCompanyScope && (
+        <AddExistingMemberDialog
+          visible={addExistingDialogVisible}
+          onHide={() => setAddExistingDialogVisible(false)}
+          onSave={() => {
+            mutateUsuarios();
+            showToast(
+              "success",
+              "Usuario agregado",
+              "El usuario se agregó a la empresa correctamente",
+            );
+          }}
+          toast={toast}
+        />
+      )}
+
       {/* Memberships por usuario */}
       {selectedMembershipUser && (
         <UsuarioMemberships
@@ -566,6 +596,7 @@ const UsuarioListContent = ({ scope = "global" }: UsuarioListContentProps) => {
           userId={selectedMembershipUser.id}
           userName={selectedMembershipUser.nombre}
           toast={toast}
+          platform={!isCompanyScope}
         />
       )}
 

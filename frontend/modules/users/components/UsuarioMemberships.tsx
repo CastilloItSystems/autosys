@@ -39,6 +39,8 @@ interface UsuarioMembershipsProps {
   userId: string;
   userName: string;
   toast: React.RefObject<Toast | null>;
+  /** Modo plataforma (área global): permite asignar a cualquier empresa. */
+  platform?: boolean;
 }
 
 const UsuarioMemberships = ({
@@ -47,8 +49,20 @@ const UsuarioMemberships = ({
   userId,
   userName,
   toast,
+  platform = false,
 }: UsuarioMembershipsProps) => {
-  const { hasPermission } = useUserPermissions();
+  const { hasPermission, hasPermissionInAnyEmpresa } = useUserPermissions();
+  // En modo plataforma los permisos se evalúan a nivel global (platform_users.*);
+  // en modo empresa, sobre la empresa activa (users.*).
+  const canCreateOrUpdate = platform
+    ? hasPermissionInAnyEmpresa("platform_users.update")
+    : hasPermission("users.update");
+  const canViewPerms = platform
+    ? hasPermissionInAnyEmpresa("platform_users.view")
+    : hasPermission("users.view");
+  const canDeleteMembership = platform
+    ? hasPermissionInAnyEmpresa("platform_users.delete")
+    : hasPermission("users.delete");
   const refreshAuthContext = useRefreshAuthContext();
   const [formDialogVisible, setFormDialogVisible] = useState(false);
   const [isSubmittingForm, setIsSubmittingForm] = useState(false);
@@ -144,7 +158,7 @@ const UsuarioMemberships = ({
 
   const actionsTemplate = (rowData: Membership) => (
     <div className="flex gap-2">
-      {hasPermission("users.view") ? (
+      {canViewPerms ? (
         <Button
           icon="pi pi-lock"
           rounded
@@ -154,7 +168,7 @@ const UsuarioMemberships = ({
           onClick={() => handleManagePermissions(rowData)}
         />
       ) : null}
-      {hasPermission("users.update") ? (
+      {canCreateOrUpdate ? (
         <Button
           icon="pi pi-pencil"
           rounded
@@ -164,7 +178,7 @@ const UsuarioMemberships = ({
           onClick={() => handleEdit(rowData)}
         />
       ) : null}
-      {hasPermission("users.delete") ? (
+      {canDeleteMembership ? (
         <Button
           icon="pi pi-trash"
           rounded
@@ -205,7 +219,8 @@ const UsuarioMemberships = ({
         label="Crear Membership"
         onClick={handleNew}
         tooltip="Agregar Nueva Membership"
-        permission="users.update"
+        permission={platform ? "platform_users.update" : "users.update"}
+        permissionScope={platform ? "any" : "active"}
       />
     </div>
   );
@@ -282,6 +297,7 @@ const UsuarioMemberships = ({
           onCancel={hideFormDialog}
           toast={toast}
           onSubmittingChange={setIsSubmittingForm}
+          platform={platform}
         />
       </Dialog>
 
