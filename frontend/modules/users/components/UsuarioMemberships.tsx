@@ -11,7 +11,10 @@ import { Toast } from "primereact/toast";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import MembershipForm from "./MembershipForm";
 import MembershipPermissions from "./MembershipPermissions";
-import { deleteMembership } from "@/modules/users/services/user.service";
+import {
+  deleteMembership,
+  deleteMembershipPlatform,
+} from "@/modules/users/services/user.service";
 import { useUserMembershipsData } from "../hooks/useUsersData";
 import type { Membership } from "../interfaces/user.interface";
 import CreateButton from "../../../components/common/CreateButton";
@@ -77,7 +80,7 @@ const UsuarioMemberships = ({
     loading,
     error: membershipsError,
     mutate,
-  } = useUserMembershipsData(visible ? userId : null);
+  } = useUserMembershipsData(visible ? userId : null, platform);
 
   useEffect(() => {
     if (membershipsError) {
@@ -108,7 +111,9 @@ const UsuarioMemberships = ({
   const handleDelete = async () => {
     if (!selectedMembership) return;
     try {
-      await deleteMembership(selectedMembership.id);
+      await (platform ? deleteMembershipPlatform : deleteMembership)(
+        selectedMembership.id,
+      );
       toast.current?.show({
         severity: "success",
         summary: "Éxito",

@@ -11,6 +11,7 @@ import {
   createMembership,
   createMembershipPlatform,
   updateMembership,
+  updateMembershipPlatform,
 } from "@/modules/users/services/user.service";
 import type {
   Membership,
@@ -133,7 +134,8 @@ const MembershipForm = ({
     if (onSubmittingChange) onSubmittingChange(true);
     try {
       if (membership?.id) {
-        await updateMembership(membership.id, {
+        const updateFn = platform ? updateMembershipPlatform : updateMembership;
+        await updateFn(membership.id, {
           roleId: data.roleId,
           status: data.status,
         });

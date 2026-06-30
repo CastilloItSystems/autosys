@@ -167,6 +167,14 @@ export const getMembershipsByUser = async (
   return response.data;
 };
 
+// Plataforma: todas las memberships del usuario (cualquier empresa).
+export const getMembershipsByUserPlatform = async (
+  userId: string,
+): Promise<MembershipsResponse> => {
+  const response = await apiClient.get(`/memberships/platform/user/${userId}`);
+  return response.data;
+};
+
 export const getMembershipEmpresas =
   async (): Promise<MembershipEmpresasResponse> => {
     const response = await apiClient.get("/empresas/my");
@@ -204,8 +212,20 @@ export const updateMembership = async (
   return response.data;
 };
 
+export const updateMembershipPlatform = async (
+  id: string,
+  data: UpdateMembershipRequest,
+): Promise<Membership> => {
+  const response = await apiClient.put(`/memberships/platform/${id}`, data);
+  return response.data;
+};
+
 export const deleteMembership = async (id: string): Promise<void> => {
   await apiClient.delete(`/memberships/${id}`);
+};
+
+export const deleteMembershipPlatform = async (id: string): Promise<void> => {
+  await apiClient.delete(`/memberships/platform/${id}`);
 };
 
 // ── Membership Permission Overrides ─────────────────────────────────────────

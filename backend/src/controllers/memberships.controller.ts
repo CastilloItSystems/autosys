@@ -49,6 +49,33 @@ export const getMembershipsByEmpresa = async (req: Request, res: Response) => {
   }
 }
 
+// Plataforma: TODAS las memberships de un usuario (cualquier empresa). Para el
+// admin global; no filtra por X-Empresa-Id.
+export const getMembershipsByUserPlatform = async (
+  req: Request,
+  res: Response
+) => {
+  const { id } = req.params
+
+  try {
+    const memberships = await prisma.membership.findMany({
+      where: { userId: String(id) },
+      include: {
+        empresa: { select: { id_empresa: true, nombre: true } },
+        role: { select: { id: true, name: true, description: true } },
+      },
+      orderBy: { assignedAt: 'desc' },
+    })
+
+    return res.json({ total: memberships.length, memberships })
+  } catch (error) {
+    console.error('Error obteniendo memberships del usuario (plataforma):', error)
+    return res.status(500).json({
+      error: 'Hubo un error al obtener las memberships del usuario.',
+    })
+  }
+}
+
 export const getMembershipsByUser = async (req: Request, res: Response) => {
   const { id } = req.params
 
@@ -352,6 +379,82 @@ export const deleteMembership = async (req: Request, res: Response) => {
     return res.status(204).send()
   } catch (error) {
     console.error('Error eliminando membership:', error)
+    return res.status(500).json({
+      error: 'Hubo un error al eliminar la membership.',
+      details: error instanceof Error ? error.message : 'Error desconocido',
+    })
+  }
+}
+
+// Plataforma: actualiza cualquier membership (rol/estado). El rol se valida
+// contra la empresa de la propia membership.
+export const updateMembershipPlatform = async (req: Request, res: Response) => {
+  const { id } = req.params
+
+  try {
+    const { roleId, status } = req.body
+    const assignedBy = req.user?.userId || null
+
+    const existingMembership = await prisma.membership.findUnique({
+      where: { id: String(id) },
+    })
+    if (!existingMembership) {
+      return res.status(404).json({ error: 'Membership no encontrada.' })
+    }
+
+    if (roleId) {
+      const role = await prisma.companyRole.findFirst({
+        where: { id: String(roleId), empresaId: existingMembership.empresaId },
+      })
+      if (!role) {
+        return res
+          .status(400)
+          .json({ error: 'El rol no pertenece a la empresa de la membership.' })
+      }
+    }
+
+    const membership = await prisma.membership.update({
+      where: { id: String(id) },
+      data: {
+        ...(roleId ? { roleId: String(roleId) } : {}),
+        ...(status ? { status: status as any } : {}),
+        assignedBy,
+      },
+      include: {
+        user: { select: { id: true, nombre: true, correo: true } },
+        empresa: { select: { id_empresa: true, nombre: true } },
+        role: { select: { id: true, name: true, description: true } },
+      },
+    })
+
+    invalidateMembershipsCache(existingMembership.empresaId)
+    return res.json(membership)
+  } catch (error) {
+    console.error('Error actualizando membership (plataforma):', error)
+    return res.status(500).json({
+      error: 'Hubo un error al actualizar la membership.',
+      details: error instanceof Error ? error.message : 'Error desconocido',
+    })
+  }
+}
+
+// Plataforma: elimina cualquier membership.
+export const deleteMembershipPlatform = async (req: Request, res: Response) => {
+  const { id } = req.params
+
+  try {
+    const existingMembership = await prisma.membership.findUnique({
+      where: { id: String(id) },
+    })
+    if (!existingMembership) {
+      return res.status(404).json({ error: 'Membership no encontrada.' })
+    }
+
+    await prisma.membership.delete({ where: { id: String(id) } })
+    invalidateMembershipsCache(existingMembership.empresaId)
+    return res.status(204).send()
+  } catch (error) {
+    console.error('Error eliminando membership (plataforma):', error)
     return res.status(500).json({
       error: 'Hubo un error al eliminar la membership.',
       details: error instanceof Error ? error.message : 'Error desconocido',

@@ -11,6 +11,7 @@ import {
   getMembershipPermissions,
   getMembershipsByEmpresa,
   getMembershipsByUser,
+  getMembershipsByUserPlatform,
   getCompanyUsers,
   getUser,
   getUsers,
@@ -100,10 +101,16 @@ export const useEmpresaMembershipsData = () => {
   };
 };
 
-export const useUserMembershipsData = (userId?: string | null) => {
+export const useUserMembershipsData = (
+  userId?: string | null,
+  platform = false,
+) => {
   const { data, error, isLoading, mutate } = useSWR<MembershipsResponse>(
-    userId ? ["user-memberships", userId] : null,
-    () => getMembershipsByUser(userId as string),
+    userId ? ["user-memberships", userId, platform] : null,
+    () =>
+      platform
+        ? getMembershipsByUserPlatform(userId as string)
+        : getMembershipsByUser(userId as string),
     { revalidateOnFocus: false },
   );
 

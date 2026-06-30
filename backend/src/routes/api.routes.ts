@@ -3,7 +3,9 @@ import userRoutes from './users.routes.js'
 import authRoutes from './auth.routes.js'
 import empresaRoutes from './empresas.routes.js'
 import companyRoleRoutes from './companyRoles.routes.js'
-import membershipRoutes from './memberships.routes.js'
+import membershipRoutes, {
+  membershipPlatformRouter,
+} from './memberships.routes.js'
 import notificationRoutes from '../features/notifications/notifications.routes.js'
 // import { saveToken } from '../controllers/users.controller.js'
 
@@ -29,7 +31,10 @@ router.use('/auth', authRoutes)
 // Usuarios globales del SaaS
 router.use('/users', authenticate, userRoutes)
 
-// Memberships por empresa
+// Memberships de plataforma (admin global) — SIN extractEmpresa. Debe ir antes
+// del montaje empresa-scoped para que /memberships/platform/* no caiga en él.
+router.use('/memberships', authenticate, membershipPlatformRouter)
+// Memberships por empresa (requiere X-Empresa-Id)
 router.use('/memberships', authenticate, extractEmpresa, membershipRoutes)
 
 // Roles dinámicos por empresa

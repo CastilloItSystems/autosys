@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import Image from "next/image";
 import { useEmpresaDataFull } from "@/hooks/useEmpresasDataFull";
 import { useEmpresasStore } from "@/store/empresasStore";
+import AutoFitText from "@/components/common/AutoFitText";
 import type { Empresa } from "@/modules/companies/interfaces/empresa.interface";
 
 const DashboardMain = () => {
@@ -120,12 +121,14 @@ const DashboardMain = () => {
                     {/* <span className="text-primary block white-space-nowrap text-xs font-medium opacity-80">
                       {empresa.direccion}
                     </span> */}
-                    <span
-                      className="text-primary block text-2xl md:text-3xl font-bold mb-1"
-                      style={{ overflowWrap: "anywhere", wordBreak: "break-word" }}
-                    >
-                      {empresa.name_prefijo}
-                    </span>
+                    <div className="mb-1">
+                      <AutoFitText
+                        text={empresa.name_prefijo}
+                        className="text-primary font-bold"
+                        maxFontSize={30}
+                        minFontSize={14}
+                      />
+                    </div>
                     <span
                       className="text-primary block text-xs opacity-70"
                       style={{ overflowWrap: "anywhere" }}

@@ -2,10 +2,13 @@ import { Router } from 'express'
 import {
   getMembershipsByEmpresa,
   getMembershipsByUser,
+  getMembershipsByUserPlatform,
   createMembership,
   createMembershipPlatform,
   updateMembership,
+  updateMembershipPlatform,
   deleteMembership,
+  deleteMembershipPlatform,
   getMembershipPermissions,
   setMembershipPermissions,
 } from '../controllers/memberships.controller.js'
@@ -17,6 +20,33 @@ import {
 } from '../shared/middleware/authorize.middleware.js'
 import { PERMISSIONS } from '../shared/constants/permissions.js'
 
+// Router de PLATAFORMA: se monta SIN extractEmpresa (área global, sin empresa
+// activa). La autorización se hace con authorizeInAnyEmpresa(PLATFORM_USERS_*).
+export const membershipPlatformRouter = Router()
+membershipPlatformRouter.use(authenticate)
+
+membershipPlatformRouter.post(
+  '/platform',
+  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_UPDATE),
+  createMembershipPlatform
+)
+membershipPlatformRouter.get(
+  '/platform/user/:id',
+  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_VIEW),
+  getMembershipsByUserPlatform
+)
+membershipPlatformRouter.put(
+  '/platform/:id',
+  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_UPDATE),
+  updateMembershipPlatform
+)
+membershipPlatformRouter.delete(
+  '/platform/:id',
+  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_DELETE),
+  deleteMembershipPlatform
+)
+
+// Router empresa-scoped: se monta detrás de extractEmpresa (requiere X-Empresa-Id).
 const router = Router()
 
 router.use(authenticate)
@@ -34,13 +64,6 @@ router.post(
   extractEmpresa,
   authorize(PERMISSIONS.USERS_UPDATE),
   createMembership
-)
-
-// Plataforma: admin global asigna usuario a cualquier empresa (empresaId en el body).
-router.post(
-  '/platform',
-  authorizeInAnyEmpresa(PERMISSIONS.PLATFORM_USERS_UPDATE),
-  createMembershipPlatform
 )
 
 router.put(
