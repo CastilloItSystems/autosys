@@ -2746,7 +2746,8 @@ enum EntryType {
 
 model EntryNote {
   id               String          @id @default(uuid())
-  entryNoteNumber  String          @unique
+  entryNoteNumber  String
+  empresaId        String          // Denormalizado desde warehouse.empresaId para correlativo por empresa
   type             EntryType       @default(PURCHASE)
   status           EntryNoteStatus @default(PENDING)
   
@@ -2797,6 +2798,8 @@ model EntryNote {
   updatedAt        DateTime        @updatedAt
 
   @@map("entry_notes")
+  @@unique([empresaId, entryNoteNumber])
+  @@index([empresaId])
   @@index([entryNoteNumber])
   @@index([type])
   @@index([status])
@@ -2981,7 +2984,8 @@ enum ExitType {
 
 model ExitNote {
   id              String         @id @default(uuid())
-  exitNoteNumber  String         @unique
+  exitNoteNumber  String
+  empresaId       String         // Denormalizado desde warehouse.empresaId para correlativo por empresa
   type            ExitType       @default(SALE)
   status          ExitNoteStatus @default(PENDING)
   
@@ -3036,6 +3040,8 @@ model ExitNote {
   updatedAt       DateTime       @updatedAt
 
   @@map("exit_notes")
+  @@unique([empresaId, exitNoteNumber])
+  @@index([empresaId])
   @@index([exitNoteNumber])
   @@index([type])
   @@index([status])

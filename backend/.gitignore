@@ -15,3 +15,4 @@ node_modules
 prisma/seeds/**/*.js
 prisma/seeds/**/*.d.ts
 prisma/seeds/**/*.map
+backups/

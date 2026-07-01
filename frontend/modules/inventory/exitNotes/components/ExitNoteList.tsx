@@ -795,6 +795,9 @@ const ExitNoteList = ({ fixedType }: ExitNoteListProps) => {
           }}
           toast={toast}
           warehouses={warehouses}
+          onPrint={() =>
+            selectedExitNote && setPdfItem(selectedExitNote)
+          }
         />
 
         {/* Form dialog */}

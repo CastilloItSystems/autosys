@@ -10,7 +10,11 @@ import {
   ConflictError,
 } from '../../../shared/utils/apiError.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
-import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import {
+  MovementNumberGenerator,
+  nextEntryNoteNumber,
+  withNoteNumberRetry,
+} from '../shared/utils/movementNumberGenerator.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
 import { toDomainEvent } from '../../../shared/events/domain-events.js'
 import { createAuditLog } from '../../../services/audit.service.js'
@@ -89,17 +93,6 @@ const ACTIVE_PURCHASE_ENTRY_NOTE_STATUSES: EntryNoteStatus[] = [
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-/**
- * Generate an entry note number that avoids race conditions.
- * Uses timestamp + random suffix instead of count().
- */
-function generateEntryNoteNumber(): string {
-  const year = new Date().getFullYear()
-  const ts = Date.now().toString(36).toUpperCase()
-  const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
-  return `EN-${year}-${ts}${rnd}`
-}
 
 function toNumber(value: unknown): number {
   return typeof value === 'number' ? value : parseFloat(String(value ?? 0))
@@ -232,44 +225,48 @@ export class EntryNoteService {
       existingItems.forEach((i) => itemNameMap.set(i.id, i.name))
     }
 
-    const entryNote = await (db as PrismaClient).$transaction(async (tx) => {
-      return tx.entryNote.create({
-        data: {
-          entryNoteNumber: generateEntryNoteNumber(),
-          type: data.type ?? 'PURCHASE',
-          status: 'PENDING',
-          purchaseOrderId: data.purchaseOrderId ?? null,
-          warehouseId: data.warehouseId,
-          catalogSupplierId: data.catalogSupplierId ?? null,
-          supplierName: data.supplierName ?? null,
-          supplierId: data.supplierId ?? null,
-          supplierPhone: data.supplierPhone ?? null,
-          reason: data.reason ?? null,
-          reference: data.reference ?? null,
-          notes: data.notes ?? null,
-          receivedBy: data.receivedBy ?? userId ?? null,
-          authorizedBy: data.authorizedBy ?? null,
-          ...(data.items && data.items.length > 0
-            ? {
-                items: {
-                  create: data.items.map((item) => ({
-                    itemId: item.itemId,
-                    itemName:
-                      item.itemName || itemNameMap.get(item.itemId) || null,
-                    quantityReceived: item.quantityReceived,
-                    unitCost: item.unitCost,
-                    storedToLocation: item.storedToLocation ?? null,
-                    batchNumber: item.batchNumber ?? null,
-                    expiryDate: item.expiryDate ?? null,
-                    notes: item.notes ?? null,
-                  })),
-                },
-              }
-            : {}),
-        },
-        include: ENTRY_NOTE_INCLUDE,
+    const entryNote = await withNoteNumberRetry(() =>
+      (db as PrismaClient).$transaction(async (tx) => {
+        const entryNoteNumber = await nextEntryNoteNumber(tx, empresaId)
+        return tx.entryNote.create({
+          data: {
+            entryNoteNumber,
+            empresaId,
+            type: data.type ?? 'PURCHASE',
+            status: 'PENDING',
+            purchaseOrderId: data.purchaseOrderId ?? null,
+            warehouseId: data.warehouseId,
+            catalogSupplierId: data.catalogSupplierId ?? null,
+            supplierName: data.supplierName ?? null,
+            supplierId: data.supplierId ?? null,
+            supplierPhone: data.supplierPhone ?? null,
+            reason: data.reason ?? null,
+            reference: data.reference ?? null,
+            notes: data.notes ?? null,
+            receivedBy: data.receivedBy ?? userId ?? null,
+            authorizedBy: data.authorizedBy ?? null,
+            ...(data.items && data.items.length > 0
+              ? {
+                  items: {
+                    create: data.items.map((item) => ({
+                      itemId: item.itemId,
+                      itemName:
+                        item.itemName || itemNameMap.get(item.itemId) || null,
+                      quantityReceived: item.quantityReceived,
+                      unitCost: item.unitCost,
+                      storedToLocation: item.storedToLocation ?? null,
+                      batchNumber: item.batchNumber ?? null,
+                      expiryDate: item.expiryDate ?? null,
+                      notes: item.notes ?? null,
+                    })),
+                  },
+                }
+              : {}),
+          },
+          include: ENTRY_NOTE_INCLUDE,
+        })
       })
-    })
+    )
 
     logger.info('Nota de entrada creada', {
       entryNoteId: entryNote.id,
@@ -378,9 +375,12 @@ export class EntryNoteService {
       )
     }
 
-    const entryNote = await db.entryNote.create({
+    const entryNote = await withNoteNumberRetry(async () => {
+      const entryNoteNumber = await nextEntryNoteNumber(db, empresaId)
+      return db.entryNote.create({
       data: {
-        entryNoteNumber: generateEntryNoteNumber(),
+        entryNoteNumber,
+        empresaId,
         type: 'PURCHASE',
         status: 'PENDING',
         purchaseOrderId,
@@ -409,6 +409,7 @@ export class EntryNoteService {
         },
       },
       include: ENTRY_NOTE_INCLUDE,
+      })
     })
 
     await createAuditLog(

@@ -4,7 +4,11 @@
  */
 
 import { PrismaClient, Prisma } from '../../../generated/prisma/client.js'
-import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import {
+  MovementNumberGenerator,
+  nextExitNoteNumber,
+  withNoteNumberRetry,
+} from '../shared/utils/movementNumberGenerator.js'
 import {
   NotFoundError,
   BadRequestError,
@@ -83,10 +87,6 @@ const MOVEMENT_TYPE_MAP: Record<ExitNoteType, string> = {
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
-
-function generateExitNoteNumber(): string {
-  return MovementNumberGenerator.generate('EXIT')
-}
 
 // ---------------------------------------------------------------------------
 // Service
@@ -396,43 +396,47 @@ class ExitNotesService {
         throw new NotFoundError(`PreInvoice ${data.preInvoiceId} no encontrada`)
     }
 
-    const exitNote = await (db as PrismaClient).$transaction(async (tx) => {
-      const note = await tx.exitNote.create({
-        data: {
-          exitNoteNumber: generateExitNoteNumber(),
-          type: data.type,
-          status: ExitNoteStatus.PENDING,
-          warehouseId: data.warehouseId,
-          preInvoiceId: data.preInvoiceId ?? null,
-          recipientName: data.recipientName ?? null,
-          recipientId: data.recipientId ?? null,
-          recipientPhone: data.recipientPhone ?? null,
-          reason: data.reason ?? null,
-          reference: data.reference ?? null,
-          expectedReturnDate: data.expectedReturnDate ?? null,
-          notes: data.notes ?? null,
-          authorizedBy: data.authorizedBy ?? userId,
-          items: {
-            create: data.items.map((item) => ({
-              itemId: item.itemId,
-              itemName: item.itemName || itemNameMap.get(item.itemId) || null,
-              quantity: item.quantity,
-              pickedFromLocation: item.pickedFromLocation ?? null,
-              batchId: item.batchId ?? null,
-              serialNumberId: item.serialNumberId ?? null,
-              notes: item.notes ?? null,
-            })),
+    const exitNote = await withNoteNumberRetry(() =>
+      (db as PrismaClient).$transaction(async (tx) => {
+        const exitNoteNumber = await nextExitNoteNumber(tx, empresaId)
+        const note = await tx.exitNote.create({
+          data: {
+            exitNoteNumber,
+            empresaId,
+            type: data.type,
+            status: ExitNoteStatus.PENDING,
+            warehouseId: data.warehouseId,
+            preInvoiceId: data.preInvoiceId ?? null,
+            recipientName: data.recipientName ?? null,
+            recipientId: data.recipientId ?? null,
+            recipientPhone: data.recipientPhone ?? null,
+            reason: data.reason ?? null,
+            reference: data.reference ?? null,
+            expectedReturnDate: data.expectedReturnDate ?? null,
+            notes: data.notes ?? null,
+            authorizedBy: data.authorizedBy ?? userId,
+            items: {
+              create: data.items.map((item) => ({
+                itemId: item.itemId,
+                itemName: item.itemName || itemNameMap.get(item.itemId) || null,
+                quantity: item.quantity,
+                pickedFromLocation: item.pickedFromLocation ?? null,
+                batchId: item.batchId ?? null,
+                serialNumberId: item.serialNumberId ?? null,
+                notes: item.notes ?? null,
+              })),
+            },
           },
-        },
-        include: EXIT_NOTE_INCLUDE,
+          include: EXIT_NOTE_INCLUDE,
+        })
+
+        if (this.shouldManageStockForType(data.type as ExitNoteType)) {
+          await this.reserveExitNoteItems(tx, data.warehouseId, data.items)
+        }
+
+        return note
       })
-
-      if (this.shouldManageStockForType(data.type as ExitNoteType)) {
-        await this.reserveExitNoteItems(tx, data.warehouseId, data.items)
-      }
-
-      return note
-    })
+    )
 
     logger.info(`Nota de salida creada: ${exitNote.id}`, {
       exitNoteNumber: exitNote.exitNoteNumber,

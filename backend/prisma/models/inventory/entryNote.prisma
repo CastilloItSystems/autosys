@@ -21,7 +21,8 @@ enum EntryType {
 
 model EntryNote {
   id               String          @id @default(uuid())
-  entryNoteNumber  String          @unique
+  entryNoteNumber  String
+  empresaId        String          // Denormalizado desde warehouse.empresaId para correlativo por empresa
   type             EntryType       @default(PURCHASE)
   status           EntryNoteStatus @default(PENDING)
   
@@ -72,6 +73,8 @@ model EntryNote {
   updatedAt        DateTime        @updatedAt
 
   @@map("entry_notes")
+  @@unique([empresaId, entryNoteNumber])
+  @@index([empresaId])
   @@index([entryNoteNumber])
   @@index([type])
   @@index([status])

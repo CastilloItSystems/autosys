@@ -20,6 +20,7 @@ import stockService, {
 import { Toast } from "primereact/toast";
 import { Message } from "primereact/message";
 import { handleFormError } from "@/utils/errorHandlers";
+import { formatDateFH } from "@/utils/dateUtils";
 import ExitNoteStepper from "./ExitNoteStepper";
 import BackdateField from "@/components/common/BackdateField";
 
@@ -30,6 +31,7 @@ interface ExitNoteDetailDialogProps {
   onUpdate: () => void;
   toast: React.RefObject<Toast>;
   warehouses: Warehouse[];
+  onPrint?: () => void;
 }
 
 const ExitNoteDetailDialog = ({
@@ -39,6 +41,7 @@ const ExitNoteDetailDialog = ({
   onUpdate,
   toast,
   warehouses,
+  onPrint,
 }: ExitNoteDetailDialogProps) => {
   const [loading, setLoading] = useState(false);
   const [pickedItems, setPickedItems] = useState<Record<string, boolean>>({});
@@ -173,9 +176,20 @@ const ExitNoteDetailDialog = ({
 
   /* ── Footer ── */
   const renderFooter = () => {
+    const printBtn = onPrint ? (
+      <Button
+        label="Imprimir"
+        icon="pi pi-print"
+        outlined
+        type="button"
+        onClick={onPrint}
+      />
+    ) : null;
+
     if (exitNote.status === ExitNoteStatus.CANCELLED) {
       return (
-        <div className="flex w-full justify-content-center mb-4">
+        <div className="flex w-full align-items-center justify-content-center gap-2 mb-4">
+          {printBtn}
           <Tag
             severity="danger"
             value="NOTA CANCELADA"
@@ -186,7 +200,8 @@ const ExitNoteDetailDialog = ({
     }
     if (exitNote.status === ExitNoteStatus.DELIVERED) {
       return (
-        <div className="flex w-full justify-content-center mb-4">
+        <div className="flex w-full align-items-center justify-content-center gap-2 mb-4">
+          {printBtn}
           <Tag
             severity="success"
             value="ENTREGADA"
@@ -200,6 +215,7 @@ const ExitNoteDetailDialog = ({
 
     return (
       <div className="flex w-full gap-2 mb-4">
+        {printBtn}
         <Button
           label="Cancelar Nota"
           icon="pi pi-ban"
@@ -443,6 +459,29 @@ const ExitNoteDetailDialog = ({
             )}
           </div>
         )}
+
+        {/* ── Fechas ── */}
+        <div className="surface-100 border-round p-3 mb-3">
+          <div className="flex align-items-center gap-2 mb-2">
+            <i className="pi pi-calendar text-primary" />
+            <span className="text-500 text-sm font-medium">Fechas</span>
+          </div>
+          <div className="grid">
+            {[
+              { label: "Registrado", value: exitNote.createdAt },
+              { label: "Reservado", value: exitNote.reservedAt },
+              { label: "Preparado", value: exitNote.preparedAt },
+              { label: "Entregado", value: exitNote.deliveredAt },
+            ].map((f) => (
+              <div key={f.label} className="col-6 md:col-3">
+                <span className="text-500 text-sm">{f.label}</span>
+                <div className="text-900">
+                  {f.value ? formatDateFH(f.value) : "—"}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* ── Items table ── */}
         <div

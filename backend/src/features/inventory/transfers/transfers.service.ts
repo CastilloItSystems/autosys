@@ -10,7 +10,12 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
-import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
+import {
+  MovementNumberGenerator,
+  nextEntryNoteNumber,
+  nextExitNoteNumber,
+  withNoteNumberRetry,
+} from '../shared/utils/movementNumberGenerator.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
 import { domainEventBus } from '../../../shared/events/domain-event-bus.js'
@@ -413,79 +418,83 @@ class TransfersService {
       }
     }
 
-    const updated = await (db as PrismaClient).$transaction(async (tx) => {
-      // 1. Create ExitNote (type TRANSFER)
-      const exitNote = await tx.exitNote.create({
-        data: {
-          exitNoteNumber: MovementNumberGenerator.generate('NS-TRF'),
-          type: 'TRANSFER',
-          status: 'PENDING',
-          warehouseId: transfer.fromWarehouseId,
-          reference: transfer.transferNumber,
-          reason: `Transferencia ${transfer.transferNumber} al almacén ${transfer.toWarehouse?.name ?? transfer.toWarehouseId}`,
-          authorizedBy: userId,
-          notes: transfer.notes ?? null,
-          items: {
-            create: transfer.items.map((item) => ({
-              itemId: item.itemId,
-              quantity: item.quantity,
-              notes: item.notes ?? null,
-            })),
-          },
-        },
-      })
-
-      // 2. Reserve stock in source warehouse
-      for (const item of transfer.items) {
-        await tx.stock.update({
-          where: {
-            itemId_warehouseId: {
-              itemId: item.itemId,
-              warehouseId: transfer.fromWarehouseId,
+    const updated = await withNoteNumberRetry(() =>
+      (db as PrismaClient).$transaction(async (tx) => {
+        // 1. Create ExitNote (type TRANSFER)
+        const exitNote = await tx.exitNote.create({
+          data: {
+            exitNoteNumber: await nextExitNoteNumber(tx, empresaId),
+            empresaId,
+            type: 'TRANSFER',
+            status: 'PENDING',
+            warehouseId: transfer.fromWarehouseId,
+            reference: transfer.transferNumber,
+            reason: `Transferencia ${transfer.transferNumber} al almacén ${transfer.toWarehouse?.name ?? transfer.toWarehouseId}`,
+            authorizedBy: userId,
+            notes: transfer.notes ?? null,
+            items: {
+              create: transfer.items.map((item) => ({
+                itemId: item.itemId,
+                quantity: item.quantity,
+                notes: item.notes ?? null,
+              })),
             },
           },
+        })
+
+        // 2. Reserve stock in source warehouse
+        for (const item of transfer.items) {
+          await tx.stock.update({
+            where: {
+              itemId_warehouseId: {
+                itemId: item.itemId,
+                warehouseId: transfer.fromWarehouseId,
+              },
+            },
+            data: {
+              quantityReserved: { increment: item.quantity },
+              quantityAvailable: { decrement: item.quantity },
+            },
+          })
+        }
+
+        // 3. Create EntryNote (type TRANSFER)
+        const entryNote = await tx.entryNote.create({
           data: {
-            quantityReserved: { increment: item.quantity },
-            quantityAvailable: { decrement: item.quantity },
+            entryNoteNumber: await nextEntryNoteNumber(tx, empresaId),
+            empresaId,
+            type: 'TRANSFER',
+            status: 'PENDING',
+            warehouseId: transfer.toWarehouseId,
+            reference: transfer.transferNumber,
+            reason: `Transferencia ${transfer.transferNumber} desde almacén ${transfer.fromWarehouse?.name ?? transfer.fromWarehouseId}`,
+            authorizedBy: userId,
+            notes: transfer.notes ?? null,
+            items: {
+              create: transfer.items.map((item) => ({
+                itemId: item.itemId,
+                quantityReceived: item.quantity,
+                unitCost: item.unitCost ?? 0,
+                notes: item.notes ?? null,
+              })),
+            },
           },
         })
-      }
 
-      // 3. Create EntryNote (type TRANSFER)
-      const entryNote = await tx.entryNote.create({
-        data: {
-          entryNoteNumber: MovementNumberGenerator.generate('EN-TRF'),
-          type: 'TRANSFER',
-          status: 'PENDING',
-          warehouseId: transfer.toWarehouseId,
-          reference: transfer.transferNumber,
-          reason: `Transferencia ${transfer.transferNumber} desde almacén ${transfer.fromWarehouse?.name ?? transfer.fromWarehouseId}`,
-          authorizedBy: userId,
-          notes: transfer.notes ?? null,
-          items: {
-            create: transfer.items.map((item) => ({
-              itemId: item.itemId,
-              quantityReceived: item.quantity,
-              unitCost: item.unitCost ?? 0,
-              notes: item.notes ?? null,
-            })),
+        // 4. Update transfer → APPROVED + link notes
+        return tx.transfer.update({
+          where: { id },
+          data: {
+            status: TransferStatus.APPROVED as any,
+            approvedBy: userId,
+            approvedAt: new Date(),
+            exitNoteId: exitNote.id,
+            entryNoteId: entryNote.id,
           },
-        },
+          include: FULL_INCLUDE,
+        })
       })
-
-      // 4. Update transfer → APPROVED + link notes
-      return tx.transfer.update({
-        where: { id },
-        data: {
-          status: TransferStatus.APPROVED as any,
-          approvedBy: userId,
-          approvedAt: new Date(),
-          exitNoteId: exitNote.id,
-          entryNoteId: entryNote.id,
-        },
-        include: FULL_INCLUDE,
-      })
-    })
+    )
 
     logger.info('Transfer approved', {
       transferId: id,

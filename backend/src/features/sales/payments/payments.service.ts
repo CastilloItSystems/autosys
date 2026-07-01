@@ -13,6 +13,7 @@ import { CreatePaymentDTO } from './payments.dto.js'
 import { recalculateBankBalance } from '../../finance/shared/recalculateBankBalance.js'
 import preInvoicesService from '../preInvoices/preInvoices.service.js'
 import { resolveUserNames } from '../shared/userNameResolver.js'
+import { nextExitNoteNumber } from '../../inventory/shared/utils/movementNumberGenerator.js'
 import {
   IPayment,
   PaymentStatus,
@@ -65,13 +66,6 @@ function generateInvoiceNumber(): string {
 function generateFiscalNumber(empresaId: string): string {
   const ts = Date.now().toString().slice(-8)
   return `00-${ts}`
-}
-
-function generateExitNoteNumber(): string {
-  const year = new Date().getFullYear()
-  const ts = Date.now().toString(36).toUpperCase()
-  const rnd = Math.random().toString(36).substring(2, 5).toUpperCase()
-  return `NS-${year}-${ts}${rnd}`
 }
 
 function round2(n: number): number {
@@ -357,12 +351,13 @@ class PaymentsService {
 
         if (!isWorkshopPreInvoice) {
           // 4. Generate ExitNote tipo SALE (despacho — PENDING, no descuenta stock)
-          const exitNoteNumber = generateExitNoteNumber()
+          const exitNoteNumber = await nextExitNoteNumber(tx, empresaId)
           const warehouseId = salesStockDiagnosis.salesWarehouse!.id
 
           const exitNote = await tx.exitNote.create({
             data: {
               exitNoteNumber,
+              empresaId,
               type: 'SALE',
               status: 'PENDING',
               warehouseId,

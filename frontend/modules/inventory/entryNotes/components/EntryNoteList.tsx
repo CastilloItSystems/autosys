@@ -705,6 +705,34 @@ const EntryNoteList = () => {
           </div>
         )}
 
+        {/* ── Fechas ── */}
+        <div className="surface-100 border-round p-3">
+          <div className="flex align-items-center gap-2 mb-2">
+            <i className="pi pi-calendar text-500" />
+            <span className="text-500 text-sm font-medium">Fechas</span>
+          </div>
+          <div className="grid">
+            <div className="col-12 md:col-4">
+              <span className="text-500 text-sm">Registrado</span>
+              <div className="text-900">
+                {formatDate(selectedEntryNote.createdAt)}
+              </div>
+            </div>
+            <div className="col-12 md:col-4">
+              <span className="text-500 text-sm">Recibido</span>
+              <div className="text-900">
+                {formatDate(selectedEntryNote.receivedAt)}
+              </div>
+            </div>
+            <div className="col-12 md:col-4">
+              <span className="text-500 text-sm">Verificado</span>
+              <div className="text-900">
+                {formatDate(selectedEntryNote.verifiedAt)}
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* ── Items table ── */}
         <Divider align="left">
           <span className="text-500 font-medium text-sm">
@@ -1011,6 +1039,18 @@ const EntryNoteList = () => {
             setSelectedEntryNote(null);
             setDetailDialog(false);
           }}
+          footer={
+            <div className="flex w-full justify-content-end">
+              <Button
+                label="Imprimir"
+                icon="pi pi-print"
+                outlined
+                type="button"
+                disabled={!selectedEntryNote}
+                onClick={() => selectedEntryNote && setPdfItem(selectedEntryNote)}
+              />
+            </div>
+          }
         >
           {renderDetailContent()}
         </Dialog>

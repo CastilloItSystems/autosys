@@ -9,7 +9,11 @@ import {
   NotFoundError,
   BadRequestError,
 } from '../../../shared/utils/apiError.js'
-import { MovementNumberGenerator } from '../../inventory/shared/utils/movementNumberGenerator.js'
+import {
+  MovementNumberGenerator,
+  nextExitNoteNumber,
+  withNoteNumberRetry,
+} from '../../inventory/shared/utils/movementNumberGenerator.js'
 import stockService from '../../inventory/stock/stock.service.js'
 import { syncAfterMaterialChange } from '../integrations/billing-sync.service.js'
 import {
@@ -626,9 +630,15 @@ async function createWorkshopSupplyExitNote(
 
   if (existing) return
 
-  const exitNote = await (db as PrismaClient).exitNote.create({
+  const exitNote = await withNoteNumberRetry(async () => {
+    const exitNoteNumber = await nextExitNoteNumber(
+      db as PrismaClient,
+      material.empresaId
+    )
+    return (db as PrismaClient).exitNote.create({
     data: {
-      exitNoteNumber: MovementNumberGenerator.generate('EXIT'),
+      exitNoteNumber,
+      empresaId: material.empresaId,
       type: 'WORKSHOP_SUPPLY',
       status: 'PENDING', // Creada en PENDING para que el almacenista la trabaje
       warehouseId,
@@ -648,6 +658,7 @@ async function createWorkshopSupplyExitNote(
         ],
       },
     },
+    })
   })
 
   await (db as PrismaClient).movement.create({

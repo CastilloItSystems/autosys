@@ -25,7 +25,8 @@ enum ExitType {
 
 model ExitNote {
   id              String         @id @default(uuid())
-  exitNoteNumber  String         @unique
+  exitNoteNumber  String
+  empresaId       String         // Denormalizado desde warehouse.empresaId para correlativo por empresa
   type            ExitType       @default(SALE)
   status          ExitNoteStatus @default(PENDING)
   
@@ -80,6 +81,8 @@ model ExitNote {
   updatedAt       DateTime       @updatedAt
 
   @@map("exit_notes")
+  @@unique([empresaId, exitNoteNumber])
+  @@index([empresaId])
   @@index([exitNoteNumber])
   @@index([type])
   @@index([status])
