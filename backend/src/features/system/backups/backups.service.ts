@@ -40,8 +40,11 @@ interface ParsedDbUrl {
 }
 
 function parseDatabaseUrl(): ParsedDbUrl {
-  const raw = process.env.DATABASE_URL
-  if (!raw) throw new Error('DATABASE_URL no configurada')
+  // Preferir la conexión directa (DIRECT_URL, puerto 5432) para pg_dump/pg_restore:
+  // el pooler (pgbouncer en modo transacción) no soporta bien las operaciones a
+  // nivel de sesión que requiere pg_dump. Fallback a DATABASE_URL si no existe.
+  const raw = process.env.DIRECT_URL || process.env.DATABASE_URL
+  if (!raw) throw new Error('DIRECT_URL/DATABASE_URL no configurada')
   const url = new URL(raw)
   return {
     host: url.hostname,
