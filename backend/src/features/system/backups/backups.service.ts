@@ -147,6 +147,74 @@ export class BackupsService {
     }
   }
 
+  /**
+   * Importa un respaldo externo (.dump descargado) subiéndolo a R2 y creando su
+   * registro para que quede disponible en el flujo de restauración normal.
+   * Valida que sea un dump en formato custom de pg_dump (cabecera mágica "PGDMP").
+   * Se guarda como type=MANUAL con fileName prefijado 'uploaded_' para distinguirlo.
+   */
+  async importBackup(
+    file: { path: string; originalname: string; size: number },
+    triggeredBy?: string
+  ): Promise<string> {
+    if (!file) throw new BadRequestError('No se recibió ningún archivo')
+
+    const ts = timestamp()
+    const fileName = `uploaded_${ts}.dump`
+    const fileKey = `${BACKUP_PREFIX}/uploaded/${fileName}`
+
+    try {
+      // Validar formato custom de pg_dump: los primeros 5 bytes deben ser "PGDMP".
+      const fd = fs.openSync(file.path, 'r')
+      const head = Buffer.alloc(5)
+      try {
+        fs.readSync(fd, head, 0, 5, 0)
+      } finally {
+        fs.closeSync(fd)
+      }
+      if (head.toString('latin1') !== 'PGDMP') {
+        throw new BadRequestError(
+          'El archivo no es un respaldo válido de PostgreSQL en formato custom (-Fc). ' +
+            'Debe ser un .dump generado por este sistema o con "pg_dump -Fc".'
+        )
+      }
+
+      const url = await r2StorageService.uploadWithKey(
+        createReadStream(file.path),
+        fileKey,
+        'application/octet-stream'
+      )
+
+      const record = await prisma.databaseBackup.create({
+        data: {
+          type: 'MANUAL',
+          status: 'SUCCESS',
+          fileKey,
+          fileName,
+          fileUrl: url,
+          sizeBytes: BigInt(file.size),
+          triggeredBy: triggeredBy || null,
+          finishedAt: new Date(),
+        },
+      })
+
+      logger.info('Database backup imported', {
+        id: record.id,
+        fileName,
+        originalName: file.originalname,
+        sizeBytes: file.size,
+      })
+
+      return record.id
+    } finally {
+      try {
+        if (fs.existsSync(file.path)) fs.unlinkSync(file.path)
+      } catch {
+        /* ignore */
+      }
+    }
+  }
+
   private runPgDump(db: ParsedDbUrl, outFile: string): Promise<void> {
     return new Promise((resolve, reject) => {
       const args = [

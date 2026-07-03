@@ -7,6 +7,9 @@ import { Tag } from "primereact/tag";
 import { Button } from "primereact/button";
 import { Toast } from "primereact/toast";
 import { Menu } from "primereact/menu";
+import { Dialog } from "primereact/dialog";
+import { FileUpload, FileUploadHandlerEvent } from "primereact/fileupload";
+import { Message } from "primereact/message";
 import CreateButton from "@/shared/components/CreateButton";
 import DeleteConfirmDialog from "@/shared/components/DeleteConfirmDialog";
 import { useUserPermissions } from "@/hooks/useUserPermissions";
@@ -66,6 +69,10 @@ const BackupList = () => {
   const [deleteTarget, setDeleteTarget] = useState<DatabaseBackup | null>(null);
   const [deleting, setDeleting] = useState(false);
 
+  const [importOpen, setImportOpen] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileUploadRef = useRef<FileUpload>(null);
+
   const canCreate = hasPermission("backups.create");
   const canRestore = hasPermission("backups.restore");
   const canDelete = hasPermission("backups.delete");
@@ -119,6 +126,33 @@ const BackupList = () => {
       });
     } finally {
       setCreating(false);
+    }
+  };
+
+  const handleImport = async (e: FileUploadHandlerEvent) => {
+    const file = e.files?.[0];
+    if (!file) return;
+    setImporting(true);
+    try {
+      await backupService.importFile(file);
+      toast.current?.show({
+        severity: "success",
+        summary: "Respaldo importado",
+        detail: "El archivo se subió y quedó disponible para restaurar.",
+      });
+      setImportOpen(false);
+      fileUploadRef.current?.clear();
+      await load(page, rows);
+    } catch (err: any) {
+      toast.current?.show({
+        severity: "error",
+        summary: "Error",
+        detail:
+          err?.response?.data?.message || "No se pudo importar el respaldo.",
+        life: 6000,
+      });
+    } finally {
+      setImporting(false);
     }
   };
 
@@ -237,13 +271,21 @@ const BackupList = () => {
           </p>
         </div>
         {canCreate && (
-          <CreateButton
-            label={creating ? "Generando..." : "Generar respaldo ahora"}
-            icon="pi pi-database"
-            onClick={handleCreate}
-            disabled={creating}
-            permission="backups.create"
-          />
+          <div className="flex gap-2">
+            <Button
+              label="Importar respaldo"
+              icon="pi pi-upload"
+              outlined
+              onClick={() => setImportOpen(true)}
+            />
+            <CreateButton
+              label={creating ? "Generando..." : "Generar respaldo ahora"}
+              icon="pi pi-database"
+              onClick={handleCreate}
+              disabled={creating}
+              permission="backups.create"
+            />
+          </div>
         )}
       </div>
 
@@ -283,6 +325,45 @@ const BackupList = () => {
         itemName={deleteTarget?.fileName || ""}
         isDeleting={deleting}
       />
+
+      <Dialog
+        visible={importOpen}
+        onHide={() => !importing && setImportOpen(false)}
+        style={{ width: "480px" }}
+        header={
+          <div className="border-bottom-2 border-primary pb-2">
+            <span className="text-xl font-bold flex align-items-center gap-2">
+              <i className="pi pi-upload text-primary" />
+              Importar respaldo
+            </span>
+          </div>
+        }
+        modal
+      >
+        <div className="flex flex-column gap-3 pt-2">
+          <Message
+            severity="info"
+            text="Sube un archivo .dump generado por este sistema (o con pg_dump -Fc). Quedará disponible en la lista para restaurar."
+          />
+          <FileUpload
+            ref={fileUploadRef}
+            name="file"
+            accept=".dump,.backup,application/octet-stream"
+            mode="basic"
+            customUpload
+            auto
+            chooseLabel="Seleccionar archivo .dump"
+            uploadHandler={handleImport}
+            disabled={importing}
+          />
+          {importing && (
+            <div className="flex align-items-center gap-2 text-color-secondary">
+              <i className="pi pi-spin pi-spinner" />
+              Subiendo respaldo...
+            </div>
+          )}
+        </div>
+      </Dialog>
     </div>
   );
 };

@@ -30,6 +30,17 @@ class BackupService {
     return data.data;
   }
 
+  async importFile(file: File): Promise<DatabaseBackup> {
+    const form = new FormData();
+    form.append("file", file);
+    const { data } = await apiClient.post<{ data: DatabaseBackup }>(
+      `${this.base}/import`,
+      form,
+      { headers: { "Content-Type": "multipart/form-data" } },
+    );
+    return data.data;
+  }
+
   async download(id: string, fileName: string): Promise<void> {
     const response = await apiClient.get(`${this.base}/${id}/download`, {
       responseType: "blob",

@@ -59,6 +59,35 @@ export class BackupsController {
     )
   })
 
+  importBackup = asyncHandler(
+    async (req: Request, res: Response): Promise<void> => {
+      const userId = getUserId(req)
+      const file = (req as Request & { file?: Express.Multer.File }).file
+      const id = await backupsService.importBackup(
+        file as unknown as { path: string; originalname: string; size: number },
+        userId
+      )
+      const backup = await backupsService.getBackup(id)
+      await createAuditLog({
+        entity: 'DatabaseBackup',
+        entityId: id,
+        action: 'IMPORT',
+        userId,
+        empresaId: req.empresaId,
+        metadata: {
+          fileName: backup.fileName,
+          originalName: file?.originalname,
+          ip: getClientIp(req),
+        },
+      })
+      ApiResponse.created(
+        res,
+        new DatabaseBackupDTO(backup as any),
+        'Respaldo importado exitosamente'
+      )
+    }
+  )
+
   download = asyncHandler(
     async (req: Request, res: Response): Promise<void> => {
       const { id } = req.params as { id: string }

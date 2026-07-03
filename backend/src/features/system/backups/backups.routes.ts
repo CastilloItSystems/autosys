@@ -15,6 +15,7 @@ import {
   restoreBackupSchema,
 } from './backups.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
+import { FileUploadHelper } from '../../../shared/utils/fileUpload.js'
 
 const router = Router()
 
@@ -35,6 +36,14 @@ router.post(
   '/',
   authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_CREATE),
   backupsController.create
+)
+
+// POST /api/system/backups/import (subir un .dump externo) — ruta estática antes de /:id
+router.post(
+  '/import',
+  authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_CREATE),
+  FileUploadHelper.createBackupUploader('file'),
+  backupsController.importBackup
 )
 
 // GET /api/system/backups/:id/download

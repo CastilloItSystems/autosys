@@ -3,6 +3,7 @@
 import multer, { FileFilterCallback } from 'multer'
 import path from 'path'
 import fs from 'fs'
+import os from 'os'
 import { Request } from 'express'
 import { ApiError } from './apiError.js'
 
@@ -68,6 +69,27 @@ export class FileUploadHelper {
         fileSize: maxSize,
       },
       fileFilter: this.createImageFilter(),
+    }).single(fieldName)
+  }
+
+  /**
+   * Uploader para respaldos de BD (.dump). Guarda en disco temporal (no en RAM,
+   * los dumps pueden ser grandes) y sin filtro de tipo — la validación real
+   * (cabecera PGDMP) la hace el servicio. Límite configurable por env.
+   */
+  static createBackupUploader(fieldName: string = 'file') {
+    const maxSize = Number(
+      process.env.BACKUP_UPLOAD_MAX_BYTES || 512 * 1024 * 1024
+    )
+    return multer({
+      storage: multer.diskStorage({
+        destination: (_req, _file, cb) => cb(null, os.tmpdir()),
+        filename: (_req, file, cb) => {
+          const rand = Math.floor(Math.random() * 100000)
+          cb(null, `upload_${Date.now()}_${rand}${path.extname(file.originalname)}`)
+        },
+      }),
+      limits: { fileSize: maxSize },
     }).single(fieldName)
   }
 
