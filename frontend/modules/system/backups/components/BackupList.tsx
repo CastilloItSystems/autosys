@@ -49,7 +49,7 @@ function formatBytes(raw: string | null): string {
 }
 
 const BackupList = () => {
-  const { hasPermission } = useUserPermissions();
+  const { hasPermissionInAnyEmpresa } = useUserPermissions();
   const toast = useRef<Toast>(null);
   const menuRef = useRef<Menu>(null);
   const [selectedRow, setSelectedRow] = useState<DatabaseBackup | null>(null);
@@ -73,9 +73,11 @@ const BackupList = () => {
   const [importing, setImporting] = useState(false);
   const fileUploadRef = useRef<FileUpload>(null);
 
-  const canCreate = hasPermission("backups.create");
-  const canRestore = hasPermission("backups.restore");
-  const canDelete = hasPermission("backups.delete");
+  // Los respaldos son globales: el backend autoriza con el permiso en
+  // cualquier empresa del usuario (authorizeInAnyEmpresa), no la activa.
+  const canCreate = hasPermissionInAnyEmpresa("backups.create");
+  const canRestore = hasPermissionInAnyEmpresa("backups.restore");
+  const canDelete = hasPermissionInAnyEmpresa("backups.delete");
 
   const load = useCallback(async (p: number, l: number) => {
     setLoading(true);
@@ -284,6 +286,7 @@ const BackupList = () => {
               onClick={handleCreate}
               disabled={creating}
               permission="backups.create"
+              permissionScope="any"
             />
           </div>
         )}
