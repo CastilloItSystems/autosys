@@ -15,4 +15,6 @@ node_modules
 prisma/seeds/**/*.js
 prisma/seeds/**/*.d.ts
 prisma/seeds/**/*.map
-backups/
+# Anclado a la raiz: sin la barra inicial tambien ignoraba
+# src/features/system/backups/, que es codigo fuente.
+/backups/
