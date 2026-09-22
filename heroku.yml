@@ -1,0 +1,11 @@
+# Despliegue del backend en Heroku (stack: container).
+#
+# El contexto de build queda fijado al directorio que contiene el Dockerfile
+# (backend/), que es justo lo que backend/Dockerfile espera con su COPY.
+# Sin este archivo, la integracion de GitHub construye con buildpacks e ignora
+# el Dockerfile: se pierden postgresql-client-17 (respaldos) y el prisma generate.
+#
+# El proceso web usa el CMD del Dockerfile: node dist/index.js
+build:
+  docker:
+    web: backend/Dockerfile
