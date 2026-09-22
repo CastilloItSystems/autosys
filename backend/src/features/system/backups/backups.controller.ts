@@ -7,7 +7,14 @@ import { ApiResponse } from '../../../shared/utils/apiResponse.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 import { createAuditLog } from '../../../services/audit.service.js'
 import { getRestoreJob } from './restoreJobs.js'
-import { NotFoundError } from '../../../shared/utils/apiError.js'
+import {
+  NotFoundError,
+  UnauthorizedError,
+} from '../../../shared/utils/apiError.js'
+import {
+  verifyToken,
+  extractTokenFromHeader,
+} from '../../../services/jwt.service.js'
 
 function getUserId(req: Request): string {
   return req.user?.userId ?? 'system'
@@ -147,10 +154,30 @@ export class BackupsController {
     )
   })
 
+  /**
+   * Estado de una restauración. Deliberadamente NO usa authenticate ni
+   * authorizeInAnyEmpresa: ambos consultan la base (tablas `User`,
+   * `permissions`, `memberships`) y pg_restore --clean las borra para
+   * recrearlas. Consultarlas aquí es preguntarle a la casa que se está
+   * demoliendo si sigue en pie: en la primera restauración real este endpoint
+   * devolvió 500 justo a mitad del proceso y el usuario perdió el seguimiento.
+   *
+   * La autorización que queda es estricta y sin base de datos: firma del token
+   * válida, y el usuario debe ser el mismo que inició la restauración. El id
+   * del trabajo es un UUID no adivinable.
+   */
   restoreStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
     const { jobId } = req.params as { jobId: string }
+
+    const token = extractTokenFromHeader(req.headers.authorization)
+    const decoded = token ? verifyToken(token) : null
+    if (!decoded?.userId) {
+      throw new UnauthorizedError('Token inválido o expirado')
+    }
+
     const job = getRestoreJob(jobId)
-    if (!job) {
+    // Mismo error para "no existe" y "no es tuyo": no revelamos cuáles existen.
+    if (!job || job.triggeredBy !== decoded.userId) {
       throw new NotFoundError(
         'Restauración no encontrada. Si el servidor se reinició, revisa los ' +
           'logs para conocer el resultado.'

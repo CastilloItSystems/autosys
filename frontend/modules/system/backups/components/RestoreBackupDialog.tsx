@@ -25,6 +25,11 @@ const RestoreBackupDialog = ({ visible, backup, onHide, onSuccess }: Props) => {
   const [job, setJob] = useState<RestoreJob | null>(null);
   const toast = useRef<Toast>(null);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  // Durante un restore la API pasa por momentos inestables (el dyno reconecta,
+  // las tablas se recrean). Un fallo aislado no significa que se perdió el
+  // trabajo, así que se toleran varios seguidos antes de rendirse.
+  const failuresRef = useRef(0);
+  const MAX_FALLOS_SEGUIDOS = 5;
 
   const stopPolling = () => {
     if (pollRef.current) {
@@ -56,11 +61,13 @@ const RestoreBackupDialog = ({ visible, backup, onHide, onSuccess }: Props) => {
       // Responde 202 enseguida: a partir de aquí seguimos el trabajo por sondeo,
       // porque una restauración tarda minutos y ninguna petición HTTP aguanta eso.
       const started = await backupService.restore(backup.id, confirmText);
+      failuresRef.current = 0;
       setJob(started);
 
       pollRef.current = setInterval(async () => {
         try {
           const current = await backupService.getRestoreJob(started.id);
+          failuresRef.current = 0;
           setJob(current);
           if (current.status === "SUCCESS" || current.status === "FAILED") {
             stopPolling();
@@ -85,6 +92,8 @@ const RestoreBackupDialog = ({ visible, backup, onHide, onSuccess }: Props) => {
             }
           }
         } catch (err: any) {
+          failuresRef.current += 1;
+          if (failuresRef.current < MAX_FALLOS_SEGUIDOS) return;
           stopPolling();
           setSubmitting(false);
           toast.current?.show({

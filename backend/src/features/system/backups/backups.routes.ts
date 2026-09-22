@@ -22,6 +22,17 @@ const router = Router()
 
 // Respaldos son recursos GLOBALES (toda la BD). No requieren empresa activa
 // — basta con tener el permiso en cualquier empresa del usuario.
+// GET /api/system/backups/restore-jobs/:jobId — estado de una restauración.
+// Va ANTES de router.use(authenticate) a propósito: durante un restore las
+// tablas de usuarios y permisos no existen, así que autenticar contra la base
+// devolvería 500 justo cuando más se necesita el estado. El controlador valida
+// el token y la pertenencia del trabajo sin consultar la base.
+router.get(
+  '/restore-jobs/:jobId',
+  validateParams(restoreJobParamsSchema),
+  backupsController.restoreStatus
+)
+
 router.use(authenticate)
 
 // GET /api/system/backups
@@ -45,15 +56,6 @@ router.post(
   authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_CREATE),
   FileUploadHelper.createBackupUploader('file'),
   backupsController.importBackup
-)
-
-// GET /api/system/backups/restore-jobs/:jobId — estado de una restauración.
-// Ruta estática: va antes de /:id para que no la capture el parámetro.
-router.get(
-  '/restore-jobs/:jobId',
-  authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_RESTORE),
-  validateParams(restoreJobParamsSchema),
-  backupsController.restoreStatus
 )
 
 // GET /api/system/backups/:id/download
