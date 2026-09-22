@@ -11,9 +11,10 @@
     "seed:sync-roles": "tsx prisma/seeds/patch-sync-roles.ts",
     "seed:diagnostic-templates": "tsx prisma/seeds/workshop-diagnostic-templates.seed.ts",
     "dev": "tsx watch src/index.ts",
-    "build": "tsc",
+    "build": "prisma generate && tsc",
     "start": "node dist/index.js",
-    "test": "NODE_OPTIONS=--experimental-vm-modules jest --no-coverage"
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest --no-coverage",
+    "postinstall": "prisma generate"
   },
   "prisma": {
     "seed": "tsx ./prisma/seeds/index.ts"
