@@ -21,3 +21,10 @@ export const restoreBackupSchema = Joi.object({
       'Debes escribir el nombre del archivo del respaldo para confirmar la restauración',
   }),
 })
+
+export const restoreJobParamsSchema = Joi.object({
+  jobId: Joi.string().uuid().required().messages({
+    'string.guid': 'El identificador de la restauración no es válido',
+    'any.required': 'El identificador de la restauración es requerido',
+  }),
+})

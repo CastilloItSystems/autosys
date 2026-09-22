@@ -20,6 +20,12 @@ import type {
   BackupStatus,
   IListBackupsQuery,
 } from './backups.interface.js'
+import {
+  createRestoreJob,
+  getActiveRestoreJob,
+  updateRestoreJob,
+  type RestoreJob,
+} from './restoreJobs.js'
 
 const BACKUP_PREFIX = 'backups'
 const PG_DUMP_BIN = process.env.PG_DUMP_PATH || 'pg_dump'
@@ -258,7 +264,10 @@ export class BackupsService {
     })
   }
 
-  private runPgRestore(db: ParsedDbUrl, inFile: string): Promise<void> {
+  private runPgRestore(
+    db: ParsedDbUrl,
+    inFile: string
+  ): Promise<{ warnings: string[] }> {
     return new Promise((resolve, reject) => {
       const args = [
         '--clean',
@@ -297,12 +306,23 @@ export class BackupsService {
             new Error(`pg_restore excedió timeout (${RESTORE_TIMEOUT_MS}ms)`)
           )
         }
-        // pg_restore returns non-zero with --clean even on success when DROP fails;
-        // we tolerate code 1 if no fatal errors detected.
-        if (code === 0) return resolve()
+        // pg_restore sale con codigo 1 por incidencias no fatales (objetos que
+        // no existen al aplicar --clean, extensiones cuyo dueño no podemos
+        // cambiar en Supabase). Se tolera, pero NO en silencio: antes estas
+        // lineas solo iban al log y la UI cantaba exito aunque hubieran fallado
+        // tablas enteras. Ahora vuelven al operador junto al resultado.
+        const warnings = stderr
+          .split('\n')
+          .map((l) => l.trim())
+          .filter((l) => /^pg_restore: (error|warning):/i.test(l))
+
+        if (code === 0) return resolve({ warnings })
         if (code === 1 && !/FATAL|terminated/i.test(stderr)) {
-          logger.warn('pg_restore terminó con warnings', { stderr })
-          return resolve()
+          logger.warn('pg_restore terminó con warnings', {
+            count: warnings.length,
+            stderr,
+          })
+          return resolve({ warnings })
         }
         reject(new Error(`pg_restore salió con código ${code}: ${stderr}`))
       })
@@ -347,11 +367,20 @@ export class BackupsService {
     }
   }
 
-  async restoreFromBackup(
+  /**
+   * Lanza una restauracion y responde de inmediato con el trabajo creado.
+   *
+   * Restaurar implica generar un respaldo previo, descargar el .dump de R2 y
+   * correr pg_restore: minutos de trabajo. El router de Heroku corta toda
+   * peticion HTTP a los 30 segundos (error H12), asi que esto NO puede ocurrir
+   * dentro del ciclo de la peticion. Las validaciones si son sincronas, para
+   * que un nombre de archivo mal escrito falle al instante.
+   */
+  async startRestore(
     id: string,
     confirmFileName: string,
     triggeredBy?: string
-  ): Promise<{ preRestoreBackupId: string }> {
+  ): Promise<RestoreJob> {
     const backup = await prisma.databaseBackup.findUnique({ where: { id } })
     if (!backup) throw new NotFoundError('Respaldo no encontrado')
     if (backup.status !== 'SUCCESS') {
@@ -363,13 +392,50 @@ export class BackupsService {
       )
     }
 
-    // 1. Backup de salvavidas antes de restaurar (estado actual)
-    logger.warn('Generating PRE_RESTORE backup before restore', { targetId: id })
-    const preRestoreBackupId = await this.runBackup('PRE_RESTORE', triggeredBy)
+    // Dos restauraciones simultaneas se pisarian los datos entre si.
+    const inFlight = getActiveRestoreJob()
+    if (inFlight) {
+      throw new ConflictError(
+        `Ya hay una restauración en curso (${inFlight.fileName}). ` +
+          'Espera a que termine antes de iniciar otra.'
+      )
+    }
 
-    const tmpFile = path.join(os.tmpdir(), `restore_${backup.fileName}`)
+    const job = createRestoreJob(id, backup.fileName, triggeredBy)
+
+    // Deliberadamente sin await: la peticion HTTP responde 202 ya mismo.
+    void this.runRestoreJob(job.id, id, backup.fileKey, triggeredBy)
+
+    return job
+  }
+
+  /**
+   * Ejecuta la restauracion en segundo plano, informando cada paso al job.
+   * Nunca lanza: todo fallo se registra en el job y en los logs.
+   */
+  private async runRestoreJob(
+    jobId: string,
+    backupId: string,
+    fileKey: string,
+    triggeredBy?: string
+  ): Promise<void> {
+    const tmpFile = path.join(os.tmpdir(), `restore_${jobId}.dump`)
     try {
-      const stream = await r2StorageService.downloadStream(backup.fileKey)
+      updateRestoreJob(jobId, {
+        status: 'RUNNING',
+        step: 'Generando respaldo de seguridad previo',
+      })
+      logger.warn('Generating PRE_RESTORE backup before restore', {
+        targetId: backupId,
+        jobId,
+      })
+      const preRestoreBackupId = await this.runBackup('PRE_RESTORE', triggeredBy)
+      updateRestoreJob(jobId, {
+        preRestoreBackupId,
+        step: 'Descargando el respaldo',
+      })
+
+      const stream = await r2StorageService.downloadStream(fileKey)
       await new Promise<void>((resolve, reject) => {
         const out = fs.createWriteStream(tmpFile)
         stream.pipe(out)
@@ -378,14 +444,32 @@ export class BackupsService {
         stream.on('error', reject)
       })
 
+      updateRestoreJob(jobId, { step: 'Restaurando la base de datos' })
       const db = parseDatabaseUrl()
-      await this.runPgRestore(db, tmpFile)
-      logger.warn('Database restored from backup', {
-        id,
-        fileKey: backup.fileKey,
-        preRestoreBackupId,
+      const { warnings } = await this.runPgRestore(db, tmpFile)
+
+      updateRestoreJob(jobId, {
+        status: 'SUCCESS',
+        step: 'Restauración completada',
+        warnings,
+        finishedAt: new Date().toISOString(),
       })
-      return { preRestoreBackupId }
+      logger.warn('Database restored from backup', {
+        id: backupId,
+        fileKey,
+        preRestoreBackupId,
+        jobId,
+        warningCount: warnings.length,
+      })
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err)
+      updateRestoreJob(jobId, {
+        status: 'FAILED',
+        step: 'Restauración fallida',
+        error: message,
+        finishedAt: new Date().toISOString(),
+      })
+      logger.error('Database restore failed', { id: backupId, jobId, error: message })
     } finally {
       try {
         if (fs.existsSync(tmpFile)) fs.unlinkSync(tmpFile)

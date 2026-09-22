@@ -6,6 +6,8 @@ import { DatabaseBackupDTO } from './backups.dto.js'
 import { ApiResponse } from '../../../shared/utils/apiResponse.js'
 import { asyncHandler } from '../../../shared/middleware/asyncHandler.middleware.js'
 import { createAuditLog } from '../../../services/audit.service.js'
+import { getRestoreJob } from './restoreJobs.js'
+import { NotFoundError } from '../../../shared/utils/apiError.js'
 
 function getUserId(req: Request): string {
   return req.user?.userId ?? 'system'
@@ -116,7 +118,10 @@ export class BackupsController {
     const { id } = req.params as { id: string }
     const body = (req.validatedBody ?? req.body) as { confirmFileName: string }
     const userId = getUserId(req)
-    const { preRestoreBackupId } = await backupsService.restoreFromBackup(
+
+    // Devuelve en cuanto el trabajo queda encolado: la restauracion tarda
+    // minutos y Heroku corta la peticion a los 30s (H12).
+    const job = await backupsService.startRestore(
       id,
       body.confirmFileName,
       userId
@@ -131,14 +136,27 @@ export class BackupsController {
       metadata: {
         fileName: backup.fileName,
         ip: getClientIp(req),
-        preRestoreBackupId,
+        restoreJobId: job.id,
       },
     })
     ApiResponse.success(
       res,
-      { preRestoreBackupId },
-      'Base de datos restaurada exitosamente'
+      job,
+      'Restauración iniciada. Consulta su estado para seguir el progreso.',
+      202
     )
+  })
+
+  restoreStatus = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { jobId } = req.params as { jobId: string }
+    const job = getRestoreJob(jobId)
+    if (!job) {
+      throw new NotFoundError(
+        'Restauración no encontrada. Si el servidor se reinició, revisa los ' +
+          'logs para conocer el resultado.'
+      )
+    }
+    ApiResponse.success(res, job)
   })
 
   delete = asyncHandler(async (req: Request, res: Response): Promise<void> => {

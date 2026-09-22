@@ -13,6 +13,7 @@ import {
   listBackupsSchema,
   backupIdParamsSchema,
   restoreBackupSchema,
+  restoreJobParamsSchema,
 } from './backups.validation.js'
 import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import { FileUploadHelper } from '../../../shared/utils/fileUpload.js'
@@ -44,6 +45,15 @@ router.post(
   authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_CREATE),
   FileUploadHelper.createBackupUploader('file'),
   backupsController.importBackup
+)
+
+// GET /api/system/backups/restore-jobs/:jobId — estado de una restauración.
+// Ruta estática: va antes de /:id para que no la capture el parámetro.
+router.get(
+  '/restore-jobs/:jobId',
+  authorizeInAnyEmpresa(PERMISSIONS.BACKUPS_RESTORE),
+  validateParams(restoreJobParamsSchema),
+  backupsController.restoreStatus
 )
 
 // GET /api/system/backups/:id/download

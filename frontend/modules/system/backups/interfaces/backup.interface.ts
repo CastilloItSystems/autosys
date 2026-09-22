@@ -22,3 +22,21 @@ export interface ListBackupsParams {
   type?: BackupType;
   status?: BackupStatus;
 }
+
+export type RestoreJobStatus = "PENDING" | "RUNNING" | "SUCCESS" | "FAILED";
+
+export interface RestoreJob {
+  id: string;
+  backupId: string;
+  fileName: string;
+  status: RestoreJobStatus;
+  /** Paso actual, ya redactado en español por el backend. */
+  step: string;
+  preRestoreBackupId: string | null;
+  /** Avisos de pg_restore que no abortaron la operación. */
+  warnings: string[];
+  error: string | null;
+  startedAt: string;
+  finishedAt: string | null;
+  triggeredBy: string | null;
+}
