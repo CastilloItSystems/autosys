@@ -24,6 +24,12 @@ import apiRoutes from './routes/api.routes.js'
 // APP SETUP
 // ============================================
 const app: Application = express()
+
+// Detras de un proxy (Heroku, Vercel) la IP del cliente llega en X-Forwarded-For.
+// Sin esto, express-rate-limit ve la IP del router y trata a todos los usuarios
+// como uno solo. Se confia en 1 salto (el router de Heroku) y no en la cadena
+// completa: 'true' permitiria al cliente falsificar la cabecera y evadir el limite.
+app.set('trust proxy', 1)
 // ============================================
 // MIDDLEWARE GLOBAL
 // ============================================
