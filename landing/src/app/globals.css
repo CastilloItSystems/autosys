@@ -1,0 +1,155 @@
+/*
+ * Tokens de CAMABAR.
+ * Paleta derivada del logotipo (azul, negro y blanco medidos del archivo) más
+ * el material del tablero. Contrastes WCAG verificados:
+ *   azul sobre blanco 5,03  ·  tinta-2 sobre blanco 8,75  ·  azul-hondo sobre blanco 7,06
+ *   azul-luz sobre LCD 7,09  ·  sobre la banda azul, TODO el texto va en blanco (5,03):
+ *   ningún tono claro más tenue alcanza 4,5 sobre ese azul.
+ * Radios: 6px en todo rectángulo; los medidores son círculos.
+ */
+:root {
+  color-scheme: light;
+
+  --blanco: #fcfcfc;
+  --tinta: #0b0c0e;
+  --tinta-2: #3e4a5c;
+  --linea: #dfe4ec;
+
+  --azul: #286cc8;
+  --azul-hondo: #2056a0;
+  --azul-luz: #7ca5dd;
+
+  --cabina: #15171a;
+  --cara: #121416;
+  --lcd: #0d1726;
+  --rotulo: #aeb6c2;
+
+  --stop: #e5322b;
+  --ambar: #f2a900;
+  --verde: #2fb457;
+
+  --r: 6px;
+  --ancho: 1200px;
+  --gutter: clamp(16px, 4vw, 40px);
+
+  --f-display: var(--font-michroma), 'Arial Narrow', sans-serif;
+  --f-texto: var(--font-saira), system-ui, sans-serif;
+
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  scroll-behavior: smooth;
+  scroll-padding-top: 84px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--blanco);
+  color: var(--tinta);
+  font-family: var(--f-texto);
+  font-size: 1.0625rem;
+  line-height: 1.6;
+  font-variant-numeric: tabular-nums;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  font-family: var(--f-display);
+  font-weight: 400;
+  line-height: 1.2;
+  text-wrap: balance;
+  letter-spacing: 0;
+}
+
+/* La voz de los títulos: mayúsculas extendidas, como el logotipo y los rótulos del tablero */
+h1,
+h2 {
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  line-height: 1.16;
+}
+
+p {
+  margin: 0;
+  text-wrap: pretty;
+}
+
+a {
+  color: var(--azul-hondo);
+  text-underline-offset: 0.2em;
+  text-decoration-thickness: 1px;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* Superficies del navegador, también del sistema */
+::selection {
+  background: var(--azul);
+  color: var(--blanco);
+}
+
+:focus-visible {
+  outline: 3px solid var(--azul);
+  outline-offset: 3px;
+  border-radius: var(--r);
+}
+
+html {
+  scrollbar-color: var(--azul) var(--linea);
+}
+
+.contenedor {
+  width: 100%;
+  max-width: var(--ancho);
+  margin-inline: auto;
+  padding-inline: var(--gutter);
+}
+
+.solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.saltar {
+  position: absolute;
+  left: var(--gutter);
+  top: -60px;
+  z-index: 100;
+  padding: 10px 16px;
+  background: var(--azul);
+  color: var(--blanco);
+  border-radius: var(--r);
+  text-decoration: none;
+  font-weight: 600;
+}
+
+.saltar:focus {
+  top: 12px;
+}

@@ -1,0 +1,93 @@
+.cabecera {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: rgb(252 252 252 / 0.94);
+  border-bottom: 1px solid var(--linea);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .cabecera {
+    background: rgb(252 252 252 / 0.82);
+    backdrop-filter: blur(10px) saturate(140%);
+  }
+}
+
+.fila {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+  height: 68px;
+}
+
+.marca {
+  display: block;
+  flex: none;
+  border-radius: var(--r);
+}
+
+.logo {
+  width: auto;
+  height: 40px;
+}
+
+.nav {
+  display: flex;
+  gap: 26px;
+  margin-inline: auto;
+}
+
+.nav a {
+  color: var(--tinta);
+  text-decoration: none;
+  font-weight: 500;
+  font-size: 0.96875rem;
+  padding-block: 6px;
+  border-bottom: 2px solid transparent;
+  transition: border-color 160ms ease, color 160ms ease;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .nav a:hover {
+    color: var(--azul-hondo);
+    border-color: var(--azul);
+  }
+}
+
+.llamar {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+  min-height: 42px;
+  padding-inline: 16px;
+  border: 1.5px solid var(--azul);
+  border-radius: var(--r);
+  color: var(--azul-hondo);
+  text-decoration: none;
+  font-weight: 600;
+  transition: background-color 160ms ease, color 160ms ease, transform 160ms var(--ease-out);
+}
+
+.llamar:active {
+  transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .llamar:hover {
+    background: var(--azul);
+    color: var(--blanco);
+  }
+}
+
+@media (max-width: 900px) {
+  .nav {
+    display: none;
+  }
+  .fila {
+    justify-content: space-between;
+  }
+  .logo {
+    height: 34px;
+  }
+}

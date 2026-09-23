@@ -1,0 +1,452 @@
+/* ---------- Primera pantalla ---------- */
+.titular {
+  font-size: clamp(1.5rem, 2.2vw, 1.95rem);
+  color: var(--tinta);
+}
+
+.bajada {
+  max-width: 42ch;
+  font-size: clamp(1.0625rem, 1.3vw, 1.1875rem);
+  color: var(--tinta-2);
+}
+
+/* ---------- Botones ---------- */
+.boton {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 54px;
+  padding-inline: 22px;
+  border-radius: var(--r);
+  background: var(--azul);
+  color: var(--blanco);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 1.0625rem;
+  font-variation-settings: 'wdth' 106;
+  white-space: nowrap;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.2),
+    0 10px 20px -14px rgb(32 86 160 / 0.8);
+  transition:
+    transform 160ms var(--ease-out),
+    background-color 160ms ease,
+    color 160ms ease;
+}
+
+.boton:active {
+  transform: scale(0.97);
+}
+
+.botonClaro {
+  background: var(--blanco);
+  color: var(--azul-hondo);
+  box-shadow: 0 12px 24px -14px rgb(8 24 52 / 0.7);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .boton:hover {
+    background: var(--azul-hondo);
+  }
+  .botonClaro:hover {
+    background: #e9f0fa;
+    color: var(--azul-hondo);
+  }
+}
+
+/* ---------- Ritmo de sección ---------- */
+.seccion {
+  padding-block: clamp(72px, 10vw, 128px);
+}
+
+.titulo {
+  max-width: 26ch;
+  font-size: clamp(1.15rem, 1.6vw, 1.55rem);
+  color: var(--tinta);
+}
+
+.parrafo {
+  max-width: 62ch;
+  color: var(--tinta-2);
+}
+
+.cabezal {
+  display: grid;
+  gap: 18px;
+  margin-bottom: clamp(36px, 5vw, 56px);
+}
+
+/* ---------- Repuestos: banda azul ---------- */
+.banda {
+  background: var(--azul);
+  color: var(--blanco);
+  padding-block: clamp(72px, 10vw, 120px);
+}
+
+.bandaRejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(36px, 6vw, 88px);
+  align-items: start;
+}
+
+.bandaTexto {
+  display: grid;
+  gap: 22px;
+  justify-items: start;
+}
+
+.tituloBanda {
+  max-width: 24ch;
+  font-size: clamp(1.15rem, 1.6vw, 1.55rem);
+  color: var(--blanco);
+}
+
+.parrafoBanda {
+  max-width: 52ch;
+  font-size: 1.125rem;
+}
+
+.lema {
+  font-weight: 700;
+  font-size: clamp(1.125rem, 1.6vw, 1.3125rem);
+  font-variation-settings: 'wdth' 112;
+  margin-bottom: 6px;
+}
+
+.ruta {
+  display: grid;
+  gap: 8px;
+  padding: clamp(24px, 3vw, 36px);
+  border-radius: var(--r);
+  background: var(--azul-hondo);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.12);
+}
+
+.rutaTitulo {
+  font-size: 1.25rem;
+  color: var(--blanco);
+}
+
+.rutaNota {
+  margin-bottom: 18px;
+}
+
+.paradas {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.paradas li {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 0 0 22px 34px;
+  font-weight: 600;
+  font-size: 1.125rem;
+  font-variation-settings: 'wdth' 108;
+}
+
+.paradas li:last-child {
+  padding-bottom: 0;
+}
+
+/* la vía que une las paradas */
+.paradas li::after {
+  content: '';
+  position: absolute;
+  left: 6px;
+  top: 16px;
+  bottom: -6px;
+  width: 2px;
+  background: rgb(252 252 252 / 0.55);
+}
+
+.paradas li:last-child::after {
+  display: none;
+}
+
+/* la parada */
+.paradas li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 6px;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid var(--blanco);
+  background: var(--azul-hondo);
+}
+
+.paradas .origen::before {
+  background: var(--blanco);
+}
+
+.paradas small {
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+@media (max-width: 900px) {
+  .bandaRejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Taller: lista con reglas ---------- */
+.serviciosTaller {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0 clamp(32px, 6vw, 80px);
+}
+
+.serviciosTaller li {
+  display: grid;
+  gap: 8px;
+  padding-block: 24px;
+  border-top: 1px solid var(--linea);
+}
+
+.servicioNombre {
+  font-size: clamp(0.9375rem, 1.2vw, 1.0625rem);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--tinta);
+}
+
+.servicioTexto {
+  color: var(--tinta-2);
+}
+
+.accionTaller {
+  margin-top: 32px;
+}
+
+@media (max-width: 700px) {
+  .serviciosTaller {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Respuesta: segunda banda azul ---------- */
+.respuestaRejilla {
+  display: grid;
+  grid-template-columns: minmax(0, 7fr) minmax(0, 5fr);
+  gap: clamp(32px, 6vw, 80px);
+  margin-top: clamp(32px, 5vw, 56px);
+}
+
+.principal {
+  display: grid;
+  gap: 16px;
+  align-content: start;
+}
+
+.principalNombre {
+  max-width: 26ch;
+  font-family: var(--f-texto);
+  font-weight: 700;
+  /* tamaño de texto destacado: el h2 de la banda debe mandar sobre él */
+  font-size: clamp(1.0625rem, 1.3vw, 1.1875rem);
+  font-variation-settings: 'wdth' 106;
+  line-height: 1.35;
+  color: var(--blanco);
+}
+
+.secundarios {
+  display: grid;
+  gap: 28px;
+  align-content: start;
+}
+
+.secundario {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 16px;
+  padding-top: 24px;
+  border-top: 1px solid rgb(252 252 252 / 0.45);
+}
+
+.secundarioNombre {
+  font-family: var(--f-texto);
+  font-weight: 700;
+  font-size: 1.125rem;
+  font-variation-settings: 'wdth' 106;
+  margin-bottom: 6px;
+}
+
+@media (max-width: 900px) {
+  .respuestaRejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Empresa ---------- */
+.tituloEmpresa {
+  max-width: 26ch;
+  font-size: clamp(1.2rem, 1.7vw, 1.6rem);
+}
+
+.declaracion {
+  max-width: 44ch;
+  margin-top: clamp(24px, 3vw, 36px);
+  /* por debajo de su h2: el título de la sección manda */
+  font-size: clamp(1.125rem, 1.45vw, 1.3125rem);
+  line-height: 1.55;
+  color: var(--tinta-2);
+}
+
+.declaracion strong {
+  font-weight: 700;
+  color: var(--azul-hondo);
+}
+
+.valores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: clamp(20px, 4vw, 48px);
+  max-width: 720px;
+  margin: clamp(40px, 6vw, 64px) 0 0;
+}
+
+.valores dt {
+  font-family: var(--f-display);
+  font-size: 1rem;
+  color: var(--azul);
+  margin-bottom: 8px;
+}
+
+.valores dd {
+  margin: 0;
+  color: var(--tinta-2);
+}
+
+.cierre {
+  margin-top: clamp(40px, 6vw, 64px);
+  padding-top: 28px;
+  border-top: 1px solid var(--linea);
+  font-weight: 700;
+  font-size: clamp(1.125rem, 1.6vw, 1.3125rem);
+  font-variation-settings: 'wdth' 112;
+  color: var(--tinta);
+}
+
+@media (max-width: 560px) {
+  .valores {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* ---------- Contacto ---------- */
+.contacto {
+  border-top: 1px solid var(--linea);
+}
+
+.contactoAcciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-block: 28px clamp(40px, 6vw, 64px);
+}
+
+.contactoRejilla {
+  display: grid;
+  /* el correo necesita más ancho que un número de teléfono */
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1.7fr) minmax(0, 1fr);
+  gap: 32px;
+}
+
+.contactoRotulo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+  font-family: var(--f-texto);
+  font-weight: 700;
+  font-size: 1rem;
+  color: var(--azul-hondo);
+}
+
+.lista {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.lista a {
+  color: var(--tinta);
+  font-size: 1.125rem;
+  font-weight: 500;
+  text-decoration-color: var(--linea);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .lista a:hover {
+    color: var(--azul-hondo);
+    text-decoration-color: var(--azul);
+  }
+}
+
+.lista .correo {
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.ubicacion {
+  font-size: 1.125rem;
+}
+
+@media (max-width: 960px) {
+  .contactoRejilla {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .contactoRejilla {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .contactoAcciones > a {
+    flex: 1 1 100%;
+    justify-content: center;
+  }
+}
+
+/* ---------- Pie ---------- */
+.pie {
+  /* Fondo blanco: el tablero es el único panel carbón de la página */
+  border-top: 1px solid var(--linea);
+  color: var(--tinta-2);
+  font-size: 0.9375rem;
+  padding-block: 32px;
+}
+
+.pieFila {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 12px 32px;
+}
+
+.pie strong {
+  color: var(--tinta);
+}
+
+@media (max-width: 960px) {
+  .pie {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+  }
+}
+
+.sinCorte {
+  white-space: nowrap;
+}

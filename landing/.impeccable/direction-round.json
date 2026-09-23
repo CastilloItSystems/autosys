@@ -1,0 +1,132 @@
+{
+  "title": "Elige el mundo visual de la landing de CAMABAR",
+  "question": "El sorteo asignó el Tablero de Instrumentos. Mantenlo, toma una alternativa o vuelve a sortear.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Tablero de Instrumentos",
+      "kicker": "THE ROLL",
+      "lineage": "Tableros de cabina de camión y testigos ISO 2575",
+      "thesis": "La página es el tablero de su camión: la luz STOP encendida es el problema y CAMABAR es quien la apaga.",
+      "palette": ["#23262A", "#121416", "#F4F1E8", "#FF6A13", "#D8231A", "#F2A900", "#2FB457"],
+      "materials": ["plástico de cabina texturizado", "aros cromados de medidor", "testigos ISO planos", "pantalla LCD de matriz de puntos"],
+      "viewport": "Tacómetro y velocímetro a los lados, al centro la LCD con CAMIÓN DETENIDO y la luz STOP roja; debajo, dos interruptores basculantes: Repuestos y Taller.",
+      "risk": "Si los medidores no leen datos reales es decoración; y si las lámparas brillan como neón, cae en el negro tecnológico genérico.",
+      "raised": [
+        {"from": "Prospecto cívico", "raise": "Todo el color se gasta en las lámparas del tablero; lo demás es plástico de cabina y blanco de numeral."},
+        {"from": "Catálogo de personajes", "raise": "Cada servicio es un testigo con mobiliario fijo, idéntico en toda la página: símbolo, nombre y una línea."},
+        {"from": "Escena ASCII", "raise": "Legible de un vistazo: la primera pantalla se lee como un tablero real, a un brazo de distancia y a pleno sol."},
+        {"from": "Terminal de fósforo", "raise": "Los estados se imprimen en la LCD central, no como adornos: CAMIÓN DETENIDO, REPUESTO EN CAMINO."},
+        {"from": "Capa de cordón", "raise": "Un solo gesto transforma todo: girar la llave hace la prueba de encendido del tablero completo."},
+        {"from": "Esmalte de horno", "raise": "Vocabulario de estados explícito para cada testigo: apagado, prueba, encendido e intermitente."}
+      ]
+    },
+    {
+      "id": "model-pick",
+      "label": "Autopista de Oriente",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "Señalización vial venezolana: vallas aéreas e hitos kilométricos",
+      "thesis": "La página es la carretera: vallas verdes e hitos kilométricos marcan cuánto le falta a su repuesto para llegar.",
+      "palette": ["#00703C", "#FFFFFF", "#2B2B2B", "#FFC72C"],
+      "materials": ["lámina retrorreflectiva", "letra vial de autopista", "hitos de concreto pintado"],
+      "viewport": "Una valla aérea verde a sangre: CAMABAR, Repuestos y Taller con flechas, y las distancias a Maturín, Cumaná y Porlamar.",
+      "risk": "Es la dirección más obvia para transporte, y la valla verde puede leerse como vialidad del gobierno y no como un comercio."
+    },
+    {
+      "id": "challenger-civic",
+      "label": "Prospecto cívico",
+      "verdict": "declined",
+      "lineage": "Prospectos corporativos tardomodernos",
+      "thesis": "Una cinta de luz sobre blanco hueso.",
+      "palette": ["#F7F7FA", "#1B1547", "#6B5CE7", "#7FD8D0"],
+      "materials": ["cinta renderizada", "hueso blanco"],
+      "viewport": "Titular a la izquierda, cinta de luz a sangre a la derecha.",
+      "case": "Pierde en ambos ejes: el transportista del oriente no se reconoce en un prospecto violeta de oficina.",
+      "risk": "Corporativo y ajeno al taller.",
+      "kept": "Gastar todo el color en un solo elemento.",
+      "hero": "https://impeccable.style/worlds/cards/civic-bureau-prospectus-late-modern-hero.webp"
+    },
+    {
+      "id": "challenger-mascots",
+      "label": "Catálogo de personajes",
+      "verdict": "declined",
+      "lineage": "Catálogos de mercancía de personajes",
+      "thesis": "Un elenco finito, cada uno con su placa de nombre.",
+      "palette": ["#FCE6EF", "#E3F2FD", "#FFF3C4", "#FF5C8A"],
+      "materials": ["pastel plano", "placa de nombre"],
+      "viewport": "Rejilla de mascotas ordenadas por popularidad.",
+      "case": "Pierde en ambos ejes: el tono infantil contradice la seriedad de un camión parado.",
+      "risk": "Frívolo para el rubro.",
+      "kept": "Mobiliario fijo e idéntico por elemento.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-character-goods-catalog-hero.webp"
+    },
+    {
+      "id": "challenger-ascii",
+      "label": "Escena ASCII",
+      "verdict": "declined",
+      "lineage": "Render en caracteres de máquina de escribir",
+      "thesis": "La densidad de glifos como luz.",
+      "palette": ["#000000", "#33FF66"],
+      "materials": ["rejilla monoespaciada"],
+      "viewport": "Un camión dibujado en caracteres.",
+      "case": "Pierde en ambos ejes: es un gesto técnico que el público no lee como servicio.",
+      "risk": "Novedad sin mensaje.",
+      "kept": "Legibilidad a cualquier distancia.",
+      "hero": "https://impeccable.style/worlds/cards/medium-native-ascii-live-scene-render-hero.webp"
+    },
+    {
+      "id": "challenger-terminal",
+      "label": "Terminal de fósforo",
+      "verdict": "declined",
+      "lineage": "Terminales de fósforo verde",
+      "thesis": "El texto vive en el vidrio.",
+      "palette": ["#0A0F0A", "#39FF6E"],
+      "materials": ["vidrio curvo", "brillo de fósforo"],
+      "viewport": "Una transcripción que escribe sola.",
+      "case": "Pierde en ambos ejes: su única parte útil, la pantalla que imprime estados, ya vive en la LCD del tablero.",
+      "risk": "Cae en el negro con neón.",
+      "kept": "Los estados se imprimen solos, sin adornos.",
+      "hero": "https://impeccable.style/worlds/cards/signals-instruments-phosphor-terminal-midnight-hero.webp"
+    },
+    {
+      "id": "challenger-cape",
+      "label": "Capa de cordón",
+      "verdict": "declined",
+      "lineage": "Moda textil transformable",
+      "thesis": "Un tirón convierte el plano en volumen.",
+      "palette": ["#0B0B0B", "#C9A227", "#5A6270"],
+      "materials": ["seda mate", "cordón dorado"],
+      "viewport": "Un semicírculo negro que se pliega.",
+      "case": "Pierde en ambos ejes: el mundo de la moda no conecta con el taller.",
+      "risk": "Ajeno al rubro.",
+      "kept": "Un solo control transforma todo.",
+      "hero": "https://impeccable.style/worlds/cards/textiles-weave-drape-fashion-drawcord-transforming-cape-hero.webp"
+    },
+    {
+      "id": "challenger-kiln",
+      "label": "Esmalte de horno",
+      "verdict": "declined",
+      "lineage": "Cerámica esmaltada",
+      "thesis": "El color que corre y se detiene.",
+      "palette": ["#F2F0EB", "#1F4FA3", "#0F2E66"],
+      "materials": ["repisa de horno", "esmalte cobalto"],
+      "viewport": "Una fila de tazas con el esmalte corrido.",
+      "case": "Pierde en ambos ejes: una metáfora artesanal sin relación con repuestos ni taller.",
+      "risk": "Poético y confuso.",
+      "kept": "Un vocabulario de estados explícito.",
+      "hero": "https://impeccable.style/worlds/cards/clay-ceramics-fracture-glaze-river-shelf-hero.webp"
+    }
+  ],
+  "reroll": { "registers": ["safer", "bolder"] },
+  "buildPath": { "value": "code" },
+  "canon": true,
+  "canonCard": {
+    "label": "El estándar del rubro",
+    "thesis": "Lo que publica cualquier concesionario, hecho con oficio.",
+    "palette": ["#0B1F3A", "#FF6B00", "#FFFFFF"],
+    "materials": ["rejilla limpia", "fotografía de producto"],
+    "viewport": "Hero oscuro con camión, rejilla de servicios, contadores y botón de WhatsApp.",
+    "risk": "Igual a la competencia, y sin fotos reales del cliente pierde su principal recurso."
+  },
+  "steer": true
+}

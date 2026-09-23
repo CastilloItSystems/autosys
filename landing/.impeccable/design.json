@@ -1,0 +1,457 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-23T19:44:04.023614+00:00",
+  "title": "Design System: CAMABAR",
+  "extensions": {
+    "colorMeta": {
+      "camabar-blue": {
+        "role": "primary",
+        "displayName": "CAMABAR Blue",
+        "canonical": "#286cc8",
+        "oklch": "oklch(53.9% 0.158 257.3)",
+        "tonalRamp": [
+          "#00062c",
+          "#002151",
+          "#003c84",
+          "#135ab4",
+          "#3b7fdd",
+          "#67a5fe",
+          "#accdfc",
+          "#e5efff"
+        ]
+      },
+      "deep-blue": {
+        "role": "primary",
+        "displayName": "Deep Blue",
+        "canonical": "#2056a0",
+        "oklch": "oklch(45.9% 0.133 257.4)",
+        "tonalRamp": [
+          "#00052f",
+          "#002151",
+          "#013c84",
+          "#265ca7",
+          "#4a80ce",
+          "#6da6f7",
+          "#accdfb",
+          "#e5effe"
+        ]
+      },
+      "light-blue": {
+        "role": "primary",
+        "displayName": "Instrument Light Blue",
+        "canonical": "#7ca5dd",
+        "oklch": "oklch(71.4% 0.094 256.3)",
+        "tonalRamp": [
+          "#00072b",
+          "#002250",
+          "#1b4070",
+          "#395f92",
+          "#5a82b8",
+          "#7ea7df",
+          "#a9cdfe",
+          "#e5effe"
+        ]
+      },
+      "logo-white": {
+        "role": "neutral",
+        "displayName": "Logo White",
+        "canonical": "#fcfcfc",
+        "oklch": "oklch(99.1% 0.000 89.9)",
+        "tonalRamp": [
+          "#0b0b0b",
+          "#242424",
+          "#404040",
+          "#5d5d5d",
+          "#808080",
+          "#a4a4a4",
+          "#cacaca",
+          "#eeeeee"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#0b0c0e",
+        "oklch": "oklch(15.4% 0.005 264.4)",
+        "tonalRamp": [
+          "#0a0b0d",
+          "#232426",
+          "#3e4042",
+          "#5c5e60",
+          "#7f8083",
+          "#a3a4a7",
+          "#c9cacd",
+          "#edeef2"
+        ]
+      },
+      "ink-secondary": {
+        "role": "neutral",
+        "displayName": "Ink Secondary",
+        "canonical": "#3e4a5c",
+        "oklch": "oklch(40.6% 0.034 258.4)",
+        "tonalRamp": [
+          "#040b19",
+          "#1a2435",
+          "#354052",
+          "#525e71",
+          "#748195",
+          "#98a6ba",
+          "#bdcce1",
+          "#e5effe"
+        ]
+      },
+      "rule-line": {
+        "role": "neutral",
+        "displayName": "Rule Line",
+        "canonical": "#dfe4ec",
+        "oklch": "oklch(91.7% 0.012 259.8)",
+        "tonalRamp": [
+          "#080b10",
+          "#21242a",
+          "#3c4046",
+          "#5a5e65",
+          "#7c8088",
+          "#a0a5ac",
+          "#c6cbd3",
+          "#eaeff7"
+        ]
+      },
+      "cab-carbon": {
+        "role": "neutral",
+        "displayName": "Cab Carbon",
+        "canonical": "#15171a",
+        "oklch": "oklch(20.4% 0.007 258.4)",
+        "tonalRamp": [
+          "#090b0e",
+          "#222427",
+          "#3e4043",
+          "#5b5e61",
+          "#7e8084",
+          "#a2a5a9",
+          "#c8cbcf",
+          "#eceff3"
+        ]
+      },
+      "dial-face": {
+        "role": "neutral",
+        "displayName": "Dial Face",
+        "canonical": "#121416",
+        "oklch": "oklch(19.0% 0.005 248.1)",
+        "tonalRamp": [
+          "#090b0d",
+          "#222426",
+          "#3e4042",
+          "#5b5e60",
+          "#7e8083",
+          "#a2a5a8",
+          "#c8cbce",
+          "#eceff2"
+        ]
+      },
+      "lcd-glass": {
+        "role": "neutral",
+        "displayName": "LCD Glass",
+        "canonical": "#0d1726",
+        "oklch": "oklch(20.3% 0.034 258.3)",
+        "tonalRamp": [
+          "#040b19",
+          "#1a2434",
+          "#354052",
+          "#525e71",
+          "#748195",
+          "#98a6ba",
+          "#bdcce1",
+          "#e6effe"
+        ]
+      },
+      "dial-label": {
+        "role": "neutral",
+        "displayName": "Dial Label",
+        "canonical": "#aeb6c2",
+        "oklch": "oklch(77.4% 0.019 258.4)",
+        "tonalRamp": [
+          "#070b13",
+          "#1e242d",
+          "#3a404a",
+          "#575e69",
+          "#79818c",
+          "#9da5b1",
+          "#c3cbd7",
+          "#e7effc"
+        ]
+      },
+      "lamp-stop": {
+        "role": "tertiary",
+        "displayName": "STOP Red",
+        "canonical": "#e5322b",
+        "oklch": "oklch(60.2% 0.215 28.1)",
+        "tonalRamp": [
+          "#220000",
+          "#4c0000",
+          "#7a0c0b",
+          "#ad1816",
+          "#e4312a",
+          "#fc7567",
+          "#feb6ab",
+          "#ffe9e5"
+        ]
+      },
+      "lamp-amber": {
+        "role": "tertiary",
+        "displayName": "Engine Amber",
+        "canonical": "#f2a900",
+        "oklch": "oklch(78.5% 0.164 77.6)",
+        "tonalRamp": [
+          "#160800",
+          "#332000",
+          "#563900",
+          "#7c5502",
+          "#a77619",
+          "#d89600",
+          "#fcbe56",
+          "#ffeccf"
+        ]
+      },
+      "lamp-green": {
+        "role": "tertiary",
+        "displayName": "Run Green",
+        "canonical": "#2fb457",
+        "oklch": "oklch(67.9% 0.174 148.8)",
+        "tonalRamp": [
+          "#001101",
+          "#002d0d",
+          "#004e1d",
+          "#02712e",
+          "#1d9946",
+          "#41c164",
+          "#6de989",
+          "#c9ffd1"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The h1 only; Michroma uppercase, largest display line."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Section h2s, one step below the h1."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Michroma uppercase item names in ruled lists."
+      },
+      "body-strong": {
+        "displayName": "Body Strong",
+        "purpose": "Saira bold, widened (wdth 106-112) slogans, band sub-heads, route stops."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Paragraphs, 42-62ch, tabular numerals."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Switch and button labels."
+      }
+    },
+    "shadows": [
+      {
+        "name": "cluster-lift",
+        "value": "drop-shadow(0 26px 34px rgb(21 23 26 / 0.28)) drop-shadow(0 4px 8px rgb(21 23 26 / 0.18))",
+        "purpose": "Instrument cluster only (CSS filter)."
+      },
+      {
+        "name": "control-lift",
+        "value": "inset 0 1px 0 rgb(255 255 255 / 0.2), 0 10px 20px -14px rgb(32 86 160 / 0.8)",
+        "purpose": "Primary buttons."
+      },
+      {
+        "name": "switch-lift",
+        "value": "0 10px 22px -12px rgb(32 86 160 / 0.75)",
+        "purpose": "Rocker switch housing."
+      },
+      {
+        "name": "on-band-lift",
+        "value": "0 12px 24px -14px rgb(8 24 52 / 0.7)",
+        "purpose": "White buttons on a blue band."
+      },
+      {
+        "name": "inset-panel",
+        "value": "inset 0 1px 0 rgb(255 255 255 / 0.12)",
+        "purpose": "Deep-blue route panel inside a band."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Presses (160ms scale 0.97), paddle tilt (220ms), mobile bar slide (280ms)."
+      },
+      {
+        "name": "ease-in-out",
+        "value": "cubic-bezier(0.77, 0, 0.175, 1)",
+        "purpose": "Needle sweep: 1300ms bulb check on load, 900ms on switch press; STOP goes out last."
+      },
+      {
+        "name": "state-fade",
+        "value": "160-240ms ease",
+        "purpose": "Color changes on lamps, lens, hover."
+      },
+      {
+        "name": "reduced-motion",
+        "value": "prefers-reduced-motion: reduce",
+        "purpose": "Skip all sweeping and transitions; state jumps. WhatsApp link never waits for animation."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "cluster-phone",
+        "value": "600px"
+      },
+      {
+        "name": "hero-stack",
+        "value": "960px"
+      },
+      {
+        "name": "band-stack",
+        "value": "900px"
+      },
+      {
+        "name": "list-stack",
+        "value": "700px"
+      },
+      {
+        "name": "contact-single",
+        "value": "480px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Blue WhatsApp action on white grounds.",
+      "html": "<a class=\"ds-boton\" href=\"#\"><svg width=\"20\" height=\"20\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21\"/><path d=\"M9 10a.5.5 0 0 0 1 0V9a.5.5 0 0 0-1 0v1a5 5 0 0 0 5 5h1a.5.5 0 0 0 0-1h-1a.5.5 0 0 0 0 1\"/></svg>Pedir repuestos</a>",
+      "css": ".ds-boton{display:inline-flex;align-items:center;gap:10px;min-height:54px;padding-inline:22px;border-radius:6px;background:#286cc8;color:#fcfcfc;text-decoration:none;font-family:Saira,system-ui,sans-serif;font-weight:600;font-size:1.0625rem;font-variation-settings:'wdth' 106;white-space:nowrap;box-shadow:inset 0 1px 0 rgb(255 255 255 / .2),0 10px 20px -14px rgb(32 86 160 / .8);transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color 160ms ease}.ds-boton:hover{background:#2056a0}.ds-boton:active{transform:scale(.97)}.ds-boton:focus-visible{outline:3px solid #286cc8;outline-offset:3px}"
+    },
+    {
+      "name": "Button on Band",
+      "kind": "button",
+      "refersTo": "button-on-band",
+      "description": "White action placed on a full-bleed blue band.",
+      "html": "<div style=\"background:#286cc8;padding:24px\"><a class=\"ds-boton-claro\" href=\"#\">Pedir repuestos</a></div>",
+      "css": ".ds-boton-claro{display:inline-flex;align-items:center;gap:10px;min-height:54px;padding-inline:22px;border-radius:6px;background:#fcfcfc;color:#2056a0;text-decoration:none;font-family:Saira,system-ui,sans-serif;font-weight:600;font-size:1.0625rem;font-variation-settings:'wdth' 106;box-shadow:0 12px 24px -14px rgb(8 24 52 / .7);transition:transform 160ms cubic-bezier(.23,1,.32,1),background-color 160ms ease}.ds-boton-claro:hover{background:#e9f0fa}.ds-boton-claro:active{transform:scale(.97)}.ds-boton-claro:focus-visible{outline:3px solid #fcfcfc;outline-offset:3px}"
+    },
+    {
+      "name": "Outline Call Button",
+      "kind": "button",
+      "refersTo": "button-outline",
+      "description": "Header phone action.",
+      "html": "<a class=\"ds-llamar\" href=\"#\"><svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2\"/></svg>Llamar</a>",
+      "css": ".ds-llamar{display:inline-flex;align-items:center;gap:8px;min-height:42px;padding-inline:16px;border:1.5px solid #286cc8;border-radius:6px;color:#2056a0;text-decoration:none;font-family:Saira,system-ui,sans-serif;font-weight:600;transition:background-color 160ms ease,color 160ms ease,transform 160ms cubic-bezier(.23,1,.32,1)}.ds-llamar:hover{background:#286cc8;color:#fcfcfc}.ds-llamar:active{transform:scale(.97)}.ds-llamar:focus-visible{outline:3px solid #286cc8;outline-offset:3px}"
+    },
+    {
+      "name": "Rocker Switch",
+      "kind": "custom",
+      "refersTo": "rocker-switch",
+      "description": "Primary hero CTA: housing, paddle split by a pivot seam, unlit lens that lights green when on.",
+      "html": "<a class=\"ds-interruptor\" href=\"#\"><span class=\"ds-paleta\"><span class=\"ds-lente\"><svg width=\"22\" height=\"22\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.75\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M3 21l1.65-3.8a9 9 0 1 1 3.4 2.9L3 21\"/></svg></span><span class=\"ds-bisagra\"></span><span class=\"ds-etiqueta\">Solicitar taller</span></span></a>",
+      "css": ".ds-interruptor{display:inline-block;padding:3px;border-radius:6px;background:#2056a0;color:#fcfcfc;text-decoration:none;perspective:520px;box-shadow:0 10px 22px -12px rgb(32 86 160 / .75);transition:background-color 160ms ease}.ds-paleta{display:flex;align-items:center;min-height:56px;border-radius:4px;background:#286cc8;transform-origin:52px 50%;transform:rotateY(7deg);transition:transform 220ms cubic-bezier(.23,1,.32,1)}.ds-lente{display:grid;place-items:center;width:40px;height:40px;margin-inline:5px;border-radius:4px;background:#1d4f93;color:#a9c4ea;transition:background-color 240ms ease,color 240ms ease}.ds-bisagra{align-self:stretch;width:2px;background:#1d4f93}.ds-etiqueta{padding:0 18px 0 12px;font-family:Saira,system-ui,sans-serif;font-weight:600;font-size:1rem;letter-spacing:.01em;white-space:nowrap}.ds-interruptor:hover{background:#173f78}.ds-interruptor:active .ds-paleta{transform:rotateY(-7deg)}.ds-interruptor:active .ds-lente{background:#2fb457;color:#fff}.ds-interruptor:focus-visible{outline:3px solid #286cc8;outline-offset:4px}"
+    },
+    {
+      "name": "Sticky Header Nav",
+      "kind": "nav",
+      "description": "Translucent white header with Saira links underlined in blue on hover.",
+      "html": "<nav class=\"ds-nav\"><a href=\"#\">Repuestos</a><a href=\"#\">Taller</a><a href=\"#\">Servicios</a><a href=\"#\">Empresa</a><a href=\"#\">Contacto</a></nav>",
+      "css": ".ds-nav{display:flex;gap:26px;padding:20px 24px;background:rgb(252 252 252 / .82);backdrop-filter:blur(10px) saturate(140%);border-bottom:1px solid #dfe4ec}.ds-nav a{color:#0b0c0e;text-decoration:none;font-family:Saira,system-ui,sans-serif;font-weight:500;font-size:.96875rem;padding-block:6px;border-bottom:2px solid transparent;transition:border-color 160ms ease,color 160ms ease}.ds-nav a:hover{color:#2056a0;border-color:#286cc8}.ds-nav a:focus-visible{outline:3px solid #286cc8;outline-offset:3px;border-radius:6px}"
+    },
+    {
+      "name": "Ruled Service List",
+      "kind": "custom",
+      "description": "Two-column list divided by 1px top rules; Michroma uppercase titles.",
+      "html": "<ul class=\"ds-reglas\"><li><h3>Taller autorizado Iveco</h3><p>Un servicio óptimo, chequeando minuciosamente cada detalle.</p></li><li><h3>Latonería y pintura</h3><p>Inscritos en las aseguradoras más prestigiosas del país.</p></li></ul>",
+      "css": ".ds-reglas{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 48px}.ds-reglas li{display:grid;gap:8px;padding-block:24px;border-top:1px solid #dfe4ec}.ds-reglas h3{margin:0;font-family:Michroma,'Arial Narrow',sans-serif;font-weight:400;font-size:1.0625rem;text-transform:uppercase;letter-spacing:.04em;color:#0b0c0e}.ds-reglas p{margin:0;font-family:Saira,system-ui,sans-serif;color:#3e4a5c}"
+    },
+    {
+      "name": "Delivery Route",
+      "kind": "custom",
+      "refersTo": "delivery-route",
+      "description": "Deep-blue inset panel on a blue band; stops joined by a line.",
+      "html": "<div style=\"background:#286cc8;padding:24px\"><div class=\"ds-ruta\"><ol><li class=\"ds-origen\">Barcelona</li><li>Anzoátegui</li><li>Monagas</li><li>Sucre</li><li>Nueva Esparta</li></ol></div></div>",
+      "css": ".ds-ruta{padding:28px;border-radius:6px;background:#2056a0;color:#fcfcfc;box-shadow:inset 0 1px 0 rgb(255 255 255 / .12);font-family:Saira,system-ui,sans-serif}.ds-ruta ol{list-style:none;margin:0;padding:0}.ds-ruta li{position:relative;padding:0 0 22px 34px;font-weight:600;font-size:1.125rem;font-variation-settings:'wdth' 108}.ds-ruta li:last-child{padding-bottom:0}.ds-ruta li::after{content:'';position:absolute;left:6px;top:16px;bottom:-6px;width:2px;background:rgb(252 252 252 / .55)}.ds-ruta li:last-child::after{display:none}.ds-ruta li::before{content:'';position:absolute;left:0;top:6px;width:14px;height:14px;border-radius:50%;border:2px solid #fcfcfc;background:#2056a0;box-sizing:border-box}.ds-ruta .ds-origen::before{background:#fcfcfc}"
+    },
+    {
+      "name": "LCD Readout",
+      "kind": "custom",
+      "description": "Cluster LCD window: light-blue Michroma on LCD glass.",
+      "html": "<div class=\"ds-lcd\">CAMIÓN<br>DETENIDO</div>",
+      "css": ".ds-lcd{display:inline-block;padding:14px 22px;border-radius:6px;background:#0d1726;border:1.5px solid #24344a;color:#7ca5dd;font-family:Michroma,'Arial Narrow',sans-serif;font-size:18px;letter-spacing:.04em;text-align:center;line-height:1.4}"
+    }
+  ],
+  "narrative": {
+    "northStar": "El tablero del camión",
+    "overview": "The page reads as a truck's instrument cluster set into the white of the CAMABAR logo. One carbon cluster carries the problem (a lit STOP lamp, an LCD reading CAMIÓN DETENIDO) and the answer (gauges whose needles read the company's real figures). Everything around it is the logo's own world: a white ground, CAMABAR blue laid down as full-bleed bands, and near-black ink. The actions are rocker switches, not generic buttons, because the page's one gesture is turning the truck back on.\n\nDensity is low and the rhythm is long: white section, blue band, white section, blue band, then contact and a white footer under a single rule line. Headlines speak in extended uppercase, like the logo's wordmark and the dial legends; body copy is a condensable variable sans set for sunlight reading on a phone. The system is light-only by decision (the logo has black letters; the use scene is outdoors), declared with `color-scheme: light`.\n\nRejected by the direction: a hero truck photograph and a grid of feature cards. Services are ruled lists and bands, never tiles.",
+    "keyCharacteristics": [
+      "White ground and full-bleed CAMABAR-blue bands; no tinted section grounds.",
+      "One carbon instrument cluster with chrome rims, blue light, and flat ISO 2575 lamps that exist only as state.",
+      "Extended uppercase display (Michroma) over a variable-width text face (Saira).",
+      "6px corners on every rectangle; gauges are circles.",
+      "One authored motion moment: ignition, needle sweep, STOP goes out last."
+    ],
+    "rules": [
+      {
+        "name": "The White-On-Band Rule",
+        "body": "On any camabar-blue band, all text is logo-white. No lighter tint of the blue reaches 4.5:1 there, so hierarchy on a band comes from size and weight only.",
+        "section": "colors"
+      },
+      {
+        "name": "The Light-On-Dark Rule",
+        "body": "Brand blue on dark is 3.48:1; any blue text on carbon or LCD glass uses light-blue.",
+        "section": "colors"
+      },
+      {
+        "name": "The Lamps-Are-State Rule",
+        "body": "Red, amber, and green appear only as the state of a lamp or a switch lens. They never decorate, never fill a section, never color a heading.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two-Ground Rule",
+        "body": "Content sections sit on logo-white or on a full-bleed camabar-blue band. There is no third ground, the footer included: it sits on white under a 1px rule-line, text in ink-secondary with the company name in ink. The deep-blue route panel is an inset object inside a band, not a ground.",
+        "section": "colors"
+      },
+      {
+        "name": "The Extended-Voice Rule",
+        "body": "h1 and h2 are always Michroma uppercase at +0.02em; the h1 is always the largest display line on the page.",
+        "section": "typography"
+      },
+      {
+        "name": "The Widen-Don't-Switch Rule",
+        "body": "Emphasis inside text uses Saira's weight and `wdth` axes, never a third family.",
+        "section": "typography"
+      },
+      {
+        "name": "The Objects-Lift Rule",
+        "body": "Only things you could touch in a cab (the cluster, switches, buttons) cast shadows. Sections and lists never do.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do set every piece of text on a camabar-blue band in logo-white, and build hierarchy there with size and weight.",
+      "Do use light-blue for any blue text on carbon or LCD glass.",
+      "Do keep the two main actions (Repuestos, Taller) equal in size, style, and position.",
+      "Do use 6px on every rectangle and circles for gauges.",
+      "Do keep h1 and h2 in Michroma uppercase at +0.02em, with the h1 as the largest display line.",
+      "Do let the link open immediately and skip sweeping under reduced motion."
+    ],
+    "donts": [
+      "Don't use lamp red, amber, or green for anything but lamp and switch state.",
+      "Don't add a second carbon surface (the cluster is the only one) or a third ground; the footer stays on white.",
+      "Don't replace the cluster with a truck photograph, or services with a card grid.",
+      "Don't use the Instagram gradient ring or gray frame from the source logo image; they are not the brand.",
+      "Don't place the logo on anything but white.",
+      "Don't add a dark theme; the system is light-only by decision."
+    ]
+  }
+}

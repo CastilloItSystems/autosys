@@ -1,0 +1,332 @@
+/* ---------- Composición de la primera pantalla ---------- */
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+  align-items: center;
+  gap: clamp(28px, 4vw, 64px);
+  padding-block: clamp(28px, 5vh, 64px) clamp(40px, 7vh, 88px);
+}
+
+.texto {
+  display: grid;
+  gap: 22px;
+}
+
+.interruptores {
+  display: grid;
+  /* Lado a lado solo si cada uno cabe con su margen; si no, se apilan.
+     208px = carcasa + lente + bisagra + el rótulo más largo + margen derecho. */
+  grid-template-columns: repeat(auto-fit, minmax(208px, 1fr));
+  gap: 12px;
+  margin-top: 10px;
+}
+
+@media (max-width: 960px) {
+  .hero {
+    grid-template-columns: minmax(0, 1fr);
+    padding-block: 20px 48px;
+  }
+}
+
+
+
+/* ---------- Interruptor basculante ----------
+ * Carcasa (azul hondo) > paleta (azul) partida por la bisagra: a la izquierda
+ * la lente indicadora, a la derecha el rótulo. Encendido = la paleta queda
+ * inclinada sobre la bisagra y la lente se ilumina en verde.
+ */
+.interruptor {
+  display: block;
+  padding: 3px;
+  border-radius: var(--r);
+  background: var(--azul-hondo);
+  color: var(--blanco);
+  text-decoration: none;
+  perspective: 520px;
+  box-shadow: 0 10px 22px -12px rgb(32 86 160 / 0.75);
+  transition: background-color 160ms ease;
+}
+
+.paleta {
+  display: flex;
+  align-items: center;
+  min-height: 56px;
+  border-radius: calc(var(--r) - 2px);
+  background: var(--azul);
+  transform-origin: 52px 50%;
+  /* Apagado: la paleta descansa inclinada hacia la lente, como todo basculante */
+  transform: rotateY(7deg);
+  transition: transform 220ms var(--ease-out);
+}
+
+.lente {
+  display: grid;
+  place-items: center;
+  width: 40px;
+  height: 40px;
+  margin-inline: 5px;
+  flex: none;
+  border-radius: calc(var(--r) - 2px);
+  background: #1d4f93;
+  color: #a9c4ea;
+  transition:
+    background-color 240ms ease,
+    color 240ms ease;
+}
+
+.bisagra {
+  align-self: stretch;
+  width: 2px;
+  flex: none;
+  background: #1d4f93;
+}
+
+.etiqueta {
+  /* margen derecho fijo: el rótulo nunca toca el borde de la paleta */
+  padding: 0 18px 0 12px;
+  font-family: var(--f-texto);
+  font-weight: 600;
+  font-size: 1rem;
+  font-variation-settings: 'wdth' 100;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.interruptor:active .paleta,
+.interruptor[data-activo] .paleta {
+  /* Encendido: se apoya del lado contrario y se queda ahí */
+  transform: rotateY(-7deg);
+}
+
+.interruptor[data-activo] .lente {
+  background: var(--verde);
+  color: var(--blanco);
+}
+
+.interruptor:focus-visible {
+  outline-offset: 4px;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .interruptor:hover {
+    background: #173f78;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .paleta {
+    transition: none;
+  }
+}
+
+/* ---------- El tablero ---------- */
+.tablero {
+  margin: 0;
+  filter: drop-shadow(0 26px 34px rgb(21 23 26 / 0.28)) drop-shadow(0 4px 8px rgb(21 23 26 / 0.18));
+}
+
+.svg {
+  width: 100%;
+  height: auto;
+  overflow: visible;
+}
+
+.soloMovil {
+  display: none;
+}
+
+@media (max-width: 600px) {
+  .soloAncho {
+    display: none;
+  }
+  .soloMovil {
+    display: block;
+  }
+}
+
+.carcasa {
+  fill: var(--carcasa);
+  stroke: #08090a;
+  stroke-width: 2;
+}
+
+.bisel {
+  fill: none;
+  stroke: var(--cromo);
+  stroke-width: 10;
+}
+
+.cara {
+  fill: var(--cara);
+}
+
+.zona {
+  fill: none;
+  stroke: var(--azul-luz);
+  stroke-width: 8;
+}
+
+.marca {
+  stroke: #6d7682;
+  stroke-width: 2;
+}
+
+.marcaMayor {
+  stroke: #e8ebef;
+  stroke-width: 3.5;
+}
+
+.numeral {
+  fill: #e8ebef;
+  font-family: var(--f-texto);
+  font-weight: 600;
+  font-size: 22px;
+}
+
+.unidad,
+.rotuloMedidor {
+  fill: var(--rotulo);
+  font-family: var(--f-display);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+}
+
+.lecturaFondo {
+  fill: var(--lcd);
+  stroke: #243448;
+  stroke-width: 1.5;
+}
+
+.lecturaTexto {
+  fill: var(--azul-luz);
+  font-family: var(--f-display);
+  font-size: 22px;
+}
+
+.aguja {
+  transform-box: view-box;
+  fill: #fcfcfc;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 0.55));
+}
+
+.eje {
+  fill: #2a2e33;
+  stroke: var(--cromo);
+  stroke-width: 3;
+}
+
+/* STOP: la lámpara que cuenta el problema */
+.stop rect {
+  fill: #3a1c1b;
+  transition: fill 200ms ease;
+}
+
+.stop text {
+  fill: #6b3b38;
+  font-family: var(--f-display);
+  font-size: 22px;
+  letter-spacing: 0.06em;
+  transition: fill 200ms ease;
+}
+
+.tablero:not([data-estado='en-marcha']) .stop rect {
+  fill: var(--stop);
+}
+
+.tablero:not([data-estado='en-marcha']) .stop text {
+  fill: #fff;
+}
+
+.lcdVidrio {
+  fill: var(--lcd);
+  stroke: #24344a;
+  stroke-width: 1.5;
+}
+
+.lcdTexto {
+  fill: var(--azul-luz);
+  font-family: var(--f-display);
+  font-size: 18px;
+  letter-spacing: 0.04em;
+}
+
+.enMarcha {
+  fill: #1c2a1f;
+  transition: fill 240ms ease;
+}
+
+.tablero[data-estado='en-marcha'] .enMarcha,
+.tablero[data-estado='prueba'] .enMarcha {
+  fill: var(--verde);
+}
+
+/* Testigos ISO 2575: apagados, en prueba (cada uno en su color) o encendidos */
+.lampara {
+  color: #30353c;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  transition: color 160ms ease;
+}
+
+.tablero[data-estado='prueba'] .lampara {
+  color: var(--stop);
+}
+
+.tablero[data-estado='prueba'] .lampara[data-tipo='motor'],
+.tablero[data-estado='detenido'] .lampara[data-tipo='motor'] {
+  color: var(--ambar);
+}
+
+.odometroCaja {
+  fill: var(--lcd);
+  stroke: #243448;
+  stroke-width: 1.5;
+}
+
+.odometroTexto {
+  fill: var(--azul-luz);
+  font-family: var(--f-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+}
+
+/* Composición de teléfono: rótulos a 11 px o más ya escalados */
+.svg[data-variante='movil'] .numeral {
+  font-size: 17px;
+}
+
+.svg[data-variante='movil'] .unidad {
+  font-size: 13px;
+}
+
+.svg[data-variante='movil'] .rotuloMedidor {
+  font-size: 15px;
+}
+
+.svg[data-variante='movil'] .lecturaTexto {
+  font-size: 15px;
+}
+
+.svg[data-variante='movil'] .stop text {
+  font-size: 20px;
+}
+
+.svg[data-variante='movil'] .lcdTexto {
+  font-size: 20px;
+}
+
+.svg[data-variante='movil'] .odometroTexto {
+  font-size: 16px;
+}
+
+.svg[data-variante='movil'] .bisel {
+  stroke-width: 8;
+}
+
+.svg[data-variante='movil'] .zona {
+  stroke-width: 6;
+}

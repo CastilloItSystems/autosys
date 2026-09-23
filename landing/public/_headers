@@ -1,0 +1,14 @@
+# Cloudflare Pages lee este archivo tal cual desde la raíz del sitio publicado.
+
+# Archivos con huella en el nombre: nunca cambian, se pueden guardar un año.
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+/brand/*
+  Cache-Control: public, max-age=2592000
+
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(), microphone=(), geolocation=()
+  X-Frame-Options: SAMEORIGIN
