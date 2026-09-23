@@ -3,11 +3,12 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
 
 describe('Adjustments API Tests', () => {
   let authToken: string
+  let empresaId: string
   let userId: string
   let itemId: string
   let warehouseId: string
@@ -17,35 +18,56 @@ describe('Adjustments API Tests', () => {
   let unitId: string
 
   beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
     // Generar timestamp único para los datos de prueba
     const timestamp = Date.now()
     const uniquePrefix = `TEST-ADJ-${timestamp}`
 
     await prisma.adjustmentItem
       .deleteMany({
-        where: { adjustment: { adjustmentNumber: { startsWith: 'TEST-ADJ' } } },
+        where: {
+          adjustment: {
+            warehouse: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } },
+          },
+        },
       })
       .catch(() => {})
     await prisma.adjustment
-      .deleteMany({ where: { adjustmentNumber: { startsWith: 'TEST-ADJ' } } })
+      .deleteMany({
+        where: {
+          warehouse: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } },
+        },
+      })
+      .catch(() => {})
+    await prisma.movement
+      .deleteMany({
+        where: { item: { empresaId, sku: { startsWith: 'TEST-ADJ' } } },
+      })
       .catch(() => {})
     await prisma.item
-      .deleteMany({ where: { sku: { startsWith: 'TEST-ADJ' } } })
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-ADJ' } } })
       .catch(() => {})
     await prisma.warehouse
-      .deleteMany({ where: { code: { startsWith: 'TEST-ADJ-WH' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } } })
       .catch(() => {})
     await prisma.brand
-      .deleteMany({ where: { code: { startsWith: 'TEST-BRAND-ADJ' } } })
+      .deleteMany({
+        where: { empresaId, code: { startsWith: 'TEST-BRAND-ADJ' } },
+      })
       .catch(() => {})
     await prisma.category
-      .deleteMany({ where: { code: { startsWith: 'TEST-CAT-ADJ' } } })
+      .deleteMany({
+        where: { empresaId, code: { startsWith: 'TEST-CAT-ADJ' } },
+      })
       .catch(() => {})
     await prisma.unit
-      .deleteMany({ where: { code: { startsWith: 'TEST-UNIT-ADJ' } } })
+      .deleteMany({
+        where: { empresaId, code: { startsWith: 'TEST-UNIT-ADJ' } },
+      })
       .catch(() => {})
-
-    authToken = await getTestAuthToken()
 
     const user = await prisma.user.findUnique({
       where: { correo: 'admin@test.com' },
@@ -54,6 +76,7 @@ describe('Adjustments API Tests', () => {
 
     const brand = await prisma.brand.create({
       data: {
+        empresaId,
         code: `TEST-BRAND-ADJ-${timestamp}`,
         name: 'Test Brand Adj',
         type: 'PART',
@@ -64,6 +87,7 @@ describe('Adjustments API Tests', () => {
 
     const category = await prisma.category.create({
       data: {
+        empresaId,
         code: `TEST-CAT-ADJ-${timestamp}`,
         name: 'Test Category Adj',
         isActive: true,
@@ -73,6 +97,7 @@ describe('Adjustments API Tests', () => {
 
     const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: `TEST-UNIT-ADJ-${timestamp}`,
         name: 'Test Unit Adj',
         abbreviation: `TAJ${timestamp}`,
@@ -84,6 +109,7 @@ describe('Adjustments API Tests', () => {
 
     const wh = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: `TEST-ADJ-WH-${timestamp}`,
         name: 'Adjustment Warehouse',
         type: 'PRINCIPAL',
@@ -94,7 +120,9 @@ describe('Adjustments API Tests', () => {
 
     const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: `TEST-ADJ-${timestamp}`,
+        code: `TEST-ADJ-${timestamp}`,
         name: 'Test Adjustment Item',
         brandId,
         categoryId,
@@ -126,18 +154,31 @@ describe('Adjustments API Tests', () => {
       await prisma.adjustmentItem
         .deleteMany({
           where: {
-            adjustment: { adjustmentNumber: { startsWith: 'TEST-ADJ' } },
+            adjustment: {
+              warehouse: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } },
+            },
           },
         })
         .catch(() => {})
       await prisma.adjustment
-        .deleteMany({ where: { adjustmentNumber: { startsWith: 'TEST-ADJ' } } })
+        .deleteMany({
+          where: {
+            warehouse: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } },
+          },
+        })
+        .catch(() => {})
+      await prisma.movement
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-ADJ' } } },
+        })
         .catch(() => {})
       await prisma.stock
-        .deleteMany({ where: { item: { sku: { startsWith: 'TEST-ADJ' } } } })
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-ADJ' } } },
+        })
         .catch(() => {})
       await prisma.item
-        .deleteMany({ where: { sku: { startsWith: 'TEST-ADJ' } } })
+        .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-ADJ' } } })
         .catch(() => {})
       if (unitId)
         await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
@@ -148,7 +189,9 @@ describe('Adjustments API Tests', () => {
       if (brandId)
         await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
       await prisma.warehouse
-        .deleteMany({ where: { code: { startsWith: 'TEST-ADJ-WH' } } })
+        .deleteMany({
+          where: { empresaId, code: { startsWith: 'TEST-ADJ-WH' } },
+        })
         .catch(() => {})
     } catch (error) {
       console.log('Error en afterAll cleanup:', error)
@@ -161,6 +204,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Ajuste de prueba por conteo físico',
@@ -189,6 +233,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           reason: 'Ajuste inválido',
           items: [{ itemId, quantityChange: 5 }],
@@ -201,6 +246,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Ajuste sin items',
@@ -217,6 +263,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       if (res.status !== 200) {
@@ -232,6 +279,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ status: 'DRAFT', page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -246,6 +294,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/adjustments/${adjustmentId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -256,6 +305,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/adjustments/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
     })
@@ -268,6 +318,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .put(`/api/inventory/adjustments/${adjustmentId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           reason: 'Razón actualizada',
           notes: 'Notas actualizadas',
@@ -284,6 +335,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/adjustments/${adjustmentId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -301,7 +353,9 @@ describe('Adjustments API Tests', () => {
       // Crear segundo item para agregar
       const item2 = await prisma.item.create({
         data: {
+          empresaId,
           sku: `TEST-ADJ-002-${timestamp}`,
+          code: `TEST-ADJ-002-${timestamp}`,
           name: 'Second Adjustment Item',
           brandId,
           categoryId,
@@ -315,6 +369,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/adjustments/${adjustmentId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId: item2.id,
           quantityChange: -5,
@@ -333,6 +388,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/adjustments/${adjustmentId}/approve`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ approvedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -343,6 +399,7 @@ describe('Adjustments API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/adjustments/${adjustmentId}/apply`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ appliedBy: userId })
 
       expect([200, 400, 404]).toContain(res.status)
@@ -356,6 +413,7 @@ describe('Adjustments API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Ajuste para rechazar',
@@ -367,6 +425,7 @@ describe('Adjustments API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/adjustments/${rejectId}/reject`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
           .send({ reason: 'Datos incorrectos' })
 
         expect([200, 400]).toContain(res.status)
@@ -377,6 +436,7 @@ describe('Adjustments API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Ajuste para cancelar',
@@ -388,6 +448,7 @@ describe('Adjustments API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/adjustments/${cancelId}/cancel`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 400]).toContain(res.status)
       }
@@ -400,6 +461,7 @@ describe('Adjustments API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/adjustments')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Ajuste para eliminar',
@@ -411,6 +473,7 @@ describe('Adjustments API Tests', () => {
         const res = await request(app)
           .delete(`/api/inventory/adjustments/${deleteId}`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 204, 400]).toContain(res.status)
       }
@@ -422,6 +485,7 @@ describe('Adjustments API Tests', () => {
           '/api/inventory/adjustments/00000000-0000-0000-0000-000000000000'
         )
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect([404, 400]).toContain(res.status)
     })

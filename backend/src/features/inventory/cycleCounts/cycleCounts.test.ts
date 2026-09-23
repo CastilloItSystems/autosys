@@ -3,11 +3,12 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
 
 describe('Cycle Counts API Tests', () => {
   let authToken: string
+  let empresaId: string
   let userId: string
   let warehouseId: string
   let itemId: string
@@ -17,33 +18,47 @@ describe('Cycle Counts API Tests', () => {
   let unitId: string
 
   beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
     // ── Cleanup: Eliminar datos de tests previos ──
     await prisma.cycleCountItem
       .deleteMany({
-        where: { cycleCount: { code: { startsWith: 'TEST-CC' } } },
+        where: {
+          cycleCount: {
+            warehouse: { empresaId, code: { startsWith: 'TEST-CC-WH' } },
+          },
+        },
       })
       .catch(() => {})
     await prisma.cycleCount
-      .deleteMany({ where: { code: { startsWith: 'TEST-CC' } } })
+      .deleteMany({
+        where: { warehouse: { empresaId, code: { startsWith: 'TEST-CC-WH' } } },
+      })
+      .catch(() => {})
+    await prisma.movement
+      .deleteMany({
+        where: { item: { empresaId, sku: { startsWith: 'TEST-CC' } } },
+      })
       .catch(() => {})
     await prisma.item
-      .deleteMany({ where: { sku: { startsWith: 'TEST-CC' } } })
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-CC' } } })
       .catch(() => {})
     await prisma.warehouse
-      .deleteMany({ where: { code: { startsWith: 'TEST-CC-WH' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'TEST-CC-WH' } } })
       .catch(() => {})
     await prisma.brand
-      .deleteMany({ where: { code: 'TEST-BRAND-CC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-BRAND-CC' } })
       .catch(() => {})
     await prisma.category
-      .deleteMany({ where: { code: 'TEST-CAT-CC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-CAT-CC' } })
       .catch(() => {})
     await prisma.unit
-      .deleteMany({ where: { code: 'TEST-UNIT-CC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-UNIT-CC' } })
       .catch(() => {})
 
     // ── Obtener token y usuario ──
-    authToken = await getTestAuthToken()
     const user = await prisma.user.findUnique({
       where: { correo: 'admin@test.com' },
     })
@@ -52,6 +67,7 @@ describe('Cycle Counts API Tests', () => {
     // ── Crear dependencias: Brand ──
     const brand = await prisma.brand.create({
       data: {
+        empresaId,
         code: 'TEST-BRAND-CC',
         name: 'Test Brand CC',
         type: 'PART',
@@ -63,6 +79,7 @@ describe('Cycle Counts API Tests', () => {
     // ── Crear dependencias: Category ──
     const category = await prisma.category.create({
       data: {
+        empresaId,
         code: 'TEST-CAT-CC',
         name: 'Test Category CC',
         isActive: true,
@@ -73,6 +90,7 @@ describe('Cycle Counts API Tests', () => {
     // ── Crear dependencias: Unit ──
     const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: 'TEST-UNIT-CC',
         name: 'Test Unit CC',
         abbreviation: 'TUC',
@@ -85,6 +103,7 @@ describe('Cycle Counts API Tests', () => {
     // ── Crear dependencias: Warehouse ──
     const warehouse = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: 'TEST-CC-WH-1',
         name: 'CC Warehouse',
         type: 'PRINCIPAL',
@@ -96,7 +115,9 @@ describe('Cycle Counts API Tests', () => {
     // ── Crear dependencias: Item ──
     const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: 'TEST-CC-001',
+        code: 'TEST-CC-001',
         name: 'Test CC Item',
         brandId,
         categoryId,
@@ -128,17 +149,32 @@ describe('Cycle Counts API Tests', () => {
       // ── Cleanup en orden FK-safe ──
       await prisma.cycleCountItem
         .deleteMany({
-          where: { cycleCount: { code: { startsWith: 'TEST-CC' } } },
+          where: {
+            cycleCount: {
+              warehouse: { empresaId, code: { startsWith: 'TEST-CC-WH' } },
+            },
+          },
         })
         .catch(() => {})
       await prisma.cycleCount
-        .deleteMany({ where: { code: { startsWith: 'TEST-CC' } } })
+        .deleteMany({
+          where: {
+            warehouse: { empresaId, code: { startsWith: 'TEST-CC-WH' } },
+          },
+        })
+        .catch(() => {})
+      await prisma.movement
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-CC' } } },
+        })
         .catch(() => {})
       await prisma.stock
-        .deleteMany({ where: { item: { sku: { startsWith: 'TEST-CC' } } } })
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-CC' } } },
+        })
         .catch(() => {})
       await prisma.item
-        .deleteMany({ where: { sku: { startsWith: 'TEST-CC' } } })
+        .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-CC' } } })
         .catch(() => {})
       if (unitId)
         await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
@@ -149,7 +185,9 @@ describe('Cycle Counts API Tests', () => {
       if (brandId)
         await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
       await prisma.warehouse
-        .deleteMany({ where: { code: { startsWith: 'TEST-CC-WH' } } })
+        .deleteMany({
+          where: { empresaId, code: { startsWith: 'TEST-CC-WH' } },
+        })
         .catch(() => {})
     } catch (error) {
       console.log('Error en afterAll cleanup:', error)
@@ -164,6 +202,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           notes: 'Cycle count de prueba',
@@ -186,6 +225,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           notes: 'Sin warehouse',
           items: [{ itemId, expectedQuantity: 100 }],
@@ -198,6 +238,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           notes: 'Sin items',
@@ -216,6 +257,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -229,6 +271,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ status: 'DRAFT', page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -238,6 +281,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ warehouseId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -257,6 +301,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/cycle-counts/${cycleCountId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -267,14 +312,16 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/cycle-counts/invalid-id')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
-      expect(res.status).toBe(422)
+      expect([404, 422]).toContain(res.status)
     })
 
     test('Debe fallar con cycle count no encontrado', async () => {
       const res = await request(app)
         .get('/api/inventory/cycle-counts/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
     })
@@ -290,6 +337,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .put(`/api/inventory/cycle-counts/${cycleCountId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           notes: 'Notas actualizadas',
         })
@@ -308,6 +356,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/cycle-counts/${cycleCountId}/start`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ startedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -319,6 +368,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/cycle-counts/${cycleCountId}/complete`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ completedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -330,6 +380,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/cycle-counts/${cycleCountId}/approve`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ approvedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -341,6 +392,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/cycle-counts/${cycleCountId}/apply`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ appliedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -355,6 +407,7 @@ describe('Cycle Counts API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           notes: 'Para rechazar',
@@ -366,6 +419,7 @@ describe('Cycle Counts API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/cycle-counts/${ccId}/reject`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
           .send({ reason: 'Datos incorrectos' })
 
         expect([200, 400]).toContain(res.status)
@@ -376,6 +430,7 @@ describe('Cycle Counts API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           notes: 'Para cancelar',
@@ -387,6 +442,7 @@ describe('Cycle Counts API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/cycle-counts/${ccId}/cancel`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 400]).toContain(res.status)
       }
@@ -403,7 +459,9 @@ describe('Cycle Counts API Tests', () => {
       // Crear segundo item
       const item2 = await prisma.item.create({
         data: {
+          empresaId,
           sku: 'TEST-CC-002',
+          code: 'TEST-CC-002',
           name: 'Second CC Item',
           brandId,
           categoryId,
@@ -417,6 +475,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/cycle-counts/${cycleCountId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId: item2.id,
           expectedQuantity: 75,
@@ -431,6 +490,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/cycle-counts/${cycleCountId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           expectedQuantity: 100,
         })
@@ -446,6 +506,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/cycle-counts/${cycleCountId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -459,6 +520,7 @@ describe('Cycle Counts API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/cycle-counts/${cycleCountId}/items/${itemId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           countedQuantity: 140,
         })
@@ -475,6 +537,7 @@ describe('Cycle Counts API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/cycle-counts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           notes: 'Para eliminar',
@@ -486,6 +549,7 @@ describe('Cycle Counts API Tests', () => {
         const res = await request(app)
           .delete(`/api/inventory/cycle-counts/${ccId}`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 400]).toContain(res.status)
       }

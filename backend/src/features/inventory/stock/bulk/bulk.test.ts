@@ -16,6 +16,8 @@ describe('Stock Bulk Operations Routes', () => {
   let itemId: string
   let unitId: string
   let categoryId: string
+  let brandId: string
+  let userId: string
 
   const TEST_SKU = 'STBULK-TEST-001'
   const TEST_SKU_2 = 'STBULK-TEST-002'
@@ -26,15 +28,18 @@ describe('Stock Bulk Operations Routes', () => {
     const creds = await getTestCredentials()
     authToken = creds.authToken
     empresaId = creds.empresaId
+    const user = await prisma.user.findUnique({ where: { correo: 'admin@test.com' } })
+    userId = user!.id
 
     // Cleanup previous test data
-    await prisma.movement.deleteMany({ where: { reference: { startsWith: 'BULK-' } } }).catch(() => {})
+    await prisma.movement.deleteMany({ where: { item: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } } }).catch(() => {})
     await prisma.stock.deleteMany({ where: { item: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } } }).catch(() => {})
     await prisma.item.deleteMany({ where: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } }).catch(() => {})
     await prisma.warehouse.deleteMany({ where: { empresaId, code: { in: [WH_CODE, WH2_CODE] } } }).catch(() => {})
-    await prisma.bulkOperation.deleteMany({ where: { operationType: { in: ['STOCK_IMPORT', 'STOCK_ADJUSTMENT', 'STOCK_TRANSFER', 'STOCK_EXPORT'] } } }).catch(() => {})
+    await prisma.bulkOperation.deleteMany({ where: { createdBy: userId, operationType: { in: ['STOCK_IMPORT', 'STOCK_ADJUSTMENT', 'STOCK_TRANSFER', 'STOCK_EXPORT'] } } }).catch(() => {})
     await prisma.unit.deleteMany({ where: { empresaId, code: 'STBULK-UNIT' } }).catch(() => {})
     await prisma.category.deleteMany({ where: { empresaId, code: 'STBULK-CAT' } }).catch(() => {})
+    await prisma.brand.deleteMany({ where: { empresaId, code: 'STBULK-BRAND' } }).catch(() => {})
 
     // Create unit & category
     const unit = await prisma.unit.create({
@@ -46,6 +51,11 @@ describe('Stock Bulk Operations Routes', () => {
       data: { code: 'STBULK-CAT', name: 'StBulk Category', empresaId },
     })
     categoryId = category.id
+
+    const brand = await prisma.brand.create({
+      data: { code: 'STBULK-BRAND', name: 'StBulk Brand', empresaId },
+    })
+    brandId = brand.id
 
     // Create warehouses
     const wh = await prisma.warehouse.create({
@@ -62,23 +72,24 @@ describe('Stock Bulk Operations Routes', () => {
 
     // Create items
     const item = await prisma.item.create({
-      data: { sku: TEST_SKU, code: TEST_SKU, name: 'StBulk Item 1', costPrice: 10, salePrice: 20, empresaId, unitId, categoryId },
+      data: { sku: TEST_SKU, code: TEST_SKU, name: 'StBulk Item 1', costPrice: 10, salePrice: 20, empresaId, unitId, categoryId, brandId },
     })
     itemId = item.id
 
     await prisma.item.create({
-      data: { sku: TEST_SKU_2, code: TEST_SKU_2, name: 'StBulk Item 2', costPrice: 15, salePrice: 30, empresaId, unitId, categoryId },
+      data: { sku: TEST_SKU_2, code: TEST_SKU_2, name: 'StBulk Item 2', costPrice: 15, salePrice: 30, empresaId, unitId, categoryId, brandId },
     })
   }, 30000)
 
   afterAll(async () => {
-    await prisma.movement.deleteMany({ where: { reference: { startsWith: 'BULK-' } } }).catch(() => {})
+    await prisma.movement.deleteMany({ where: { item: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } } }).catch(() => {})
     await prisma.stock.deleteMany({ where: { item: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } } }).catch(() => {})
     await prisma.item.deleteMany({ where: { empresaId, sku: { in: [TEST_SKU, TEST_SKU_2] } } }).catch(() => {})
     await prisma.warehouse.deleteMany({ where: { empresaId, code: { in: [WH_CODE, WH2_CODE] } } }).catch(() => {})
-    await prisma.bulkOperation.deleteMany({ where: { operationType: { in: ['STOCK_IMPORT', 'STOCK_ADJUSTMENT', 'STOCK_TRANSFER', 'STOCK_EXPORT'] } } }).catch(() => {})
+    await prisma.bulkOperation.deleteMany({ where: { createdBy: userId, operationType: { in: ['STOCK_IMPORT', 'STOCK_ADJUSTMENT', 'STOCK_TRANSFER', 'STOCK_EXPORT'] } } }).catch(() => {})
     await prisma.unit.deleteMany({ where: { empresaId, code: 'STBULK-UNIT' } }).catch(() => {})
     await prisma.category.deleteMany({ where: { empresaId, code: 'STBULK-CAT' } }).catch(() => {})
+    await prisma.brand.deleteMany({ where: { empresaId, code: 'STBULK-BRAND' } }).catch(() => {})
   })
 
   // ── IMPORT ─────────────────────────────────────────────────────────────────
