@@ -3,11 +3,12 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
 
 describe('Reconciliations API Tests', () => {
   let authToken: string
+  let empresaId: string
   let userId: string
   let warehouseId: string
   let itemId: string
@@ -17,6 +18,10 @@ describe('Reconciliations API Tests', () => {
   let unitId: string
 
   beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
     // ── Cleanup: Eliminar datos de tests previos ──
     await prisma.reconciliationItem
       .deleteMany({
@@ -29,30 +34,38 @@ describe('Reconciliations API Tests', () => {
       .catch(() => {})
     await prisma.reconciliation
       .deleteMany({
-        where: { warehouse: { code: { startsWith: 'TEST-REC-WH' } } },
+        where: {
+          warehouse: { empresaId, code: { startsWith: 'TEST-REC-WH' } },
+        },
+      })
+      .catch(() => {})
+    await prisma.movement
+      .deleteMany({
+        where: { item: { empresaId, sku: { startsWith: 'TEST-REC' } } },
       })
       .catch(() => {})
     await prisma.stock
-      .deleteMany({ where: { item: { sku: { startsWith: 'TEST-REC' } } } })
+      .deleteMany({
+        where: { item: { empresaId, sku: { startsWith: 'TEST-REC' } } },
+      })
       .catch(() => {})
     await prisma.item
-      .deleteMany({ where: { sku: { startsWith: 'TEST-REC' } } })
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-REC' } } })
       .catch(() => {})
     await prisma.warehouse
-      .deleteMany({ where: { code: { startsWith: 'TEST-REC-WH' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'TEST-REC-WH' } } })
       .catch(() => {})
     await prisma.brand
-      .deleteMany({ where: { code: 'TEST-BRAND-REC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-BRAND-REC' } })
       .catch(() => {})
     await prisma.category
-      .deleteMany({ where: { code: 'TEST-CAT-REC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-CAT-REC' } })
       .catch(() => {})
     await prisma.unit
-      .deleteMany({ where: { code: 'TEST-UNIT-REC' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-UNIT-REC' } })
       .catch(() => {})
 
     // ── Obtener token y usuario ──
-    authToken = await getTestAuthToken()
     const user = await prisma.user.findUnique({
       where: { correo: 'admin@test.com' },
     })
@@ -61,6 +74,7 @@ describe('Reconciliations API Tests', () => {
     // ── Crear dependencias: Brand ──
     const brand = await prisma.brand.create({
       data: {
+        empresaId,
         code: 'TEST-BRAND-REC',
         name: 'Test Brand REC',
         type: 'PART',
@@ -72,6 +86,7 @@ describe('Reconciliations API Tests', () => {
     // ── Crear dependencias: Category ──
     const category = await prisma.category.create({
       data: {
+        empresaId,
         code: 'TEST-CAT-REC',
         name: 'Test Category REC',
         isActive: true,
@@ -82,6 +97,7 @@ describe('Reconciliations API Tests', () => {
     // ── Crear dependencias: Unit ──
     const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: 'TEST-UNIT-REC',
         name: 'Test Unit REC',
         abbreviation: 'TUR',
@@ -94,6 +110,7 @@ describe('Reconciliations API Tests', () => {
     // ── Crear dependencias: Warehouse ──
     const warehouse = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: 'TEST-REC-WH-1',
         name: 'REC Warehouse',
         type: 'PRINCIPAL',
@@ -105,7 +122,9 @@ describe('Reconciliations API Tests', () => {
     // ── Crear dependencias: Item ──
     const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: 'TEST-REC-001',
+        code: 'TEST-REC-001',
         name: 'Test REC Item',
         brandId,
         categoryId,
@@ -146,14 +165,23 @@ describe('Reconciliations API Tests', () => {
         .catch(() => {})
       await prisma.reconciliation
         .deleteMany({
-          where: { warehouse: { code: { startsWith: 'TEST-REC-WH' } } },
+          where: {
+            warehouse: { empresaId, code: { startsWith: 'TEST-REC-WH' } },
+          },
+        })
+        .catch(() => {})
+      await prisma.movement
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-REC' } } },
         })
         .catch(() => {})
       await prisma.stock
-        .deleteMany({ where: { item: { sku: { startsWith: 'TEST-REC' } } } })
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-REC' } } },
+        })
         .catch(() => {})
       await prisma.item
-        .deleteMany({ where: { sku: { startsWith: 'TEST-REC' } } })
+        .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-REC' } } })
         .catch(() => {})
       if (unitId)
         await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
@@ -164,7 +192,9 @@ describe('Reconciliations API Tests', () => {
       if (brandId)
         await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
       await prisma.warehouse
-        .deleteMany({ where: { code: { startsWith: 'TEST-REC-WH' } } })
+        .deleteMany({
+          where: { empresaId, code: { startsWith: 'TEST-REC-WH' } },
+        })
         .catch(() => {})
     } catch (error) {
       console.log('Error en afterAll cleanup:', error)
@@ -179,6 +209,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           source: 'PHYSICAL_INVENTORY',
@@ -204,6 +235,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           source: 'PHYSICAL_INVENTORY',
           reason: 'Sin warehouse',
@@ -217,6 +249,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           reason: 'Sin source',
@@ -230,6 +263,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           source: 'PHYSICAL_INVENTORY',
@@ -249,6 +283,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -259,6 +294,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ status: 'DRAFT', page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -268,6 +304,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ warehouseId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -287,6 +324,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/reconciliations/${reconciliationId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -297,6 +335,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/reconciliations/invalid-id')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect([404, 422]).toContain(res.status)
     })
@@ -307,6 +346,7 @@ describe('Reconciliations API Tests', () => {
           '/api/inventory/reconciliations/00000000-0000-0000-0000-000000000000'
         )
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
     })
@@ -322,6 +362,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .put(`/api/inventory/reconciliations/${reconciliationId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           notes: 'Notas actualizadas',
         })
@@ -340,6 +381,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/reconciliations/${reconciliationId}/start`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ startedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -351,6 +393,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/reconciliations/${reconciliationId}/complete`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ completedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -362,6 +405,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/reconciliations/${reconciliationId}/approve`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ approvedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -373,6 +417,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/reconciliations/${reconciliationId}/apply`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ appliedBy: userId })
 
       expect([200, 400]).toContain(res.status)
@@ -387,6 +432,7 @@ describe('Reconciliations API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           source: 'PHYSICAL_INVENTORY',
@@ -399,6 +445,7 @@ describe('Reconciliations API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/reconciliations/${recId}/reject`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
           .send({ reason: 'Datos incorrectos' })
 
         expect([200, 400]).toContain(res.status)
@@ -409,6 +456,7 @@ describe('Reconciliations API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           source: 'PHYSICAL_INVENTORY',
@@ -421,6 +469,7 @@ describe('Reconciliations API Tests', () => {
         const res = await request(app)
           .patch(`/api/inventory/reconciliations/${recId}/cancel`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 400]).toContain(res.status)
       }
@@ -436,7 +485,9 @@ describe('Reconciliations API Tests', () => {
 
       const item2 = await prisma.item.create({
         data: {
+          empresaId,
           sku: 'TEST-REC-002',
+          code: 'TEST-REC-002',
           name: 'Second REC Item',
           brandId,
           categoryId,
@@ -450,6 +501,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/reconciliations/${reconciliationId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId: item2.id,
           systemQuantity: 50,
@@ -465,6 +517,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .post(`/api/inventory/reconciliations/${reconciliationId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           systemQuantity: 100,
           expectedQuantity: 90,
@@ -481,6 +534,7 @@ describe('Reconciliations API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/reconciliations/${reconciliationId}/items`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -495,6 +549,7 @@ describe('Reconciliations API Tests', () => {
       const createRes = await request(app)
         .post('/api/inventory/reconciliations')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           warehouseId,
           source: 'PHYSICAL_INVENTORY',
@@ -507,6 +562,7 @@ describe('Reconciliations API Tests', () => {
         const res = await request(app)
           .delete(`/api/inventory/reconciliations/${recId}`)
           .set('Authorization', `Bearer ${authToken}`)
+          .set('X-Empresa-Id', empresaId)
 
         expect([200, 400]).toContain(res.status)
       }

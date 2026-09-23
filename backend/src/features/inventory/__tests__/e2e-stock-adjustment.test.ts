@@ -4,11 +4,12 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
 
 describe('E2E: Stock Adjustment Cycle', () => {
   let authToken: string
+  let empresaId: string
   let userId: string
   let warehouseId: string
   let itemId: string
@@ -19,32 +20,40 @@ describe('E2E: Stock Adjustment Cycle', () => {
   let systemQuantity: number = 100
   let expectedQuantity: number = 85 // Physical count shows 15 units missing
 
-  beforeAll(async () => {
-    const testId = Date.now() // Unique timestamp for this test run
-
-    // Cleanup
-    await prisma.reconciliationItem.deleteMany({}).catch(() => {})
-    await prisma.reconciliation.deleteMany({}).catch(() => {})
-    await prisma.cycleCountItem.deleteMany({}).catch(() => {})
-    await prisma.cycleCount.deleteMany({}).catch(() => {})
-    await prisma.stock.deleteMany({}).catch(() => {})
-    await prisma.item
-      .deleteMany({ where: { sku: { startsWith: 'E2E-SA' } } })
+  // Solo borra lo que crea este suite, dentro de la empresa de prueba
+  const cleanup = async () => {
+    const warehouse = { empresaId, code: { startsWith: 'E2E-SA-WH' } }
+    const item = { empresaId, sku: { startsWith: 'E2E-SA' } }
+    await prisma.reconciliation
+      .deleteMany({ where: { warehouse } })
       .catch(() => {})
-    await prisma.warehouse
-      .deleteMany({ where: { code: { startsWith: 'E2E-SA-WH' } } })
-      .catch(() => {})
+    await prisma.cycleCount.deleteMany({ where: { warehouse } }).catch(() => {})
+    await prisma.movement.deleteMany({ where: { item } }).catch(() => {})
+    await prisma.stock.deleteMany({ where: { item } }).catch(() => {})
+    await prisma.item.deleteMany({ where: item }).catch(() => {})
+    await prisma.warehouse.deleteMany({ where: warehouse }).catch(() => {})
     await prisma.brand
-      .deleteMany({ where: { code: { startsWith: 'E2E-BRAND-SA' } } })
+      .deleteMany({
+        where: { empresaId, code: { startsWith: 'E2E-BRAND-SA' } },
+      })
       .catch(() => {})
     await prisma.category
-      .deleteMany({ where: { code: { startsWith: 'E2E-CAT-SA' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'E2E-CAT-SA' } } })
       .catch(() => {})
     await prisma.unit
-      .deleteMany({ where: { code: { startsWith: 'E2E-UNIT-SA' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'E2E-UNIT-SA' } } })
       .catch(() => {})
+  }
 
-    authToken = await getTestAuthToken()
+  beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
+    const testId = Date.now() // Unique timestamp for this test run
+
+    await cleanup()
+
     const user = await prisma.user.findUnique({
       where: { correo: 'admin@test.com' },
     })
@@ -52,15 +61,16 @@ describe('E2E: Stock Adjustment Cycle', () => {
 
     // Setup
     const brand = await prisma.brand.create({
-      data: { code: `E2E-BRAND-SA-${testId}`, name: 'E2E Brand SA' },
+      data: { empresaId, code: `E2E-BRAND-SA-${testId}`, name: 'E2E Brand SA' },
     })
 
     const category = await prisma.category.create({
-      data: { code: `E2E-CAT-SA-${testId}`, name: 'E2E Cat SA' },
+      data: { empresaId, code: `E2E-CAT-SA-${testId}`, name: 'E2E Cat SA' },
     })
 
     const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: `E2E-UNIT-SA-${testId}`,
         name: 'Unit',
         abbreviation: `UN-${testId}`,
@@ -70,6 +80,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
 
     const warehouse = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: `E2E-SA-WH-${testId}`,
         name: 'E2E Warehouse SA',
         type: 'PRINCIPAL',
@@ -79,7 +90,9 @@ describe('E2E: Stock Adjustment Cycle', () => {
 
     const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: `E2E-SA-001-${testId}`,
+        code: `E2E-SA-001-${testId}`,
         name: 'E2E Item SA 1',
         description: 'E2E Item SA 1',
         barcode: `E2E-SA-BAR-1-${testId}`,
@@ -94,7 +107,9 @@ describe('E2E: Stock Adjustment Cycle', () => {
 
     const item2 = await prisma.item.create({
       data: {
+        empresaId,
         sku: `E2E-SA-002-${testId}`,
+        code: `E2E-SA-002-${testId}`,
         name: 'E2E Item SA 2',
         description: 'E2E Item SA 2',
         barcode: `E2E-SA-BAR-2-${testId}`,
@@ -131,24 +146,14 @@ describe('E2E: Stock Adjustment Cycle', () => {
     })
   })
 
-  afterAll(async () => {
-    await prisma.reconciliationItem.deleteMany({}).catch(() => {})
-    await prisma.reconciliation.deleteMany({}).catch(() => {})
-    await prisma.cycleCountItem.deleteMany({}).catch(() => {})
-    await prisma.cycleCount.deleteMany({}).catch(() => {})
-    await prisma.stock.deleteMany({}).catch(() => {})
-    await prisma.item.deleteMany({}).catch(() => {})
-    await prisma.warehouse.deleteMany({}).catch(() => {})
-    await prisma.unit.deleteMany({}).catch(() => {})
-    await prisma.category.deleteMany({}).catch(() => {})
-    await prisma.brand.deleteMany({}).catch(() => {})
-  }, 20000)
+  afterAll(cleanup, 20000)
 
   test('E2E: Cycle Count → Reconciliation → Apply → Verify Stock Adjusted', async () => {
     // Step 1: Create cycle count
     const ccRes = await request(app)
       .post('/api/inventory/cycle-counts')
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({
         warehouseId,
         items: [
@@ -164,6 +169,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const startRes = await request(app)
       .patch(`/api/inventory/cycle-counts/${cycleCountId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ startedBy: userId })
 
     expect([200, 400, 422]).toContain(startRes.status)
@@ -172,6 +178,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const updateRes = await request(app)
       .patch(`/api/inventory/cycle-counts/${cycleCountId}/items/${itemId}`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ countedQuantity: expectedQuantity })
 
     expect([200, 400]).toContain(updateRes.status)
@@ -180,6 +187,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const completeRes = await request(app)
       .patch(`/api/inventory/cycle-counts/${cycleCountId}/complete`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ completedBy: userId })
 
     expect([200, 400, 422]).toContain(completeRes.status)
@@ -188,6 +196,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const approveCCRes = await request(app)
       .patch(`/api/inventory/cycle-counts/${cycleCountId}/approve`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ approvedBy: userId })
 
     expect([200, 400, 422]).toContain(approveCCRes.status)
@@ -196,6 +205,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const recRes = await request(app)
       .post('/api/inventory/reconciliations')
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({
         warehouseId,
         source: 'CYCLE_COUNT',
@@ -221,6 +231,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const startRecRes = await request(app)
       .patch(`/api/inventory/reconciliations/${reconciliationId}/start`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ startedBy: userId })
 
     expect([200, 400, 422]).toContain(startRecRes.status)
@@ -228,6 +239,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const completeRecRes = await request(app)
       .patch(`/api/inventory/reconciliations/${reconciliationId}/complete`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ completedBy: userId })
 
     expect([200, 400, 422]).toContain(completeRecRes.status)
@@ -236,6 +248,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const approveRecRes = await request(app)
       .patch(`/api/inventory/reconciliations/${reconciliationId}/approve`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ approvedBy: userId })
 
     expect([200, 400, 422]).toContain(approveRecRes.status)
@@ -244,6 +257,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const applyRecRes = await request(app)
       .patch(`/api/inventory/reconciliations/${reconciliationId}/apply`)
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({ appliedBy: userId })
 
     expect([200, 400, 422]).toContain(applyRecRes.status)
@@ -252,6 +266,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const stockRes = await request(app)
       .get('/api/inventory/stock')
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .query({ itemId, warehouseId })
 
     expect(stockRes.status).toBe(200)
@@ -266,6 +281,7 @@ describe('E2E: Stock Adjustment Cycle', () => {
     const recRes = await request(app)
       .post('/api/inventory/reconciliations')
       .set('Authorization', `Bearer ${authToken}`)
+      .set('X-Empresa-Id', empresaId)
       .send({
         warehouseId,
         source: 'SYSTEM_ERROR',

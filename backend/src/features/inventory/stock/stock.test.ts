@@ -3,11 +3,12 @@
 import { describe, test, expect, beforeAll, afterAll } from '@jest/globals'
 import request from 'supertest'
 import app from '../../../app.js'
-import { getTestAuthToken } from '../../../shared/utils/test.utils.js'
+import { getTestCredentials } from '../../../shared/utils/test.utils.js'
 import prisma from '../../../services/prisma.service.js'
 
 describe('Stock API Tests', () => {
   let authToken: string
+  let empresaId: string
   let itemId: string
   let warehouseId: string
   let warehouse2Id: string
@@ -17,35 +18,43 @@ describe('Stock API Tests', () => {
   let unitId: string
 
   beforeAll(async () => {
+    const creds = await getTestCredentials()
+    authToken = creds.authToken
+    empresaId = creds.empresaId
+
     // Limpiar datos previos
     await prisma.stock
       .deleteMany({
         where: {
-          item: { sku: { startsWith: 'TEST-STOCK' } },
+          item: { empresaId, sku: { startsWith: 'TEST-STOCK' } },
         },
       })
       .catch(() => {})
+    await prisma.movement
+      .deleteMany({
+        where: { item: { empresaId, sku: { startsWith: 'TEST-STOCK' } } },
+      })
+      .catch(() => {})
     await prisma.item
-      .deleteMany({ where: { sku: { startsWith: 'TEST-STOCK' } } })
+      .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-STOCK' } } })
       .catch(() => {})
     await prisma.warehouse
-      .deleteMany({ where: { code: { startsWith: 'TEST-STK-WH' } } })
+      .deleteMany({ where: { empresaId, code: { startsWith: 'TEST-STK-WH' } } })
       .catch(() => {})
     await prisma.brand
-      .deleteMany({ where: { code: 'TEST-BRAND-STK' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-BRAND-STK' } })
       .catch(() => {})
     await prisma.category
-      .deleteMany({ where: { code: 'TEST-CAT-STK' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-CAT-STK' } })
       .catch(() => {})
     await prisma.unit
-      .deleteMany({ where: { code: 'TEST-UNIT-STK' } })
+      .deleteMany({ where: { empresaId, code: 'TEST-UNIT-STK' } })
       .catch(() => {})
-
-    authToken = await getTestAuthToken()
 
     // Crear dependencias
     const brand = await prisma.brand.create({
       data: {
+        empresaId,
         code: 'TEST-BRAND-STK',
         name: 'Test Brand Stock',
         type: 'PART',
@@ -56,6 +65,7 @@ describe('Stock API Tests', () => {
 
     const category = await prisma.category.create({
       data: {
+        empresaId,
         code: 'TEST-CAT-STK',
         name: 'Test Category Stock',
         isActive: true,
@@ -65,6 +75,7 @@ describe('Stock API Tests', () => {
 
     const unit = await prisma.unit.create({
       data: {
+        empresaId,
         code: 'TEST-UNIT-STK',
         name: 'Test Unit Stock',
         abbreviation: 'TSK',
@@ -76,6 +87,7 @@ describe('Stock API Tests', () => {
 
     const warehouse = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: 'TEST-STK-WH-1',
         name: 'Stock Warehouse 1',
         type: 'PRINCIPAL',
@@ -86,6 +98,7 @@ describe('Stock API Tests', () => {
 
     const warehouse2 = await prisma.warehouse.create({
       data: {
+        empresaId,
         code: 'TEST-STK-WH-2',
         name: 'Stock Warehouse 2',
         type: 'SUCURSAL',
@@ -96,7 +109,9 @@ describe('Stock API Tests', () => {
 
     const item = await prisma.item.create({
       data: {
+        empresaId,
         sku: 'TEST-STOCK-001',
+        code: 'TEST-STOCK-001',
         name: 'Test Stock Item',
         brandId,
         categoryId,
@@ -111,11 +126,18 @@ describe('Stock API Tests', () => {
 
   afterAll(async () => {
     try {
+      await prisma.movement
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-STOCK' } } },
+        })
+        .catch(() => {})
       await prisma.stock
-        .deleteMany({ where: { item: { sku: { startsWith: 'TEST-STOCK' } } } })
+        .deleteMany({
+          where: { item: { empresaId, sku: { startsWith: 'TEST-STOCK' } } },
+        })
         .catch(() => {})
       await prisma.item
-        .deleteMany({ where: { sku: { startsWith: 'TEST-STOCK' } } })
+        .deleteMany({ where: { empresaId, sku: { startsWith: 'TEST-STOCK' } } })
         .catch(() => {})
       if (unitId)
         await prisma.unit.delete({ where: { id: unitId } }).catch(() => {})
@@ -126,7 +148,9 @@ describe('Stock API Tests', () => {
       if (brandId)
         await prisma.brand.delete({ where: { id: brandId } }).catch(() => {})
       await prisma.warehouse
-        .deleteMany({ where: { code: { startsWith: 'TEST-STK-WH' } } })
+        .deleteMany({
+          where: { empresaId, code: { startsWith: 'TEST-STK-WH' } },
+        })
         .catch(() => {})
     } catch (error) {
       console.log('Error en afterAll cleanup:', error)
@@ -139,6 +163,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -159,6 +184,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -175,6 +201,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -186,6 +213,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10, search: 'TEST-STOCK-001' })
 
       expect(res.status).toBe(200)
@@ -201,6 +229,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ page: 1, limit: 10, search: 'TEST-STK-WH-1' })
 
       expect(res.status).toBe(200)
@@ -216,6 +245,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({
           page: 1,
           limit: 10,
@@ -226,7 +256,9 @@ describe('Stock API Tests', () => {
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
       expect(
-        (res.body.data || []).every((row: any) => row?.warehouseId === warehouseId)
+        (res.body.data || []).every(
+          (row: any) => row?.warehouseId === warehouseId
+        )
       ).toBe(true)
     })
   })
@@ -237,6 +269,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/stock/item/${itemId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -249,6 +282,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/stock/warehouse/${warehouseId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -261,6 +295,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/low-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect([200, 404]).toContain(res.status)
       if (res.status === 200) {
@@ -272,6 +307,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/low-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ search: 'TEST-STOCK', warehouseId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -285,6 +321,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/out-of-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect([200, 404]).toContain(res.status)
       if (res.status === 200) {
@@ -296,6 +333,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/out-of-stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .query({ search: 'TEST-STOCK', warehouseId, page: 1, limit: 10 })
 
       expect(res.status).toBe(200)
@@ -310,6 +348,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get(`/api/inventory/stock/${stockId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(res.body.success).toBe(true)
@@ -320,6 +359,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/00000000-0000-0000-0000-000000000000')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(404)
     })
@@ -332,6 +372,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .put(`/api/inventory/stock/${stockId}`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           quantityReal: 150,
           averageCost: 55,
@@ -349,6 +390,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/adjust')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -363,6 +405,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/adjust')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -379,6 +422,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/reserve')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -395,6 +439,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/release')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -412,12 +457,14 @@ describe('Stock API Tests', () => {
       await request(app)
         .post('/api/inventory/stock')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({ itemId, warehouseId: warehouse2Id, quantityReal: 0 })
         .catch(() => {})
 
       const res = await request(app)
         .post('/api/inventory/stock/transfer')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseFromId: warehouseId,
@@ -432,6 +479,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/transfer')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseFromId: warehouseId,
@@ -451,6 +499,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .post('/api/inventory/stock/alerts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
         .send({
           itemId,
           warehouseId,
@@ -469,6 +518,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .get('/api/inventory/stock/alerts')
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect(res.status).toBe(200)
       expect(Array.isArray(res.body.data)).toBe(true)
@@ -479,6 +529,7 @@ describe('Stock API Tests', () => {
       const res = await request(app)
         .patch(`/api/inventory/stock/alerts/${alertId}/read`)
         .set('Authorization', `Bearer ${authToken}`)
+        .set('X-Empresa-Id', empresaId)
 
       expect([200, 404]).toContain(res.status)
     })
