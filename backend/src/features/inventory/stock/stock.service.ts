@@ -18,10 +18,12 @@ import {
   NotFoundError,
   ConflictError,
   BadRequestError,
+  ForbiddenError,
 } from '../../../shared/utils/apiError.js'
 import { PaginationHelper } from '../../../shared/utils/pagination.js'
 import { logger } from '../../../shared/utils/logger.js'
 import { INVENTORY_MESSAGES } from '../shared/constants/messages.js'
+import { MovementNumberGenerator } from '../shared/utils/movementNumberGenerator.js'
 
 type PrismaClientType = PrismaClient | Prisma.TransactionClient
 
@@ -62,6 +64,44 @@ async function assertWarehouseBelongsToEmpresa(
 // ---------------------------------------------------------------------------
 // Service
 // ---------------------------------------------------------------------------
+
+/**
+ * Deja constancia de una modificación directa de existencias como movimiento
+ * ADJUSTMENT_IN/OUT, igual que hace el flujo formal de ajustes al aplicarse.
+ *
+ * Solo lo usan las variantes manual* (rutas directas de la pantalla de stock).
+ * Las funciones base create/update/adjust NO registran movimiento a propósito:
+ * el despacho y la devolución de materiales del taller las invocan y ya
+ * registran su propio movimiento; hacerlo aquí duplicaría el Kardex.
+ */
+async function recordManualMovement(
+  tx: Prisma.TransactionClient,
+  args: {
+    itemId: string
+    warehouseId: string
+    change: number
+    unitCost: number
+    notes: string
+    userId?: string
+  }
+): Promise<void> {
+  if (args.change === 0) return
+  const qty = Math.abs(args.change)
+  const data: Record<string, unknown> = {
+    movementNumber: MovementNumberGenerator.generate('MOV'),
+    type: args.change > 0 ? 'ADJUSTMENT_IN' : 'ADJUSTMENT_OUT',
+    itemId: args.itemId,
+    quantity: qty,
+    unitCost: args.unitCost,
+    totalCost: qty * args.unitCost,
+    reference: 'AJUSTE-DIRECTO',
+    notes: args.notes,
+    createdBy: args.userId ?? null,
+  }
+  if (args.change > 0) data.warehouseToId = args.warehouseId
+  else data.warehouseFromId = args.warehouseId
+  await tx.movement.create({ data: data as never })
+}
 
 export class StockService {
   // -------------------------------------------------------------------------
@@ -327,6 +367,94 @@ export class StockService {
     })
 
     return updated as unknown as IStockWithRelations
+  }
+
+  // -------------------------------------------------------------------------
+  // Modificaciones directas desde la pantalla de stock (RF-22 / RN-5)
+  //
+  // Envuelven las funciones base en una transacción y registran el movimiento,
+  // para que ningún cambio de existencias quede fuera del Kardex. Las rutas que
+  // las exponen exigen inventory.approve (solo Gerente/Admin/Owner).
+  // -------------------------------------------------------------------------
+
+  async manualCreate(
+    data: ICreateStockInput,
+    empresaId: string,
+    userId: string | undefined,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations> {
+    return (db as PrismaClient).$transaction(async (tx) => {
+      const created = await this.create(data, empresaId, tx as unknown as PrismaClientType)
+      await recordManualMovement(tx, {
+        itemId: created.itemId,
+        warehouseId: created.warehouseId,
+        change: Number(created.quantityReal ?? 0),
+        unitCost: Number((created as { averageCost?: unknown }).averageCost ?? 0),
+        notes: 'Existencia inicial cargada directamente',
+        userId,
+      })
+      return created
+    })
+  }
+
+  async manualUpdate(
+    id: string,
+    data: IUpdateStockInput,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType,
+    opts: { canChangeQuantities: boolean }
+  ): Promise<IStockWithRelations> {
+    return (db as PrismaClient).$transaction(async (tx) => {
+      const before = await tx.stock.findFirst({
+        where: { id, item: { empresaId } },
+      })
+      if (!before) throw new NotFoundError(MSG.notFound)
+
+      const differs = (next: unknown, current: unknown) =>
+        next !== undefined && next !== null && Number(next) !== Number(current)
+      const touchesQuantities =
+        differs(data.quantityReal, before.quantityReal) ||
+        differs(data.quantityReserved, before.quantityReserved) ||
+        differs(data.averageCost, before.averageCost)
+      if (touchesQuantities && !opts.canChangeQuantities) {
+        throw new ForbiddenError(
+          'Modificar cantidades o costo del stock requiere autorización de un ' +
+            'Gerente o Administrador. Para corregir existencias registre un ' +
+            'ajuste de inventario.'
+        )
+      }
+      const updated = await this.update(id, data, empresaId, userId, tx as unknown as PrismaClientType)
+      await recordManualMovement(tx, {
+        itemId: before.itemId,
+        warehouseId: before.warehouseId,
+        change: Number(updated.quantityReal) - Number(before.quantityReal),
+        unitCost: Number(before.averageCost ?? 0),
+        notes: 'Edición directa de la cantidad en stock',
+        userId,
+      })
+      return updated
+    })
+  }
+
+  async manualAdjust(
+    data: IStockAdjustment,
+    empresaId: string,
+    userId: string,
+    db: PrismaClientType
+  ): Promise<IStockWithRelations> {
+    return (db as PrismaClient).$transaction(async (tx) => {
+      const updated = await this.adjust(data, empresaId, userId, tx as unknown as PrismaClientType)
+      await recordManualMovement(tx, {
+        itemId: data.itemId,
+        warehouseId: data.warehouseId,
+        change: data.quantityChange,
+        unitCost: Number((updated as { averageCost?: unknown }).averageCost ?? 0),
+        notes: data.reason || 'Ajuste directo de stock',
+        userId,
+      })
+      return updated
+    })
   }
 
   async reserve(

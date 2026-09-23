@@ -20,6 +20,7 @@ import {
   UpdateStock,
 } from "@/modules/inventory/stocks/schemas/stockZod";
 import { handleFormError } from "@/utils/errorHandlers";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 interface StockFormProps {
   stock: Stock | null;
@@ -41,13 +42,18 @@ export default function StockForm({
   const [isLoading, setIsLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [items, setItems] = useState<Array<{ label: string; value: string }>>(
-    [],
+    []
   );
   const [warehouses, setWarehouses] = useState<
     Array<{ label: string; value: string }>
   >([]);
 
   const isEditing = !!stock?.id;
+  // Cantidades y costo solo los cambia quien tiene inventory.approve (RF-22).
+  // El almacén puede seguir editando la ubicación; las diferencias de conteo
+  // se corrigen con un ajuste de inventario, que aprueba Gerente/Admin.
+  const { hasPermission } = useUserPermissions();
+  const lockQuantities = isEditing && !hasPermission("inventory.approve");
   const schema = isEditing ? updateStockSchema : createStockSchema;
 
   const {
@@ -94,7 +100,7 @@ export default function StockForm({
         (Array.isArray(itemsData) ? itemsData : []).map((item: any) => ({
           label: `${item.sku || ""} – ${item.name}`,
           value: item.id,
-        })),
+        }))
       );
 
       const whData = warehousesRes?.data || [];
@@ -102,7 +108,7 @@ export default function StockForm({
         (Array.isArray(whData) ? whData : []).map((wh: Warehouse) => ({
           label: `${wh.code} – ${wh.name}`,
           value: wh.id,
-        })),
+        }))
       );
     } catch (error) {
       console.error("Error loading dropdown data:", error);
@@ -235,6 +241,7 @@ export default function StockForm({
             render={({ field }) => (
               <InputNumber
                 id="quantityReal"
+                disabled={lockQuantities}
                 value={field.value as number}
                 onValueChange={(e) => field.onChange(e.value)}
                 min={0}
@@ -246,6 +253,11 @@ export default function StockForm({
           />
           {errors.quantityReal && (
             <small className="p-error">{errors.quantityReal.message}</small>
+          )}
+          {lockQuantities && (
+            <small className="block text-color-secondary mt-1">
+              Para corregir cantidades registre un ajuste de inventario.
+            </small>
           )}
         </div>
 
@@ -260,6 +272,7 @@ export default function StockForm({
             render={({ field }) => (
               <InputNumber
                 id="quantityReserved"
+                disabled={lockQuantities}
                 value={field.value as number}
                 onValueChange={(e) => field.onChange(e.value)}
                 min={0}
@@ -311,6 +324,7 @@ export default function StockForm({
             render={({ field }) => (
               <InputNumber
                 id="averageCost"
+                disabled={lockQuantities}
                 value={field.value as number}
                 onValueChange={(e) => field.onChange(e.value)}
                 mode="currency"

@@ -40,6 +40,7 @@ import stockBulkService, {
 } from "@/modules/inventory/bulk/services/stockBulkService";
 import { StockBulkExport } from "@/modules/inventory/bulk/components/stock/StockBulkExport";
 import StockPdfPreviewDialog from "./StockPdfPreviewDialog";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 type StockFilter = "all" | "lowStock" | "outOfStock";
 
@@ -50,6 +51,10 @@ interface StockSuggestion {
 }
 
 export default function StockList() {
+  // Ajustar existencias directamente exige inventory.approve (RF-22). El
+  // almacén corrige diferencias registrando un ajuste, que aprueba Gerente/Admin.
+  const { hasPermission } = useUserPermissions();
+  const canApprove = hasPermission("inventory.approve");
   const router = useRouter();
 
   // Datos
@@ -81,9 +86,9 @@ export default function StockList() {
   const [exporting, setExporting] = useState<boolean>(false);
   const [showExportDialog, setShowExportDialog] = useState<boolean>(false);
   const [showPdfPreview, setShowPdfPreview] = useState<boolean>(false);
-  const [pdfFilters, setPdfFilters] = useState<
-    IStockExportRequest["filters"]
-  >({});
+  const [pdfFilters, setPdfFilters] = useState<IStockExportRequest["filters"]>(
+    {}
+  );
   const [pdfFiltersSummary, setPdfFiltersSummary] = useState<string>("Todos");
   const [actionItem, setActionItem] = useState<Stock | null>(null);
   const menuRef = useRef<Menu>(null);
@@ -105,14 +110,14 @@ export default function StockList() {
   const fetchStocksByCurrentFilter = async (
     search: string,
     nextPage: number,
-    nextRows: number,
+    nextRows: number
   ) => {
     if (stockFilter === "lowStock") {
       return stockService.getLowStock(
         warehouseFilter || undefined,
         nextPage,
         nextRows,
-        search || undefined,
+        search || undefined
       );
     }
     if (stockFilter === "outOfStock") {
@@ -120,7 +125,7 @@ export default function StockList() {
         warehouseFilter || undefined,
         nextPage,
         nextRows,
-        search || undefined,
+        search || undefined
       );
     }
     return stockService.getAll(nextPage, nextRows, {
@@ -155,7 +160,7 @@ export default function StockList() {
       const response = await fetchStocksByCurrentFilter(
         debouncedSearch,
         page + 1,
-        rows,
+        rows
       );
 
       const stocksData = response.data || [];
@@ -357,13 +362,17 @@ export default function StockList() {
           editStock(stock);
         },
       },
-      {
-        label: "Ajustar Stock",
-        icon: "pi pi-sliders-h",
-        command: () => {
-          openAdjust(stock);
-        },
-      },
+      ...(canApprove
+        ? [
+            {
+              label: "Ajustar Stock",
+              icon: "pi pi-sliders-h",
+              command: () => {
+                openAdjust(stock);
+              },
+            },
+          ]
+        : []),
       { separator: true },
       {
         label: "Eliminar",
@@ -558,16 +567,18 @@ export default function StockList() {
         tooltip="Editar"
         tooltipOptions={{ position: "top" }}
       />
-      <Button
-        icon="pi pi-sliders-h"
-        rounded
-        severity="warning"
-        text
-        size="small"
-        onClick={() => openAdjust(stock)}
-        tooltip="Ajustar Stock"
-        tooltipOptions={{ position: "top" }}
-      />
+      {canApprove && (
+        <Button
+          icon="pi pi-sliders-h"
+          rounded
+          severity="warning"
+          text
+          size="small"
+          onClick={() => openAdjust(stock)}
+          tooltip="Ajustar Stock"
+          tooltipOptions={{ position: "top" }}
+        />
+      )}
     </div>
   );
 
@@ -882,7 +893,7 @@ export default function StockList() {
         {items.map((stock) =>
           currentLayout === "grid"
             ? gridItemTemplate(stock)
-            : listItemTemplate(stock),
+            : listItemTemplate(stock)
         )}
       </div>
     );
@@ -1062,7 +1073,7 @@ export default function StockList() {
             onSelect={onSuggestionSelect}
             onChange={(e) =>
               handleSearch(
-                typeof e.value === "string" ? e.value : e.value?.query || "",
+                typeof e.value === "string" ? e.value : e.value?.query || ""
               )
             }
             delay={300}

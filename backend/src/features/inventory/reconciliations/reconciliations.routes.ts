@@ -281,7 +281,7 @@ router.patch(
 router.patch(
   '/:id/approve',
   authenticate,
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(approveReconciliationSchema),
   ReconciliationController.approve
 )
@@ -317,7 +317,7 @@ router.patch(
 router.patch(
   '/:id/apply',
   authenticate,
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(applyReconciliationSchema),
   ReconciliationController.apply
 )
@@ -352,7 +352,7 @@ router.patch(
 router.patch(
   '/:id/reject',
   authenticate,
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   ReconciliationController.reject
 )
 

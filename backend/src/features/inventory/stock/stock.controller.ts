@@ -1,6 +1,8 @@
 // backend/src/features/inventory/stock/stock.controller.ts
 
 import { Request, Response } from 'express'
+import { getEffectivePermissionsForMembership } from '../../../shared/utils/resolvePermissions.js'
+import { PERMISSIONS } from '../../../shared/constants/permissions.js'
 import stockService from './stock.service.js'
 import {
   CreateStockDTO,
@@ -53,6 +55,22 @@ function parseLimit(raw: unknown, fallback: number): number {
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
+
+/**
+ * PUT /stock/:id sirve para dos cosas: cambiar la ubicación física (tarea del
+ * almacén) y cambiar cantidades o costo. Lo segundo modifica existencias sin
+ * documento de respaldo, así que exige inventory.approve (RF-22), igual que
+ * aprobar un ajuste. La ruta se deja con STOCK_ADJUST para no quitarle al
+ * almacenista la edición de ubicaciones; el servicio compara contra el valor
+ * actual y solo exige el permiso si la cantidad o el costo cambian de verdad
+ * (el formulario envía siempre todos los campos).
+ */
+async function canChangeQuantities(req: Request): Promise<boolean> {
+  if (process.env.NODE_ENV === 'test' && process.env.SKIP_AUTHZ_IN_TESTS === 'true') return true
+  if (!req.membership?.id) return false
+  const perms = await getEffectivePermissionsForMembership(req.membership.id)
+  return perms.has(PERMISSIONS.INVENTORY_APPROVE)
+}
 
 class StockController {
   /**
@@ -254,7 +272,12 @@ class StockController {
     const empresaId = getEmpresaId(req)
     const dto = new CreateStockDTO(req.body)
 
-    const stock = await stockService.create(dto, empresaId, req.prisma)
+    const stock = await stockService.manualCreate(
+      dto,
+      empresaId,
+      req.user?.userId,
+      req.prisma
+    )
 
     return ApiResponse.created(
       res,
@@ -272,12 +295,13 @@ class StockController {
     const userId = req.user?.userId
     const dto = new UpdateStockDTO(req.body)
 
-    const stock = await stockService.update(
+    const stock = await stockService.manualUpdate(
       id,
       dto,
       empresaId,
       userId,
-      req.prisma
+      req.prisma,
+      { canChangeQuantities: await canChangeQuantities(req) }
     )
 
     return ApiResponse.success(
@@ -295,7 +319,7 @@ class StockController {
     const userId = req.user?.userId
     const dto = new AdjustStockDTO(req.body)
 
-    const stock = await stockService.adjust(dto, empresaId, userId, req.prisma)
+    const stock = await stockService.manualAdjust(dto, empresaId, userId, req.prisma)
 
     return ApiResponse.success(
       res,

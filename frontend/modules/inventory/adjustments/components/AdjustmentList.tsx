@@ -15,7 +15,9 @@ import { MenuItem } from "primereact/menuitem";
 import { motion } from "framer-motion";
 import dynamic from "next/dynamic";
 
-const AdjustmentPDFPreview = dynamic(() => import("./AdjustmentPDFPreview"), { ssr: false });
+const AdjustmentPDFPreview = dynamic(() => import("./AdjustmentPDFPreview"), {
+  ssr: false,
+});
 import adjustmentService, {
   ADJUSTMENT_STATUS_LABELS,
   ADJUSTMENT_STATUS_SEVERITY,
@@ -30,6 +32,7 @@ import AdjustmentDetail from "@/modules/inventory/adjustments/components/Adjustm
 import CreateButton from "@/components/common/CreateButton";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { useAdjustmentsData } from "@/modules/inventory/adjustments/hooks/useAdjustmentsData";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   [
@@ -42,6 +45,11 @@ const ADJUSTMENT_STATUSES: { label: string; value: AdjustmentStatus | null }[] =
   ];
 
 const AdjustmentList = () => {
+  // Aprobar, aplicar y rechazar exigen inventory.approve (RF-22): solo
+  // Gerente/Admin. Quien registra el ajuste no puede autorizarlo.
+  const { hasPermission } = useUserPermissions();
+  const canApprove = hasPermission("inventory.approve");
+
   // State
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [formDialog, setFormDialog] = useState(false);
@@ -56,7 +64,7 @@ const AdjustmentList = () => {
 
   // Filters
   const [filterStatus, setFilterStatus] = useState<AdjustmentStatus | null>(
-    null,
+    null
   );
   const [filterWarehouse, setFilterWarehouse] = useState<string | null>(null);
   const [filterDateFrom, setFilterDateFrom] = useState<Date | null>(null);
@@ -70,7 +78,12 @@ const AdjustmentList = () => {
 
   const toast = useRef<Toast | null>(null);
 
-  const { adjustments, total: totalRecords, loading, mutate } = useAdjustmentsData({
+  const {
+    adjustments,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useAdjustmentsData({
     page,
     limit,
     status: filterStatus || undefined,
@@ -79,9 +92,7 @@ const AdjustmentList = () => {
     dateFrom: filterDateFrom
       ? filterDateFrom.toISOString().split("T")[0]
       : undefined,
-    dateTo: filterDateTo
-      ? filterDateTo.toISOString().split("T")[0]
-      : undefined,
+    dateTo: filterDateTo ? filterDateTo.toISOString().split("T")[0] : undefined,
   });
 
   useEffect(() => {
@@ -269,7 +280,7 @@ const AdjustmentList = () => {
       },
     ];
 
-    if (isDraft) {
+    if (isDraft && canApprove) {
       items.push({
         label: "Aprobar",
         icon: "pi pi-check",
@@ -277,7 +288,7 @@ const AdjustmentList = () => {
       });
     }
 
-    if (isApproved) {
+    if (isApproved && canApprove) {
       items.push({
         label: "Aplicar",
         icon: "pi pi-arrow-right",
@@ -287,12 +298,14 @@ const AdjustmentList = () => {
 
     if (isDraft || isApproved) {
       items.push({ separator: true });
-      items.push({
-        label: "Rechazar",
-        icon: "pi pi-times",
-        className: "p-menuitem-danger",
-        command: () => handleReject(item),
-      });
+      if (canApprove) {
+        items.push({
+          label: "Rechazar",
+          icon: "pi pi-times",
+          className: "p-menuitem-danger",
+          command: () => handleReject(item),
+        });
+      }
       items.push({
         label: "Cancelar",
         icon: "pi pi-ban",
@@ -479,7 +492,9 @@ const AdjustmentList = () => {
             field="createdBy"
             header="Solicitante"
             style={{ minWidth: "140px" }}
-            body={(rowData: Adjustment) => rowData.createdByName ?? rowData.createdBy ?? "—"}
+            body={(rowData: Adjustment) =>
+              rowData.createdByName ?? rowData.createdBy ?? "—"
+            }
           />
           <Column
             field="createdAt"

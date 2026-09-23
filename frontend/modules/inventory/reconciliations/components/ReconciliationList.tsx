@@ -14,7 +14,10 @@ import { motion } from "framer-motion";
 import { useEmpresasStore } from "@/store/empresasStore";
 import dynamic from "next/dynamic";
 
-const ReconciliationPDFPreview = dynamic(() => import("./ReconciliationPDFPreview"), { ssr: false });
+const ReconciliationPDFPreview = dynamic(
+  () => import("./ReconciliationPDFPreview"),
+  { ssr: false }
+);
 
 import reconciliationService from "@/modules/inventory/reconciliations/services/reconciliationService";
 import {
@@ -32,8 +35,13 @@ import {
 import ReconciliationForm from "./ReconciliationForm";
 import ReconciliationDetail from "./ReconciliationDetail";
 import { useReconciliationsData } from "@/modules/inventory/reconciliations/hooks/useReconciliationsData";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 export default function ReconciliationList() {
+  // Aprobar, rechazar y aplicar exigen inventory.approve (RF-22): solo
+  // Gerente/Admin autorizan cambios en existencias.
+  const { hasPermission } = useUserPermissions();
+  const canApprove = hasPermission("inventory.approve");
   const { activeEmpresa } = useEmpresasStore();
   const toast = useRef<Toast>(null);
 
@@ -46,7 +54,12 @@ export default function ReconciliationList() {
     limit: number;
   }>({ page: 1, limit: 20 });
 
-  const { reconciliations, total: totalRecords, loading, mutate } = useReconciliationsData({
+  const {
+    reconciliations,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useReconciliationsData({
     page: filters.page,
     limit: filters.limit,
     status: filters.status,
@@ -72,14 +85,13 @@ export default function ReconciliationList() {
     })();
   }, []);
 
-
   // ── Acciones de flujo ────────────────────────────────────────────────────
   const performAction = (
     reconciliation: Reconciliation,
     action: "start" | "complete" | "approve" | "apply" | "reject" | "cancel",
     label: string,
     icon: string,
-    acceptClass: string,
+    acceptClass: string
   ) => {
     confirmDialog({
       message: `¿Confirma ${label} la reconciliación ${reconciliation.reconciliationNumber}?`,
@@ -106,7 +118,7 @@ export default function ReconciliationList() {
             case "reject":
               await reconciliationService.reject(
                 reconciliation.id,
-                "Rechazado por usuario",
+                "Rechazado por usuario"
               );
               break;
             case "cancel":
@@ -191,7 +203,7 @@ export default function ReconciliationList() {
               "start",
               "iniciada",
               "pi pi-play",
-              "p-button-success",
+              "p-button-success"
             )
           }
         />
@@ -211,12 +223,12 @@ export default function ReconciliationList() {
               "complete",
               "completada",
               "pi pi-check",
-              "p-button-success",
+              "p-button-success"
             )
           }
         />
       )}
-      {rowData.status === ReconciliationStatus.COMPLETED && (
+      {rowData.status === ReconciliationStatus.COMPLETED && canApprove && (
         <>
           <Button
             icon="pi pi-thumbs-up"
@@ -232,7 +244,7 @@ export default function ReconciliationList() {
                 "approve",
                 "aprobada",
                 "pi pi-thumbs-up",
-                "p-button-success",
+                "p-button-success"
               )
             }
           />
@@ -250,13 +262,13 @@ export default function ReconciliationList() {
                 "reject",
                 "rechazada",
                 "pi pi-exclamation-triangle",
-                "p-button-warning",
+                "p-button-warning"
               )
             }
           />
         </>
       )}
-      {rowData.status === ReconciliationStatus.APPROVED && (
+      {rowData.status === ReconciliationStatus.APPROVED && canApprove && (
         <Button
           icon="pi pi-arrow-right"
           rounded
@@ -271,7 +283,7 @@ export default function ReconciliationList() {
               "apply",
               "aplicada",
               "pi pi-bolt",
-              "p-button-success",
+              "p-button-success"
             )
           }
         />
@@ -295,7 +307,7 @@ export default function ReconciliationList() {
               "cancel",
               "cancelada",
               "pi pi-exclamation-triangle",
-              "p-button-danger",
+              "p-button-danger"
             )
           }
         />

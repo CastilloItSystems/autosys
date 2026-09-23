@@ -870,7 +870,7 @@ router.get(
 // POST /api/inventory/stock/adjust
 router.post(
   '/adjust',
-  authorize(PERMISSIONS.STOCK_ADJUST),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(adjustStockSchema),
   stockController.adjust
 )
@@ -959,7 +959,7 @@ router.get('/', authorize(PERMISSIONS.STOCK_VIEW), stockController.getAll)
 // POST /api/inventory/stock (Crear)
 router.post(
   '/',
-  authorize(PERMISSIONS.STOCK_VIEW),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(createStockSchema),
   stockController.create
 )

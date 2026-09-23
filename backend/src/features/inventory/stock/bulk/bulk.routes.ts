@@ -157,7 +157,7 @@ const controller = new StockBulkController()
 // POST /api/inventory/stock/bulk/import
 router.post(
   '/import',
-  authorize(PERMISSIONS.STOCK_ADJUST),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   upload.single('file'),
   controller.import
 )
@@ -165,7 +165,7 @@ router.post(
 // POST /api/inventory/stock/bulk/adjust
 router.post(
   '/adjust',
-  authorize(PERMISSIONS.STOCK_ADJUST),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   upload.single('file'),
   controller.adjust
 )
@@ -205,7 +205,7 @@ router.get(
 // DELETE /api/inventory/stock/bulk/operations/:operationId
 router.delete(
   '/operations/:operationId',
-  authorize(PERMISSIONS.STOCK_ADJUST),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateParams(operationIdSchema),
   controller.deleteOperation
 )

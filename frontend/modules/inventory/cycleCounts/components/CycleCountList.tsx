@@ -14,7 +14,9 @@ import { motion } from "framer-motion";
 import { Calendar } from "primereact/calendar";
 import dynamic from "next/dynamic";
 
-const CycleCountPDFPreview = dynamic(() => import("./CycleCountPDFPreview"), { ssr: false });
+const CycleCountPDFPreview = dynamic(() => import("./CycleCountPDFPreview"), {
+  ssr: false,
+});
 
 import cycleCountService, {
   CycleCount,
@@ -32,8 +34,13 @@ import CycleCountDetail from "./CycleCountDetail";
 import FormActionButtons from "@/shared/components/FormActionButtons";
 import { useSession } from "next-auth/react";
 import { useCycleCountsData } from "@/modules/inventory/cycleCounts/hooks/useCycleCountsData";
+import { useUserPermissions } from "@/hooks/useUserPermissions";
 
 export default function CycleCountList() {
+  // Aprobar y aplicar exigen inventory.approve (RF-22): el conteo lo registra el
+  // almacén, pero los cambios en existencias los autoriza Gerente/Admin.
+  const { hasPermission } = useUserPermissions();
+  const canApprove = hasPermission("inventory.approve");
   const { data: session } = useSession();
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [selectedCycleCount, setSelectedCycleCount] =
@@ -45,13 +52,18 @@ export default function CycleCountList() {
   const [page, setPage] = useState(0);
   const [rows, setRows] = useState(10);
   const [statusFilter, setStatusFilter] = useState<CycleCountStatus | null>(
-    null,
+    null
   );
   const [warehouseFilter, setWarehouseFilter] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const toast = useRef<Toast>(null);
 
-  const { cycleCounts, total: totalRecords, loading, mutate } = useCycleCountsData({
+  const {
+    cycleCounts,
+    total: totalRecords,
+    loading,
+    mutate,
+  } = useCycleCountsData({
     page: page + 1,
     limit: rows,
     status: statusFilter || undefined,
@@ -80,7 +92,7 @@ export default function CycleCountList() {
   const performAction = async (
     cycleCountId: string,
     action: "start" | "complete" | "approve" | "apply" | "reject" | "cancel",
-    actionLabel: string,
+    actionLabel: string
   ) => {
     let message = `¿Confirma ${actionLabel}?`;
     let header = `Confirmar ${actionLabel}`;
@@ -96,7 +108,7 @@ export default function CycleCountList() {
 
         const hasHighVariance = cycleCount.items?.some((item: any) => {
           const diff = Math.abs(
-            (item.countedQuantity ?? 0) - item.expectedQuantity,
+            (item.countedQuantity ?? 0) - item.expectedQuantity
           );
           return diff > 5;
         });
@@ -137,7 +149,7 @@ export default function CycleCountList() {
             case "reject":
               await cycleCountService.reject(
                 cycleCountId,
-                "Rechazado por usuario",
+                "Rechazado por usuario"
               );
               break;
             case "cancel":
@@ -246,7 +258,7 @@ export default function CycleCountList() {
             tooltip="Completar conteo"
           />
         )}
-        {rowData.status === CycleCountStatus.COMPLETED && (
+        {rowData.status === CycleCountStatus.COMPLETED && canApprove && (
           <Button
             icon="pi pi-check-circle"
             rounded
@@ -257,7 +269,7 @@ export default function CycleCountList() {
             tooltip="Aprobar conteo"
           />
         )}
-        {rowData.status === CycleCountStatus.APPROVED && (
+        {rowData.status === CycleCountStatus.APPROVED && canApprove && (
           <Button
             icon="pi pi-arrow-right"
             rounded
@@ -305,7 +317,7 @@ export default function CycleCountList() {
     ([key, config]) => ({
       label: config.label,
       value: key,
-    }),
+    })
   );
 
   return (

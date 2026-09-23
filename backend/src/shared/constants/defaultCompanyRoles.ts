@@ -494,7 +494,10 @@ export const DEFAULT_SYSTEM_PERMISSIONS_BY_ROLE: Record<string, string[]> = {
       P.INVENTORY_VIEW,
       P.INVENTORY_CREATE,
       P.INVENTORY_UPDATE,
-      P.INVENTORY_APPROVE,
+      // Sin INVENTORY_APPROVE a propósito (RF-22): quien cuenta y registra el
+      // inventario no puede aprobar ni aplicar sus propios ajustes, conteos o
+      // reconciliaciones, ni editar existencias directamente. Eso lo autoriza
+      // un Gerente o el Administrador.
       P.ITEMS_VIEW,
       P.ITEMS_CREATE,
       P.ITEMS_UPDATE,

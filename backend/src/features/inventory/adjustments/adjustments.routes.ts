@@ -21,17 +21,17 @@ const router = Router()
 // -- Acciones (antes de /:id para evitar conflictos) --
 router.patch(
   '/:id/approve',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   adjustmentController.approve
 )
 router.patch(
   '/:id/apply',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   adjustmentController.apply
 )
 router.patch(
   '/:id/reject',
-  authorize(PERMISSIONS.INVENTORY_UPDATE),
+  authorize(PERMISSIONS.INVENTORY_APPROVE),
   validateBody(rejectAdjustmentSchema),
   adjustmentController.reject
 )
